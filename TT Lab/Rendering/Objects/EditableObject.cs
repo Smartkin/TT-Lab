@@ -13,24 +13,57 @@ using TT_Lab.Rendering.Buffers;
 
 namespace TT_Lab.Rendering.Objects
 {
-    public class EditableObject : ManualObject
+    public abstract class EditableObject : ManualObject
     {
         protected vec3 AmbientColor = new();
         protected vec3 Pos = new();
         protected vec3 Rot = new();
+        protected vec3 Scl = new();
+        protected vec3 Size;
         protected bool Selected;
         protected SceneNode SceneNode;
+        protected TextDisplay? TextDisplay;
 
         private OgreWindow _window;
 
-        public EditableObject(OgreWindow window, string name) : base(name)
+        protected EditableObject(OgreWindow window, string name, vec3 size = new(), TextDisplay? display = null) : base(name)
         {
+            if (size == vec3.Zero)
+            {
+                size = vec3.Ones;
+            }
             var sceneManager = window.GetSceneManager();
             SceneNode = sceneManager.createSceneNode();
             SceneNode.attachObject(this);
             Selected = false;
+            Size = size;
+            Scl = vec3.Ones;
+            TextDisplay = display;
             _window = window;
         }
+
+        protected EditableObject(OgreWindow window, SceneNode parentNode, string name, vec3 size = new(), TextDisplay? display = null) : base(name)
+        {
+            if (size == vec3.Zero)
+            {
+                size = vec3.Ones;
+            }
+            SceneNode = parentNode.createChildSceneNode();
+            SceneNode.attachObject(this);
+            Selected = false;
+            Scl = vec3.Ones;
+            Size = size;
+            TextDisplay = display;
+            _window = window;
+        }
+
+        public void Init()
+        {
+            InitSceneTransform();
+            UpdateSceneTransform();
+        }
+
+        protected abstract void InitSceneTransform();
 
         public SceneNode GetSceneNode()
         {
@@ -39,18 +72,49 @@ namespace TT_Lab.Rendering.Objects
         
         public mat4 GetTransform()
         {
-            var position = OgreExtensions.FromOgre(SceneNode.getPosition());
-            var rotation = SceneNode.getOrientation();
-            var scale = SceneNode.getScale();
-            var angle = new Degree();
-            var axes = new Vector3();
-            rotation.ToAngleAxis(angle, axes);
-            
-            var transform = mat4.Translate(position);
-            transform *= mat4.Rotate(angle.valueRadians(), OgreExtensions.FromOgre(axes));
-            transform *= mat4.Scale(scale.x, scale.y, scale.z);
+            var transform = mat4.Translate(Pos);
+            transform *= mat4.RotateX(Rot.x);
+            transform *= mat4.RotateY(Rot.y);
+            transform *= mat4.RotateZ(Rot.z);
+            transform *= mat4.Scale(Scl);
 
             return transform;
+        }
+
+        public void Translate(vec3 offset)
+        {
+            Pos += offset;
+            UpdateSceneTransform();
+        }
+
+        public void Rotate(vec3 rotOffset)
+        {
+            Rot += rotOffset;
+            UpdateSceneTransform();
+        }
+
+        public void Scale(vec3 scale)
+        {
+            Scl += scale;
+            UpdateSceneTransform();
+        }
+
+        public void SetPos(vec3 pos)
+        {
+            Pos = pos;
+            UpdateSceneTransform();
+        }
+
+        public void SetRot(vec3 rotation)
+        {
+            Rot = rotation;
+            UpdateSceneTransform();
+        }
+
+        public void SetScale(vec3 scale)
+        {
+            Scl = scale;
+            UpdateSceneTransform();
         }
 
         public vec3 GetPosition()
@@ -58,17 +122,31 @@ namespace TT_Lab.Rendering.Objects
             return new vec3(SceneNode.getPosition().x, SceneNode.getPosition().y, SceneNode.getPosition().z);
         }
 
-        public vec3 GetRotation()
+        public vec3 GetScale()
         {
-            return new vec3(SceneNode.getOrientation().getPitch().valueDegrees(), SceneNode.getOrientation().getYaw().valueDegrees(), SceneNode.getOrientation().getRoll().valueDegrees());
+            return OgreExtensions.FromOgre(SceneNode.getScale());
         }
 
-        public virtual void UpdatePositionAndRotation()
+        public vec3 GetRotation()
         {
+            var renderQuat = SceneNode.getOrientation();
+            var rotationMatrix = new Matrix3();
+            renderQuat.ToRotationMatrix(rotationMatrix);
+            var rotX = new Radian();
+            var rotY = new Radian();
+            var rotZ = new Radian();
+            rotationMatrix.ToEulerAnglesXYZ(rotX, rotY, rotZ);
+            return new vec3(rotX.valueDegrees(), rotY.valueDegrees(), rotZ.valueDegrees());
+        }
+
+        protected virtual void UpdateSceneTransform()
+        {
+            SceneNode.resetToInitialState();
             SceneNode.setPosition(OgreExtensions.FromGlm(Pos));
             SceneNode.pitch(new Radian(new Degree(Rot.x)));
             SceneNode.yaw(new Radian(new Degree(Rot.y)));
             SceneNode.roll(new Radian(new Degree(Rot.z)));
+            SceneNode.setScale(OgreExtensions.FromGlm(Scl));
         }
 
         public virtual void Select()
@@ -81,7 +159,19 @@ namespace TT_Lab.Rendering.Objects
             Selected = false;
         }
 
-        public void DrawImGui()
+        public void RenderUpdate()
+        {
+            TextDisplay?.Update();
+            
+            if (!Selected)
+            {
+                return;
+            }
+            
+            DrawImGui();
+        }
+
+        private void DrawImGui()
         {
             ImGui.Begin(getName());
             ImGui.SetWindowPos(new ImVec2(5, 5));
@@ -92,8 +182,13 @@ namespace TT_Lab.Rendering.Objects
 
         protected virtual void DrawImGuiInternal()
         {
+            var rotation = GetRotation();
+            rotation.y = -rotation.y;
+            rotation.z = -rotation.z;
             ImGui.Text($"Position: {GetPosition()}");
-            ImGui.Text($"Rotation: {GetRotation()}");
+            ImGui.Text($"Rotation: {rotation}");
+            ImGui.Text($"Scale: {GetScale()}");
+            ImGui.Text($"Bounding Box Size: {Size}");
         }
     }
 }

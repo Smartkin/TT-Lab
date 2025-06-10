@@ -12,7 +12,7 @@ using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout;
 
 namespace TT_Lab.ViewModels.Editors.Instance
 {
-    public class CameraViewModel : InstanceSectionResourceEditorViewModel
+    public class CameraViewModel : ViewportEditableInstanceViewModel
     {
         private static readonly Dictionary<ITwinCamera.CameraType, Type> subIdToCamVM = new Dictionary<ITwinCamera.CameraType, Type>();
 
@@ -159,6 +159,24 @@ namespace TT_Lab.ViewModels.Editors.Instance
                 MainCamera2 = (BaseCameraViewModel)Activator.CreateInstance(subIdToCamVM[data.MainCamera2.GetCameraType()], data.MainCamera2)!;
                 DirtyTracker.AddChild(MainCamera2);
             }
+        }
+
+        public override Vector4ViewModel Position
+        {
+            get => Trigger.Position;
+            set => Trigger.Position = value;
+        }
+
+        public override Vector3ViewModel Rotation
+        {
+            get => Trigger.Rotation;
+            set => Trigger.Rotation = value;
+        }
+
+        public override Vector3ViewModel Scale
+        {
+            get => Trigger.Scale;
+            set => Trigger.Scale = value;
         }
 
         public TriggerViewModel Trigger

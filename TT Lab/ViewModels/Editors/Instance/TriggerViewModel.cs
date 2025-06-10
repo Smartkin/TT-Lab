@@ -1,21 +1,22 @@
 ﻿using Caliburn.Micro;
 using System;
+using System.Numerics;
 using TT_Lab.AssetData.Instance;
 using TT_Lab.Assets;
 using TT_Lab.Attributes;
 using TT_Lab.Command;
+using TT_Lab.Extensions;
 using TT_Lab.Util;
 using TT_Lab.ViewModels.Composite;
 using Twinsanity.TwinsanityInterchange.Enumerations;
+using Vector3 = Twinsanity.TwinsanityInterchange.Common.Vector3;
+using Vector4 = Twinsanity.TwinsanityInterchange.Common.Vector4;
 
 namespace TT_Lab.ViewModels.Editors.Instance
 {
-    public class TriggerViewModel : InstanceSectionResourceEditorViewModel
+    public class TriggerViewModel : ViewportEditableInstanceViewModel
     {
         private Enums.TriggerActivatorObjects _objActivatorMask;
-        private Vector4ViewModel _position = new();
-        private Vector4ViewModel _rotation = new();
-        private Vector4ViewModel _scale = new(1, 1, 1, 1);
         private BindableCollection<PrimitiveWrapperViewModel<LabURI>> _instances = new();
         private UInt32 _header;
         private Single _unkFloat;
@@ -56,8 +57,11 @@ namespace TT_Lab.ViewModels.Editors.Instance
             data.Header = Header;
             data.UnkFloat = UnkFloat;
             Position.Save(data.Position);
-            Scale.Save(data.Scale);
-            Rotation.Save(data.Rotation);
+            var newScale = new Vector3();
+            Scale.Save(newScale);
+            data.Scale = new Vector4(newScale.X, newScale.Y, newScale.Z, 1);
+            var quat = Quaternion.CreateFromYawPitchRoll(Rotation.X, Rotation.Y, Rotation.Z);
+            data.Rotation = new Vector4(quat.X, quat.Y, quat.Z, quat.W);
             data.Instances.Clear();
             foreach (var inst in Instances)
             {
@@ -78,12 +82,13 @@ namespace TT_Lab.ViewModels.Editors.Instance
             {
                 _instances.Add(new PrimitiveWrapperViewModel<LabURI>(inst));
             }
-            _position = new Vector4ViewModel(data.Position);
-            _rotation = new Vector4ViewModel(data.Rotation);
-            _scale = new Vector4ViewModel(data.Scale);
-            DirtyTracker.AddChild(_position);
-            DirtyTracker.AddChild(_rotation);
-            DirtyTracker.AddChild(_scale);
+            Position = new Vector4ViewModel(data.Position);
+            Rotation = new Vector3ViewModel(data.Rotation.ToEulerAngles());
+            var scaleVector = new Vector3(data.Scale.X, data.Scale.Y, data.Scale.Z);
+            Scale = new Vector3ViewModel(scaleVector);
+            DirtyTracker.AddChild(Position);
+            DirtyTracker.AddChild(Rotation);
+            DirtyTracker.AddChild(Scale);
             _header = data.Header;
             _unkFloat = data.UnkFloat;
             _triggerMessage1 = data.TriggerMessage1;
@@ -268,21 +273,6 @@ namespace TT_Lab.ViewModels.Editors.Instance
                     NotifyOfPropertyChange(nameof(ObjectActivatorMask));
                 }
             }
-        }
-
-        public Vector4ViewModel Position
-        {
-            get => _position;
-        }
-
-        public Vector4ViewModel Rotation
-        {
-            get => _rotation;
-        }
-
-        public Vector4ViewModel Scale
-        {
-            get => _scale;
         }
 
         public BindableCollection<PrimitiveWrapperViewModel<LabURI>> Instances

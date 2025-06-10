@@ -102,11 +102,18 @@ namespace Twinsanity_Command_Interface
 
         static void Main(string[] args)
         {
-            using var defaultFile = new FileStream(args[0], FileMode.Open, FileAccess.Read);
-            using var reader = new BinaryReader(defaultFile);
-            var defaultChunk = new PS2Default();
-            defaultChunk.Read(reader, (Int32)reader.BaseStream.Length);
-            Console.WriteLine("Read the default chunk!");
+            using var frontendFile = new FileStream(args[0], FileMode.Open, FileAccess.Read);
+            using var reader = new BinaryReader(frontendFile);
+            var frontend = new PS2Frontend();
+            frontend.Read(reader, (Int32)reader.BaseStream.Length);
+            for (var i = 0; i < frontend.GetItemsAmount(); ++i)
+            {
+                var item = frontend.GetItem(i);
+                using var soundFile = new FileStream($"UI_Sound_{i}", FileMode.OpenOrCreate, FileAccess.Write);
+                using var writer = new BinaryWriter(soundFile);
+                item.Write(writer);
+            }
+            Console.WriteLine("Read and wrote the Frontend file!");
             /*if (args.Length != 2)
             {
                 Console.WriteLine("Must provide a path to the model in the format of FBX and model type (0 for static models, 1 for rigged models). Other formats like OBJ and GLTF aren't tested but could work.");

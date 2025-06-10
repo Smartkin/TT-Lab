@@ -4,9 +4,9 @@ namespace TT_Lab.ViewModels.Editors.Instance;
 
 public abstract class ViewportEditableInstanceViewModel : InstanceSectionResourceEditorViewModel
 {
-    public Vector4ViewModel Position { get; protected set; } = new();
+    public virtual Vector4ViewModel Position { get; set; } = new();
 
-    public Vector3ViewModel Rotation { get; protected set; } = new();
+    public virtual Vector3ViewModel Rotation { get; set; } = new();
 
-    public Vector3ViewModel Scale { get; protected set; } = new();
+    public virtual Vector3ViewModel Scale { get; set; } = new();
 }

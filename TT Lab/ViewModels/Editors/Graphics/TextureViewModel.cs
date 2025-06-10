@@ -24,7 +24,6 @@ namespace TT_Lab.ViewModels.Editors.Graphics
         private ITwinTexture.TextureFunction _texFun;
         private ITwinTexture.TexturePixelFormat _pixelFormat;
         private Boolean _generateMipmaps;
-        private SceneEditorViewModel _textureViewer;
 
         private static ObservableCollection<object> _textureFunctions;
         private static ObservableCollection<object> _pixelFormats;
@@ -33,15 +32,6 @@ namespace TT_Lab.ViewModels.Editors.Graphics
         {
             _textureFunctions = new ObservableCollection<object>(Enum.GetValues(typeof(ITwinTexture.TextureFunction)).Cast<object>());
             _pixelFormats = new ObservableCollection<object>(Enum.GetValues(typeof(ITwinTexture.TexturePixelFormat)).Cast<object>());
-        }
-
-        public TextureViewModel()
-        {
-            _textureViewer = IoC.Get<SceneEditorViewModel>();
-            _textureViewer.SceneHeaderModel = "Texture viewer";
-            Scenes.Add(_textureViewer);
-
-            InitTextureViewer();
         }
 
         protected override void Save()
@@ -71,27 +61,6 @@ namespace TT_Lab.ViewModels.Editors.Graphics
             _texture = null;
 
             return base.OnDeactivateAsync(close, cancellationToken);
-        }
-
-        private void InitTextureViewer()
-        {
-            TextureViewer.SceneCreator = glControl =>
-            {
-                var sceneManager = glControl.GetSceneManager();
-                var pivot = sceneManager.getRootSceneNode().createChildSceneNode();
-                pivot.setPosition(0, 0, 0);
-                glControl.SetCameraTarget(pivot);
-                glControl.SetCameraStyle(CameraStyle.CS_ORBIT);
-
-                var plane = sceneManager.getRootSceneNode().createChildSceneNode();
-                var entity = sceneManager.createEntity(BufferGeneration.GetPlaneBuffer());
-                Rendering.MaterialManager.CreateOrGetMaterial("DiffuseTexture", out var material);
-                Rendering.MaterialManager.SetupMaterialPlainTexture(material, EditableResource);
-                entity.setMaterial(material);
-                entity.getSubEntity(0).setCustomParameter(0, new Vector4(1.0f, 1.0f, 1.0f, 1.0f));
-                plane.attachObject(entity);
-                plane.scale(0.05f, 0.05f, 1f);
-            };
         }
 
         public void ReplaceButton()
@@ -151,8 +120,6 @@ namespace TT_Lab.ViewModels.Editors.Graphics
                     Log.WriteLine($"Unsupported texture");
                 }
             }
-            
-            TextureViewer.ResetScene();
         }
 
         public static ObservableCollection<object> TexFuns
@@ -163,11 +130,6 @@ namespace TT_Lab.ViewModels.Editors.Graphics
         public static ObservableCollection<object> PixelFormats
         {
             get => _pixelFormats;
-        }
-
-        public SceneEditorViewModel TextureViewer
-        {
-            get => _textureViewer;
         }
 
         [MarkDirty]

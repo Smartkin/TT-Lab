@@ -14,11 +14,23 @@ using TT_Lab.Views.Composite;
 
 namespace TT_Lab.Rendering.Objects.SceneInstances
 {
-    public abstract class SceneInstance
+    [Flags]
+    public enum SupportedTransforms
+    {
+        None = 0,
+        Translate = 1 << TransformMode.TRANSLATE,
+        Rotate = 1 << TransformMode.ROTATE,
+        Scale = 1 << TransformMode.SCALE,
+    }
+    
+    public abstract class SceneInstance : IDisposable
     {
         protected EditableObject AttachedEditableObject;
         protected readonly EditingContext EditingContext;
         protected readonly ResourceTreeElementViewModel AttachedViewModel;
+        protected TextDisplay? TextDisplay;
+        protected readonly AbstractAssetData AssetData;
+        protected SupportedTransforms SupportedTransforms = SupportedTransforms.Translate | SupportedTransforms.Rotate;
         
         protected vec3 Position;
         protected vec3 Rotation;
@@ -26,34 +38,67 @@ namespace TT_Lab.Rendering.Objects.SceneInstances
         protected vec3 Size;
         protected Boolean IsSelected;
 
-        protected SceneInstance(EditingContext editingContext, ResourceTreeElementViewModel attachedViewModel)
+        private bool _editedDirectly = false;
+
+        protected SceneInstance(EditingContext editingContext, AbstractAssetData data, ResourceTreeElementViewModel attachedViewModel)
         {
+            AssetData = data;
             AttachedViewModel = attachedViewModel;
             EditingContext = editingContext;
         }
+
+        public void Init(SceneNode? parentNode)
+        {
+            CreateEditableObject(parentNode);
+            AttachedEditableObject.Init();
+        }
+
+        protected abstract void CreateEditableObject(SceneNode? parentNode = null);
 
         public ResourceTreeElementViewModel GetViewModel()
         {
             return AttachedViewModel;
         }
 
-        public virtual void SetPositionRotation(vec3 position, dvec3 rotation)
+        public bool IsTransformSupported(TransformMode mode)
+        {
+            var supportCast = (SupportedTransforms)(1 << (int)mode);
+            return SupportedTransforms.HasFlag(supportCast);
+        }
+
+        public void EnableTextDisplay(bool enabled)
+        {
+            TextDisplay?.Enable(enabled);
+        }
+
+        public virtual void SetPositionRotationScale(vec3 position, vec3 rotation, vec3 scale = default)
         {
             if (!IsSelected)
             {
                 return;
             }
-            
+
+            _editedDirectly = true;
             var editor = (ViewportEditableInstanceViewModel)EditingContext.GetCurrentEditor()!;
             editor.Position.X = -position.x;
             editor.Position.Y = position.y;
             editor.Position.Z = position.z;
-            editor.Rotation.X = (float)rotation.x;
-            editor.Rotation.Y = (float)-rotation.y;
-            editor.Rotation.Z = (float)-rotation.z;
+            editor.Rotation.X = rotation.x;
+            editor.Rotation.Y = -rotation.y;
+            editor.Rotation.Z = -rotation.z;
+            if (scale != vec3.Zero)
+            {
+                editor.Scale.X = scale.x;
+                editor.Scale.Y = scale.y;
+                editor.Scale.Z = scale.z;
+                AttachedEditableObject.SetScale(scale);
+            }
+            _editedDirectly = false;
+            AttachedEditableObject.SetPos(position);
+            AttachedEditableObject.SetRot(rotation);
         }
 
-        public void LinkChangesToViewModel(ViewportEditableInstanceViewModel viewModel)
+        public virtual void LinkChangesToViewModel(ViewportEditableInstanceViewModel viewModel)
         {
             viewModel.Position.PropertyChanged += PositionOnPropertyChanged;
             viewModel.Rotation.PropertyChanged += RotationOnPropertyChanged;
@@ -62,44 +107,38 @@ namespace TT_Lab.Rendering.Objects.SceneInstances
 
         private void ScaleOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
-            if (e.PropertyName == "IsDirty")
+            if (e.PropertyName == "IsDirty" || _editedDirectly)
             {
                 return;
             }
 
             var viewModel = (Vector3ViewModel)sender!;
-            var sceneNode = AttachedEditableObject.getParentSceneNode();
-            sceneNode.setScale(viewModel.X, viewModel.Y, viewModel.Z);
+            AttachedEditableObject.SetScale(new vec3(viewModel.X, viewModel.Y, viewModel.Z));
         }
 
         private void RotationOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
-            if (e.PropertyName == "IsDirty")
+            if (e.PropertyName == "IsDirty" || _editedDirectly)
             {
                 return;
             }
             
             var viewModel = (Vector3ViewModel)sender!;
-            var sceneNode = AttachedEditableObject.getParentSceneNode();
-            sceneNode.setOrientation(sceneNode.getInitialOrientation());
-            sceneNode.pitch(new Radian(new Degree(viewModel.X)));
-            sceneNode.yaw(new Radian(new Degree(-viewModel.Y)));
-            sceneNode.roll(new Radian(new Degree(-viewModel.Z)));
+            AttachedEditableObject.SetRot(new vec3(viewModel.X, -viewModel.Y, -viewModel.Z));
         }
 
         private void PositionOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
-            if (e.PropertyName == "IsDirty")
+            if (e.PropertyName == "IsDirty" || _editedDirectly)
             {
                 return;
             }
 
             var viewModel = (Vector4ViewModel)sender!;
-            var sceneNode = AttachedEditableObject.getParentSceneNode();
-            sceneNode.setPosition(-viewModel.X, viewModel.Y, viewModel.Z);
+            AttachedEditableObject.SetPos(new vec3(-viewModel.X, viewModel.Y, viewModel.Z));
         }
 
-        public void UnlinkChangesToViewModel(ViewportEditableInstanceViewModel viewModel)
+        public virtual void UnlinkChangesToViewModel(ViewportEditableInstanceViewModel viewModel)
         {
             viewModel.Position.PropertyChanged -= PositionOnPropertyChanged;
             viewModel.Rotation.PropertyChanged -= RotationOnPropertyChanged;
@@ -123,11 +162,6 @@ namespace TT_Lab.Rendering.Objects.SceneInstances
             return AttachedEditableObject;
         }
 
-        public vec3 GetPosition()
-        {
-            return AttachedEditableObject.GetPosition();
-        }
-
         public vec3 GetOffset()
         {
             return Offset;
@@ -138,14 +172,29 @@ namespace TT_Lab.Rendering.Objects.SceneInstances
             return Size;
         }
         
+        public vec3 GetPosition()
+        {
+            return AttachedEditableObject.GetPosition();
+        }
+        
         public vec3 GetRotation()
         {
             return AttachedEditableObject.GetRotation();
         }
 
+        public vec3 GetScale()
+        {
+            return AttachedEditableObject.GetScale();
+        }
+
         public mat4 GetTransform()
         {
             return AttachedEditableObject.GetTransform();
+        }
+
+        public void Dispose()
+        {
+            TextDisplay?.Dispose();
         }
     }
 }

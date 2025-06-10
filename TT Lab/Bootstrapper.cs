@@ -65,7 +65,11 @@ namespace TT_Lab
             base.StartRuntime();
 
             _container.GetInstance<OgreWindowManager>().Initialize();
-            org.ogre.LogManager.getSingleton().setMinLogLevel(LogMessageLevel.LML_TRIVIAL);
+#if DEBUG
+            org.ogre.LogManager.getSingleton().setMinLogLevel(LogMessageLevel.LML_WARNING);
+#else
+            org.ogre.LogManager.getSingleton().setMinLogLevel(LogMessageLevel.LML_CRITICAL);
+#endif
         }
 
         protected override Object GetInstance(Type service, String key)

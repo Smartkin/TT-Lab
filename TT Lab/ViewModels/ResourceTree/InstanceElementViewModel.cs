@@ -1,9 +1,15 @@
+using System;
 using TT_Lab.Assets;
 
 namespace TT_Lab.ViewModels.ResourceTree;
 
+public delegate void DuplicateEventHandler(InstanceElementViewModel sender, ResourceTreeElementViewModel duplicate);
+
 public abstract class InstanceElementViewModel : ResourceTreeElementViewModel
 {
+    public event DuplicateEventHandler? OnDuplicate;
+    protected ResourceTreeElementViewModel? Duplicate;
+    
     protected InstanceElementViewModel(LabURI asset, ResourceTreeElementViewModel? parent = null) : base(asset, parent)
     {
     }
@@ -18,5 +24,9 @@ public abstract class InstanceElementViewModel : ResourceTreeElementViewModel
         base.CreateContextMenu();
     }
 
-    protected abstract void DuplicateInstance();
+    protected virtual void DuplicateInstance()
+    {
+        OnDuplicate?.Invoke(this, Duplicate!);
+        Duplicate = null;
+    }
 }

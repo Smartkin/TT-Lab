@@ -36,7 +36,7 @@ namespace TT_Lab.Rendering.Objects
 
         public vec3 GetPosition()
         {
-            return _pos.Value;
+            return _pos ?? vec3.Zero;
         }
 
     }

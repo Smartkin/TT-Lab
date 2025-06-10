@@ -65,22 +65,17 @@ public class CreateAssetViewModel : Screen, INotifyDataErrorInfo
             idGenerator = TwinIdGeneratorServiceProvider.GetGenerator(SelectedCreationModel.AssetType);
         }
 
-        var parent = _selectedFolder;
-        var newAsset = AssetFactory.CreateAsset(SelectedCreationModel.AssetType, parent.GetAsset<Folder>(),
+        var newAsset = AssetFactory.CreateAsset(SelectedCreationModel.AssetType, _selectedFolder.GetAsset<Folder>(),
             _assetName.Trim(), IoC.Get<ProjectManager>().OpenedProject!.BasePackage.ID.ToString(), idGenerator,
             SelectedCreationModel.DataCreator, SelectedCreationModel.IsInstance ? LayoutID : null);
-        if (newAsset == null)
+        if (newAsset != null)
         {
-            Log.WriteLine("Error: Failed to create asset");
-            return Task.CompletedTask;
+            return TryCloseAsync();
         }
         
-        parent.AddNewChild(newAsset.GetResourceTreeElement(parent));
-        parent.ClearChildren();
-        parent.LoadChildrenBack();
-        parent.NotifyOfPropertyChange(nameof(parent.Children));
-        
-        return TryCloseAsync();
+        Log.WriteLine("Error: Failed to create asset");
+        return Task.CompletedTask;
+
     }
 
     private Boolean IsAssetNameValid(string name)

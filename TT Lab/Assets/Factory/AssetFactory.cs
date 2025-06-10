@@ -34,6 +34,12 @@ public static class AssetFactory
         newAsset.Serialize(SerializationFlags.SetDirectoryToAssets | SerializationFlags.SaveData);
         folder.Serialize(SerializationFlags.SetDirectoryToAssets | SerializationFlags.SaveData | SerializationFlags.FixReferences);
         
+        var parent = folder.GetResourceTreeElement();
+        parent.AddNewChild(newAsset.GetResourceTreeElement(parent));
+        parent.ClearChildren();
+        parent.LoadChildrenBack();
+        parent.NotifyOfPropertyChange(nameof(parent.Children));
+        
         return newAsset;
     }
 }

@@ -15,6 +15,7 @@ using TT_Lab.Util;
 using TT_Lab.ViewModels.Composite;
 using TT_Lab.ViewModels.Editors;
 using TT_Lab.ViewModels.Interfaces;
+using TT_Lab.ViewModels.ResourceTree;
 
 namespace TT_Lab.ViewModels
 {
@@ -37,10 +38,11 @@ namespace TT_Lab.ViewModels
 
         protected List<SceneEditorViewModel> Scenes { get; set; } = new();
         protected Boolean IsDataLoaded { get; private set; }
+        protected Boolean IgnoreUnsavedPopup { get; set; } = false;
         
-        private ICommand _unsavedChangesCommand;
-        private OpenDialogueCommand.DialogueResult _dialogueResult = new();
-        private string tabDisplayName = string.Empty;
+        private readonly ICommand _unsavedChangesCommand;
+        private readonly OpenDialogueCommand.DialogueResult _dialogueResult = new();
+        private string _tabDisplayName = string.Empty;
 
         public ResourceEditorViewModel()
         {
@@ -54,7 +56,7 @@ namespace TT_Lab.ViewModels
         
         public override Task<Boolean> CanCloseAsync(CancellationToken cancellationToken = new CancellationToken())
         {
-            if (IsDirty)
+            if (IsDirty && !IgnoreUnsavedPopup)
             {
                 _usingConfirmClose = true;
                 _unsavedChangesCommand.Execute();
@@ -62,7 +64,7 @@ namespace TT_Lab.ViewModels
 
             return Task.Factory.StartNew(() =>
             {
-                if (!IsDirty)
+                if (!IsDirty || IgnoreUnsavedPopup)
                 {
                     return true;
                 }
@@ -85,20 +87,25 @@ namespace TT_Lab.ViewModels
             }, cancellationToken);
         }
 
-        public void SaveChanges()
+        public void SaveChanges(bool force = false)
         {
-            if (!IsDirty)
+            if (!force)
             {
-                return;
+                if (!IsDirty)
+                {
+                    return;
+                }
+
+                ResetDirty();
+
+                if (_usingConfirmClose && (_dialogueResult.Result == null ||
+                                           MiscUtils.ConvertEnum<UnsavedChangesDialogue.AnswerResult>(_dialogueResult
+                                               .Result) == UnsavedChangesDialogue.AnswerResult.DISCARD))
+                {
+                    return;
+                }
             }
- 
-            ResetDirty();
-            
-            if (_usingConfirmClose && (_dialogueResult.Result == null || MiscUtils.ConvertEnum<UnsavedChangesDialogue.AnswerResult>(_dialogueResult.Result) == UnsavedChangesDialogue.AnswerResult.DISCARD))
-            {
-                return;
-            }
-            
+
             Save();
             var asset = AssetManager.Get().GetAsset(EditableResource);
             asset.Serialize(SerializationFlags.SetDirectoryToAssets | SerializationFlags.SaveData | SerializationFlags.FixReferences);
@@ -148,22 +155,30 @@ namespace TT_Lab.ViewModels
             _startedEditing = true;
             if (Parent is TabbedEditorViewModel tabbedEditorViewModel)
             {
-                tabDisplayName = tabbedEditorViewModel.DisplayName;
+                _tabDisplayName = tabbedEditorViewModel.DisplayName;
             }
         }
 
         protected override Task OnDeactivateAsync(Boolean close, CancellationToken cancellationToken)
         {
-            _startedEditing = false;
-
             foreach (var scene in Scenes)
             {
                 DeactivateItemAsync(scene, close, cancellationToken);
             }
 
+            if (!AssetManager.Get().DoesAssetExist(EditableResource))
+            {
+                return base.OnDeactivateAsync(true, cancellationToken);
+            }
+
             if (close)
             {
-                SaveChanges();
+                _startedEditing = false;
+                // If we are ignoring unsaved popup then something else must be in charge of saving our viewmodel
+                if (!IgnoreUnsavedPopup)
+                {
+                    SaveChanges();
+                }
             }
             
             var asset = AssetManager.Get().GetAsset(EditableResource);
@@ -184,11 +199,11 @@ namespace TT_Lab.ViewModels
             
             if (IsDirty)
             {
-                parent.DisplayName = tabDisplayName + "*";
+                parent.DisplayName = _tabDisplayName + "*";
             }
             else
             {
-                parent.DisplayName = tabDisplayName;
+                parent.DisplayName = _tabDisplayName;
             }
         }
     }

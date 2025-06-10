@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using org.ogre;
 using TT_Lab.AssetData;
 using TT_Lab.AssetData.Instance;
 using TT_Lab.Rendering.Objects.SceneInstances;
@@ -9,26 +10,30 @@ namespace TT_Lab.Rendering;
 
 public static class SceneInstanceFactory
 {
-    private static Dictionary<Type, Func<OgreWindow, EditingContext, AbstractAssetData, ResourceTreeElementViewModel, SceneInstance>> _sceneInstances = new();
+    private static readonly Dictionary<Type, Func<EditingContext, AbstractAssetData, ResourceTreeElementViewModel, SceneInstance>> _sceneInstances = new();
 
     static SceneInstanceFactory()
     {
-        _sceneInstances.Add(typeof(ObjectSceneInstance), CreateObjectInstance);
+        _sceneInstances.Add(typeof(ObjectSceneInstance), CreateInstance<ObjectSceneInstance>);
+        _sceneInstances.Add(typeof(CameraSceneInstance), CreateInstance<CameraSceneInstance>);
+        _sceneInstances.Add(typeof(TriggerSceneInstance), CreateInstance<TriggerSceneInstance>);
     }
     
-    public static SceneInstance CreateSceneInstance(Type type, OgreWindow window, EditingContext editingContext, AbstractAssetData instanceData, ResourceTreeElementViewModel viewModel)
+    public static SceneInstance CreateSceneInstance(Type type, EditingContext editingContext, AbstractAssetData instanceData, ResourceTreeElementViewModel viewModel, SceneNode? parentNode = null)
     {
-        return _sceneInstances[type](window, editingContext, instanceData, viewModel);
+        var sceneInstance = _sceneInstances[type](editingContext, instanceData, viewModel);
+        sceneInstance.Init(parentNode);
+        return sceneInstance;
     }
 
-    public static SceneInstance CreateSceneInstance<T>(OgreWindow window, EditingContext editingContext, AbstractAssetData instanceData, ResourceTreeElementViewModel viewModel)
+    public static SceneInstance CreateSceneInstance<T>(EditingContext editingContext, AbstractAssetData instanceData, ResourceTreeElementViewModel viewModel, SceneNode? parentNode = null) where T : SceneInstance
     {
-        return _sceneInstances[typeof(T)](window, editingContext, instanceData, viewModel);
+        return CreateSceneInstance(typeof(T), editingContext, instanceData, viewModel, parentNode);
     }
 
-    private static SceneInstance CreateObjectInstance(OgreWindow window, EditingContext editingContext,
-        AbstractAssetData instanceData, ResourceTreeElementViewModel viewModel)
+    private static SceneInstance CreateInstance<T>(EditingContext editingContext, AbstractAssetData instanceData, ResourceTreeElementViewModel viewModel) where T : SceneInstance
     {
-        return new ObjectSceneInstance(window, editingContext, (ObjectInstanceData)instanceData, viewModel);
+        return (SceneInstance)Activator.CreateInstance(typeof(T), editingContext, instanceData, viewModel)!;
     }
+    
 }

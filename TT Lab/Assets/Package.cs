@@ -46,6 +46,11 @@ namespace TT_Lab.Assets
             return base.GetData();
         }
 
+        public override void RegenerateURI(bool needVariant)
+        {
+            URI = new LabURI($"res://{Name}{Variant}");
+        }
+
         public override Type GetEditorType()
         {
             throw new NotImplementedException();

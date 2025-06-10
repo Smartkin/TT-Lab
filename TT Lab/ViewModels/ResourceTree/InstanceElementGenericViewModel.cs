@@ -42,5 +42,9 @@ public class InstanceElementGenericViewModel<T> : InstanceElementViewModel where
         parent.ClearChildren();
         parent.LoadChildrenBack();
         parent.NotifyOfPropertyChange(nameof(parent.Children));
+
+        Duplicate = newInstance.GetResourceTreeElement();
+        
+        base.DuplicateInstance();
     }
 }

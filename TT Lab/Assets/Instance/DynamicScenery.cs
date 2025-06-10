@@ -9,6 +9,7 @@ namespace TT_Lab.Assets.Instance
 {
     public class DynamicScenery : SerializableInstance
     {
+        public override bool IsInScenery => true;
         public override UInt32 Section => Constants.SCENERY_DYNAMIC_SECENERY_ITEM;
 
         public DynamicScenery()

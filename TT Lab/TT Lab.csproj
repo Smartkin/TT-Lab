@@ -20,6 +20,14 @@
     <TreatWarningsAsErrors>False</TreatWarningsAsErrors>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <NoWarn>1701;1702;CA1416</NoWarn>
+    <TreatWarningsAsErrors>False</TreatWarningsAsErrors>
+  </PropertyGroup>
+
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <NoWarn>1701;1702;CA1416</NoWarn>
@@ -2939,6 +2947,26 @@
     </Content>
     <None Remove="Media\Materials\ai_positions.material" />
     <Content Include="Media\Materials\ai_positions.material">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <None Remove="Media\Fonts\Twelve-Ton-Goldfish.ttf" />
+    <Content Include="Media\Fonts\Twelve-Ton-Goldfish.ttf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <None Remove="Media\Materials\text_outline.material" />
+    <Content Include="Media\Materials\text_outline.material">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <None Remove="Media\Programs\text_outline.program" />
+    <Content Include="Media\Programs\text_outline.program">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <None Remove="Media\Shaders\text_outline.frag" />
+    <Content Include="Media\Shaders\text_outline.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <None Remove="Media\Shaders\text_outline.vert" />
+    <Content Include="Media\Shaders\text_outline.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

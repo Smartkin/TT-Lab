@@ -8,6 +8,7 @@ using TT_Lab.AssetData.Code;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
 using TT_Lab.Attributes;
+using TT_Lab.Command;
 using TT_Lab.ViewModels.Composite;
 using TT_Lab.ViewModels.Editors.Code.Behaviour;
 using Twinsanity.TwinsanityInterchange.Enumerations;
@@ -39,6 +40,7 @@ public class GameObjectViewModel : ResourceEditorViewModel
     private BindableCollection<PrimitiveWrapperViewModel<LabURI>> _refSounds;
     private BehaviourCommandPackViewModel _commandPack;
     private int _selectedAnimationOgiPairSlot;
+    private ICommand _behaviourFilterCommand;
 
     public GameObjectViewModel()
     {
@@ -46,6 +48,20 @@ public class GameObjectViewModel : ResourceEditorViewModel
         ObjectScene.SceneHeaderModel = "Object Viewer";
         InitObjectScene();
         SelectedAnimationOgiPairSlot = 0;
+        _behaviourFilterCommand = new CollectionFilterCommand(o =>
+        {
+            var browserViewModel = (ResourceBrowserViewModel)o;
+            browserViewModel.Filter((uri) =>
+            {
+                if (uri == LabURI.Empty)
+                {
+                    return true;
+                }
+                
+                var asset = AssetManager.Get().GetAsset(uri);
+                return asset is BehaviourStarter or BehaviourCommandsSequence;
+            });
+        });
     }
 
     private void InitObjectScene()
@@ -280,6 +296,8 @@ public class GameObjectViewModel : ResourceEditorViewModel
         }
     }
 
+    public ICommand BehaviourFilterCommand => _behaviourFilterCommand;
+
     public ObservableCollection<LabURI> BehaviourReferencesBrowser => new(AssetManager.Get().GetAllAssetUrisOf<Assets.Code.Behaviour>().AddRange(AssetManager.Get().GetAllAssetUrisOf<BehaviourCommandsSequence>()));
 
     [MarkDirty]
@@ -379,6 +397,16 @@ public class GameObjectViewModel : ResourceEditorViewModel
     public BindableCollection<PrimitiveWrapperViewModel<LabURI>> RefBehaviourCommandSequences => _refBehaviourCommandSequences;
 
     public BindableCollection<PrimitiveWrapperViewModel<LabURI>> RefBehaviours => _refBehaviours;
+
+    public BindableCollection<PrimitiveWrapperViewModel<LabURI>> RefAllBehaviours
+    {
+        get
+        {
+            var collection = new BindableCollection<PrimitiveWrapperViewModel<LabURI>>(_refBehaviours);
+            collection.AddRange(_refBehaviourCommandSequences);
+            return collection;
+        }
+    }
 
     public BindableCollection<PrimitiveWrapperViewModel<LabURI>> RefSounds => _refSounds;
 

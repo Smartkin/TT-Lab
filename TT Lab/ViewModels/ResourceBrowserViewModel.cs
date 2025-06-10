@@ -3,33 +3,52 @@ using System.Collections.Generic;
 using System.Linq;
 using Caliburn.Micro;
 using TT_Lab.Assets;
+using TT_Lab.Command;
 
 namespace TT_Lab.ViewModels;
 
 public class ResourceBrowserViewModel : Screen
 {
-    private readonly BindableCollection<LabURI> _resourcesToBrowse;
+    private BindableCollection<LabURI> _resourcesToBrowse;
     private BindableCollection<LabURI> _resourcesToBrowseView;
     private string _searchAsset = string.Empty;
 
-    public ResourceBrowserViewModel(Type browseType)
+    public ResourceBrowserViewModel(Type browseType, LabURI? selectedLink = null)
     {
         _resourcesToBrowse = new BindableCollection<LabURI> { LabURI.Empty };
-        SelectedLink = _resourcesToBrowse[0];
+        SelectedLink = selectedLink == null ? _resourcesToBrowse[0] : selectedLink;
         _resourcesToBrowse.AddRange(AssetManager.Get().GetAllAssetsOf(browseType).Select(a => a.URI));
-        _resourcesToBrowseView = new BindableCollection<LabURI>(_resourcesToBrowse.Order());
+        _resourcesToBrowseView = new BindableCollection<LabURI>(_resourcesToBrowse.Distinct().Order());
     }
     
-    public ResourceBrowserViewModel(IEnumerable<LabURI> resourcesToBrowse)
+    public ResourceBrowserViewModel(IEnumerable<LabURI> resourcesToBrowse, LabURI? selectedLink = null)
     {
         _resourcesToBrowse = new BindableCollection<LabURI>(resourcesToBrowse);
-        SelectedLink = _resourcesToBrowse[0];
-        _resourcesToBrowseView = new BindableCollection<LabURI>(_resourcesToBrowse.Order());
+        SelectedLink = selectedLink == null ? _resourcesToBrowse[0] : selectedLink;
+        _resourcesToBrowseView = new BindableCollection<LabURI>(_resourcesToBrowse.Distinct().Order());
+    }
+
+    public ResourceBrowserViewModel(Type browseType, IEnumerable<LabURI> resourcesToBrowse, LabURI? selectedLink = null)
+    {
+        _resourcesToBrowse = new BindableCollection<LabURI>(resourcesToBrowse.Where(link => link == LabURI.Empty || AssetManager.Get().GetAsset(link).GetType().IsAssignableTo(browseType)));
+        SelectedLink = selectedLink == null ? _resourcesToBrowse[0] : selectedLink;
+        _resourcesToBrowseView = new BindableCollection<LabURI>(_resourcesToBrowse.Distinct().Order());
     }
 
     public void Link()
     {
         TryCloseAsync(true);
+    }
+
+    public void Filter(ICommand filterCommand)
+    {
+        filterCommand.Execute(this);
+    }
+
+    public void Filter(Func<LabURI, bool> filter)
+    {
+        _resourcesToBrowse = new BindableCollection<LabURI>(_resourcesToBrowse.Where(filter));
+        _resourcesToBrowseView = new BindableCollection<LabURI>(_resourcesToBrowse.Distinct().Order());
     }
 
     private void DoSearch()
@@ -54,7 +73,7 @@ public class ResourceBrowserViewModel : Screen
             }));
         }
 
-        _resourcesToBrowseView = new BindableCollection<LabURI>(_resourcesToBrowseView.Order());
+        _resourcesToBrowseView = new BindableCollection<LabURI>(_resourcesToBrowseView.Distinct().Order());
         NotifyOfPropertyChange(nameof(ResourcesToBrowseView));
     }
 

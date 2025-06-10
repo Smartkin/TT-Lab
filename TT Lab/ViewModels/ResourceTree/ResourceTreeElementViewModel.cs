@@ -19,11 +19,15 @@ using Action = System.Action;
 
 namespace TT_Lab.ViewModels.ResourceTree;
 
+public delegate void DeleteHandler(ResourceTreeElementViewModel deletedViewModel);
+
 /// <summary>
 /// Default representation of the resource in the ProjectTree
 /// </summary>
 public class ResourceTreeElementViewModel : PropertyChangedBase
 {
+    public event DeleteHandler? OnDeleted;
+    
     protected struct MenuItemSettings
     {
         public MenuItemSettings()
@@ -68,6 +72,7 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
 
     protected virtual void Deleted()
     {
+        OnDeleted?.Invoke(this);
     }
 
     protected void BuildChildren(Folder folder)
@@ -323,7 +328,7 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
     
     public BindableCollection<MenuItem> MenuOptions => _menuOptions;
     
-    protected ResourceTreeElementViewModel? Parent => _parent;
+    public ResourceTreeElementViewModel? Parent => _parent;
 
     public Visibility IsVisible
     {

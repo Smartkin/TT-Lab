@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 
 namespace TT_Lab.Libraries;
 
-class Ps2ImageMaker
+public static class Ps2ImageMaker
 {
     public static Progress StartPacking(string twinsPath, string imagePathName)
     {

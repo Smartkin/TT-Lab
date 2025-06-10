@@ -1,5 +1,8 @@
 ﻿using GlmSharp;
-using Twinsanity.TwinsanityInterchange.Common;
+using org.ogre;
+using Matrix4 = Twinsanity.TwinsanityInterchange.Common.Matrix4;
+using Vector3 = Twinsanity.TwinsanityInterchange.Common.Vector3;
+using Vector4 = Twinsanity.TwinsanityInterchange.Common.Vector4;
 
 namespace TT_Lab.Extensions
 {
@@ -40,6 +43,21 @@ namespace TT_Lab.Extensions
                 Column4 = mat.Column3.ToTwin()
             };
             return twinMat;
+        }
+
+        public static Vector3 ToEulerAngles(this Vector4 twinVec)
+        {
+            var quat = new Quaternion(twinVec.W, twinVec.X, twinVec.Y, twinVec.Z);
+            var rotationMatrix = new Matrix3();
+            quat.ToRotationMatrix(rotationMatrix);
+            var rotX = new Radian();
+            var rotY = new Radian();
+            var rotZ = new Radian();
+            if (!rotationMatrix.ToEulerAnglesXYZ(rotX, rotY, rotZ))
+            {
+                Log.WriteLine($"WARNING: Received solution for {twinVec} Euler angles was not unique");
+            }
+            return new Vector3(rotX.valueDegrees(), rotY.valueDegrees(), rotZ.valueDegrees());
         }
     }
 }

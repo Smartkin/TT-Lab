@@ -21,7 +21,7 @@ public class PrimitiveWrapperConverter<T> : IValueConverter where T : IComparabl
 
 public class PrimitiveWrapperBackConverter<T> : IValueConverter where T : IComparable
 {
-    private PrimitiveWrapperConverter<T> _converter = new();
+    private readonly PrimitiveWrapperConverter<T> _converter = new();
 
     public Object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {

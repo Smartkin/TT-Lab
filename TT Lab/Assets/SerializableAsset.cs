@@ -73,7 +73,7 @@ namespace TT_Lab.Assets
             RegenerateLinks(needVariant);
         }
 
-        public void RegenerateURI(Boolean needVariant)
+        public virtual void RegenerateURI(Boolean needVariant)
         {
             var variantAddition = needVariant ? $"/{Variation}" : "";
             var layoutId = LayoutID == null ? "" : $"/{LayoutID}";

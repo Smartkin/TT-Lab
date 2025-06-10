@@ -52,10 +52,10 @@
                                     <composites:Vector4View DataContext="{Binding Position}"/>
                                 </GroupBox>
                                 <GroupBox Header="Rotation" Margin="0,0,0,0" Grid.Row="1">
-                                    <composites:Vector4View DataContext="{Binding Rotation}"/>
+                                    <composites:Vector3View DataContext="{Binding Rotation}"/>
                                 </GroupBox>
                                 <GroupBox Header="Scale" Margin="0,0,0,0" Grid.Row="2">
-                                    <composites:Vector4View DataContext="{Binding Scale}"/>
+                                    <composites:Vector3View DataContext="{Binding Scale}"/>
                                 </GroupBox>
                             </Grid>
                         </Grid>

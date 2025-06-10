@@ -22,6 +22,7 @@ namespace TT_Lab.ViewModels.Editors
         private string _sceneHeader;
         private IWindowManager windowManager;
         private List<IInputListener> _inputListeners = new();
+        private bool _mouseMoveLocked = false;
 
         public event EventHandler<FileDropEventArgs>? FileDrop;
         public event EventHandler<MouseWheelEventArgs>? OnMouseWheelScrolled;
@@ -129,6 +130,16 @@ namespace TT_Lab.ViewModels.Editors
             _ = _inputListeners.Any(listener => listener.MouseWheel(this, e));
         }
 
+        public void LockMouseMove()
+        {
+            _mouseMoveLocked = true;
+        }
+
+        public void UnlockMouseMove()
+        {
+            _mouseMoveLocked = false;
+        }
+
         public void MouseMoved(MouseEventArgs e)
         {
             if (_window == null)
@@ -137,11 +148,14 @@ namespace TT_Lab.ViewModels.Editors
             }
             
             var curMousePos = e.GetPosition(_render);
-            if (_window.HandleMouseMove(curMousePos, e))
+            if (!_mouseMoveLocked)
             {
-                return;
+                if (_window.HandleMouseMove(curMousePos, e))
+                {
+                    return;
+                }
             }
-            
+
             _ = _inputListeners.Any(listener => listener.MouseMove(this, e));
         }
 

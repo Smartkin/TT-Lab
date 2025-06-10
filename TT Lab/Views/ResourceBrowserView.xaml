@@ -12,7 +12,7 @@
              d:DataContext="{Binding Source={d:DesignInstance viewmodels:ResourceBrowserViewModel}}"
              mc:Ignorable="d"
              d:DesignHeight="300" d:DesignWidth="300"
-             Title="Change Resource Link..." Height="550" Width="400" ResizeMode="CanMinimize" WindowStartupLocation="CenterScreen">
+             Title="Change Resource Link..." Height="550" Width="700" ResizeMode="CanResize" WindowStartupLocation="CenterScreen">
     <Window.Style>
         <Style TargetType="controls:AdonisWindow" BasedOn="{StaticResource {x:Type controls:AdonisWindow}}"/>
     </Window.Style>
@@ -32,7 +32,7 @@
                 Text="{Binding SearchAsset, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" MaxLines="1"
                 />
             <GroupBox Grid.Row="1">
-                <ListBox SelectedItem="{Binding SelectedLink, Mode=TwoWay}" ItemsSource="{Binding ResourcesToBrowseView}">
+                <ListBox VirtualizingStackPanel.IsVirtualizing="True" VirtualizingStackPanel.VirtualizationMode="Recycling" SelectedItem="{Binding SelectedLink, Mode=TwoWay}" ItemsSource="{Binding ResourcesToBrowseView}">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <StackPanel Margin="0,2,0,2" Orientation="Horizontal">

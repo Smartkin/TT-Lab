@@ -7,6 +7,6 @@ namespace TT_Lab.ViewModels.Interfaces
     {
         LabURI EditableResource { get; set; }
 
-        void SaveChanges();
+        void SaveChanges(bool force = false);
     }
 }

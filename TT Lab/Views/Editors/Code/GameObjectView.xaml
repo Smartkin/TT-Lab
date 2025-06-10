@@ -11,6 +11,8 @@
              xmlns:adonisUi="clr-namespace:AdonisUI;assembly=AdonisUI"
              xmlns:assets="clr-namespace:TT_Lab.Assets.Code"
              xmlns:assetsUri="clr-namespace:TT_Lab.Assets"
+             xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+             xmlns:twinTech="clr-namespace:Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code;assembly=TwinTech"
              x:Name="GameObjectViewControl"
              d:DataContext="{Binding Source={d:DesignInstance code:GameObjectViewModel}}"
              mc:Ignorable="d"
@@ -18,6 +20,12 @@
     <UserControl.Resources>
         <valueConverters:LabUriConverter x:Key="UriConverter"/>
         <valueConverters:PrimitiveWrapperBackConverterLabUri x:Key="WrapperConverterLabUri"/>
+        <valueConverters:ObservableCollectionWrapperBackLabUriConverter x:Key="CollectionLabUriBackConverter"/>
+        <ObjectDataProvider MethodName="GetValues" ObjectType="{x:Type sys:Enum}" x:Key="ObjectTypes">
+            <ObjectDataProvider.MethodParameters>
+                <x:Type TypeName="twinTech:ITwinObject+ObjectType"></x:Type>
+            </ObjectDataProvider.MethodParameters>
+        </ObjectDataProvider>
     </UserControl.Resources>
     <GroupBox>
         <Grid>
@@ -31,6 +39,7 @@
             <ScrollViewer Grid.Column="2">
                 <StackPanel Orientation="Vertical">
                     <controls:LabeledTextBox LayoutOrientation="Horizontal" HorizontalAlignment="Stretch" TextBoxName="Object Name" Text="{Binding Name}"/>
+                    <controls:LabeledDropList LayoutOrientation="Horizontal" DropListName="Type" SelectedItem="{Binding Type}" Items="{Binding Source={StaticResource ObjectTypes}}"></controls:LabeledDropList>
                     <Expander Style="{DynamicResource SimpleExpander}" Header="Slots (used for Behaviours)">
                         <StackPanel Margin="5, 0, 0, 0" Orientation="Vertical">
                             <Expander Style="{DynamicResource SimpleExpander}" IsExpanded="True" Header="OGI/Animation slots">
@@ -43,7 +52,12 @@
                                         <controls:EditableListBox HorizontalContentAlignment="Stretch" MaxHeight="500" Items="{Binding OgiSlots}" ListBoxName="OGI/Skeleton Slots">
                                             <controls:EditableListBox.ItemTemplate>
                                                 <DataTemplate>
-                                                    <composites:ResourceBrowserOpener HorizontalAlignment="Stretch" BrowserName="" LinkedResource="{Binding Value}" BrowseType="{x:Type assets:OGI}"/>
+                                                    <composites:ResourceBrowserOpener
+                                                        HorizontalAlignment="Stretch"
+                                                        BrowserName=""
+                                                        LinkedResource="{Binding Value}"
+                                                        ResourcesToBrowse="{Binding DataContext.RefOgis, Mode=OneWay, RelativeSource={RelativeSource AncestorType={x:Type local:GameObjectView}}, Converter={StaticResource CollectionLabUriBackConverter}}"
+                                                        IncludeEmptyResourceInBrowse="True"/>
                                                 </DataTemplate>
                                             </controls:EditableListBox.ItemTemplate>
                                         </controls:EditableListBox>
@@ -52,7 +66,12 @@
                                         <controls:EditableListBox HorizontalContentAlignment="Stretch" MaxHeight="500" Items="{Binding AnimationSlots}" ListBoxName="Animation Slots">
                                             <controls:EditableListBox.ItemTemplate>
                                                 <DataTemplate>
-                                                    <composites:ResourceBrowserOpener HorizontalAlignment="Stretch" BrowserName="" LinkedResource="{Binding Value}" BrowseType="{x:Type assets:Animation}"/>
+                                                    <composites:ResourceBrowserOpener
+                                                        HorizontalAlignment="Stretch"
+                                                        BrowserName=""
+                                                        LinkedResource="{Binding Value}"
+                                                        ResourcesToBrowse="{Binding DataContext.RefAnimations, Mode=OneWay, RelativeSource={RelativeSource AncestorType={x:Type local:GameObjectView}}, Converter={StaticResource CollectionLabUriBackConverter}}"
+                                                        IncludeEmptyResourceInBrowse="True"/>
                                                 </DataTemplate>
                                             </controls:EditableListBox.ItemTemplate>
                                         </controls:EditableListBox>
@@ -63,7 +82,13 @@
                                 <controls:EditableListBox HorizontalContentAlignment="Stretch" MaxHeight="500" Items="{Binding BehaviourSlots}" ListBoxName="">
                                     <controls:EditableListBox.ItemTemplate>
                                         <DataTemplate>
-                                            <composites:ResourceBrowserOpener HorizontalAlignment="Stretch" BrowserName="" LinkedResource="{Binding Value}" BrowseType="{x:Type assets:BehaviourStarter}"/>
+                                            <composites:ResourceBrowserOpener
+                                                HorizontalAlignment="Stretch"
+                                                BrowserName=""
+                                                LinkedResource="{Binding Value}"
+                                                FilterCommand="{Binding DataContext.BehaviourFilterCommand, Mode=OneWay, RelativeSource={RelativeSource AncestorType={x:Type local:GameObjectView}}}"
+                                                ResourcesToBrowse="{Binding DataContext.RefAllBehaviours, Mode=OneWay, RelativeSource={RelativeSource AncestorType={x:Type local:GameObjectView}}, Converter={StaticResource CollectionLabUriBackConverter}}"
+                                                IncludeEmptyResourceInBrowse="True"/>
                                         </DataTemplate>
                                     </controls:EditableListBox.ItemTemplate>
                                 </controls:EditableListBox>
@@ -72,7 +97,12 @@
                                 <controls:EditableListBox HorizontalContentAlignment="Stretch" MaxHeight="500" Items="{Binding ObjectSlots}" ListBoxName="">
                                     <controls:EditableListBox.ItemTemplate>
                                         <DataTemplate>
-                                            <composites:ResourceBrowserOpener HorizontalAlignment="Stretch" BrowserName="" LinkedResource="{Binding Value}" BrowseType="{x:Type assets:GameObject}"/>
+                                            <composites:ResourceBrowserOpener
+                                                HorizontalAlignment="Stretch"
+                                                BrowserName=""
+                                                LinkedResource="{Binding Value}"
+                                                ResourcesToBrowse="{Binding DataContext.RefObjects, Mode=OneWay, RelativeSource={RelativeSource AncestorType={x:Type local:GameObjectView}}, Converter={StaticResource CollectionLabUriBackConverter}}"
+                                                IncludeEmptyResourceInBrowse="True"/>
                                         </DataTemplate>
                                     </controls:EditableListBox.ItemTemplate>
                                 </controls:EditableListBox>
@@ -81,7 +111,12 @@
                                 <controls:EditableListBox HorizontalContentAlignment="Stretch" MaxHeight="500" Items="{Binding SoundSlots}" ListBoxName="">
                                     <controls:EditableListBox.ItemTemplate>
                                         <DataTemplate>
-                                            <composites:ResourceBrowserOpener HorizontalAlignment="Stretch" BrowserName="" LinkedResource="{Binding Value}" BrowseType="{x:Type assets:SoundEffect}"/>
+                                            <composites:ResourceBrowserOpener
+                                                HorizontalAlignment="Stretch"
+                                                BrowserName=""
+                                                LinkedResource="{Binding Value}"
+                                                ResourcesToBrowse="{Binding DataContext.RefSounds, Mode=OneWay, RelativeSource={RelativeSource AncestorType={x:Type local:GameObjectView}}, Converter={StaticResource CollectionLabUriBackConverter}}"
+                                                IncludeEmptyResourceInBrowse="True"/>
                                         </DataTemplate>
                                     </controls:EditableListBox.ItemTemplate>
                                 </controls:EditableListBox>
@@ -94,7 +129,11 @@
                                 <controls:EditableListBox HorizontalContentAlignment="Stretch" MaxHeight="500" Items="{Binding RefAnimations}" ListBoxName="">
                                     <controls:EditableListBox.ItemTemplate>
                                         <DataTemplate>
-                                            <composites:ResourceBrowserOpener HorizontalAlignment="Stretch" BrowserName="" LinkedResource="{Binding Value}" BrowseType="{x:Type assets:Animation}"/>
+                                            <composites:ResourceBrowserOpener
+                                                HorizontalAlignment="Stretch"
+                                                BrowserName=""
+                                                LinkedResource="{Binding Value}"
+                                                BrowseType="{x:Type assets:Animation}"/>
                                         </DataTemplate>
                                     </controls:EditableListBox.ItemTemplate>
                                 </controls:EditableListBox>
@@ -103,7 +142,11 @@
                                 <controls:EditableListBox HorizontalContentAlignment="Stretch" MaxHeight="500" Items="{Binding RefOgis}" ListBoxName="">
                                     <controls:EditableListBox.ItemTemplate>
                                         <DataTemplate>
-                                            <composites:ResourceBrowserOpener HorizontalAlignment="Stretch" BrowserName="" LinkedResource="{Binding Value}" BrowseType="{x:Type assets:OGI}"/>
+                                            <composites:ResourceBrowserOpener
+                                                HorizontalAlignment="Stretch"
+                                                BrowserName=""
+                                                LinkedResource="{Binding Value}"
+                                                BrowseType="{x:Type assets:OGI}"/>
                                         </DataTemplate>
                                     </controls:EditableListBox.ItemTemplate>
                                 </controls:EditableListBox>
@@ -112,7 +155,11 @@
                                 <controls:EditableListBox HorizontalContentAlignment="Stretch" MaxHeight="500" Items="{Binding RefBehaviours}" ListBoxName="">
                                     <controls:EditableListBox.ItemTemplate>
                                         <DataTemplate>
-                                            <composites:ResourceBrowserOpener HorizontalAlignment="Stretch" BrowserName="" LinkedResource="{Binding Value}" ResourcesToBrowse="{Binding DataContext.BehaviourReferencesBrowser, Mode=OneWay, RelativeSource={RelativeSource AncestorType={x:Type local:GameObjectView}}}"/>
+                                            <composites:ResourceBrowserOpener
+                                                HorizontalAlignment="Stretch"
+                                                BrowserName=""
+                                                LinkedResource="{Binding Value}"
+                                                ResourcesToBrowse="{Binding DataContext.BehaviourReferencesBrowser, Mode=OneWay, RelativeSource={RelativeSource AncestorType={x:Type local:GameObjectView}}}"/>
                                         </DataTemplate>
                                     </controls:EditableListBox.ItemTemplate>
                                 </controls:EditableListBox>
@@ -121,7 +168,11 @@
                                 <controls:EditableListBox HorizontalContentAlignment="Stretch" MaxHeight="500" Items="{Binding RefBehaviourCommandSequences}" ListBoxName="">
                                     <controls:EditableListBox.ItemTemplate>
                                         <DataTemplate>
-                                            <composites:ResourceBrowserOpener HorizontalAlignment="Stretch" BrowserName="" LinkedResource="{Binding Value}" BrowseType="{x:Type assets:BehaviourCommandsSequence}"/>
+                                            <composites:ResourceBrowserOpener
+                                                HorizontalAlignment="Stretch"
+                                                BrowserName=""
+                                                LinkedResource="{Binding Value}"
+                                                BrowseType="{x:Type assets:BehaviourCommandsSequence}"/>
                                         </DataTemplate>
                                     </controls:EditableListBox.ItemTemplate>
                                 </controls:EditableListBox>
@@ -130,7 +181,11 @@
                                 <controls:EditableListBox HorizontalContentAlignment="Stretch" MaxHeight="500" Items="{Binding RefObjects}" ListBoxName="">
                                     <controls:EditableListBox.ItemTemplate>
                                         <DataTemplate>
-                                            <composites:ResourceBrowserOpener HorizontalAlignment="Stretch" BrowserName="" LinkedResource="{Binding Value}" BrowseType="{x:Type assets:GameObject}"/>
+                                            <composites:ResourceBrowserOpener
+                                                HorizontalAlignment="Stretch"
+                                                BrowserName=""
+                                                LinkedResource="{Binding Value}"
+                                                BrowseType="{x:Type assets:GameObject}"/>
                                         </DataTemplate>
                                     </controls:EditableListBox.ItemTemplate>
                                 </controls:EditableListBox>
@@ -139,7 +194,11 @@
                                 <controls:EditableListBox HorizontalContentAlignment="Stretch" MaxHeight="500" Items="{Binding RefSounds}" ListBoxName="">
                                     <controls:EditableListBox.ItemTemplate>
                                         <DataTemplate>
-                                            <composites:ResourceBrowserOpener HorizontalAlignment="Stretch" BrowserName="" LinkedResource="{Binding Value}" BrowseType="{x:Type assets:SoundEffect}"/>
+                                            <composites:ResourceBrowserOpener
+                                                HorizontalAlignment="Stretch"
+                                                BrowserName=""
+                                                LinkedResource="{Binding Value}"
+                                                BrowseType="{x:Type assets:SoundEffect}"/>
                                         </DataTemplate>
                                     </controls:EditableListBox.ItemTemplate>
                                 </controls:EditableListBox>

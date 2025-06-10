@@ -34,6 +34,7 @@ namespace TT_Lab.Rendering.Objects
         {
             _editingContext = editingContext;
             _gizmoNode = _editingContext.GetEditorNode().createChildSceneNode("GizmoNode");
+            _gizmoNode.setInheritScale(false);
             
             for (var i = 0; i < (int)GizmoType.TotalGizmos; i++)
             {
@@ -342,93 +343,8 @@ namespace TT_Lab.Rendering.Objects
         private class GizmoNode
         {
             public SceneNode Node;
-            public Vector3 DefaultScale = new Vector3(1, 1, 1);
+            public Vector3 DefaultScale = new(1, 1, 1);
         }
-
-        // protected void RenderSelf()
-        // {
-        //     if (editingContext.selectedInstance == null)
-        //     {
-        //         return;
-        //     }
-        //     var selectedRenderable = editingContext.selectedRenderable;
-        //     TransformSpace transformSpace = editingContext.transformSpace;
-        //     TransformMode transformMode = editingContext.transformMode;
-        //     switch (transformSpace)
-        //     {
-        //         case TransformSpace.LOCAL:
-        //             LocalTransform = mat4.Identity;
-        //             break;
-        //         case TransformSpace.WORLD:
-        //             var quat = selectedRenderable.LocalTransform.ToQuaternion;
-        //             LocalTransform = quat.ToMat4.Inverse;
-        //             break;
-        //     }
-        //     
-        //     switch (transformMode)
-        //     {
-        //         case TransformMode.SELECTION:
-        //             LocalTransform *= mat4.Scale(0.25f);
-        //             Window.DrawBox(WorldTransform, new vec4(1.0f, 0.0f, 0.0f, 1.0f));
-        //             break;
-        //         case TransformMode.TRANSLATE:
-        //             Window.DrawSimpleAxis(WorldTransform);
-        //             if (editingContext.transformAxis == TransformAxis.X)
-        //             {
-        //                 LocalTransform *= mat4.Translate(0.5f, 0.0f, 0.0f);
-        //                 LocalTransform *= mat4.Scale(0.5f, 0.025f, 0.025f);
-        //                 Window.DrawBox(WorldTransform, new vec4(1.0f, 0.0f, 0.0f, 1.0f));
-        //             }
-        //             if (editingContext.transformAxis == TransformAxis.Y)
-        //             {
-        //                 LocalTransform *= mat4.Translate(0.0f, 0.5f, 0.0f);
-        //                 LocalTransform *= mat4.Scale(0.025f, 0.5f, 0.025f);
-        //                 Window.DrawBox(WorldTransform, new vec4(0.0f, 1.0f, 0.0f, 1.0f));
-        //             }
-        //             if (editingContext.transformAxis == TransformAxis.Z)
-        //             {
-        //                 LocalTransform *= mat4.Translate(0.0f, 0.0f, 0.5f);
-        //                 LocalTransform *= mat4.Scale(0.025f, 0.025f, 0.5f);
-        //                 Window.DrawBox(WorldTransform, new vec4(0.0f, 0.0f, 1.0f, 1.0f));
-        //             }
-        //             break;
-        //         case TransformMode.SCALE:
-        //             {
-        //                 Window.DrawSimpleAxis(WorldTransform);
-        //                 var localTransformCopy = LocalTransform;
-        //                 LocalTransform = localTransformCopy * mat4.Translate(1.0f, 0.0f, 0.0f) * mat4.Scale(0.1f);
-        //                 Window.DrawBox(WorldTransform, new vec4(1.0f, 0.0f, 0.0f, 1.0f));
-        //                 LocalTransform = localTransformCopy * mat4.Translate(0.0f, 1.0f, 0.0f) * mat4.Scale(0.1f);
-        //                 Window.DrawBox(WorldTransform, new vec4(0.0f, 1.0f, 0.0f, 1.0f));
-        //                 LocalTransform = localTransformCopy * mat4.Translate(0.0f, 0.0f, 1.0f) * mat4.Scale(0.1f);
-        //                 Window.DrawBox(WorldTransform, new vec4(0.0f, 0.0f, 1.0f, 1.0f));
-        //                 break;
-        //             }
-        //         case TransformMode.ROTATE:
-        //             {
-        //                 var localTransformCopy = LocalTransform;
-        //                 if (editingContext.transformAxis == TransformAxis.Y)
-        //                 {
-        //                     LocalTransform *= mat4.Scale(1.25f);
-        //                 }
-        //                 Window.DrawCircle(WorldTransform, new vec4(0.0f, 1.0f, 0.0f, 1.0f));
-        //                 LocalTransform = localTransformCopy * mat4.RotateX(3.14f / 2.0f);
-        //                 if (editingContext.transformAxis == TransformAxis.Z)
-        //                 {
-        //                     LocalTransform *= mat4.Scale(1.25f);
-        //                 }
-        //                 Window.DrawCircle(WorldTransform, new vec4(0.0f, 0.0f, 1.0f, 1.0f));
-        //
-        //                 LocalTransform = localTransformCopy * mat4.RotateZ(3.14f / 2.0f);
-        //                 if (editingContext.transformAxis == TransformAxis.X)
-        //                 {
-        //                     LocalTransform *= mat4.Scale(1.25f);
-        //                 }
-        //                 Window.DrawCircle(WorldTransform, new vec4(1.0f, 0.0f, 0.0f, 1.0f));
-        //                 break;
-        //             }
-        //     }
-        // }
-
+        
     }
 }

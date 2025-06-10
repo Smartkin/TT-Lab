@@ -14,6 +14,13 @@ namespace TT_Lab.Assets
         [JsonProperty(Required = Required.Always)]
         private readonly String _uri;
 
+        private static string _prefix = "res://";
+        private string _package = "";
+        private string? _folder;
+        private string? _id;
+        private string? _variant;
+        private string? _layoutId;
+
         public static implicit operator String(LabURI labURI) => labURI._uri;
         public static explicit operator LabURI(String uri) => new(uri);
 
@@ -21,6 +28,11 @@ namespace TT_Lab.Assets
         public LabURI(String uri)
         {
             _uri = uri;
+            // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
+            if (uri != null)
+            {
+                ParseAndVerify();
+            }
         }
 
         public override String ToString() => _uri;
@@ -32,7 +44,7 @@ namespace TT_Lab.Assets
             return _uri.ToString(CultureInfo.InvariantCulture).CompareTo(labURI._uri.ToString(CultureInfo.InvariantCulture));
         }
 
-        public static LabURI Empty { get => new("res://EMPTY"); }
+        public static LabURI Empty => new("res://EMPTY");
 
         public static Boolean operator ==(LabURI? labURI, LabURI? other)
         {
@@ -64,6 +76,42 @@ namespace TT_Lab.Assets
         public override Int32 GetHashCode()
         {
             return _uri.GetHashCode();
+        }
+
+        private void ParseAndVerify()
+        {
+            var uriStringCopy = _uri[..];
+            Debug.Assert(uriStringCopy.StartsWith(_prefix), $"Created URI does not start with {_prefix}");
+            uriStringCopy = uriStringCopy.Replace(_prefix, "");
+            _package = uriStringCopy.Substring(0, uriStringCopy.Contains('/') ? uriStringCopy.IndexOf('/') : uriStringCopy.Length);
+            Debug.Assert(!string.IsNullOrEmpty(_package), "This asset's URI is not in a package!");
+            uriStringCopy = uriStringCopy[_package.Length..];
+            if (string.IsNullOrEmpty(uriStringCopy))
+            {
+                return;
+            }
+            uriStringCopy = uriStringCopy[1..];
+            
+            _folder = uriStringCopy.Substring(0, uriStringCopy.IndexOf('/'));
+            uriStringCopy = uriStringCopy[(_folder.Length + 1)..];
+            Debug.Assert(!string.IsNullOrEmpty(uriStringCopy), "The item in the folder got no id!");
+            _id = uriStringCopy.Substring(0, uriStringCopy.Contains('/') ? uriStringCopy.IndexOf('/') : uriStringCopy.Length);;
+            uriStringCopy = uriStringCopy[_id.Length..];
+            if (string.IsNullOrEmpty(uriStringCopy))
+            {
+                return;
+            }
+            uriStringCopy = uriStringCopy[1..];
+
+            _variant = uriStringCopy.Substring(0, uriStringCopy.Contains('/') ? uriStringCopy.IndexOf('/') : uriStringCopy.Length);
+            uriStringCopy = uriStringCopy[_variant.Length..];
+            if (string.IsNullOrEmpty(uriStringCopy))
+            {
+                return;
+            }
+            uriStringCopy = uriStringCopy[1..];
+            
+            _layoutId = uriStringCopy[..];
         }
 
         private String DebuggerDisplay

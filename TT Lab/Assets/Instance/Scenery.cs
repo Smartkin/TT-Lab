@@ -11,6 +11,7 @@ namespace TT_Lab.Assets.Instance
 {
     public class Scenery : SerializableInstance
     {
+        public override bool IsInScenery => true;
         public override UInt32 Section => Constants.SCENERY_SECENERY_ITEM;
 
         public Scenery()

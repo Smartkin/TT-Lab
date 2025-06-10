@@ -10,13 +10,14 @@ using TT_Lab.Rendering.Objects.SceneInstances;
 using TT_Lab.Util;
 using TT_Lab.ViewModels.Editors;
 using TT_Lab.ViewModels.Editors.Instance;
+using Math = System.Math;
 
 namespace TT_Lab.Rendering
 {
     public class EditingContext
     {
         public SceneInstance? SelectedInstance;
-        public MovableObject? SelectedRenderable;
+        public EditableObject? SelectedRenderable;
         public TransformMode TransformMode = TransformMode.SELECTION;
         public TransformAxis TransformAxis = TransformAxis.NONE;
         
@@ -49,16 +50,6 @@ namespace TT_Lab.Rendering
             _camerasBillboards = CreateBillboardSet(sceneManager, "CamerasBillboards", "BillboardCameras");
             _instancesBillboards = CreateBillboardSet(sceneManager, "InstancesBillboards", "BillboardInstances");
             _aiPositionsBillboards = CreateBillboardSet(sceneManager, "AiPositionsBillboards", "BillboardAiPositions");
-
-            _renderWindow.OnRender += (sender, args) =>
-            {
-                if (SelectedInstance == null)
-                {
-                    return;
-                }
-
-                SelectedInstance.GetEditableObject().DrawImGui();
-            };
         }
 
         public SceneNode GetEditorNode()
@@ -121,8 +112,15 @@ namespace TT_Lab.Rendering
             return _aiPositionsBillboards.createBillboard(0, 0, 0);
         }
 
+        public OgreWindow GetWindow()
+        {
+            return _renderWindow;
+        }
+
         public void Deselect()
         {
+            TransformMode = TransformMode.SELECTION;
+            TransformAxis = TransformAxis.NONE;
             SelectedInstance?.UnlinkChangesToViewModel((ViewportEditableInstanceViewModel)_editor.CurrentInstanceEditor!);
             _editor.InstanceEditorChanged(new RoutedPropertyChangedEventArgs<Object>(null, null));
             _renderWindow.SetCameraStyle(CameraStyle.CS_FREELOOK);
@@ -143,7 +141,7 @@ namespace TT_Lab.Rendering
             {
                 _renderWindow.SetCameraTarget(SelectedInstance.GetEditableObject().GetSceneNode());
                 _renderWindow.SetCameraStyle(CameraStyle.CS_ORBIT);
-                
+                _renderWindow.SetYawPitchDist((float)Math.PI / 4.0f, (float)Math.PI / 4.0f, 10);
                 _editor.InstanceEditorChanged(new RoutedPropertyChangedEventArgs<Object>(null, SelectedInstance.GetViewModel()));
                 SelectedInstance.LinkChangesToViewModel((ViewportEditableInstanceViewModel)_editor.CurrentInstanceEditor!);
                 _gizmo.DetachFromCurrentObject();
@@ -167,7 +165,8 @@ namespace TT_Lab.Rendering
             _gridStep.x = SelectedInstance.GetSize().x;
             _gridStep.y = SelectedInstance.GetSize().y;
             _gridStep.z = SelectedInstance.GetSize().z;
-            _gridRotation = (new quat(SelectedInstance.GetRotation())).ToMat4;
+            var gridRot = SelectedInstance.GetRotation();
+            _gridRotation = (new quat(vec3.Radians(SelectedInstance.GetRotation()))).ToMat4;
             SetCursorCoordinates(SelectedInstance.GetPosition());
         }
 
@@ -202,30 +201,31 @@ namespace TT_Lab.Rendering
 
             var cursorPosition = _cursor.GetPosition();
             var newInstance = _editor.NewSceneInstance(_palette[_currentPaletteIndex]!.GetType(), _palette[_currentPaletteIndex]!.GetViewModel());
-            newInstance.SetPositionRotation(cursorPosition, _palette[_currentPaletteIndex]!.GetRotation());
             Select(newInstance);
-            TransformMode = TransformMode.ROTATE;
+            newInstance.SetPositionRotationScale(cursorPosition, _palette[_currentPaletteIndex]!.GetRotation(), _palette[_currentPaletteIndex]!.GetScale());
+            TransformMode = TransformMode.SELECTION;
             TransformAxis = TransformAxis.NONE;
         }
 
-        public void StartTransform(float x, float y)
+        public bool StartTransform(float x, float y)
         {
-            if (SelectedInstance == null)
+            if (SelectedInstance == null || TransformMode == TransformMode.SELECTION)
             {
                 transforming = false;
-                return;
+                return false;
             }
             if (transforming)
             {
-                return;
+                return false;
             }
             startPos = new vec2(x, y);
             transforming = true;
+            return true;
         }
 
         public void EndTransform(float x, float y)
         {
-            if (SelectedInstance == null)
+            if (SelectedInstance == null || TransformMode == TransformMode.SELECTION)
             {
                 transforming = false;
                 return;
@@ -238,9 +238,15 @@ namespace TT_Lab.Rendering
             transforming = false;
             var pos = SelectedRenderable!.getParentSceneNode().getPosition();
             var renderQuat = SelectedRenderable.getParentSceneNode().getOrientation();
-            var glmQuat = new quat(renderQuat.x, renderQuat.y, renderQuat.z, renderQuat.w);
-            var rot = glmQuat.EulerAngles * 180.0f / 3.14f;
-            SelectedInstance.SetPositionRotation(new vec3(pos.x, pos.y, pos.z), rot);
+            var rotationMatrix = new Matrix3();
+            renderQuat.ToRotationMatrix(rotationMatrix);
+            var rotX = new Radian();
+            var rotY = new Radian();
+            var rotZ = new Radian();
+            rotationMatrix.ToEulerAnglesXYZ(rotX, rotY, rotZ);
+            var rot = new vec3(rotX.valueDegrees(), rotY.valueDegrees(), rotZ.valueDegrees());
+            var scl = SelectedRenderable!.getParentSceneNode().getScale();
+            SelectedInstance.SetPositionRotationScale(new vec3(pos.x, pos.y, pos.z), rot, new vec3(scl.x, scl.y, scl.z));
         }
 
         public void UpdateTransform(float x, float y)
@@ -252,6 +258,7 @@ namespace TT_Lab.Rendering
             
             endPos = new vec2(x, y);
             var delta = (endPos.x - startPos.x) + (startPos.y - endPos.y);
+            startPos = endPos;
 
             if (TransformMode == TransformMode.TRANSLATE)
             {
@@ -271,6 +278,24 @@ namespace TT_Lab.Rendering
                 }
                 Translate(axis * k * delta);
             }
+            if (TransformMode == TransformMode.SCALE)
+            {
+                var k = 0.05f;
+                var axis = new vec3();
+                if (TransformAxis == TransformAxis.X)
+                {
+                    axis.x = 1.0f;
+                }
+                else if (TransformAxis == TransformAxis.Y)
+                {
+                    axis.y = 1.0f;
+                }
+                else if (TransformAxis == TransformAxis.Z)
+                {
+                    axis.z = 1.0f;
+                }
+                Scale(axis * k * delta);
+            }
             if (TransformMode == TransformMode.ROTATE)
             {
                 var k = 0.2f;
@@ -289,16 +314,16 @@ namespace TT_Lab.Rendering
             }
         }
 
-        public void ToggleTranslate()
+        private void SwitchEditMode(TransformMode mode)
         {
             if (transforming)
             {
                 return;
             }
-            
-            if (TransformMode != TransformMode.TRANSLATE)
+
+            if (TransformMode != mode)
             {
-                TransformMode = TransformMode.TRANSLATE;
+                TransformMode = mode;
             }
             else
             {
@@ -308,22 +333,31 @@ namespace TT_Lab.Rendering
             _gizmo.SwitchGizmo((Gizmo.GizmoType)(int)TransformMode);
         }
 
-        public void ToggleRotate()
+        public void ToggleScale()
         {
-            if (transforming)
+            if (SelectedInstance == null || !SelectedInstance.IsTransformSupported(TransformMode.SCALE))
             {
                 return;
             }
-            if (TransformMode != TransformMode.ROTATE)
+            SwitchEditMode(TransformMode.SCALE);
+        }
+
+        public void ToggleTranslate()
+        {
+            if (SelectedInstance == null || !SelectedInstance.IsTransformSupported(TransformMode.TRANSLATE))
             {
-                TransformMode = TransformMode.ROTATE;
+                return;
             }
-            else
+            SwitchEditMode(TransformMode.TRANSLATE);
+        }
+
+        public void ToggleRotate()
+        {
+            if (SelectedInstance == null || !SelectedInstance.IsTransformSupported(TransformMode.ROTATE))
             {
-                TransformMode = TransformMode.SELECTION;
+                return;
             }
-            TransformAxis = TransformAxis.NONE;
-            _gizmo.SwitchGizmo((Gizmo.GizmoType)(int)TransformMode);
+            SwitchEditMode(TransformMode.ROTATE);
         }
 
         public void SetTransformAxis(TransformAxis axis)
@@ -348,25 +382,29 @@ namespace TT_Lab.Rendering
         private vec2 endPos;
         private bool transforming = false;
 
-        //TODO: must affect InstanceData too
+        private void Scale(vec3 offset)
+        {
+            SelectedRenderable.Scale(offset);
+        }
+
         private void Translate(vec3 offset)
         {
-            SelectedRenderable.getParentSceneNode().translate(offset.x, offset.y, offset.z);
+            SelectedRenderable.Translate(offset);
         }
 
         private void RotateX(float value)
         {
-            SelectedRenderable.getParentSceneNode().pitch(new Radian(new Degree(value)));
+            SelectedRenderable.Rotate(vec3.UnitX * value);
         }
 
         private void RotateY(float value)
         {
-            SelectedRenderable.getParentSceneNode().yaw(new Radian(new Degree(value)));
+            SelectedRenderable.Rotate(vec3.UnitY * value);
         }
 
         private void RotateZ(float value)
         {
-            SelectedRenderable.getParentSceneNode().roll(new Radian(new Degree(value)));
+            SelectedRenderable.Rotate(vec3.UnitZ * value);
         }
 
         private BillboardSet CreateBillboardSet(SceneManager sceneManager, string billboardName, string billboardMaterial)

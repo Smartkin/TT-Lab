@@ -10,6 +10,7 @@ namespace TT_Lab.Assets.Instance
 {
     public class ChunkLinks : SerializableInstance
     {
+        public override bool IsInScenery => true;
         public override UInt32 Section => Constants.SCENERY_LINK_ITEM;
         public override String IconPath => "Chunk_Link.png";
 

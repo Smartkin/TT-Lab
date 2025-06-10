@@ -58,6 +58,8 @@
             x:Name="ItemsStorage"
             d:ItemsSource="{d:SampleData ItemCount=5}"
             SelectionChanged="OnItemsStorageSelectionChanged"
+            VirtualizingStackPanel.IsVirtualizing="True"
+            VirtualizingStackPanel.VirtualizationMode="Recycling"
             ItemsSource="{Binding Items, RelativeSource={RelativeSource AncestorType=UserControl}}"
             ItemTemplate="{Binding ItemTemplate, RelativeSource={RelativeSource AncestorType=UserControl}}">
             <ListBox.ItemContainerStyle>

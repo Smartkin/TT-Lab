@@ -26,8 +26,8 @@ public class TwinIdGeneratorService<T> : ITwinIdGeneratorService where T : IAsse
 
 public class TwinIdGeneratorServiceInstance<T> : TwinIdGeneratorService<SerializableInstance> where T : SerializableInstance
 {
-    private Enums.Layouts _boundLayout;
-    private ChunkFolder _boundChunk;
+    private readonly Enums.Layouts _boundLayout;
+    private readonly ChunkFolder _boundChunk;
     
     public TwinIdGeneratorServiceInstance(Enums.Layouts layout, ChunkFolder chunk)
     {
@@ -39,7 +39,7 @@ public class TwinIdGeneratorServiceInstance<T> : TwinIdGeneratorService<Serializ
     {
         var currentlyRegistered = AssetManager.Get().GetAllAssetsOf<T>()
             .Where(a => a.LayoutID.HasValue && a.LayoutID == (int)_boundLayout)
-            .Where(a => a.Chunk == _boundChunk.Chunk).ToImmutableList();
+            .Where(a => a.Chunk[..^3] == _boundChunk.Variation[..^3]).ToImmutableList();
         var id = 0U;
         while (currentlyRegistered.Any(a => a.ID == id))
         {

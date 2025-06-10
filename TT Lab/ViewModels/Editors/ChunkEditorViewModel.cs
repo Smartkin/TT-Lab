@@ -15,6 +15,8 @@ using TT_Lab.AssetData.Instance;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Assets.Instance;
+using TT_Lab.Command;
+using TT_Lab.Controls;
 using TT_Lab.Extensions;
 using TT_Lab.Project.Messages;
 using TT_Lab.Rendering;
@@ -24,6 +26,7 @@ using TT_Lab.Rendering.Objects.SceneInstances;
 using TT_Lab.ServiceProviders;
 using TT_Lab.Services;
 using TT_Lab.Util;
+using TT_Lab.ViewModels.Composite;
 using TT_Lab.ViewModels.Editors.Instance;
 using TT_Lab.ViewModels.Interfaces;
 using TT_Lab.ViewModels.ResourceTree;
@@ -31,6 +34,7 @@ using Twinsanity.TwinsanityInterchange.Enumerations;
 using AiPosition = TT_Lab.Rendering.Objects.AiPosition;
 using Camera = TT_Lab.Rendering.Objects.Camera;
 using Collision = TT_Lab.Rendering.Objects.Collision;
+using ICommand = TT_Lab.Command.ICommand;
 using Position = TT_Lab.Rendering.Objects.Position;
 using Scenery = TT_Lab.Rendering.Objects.Scenery;
 using Trigger = TT_Lab.Rendering.Objects.Trigger;
@@ -40,16 +44,22 @@ namespace TT_Lab.ViewModels.Editors
     public class ChunkEditorViewModel :
         Conductor<IScreen>.Collection.AllActive,
         IEditorViewModel,
-        IHandle<ChangeRenderCameraPositionMessage>,
         IInputListener,
         IDirtyMarker
     {
         private readonly BindableCollection<ResourceTreeElementViewModel> _chunkTree = new();
         private bool _isDefault;
-        private bool _isDirty = false;
+        private bool _isChunkReady = false;
+        private bool _usingConfirmClose = false;
         private readonly DirtyTracker _dirtyTracker;
         private readonly IActiveChunkService _activeChunkService;
+        private readonly ICommand _unsavedChangesCommand;
+        private readonly OpenDialogueCommand.DialogueResult _dialogueResult = new();
+        private readonly List<ResourceTreeElementViewModel> _addedAssets = new();
+        private readonly List<InstanceElementViewModel> _subscribedAssets = new();
+        private readonly Dictionary<ResourceTreeElementViewModel, InstanceSectionResourceEditorViewModel> _trackedAssets = new();
 
+        private string _tabDisplayName = string.Empty;
         private EditingContext _editingContext;
         private readonly List<SceneInstance> _sceneInstances = new();
         private CollisionData? _colData;
@@ -81,19 +91,58 @@ namespace TT_Lab.ViewModels.Editors
 
         public ChunkEditorViewModel(IEventAggregator eventAggregator, IActiveChunkService activeChunkService)
         {
-            _sceneEditor.SceneHeaderModel = "Chunk Viewer";
+            _unsavedChangesCommand = new OpenDialogueCommand(() => new UnsavedChangesDialogue(_dialogueResult, AssetManager.Get().GetAsset(EditableResource).GetResourceTreeElement()));
+            _sceneEditor.SceneHeaderModel = "Chunk Viewer (Loading! The UI may hang for a bit)";
             _inputController = new InputController(_sceneEditor);
             eventAggregator.SubscribeOnUIThread(this);
-            _dirtyTracker = new DirtyTracker(this);
+            _dirtyTracker = new DirtyTracker(this, EditorChangesHappened);
             _activeChunkService = activeChunkService;
             InitScene();
+        }
+
+        public override Task<Boolean> CanCloseAsync(CancellationToken cancellationToken = new CancellationToken())
+        {
+            if (IsDirty)
+            {
+                _usingConfirmClose = true;
+                _unsavedChangesCommand.Execute();
+            }
+
+            return Task.Factory.StartNew(() =>
+            {
+                if (!IsDirty)
+                {
+                    return true;
+                }
+            
+                if (_dialogueResult.Result == null)
+                {
+                    return false;
+                }
+            
+                var result = MiscUtils.ConvertEnum<UnsavedChangesDialogue.AnswerResult>(_dialogueResult.Result);
+                switch (result)
+                {
+                    case UnsavedChangesDialogue.AnswerResult.YES:
+                    case UnsavedChangesDialogue.AnswerResult.DISCARD:
+                        return true;
+                    case UnsavedChangesDialogue.AnswerResult.CANCEL:
+                    default:
+                        return false;
+                }
+            }, cancellationToken);
         }
 
         protected override void OnViewReady(object view)
         {
             base.OnViewReady(view);
-            
+
+            if (Parent is TabbedEditorViewModel tabbedEditorViewModel)
+            {
+                _tabDisplayName = tabbedEditorViewModel.DisplayName;
+            }
             TwinIdGeneratorServiceProvider.RegisterGeneratorServiceForChunk(AssetManager.Get().GetAsset<ChunkFolder>(EditableResource));
+            ResetDirty();
         }
 
         protected override Task OnActivateAsync(CancellationToken cancellationToken)
@@ -119,6 +168,29 @@ namespace TT_Lab.ViewModels.Editors
                 DeactivateItemAsync(item, close, cancellationToken);
             }
 
+            if (IsDirty)
+            {
+                foreach (var addedAsset in _addedAssets)
+                {
+                    addedAsset.Asset.Delete(true);
+                }
+            }
+
+            if (close)
+            {
+                _isChunkReady = false;
+                UnsubscribeToDuplicatingItems();
+                _chunkTree.Clear();
+                _collisionRender?.Dispose();
+                _sceneryRender?.Dispose();
+                _skydomeRender?.Dispose();
+                _instancesNode?.Dispose();
+                foreach (var sceneInstance in _sceneInstances)
+                {
+                    sceneInstance.Dispose();
+                }
+            }
+
             return base.OnDeactivateAsync(close, cancellationToken);
         }
 
@@ -127,54 +199,71 @@ namespace TT_Lab.ViewModels.Editors
             Debug.Assert(_sceneEditor.RenderControl?.GetRenderWindow() != null, "Invalid editor state!");
 
             var chunk = AssetManager.Get().GetAsset<ChunkFolder>(EditableResource);
-            var newInstance = AssetFactory.CreateAsset(basedOn.Asset.Type, chunk,
-                $"New {nameof(basedOn.Asset.Type)} {Guid.NewGuid().GetHashCode()}", chunk.Variation,
+            var newInstance = AssetFactory.CreateAsset(basedOn.Asset.Type, basedOn.Parent != null ? basedOn.Parent.GetAsset<Folder>() : chunk,
+                $"New {basedOn.Asset.GetType().Name} {(uint)Guid.NewGuid().GetHashCode()}", chunk.Variation,
                 TwinIdGeneratorServiceProvider.GetGeneratorForChunk(basedOn.Asset.Type, chunk.Variation, (Enums.Layouts)basedOn.Asset.LayoutID!),
                 (asset) =>
                 {
-                    asset.SetData(CloneUtils.DeepClone(basedOn.Asset.GetData<AbstractAssetData>()));
+                    var instanceAsset = (SerializableInstance)asset;
+                    instanceAsset.Chunk = chunk.Variation[..^3] + (instanceAsset.IsInScenery ? "sm2" : "rm2");
+                    var assetData = basedOn.Asset.GetData<AbstractAssetData>();
+                    asset.SetData((AbstractAssetData)CloneUtils.DeepClone(assetData, assetData.GetType()));
                     return AssetCreationStatus.Success;
                 },
                 (Enums.Layouts)basedOn.Asset.LayoutID)!;
-            AssetManager.Get().AddAsset(newInstance);
-            var sceneInstance = SceneInstanceFactory.CreateSceneInstance(type, _sceneEditor.RenderControl.GetRenderWindow(), _editingContext, newInstance.GetData<AbstractAssetData>(), newInstance.GetResourceTreeElement());
+            var sceneInstance = SceneInstanceFactory.CreateSceneInstance(type, _editingContext, newInstance.GetData<AbstractAssetData>(), newInstance.GetResourceTreeElement());
             _sceneInstances.Add(sceneInstance);
-            _instancesNode.addChild(sceneInstance.GetEditableObject().getParentSceneNode());
+            _addedAssets.Add(newInstance.GetResourceTreeElement());
 
-            var parent = chunk.GetResourceTreeElement();
-            parent.AddNewChild(newInstance.GetResourceTreeElement(parent));
-            parent.ClearChildren();
-            parent.LoadChildrenBack();
-            parent.NotifyOfPropertyChange(nameof(parent.Children));
+            if (type == typeof(ObjectSceneInstance))
+            {
+                _instancesNode.addChild(sceneInstance.GetEditableObject().getParentSceneNode());
+            }
+            
+            // _chunkTree.Refresh();
+            
+            _dirtyTracker.MarkDirty();
 
             return sceneInstance;
         }
 
-        public async void InstanceEditorChanged(RoutedPropertyChangedEventArgs<Object> e)
+        public void InstanceEditorChanged(RoutedPropertyChangedEventArgs<Object> e)
         {
             if (e.NewValue == null)
             {
                 if (CurrentInstanceEditor != null)
                 {
-                    await DeactivateItemAsync(CurrentInstanceEditor, true);
+                    DeactivateItemAsync(CurrentInstanceEditor, false);
+                    CurrentInstanceEditor = null;
+                    NotifyOfPropertyChange(nameof(CurrentInstanceEditor));
                 }
                 return;
             }
             var asset = (ResourceTreeElementViewModel)e.NewValue;
-            if (asset.Asset.Type == typeof(Folder)) return;
+            if (asset.Asset.Type == typeof(Folder) || asset.Asset.Type == typeof(TT_Lab.Assets.Instance.Scenery) || asset.Asset.Type == typeof(DynamicScenery))
+            {
+                return;
+            }
 
             try
             {
                 if (CurrentInstanceEditor != null)
                 {
-                    await DeactivateItemAsync(CurrentInstanceEditor, true);
+                    DeactivateItemAsync(CurrentInstanceEditor, false);
                 }
 
                 CurrentInstanceEditor = (InstanceSectionResourceEditorViewModel)IoC.GetInstance(asset.Asset.GetEditorType(), null);
                 CurrentInstanceEditor.EditableResource = asset.Asset.URI;
                 CurrentInstanceEditor.ParentEditor = this;
-                await ActivateItemAsync(CurrentInstanceEditor);
+                ActivateItemAsync(CurrentInstanceEditor);
                 NotifyOfPropertyChange(nameof(CurrentInstanceEditor));
+                if (_trackedAssets.ContainsKey(asset))
+                {
+                    return;
+                }
+                
+                _dirtyTracker.AddChild(CurrentInstanceEditor);
+                _trackedAssets.Add(asset, CurrentInstanceEditor);
             }
             catch (Exception ex)
             {
@@ -182,29 +271,41 @@ namespace TT_Lab.ViewModels.Editors
             }
         }
 
-        public BindableCollection<ResourceTreeElementViewModel> ChunkTree => _chunkTree;
+        public void SelectDifferentInstance(RoutedPropertyChangedEventArgs<Object> e)
+        {
+            if (!_isChunkReady)
+            {
+                return;
+            }
+            
+            _editingContext.Deselect();
+            if (e.NewValue == null)
+            {
+                return;
+            }
+            
+            foreach (var sceneInstance in _sceneInstances)
+            {
+                if (sceneInstance.GetViewModel() != e.NewValue)
+                {
+                    continue;
+                }
+                
+                _editingContext.Select(sceneInstance);
+                break;
+            }
+        }
 
+        public BindableCollection<ResourceTreeElementViewModel> ChunkTree => _chunkTree;
         public LabURI EditableResource { get; set; } = LabURI.Empty;
         public SceneEditorViewModel SceneEditor { get => _sceneEditor; set => _sceneEditor = value; }
         public InstanceSectionResourceEditorViewModel? CurrentInstanceEditor { get; set; }
 
-        public bool IsDirty
-        {
-            get => _isDirty;
-            set
-            {
-                if (_isDirty != value)
-                {
-                    _isDirty = value;
-                    NotifyOfPropertyChange();
-                }
-            }
-        }
+        public bool IsDirty => _dirtyTracker.IsDirty;
         
         public void ResetDirty()
         {
             _dirtyTracker.ResetDirty();
-            IsDirty = false;
         }
 
         protected override Task OnInitializeAsync(CancellationToken cancellationToken)
@@ -214,10 +315,24 @@ namespace TT_Lab.ViewModels.Editors
             return base.OnInitializeAsync(cancellationToken);
         }
 
-        public void SaveChanges()
+        public void SaveChanges(bool force = false)
         {
-            // TODO: Implement saving the scene/chunk
-            return;
+            if (!IsDirty)
+            {
+                return;
+            }
+ 
+            ResetDirty();
+            
+            if (_usingConfirmClose && (_dialogueResult.Result == null || MiscUtils.ConvertEnum<UnsavedChangesDialogue.AnswerResult>(_dialogueResult.Result) == UnsavedChangesDialogue.AnswerResult.DISCARD))
+            {
+                return;
+            }
+            
+            foreach (var instanceEditor in _trackedAssets)
+            {
+                instanceEditor.Value.SaveChanges(true);
+            }
         }
 
         public bool MouseMove(Object? sender, MouseEventArgs e)
@@ -229,11 +344,14 @@ namespace TT_Lab.ViewModels.Editors
             
             var pos = e.GetPosition(_sceneEditor.RenderControl);
             _editingContext.UpdateTransform((float)pos.X, (float)pos.Y);
+            var renderWindow = _sceneEditor.RenderControl?.GetRenderWindow();
+            renderWindow?.UpdateCamera();
             return true;
         }
 
         public bool MouseDown(Object? sender, MouseButtonEventArgs e)
         {
+            _sceneEditor.UnlockMouseMove();
             if (e.LeftButton != MouseButtonState.Pressed)
             {
                 return false;
@@ -246,7 +364,10 @@ namespace TT_Lab.ViewModels.Editors
             }
             else if (_editingContext.IsInstanceSelected())
             {
-                _editingContext.StartTransform((float)pos.X, (float)pos.Y);
+                if (_editingContext.StartTransform((float)pos.X, (float)pos.Y))
+                {
+                    _sceneEditor.LockMouseMove();
+                }
             }
             else
             {
@@ -258,6 +379,7 @@ namespace TT_Lab.ViewModels.Editors
 
         public bool MouseUp(Object? sender, MouseButtonEventArgs e)
         {
+            _sceneEditor.UnlockMouseMove();
             if (!_editingContext.IsInstanceSelected())
             {
                 return false;
@@ -283,6 +405,10 @@ namespace TT_Lab.ViewModels.Editors
             else if (key == Key.R)
             {
                 _editingContext.ToggleRotate();
+            }
+            else if (key == Key.S)
+            {
+                _editingContext.ToggleScale();
             }
             else if (key == Key.X)
             {
@@ -320,7 +446,7 @@ namespace TT_Lab.ViewModels.Editors
             {
                 _editingContext.MoveCursorGrid(-vec3.UnitY);
             }
-            else if (key == Key.K)
+            else if (key == Key.K && _editingContext.SelectedInstance != null)
             {
                 _editingContext.SetPalette(_editingContext.SelectedInstance);
             }
@@ -423,6 +549,42 @@ namespace TT_Lab.ViewModels.Editors
             _drawFilter &= ~filter;
         }
 
+        private void SubscribeToElementEvents(BindableCollection<ResourceTreeElementViewModel>? folder)
+        {
+            if (folder == null)
+            {
+                return;
+            }
+            
+            foreach (var item in folder)
+            {
+                switch (item)
+                {
+                    case FolderElementViewModel:
+                        SubscribeToElementEvents(item.Children);
+                        break;
+                    case InstanceElementViewModel instanceElement:
+                        instanceElement.OnDeleted += OnChunkTreeElementDeleted;
+                        instanceElement.OnDuplicate += OnChunkTreeElementDuplicate;
+                        _subscribedAssets.Add(instanceElement);
+                        break;
+                }
+            }
+        }
+
+        private void OnChunkTreeElementDeleted(ResourceTreeElementViewModel deletedViewModel)
+        {
+            _trackedAssets.Remove(deletedViewModel);
+        }
+
+        private void UnsubscribeToDuplicatingItems()
+        {
+            foreach (var subscribedAssets in _subscribedAssets)
+            {
+                subscribedAssets.OnDuplicate -= OnChunkTreeElementDuplicate;
+            }
+        }
+
         private void InitScene()
         {
             _sceneEditor.SceneCreator = glControl =>
@@ -432,8 +594,10 @@ namespace TT_Lab.ViewModels.Editors
                 var chunk = chunkAss.GetAsset<ChunkFolder>();
                 foreach (var item in chunk.GetData().To<FolderData>().Children)
                 {
-                    _chunkTree.Add(assetManager.GetAsset(item).GetResourceTreeElement());
+                    var resourceElement = assetManager.GetAsset(item).GetResourceTreeElement();
+                    _chunkTree.Add(resourceElement);
                 }
+                SubscribeToElementEvents(_chunkTree);
                 _isDefault = chunk.Name.ToLower() == "default";
                 if (_isDefault)
                 {
@@ -461,7 +625,7 @@ namespace TT_Lab.ViewModels.Editors
                 foreach (var instance in instances!.Children)
                 {
                     var instData = instance.Asset.GetData<ObjectInstanceData>();
-                    var objSceneInstance = new ObjectSceneInstance(glControl, _editingContext, instData, instance);
+                    var objSceneInstance = SceneInstanceFactory.CreateSceneInstance<ObjectSceneInstance>(_editingContext, instData, instance);
                     _sceneInstances.Add(objSceneInstance);
                     _instancesNode.addChild(objSceneInstance.GetEditableObject().getParentSceneNode());
                 }
@@ -479,9 +643,8 @@ namespace TT_Lab.ViewModels.Editors
                 triggersNode.attachObject(_editingContext.GetTriggersBillboards());
                 foreach (var trigger in triggers!.Children)
                 {
-                    var billboard = _editingContext.CreateTriggerBillboard();
-                    var trg = new Trigger(trigger.Alias, triggersNode, sceneManager, billboard, trigger.Asset.GetData<TriggerData>());
-                    triggersNode.attachObject(trg);
+                    var trg = SceneInstanceFactory.CreateSceneInstance<TriggerSceneInstance>(_editingContext, trigger.Asset.GetData<AbstractAssetData>(), trigger, triggersNode);
+                    _sceneInstances.Add(trg);
                 }
                 
                 var positions = _chunkTree.First(avm => avm.Alias == "Positions");
@@ -490,7 +653,7 @@ namespace TT_Lab.ViewModels.Editors
                 foreach (var position in positions!.Children)
                 {
                     var billboard = _editingContext.CreatePositionBillboard();
-                    var pos = new Position(position.Alias, sceneManager, billboard, position.Asset.LayoutID!.Value, position.Asset.GetData<PositionData>());
+                    var pos = new Position(position.Asset.URI, sceneManager, billboard, position.Asset.LayoutID!.Value, position.Asset.GetData<PositionData>());
                     positionsNode.attachObject(pos);
                 }
                 
@@ -500,7 +663,7 @@ namespace TT_Lab.ViewModels.Editors
                 foreach (var aiPosition in aiPositions!.Children)
                 {
                     var billboard = _editingContext.CreateAiPositionBillboard();
-                    var aiPos = new AiPosition(aiPosition.Alias, sceneManager, billboard, aiPosition.Asset.LayoutID!.Value, aiPosition.Asset.GetData<AiPositionData>());
+                    var aiPos = new AiPosition(aiPosition.Asset.URI, sceneManager, billboard, aiPosition.Asset.LayoutID!.Value, aiPosition.Asset.GetData<AiPositionData>());
                     aiPositionsNode.attachObject(aiPos);
                 }
                 
@@ -509,13 +672,17 @@ namespace TT_Lab.ViewModels.Editors
                 camerasNode.attachObject(_editingContext.GetCamerasBillboards());
                 foreach (var camera in cameras!.Children)
                 {
-                    var billboard = _editingContext.CreateCameraBillboard();
-                    var cam = new Camera($"{camera.Alias}_{camera.Asset.URI}", camerasNode, sceneManager, billboard, camera.Asset.GetData<CameraData>());
-                    camerasNode.attachObject(cam);
+                    var cam = SceneInstanceFactory.CreateSceneInstance<CameraSceneInstance>(_editingContext, camera.Asset.GetData<AbstractAssetData>(), camera, camerasNode);
+                    _sceneInstances.Add(cam);
                 }
 
                 glControl.OnRender += (sender, args) =>
                 {
+                    foreach (var sceneInstance in _sceneInstances)
+                    {
+                        sceneInstance.GetEditableObject().RenderUpdate();
+                    }
+                    
                     ImGui.Begin("Chunk Render Settings");
                     ImGui.SetWindowPos(new ImVec2(glControl.GetViewportWidth() - 300, 5));
                     ImGui.SetWindowSize(new ImVec2(295, 200));
@@ -526,7 +693,14 @@ namespace TT_Lab.ViewModels.Editors
                     ImguiRenderFilterCheckbox("Render Triggers", _editingContext.GetTriggersBillboards(), DrawFilter.Triggers);
                     ImguiRenderFilterCheckbox("Render Cameras", _editingContext.GetCamerasBillboards(), DrawFilter.Cameras);
                     ImguiRenderFilterCheckbox("Render AI Positions", _editingContext.GetAiPositionsBillboards(), DrawFilter.AiPositions);
-                    ImguiRenderFilterCheckbox("Render Instances", instanceRenderObject, DrawFilter.Instances);
+                    ImguiRenderFilterCheckbox("Render Instances", instanceRenderObject, DrawFilter.Instances,
+                        (enable) =>
+                        {
+                            foreach (var sceneInstance in _sceneInstances)
+                            {
+                                sceneInstance.EnableTextDisplay(enable);
+                            }
+                        });
                     ImGui.End();
 
                     if (_editingContext.IsInstanceSelected())
@@ -534,52 +708,71 @@ namespace TT_Lab.ViewModels.Editors
                         ImguiRenderControls(glControl);
                     }
                 };
+
+                _isChunkReady = true;
+
+                SceneEditor.SceneHeaderModel = "Chunk Viewer";
             };
+        }
+
+        private void OnChunkTreeElementDuplicate(InstanceElementViewModel sender, ResourceTreeElementViewModel duplicate)
+        {
+            // _chunkTree.Refresh();
+            _addedAssets.Add(duplicate);
+            _dirtyTracker.MarkDirty();
         }
 
         private void ImguiRenderControls(OgreWindow glControl)
         {
-            ImGui.Begin("Editor Controls");
+            ImGui.Begin("Editor Info");
             ImGui.SetWindowPos(new ImVec2(5, glControl.GetViewportHeight() - 400));
             ImGui.SetWindowSize(new ImVec2(300, 395));
-            ImGui.Text("U - Unselect instance");
+            ImGui.Text($"Editing mode: {_editingContext.TransformMode}");
+            ImGui.Text("U - Unselect");
             ImGui.Text("T - Toggle translate");
             ImGui.Text("R - Toggle rotate");
+            ImGui.Text("S - Toggle scale");
             ImGui.Text("X - Edit on X axis");
             ImGui.Text("Y - Edit on Y axis");
             ImGui.Text("Z - Edit on Z axis");
             ImGui.Text("G - Move edit cursor on a grid");
-            ImGui.Text("P - Create instance at cursor's position");
-            ImGui.Text("K - Add current instance to palette");
+            ImGui.Text("P - Create duplicate at cursor's position");
+            ImGui.Text("K - Add current selection to palette");
             ImGui.End();
         }
 
-        private void ImguiRenderFilterCheckbox(string label, MovableObject renderObject, DrawFilter filter)
+        private void ImguiRenderFilterCheckbox(string label, MovableObject renderObject, DrawFilter filter, Action<bool>? toggleCallback = null)
         {
             var renderEnabled = IsDrawFilterEnabled(filter);
             if (ImGui.Checkbox(label, ref renderEnabled) && !renderObject.isVisible())
             {
                 renderObject.getParentSceneNode().setVisible(true, true);
                 EnableDrawFilter(filter);
+                toggleCallback?.Invoke(true);
             }
             else if (!renderEnabled && renderObject.isVisible())
             {
                 renderObject.getParentSceneNode().setVisible(false, true);
                 DisableDrawFilter(filter);
+                toggleCallback?.Invoke(false);
             }
         }
-
-        public Task HandleAsync(ChangeRenderCameraPositionMessage message, CancellationToken cancellationToken)
+        
+        private void EditorChangesHappened()
         {
-            if (_sceneEditor.RenderControl?.GetRenderWindow() == null)
+            if (Parent is not TabbedEditorViewModel parent || !_isChunkReady)
             {
-                return Task.FromResult(false);
+                return;
             }
-
-            var renderWindow = _sceneEditor.RenderControl?.GetRenderWindow()!;
-            renderWindow.SetCameraPosition(message.NewCameraPosition);
-
-            return Task.FromResult(true);
+            
+            if (IsDirty)
+            {
+                parent.DisplayName = _tabDisplayName + "*";
+            }
+            else
+            {
+                parent.DisplayName = _tabDisplayName;
+            }
         }
     }
 }

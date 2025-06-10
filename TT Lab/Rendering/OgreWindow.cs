@@ -292,11 +292,19 @@ namespace TT_Lab.Rendering
         public void SetCameraTarget(SceneNode node)
         {
             _camera.setTarget(node);
+            UpdateCamera();
+        }
+
+        public void UpdateCamera()
+        {
+            _camera.mousePressed(new MouseButtonEvent { button = ((int)MouseButton.Left + 1)});
+            _camera.mouseMoved(new MouseMotionEvent());
         }
 
         public void SetCameraPosition(vec3 newPosition)
         {
             _sceneManager.getSceneNode("MainCameraNode").setPosition(newPosition.x, newPosition.y, newPosition.z);
+            UpdateCamera();
         }
 
         public vec3 GetCameraPosition()
@@ -348,6 +356,11 @@ namespace TT_Lab.Rendering
         {
             _camera.setStyle(style);
             _canLeftClickToMoveCamera = style == CameraStyle.CS_ORBIT;
+        }
+
+        public void SetYawPitchDist(float yaw, float pitch, float dist)
+        {
+            _camera.setYawPitchDist(new Radian(yaw), new Radian(pitch), dist);
         }
 
         public void SetCameraSpeed(float speed) => _camera.setTopSpeed(speed);

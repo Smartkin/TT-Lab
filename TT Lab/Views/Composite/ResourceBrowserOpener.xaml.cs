@@ -6,6 +6,7 @@ using System.Windows;
 using System.Windows.Controls;
 using Caliburn.Micro;
 using TT_Lab.Assets;
+using TT_Lab.Command;
 using TT_Lab.ViewModels;
 
 namespace TT_Lab.Views.Composite;
@@ -51,6 +52,24 @@ public partial class ResourceBrowserOpener : UserControl
         get => (ObservableCollection<LabURI>?)GetValue(ResourcesToBrowseProperty);
         set => SetValue(ResourcesToBrowseProperty, value);
     }
+
+    public static readonly DependencyProperty IncludeEmptyResourceInBrowseProperty = DependencyProperty.Register(
+        nameof(IncludeEmptyResourceInBrowse), typeof(bool), typeof(ResourceBrowserOpener), new PropertyMetadata(false));
+
+    public bool IncludeEmptyResourceInBrowse
+    {
+        get => (bool)GetValue(IncludeEmptyResourceInBrowseProperty);
+        set => SetValue(IncludeEmptyResourceInBrowseProperty, value);
+    }
+
+    public static readonly DependencyProperty FilterCommandProperty = DependencyProperty.Register(
+        nameof(FilterCommand), typeof(ICommand), typeof(ResourceBrowserOpener), new PropertyMetadata(default(ICommand)));
+
+    public ICommand? FilterCommand
+    {
+        get => (ICommand?)GetValue(FilterCommandProperty);
+        set => SetValue(FilterCommandProperty, value);
+    }
     
     public ResourceBrowserOpener()
     {
@@ -59,7 +78,30 @@ public partial class ResourceBrowserOpener : UserControl
 
     private void OnOpenBrowser(object sender, RoutedEventArgs e)
     {
-        var linkBrowser = ResourcesToBrowse == null ? new ResourceBrowserViewModel(BrowseType) : new ResourceBrowserViewModel(ResourcesToBrowse);
+        if (ResourcesToBrowse != null && IncludeEmptyResourceInBrowse)
+        {
+            ResourcesToBrowse.Add(LabURI.Empty);
+        }
+        
+        ResourceBrowserViewModel linkBrowser;
+        if (ResourcesToBrowse != null && BrowseType != typeof(IAsset))
+        {
+            linkBrowser = new ResourceBrowserViewModel(BrowseType, ResourcesToBrowse, LinkedResource);
+        }
+        else if (ResourcesToBrowse != null)
+        {
+            linkBrowser = new ResourceBrowserViewModel(ResourcesToBrowse, LinkedResource);
+        }
+        else
+        {
+            linkBrowser = new ResourceBrowserViewModel(BrowseType, LinkedResource);
+        }
+
+        if (FilterCommand != null)
+        {
+            linkBrowser.Filter(FilterCommand);
+        }
+        
         var windowManager = IoC.Get<IWindowManager>();
         var linkBrowserWindow = windowManager.ShowDialogAsync(linkBrowser);
         linkBrowserWindow.Wait();

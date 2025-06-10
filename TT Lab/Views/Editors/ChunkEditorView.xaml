@@ -37,7 +37,7 @@
             >
                 <i:Interaction.Triggers>
                     <i:EventTrigger EventName="SelectedItemChanged">
-                        <cal:ActionMessage MethodName="InstanceEditorChanged">
+                        <cal:ActionMessage MethodName="SelectDifferentInstance">
                             <cal:Parameter Value="$eventArgs"/>
                         </cal:ActionMessage>
                     </i:EventTrigger>

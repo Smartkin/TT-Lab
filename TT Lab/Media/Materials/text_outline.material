@@ -1,0 +1,28 @@
+material TextOutlineMaterial
+{
+    technique
+    {
+        pass
+        {
+            lighting off
+            scene_blend alpha_blend
+            depth_check off
+            transparent_sorting off
+            
+            fragment_program_ref TextOutlineFragShader
+            {
+                param_named outlineColor float4 0 0 0 1
+            }
+            vertex_program_ref TextOutlineVertShader
+            {
+                param_named_auto worldViewProj worldviewproj_matrix
+            }
+            
+            texture_unit
+            {
+                tex_address_mode clamp
+                filtering linear linear none
+            }
+        }
+    }
+}
