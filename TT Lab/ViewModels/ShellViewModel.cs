@@ -34,9 +34,11 @@ namespace TT_Lab.ViewModels
         private Boolean _dontRemind = false;
         private Boolean _deadgeRender = false;
         private Thread _mainThread;
+        private static ShellViewModel? _instance;
 
         public ShellViewModel(IWindowManager windowManager, IEventAggregator eventAggregator, ProjectManager projectManager, OgreWindowManager ogreWindowManager)
         {
+            _instance ??= this;
             _mainThread = Thread.CurrentThread;
             _windowManager = windowManager;
             _projectManager = projectManager;
@@ -86,6 +88,8 @@ namespace TT_Lab.ViewModels
             }
         }
 
+        public static ShellViewModel Instance => _instance!;
+
         public Task About()
         {
             return _windowManager.ShowDialogAsync(IoC.Get<AboutViewModel>());
@@ -130,24 +134,29 @@ namespace TT_Lab.ViewModels
                 return;
             }
 
+            var asset = (ResourceTreeElementViewModel)selectedItem;
+            OpenEditor(asset.Asset);
+        }
+
+        public void OpenEditor(IAsset asset)
+        {
             try
             {
-                var editorsViewModel = ActiveItem;
-                var asset = (ResourceTreeElementViewModel)selectedItem;
-                if (asset.Asset.Type == typeof(Folder) || asset.Asset.Type == typeof(Package)) return;
+                if (asset.Type == typeof(Folder) || asset.Type == typeof(Package)) return;
 
-                if (asset.Asset.Type == typeof(ChunkFolder))
+                var editorsViewModel = ActiveItem;
+                if (asset.Type == typeof(ChunkFolder))
                 {
                     // Automatically switch to Scenes Viewer tab
                     editorsViewModel.ActivateItemAsync(editorsViewModel.Items[0]);
-                    _eventAggregator.PublishOnUIThreadAsync(new CreateEditorMessage<ChunkEditorViewModel>(asset.Asset.URI, typeof(ChunkEditorViewModel)));
+                    _eventAggregator.PublishOnUIThreadAsync(new CreateEditorMessage<ChunkEditorViewModel>(asset.URI, typeof(ChunkEditorViewModel)));
                     return;
                 }
 
                 // Automatically switch to Resources Editor tab
                 editorsViewModel.ActivateItemAsync(editorsViewModel.Items[1]);
-                var editorType = asset.Asset.GetEditorType();
-                var message = new CreateEditorMessage<ResourceEditorViewModel>(asset.Asset.URI, editorType);
+                var editorType = asset.GetEditorType();
+                var message = new CreateEditorMessage<ResourceEditorViewModel>(asset.URI, editorType);
                 _eventAggregator.PublishOnUIThreadAsync(message);
             }
             catch (Exception ex)

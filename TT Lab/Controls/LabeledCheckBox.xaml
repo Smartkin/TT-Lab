@@ -7,6 +7,6 @@
              mc:Ignorable="d">
     <StackPanel Orientation="{Binding LayoutOrientation, RelativeSource={RelativeSource AncestorType=UserControl}}">
         <Label Content="{Binding CheckBoxName, RelativeSource={RelativeSource AncestorType=UserControl}}" Margin="5" HorizontalAlignment="Right" VerticalAlignment="Center"/>
-        <CheckBox Margin="0, 5, 0, 0" Style="{DynamicResource AdonisCheckBoxStyle}" IsChecked="{Binding Checked, RelativeSource={RelativeSource AncestorType=UserControl}}" Content="" VerticalAlignment="Center" HorizontalAlignment="Right"/>
+        <CheckBox Margin="0, 0, 0, 0" Style="{DynamicResource AdonisCheckBoxStyle}" IsChecked="{Binding Checked, RelativeSource={RelativeSource AncestorType=UserControl}}" Content="" VerticalAlignment="Center" HorizontalAlignment="Right"/>
     </StackPanel>
 </UserControl>

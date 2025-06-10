@@ -14,6 +14,7 @@
         <Grid.ColumnDefinitions>
             <ColumnDefinition/>
             <ColumnDefinition Width="40"/>
+            <ColumnDefinition Width="40"/>
         </Grid.ColumnDefinitions>
         <local:LabeledTextBox
             LayoutOrientation="Horizontal"
@@ -22,6 +23,7 @@
             TextBoxName="{Binding BrowserName, RelativeSource={RelativeSource AncestorType=UserControl}, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
             Text="{Binding LinkedResource, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource UriConverter}}"
             IsReadOnly="True"/>
-        <Button Click="OnOpenBrowser" VerticalAlignment="Center" Grid.Column="1" Content="..."/>
+        <Button Click="OnOpenBrowser" VerticalAlignment="Center" Margin="0, 0, 0, 0" Height="25" Grid.Column="1" Content="..."/>
+        <Button Click="OnOpenLink" VerticalAlignment="Center" Margin="0, 0, 0, 0" Height="25" Grid.Column="2" Content="->"/>
     </Grid>
 </UserControl>

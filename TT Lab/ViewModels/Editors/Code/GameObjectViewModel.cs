@@ -28,7 +28,7 @@ public class GameObjectViewModel : ResourceEditorViewModel
     private BindableCollection<PrimitiveWrapperViewModel<LabURI>> _behaviourSlots;
     private BindableCollection<PrimitiveWrapperViewModel<LabURI>> _objectSlots;
     private BindableCollection<PrimitiveWrapperViewModel<LabURI>> _soundSlots;
-    private Enums.InstanceState _instanceStateFlags;
+    private InstanceStateFlagsViewModel _instanceStateFlags = new(Enums.InstanceState.Deactivated);
     private BindableCollection<PrimitiveWrapperViewModel<uint>> _instFlags;
     private BindableCollection<PrimitiveWrapperViewModel<float>> _instFloats;
     private BindableCollection<PrimitiveWrapperViewModel<uint>> _instIntegers;
@@ -97,9 +97,10 @@ public class GameObjectViewModel : ResourceEditorViewModel
         _unkTypeValue = data.UnkTypeValue;
         _cameraReactJointAmount = data.CameraReactJointAmount;
         _exitPointAmount = data.ExitPointAmount;
-        _instanceStateFlags = data.InstanceStateFlags;
+        _instanceStateFlags = new InstanceStateFlagsViewModel(data.InstanceStateFlags);
         _commandPack = new BehaviourCommandPackViewModel(this, data.BehaviourPack.ToString());
         DirtyTracker.AddChild(_commandPack);
+        DirtyTracker.AddChild(_instanceStateFlags);
         
         _ogiSlots = new BindableCollection<PrimitiveWrapperViewModel<LabURI>>();
         _animationSlots = new BindableCollection<PrimitiveWrapperViewModel<LabURI>>();
@@ -196,7 +197,7 @@ public class GameObjectViewModel : ResourceEditorViewModel
         data.UnkTypeValue = _unkTypeValue;
         data.CameraReactJointAmount = _cameraReactJointAmount;
         data.ExitPointAmount = _exitPointAmount;
-        data.InstanceStateFlags = _instanceStateFlags;
+        data.InstanceStateFlags = (Enums.InstanceState)_instanceStateFlags.StateFlags;
         _commandPack.Save(data.BehaviourPack);
         
         data.OGISlots.Clear();
@@ -313,6 +314,12 @@ public class GameObjectViewModel : ResourceEditorViewModel
             }
         }
     }
+    
+    public string UnkTypeHintString => """
+                                       CHANGE THIS AT YOUR OWN RISK!
+                                       For Pickup type objects this value must by 16 or 17
+                                       For the rest it is unknown so look at other object types!
+                                       """;
 
     [MarkDirty]
     public byte CameraReactJointAmount
@@ -342,19 +349,7 @@ public class GameObjectViewModel : ResourceEditorViewModel
         }
     }
 
-    [MarkDirty]
-    public Enums.InstanceState InstanceStateFlags
-    {
-        get => _instanceStateFlags;
-        set
-        {
-            if (_instanceStateFlags != value)
-            {
-                _instanceStateFlags = value;
-                NotifyOfPropertyChange();
-            }
-        }
-    }
+    public InstanceStateFlagsViewModel StateFlags => _instanceStateFlags;
 
     public SceneEditorViewModel ObjectScene => Scenes[0];
 

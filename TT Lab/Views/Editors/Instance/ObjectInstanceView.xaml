@@ -49,13 +49,6 @@
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
                             <composites:ResourceBrowserOpener BrowserName="Object" LinkedResource="{Binding InstanceObject}" ResourcesToBrowse="{Binding Objects}"/>
-                            <!-- <controls:LabeledDropList SelectedItem="{Binding InstanceObject}" Items="{Binding Objects}" x:Name="ObjectList" HorizontalAlignment="Stretch" Margin="0,0,0,0" VerticalAlignment="Stretch" DropListName="Object" AllowDrop="True"> -->
-                            <!--     <controls:LabeledDropList.ItemTemplate> -->
-                            <!--         <DataTemplate> -->
-                            <!--             <TextBlock Text="{Binding Value, Converter={StaticResource UriConverter}}"/> -->
-                            <!--         </DataTemplate> -->
-                            <!--     </controls:LabeledDropList.ItemTemplate> -->
-                            <!-- </controls:LabeledDropList> -->
                             <Grid Grid.Row="1" Grid.Column="0">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto"/>
@@ -63,16 +56,8 @@
                                 </Grid.ColumnDefinitions>
                                 <controls:LabeledCheckBox Grid.Row="0" x:Name="UseOnSpawnScriptBox" HorizontalAlignment="Left" VerticalAlignment="Center" CheckBoxName="" LayoutOrientation="Horizontal" Checked="{Binding UseOnSpawnScript}"/>
                                 <composites:ResourceBrowserOpener IsEnabled="{Binding Checked, ElementName=UseOnSpawnScriptBox}" Grid.Column="1" BrowserName="On Spawn Behaviour" ResourcesToBrowse="{Binding Behaviours}" LinkedResource="{Binding OnSpawnScript}"/>
-                                <!-- <controls:LabeledDropList Grid.Column="1" SelectedItem="{Binding OnSpawnScript}" Items="{Binding Behaviours}" x:Name="OnSpawnScriptList" Margin="0,0,0,0" DropListName="On spawn script" AllowDrop="True" Grid.Row="1" IsEnabled="{Binding Checked, ElementName=UseOnSpawnScriptBox}"> -->
-                                <!--     <controls:LabeledDropList.ItemTemplate> -->
-                                <!--         <DataTemplate> -->
-                                <!--             <TextBlock Text="{Binding Value, Converter={StaticResource UriConverter}}"/> -->
-                                <!--         </DataTemplate> -->
-                                <!--     </controls:LabeledDropList.ItemTemplate> -->
-                                <!-- </controls:LabeledDropList> -->
-                                
                             </Grid>
-                            <controls:LabeledTextBox Grid.Column="0" Text="{Binding RefListIndex}" x:Name="GlobalInstanceRefListIndexBox" HorizontalAlignment="Stretch" Margin="0,0,0,0" Grid.Row="2" VerticalAlignment="Stretch" Grid.ColumnSpan="2" TextBoxName="Global instance reference index"/>
+                            <controls:LabeledTextBox Grid.Column="0" Text="{Binding RefListIndex}" x:Name="GlobalInstanceRefListIndexBox" HorizontalAlignment="Stretch" Margin="0,0,0,0" Grid.Row="2" VerticalAlignment="Stretch" TextBoxName="Global instance reference index"/>
                         </Grid>
                         <ItemsControl Grid.Row="2">
                             <Expander x:Name="PosPropsExpander" Style="{DynamicResource SimpleExpander}" Header="Positional properties">
@@ -89,49 +74,7 @@
                                     </GroupBox>
                                 </Grid>
                             </Expander>
-                            <Expander x:Name="StateFlagsExpander" Style="{DynamicResource SimpleExpander}" Header="State flags">
-                                <Grid>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition/>
-                                        <RowDefinition/>
-                                    </Grid.RowDefinitions>
-                                    <controls:LabeledTextBox x:Name="StateFlagsBox" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" TextBoxName="HEX input" Text="{Binding StateFlags, StringFormat={}{0:X}}"/>
-                                    <UniformGrid Columns="2" Grid.Row="1">
-                                        <controls:LabeledCheckBox Checked="{Binding Deactivated}" Margin="0,0,0,0" CheckBoxName="Deactivated"/>
-                                        <controls:LabeledCheckBox Checked="{Binding CollisionActive}" Margin="0,0,0,0" CheckBoxName="Collision active"/>
-                                        <controls:LabeledCheckBox Checked="{Binding Visible}" Margin="0,0,0,0" CheckBoxName="Visible"/>
-                                        <controls:LabeledCheckBox Checked="{Binding ShadowActive}" Margin="0,0,0,0" CheckBoxName="Shadows Active"/>
-                                        <controls:LabeledCheckBox Checked="{Binding PlayableCharacterCanMoveAlong}" Margin="0,0,0,0" CheckBoxName="Playable character can move along"/>
-                                        <controls:LabeledCheckBox Checked="{Binding Unknown3}" Margin="0,0,0,0" CheckBoxName="Unknown 3"/>
-                                        <controls:LabeledCheckBox Checked="{Binding SyncCrossChunkState}" Margin="0,0,0,0" CheckBoxName="Sync state across loaded chunks"/>
-                                        <controls:LabeledCheckBox Checked="{Binding Unknown5}" Margin="0,0,0,0" CheckBoxName="Unknown 5"/>
-                                        <controls:LabeledCheckBox Checked="{Binding ReceiveOnTriggerSignals}" Margin="0,0,0,0" CheckBoxName="Receive OnTrigger signals"/>
-                                        <controls:LabeledCheckBox Checked="{Binding CanDamageCharacter}" Margin="0,0,0,0" CheckBoxName="Can damage character"/>
-                                        <controls:LabeledCheckBox Checked="{Binding SolidToBodySlam}" Margin="0,0,0,0" CheckBoxName="Solid to body slam"/>
-                                        <controls:LabeledCheckBox Checked="{Binding SolidToSlide}" Margin="0,0,0,0" CheckBoxName="Solid to slide"/>
-                                        <controls:LabeledCheckBox Checked="{Binding SolidToSpin}" Margin="0,0,0,0" CheckBoxName="Solid to spin"/>
-                                        <controls:LabeledCheckBox Checked="{Binding SolidToTwinSlam}" Margin="0,0,0,0" CheckBoxName="Solid to twin slam"/>
-                                        <controls:LabeledCheckBox Checked="{Binding SolidToThrownCortex}" Margin="0,0,0,0" CheckBoxName="Solid to thrown Cortex"/>
-                                        <controls:LabeledCheckBox Checked="{Binding Targettable}" Margin="0,0,0,0" CheckBoxName="Targettable"/>
-                                        <controls:LabeledCheckBox Checked="{Binding CanAlwaysDamageCharacter}" Margin="0,0,0,0" CheckBoxName="Can always damage character?"/>
-                                        <controls:LabeledCheckBox Checked="{Binding BulletsWillBounceBack}" Margin="0,0,0,0" CheckBoxName="Bullets will bounce back"/>
-                                        <controls:LabeledCheckBox Checked="{Binding Unknown13}" Margin="0,0,0,0" CheckBoxName="Unknown 13"/>
-                                        <controls:LabeledCheckBox Checked="{Binding Unknown14}" Margin="0,0,0,0" CheckBoxName="Unknown 14"/>
-                                        <controls:LabeledCheckBox Checked="{Binding Unknown15}" Margin="0,0,0,0" CheckBoxName="Unknown 15"/>
-                                        <controls:LabeledCheckBox Checked="{Binding Unknown16}" Margin="0,0,0,0" CheckBoxName="Unknown 16"/>
-                                        <controls:LabeledCheckBox Checked="{Binding Unknown17}" Margin="0,0,0,0" CheckBoxName="Unknown 17"/>
-                                        <controls:LabeledCheckBox Checked="{Binding Unknown18}" Margin="0,0,0,0" CheckBoxName="Unknown 18"/>
-                                        <controls:LabeledCheckBox Checked="{Binding Unknown19}" Margin="0,0,0,0" CheckBoxName="Unknown 19"/>
-                                        <controls:LabeledCheckBox Checked="{Binding Unknown20}" Margin="0,0,0,0" CheckBoxName="Unknown 20"/>
-                                        <controls:LabeledCheckBox Checked="{Binding Unknown21}" Margin="0,0,0,0" CheckBoxName="Unknown 21"/>
-                                        <controls:LabeledCheckBox Checked="{Binding Unknown22}" Margin="0,0,0,0" CheckBoxName="Unknown 22"/>
-                                        <controls:LabeledCheckBox Checked="{Binding Unknown23}" Margin="0,0,0,0" CheckBoxName="Unknown 23"/>
-                                        <controls:LabeledCheckBox Checked="{Binding Unknown24}" Margin="0,0,0,0" CheckBoxName="Unknown 24"/>
-                                        <controls:LabeledCheckBox Checked="{Binding Unknown25}" Margin="0,0,0,0" CheckBoxName="Unknown 25"/>
-                                        <controls:LabeledCheckBox Checked="{Binding Unknown26}" Margin="0,0,0,0" CheckBoxName="Unknown 26"/>
-                                    </UniformGrid>
-                                </Grid>
-                            </Expander>
+                            <composites:InstanceStateFlagsView DataContext="{Binding StateFlags}"/>
                             <Expander x:Name="LinkedInstancesExpander" Style="{DynamicResource SimpleExpander}" Header="Linked instances" MaxHeight="250">
                                 <Grid>
                                     <ListBox ItemsSource="{Binding Instances}" Height="300" d:ItemsSource="{d:SampleData ItemCount=5}">

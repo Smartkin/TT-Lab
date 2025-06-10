@@ -111,4 +111,14 @@ public partial class ResourceBrowserOpener : UserControl
             LinkedResource = linkBrowser.SelectedLink;
         }
     }
+
+    private void OnOpenLink(object sender, RoutedEventArgs e)
+    {
+        if (LinkedResource == LabURI.Empty)
+        {
+            return;
+        }
+        
+        ShellViewModel.Instance.OpenEditor(AssetManager.Get().GetAsset(LinkedResource));
+    }
 }
