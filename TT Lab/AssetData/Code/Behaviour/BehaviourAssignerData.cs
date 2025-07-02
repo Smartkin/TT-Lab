@@ -33,7 +33,7 @@ namespace TT_Lab.AssetData.Code.Behaviour
         public BehaviourAssignerData(LabURI package, String? variant, TwinBehaviourAssigner assigner)
         {
             Behaviour = assigner.Behaviour - 1 == -1 ? LabURI.Empty : AssetManager.Get().GetUri(package, typeof(BehaviourGraph).Name, variant, (UInt32)assigner.Behaviour - 1);
-            Object = assigner.Object != 65535 ? AssetManager.Get().GetUri(package, typeof(GameObject).Name, variant, assigner.Object) : LabURI.Empty;
+            Object = assigner.GlobalObjectId != 65535 ? AssetManager.Get().GetUri(package, typeof(GameObject).Name, variant, assigner.GlobalObjectId) : LabURI.Empty;
             AssignType = assigner.AssignType;
             AssignLocality = assigner.AssignLocality;
             AssignStatus = assigner.AssignStatus;

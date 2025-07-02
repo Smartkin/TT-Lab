@@ -4,7 +4,7 @@ using System.IO;
 
 namespace Twinsanity.Libraries
 {
-    public class Hasher
+    public static class Hasher
     {
         public static String ComputeHash(Stream stream)
         {

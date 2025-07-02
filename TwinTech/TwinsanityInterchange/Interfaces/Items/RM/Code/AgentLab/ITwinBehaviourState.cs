@@ -24,6 +24,10 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code.AgentLab
         /// </summary>
         public Boolean UsesObjectSlot { get; set; }
         /// <summary>
+        /// If the execution of this state blocks executing any other behaviours in parallel
+        /// </summary>
+        public Boolean NoneBlocking { get; set; }
+        /// <summary>
         /// Control packet for manipulation position, speed, etc. of the object executing the behaviour
         /// </summary>
         public TwinBehaviourControlPacket ControlPacket { get; set; }

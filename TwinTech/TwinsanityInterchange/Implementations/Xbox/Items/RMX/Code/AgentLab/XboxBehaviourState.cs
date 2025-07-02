@@ -14,6 +14,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.RMX.Code.A
         public Int16 BehaviourIndexOrSlot { get; set; }
         public Boolean SkipsFirstStateBody { get; set; }
         public Boolean UsesObjectSlot { get; set; }
+        public bool NoneBlocking { get; set; }
         public TwinBehaviourControlPacket ControlPacket { get; set; }
         public List<ITwinBehaviourStateBody> Bodies { get; set; }
 

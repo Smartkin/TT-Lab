@@ -26,9 +26,9 @@ namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
         /// </summary>
         public Boolean NotGate;
         /// <summary>
-        /// Special multiplied
+        /// How often the condition is checked
         /// </summary>
-        public Single Modifier;
+        public Single CheckInterval;
         /// <summary>
         /// The expected value to pass the check
         /// </summary>
@@ -54,7 +54,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
             ConditionIndex = (UInt16)(bitfield & 0xFFFF);
             Parameter = (UInt16)((bitfield & 0xFFFF0000) >> 17);
             NotGate = (bitfield & 0x10000) != 0;
-            Modifier = reader.ReadSingle();
+            CheckInterval = reader.ReadSingle();
             ReturnCheck = reader.ReadSingle();
             ConditionPowerMultiplier = reader.ReadSingle();
         }
@@ -68,7 +68,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
                 newBitfield |= 0x10000;
             }
             writer.Write(newBitfield);
-            writer.Write(Modifier);
+            writer.Write(CheckInterval);
             writer.Write(ReturnCheck);
             writer.Write(ConditionPowerMultiplier);
         }
@@ -77,7 +77,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
         {
             AgentLabDefs defs = PS2BehaviourGraph.GetAgentLabDefs();
             StringUtils.WriteLineTabulated(writer, $"Condition {MapIndex(ConditionIndex, defs)}({Parameter}) {"{"}", tabs);
-            StringUtils.WriteLineTabulated(writer, $"({Modifier.ToString(CultureInfo.InvariantCulture)}, " +
+            StringUtils.WriteLineTabulated(writer, $"({CheckInterval.ToString(CultureInfo.InvariantCulture)}, " +
                 $"{ReturnCheck.ToString(CultureInfo.InvariantCulture)}, " +
                 $"{ConditionPowerMultiplier.ToString(CultureInfo.InvariantCulture)}) == {(NotGate ? "false" : "true")}", tabs + 1);
             StringUtils.WriteLineTabulated(writer, "}", tabs);
@@ -114,7 +114,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
                         NotGate = true;
                     }
                     String[] floats = StringUtils.GetStringInBetween(line, "(", ")").Split(',');
-                    Modifier = Single.Parse(floats[0], CultureInfo.InvariantCulture);
+                    CheckInterval = Single.Parse(floats[0], CultureInfo.InvariantCulture);
                     ReturnCheck = Single.Parse(floats[1], CultureInfo.InvariantCulture);
                     ConditionPowerMultiplier = Single.Parse(floats[2], CultureInfo.InvariantCulture);
                 }

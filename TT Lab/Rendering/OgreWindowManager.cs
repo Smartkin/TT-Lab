@@ -17,6 +17,7 @@ namespace TT_Lab.Rendering
         private readonly List<OgreWindow> _ogreWindows = new();
         private bool _isInitialized = false;
         private bool _isDisposed = false;
+        private bool _isResizing = false;
         private Stopwatch _renderWatch = new();
         
         public object RenderLockObject = new();
@@ -132,7 +133,7 @@ namespace TT_Lab.Rendering
         /// </summary>
         public void Render()
         {
-            if (_ogreWindows.Count == 0 || _isDisposed)
+            if (_ogreWindows.Count == 0 || _isDisposed || _isResizing || _ogreWindows.Any(w => w.IsResizing()))
             {
                 return;
             }
@@ -179,9 +180,14 @@ namespace TT_Lab.Rendering
         /// </summary>
         public void NotifyResizeAllWindows()
         {
-            foreach (var window in _ogreWindows)
+            lock (RenderLockObject)
             {
-                window.NotifyWindowChanged();
+                _isResizing = true;
+                foreach (var window in _ogreWindows)
+                {
+                    window.NotifyWindowChanged();
+                }
+                _isResizing = false;
             }
         }
 

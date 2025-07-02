@@ -7,9 +7,13 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code.AgentLab
     public interface ITwinBehaviourCommandsSequence : ITwinItem
     {
         /// <summary>
-        /// Unknown header
+        /// Unknown key value which must be either 17 or 18
         /// </summary>
-        public Int32 Header { get; set; }
+        public InstanceType Key { get; set; }
+        /// <summary>
+        /// Unknown index in global storage
+        /// </summary>
+        public Byte IndexInGlobalStorage { get; set; }
         /// <summary>
         /// Behaviour packs with their IDs
         /// </summary>
@@ -33,5 +37,14 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code.AgentLab
         /// <param name="reader"></param>
         public void ReadText(StreamReader reader);
         public String ToString();
+
+        /// <summary>
+        /// Key value enum
+        /// </summary>
+        public enum InstanceType
+        {
+            Pickup = 0x11,
+            Projectile = 0x12,
+        }
     }
 }

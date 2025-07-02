@@ -230,7 +230,7 @@
 		"0x10",
 		"0x14",
 		"0x18",
-		"0x00",
+		"0x30",
 		"0x0C",
 		"0x50",
 		"0x00",
@@ -1200,7 +1200,6 @@
 		43, // LaunchAt
 		46, // TriggerFocusAgent
 		58, // TransferFocus
-		70, // ContinueColliderMotion
 		73, // ColliderRecoil
 		107,
 		216,
@@ -2048,7 +2047,7 @@
 			"Arguments": [ "hex" ]
 		},
 		"59": {
-			"Name": "RequestMessagersFocus",
+			"Name": "RequestMessengersFocus",
 			"Arguments": [ "hex" ]
 		},
 		"60": {
@@ -2090,6 +2089,10 @@
 		"69": {
 			"Name": "ModifyCounter",
 			"Arguments": [ "hex", "hex", "hex" ]
+		},
+		"70": {
+			"Name": "ContinueColliderMotion",
+			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ]
 		},
 		"71": {
 			"Name": "RevertColliderMotion",
@@ -2184,11 +2187,11 @@
 			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ]
 		},
 		"99": {
-			"Name": "RequestMessagersFocus2",
+			"Name": "RequestMessengersFocus2",
 			"Arguments": [ "hex" ]
 		},
 		"100": {
-			"Name": "RequestMessagersFocus3",
+			"Name": "RequestMessengersFocus3",
 			"Arguments": [ "hex" ]
 		},
 		"101": {
@@ -2212,7 +2215,7 @@
 			"Arguments": [ "hex", "hex", "hex", "hex", "hex" ]
 		},
 		"106": {
-			"Name": "RequestMessagersFocus4",
+			"Name": "RequestMessengersFocus4",
 			"Arguments": [ "hex" ]
 		},
 		"108": {

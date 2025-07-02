@@ -12,7 +12,8 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.RMX.Code.A
 {
     public class XboxBehaviourCommandsSequence : BaseTwinItem, ITwinBehaviourCommandsSequence
     {
-        public Int32 Header { get; set; }
+        public ITwinBehaviourCommandsSequence.InstanceType Key { get; set; }
+        public byte IndexInGlobalStorage { get; set; }
         public List<KeyValuePair<UInt16, ITwinBehaviourCommandPack>> BehaviourPacks { get; set; }
         public List<ITwinBehaviourCommand> Commands { get; set; }
 
@@ -31,9 +32,11 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.RMX.Code.A
 
         public override void Read(BinaryReader reader, int length)
         {
-            Header = reader.ReadInt32();
+            var header = reader.ReadInt32();
+            Key = (ITwinBehaviourCommandsSequence.InstanceType)(header & 0xFF);
+            IndexInGlobalStorage = (Byte)(header >> 8 & 0xFF);
             BehaviourPacks.Clear();
-            var packs = (Byte)(Header >> 16 & 0xFF);
+            var packs = (Byte)(header >> 16 & 0xFF);
             for (var i = 0; i < packs; ++i)
             {
                 var pack = new XboxBehaviourCommandPack();
@@ -50,8 +53,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.RMX.Code.A
 
         public override void Write(BinaryWriter writer)
         {
-            var newHeader = (Int32)(Header & 0xFF00FFFF) | BehaviourPacks.Count << 16;
-            newHeader |= (Int32)(Header & 0xFF00FFFF);
+            var newHeader = (Int32)(BehaviourPacks.Count << 16) | (IndexInGlobalStorage << 8) | (Int32)(Key);
             writer.Write(newHeader);
             foreach (var pair in BehaviourPacks)
             {
@@ -68,7 +70,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.RMX.Code.A
         public void WriteText(StreamWriter writer, Int32 tabs = 0)
         {
             StringUtils.WriteLineTabulated(writer, "@Xbox sequence", tabs);
-            StringUtils.WriteLineTabulated(writer, $"BehaviourCommandsSequence({Header}) {"{"}", tabs);
+            StringUtils.WriteLineTabulated(writer, $"BehaviourCommandsSequence() {"{"}", tabs);
             foreach (var packPair in BehaviourPacks)
             {
                 StringUtils.WriteLineTabulated(writer, $"Pack({packPair.Key}) {"{"}", tabs + 1);
@@ -91,7 +93,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.RMX.Code.A
             {
                 line = reader.ReadLine().Trim();
             }
-            Header = int.Parse(StringUtils.GetStringInBetween(line, "(", ")"));
+            StringUtils.GetStringInBetween(line, "(", ")");
             while (!line.EndsWith("{"))
             {
                 line = reader.ReadLine().Trim();

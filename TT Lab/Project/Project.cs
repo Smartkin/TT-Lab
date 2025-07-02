@@ -1017,6 +1017,50 @@ namespace TT_Lab.Project
             System.IO.Directory.SetCurrentDirectory("build");
             System.IO.Directory.CreateDirectory("archives");
             System.IO.Directory.SetCurrentDirectory("archives");
+            if (chunk.Name == "Default")
+            {
+                Log.WriteLine("Writing Default chunk...");
+                System.IO.Directory.CreateDirectory("Startup");
+                System.IO.Directory.SetCurrentDirectory("Startup");
+                var @default = factory.GenerateDefault();
+                chunk.ResolveChunkResources(factory, @default);
+                // Default is a special case where we need to put in the meshes which are drop shadows
+                var defaultMeshes = (from assetUri in GlobalPackagePS2.GetData().To<FolderData>().Children
+                                     let asset = assetManager.GetAsset(assetUri)
+                                     where asset is Folder
+                                     where asset.Name.Contains("Global Assets")
+                                     from childUri in asset.GetData<FolderData>().Children
+                                     let child = assetManager.GetAsset(childUri)
+                                     where child is Folder
+                                     where child.Name.Contains("Meshes")
+                                     select child).First();
+                defaultMeshes.ResolveChunkResources(factory, @default.GetItem<ITwinSection>(Constants.LEVEL_GRAPHICS_SECTION).GetItem<ITwinSection>(Constants.GRAPHICS_MESHES_SECTION));
+                var defaultModels = (from assetUri in GlobalPackagePS2.GetData().To<FolderData>().Children
+                    let asset = assetManager.GetAsset(assetUri)
+                    where asset is Folder
+                    where asset.Name.Contains("Global Assets")
+                    from childUri in asset.GetData<FolderData>().Children
+                    let child = assetManager.GetAsset(childUri)
+                    where child is Folder
+                    where child.Name.Contains("Models")
+                    select child).First();
+                var modelsSection = @default.GetItem<ITwinSection>(Constants.LEVEL_GRAPHICS_SECTION)
+                    .GetItem<ITwinSection>(Constants.GRAPHICS_MODELS_SECTION);
+                var itemsAmount = modelsSection.GetItemsAmount();
+                for (var i = itemsAmount - 1; i >= 0; --i)
+                {
+                    var item = modelsSection.GetItem(i);
+                    modelsSection.RemoveItem<ITwinItem>(item.GetID());
+                }
+                defaultModels.ResolveChunkResources(factory, modelsSection);
+                using var defaultFile = new System.IO.FileStream($"Default.rm2", System.IO.FileMode.Create, System.IO.FileAccess.Write);
+                using var defaultWriter = new System.IO.BinaryWriter(defaultFile);
+                @default.Write(defaultWriter);
+                defaultWriter.Flush();
+                defaultWriter.Close();
+                Log.WriteLine("Finished writing Default chunk!");
+                return;
+            }
             System.IO.Directory.CreateDirectory("Levels");
             System.IO.Directory.SetCurrentDirectory("Levels");
             var chunkLevelPath = chunk.Variation;
@@ -1159,6 +1203,24 @@ namespace TT_Lab.Project
                                  where child.Name.Contains("Meshes")
                                  select child).First();
             defaultMeshes.ResolveChunkResources(factory, @default.GetItem<ITwinSection>(Constants.LEVEL_GRAPHICS_SECTION).GetItem<ITwinSection>(Constants.GRAPHICS_MESHES_SECTION));
+            var defaultModels = (from assetUri in GlobalPackagePS2.GetData().To<FolderData>().Children
+                let asset = assetManager.GetAsset(assetUri)
+                where asset is Folder
+                where asset.Name.Contains("Global Assets")
+                from childUri in asset.GetData<FolderData>().Children
+                let child = assetManager.GetAsset(childUri)
+                where child is Folder
+                where child.Name.Contains("Models")
+                select child).First();
+            var modelsSection = @default.GetItem<ITwinSection>(Constants.LEVEL_GRAPHICS_SECTION)
+                .GetItem<ITwinSection>(Constants.GRAPHICS_MODELS_SECTION);
+            var itemsAmount = modelsSection.GetItemsAmount();
+            for (var i = itemsAmount - 1; i >= 0; --i)
+            {
+                var item = modelsSection.GetItem(i);
+                modelsSection.RemoveItem<ITwinItem>(item.GetID());
+            }
+            defaultModels.ResolveChunkResources(factory, modelsSection);
             using var defaultFile = new System.IO.FileStream($"Default.rm2", System.IO.FileMode.Create, System.IO.FileAccess.Write);
             using var defaultWriter = new System.IO.BinaryWriter(defaultFile);
             @default.Write(defaultWriter);

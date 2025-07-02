@@ -8,6 +8,7 @@ using Caliburn.Micro;
 using TT_Lab.Assets;
 using TT_Lab.Command;
 using TT_Lab.ViewModels;
+using TT_Lab.ViewModels.Interfaces;
 
 namespace TT_Lab.Views.Composite;
 
@@ -119,6 +120,6 @@ public partial class ResourceBrowserOpener : UserControl
             return;
         }
         
-        ShellViewModel.Instance.OpenEditor(AssetManager.Get().GetAsset(LinkedResource));
+        IoC.Get<ILabManager>().OpenEditor(AssetManager.Get().GetAsset(LinkedResource));
     }
 }

@@ -37,8 +37,14 @@ namespace TT_Lab.Views.Editors
 
             GlControlView.Loaded += GlControlView_Loaded;
 
-            LayoutUpdated += SceneEditorView_LayoutUpdated;
+            // LayoutUpdated += SceneEditorView_LayoutUpdated;
+            SizeChanged += SceneEditorView_SizeChanged;
             Unloaded += SceneEditorView_Unloaded;
+        }
+
+        private void SceneEditorView_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            RepositionRenderer();
         }
 
         private void SceneEditorView_LayoutUpdated(Object? sender, EventArgs e)
@@ -98,6 +104,7 @@ namespace TT_Lab.Views.Editors
             _renderer.Show();
             RaiseEvent(new SceneEditorRoutedEventArgs(SceneEditorInitializedEvent, _renderer));
             StartListeningToInput();
+            RepositionRenderer();
             return true;
         }
 
@@ -174,8 +181,10 @@ namespace TT_Lab.Views.Editors
             {
                 return;
             }
+            
+            Debug.WriteLine("Reposition triggered");
 
-            var windowPos = GetWindowActualPosition(mainWindow);
+            var windowPos = GetWindowsActualPosition(mainWindow);
             _placeholderPosition = GlControlView.TransformToAncestor(mainWindow).Transform(new Point(0, 0));
             _renderer.Width = Math.Ceiling(GlControlView.ActualWidth);
             _renderer.Height = Math.Ceiling(GlControlView.ActualHeight);
@@ -184,7 +193,7 @@ namespace TT_Lab.Views.Editors
             _renderer.GetRenderWindow()?.NotifyWindowChanged();
         }
 
-        private Point GetWindowActualPosition(Window window)
+        private Point GetWindowsActualPosition(Window window)
         {
             // HACK: Due to how window updates its Top and Left public properties we are forced to use reflection when it's maximized. THANKS MICROSOFT
             if (window.WindowState == WindowState.Maximized)

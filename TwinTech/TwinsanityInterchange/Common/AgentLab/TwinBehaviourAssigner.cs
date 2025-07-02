@@ -7,7 +7,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
     public class TwinBehaviourAssigner : ITwinSerializable
     {
         public Int32 Behaviour { get; set; }
-        public UInt16 Object { get; set; }
+        public UInt16 GlobalObjectId { get; set; }
         public AssignTypeID AssignType { get; set; }
         public AssignLocalityID AssignLocality { get; set; }
         public AssignStatusID AssignStatus { get; set; }
@@ -28,10 +28,10 @@ namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
             Behaviour = reader.ReadInt32();
             var assigner = reader.ReadUInt32();
             {
-                Object = (UInt16)(assigner >> 0x10);
                 AssignType = (AssignTypeID)(assigner & 0xF);
                 AssignLocality = (AssignLocalityID)(assigner >> 0x4 & 0xF);
                 AssignStatus = (AssignStatusID)(assigner >> 0x8 & 0xF);
+                GlobalObjectId = (UInt16)(assigner >> 0x10);
                 AssignPreference = (AssignPreferenceID)(assigner >> 0xC & 0xF);
             }
 
@@ -40,7 +40,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
         public void Write(BinaryWriter writer)
         {
             writer.Write(Behaviour);
-            UInt32 newAssigner = (UInt32)((Object & 0xFFFF) << 0x10);
+            UInt32 newAssigner = (UInt32)((GlobalObjectId & 0xFFFF) << 0x10);
             newAssigner |= (UInt32)AssignType;
             newAssigner |= (UInt32)AssignLocality << 0x4;
             newAssigner |= (UInt32)AssignStatus << 0x8;
@@ -51,14 +51,14 @@ namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
         public enum AssignTypeID
         {
             ME = 0,
-            OBJECT_CHILD,
-            LINKED_OBJECT,
+            //OBJECT_CHILD, Cut from retail
+            LINKED_OBJECT = 2,
             GLOBAL_AGENT,
             HUMAN_PLAYER,
-            BACKGROUND_CHARACTER,
-            ANYBODY,
-            GENERATE_AGENT,
-            ORIGINATOR,
+            // BACKGROUND_CHARACTER, Cut from retail
+            // ANYBODY, Cut from retail
+            // GENERATE_AGENT, Cut from retail
+            ORIGINATOR = 8,
         }
         public enum AssignLocalityID
         {

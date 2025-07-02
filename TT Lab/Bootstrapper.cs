@@ -11,6 +11,7 @@ using TT_Lab.Services;
 using TT_Lab.Services.Implementations;
 using TT_Lab.Util;
 using TT_Lab.ViewModels;
+using TT_Lab.ViewModels.Interfaces;
 using LogManager = Caliburn.Micro.LogManager;
 
 namespace TT_Lab
@@ -55,8 +56,17 @@ namespace TT_Lab
                     .Where(type => type.IsClass)
                     .Where(type => type.Name.EndsWith("ViewModel"))
                     .ToList()
-                    .ForEach(viewModelType => _container.RegisterPerRequest(
-                        viewModelType, viewModelType.ToString(), viewModelType));
+                    .ForEach(viewModelType =>
+                    {
+                        if (viewModelType == typeof(ShellViewModel))
+                        {
+                            _container.Singleton<ILabManager, ShellViewModel>();
+                            return;
+                        }
+                        
+                        _container.RegisterPerRequest(
+                            viewModelType, viewModelType.ToString(), viewModelType);
+                    });
             }
         }
 
@@ -74,6 +84,12 @@ namespace TT_Lab
 
         protected override Object GetInstance(Type service, String key)
         {
+            // ILabManager is registered specifically to not expose all the public methods for WPF bindings in actual root view model
+            if (service == typeof(ShellViewModel))
+            {
+                service = typeof(ILabManager);
+            }
+            
             return _container.GetInstance(service, key);
         }
 

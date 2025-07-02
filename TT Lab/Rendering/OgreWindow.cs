@@ -32,6 +32,7 @@ namespace TT_Lab.Rendering
         private bool _mousePositionIsInvalid = true;
         private Point _mousePrevPos;
         private bool _isClosed = false;
+        private bool _isResizing = false;
         private bool _canLeftClickToMoveCamera = true;
         private readonly List<InputListener> _inputListeners = new();
         private EmbededRender _owner;
@@ -345,7 +346,9 @@ namespace TT_Lab.Rendering
 
         public void NotifyWindowChanged()
         {
+            _isResizing = true;
             _internalWindow.render.windowMovedOrResized();
+            _isResizing = false;
         }
 
         public Root GetRoot() => _root;
@@ -392,6 +395,11 @@ namespace TT_Lab.Rendering
             
             _mousePrevPos = mousePos;
             _mousePositionIsInvalid = false;
+        }
+
+        public bool IsResizing()
+        {
+            return _isResizing;
         }
     }
 }

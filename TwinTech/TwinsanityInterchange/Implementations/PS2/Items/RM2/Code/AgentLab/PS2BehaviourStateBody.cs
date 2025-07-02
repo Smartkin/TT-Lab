@@ -18,10 +18,6 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
 
         bool ITwinBehaviourStateBody.HasNext { get; set; }
 
-        UInt32 AdditionalFlags { get; set; }
-
-        const UInt32 AdditionalFlagsMask = 0xFFFF0100;
-
         public PS2BehaviourStateBody()
         {
             Commands = new List<ITwinBehaviourCommand>();
@@ -43,8 +39,8 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
             Bitfield = reader.ReadUInt32();
             var hasStateJump = (Bitfield & 0x400) != 0;
             var hasCondition = (Bitfield & 0x200) != 0;
+            var hasTraceEnabled = (Bitfield & 0x100) != 0; // Unused in retail
             var commandsAmt = Bitfield & 0xFF;
-            AdditionalFlags = Bitfield & AdditionalFlagsMask;
             HasStateJump = hasStateJump;
             if (HasStateJump)
             {
@@ -80,7 +76,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
             {
                 newBitfield |= 0x200;
             }
-            newBitfield |= AdditionalFlags & AdditionalFlagsMask;
+            
             Bitfield = newBitfield;
             writer.Write(newBitfield);
             if (HasStateJump)
@@ -97,10 +93,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
         public void WriteText(StreamWriter writer, Int32 tabs = 0)
         {
             StringUtils.WriteLineTabulated(writer, $"Body {"{"}", tabs);
-            if (AdditionalFlags != 0)
-            {
-                StringUtils.WriteLineTabulated(writer, $"additional_flags = 0x{Convert.ToString(AdditionalFlags, 16)}", tabs + 1);
-            }
+ 
             if (HasStateJump)
             {
                 StringUtils.WriteLineTabulated(writer, $"next_state = {JumpToState}", tabs + 1);
@@ -129,10 +122,6 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
                 {
                     JumpToState = int.Parse(StringUtils.GetStringAfter(line, "="));
                     HasStateJump = true;
-                }
-                else if (line.StartsWith("additional_flags"))
-                {
-                    AdditionalFlags = UInt32.Parse(StringUtils.GetStringAfter(StringUtils.GetStringAfter(line, "=").Trim(), "0x"), System.Globalization.NumberStyles.HexNumber);
                 }
                 else if (line.StartsWith("Condition"))
                 {

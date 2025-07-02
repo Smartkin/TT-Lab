@@ -2,6 +2,8 @@
 using System.Diagnostics;
 using System.IO;
 using System.Text;
+using Twinsanity.AgentLab;
+using Twinsanity.AgentLab.SymbolTable;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Implementations.PS2;
 
@@ -102,6 +104,72 @@ namespace Twinsanity_Command_Interface
 
         static void Main(string[] args)
         {
+            /* [GlobalIndex(2)]
+             * [InstanceType(Projectile)]
+             * behaviour LinearBehaviour {
+             *      ActionCall(param_1, param_2);
+             *      ActionCall2(param_1);
+             *      ActionCall3();
+             * }
+             */
+            var libraryLexer = new AgentLabLexer("""
+                                                 [GlobalIndex(0)]
+                                                 [InstanceType(Pickup)]
+                                                 library MyBehaviourLibrary {
+                                                    behaviour MyLinearBehaviour {
+                                                        ActionCall1(param_1, param_2);
+                                                        ActionCall2(param_1, param_2);
+                                                    }
+                                                    
+                                                    behaviour MyLinearBehaviour2 {
+                                                    }
+                                                    
+                                                    RequiredActionCall();
+                                                 }
+                                                 """);
+            var agentLabLexer = new AgentLabLexer("""
+                                                  // This is a comment
+                                                  [Priority(100)] // This is another comment
+                                                  behaviour COM_MY_BEHAVIOUR {
+                                                    // And this is another comment
+                                                    const my_const = 10.0 + 12.0;
+                                                    const another_const = (10 - 5) * 6 + 0xF1;
+                                                    const my_const_bool = false;
+                                                    const my_const_string = 'This is a custom string';
+                                                    
+                                                    starter {
+                                                        GlobalObjectId = -1;
+                                                    }
+                                                    
+                                                    [ControlPacket(my_control_packet)]
+                                                    state FirstState() {
+                                                        if Next(0) >= 0.5 {
+                                                            interval = 1.0;
+                                                            ActionCall();
+                                                            ActionCall2();
+                                                            ActionCall3(param_1, param_2);
+                                                        }
+                                                    }
+                                                    
+                                                    ControlPacket my_control_packet {
+                                                        settings {
+                                                            Stalls = 1;
+                                                        }
+                                                        data {
+                                                            Delay = 1.0;
+                                                        }
+                                                    }
+                                                    
+                                                  }
+                                                  """);
+            var parser = new AgentLabParser(agentLabLexer);
+            var libraryParser = new AgentLabParser(libraryLexer);
+            var result = parser.Parse();
+            var symbols = new AgentLabSymbolTableBuilder(result, "ActionDefinitionsPs2.lab");
+            var libraryResult = libraryParser.Parse();
+            Console.WriteLine(result.ToString());
+
+            return;
             using var frontendFile = new FileStream(args[0], FileMode.Open, FileAccess.Read);
             using var reader = new BinaryReader(frontendFile);
             var frontend = new PS2Frontend();

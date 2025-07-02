@@ -20,7 +20,7 @@ namespace TT_Lab.ViewModels.Editors
         private OgreWindow? _window;
         private EmbededRender? _render;
         private string _sceneHeader;
-        private IWindowManager windowManager;
+        private OgreWindowManager _ogreWindowManager;
         private List<IInputListener> _inputListeners = new();
         private bool _mouseMoveLocked = false;
 
@@ -54,9 +54,9 @@ namespace TT_Lab.ViewModels.Editors
             }
         }
 
-        public SceneEditorViewModel(IWindowManager windowManager)
+        public SceneEditorViewModel(OgreWindowManager ogreWindowManager)
         {
-            this.windowManager = windowManager;
+            _ogreWindowManager = ogreWindowManager;
             _sceneHeader = "Scene viewer";
         }
 
@@ -73,10 +73,16 @@ namespace TT_Lab.ViewModels.Editors
             {
                 RenderControl.Cleanup();
                 RenderControl = null;
+                _window = null;
             }
             else
             {
                 _window?.SetHidden(true);
+            }
+
+            if (close && RenderControl == null && _window != null && !_window.IsClosed())
+            {
+                _ogreWindowManager.CloseWindow(_window);
             }
 
             return base.OnDeactivateAsync(close, cancellationToken);

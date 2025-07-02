@@ -241,6 +241,13 @@ public class GameObjectViewModel : ResourceEditorViewModel
         {
             data.InstIntegers.Add(instInteger.Value);
         }
+
+        var assetManager = AssetManager.Get();
+        var refObjects = ObjectSlots.Distinct().Select(b => b.Value != LabURI.Empty);
+        var refOgis = OgiSlots.Distinct().Select(b => b.Value != LabURI.Empty);
+        var refAnimations = AnimationSlots.Distinct().Select(b => b.Value != LabURI.Empty);
+        var refSounds = SoundSlots.Distinct().Select(b => b.Value != LabURI.Empty);
+        var refBehaviourSequences = BehaviourSlots.Select(b => assetManager.GetAsset(b.Value) is BehaviourCommandsSequence);
         
         data.RefObjects.Clear();
         data.RefOGIs.Clear();
@@ -319,6 +326,7 @@ public class GameObjectViewModel : ResourceEditorViewModel
                                        CHANGE THIS AT YOUR OWN RISK!
                                        For Pickup type objects this value must by 16 or 17
                                        For the rest it is unknown so look at other object types!
+                                       Changing this to a bad value could potentially crash the game!
                                        """;
 
     [MarkDirty]

@@ -52,7 +52,7 @@ namespace TT_Lab.AssetData.Code
             SetTwinItem(ogi);
         }
 
-        public void ExportGltf(string path, AnimationData? animation)
+        public void ExportGltf(string path, AnimationData? animation = null)
         {
             var scene = new SharpGLTF.Scenes.SceneBuilder("TwinsanitySkeleton");
             var root = new SharpGLTF.Scenes.NodeBuilder("model_root");

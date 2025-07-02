@@ -19,11 +19,12 @@ using TT_Lab.Rendering;
 using TT_Lab.Util;
 using TT_Lab.ViewModels.Composite;
 using TT_Lab.ViewModels.Editors;
+using TT_Lab.ViewModels.Interfaces;
 using TT_Lab.ViewModels.ResourceTree;
 
 namespace TT_Lab.ViewModels
 {
-    public class ShellViewModel : Conductor<EditorsViewModel>, IHandle<ProjectManagerMessage>
+    public class ShellViewModel : Conductor<EditorsViewModel>, ILabManager
     {
         private readonly IWindowManager _windowManager;
         private readonly IEventAggregator _eventAggregator;
@@ -34,11 +35,9 @@ namespace TT_Lab.ViewModels
         private Boolean _dontRemind = false;
         private Boolean _deadgeRender = false;
         private Thread _mainThread;
-        private static ShellViewModel? _instance;
 
         public ShellViewModel(IWindowManager windowManager, IEventAggregator eventAggregator, ProjectManager projectManager, OgreWindowManager ogreWindowManager)
         {
-            _instance ??= this;
             _mainThread = Thread.CurrentThread;
             _windowManager = windowManager;
             _projectManager = projectManager;
@@ -87,8 +86,6 @@ namespace TT_Lab.ViewModels
                 }
             }
         }
-
-        public static ShellViewModel Instance => _instance!;
 
         public Task About()
         {
@@ -178,6 +175,25 @@ namespace TT_Lab.ViewModels
                 Data = asset
             };
             DragDrop.DoDragDrop(projectTree, data, DragDropEffects.Copy);
+        }
+
+        public async Task PauseRendering()
+        {
+            // if (_deadgeRender)
+            // {
+            //     return;
+            // }
+            //
+            // CompositionTarget.Rendering -= PerformRender;
+            //
+            // await Task.Delay(100);
+            //
+            // if (_deadgeRender)
+            // {
+            //     return;
+            // }
+            //
+            // CompositionTarget.Rendering += PerformRender;
         }
 
         public Task StopRendering()

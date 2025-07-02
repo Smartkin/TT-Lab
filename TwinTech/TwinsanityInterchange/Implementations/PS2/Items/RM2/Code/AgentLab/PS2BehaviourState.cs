@@ -14,13 +14,11 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
         public Int16 BehaviourIndexOrSlot { get; set; }
         public Boolean SkipsFirstStateBody { get; set; }
         public Boolean UsesObjectSlot { get; set; }
+        public bool NoneBlocking { get; set; }
         public TwinBehaviourControlPacket ControlPacket { get; set; }
         public List<ITwinBehaviourStateBody> Bodies { get; set; }
 
         bool ITwinBehaviourState.HasNext { get; set; }
-        UInt16 AdditionalFlags { get; set; }
-
-        const UInt16 AdditionalFlagsMask = unchecked((UInt16)~KnownFlagsMask);
 
         public PS2BehaviourState()
         {
@@ -40,9 +38,14 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
         public void Read(BinaryReader reader, int length)
         {
             Bitfield = reader.ReadUInt16();
+            var unkDbgInfo = (Bitfield & 0x20) != 0;
+            var unkDbgInfo2 = (Bitfield & 0x40) != 0;
+            var unkDbgInfo3 = (Bitfield & 0x80) != 0;
+            var unkDbgInfo4 = (Bitfield & 0x100) != 0;
+            var unkDbgInfo5 = (Bitfield & 0x200) != 0;
             SkipsFirstStateBody = (Bitfield & 0x400) != 0;
+            NoneBlocking = (Bitfield & 0x800) != 0;
             UsesObjectSlot = (Bitfield & 0x1000) != 0;
-            AdditionalFlags = (UInt16)(Bitfield & AdditionalFlagsMask);
             BehaviourIndexOrSlot = reader.ReadInt16();
             if ((Bitfield & 0x4000) != 0)
             {
@@ -62,15 +65,17 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
                 state.Read(reader, length, scriptStates);
             }
         }
-
-        private const UInt16 KnownFlagsMask = 0x8000 | 0x4000 | 0x1000 | 0x400;
+        
         public void Write(BinaryWriter writer)
         {
-            Bitfield &= unchecked((UInt16)~KnownFlagsMask);
             UInt16 newBitfield = (UInt16)(Bodies.Count & 0x1F);
             if (SkipsFirstStateBody)
             {
                 newBitfield |= 0x400;
+            }
+            if (NoneBlocking)
+            {
+                newBitfield |= 0x800;
             }
             if (UsesObjectSlot)
             {
@@ -85,7 +90,6 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
             {
                 newBitfield |= 0x8000;
             }
-            newBitfield |= (UInt16)(AdditionalFlags & AdditionalFlagsMask);
             Bitfield = newBitfield;
             writer.Write(newBitfield);
             writer.Write(BehaviourIndexOrSlot);
@@ -103,17 +107,17 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
                 StringUtils.WriteLineTabulated(writer, $"State_{i}() {"{"}", tabs);
                 writer.WriteLine();
             }
-            if (AdditionalFlags != 0)
-            {
-                StringUtils.WriteLineTabulated(writer, $"additional_flags = 0x{Convert.ToString(AdditionalFlags, 16)}", tabs + 1);
-            }
             if (UsesObjectSlot)
             {
                 StringUtils.WriteLineTabulated(writer, $"uses_object_slot = {UsesObjectSlot}", tabs + 1);
             }
+            if (NoneBlocking)
+            {
+                StringUtils.WriteLineTabulated(writer, "none_blocking", tabs + 1);
+            }
             if (SkipsFirstStateBody)
             {
-                StringUtils.WriteLineTabulated(writer, "skip_first_state", tabs + 1);
+                StringUtils.WriteLineTabulated(writer, "skip_first_state_body", tabs + 1);
             }
             ControlPacket?.WriteText(writer, tabs + 1);
             foreach (var body in Bodies)
@@ -160,15 +164,15 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
                     body.ReadText(reader);
                     Bodies.Add(body);
                 }
-                if (line.StartsWith("additional_flags"))
-                {
-                    AdditionalFlags = UInt16.Parse(StringUtils.GetStringAfter(StringUtils.GetStringAfter(line, "=").Trim(), "0x"), System.Globalization.NumberStyles.HexNumber);
-                }
                 if (line.StartsWith("uses_object_slot"))
                 {
                     UsesObjectSlot = Boolean.Parse(StringUtils.GetStringAfter(line, "=").Trim());
                 }
-                if (line.StartsWith("skip_first_state"))
+                if (line.StartsWith("none_blocking"))
+                {
+                    NoneBlocking = true;
+                }
+                if (line.StartsWith("skip_first_state_body"))
                 {
                     SkipsFirstStateBody = true;
                 }

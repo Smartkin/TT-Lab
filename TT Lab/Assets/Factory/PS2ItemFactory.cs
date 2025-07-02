@@ -97,7 +97,7 @@ namespace TT_Lab.Assets.Factory
             {
                 var assigner = new TwinBehaviourAssigner();
                 assigner.Behaviour = reader.ReadInt32();
-                assigner.Object = reader.ReadUInt16();
+                assigner.GlobalObjectId = reader.ReadUInt16();
                 assigner.AssignType = (AssignTypeID)reader.ReadUInt32();
                 assigner.AssignLocality = (AssignLocalityID)reader.ReadUInt32();
                 assigner.AssignStatus = (AssignStatusID)reader.ReadUInt32();
