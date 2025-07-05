@@ -17,7 +17,7 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code.AgentLab
         Demo
     }
 
-    public interface ITwinBehaviourCommand : ITwinSerializable
+    public interface ITwinBehaviourCommand : ITwinAgentLab
     {
         public UInt32 Bitfield { get; set; }
         /// <summary>

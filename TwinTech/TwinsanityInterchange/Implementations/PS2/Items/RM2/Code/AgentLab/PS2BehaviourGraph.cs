@@ -54,6 +54,18 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
             return Name;
         }
 
+        public override void Decompile(StreamWriter writer, int tabs = 0)
+        {
+            StringUtils.WriteLineTabulated(writer, $"[StartFrom(State_{StartState})]", tabs);
+            StringUtils.WriteLineTabulated(writer, $"[Priority({Priority})]", tabs);
+            StringUtils.WriteLineTabulated(writer, $"behaviour {Name} {{", tabs);
+            foreach (var state in ScriptStates)
+            {
+                state.Decompile(writer, tabs + 1);
+            }
+            StringUtils.WriteLineTabulated(writer, "}", tabs);
+        }
+
         public override void Read(BinaryReader reader, int length)
         {
             base.Read(reader, length);
@@ -65,6 +77,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
             for (int i = 0; i < statesAmt; ++i)
             {
                 PS2BehaviourState state = new();
+                state.Index = i;
                 state.Read(reader, length);
                 ScriptStates.Add(state);
             }

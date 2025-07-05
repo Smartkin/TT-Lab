@@ -27,6 +27,14 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
             return;
         }
 
+        public void Decompile(StreamWriter writer, int tabs = 0)
+        {
+            foreach (var cmd in Commands)
+            {
+                cmd.WriteText(writer, tabs);
+            }
+        }
+
         public void Read(BinaryReader reader, int length)
         {
             var amt = reader.ReadInt32();

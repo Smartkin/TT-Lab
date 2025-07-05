@@ -5,10 +5,11 @@ using System.Globalization;
 using System.IO;
 using Twinsanity.Libraries;
 using Twinsanity.TwinsanityInterchange.Interfaces;
+using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code.AgentLab;
 
 namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
 {
-    public class TwinBehaviourControlPacket : ITwinSerializable
+    public class TwinBehaviourControlPacket : ITwinAgentLab
     {
         public List<Byte> Bytes { get; }
         public List<UInt32> Floats { get; }
@@ -31,6 +32,8 @@ namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
         public Boolean ContinuouslyRotatesInWorldSpace { get; set; }
         public NaturalAxes Axes { get; set; }
         public Boolean Stalls { get; set; }
+        internal int PacketIndex { get; set; }
+        internal string Name { get; private set; }
 
 
         public TwinBehaviourControlPacket()
@@ -47,6 +50,11 @@ namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
         public void Compile()
         {
             return;
+        }
+
+        public void Decompile(StreamWriter writer, int tabs = 0)
+        {
+            WriteText(writer, tabs);
         }
 
         public void Read(BinaryReader reader, int length)
@@ -130,29 +138,31 @@ namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
         }
         public void WriteText(StreamWriter writer, Int32 tabs = 0)
         {
-            StringUtils.WriteLineTabulated(writer, $"ControlPacket {"{"}", tabs);
-            StringUtils.WriteLineTabulated(writer, "settings = {", tabs + 1);
+            Name = $"ControlPacket_{PacketIndex}";
+            StringUtils.WriteLineTabulated(writer, $"packet {Name} {"{"}", tabs);
+            StringUtils.WriteLineTabulated(writer, "settings {", tabs + 1);
             {
-                StringUtils.WriteLineTabulated(writer, $"SpaceType = {Space}", tabs + 2);
-                StringUtils.WriteLineTabulated(writer, $"MotionType = {Motion}", tabs + 2);
-                StringUtils.WriteLineTabulated(writer, $"AccelerationFunction = {AccelerationFunction}", tabs + 2);
-                StringUtils.WriteLineTabulated(writer, $"DoesTranslate = {Translates}", tabs + 2);
-                StringUtils.WriteLineTabulated(writer, $"DoesRotate = {Rotates}", tabs + 2);
-                StringUtils.WriteLineTabulated(writer, $"DoesTranslationContinue = {TranslationContinues}", tabs + 2);
-                StringUtils.WriteLineTabulated(writer, $"DoesInterpolateAngles = {InterpolatesAngles}", tabs + 2);
-                StringUtils.WriteLineTabulated(writer, $"DoesYawFaces = {YawFaces}", tabs + 2);
-                StringUtils.WriteLineTabulated(writer, $"DoesPitchFaces = {PitchFaces}", tabs + 2);
-                StringUtils.WriteLineTabulated(writer, $"DoesOrientPredicts = {OrientsPredicts}", tabs + 2);
-                StringUtils.WriteLineTabulated(writer, $"KeyIsLocal = {KeyIsLocal}", tabs + 2);
-                StringUtils.WriteLineTabulated(writer, $"UsesRotator = {UsesRotator}", tabs + 2);
-                StringUtils.WriteLineTabulated(writer, $"UsesInterpolator = {UsesInterpolator}", tabs + 2);
-                StringUtils.WriteLineTabulated(writer, $"UsesPhysics = {UsesPhysics}", tabs + 2);
-                StringUtils.WriteLineTabulated(writer, $"ContinuouslyRotatesInWorldSpace = {ContinuouslyRotatesInWorldSpace}", tabs + 2);
-                StringUtils.WriteLineTabulated(writer, $"Axes = {Axes}", tabs + 2);
-                StringUtils.WriteLineTabulated(writer, $"DoesStall = {Stalls}", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"SpaceType = {Space};", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"MotionType = {Motion};", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"ContinuousRotate = {ContRotate};", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"AccelerationFunction = {AccelerationFunction};", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"DoesTranslate = {Translates};", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"DoesRotate = {Rotates};", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"DoesTranslationContinue = {TranslationContinues};", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"DoesInterpolateAngles = {InterpolatesAngles};", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"DoesYawFaces = {YawFaces};", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"DoesPitchFaces = {PitchFaces};", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"DoesOrientPredicts = {OrientsPredicts};", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"KeyIsLocal = {KeyIsLocal};", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"UsesRotator = {UsesRotator};", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"UsesInterpolator = {UsesInterpolator};", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"UsesPhysics = {UsesPhysics};", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"ContinuouslyRotatesInWorldSpace = {ContinuouslyRotatesInWorldSpace};", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"Axes = {Axes};", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"Stalls = {Stalls};", tabs + 2);
             }
             StringUtils.WriteLineTabulated(writer, "}", tabs + 1);
-            StringUtils.WriteLineTabulated(writer, "data = {", tabs + 1);
+            StringUtils.WriteLineTabulated(writer, "data {", tabs + 1);
             {
                 for (var i = 0; i < Bytes.Count; ++i)
                 {
@@ -163,16 +173,16 @@ namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
                     var packet = (ControlPacketData)i;
                     if (Bytes[i] >= 0x80)
                     {
-                        StringUtils.WriteLineTabulated(writer, $"{(ControlPacketData)i} = instance_float_{Bytes[i] - 128}", tabs + 2);
+                        StringUtils.WriteLineTabulated(writer, $"{(ControlPacketData)i} = InstanceFloat[{Bytes[i] - 128}];", tabs + 2);
                         continue;
                     }
                     if (IsIntegerPacket(packet))
                     {
-                        StringUtils.WriteLineTabulated(writer, $"{(ControlPacketData)i} = {(UInt32)Floats[Bytes[i]]}", tabs + 2);
+                        StringUtils.WriteLineTabulated(writer, $"{(ControlPacketData)i} = {(UInt32)Floats[Bytes[i]]};", tabs + 2);
                     }
                     else
                     {
-                        StringUtils.WriteLineTabulated(writer, $"{(ControlPacketData)i} = {BitConverter.UInt32BitsToSingle(Floats[Bytes[i]]).ToString(CultureInfo.InvariantCulture)}", tabs + 2);
+                        StringUtils.WriteLineTabulated(writer, $"{(ControlPacketData)i} = {BitConverter.UInt32BitsToSingle(Floats[Bytes[i]]).ToString(CultureInfo.InvariantCulture)};", tabs + 2);
                     }
                 }
             }
@@ -206,6 +216,10 @@ namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
                 else if (line.StartsWith("AccelerationFunction"))
                 {
                     AccelerationFunction = Enum.Parse<AccelFunction>(valueString);
+                }
+                else if (line.StartsWith("ContinuousRotate"))
+                {
+                    ContRotate = Enum.Parse<ContinuousRotate>(valueString);
                 }
                 else if (line.StartsWith("DoesTranslate"))
                 {
@@ -259,7 +273,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
                 {
                     Axes = Enum.Parse<NaturalAxes>(valueString);
                 }
-                else if (line.StartsWith("DoesStall"))
+                else if (line.StartsWith("Stalls"))
                 {
                     Stalls = Boolean.Parse(valueString);
                 }
@@ -322,53 +336,53 @@ namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
 
         public static bool IsIntegerPacket(ControlPacketData packet)
         {
-            return packet == ControlPacketData.SELECTOR || packet == ControlPacketData.KEY_INDEX || packet == ControlPacketData.SYNC_UNIT || packet == ControlPacketData.JOINT_INDEX;
+            return packet == ControlPacketData.Selector || packet == ControlPacketData.KeyIndex || packet == ControlPacketData.SyncUnit || packet == ControlPacketData.JointIndex;
         }
 
         public const Int32 PacketDataLength = 23;
         public enum ControlPacketData
         {
-            SELECTOR,
-            SYNC_INDEX = SELECTOR,
-            KEY_INDEX,
-            FOCUS_DATA = KEY_INDEX,
-            MOVE_SPEED,
-            RISE_HEIGHT = MOVE_SPEED,
-            TURN_SPEED,
-            RAWPOS_X,
-            RAWPOS_Y,
-            RAWPOS_Z,
-            PITCH,
-            RAWANGS_X = PITCH,
-            YAW,
-            RAWANGS_Y = YAW,
-            ROLL,
-            RAWANGS_Z = ROLL,
-            DELAY,
-            DURATION,
-            CURVY = DURATION,
-            HOMEPOWER = DURATION,
-            TUMBLE_DATA,
-            SPIN_DATA,
-            TWIST_DATA,
-            RANDRANGE,
-            SQR_TOLERANCE = RANDRANGE,
-            POWER,
-            GRAVITY = POWER,
-            BANKING = POWER,
-            DAMPING,
-            SPEEDLIM = DAMPING,
-            BRAKING = DAMPING,
-            AC_DIST,
-            RT_OPT = AC_DIST,
-            SHIFT_FREQ = AC_DIST,
-            DEC_DIST,
-            PHYS_OPT = DEC_DIST,
-            SHIFT = DEC_DIST,
-            BOUNCE,
-            BANK_LIMIT = BOUNCE,
-            SYNC_UNIT,
-            JOINT_INDEX
+            Selector,
+            // SyncIndex = Selector,
+            KeyIndex,
+            // FocusData = KeyIndex,
+            MoveSpeed,
+            // RiseHeight = MoveSpeed,
+            TurnSpeed,
+            RawPosX,
+            RawPosY,
+            RawPosZ,
+            Pitch,
+            // RawAngsX = Pitch,
+            Yaw,
+            // RawAngsY = Yaw,
+            Roll,
+            // RawAngsZ = Roll,
+            Delay,
+            Duration,
+            // Curvy = Duration,
+            // HomePower = Duration,
+            TumbleData,
+            SpinData,
+            TwistData,
+            RandRange,
+            // SqrTolerance = RandRange,
+            Power,
+            // Gravity = Power,
+            // Banking = Power,
+            Damping,
+            // SpeedLim = Damping,
+            // Braking = Damping,
+            AcDist,
+            // RtOpt = AcDist,
+            // ShiftFreq = AcDist,
+            DecDist,
+            // PhysOpt = DecDist,
+            // Shift = DecDist,
+            Bounce,
+            // BankLimit = Bounce,
+            SyncUnit,
+            JointIndex
         }
 
         public enum SpaceType

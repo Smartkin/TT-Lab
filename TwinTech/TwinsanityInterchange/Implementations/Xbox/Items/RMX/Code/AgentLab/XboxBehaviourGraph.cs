@@ -41,6 +41,11 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.RMX.Code.A
             ScriptStates = new List<ITwinBehaviourState>();
         }
 
+        public override void Decompile(StreamWriter writer, int tabs = 0)
+        {
+            throw new NotImplementedException();
+        }
+
         public override int GetLength()
         {
             var totalLen = 4 + Name.Length + 8;

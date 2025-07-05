@@ -1,15 +1,25 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Twinsanity.AgentLab.SymbolTable;
 
 internal class AgentLabActionSymbol : AgentLabSymbol
 {
-    public IList<AgentLabSymbol> Parameters { get; }
+    public AgentLabSymbolTable Parameters { get; internal init; }
     
     public AgentLabActionSymbol(string name, AgentLabSymbol type, params AgentLabSymbol[] parameters) : base(name, type)
     {
-        Parameters = parameters;
+        Parameters = new AgentLabSymbolTable();
+        if (parameters == null)
+        {
+            return;
+        }
+        
+        foreach (var parameter in parameters)
+        {
+            Parameters.Define(parameter);
+        }
     }
 
     public override String ToString()
@@ -18,9 +28,10 @@ internal class AgentLabActionSymbol : AgentLabSymbol
         var index = 0;
         if (Parameters != null)
         {
-            foreach (var parameter in Parameters)
+            var paramsAmount = Parameters.GetAllSymbols().Count();
+            foreach (var parameter in Parameters.GetAllSymbols())
             {
-                if (index != Parameters.Count - 1)
+                if (index != paramsAmount - 1)
                 {
                     resultString += parameter + ", ";
                 }

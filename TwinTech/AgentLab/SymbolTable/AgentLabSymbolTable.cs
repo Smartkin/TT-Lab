@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
+using Twinsanity.TwinsanityInterchange.Common.AgentLab;
+using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code.AgentLab;
 
 namespace Twinsanity.AgentLab.SymbolTable;
 
@@ -8,9 +11,14 @@ internal class AgentLabSymbolTable
 {
     private readonly Dictionary<string, AgentLabSymbol> _symbols = new();
 
-    public AgentLabSymbolTable()
+    internal IEnumerable<AgentLabSymbol> GetAllSymbols()
     {
-        InitBuiltInTypes();
+        return _symbols.Values;
+    }
+
+    internal IEnumerable<T> GetSymbols<T>() where T : AgentLabSymbol
+    {
+        return _symbols.Values.OfType<T>();
     }
 
     public void Define(AgentLabSymbol symbol)
@@ -23,7 +31,7 @@ internal class AgentLabSymbolTable
         return _symbols.GetValueOrDefault(name);
     }
 
-    private void InitBuiltInTypes()
+    public void InitBuiltInTypes()
     {
         static AgentLabBuiltInSymbol CreateBuiltInSymbol(AgentLabToken.TokenType token)
         {
@@ -34,7 +42,18 @@ internal class AgentLabSymbolTable
         {
             return new AgentLabConstSymbol(name, Lookup(token.ToString()));
         }
+
+        AgentLabArraySymbol CreateBuiltInArraySymbol(string name, int size, AgentLabToken.TokenType storageType)
+        {
+            return new AgentLabArraySymbol(name, size, Lookup(storageType.ToString()), Lookup(nameof(AgentLabToken.TokenType.ArrayType)));
+        }
+
+        AgentLabEnumSymbol CreateBuiltInEnumSymbol(string name, params string[] enumNames)
+        {
+            return new AgentLabEnumSymbol(name, Lookup(nameof(AgentLabToken.TokenType.EnumType)), enumNames);
+        }
         
+        Define(CreateBuiltInSymbol(AgentLabToken.TokenType.ArrayType));
         Define(CreateBuiltInSymbol(AgentLabToken.TokenType.IntegerType));
         Define(CreateBuiltInSymbol(AgentLabToken.TokenType.FloatType));
         Define(CreateBuiltInSymbol(AgentLabToken.TokenType.BooleanType));
@@ -47,16 +66,18 @@ internal class AgentLabSymbolTable
         Define(CreateBuiltInSymbol(AgentLabToken.TokenType.Behaviour));
         Define(CreateBuiltInSymbol(AgentLabToken.TokenType.BehaviourLibrary));
         
+        // Object behaviour slots
+        Define(CreateBuiltInEnumSymbol("ObjectBehaviourSlot", Enum.GetNames<ITwinBehaviourState.ObjectBehaviourSlots>()));
+        
         // InstanceType consts
-        Define(CreateBuiltInConstSymbol("Pickup", AgentLabToken.TokenType.EnumType));
-        Define(CreateBuiltInConstSymbol("Projectile", AgentLabToken.TokenType.EnumType));
+        Define(CreateBuiltInEnumSymbol("InstanceType", Enum.GetNames<ITwinBehaviourCommandsSequence.InstanceType>()));
         
         // Starter consts
         Define(CreateBuiltInConstSymbol("GlobalObjectId", AgentLabToken.TokenType.StringType));
-        Define(CreateBuiltInConstSymbol("AssignType", AgentLabToken.TokenType.EnumType));
-        Define(CreateBuiltInConstSymbol("AssignLocality", AgentLabToken.TokenType.EnumType));
-        Define(CreateBuiltInConstSymbol("AssignStatus", AgentLabToken.TokenType.EnumType));
-        Define(CreateBuiltInConstSymbol("AssignPreference", AgentLabToken.TokenType.EnumType));
+        Define(CreateBuiltInEnumSymbol("AssignType", Enum.GetNames<TwinBehaviourAssigner.AssignTypeID>()));
+        Define(CreateBuiltInEnumSymbol("AssignLocality", Enum.GetNames<TwinBehaviourAssigner.AssignLocalityID>()));
+        Define(CreateBuiltInEnumSymbol("AssignStatus", Enum.GetNames<TwinBehaviourAssigner.AssignStatusID>()));
+        Define(CreateBuiltInEnumSymbol("AssignPreference", Enum.GetNames<TwinBehaviourAssigner.AssignPreferenceID>()));
         
         // ControlPacket data consts
         Define(CreateBuiltInConstSymbol("Selector", AgentLabToken.TokenType.IntegerType));
@@ -83,11 +104,12 @@ internal class AgentLabSymbolTable
         Define(CreateBuiltInConstSymbol("DecDist", AgentLabToken.TokenType.FloatType));
         Define(CreateBuiltInConstSymbol("Bounce", AgentLabToken.TokenType.FloatType));
         
-        // ControlPacket settings consts
-        Define(CreateBuiltInConstSymbol("SpaceType", AgentLabToken.TokenType.EnumType));
-        Define(CreateBuiltInConstSymbol("MotionType", AgentLabToken.TokenType.EnumType));
-        Define(CreateBuiltInConstSymbol("AccelerationFunction", AgentLabToken.TokenType.EnumType));
-        Define(CreateBuiltInConstSymbol("Axes", AgentLabToken.TokenType.EnumType));
+        Define(CreateBuiltInEnumSymbol("SpaceType", Enum.GetNames<TwinBehaviourControlPacket.SpaceType>()));
+        Define(CreateBuiltInEnumSymbol("MotionType", Enum.GetNames<TwinBehaviourControlPacket.MotionType>()));
+        Define(CreateBuiltInEnumSymbol("AccelerationFunction", Enum.GetNames<TwinBehaviourControlPacket.AccelFunction>()));
+        Define(CreateBuiltInEnumSymbol("Axes", Enum.GetNames<TwinBehaviourControlPacket.NaturalAxes>()));
+        Define(CreateBuiltInEnumSymbol("ContinuousRotate", Enum.GetNames<TwinBehaviourControlPacket.ContinuousRotate>()));
+        
         Define(CreateBuiltInConstSymbol("DoesTranslate", AgentLabToken.TokenType.BooleanType));
         Define(CreateBuiltInConstSymbol("DoesRotate", AgentLabToken.TokenType.BooleanType));
         Define(CreateBuiltInConstSymbol("DoesTranslationContinue", AgentLabToken.TokenType.BooleanType));
@@ -98,15 +120,18 @@ internal class AgentLabSymbolTable
         Define(CreateBuiltInConstSymbol("KeyIsLocal", AgentLabToken.TokenType.BooleanType));
         Define(CreateBuiltInConstSymbol("UsesInterpolator", AgentLabToken.TokenType.BooleanType));
         Define(CreateBuiltInConstSymbol("UsesPhysics", AgentLabToken.TokenType.BooleanType));
+        Define(CreateBuiltInConstSymbol("UsesRotator", AgentLabToken.TokenType.BooleanType));
         Define(CreateBuiltInConstSymbol("ContinuouslyRotatesInWorldSpace", AgentLabToken.TokenType.BooleanType));
         Define(CreateBuiltInConstSymbol("Stalls", AgentLabToken.TokenType.BooleanType));
+        Define(CreateBuiltInArraySymbol("InstanceFloat", 126, AgentLabToken.TokenType.FloatType));
     }
 
     public override String ToString()
     {
         var resultString = new StringBuilder();
         resultString.Append("Symbols:\n");
-        foreach (var symbol in _symbols.Values)
+        var noConditionsOrActions = _symbols.Values.Where(s => s is not AgentLabActionSymbol and not AgentLabConditionSymbol).ToList();
+        foreach (var symbol in noConditionsOrActions)
         {
             resultString.AppendLine($"\t{symbol}");
         }

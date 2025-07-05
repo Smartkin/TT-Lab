@@ -5,18 +5,18 @@ namespace Twinsanity.AgentLab.AbstractSyntaxTree;
 
 internal class StateNode : IAgentLabTreeNode
 {
-    public List<IAttributeNode> Attributes { get; }
+    public AttributeListNode Attributes { get; }
     public AgentLabToken Token { get; }
     public AgentLabToken? BehaviourIdToken { get; }
     public StateBodyListNode Bodies { get; } // Can be null
     public string Name { get; }
     
-    public StateNode(AgentLabToken token, AgentLabToken? behaviourId = null, StateBodyListNode bodies = null, params IAttributeNode[] attributes)
+    public StateNode(AgentLabToken token, AgentLabToken? behaviourId = null, StateBodyListNode bodies = null, AttributeListNode attributes = null)
     {
         Name = token.GetValue<string>();
         Token = token;
         BehaviourIdToken = behaviourId;
-        Attributes = new List<IAttributeNode>(attributes);
+        Attributes = attributes;
         Bodies = bodies;
     }
 }

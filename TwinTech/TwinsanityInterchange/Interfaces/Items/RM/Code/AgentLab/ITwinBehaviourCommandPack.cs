@@ -4,7 +4,7 @@ using System.IO;
 
 namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code.AgentLab
 {
-    public interface ITwinBehaviourCommandPack : ITwinSerializable
+    public interface ITwinBehaviourCommandPack : ITwinAgentLab
     {
         /// <summary>
         /// Command chain

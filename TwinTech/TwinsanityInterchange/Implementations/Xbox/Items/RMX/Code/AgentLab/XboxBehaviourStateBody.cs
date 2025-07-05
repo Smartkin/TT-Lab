@@ -34,6 +34,11 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.RMX.Code.A
             return;
         }
 
+        public void Decompile(StreamWriter writer, int tabs = 0)
+        {
+            throw new NotImplementedException();
+        }
+
         public void Read(BinaryReader reader, int length)
         {
             Bitfield = reader.ReadUInt32();

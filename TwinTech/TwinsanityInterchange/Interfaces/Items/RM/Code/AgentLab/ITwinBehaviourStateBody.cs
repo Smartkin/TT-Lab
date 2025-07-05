@@ -5,7 +5,7 @@ using Twinsanity.TwinsanityInterchange.Common.AgentLab;
 
 namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code.AgentLab
 {
-    public interface ITwinBehaviourStateBody : ITwinSerializable
+    public interface ITwinBehaviourStateBody : ITwinAgentLab
     {
         /// <summary>
         /// Unknown bitfield

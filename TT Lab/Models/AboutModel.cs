@@ -10,5 +10,6 @@ namespace TT_Lab.Models
         public String SpecialThanks { get; set; } = "BetaM, SuperMoe, Marko, GPro";
         public String SourceCodeLink { get; set; } = "https://github.com/NeoKesha/TT-Lab";
         public String Testers { get; set; } = ""; // TODO: When we gonna do actual testing add people here
+        public String Artists { get; set; } = ""; // TODO: Add Tralexium to credits
     }
 }

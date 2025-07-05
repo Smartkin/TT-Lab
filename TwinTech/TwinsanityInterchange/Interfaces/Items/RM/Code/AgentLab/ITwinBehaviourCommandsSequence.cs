@@ -4,7 +4,7 @@ using System.IO;
 
 namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code.AgentLab
 {
-    public interface ITwinBehaviourCommandsSequence : ITwinItem
+    public interface ITwinBehaviourCommandsSequence : ITwinItem, ITwinAgentLab
     {
         /// <summary>
         /// Unknown key value which must be either 17 or 18

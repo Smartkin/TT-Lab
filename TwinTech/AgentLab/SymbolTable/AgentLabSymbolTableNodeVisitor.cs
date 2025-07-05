@@ -9,17 +9,19 @@ namespace Twinsanity.AgentLab.SymbolTable;
 
 internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
 {
-    public AgentLabSymbolTable SymbolTable { get; }
+    public AgentLabSymbolTable SymbolTable { get; private set; }
     
     public AgentLabSymbolTableNodeVisitor()
     {
         SymbolTable = new AgentLabSymbolTable();
         Visitors.Add(typeof(ConstNode), VisitConst);
+        Visitors.Add(typeof(ArrayNode), VisitArrayNode);
         Visitors.Add(typeof(BehaviourNode), VisitBehaviour);
         Visitors.Add(typeof(BehaviourBodyNode), VisitBehaviourBody);
         Visitors.Add(typeof(ConstListNode), VisitConstList);
         Visitors.Add(typeof(AssignNode), VisitAssign);
         Visitors.Add(typeof(ConstDeclarationNode), VisitConstDeclaration);
+        Visitors.Add(typeof(UnaryOperationNode), VisitUnaryOperationNode);
         Visitors.Add(typeof(BinaryOperationNode), VisitBinaryOperation);
         Visitors.Add(typeof(NumberNode), VisitNumber);
         Visitors.Add(typeof(StringNode), VisitString);
@@ -33,6 +35,9 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
         Visitors.Add(typeof(ParamListNode), VisitParamListNode);
         Visitors.Add(typeof(ParamNode), VisitParamNode);
         Visitors.Add(typeof(ConditionNode), VisitConditionNode);
+        Visitors.Add(typeof(AttributeListNode), VisitAttributeListNode);
+        Visitors.Add(typeof(PriorityAttributeNode), VisitPriorityAttributeNode);
+        Visitors.Add(typeof(StartFromAttributeNode), VisitStartFromAttributeNode);
         Visitors.Add(typeof(UseObjectSlotAttributeNode), VisitUseObjectSlotAttribute);
         Visitors.Add(typeof(ObjectSlotNameNode), VisitObjectSlotName);
         Visitors.Add(typeof(ControlPacketAttributeNode), VisitControlPacketAttribute);
@@ -41,6 +46,9 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
         Visitors.Add(typeof(StateExecuteNode), VisitStateExecute);
         Visitors.Add(typeof(ControlPacketListNode), VisitControlPacketList);
         Visitors.Add(typeof(ControlPacketNode), VisitControlPacket);
+        Visitors.Add(typeof(ControlPacketBodyNode), VisitControlPacketBodyNode);
+        Visitors.Add(typeof(ControlPacketDataNode), VisitControlPacketDataNode);
+        Visitors.Add(typeof(ControlPacketSettingNode), VisitControlPacketSettingNode);
         Visitors.Add(typeof(BehaviourLibraryNode), VisitBehaviourLibraryNode);
         Visitors.Add(typeof(GlobalIndexAttributeNode), VisitGlobalIndexAttributeNode);
         Visitors.Add(typeof(InstanceTypeAttributeNode), VisitInstanceTypeAttributeNode);
@@ -53,6 +61,40 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
         Visitors.Add(typeof(ConditionDefinitionListNode), VisitConditionDefinitionListNode);
         Visitors.Add(typeof(ConditionDefinitionNode), VisitConditionDefinitionNode);
         Visitors.Add(typeof(AliasNode), VisitAlias);
+    }
+
+    private Object VisitStartFromAttributeNode(IAgentLabTreeNode node)
+    {
+        var startFromAttribute = (StartFromAttributeNode)node;
+        var stateSymbol = SymbolTable.Lookup(startFromAttribute.StateName);
+        if (stateSymbol == null)
+        {
+            // TODO: Raise undefined error instead of throwing an exception
+            throw new Exception($"Undefined state {startFromAttribute.StateName}");
+        }
+
+        AssertType(SymbolTable.Lookup(nameof(AgentLabToken.TokenType.State)), stateSymbol.Type);
+        
+        return null;
+    }
+
+    private Object VisitPriorityAttributeNode(IAgentLabTreeNode node)
+    {
+        var priority = (PriorityAttributeNode)node;
+        var type = Visit(priority.Priority) as AgentLabSymbol;
+        AssertType(SymbolTable.Lookup(nameof(AgentLabToken.TokenType.IntegerType)), type);
+        
+        return null;
+    }
+
+    private Object VisitAttributeListNode(IAgentLabTreeNode node)
+    {
+        var attributes = (AttributeListNode)node;
+        foreach (var attribute in attributes.Children)
+        {
+            Visit(attribute);
+        }
+        return null;
     }
 
     private Object VisitStateBodyListNode(IAgentLabTreeNode node)
@@ -150,10 +192,14 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
             if (SymbolTable.Lookup(alias) != null)
             {
                 // TODO: Raise redefinition error instead of throwing an exception
-                throw new Exception($"Alias already defined {alias}");
+                throw new Exception($"Alias already defined {alias} for this or another action");
             }
             
-            SymbolTable.Define(new AgentLabActionSymbol(alias, SymbolTable.Lookup(nameof(AgentLabToken.TokenType.Action)), action.Parameters.ToArray()));
+            var actionCopy = new AgentLabActionSymbol(alias, SymbolTable.Lookup(nameof(AgentLabToken.TokenType.Action)))
+            {
+                Parameters = action.Parameters
+            };
+            SymbolTable.Define(new AgentLabActionSymbol(alias, actionCopy));
         }
     }
 
@@ -189,37 +235,29 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
     private Object VisitParamNode(IAgentLabTreeNode node)
     {
         var param = (ParamNode)node;
-        // TODO: Do type checking after boolean types for parameters are introduced
-        Visit(param.Value);
+        var symbolType = Visit(param.Value) as AgentLabSymbol;
         
-        return null;
+        return symbolType;
     }
 
     private Object VisitParamListNode(IAgentLabTreeNode node)
     {
         var paramList = (ParamListNode)node;
-        foreach (var param in paramList.Children)
-        {
-            Visit(param);
-        }
-        
-        return null;
+
+        return paramList.Children.Select(param => Visit(param) as AgentLabSymbol).ToList();
     }
 
     private Object VisitConditionNode(IAgentLabTreeNode node)
     {
         var condition = (ConditionNode)node;
-        var symbol = SymbolTable.Lookup(condition.Value);
+        var symbol = SymbolTable.Lookup(condition.Name);
         if (symbol == null)
         {
             // TODO: Raise undefined condition error instead of throwing an exception
-            throw new Exception($"Undefined condition call {condition.Value}");
+            throw new Exception($"Undefined condition call {condition.Name}");
         }
-        else if (symbol.Type.Name != nameof(AgentLabToken.TokenType.Condition))
-        {
-            // TODO: Raise type error instead of throwing an exception
-            throw new Exception($"Expected condition call got {symbol.Type}");
-        }
+        
+        AssertType(SymbolTable.Lookup(nameof(AgentLabToken.TokenType.Condition)), symbol.Type);
 
         Visit(condition.Number);
 
@@ -229,19 +267,37 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
     private Object VisitActionNode(IAgentLabTreeNode node)
     {
         var action = (ActionNode)node;
-        var symbol = SymbolTable.Lookup(action.Value);
+        var symbol = SymbolTable.Lookup(action.Name);
         if (symbol == null)
         {
             // TODO: Raise undefined action error instead of throwing an exception
-            throw new Exception($"Undefined action call {action.Value}");
+            throw new Exception($"Undefined action call {action.Name}");
         }
-        else if (symbol.Type.Name != nameof(AgentLabToken.TokenType.Action))
+        
+        AssertType(SymbolTable.Lookup(nameof(AgentLabToken.TokenType.Action)), symbol.Type);
+
+        var actionSymbol = (AgentLabActionSymbol)symbol;
+        var expectedSymbols = actionSymbol.Parameters?.GetAllSymbols().ToList();
+        var expectedArguments = expectedSymbols?.Count ?? 0;
+        var argumentsProvided = action.Parameters == null ? 0 : action.Parameters.Children.Count;
+        if (expectedArguments != argumentsProvided)
         {
-            // TODO: Raise type error instead of throwing an exception
-            throw new Exception($"Expected action call got {symbol.Type}");
+            // TODO: Raise insufficient arguments error instead of throwing an exception
+            throw new Exception($"Expected {expectedArguments} parameters for {action.Name} but got {argumentsProvided}");
         }
 
-        Visit(action.Parameters);
+        var parameterTypes = Visit(action.Parameters) as List<AgentLabSymbol>;
+        if (parameterTypes?.Count == 0)
+        {
+            return null;
+        }
+        
+        for (var i = 0; i < argumentsProvided; i++)
+        {
+            var providedType = parameterTypes![i];
+            var expectedArgument = expectedSymbols![i];
+            AssertType(expectedArgument.Type, providedType);
+        }
 
         return null;
     }
@@ -272,15 +328,13 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
     private Object VisitInstanceTypeAttributeNode(IAgentLabTreeNode node)
     {
         var instanceTypeAttrib = (InstanceTypeAttributeNode)node;
-        var symbol = SymbolTable.Lookup(instanceTypeAttrib.Key.Value);
+        var instanceTypesEnumTable = ((AgentLabEnumSymbol)SymbolTable.Lookup("InstanceType")).Enums;
+        var symbol = instanceTypesEnumTable.Lookup(instanceTypeAttrib.Key.Name);
         if (symbol == null)
         {
             // TODO: Raise undefined error instead of throwing an exception
-            throw new Exception($"Undefined instance type: {instanceTypeAttrib.Key.Value}!");
+            throw new Exception($"Undefined instance type {instanceTypeAttrib.Key.Name}!");
         }
-
-        var symbolType = SymbolTable.Lookup(symbol.Type.Name);
-        // TODO: Verify enum type
 
         return null;
     }
@@ -288,8 +342,8 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
     private Object VisitGlobalIndexAttributeNode(IAgentLabTreeNode node)
     {
         var globalIndexAttrib = (GlobalIndexAttributeNode)node;
-        var numberType = (AgentLabToken.TokenType)Visit(globalIndexAttrib.Index);
-        if (numberType != AgentLabToken.TokenType.IntegerType)
+        var numberType = Visit(globalIndexAttrib.Index) as AgentLabSymbol;
+        if (numberType != SymbolTable.Lookup(nameof(AgentLabToken.TokenType.IntegerType)))
         {
             // TODO: Raise type error instead of throwing an exception
             throw new Exception($"Expected integer got {numberType}");
@@ -312,11 +366,21 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
     private Object VisitBehaviourLibraryNode(IAgentLabTreeNode node)
     {
         var behaviourLibrary = (BehaviourLibraryNode)node;
+        if (SymbolTable.Lookup(behaviourLibrary.Name) != null)
+        {
+            // TODO: Raise redefinition error instead of throwing an exception
+            throw new Exception($"Behaviour library {behaviourLibrary.Name} redefinition!");
+        }
+
+        var librarySymbol = new AgentLabBehaviourLibrarySymbol(behaviourLibrary.Name, SymbolTable);
+        var oldSymbolTable = SymbolTable;
+        SymbolTable = librarySymbol.BehaviourLibrarySymbolTable;
         Visit(behaviourLibrary.GlobalIndex);
         Visit(behaviourLibrary.InstanceType);
         Visit(behaviourLibrary.LinearBehaviours);
         Visit(behaviourLibrary.CreationAction);
-
+        SymbolTable = oldSymbolTable;
+        
         return null;
     }
 
@@ -326,10 +390,10 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
         if (SymbolTable.Lookup(linearBehaviour.Name) != null)
         {
             // TODO: Raise redefinition error instead of throwing an exception
-            throw new Exception($"Redefinition of behaviour {linearBehaviour.Name}!");
+            throw new Exception($"Behaviour {linearBehaviour.Name} redefinition!");
         }
         
-        SymbolTable.Define(new AgentLabBehaviourSymbol(linearBehaviour.Name));
+        SymbolTable.Define(new AgentLabLinearBehaviourSymbol(linearBehaviour.Name));
         Visit(linearBehaviour.Actions);
         
         return null;
@@ -337,12 +401,12 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
 
     private Object VisitBoolean(IAgentLabTreeNode node)
     {
-        return AgentLabToken.TokenType.BooleanType;
+        return SymbolTable.Lookup(nameof(AgentLabToken.TokenType.BooleanType));
     }
 
     private Object VisitString(IAgentLabTreeNode node)
     {
-        return AgentLabToken.TokenType.StringType;
+        return SymbolTable.Lookup(nameof(AgentLabToken.TokenType.StringType));
     }
 
     private Object VisitControlPacketAttribute(IAgentLabTreeNode node)
@@ -361,15 +425,14 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
     private Object VisitObjectSlotName(IAgentLabTreeNode node)
     {
         var objectSlotName = (ObjectSlotNameNode)node;
-        var slotNameId = SymbolTable.Lookup(objectSlotName.SlotName);
+        var slotsEnumTable = ((AgentLabEnumSymbol)SymbolTable.Lookup("ObjectBehaviourSlot")).Enums;
+        var slotNameId = slotsEnumTable.Lookup(objectSlotName.SlotName);
         if (slotNameId == null)
         {
             // TODO: Raise undefined identifier error instead of throwing an exception
             throw new Exception($"Undefined object slot name {objectSlotName.SlotName}");
         }
         
-        var slotType = SymbolTable.Lookup(slotNameId.Type.Name);
-        // TODO: Verify enum type
         return null;
     }
 
@@ -382,6 +445,49 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
 
     private Object VisitNoop(IAgentLabTreeNode node)
     {
+        return null;
+    }
+    
+    private Object VisitControlPacketSettingNode(IAgentLabTreeNode node)
+    {
+        var settingNode = (ControlPacketSettingNode)node;
+        if (SymbolTable.Lookup(settingNode.Name) == null)
+        {
+            throw new Exception($"Undefined control packet setting {settingNode.Name}");
+        }
+
+        Visit(settingNode.Assign);
+        
+        return null;
+    }
+    
+    private Object VisitControlPacketDataNode(IAgentLabTreeNode node)
+    {
+        var dataNode = (ControlPacketDataNode)node;
+        if (SymbolTable.Lookup(dataNode.Name) == null)
+        {
+            // TODO: Raise undefined data member error instead of throwing an exception
+            throw new Exception($"Undefined control packet data {dataNode.Name}");
+        }
+
+        Visit(dataNode.Assign);
+        
+        return null;
+    }
+    
+    private Object VisitControlPacketBodyNode(IAgentLabTreeNode node)
+    {
+        var packetBody = (ControlPacketBodyNode)node;
+        foreach (var dataNode in packetBody.DataNodes)
+        {
+            Visit(dataNode);
+        }
+
+        foreach (var settingNode in packetBody.SettingsNodes)
+        {
+            Visit(settingNode);
+        }
+        
         return null;
     }
 
@@ -423,6 +529,9 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
             // TODO: Raise undefined identifier error instead of throwing an exception
             throw new Exception($"Undefined state {executeNode.StateName}");
         }
+
+        AssertType(SymbolTable.Lookup(nameof(AgentLabToken.TokenType.State)), stateSymbol.Type);
+        
         return null;
     }
 
@@ -441,11 +550,8 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
             Type = SymbolTable.Lookup(nameof(AgentLabToken.TokenType.State))
         };
         SymbolTable.Define(symbol);
-        Visit(state.Bodies);
-        foreach (var attribute in state.Attributes)
-        {
-            Visit(attribute);
-        }
+        DeferredVisit(state.Bodies);
+        DeferredVisit(state.Attributes);
         return null;
     }
 
@@ -456,6 +562,9 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
         {
             Visit(state);
         }
+        
+        DoDeferredVisits();
+        
         return null;
     }
 
@@ -464,30 +573,46 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
         var numberNode = (NumberNode)node;
         return numberNode.Token.Type switch
         {
-            AgentLabToken.TokenType.Integer => AgentLabToken.TokenType.IntegerType,
-            AgentLabToken.TokenType.FloatingPoint => AgentLabToken.TokenType.FloatType,
+            AgentLabToken.TokenType.Integer => SymbolTable.Lookup(nameof(AgentLabToken.TokenType.IntegerType)),
+            AgentLabToken.TokenType.FloatingPoint => SymbolTable.Lookup(nameof(AgentLabToken.TokenType.FloatType)),
             _ => null
         };
+    }
+    
+    private Object VisitUnaryOperationNode(IAgentLabTreeNode node)
+    {
+        var unaryOp = (UnaryOperationNode)node;
+        var type = Visit(unaryOp.Expression) as AgentLabSymbol;
+        if (type != SymbolTable.Lookup(nameof(AgentLabToken.TokenType.IntegerType)) && type != SymbolTable.Lookup(nameof(AgentLabToken.TokenType.FloatType)))
+        {
+            // TODO: Raise type error instead of throwing an exception
+            throw new Exception($"Unary operation for {type} are not supported");
+        }
+        
+        return type;
     }
 
     private Object VisitBinaryOperation(IAgentLabTreeNode node)
     {
         var binOp = (BinaryOperationNode)node;
-        var left = (AgentLabToken.TokenType)Visit(binOp.Left);
-        var right = (AgentLabToken.TokenType)Visit(binOp.Right);
-        if ((left == AgentLabToken.TokenType.StringType && right != AgentLabToken.TokenType.StringType) || (left != AgentLabToken.TokenType.StringType && right == AgentLabToken.TokenType.StringType))
+        var left = Visit(binOp.Left) as AgentLabSymbol;
+        var right = Visit(binOp.Right) as AgentLabSymbol;
+        var stringSymbol = SymbolTable.Lookup(nameof(AgentLabToken.TokenType.StringType));
+        var booleanSymbol = SymbolTable.Lookup(nameof(AgentLabToken.TokenType.BooleanType));
+        var floatSymbol = SymbolTable.Lookup(nameof(AgentLabToken.TokenType.FloatType));
+        if ((left == stringSymbol && right != stringSymbol) || (left != stringSymbol && right == stringSymbol))
         {
             // TODO: Raise type error instead of throwing an exception
             throw new Exception($"Binary operation {left} and {right} are not supported");
         }
 
-        if (left == AgentLabToken.TokenType.BooleanType || right == AgentLabToken.TokenType.BooleanType)
+        if (left == booleanSymbol || right == booleanSymbol)
         {
             // TODO: Raise type error instead of throwing an exception
             throw new Exception("No binary operation for booleans are supported");
         }
 
-        if (left == AgentLabToken.TokenType.StringType && right == AgentLabToken.TokenType.StringType)
+        if (left == stringSymbol && right == stringSymbol)
         {
             if (binOp.Token.Type != AgentLabToken.TokenType.AddOperator)
             {
@@ -495,30 +620,59 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
                 throw new Exception($"Binary operation {binOp.Token.Type} for {left} and {right} are not supported");
             }
             
-            return AgentLabToken.TokenType.StringType;
+            return stringSymbol;
         }
         
-        if (left == AgentLabToken.TokenType.FloatType || right == AgentLabToken.TokenType.FloatType)
+        if (left == floatSymbol || right == floatSymbol)
         {
-            return AgentLabToken.TokenType.FloatType;
+            return floatSymbol;
         }
         
-        return AgentLabToken.TokenType.IntegerType;
+        return SymbolTable.Lookup(nameof(AgentLabToken.TokenType.IntegerType));
     }
 
     private Object VisitConstDeclaration(IAgentLabTreeNode node)
     {
         var constDecl = (ConstDeclarationNode)node;
-        VisitConst(constDecl.Assign.Left);
+        var constNode = (ConstNode)constDecl.Assign.Left;
+        var type = SymbolTable.Lookup(constNode.Type.ToString());
+        SymbolTable.Define(new AgentLabConstSymbol(constNode.Name, type));
+        
         return null;
     }
 
     private Object VisitAssign(IAgentLabTreeNode node)
     {
         var assign = (AssignNode)node;
-        Visit(assign.Left);
-        Visit(assign.Right);
+        var leftSymbol = Visit(assign.Left) as AgentLabSymbol;
+        var integerSymbol = SymbolTable.Lookup(nameof(AgentLabToken.TokenType.IntegerType));
+        var floatSymbol = SymbolTable.Lookup(nameof(AgentLabToken.TokenType.FloatType));
+        
+        // No, this is not a hack, this is going into Enum symbol scope :^)
+        var oldSymbolTable = SymbolTable;
+        if (leftSymbol != null && leftSymbol == SymbolTable.Lookup(nameof(AgentLabToken.TokenType.EnumType)))
+        {
+            leftSymbol = SymbolTable.Lookup(((ConstNode)assign.Left).Name);
+            SymbolTable = GetEnumSymbolTable((ConstNode)assign.Left);
+        }
+        var rightSymbol = Visit(assign.Right) as AgentLabSymbol;
+        SymbolTable = oldSymbolTable;
+
+        // Can assign integers to floats just fine!
+        if (leftSymbol == floatSymbol && rightSymbol == integerSymbol)
+        {
+            return null;
+        }
+        
+        AssertType(leftSymbol, rightSymbol);
+        
         return null;
+    }
+
+    private AgentLabSymbolTable GetEnumSymbolTable(ConstNode node)
+    {
+        var symbol = SymbolTable.Lookup(node.Name) as AgentLabEnumSymbol;
+        return symbol?.Enums;
     }
 
     private Object VisitConstList(IAgentLabTreeNode node)
@@ -538,9 +692,9 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
         {
             var assign = constDeclNode.Assign;
             var constNode = (ConstNode)assign.Left;
-            var symbol = SymbolTable.Lookup(constNode.Value);
-            var type = (AgentLabToken.TokenType)Visit(assign.Right);
-            symbol.Type = SymbolTable.Lookup(type.ToString());
+            var symbol = SymbolTable.Lookup(constNode.Name);
+            var type = Visit(assign.Right) as AgentLabSymbol;
+            symbol.Type = type;
         }
     }
     
@@ -557,22 +711,59 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
     private Object VisitBehaviour(IAgentLabTreeNode node)
     {
         var behaviour = (BehaviourNode)node;
+        if (SymbolTable.Lookup(behaviour.Name) != null)
+        {
+            // TODO: Raise redefinition error instead of throwing an exception
+            throw new Exception($"Behaviour {behaviour.Name} redefinition!");
+        }
+        
+        var behaviourSymbol = new AgentLabBehaviourSymbol(behaviour.Name, SymbolTable);
+        SymbolTable.Define(behaviourSymbol);
+        var oldSymbolTable = SymbolTable;
+        SymbolTable = behaviourSymbol.BehaviourSymbolTable;
         Visit(behaviour.Body);
+        Visit(behaviour.Priority);
+        Visit(behaviour.StartFrom);
+        SymbolTable = oldSymbolTable;
         return null;
+    }
+    
+    private Object VisitArrayNode(IAgentLabTreeNode node)
+    {
+        var array = (ArrayNode)node;
+        var arraySymbol = SymbolTable.Lookup(array.Name) as AgentLabArraySymbol;
+        if (arraySymbol == null)
+        {
+            // TODO: Raise undefined error instead of throwing an exception
+            throw new Exception($"Undefined array {array.Name}");
+        }
+
+        // Const types should be determined by this point
+        var indexType = Visit(array.Index) as AgentLabSymbol;
+        AssertType(SymbolTable.Lookup(nameof(AgentLabToken.TokenType.IntegerType)), indexType);
+        
+        return arraySymbol.StorageType;
     }
 
     private Object VisitConst(IAgentLabTreeNode node)
     {
         var constNode = (ConstNode)node;
-        if (SymbolTable.Lookup(constNode.Value) != null)
+        var constSymbol = SymbolTable.Lookup(constNode.Name);
+        if (constSymbol == null)
         {
-            // TODO: Raise redefinition error instead of throwing an exception
-            throw new Exception($"const {constNode.Value} redefinition!");
+            // TODO: Raise undefined error instead of throwing an exception
+            throw new Exception($"Undefined const {constNode.Name}!");
         }
         
-        // Assume default type for now, we'll determine actual type dynamically later
-        var type = SymbolTable.Lookup(constNode.Type.ToString());
-        SymbolTable.Define(new AgentLabConstSymbol(constNode.Value, type));
-        return constNode.Type;
+        return constSymbol.Type;
+    }
+
+    private void AssertType(AgentLabSymbol expectedType, AgentLabSymbol actualType)
+    {
+        if (expectedType.Name != actualType.Name)
+        {
+            // TODO: Raise type error instead of throwing an exception
+            throw new Exception($"Expected {expectedType.Name} but got {actualType.Name}");
+        }
     }
 }

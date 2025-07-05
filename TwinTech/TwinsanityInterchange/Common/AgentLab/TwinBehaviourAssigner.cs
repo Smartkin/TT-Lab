@@ -1,10 +1,13 @@
 ﻿using System;
 using System.IO;
+using System.Text;
+using Twinsanity.Libraries;
 using Twinsanity.TwinsanityInterchange.Interfaces;
+using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code.AgentLab;
 
 namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
 {
-    public class TwinBehaviourAssigner : ITwinSerializable
+    public class TwinBehaviourAssigner : ITwinAgentLab
     {
         public Int32 Behaviour { get; set; }
         public UInt16 GlobalObjectId { get; set; }
@@ -21,6 +24,20 @@ namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
         public void Compile()
         {
             return;
+        }
+
+        public void Decompile(StreamWriter writer, int tabs = 0)
+        {
+            StringUtils.WriteLineTabulated(writer, "assigner = {", tabs);
+            if (GlobalObjectId != 65535)
+            {
+                StringUtils.WriteLineTabulated(writer, $"{nameof(GlobalObjectId)} = {GlobalObjectId};", tabs + 1);
+            }
+            StringUtils.WriteLineTabulated(writer, $"{nameof(AssignType)} = {AssignType};", tabs + 1);
+            StringUtils.WriteLineTabulated(writer, $"{nameof(AssignLocality)} = {AssignLocality};", tabs + 1);
+            StringUtils.WriteLineTabulated(writer, $"{nameof(AssignStatus)} = {AssignStatus};", tabs + 1);
+            StringUtils.WriteLineTabulated(writer, $"{nameof(AssignPreference)} = {AssignPreference};", tabs + 1);
+            StringUtils.WriteLineTabulated(writer, "}", tabs);
         }
 
         public void Read(BinaryReader reader, Int32 length)

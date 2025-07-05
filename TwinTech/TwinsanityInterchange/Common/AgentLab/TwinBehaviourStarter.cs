@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
+using Twinsanity.Libraries;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 
 namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
@@ -12,6 +14,16 @@ namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
         public TwinBehaviourStarter()
         {
             Assigners = new List<TwinBehaviourAssigner>();
+        }
+
+        public override void Decompile(StreamWriter writer, int tabs = 0)
+        {
+            StringUtils.WriteLineTabulated(writer, "starter = {", tabs);
+            foreach (var assigner in Assigners)
+            {
+                assigner.Decompile(writer, tabs + 1);
+            }
+            StringUtils.WriteLineTabulated(writer, "}", tabs);
         }
 
         public override int GetLength()

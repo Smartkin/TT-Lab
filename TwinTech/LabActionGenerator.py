@@ -3,7 +3,7 @@ import json5 as json
 def generateFile(labDefs):
     commandSizes = labDefs['CommandSizes']
     parametersPerFunc = []
-    actionDefinitionResultText = ""
+    actionDefinitionResultText = "// Generated using LabActionGenerator.py Edit at your own risk!\n\n"
     for commandSize in commandSizes:
         trueSize = int(commandSize, 16)
         if trueSize == 0:

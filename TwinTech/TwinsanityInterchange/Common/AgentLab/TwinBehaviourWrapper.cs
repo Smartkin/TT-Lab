@@ -20,6 +20,8 @@ namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
             base.Compile();
             scriptID = (UInt16)GetID();
         }
+        
+        public abstract void Decompile(StreamWriter writer, int tabs = 0);
 
         public override void Read(BinaryReader reader, int length)
         {

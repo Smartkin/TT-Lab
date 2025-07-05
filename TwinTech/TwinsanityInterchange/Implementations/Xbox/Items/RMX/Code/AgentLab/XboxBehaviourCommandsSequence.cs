@@ -30,6 +30,11 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.RMX.Code.A
             return 4 + BehaviourPacks.Sum(pair => pair.Value.GetLength()) + BehaviourPacks.Count * Constants.SIZE_UINT16 + Commands.Sum(com => com.GetLength());
         }
 
+        public void Decompile(StreamWriter writer, int tabs = 0)
+        {
+            throw new NotImplementedException();
+        }
+
         public override void Read(BinaryReader reader, int length)
         {
             var header = reader.ReadInt32();

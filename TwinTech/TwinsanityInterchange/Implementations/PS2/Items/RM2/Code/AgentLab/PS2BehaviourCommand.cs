@@ -42,6 +42,11 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
             return;
         }
 
+        public void Decompile(StreamWriter writer, int tabs = 0)
+        {
+            WriteText(writer, tabs);
+        }
+
         public void Read(BinaryReader reader, int length)
         {
             Bitfield = reader.ReadUInt32();
@@ -91,7 +96,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
         public void WriteText(StreamWriter writer, Int32 tabs = 0)
         {
             AgentLabDefs defs = PS2BehaviourGraph.GetAgentLabDefs();
-            StringUtils.WriteTabulated(writer, $"@{Version} {MapCommand(CommandIndex, defs)}(", tabs);
+            StringUtils.WriteTabulated(writer, $"{MapCommand(CommandIndex, defs)}(", tabs);
             for (Int32 i = 0; i < Arguments.Count; ++i)
             {
                 writer.Write($"{ToStringArgument(Arguments[i], i, CommandIndex, defs)}");
@@ -100,7 +105,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
                     writer.Write(", ");
                 }
             }
-            writer.WriteLine($")");
+            writer.WriteLine(");");
         }
 
         private string MapCommand(UInt32 index, AgentLabDefs defs)
@@ -112,7 +117,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
             }
             else
             {
-                return $"ById_{str_index}";
+                return $"AUnknown_{str_index}";
             }
         }
 

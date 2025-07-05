@@ -29,6 +29,7 @@ public struct AgentLabToken
         Assign, // '='
         Identifier, // (any identifier including reserved keywords)
         Priority, // "Priority"
+        StartFrom, // "StartFrom"
         NonBlocking, // "NonBlocking"
         SkipFirstBody, // "SkipFirstBody"
         UseObjectSlot, // "UseObjectSlot"
@@ -56,8 +57,10 @@ public struct AgentLabToken
         StringType, // "string"
         IntegerType, // "int"
         BooleanType, // "bool"
+        ArrayType, // arrays
         Action, // "action"
         Condition, // "condition"
+        Packet, // "packet"
         BehaviourLibrary, // "behaviour_library"
         AddOperator, // "+"
         SubtractOperator, // "-"
@@ -76,7 +79,10 @@ public struct AgentLabToken
         _value = value;
     }
     
+    // TODO: Add line and column members to display in errors/warnings later
+    
     public TokenType Type { get; }
+    internal object Value => _value;
 
     public T GetValue<T>()
     {

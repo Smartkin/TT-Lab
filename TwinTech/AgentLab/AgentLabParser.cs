@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Twinsanity.AgentLab.AbstractSyntaxTree;
 using Twinsanity.AgentLab.AbstractSyntaxTree.Attributes;
 using Twinsanity.AgentLab.AbstractSyntaxTree.ControlPacket;
@@ -108,7 +109,7 @@ public class AgentLabParser : IDisposable
         }
         else if (_currentToken.Type == AgentLabToken.TokenType.Behaviour)
         {
-            result = Behaviour();
+            result = Behaviour(new AttributeListNode());
         }
         else switch (_currentToken.Type)
         {
@@ -120,17 +121,15 @@ public class AgentLabParser : IDisposable
                 break;
             default:
             {
-                var attrib = Attribute();
-                if (attrib is PriorityAttributeNode)
+                var attributes = AttributeList();
+                if (attributes.Children.Any(attrib => attrib is PriorityAttributeNode or StartFromAttributeNode))
                 {
-                    result = Behaviour(attrib);
+                    result = Behaviour(attributes);
                 }
                 else
                 {
-                    var attrib2 = Attribute();
-                    result = BehaviourLibrary(attrib, attrib2);
+                    result = BehaviourLibrary(attributes);
                 }
-
                 break;
             }
         }
@@ -283,12 +282,27 @@ public class AgentLabParser : IDisposable
         return node;
     }
 
+    private AttributeListNode AttributeList()
+    {
+        var attribList = new AttributeListNode();
+
+        while (_currentToken.Type == AgentLabToken.TokenType.AttributeOpen)
+        {
+            attribList.Children.Add(Attribute());
+        }
+
+        return attribList;
+    }
+
     private IAttributeNode Attribute()
     {
         IAttributeNode node;
         EatToken(AgentLabToken.TokenType.AttributeOpen);
         switch (_currentToken.Type)
         {
+            case AgentLabToken.TokenType.StartFrom:
+                node = StartFromAttribute();
+                break;
             case AgentLabToken.TokenType.Priority:
                 node = PriorityAttribute();
                 break;
@@ -304,7 +318,7 @@ public class AgentLabParser : IDisposable
                 break;
             default:
                 // TODO: Raise parser error instead of throwing an exception
-                throw new Exception($"Undefined attribute {_currentToken.Type}");
+                throw new Exception($"Unknown attribute {_currentToken.Value} {_currentToken.Type}");
         }
         EatToken(AgentLabToken.TokenType.AttributeClose);
 
@@ -377,7 +391,7 @@ public class AgentLabParser : IDisposable
 
     private ControlPacketListNode ControlPacketList(ref ControlPacketListNode controlPackets)
     {
-        while (_currentToken.Type == AgentLabToken.TokenType.ControlPacket)
+        while (_currentToken.Type == AgentLabToken.TokenType.Packet)
         {
             controlPackets.Children.Add(ControlPacket());
         }
@@ -387,7 +401,7 @@ public class AgentLabParser : IDisposable
 
     private ControlPacketNode ControlPacket()
     {
-        EatToken(AgentLabToken.TokenType.ControlPacket);
+        EatToken(AgentLabToken.TokenType.Packet);
         var token = _currentToken;
         EatToken(AgentLabToken.TokenType.Identifier);
         EatToken(AgentLabToken.TokenType.OpenBracket);
@@ -520,9 +534,21 @@ public class AgentLabParser : IDisposable
 
     private ConstNode Const()
     {
-        var constNode = new ConstNode(_currentToken);
+        var identifier = _currentToken;
+        ConstNode node;
         EatToken(AgentLabToken.TokenType.Identifier);
-        return constNode;
+        if (_currentToken.Type == AgentLabToken.TokenType.AttributeOpen)
+        {
+            EatToken(AgentLabToken.TokenType.AttributeOpen);
+            var index = Factor();
+            node = new ArrayNode(identifier, index);
+            EatToken(AgentLabToken.TokenType.AttributeClose);
+        }
+        else
+        {
+            node = new ConstNode(identifier);
+        }
+        return node;
     }
 
     private StarterNode Starter()
@@ -582,11 +608,7 @@ public class AgentLabParser : IDisposable
 
     private StateNode State()
     {
-        var attributes = new List<IAttributeNode>();
-        while (_currentToken.Type == AgentLabToken.TokenType.AttributeOpen)
-        {
-            attributes.Add(Attribute());
-        }
+        var attributes = AttributeList();
         
         EatToken(AgentLabToken.TokenType.State);
         var stateNameToken = _currentToken;
@@ -594,9 +616,10 @@ public class AgentLabParser : IDisposable
         EatToken(AgentLabToken.TokenType.LeftParen);
 
         AgentLabToken? behaviourId = null;
-        if (_currentToken.Type == AgentLabToken.TokenType.Identifier)
+        if (_currentToken.Type != AgentLabToken.TokenType.RightParen)
         {
             behaviourId = _currentToken;
+            EatToken(_currentToken.Type);
         }
         
         EatToken(AgentLabToken.TokenType.RightParen);
@@ -604,7 +627,7 @@ public class AgentLabParser : IDisposable
         var bodies = StateBodyList();
         EatToken(AgentLabToken.TokenType.CloseBracket);
         
-        return new StateNode(stateNameToken, behaviourId, bodies, attributes.ToArray());
+        return new StateNode(stateNameToken, behaviourId, bodies, attributes);
     }
 
     private StateBodyListNode StateBodyList()
@@ -678,6 +701,7 @@ public class AgentLabParser : IDisposable
         EatToken(AgentLabToken.TokenType.Execute);
         var token = _currentToken;
         EatToken(AgentLabToken.TokenType.Identifier);
+        EatToken(AgentLabToken.TokenType.Semicolon);
         return new StateExecuteNode(token);
     }
 
@@ -774,7 +798,7 @@ public class AgentLabParser : IDisposable
         return attribute;
     }
 
-    private BehaviourLibraryNode BehaviourLibrary(IAttributeNode attribute, IAttributeNode attribute2)
+    private BehaviourLibraryNode BehaviourLibrary(AttributeListNode attributes)
     {
         EatToken(AgentLabToken.TokenType.Library);
         var token = _currentToken;
@@ -784,11 +808,9 @@ public class AgentLabParser : IDisposable
         var action = Action();
         EatToken(AgentLabToken.TokenType.CloseBracket);
         
-        if (attribute is GlobalIndexAttributeNode)
-        {
-            return new BehaviourLibraryNode(token, behaviours, action, attribute, attribute2);
-        }
-        return new BehaviourLibraryNode(token, behaviours, action, attribute2, attribute);
+        var globalIndexAttribute = attributes.Children.FirstOrDefault(attrib => attrib is GlobalIndexAttributeNode);
+        var instanceTypeAttribute = attributes.Children.FirstOrDefault(attrib => attrib is InstanceTypeAttributeNode);
+        return new BehaviourLibraryNode(token, behaviours, action, globalIndexAttribute as IAttributeNode, instanceTypeAttribute as IAttributeNode);
     }
 
     private LinearBehaviourListNode LinearBehaviourList()
@@ -856,12 +878,22 @@ public class AgentLabParser : IDisposable
         return node;
     }
 
+    private StartFromAttributeNode StartFromAttribute()
+    {
+        EatToken(AgentLabToken.TokenType.StartFrom);
+        EatToken(AgentLabToken.TokenType.LeftParen);
+        var state = _currentToken;
+        EatToken(AgentLabToken.TokenType.Identifier);
+        EatToken(AgentLabToken.TokenType.RightParen);
+
+        return new StartFromAttributeNode(state);
+    }
+
     private PriorityAttributeNode PriorityAttribute()
     {
         EatToken(AgentLabToken.TokenType.Priority);
         EatToken(AgentLabToken.TokenType.LeftParen);
-        var resultNode = new NumberNode(_currentToken);
-        EatToken(AgentLabToken.TokenType.Integer);
+        var resultNode = Number();
         EatToken(AgentLabToken.TokenType.RightParen);
         
         return new PriorityAttributeNode(resultNode);
@@ -904,16 +936,18 @@ public class AgentLabParser : IDisposable
                 case AgentLabToken.TokenType.State or AgentLabToken.TokenType.AttributeOpen:
                     states = StateList(ref states);
                     break;
-                case AgentLabToken.TokenType.ControlPacket:
+                case AgentLabToken.TokenType.Packet:
                     controlPackets = ControlPacketList(ref controlPackets);
                     break;
+                default:
+                    throw new Exception($"Unexpected token type {_currentToken.Type}");
             }
         }
         
         return new BehaviourBodyNode(consts, states, controlPackets, starter);
     }
 
-    private IAgentLabTreeNode Behaviour(IAttributeNode priorityAttributeNode = null)
+    private IAgentLabTreeNode Behaviour(AttributeListNode attributes)
     {
         EatToken(AgentLabToken.TokenType.Behaviour);
         var behaviourNameToken = _currentToken;
@@ -921,8 +955,10 @@ public class AgentLabParser : IDisposable
         EatToken(AgentLabToken.TokenType.OpenBracket);
         var behaviourBody = BehaviourBody();
         EatToken(AgentLabToken.TokenType.CloseBracket);
-        
-        return new BehaviourNode(behaviourNameToken, behaviourBody, (PriorityAttributeNode)priorityAttributeNode);
+
+        var priorityAttribute = attributes.Children.FirstOrDefault(attrib => attrib is PriorityAttributeNode, null);
+        var startFrom = attributes.Children.FirstOrDefault(attrib => attrib is StartFromAttributeNode, null);
+        return new BehaviourNode(behaviourNameToken, behaviourBody, priorityAttribute as PriorityAttributeNode, startFrom as StartFromAttributeNode);
     }
     
     private void EatToken(AgentLabToken.TokenType tokenType)

@@ -5,7 +5,11 @@ using System.Text;
 using Twinsanity.AgentLab;
 using Twinsanity.AgentLab.SymbolTable;
 using Twinsanity.TwinsanityInterchange.Common;
+using Twinsanity.TwinsanityInterchange.Common.AgentLab;
+using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Implementations.PS2;
+using Twinsanity.TwinsanityInterchange.Interfaces;
+using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code.AgentLab;
 
 namespace Twinsanity_Command_Interface
 {
@@ -129,6 +133,7 @@ namespace Twinsanity_Command_Interface
                                                  """);
             var agentLabLexer = new AgentLabLexer("""
                                                   // This is a comment
+                                                  [StartFrom(FirstState)]
                                                   [Priority(100)] // This is another comment
                                                   behaviour COM_MY_BEHAVIOUR {
                                                     // And this is another comment
@@ -145,13 +150,13 @@ namespace Twinsanity_Command_Interface
                                                     state FirstState() {
                                                         if Next(0) >= 0.5 {
                                                             interval = 1.0;
-                                                            ActionCall();
-                                                            ActionCall2();
-                                                            ActionCall3(param_1, param_2);
+                                                            MakeInert();
+                                                            MakeInert();
+                                                            MakeInert();
                                                         }
                                                     }
                                                     
-                                                    ControlPacket my_control_packet {
+                                                    packet my_control_packet {
                                                         settings {
                                                             Stalls = 1;
                                                         }
@@ -162,26 +167,42 @@ namespace Twinsanity_Command_Interface
                                                     
                                                   }
                                                   """);
-            var parser = new AgentLabParser(agentLabLexer);
-            var libraryParser = new AgentLabParser(libraryLexer);
-            var result = parser.Parse();
-            var symbols = new AgentLabSymbolTableBuilder(result, "ActionDefinitionsPs2.lab");
-            var libraryResult = libraryParser.Parse();
-            Console.WriteLine(result.ToString());
+            // var parser = new AgentLabParser(agentLabLexer);
+            // var libraryParser = new AgentLabParser(libraryLexer);
+            // var result = parser.Parse();
+            // var symbols = new AgentLabSymbolTableBuilder(result, "ActionDefinitionsPs2.lab");
+            // var libraryResult = libraryParser.Parse();
+            // Console.WriteLine(result.ToString());
+            //
+            // return;
+            using var defaultRm2File = new FileStream(args[0], FileMode.Open, FileAccess.Read);
+            using var reader = new BinaryReader(defaultRm2File);
+            var defaultRm2 = new PS2AnyTwinsanityRM2();
+            defaultRm2.Read(reader, (Int32)reader.BaseStream.Length);
+            var behaviours = defaultRm2.GetItem<ITwinSection>(Constants.LEVEL_CODE_SECTION).GetItem<ITwinSection>(Constants.CODE_BEHAVIOURS_SECTION);
+            var symbols = new AgentLabSymbolTableBuilder();
+            symbols.BuildBuiltInTypes().BuildConditions().BuildActions("ActionDefinitionsPs2.lab");
+            for (var i = 0; i < behaviours.GetItemsAmount(); ++i)
+            {
+                if (behaviours.GetItem(i) is not ITwinAgentLab behaviour)
+                {
+                    continue;
+                }
+                
+                var script = AgentLabDecompiler.Decompile(behaviour);
+                Console.WriteLine(script);
+                var parser = new AgentLabParser(new AgentLabLexer(script));
+                if (behaviour is not TwinBehaviourStarter)
+                {
+                    var ast = parser.Parse();
+                    symbols.BuildFromAst(ast);
+                    Console.WriteLine("Parsed and built symbols for behaviour successfully!");
+                }
+            }
+            
+            Console.WriteLine(symbols.ToString());
 
             return;
-            using var frontendFile = new FileStream(args[0], FileMode.Open, FileAccess.Read);
-            using var reader = new BinaryReader(frontendFile);
-            var frontend = new PS2Frontend();
-            frontend.Read(reader, (Int32)reader.BaseStream.Length);
-            for (var i = 0; i < frontend.GetItemsAmount(); ++i)
-            {
-                var item = frontend.GetItem(i);
-                using var soundFile = new FileStream($"UI_Sound_{i}", FileMode.OpenOrCreate, FileAccess.Write);
-                using var writer = new BinaryWriter(soundFile);
-                item.Write(writer);
-            }
-            Console.WriteLine("Read and wrote the Frontend file!");
             /*if (args.Length != 2)
             {
                 Console.WriteLine("Must provide a path to the model in the format of FBX and model type (0 for static models, 1 for rigged models). Other formats like OBJ and GLTF aren't tested but could work.");

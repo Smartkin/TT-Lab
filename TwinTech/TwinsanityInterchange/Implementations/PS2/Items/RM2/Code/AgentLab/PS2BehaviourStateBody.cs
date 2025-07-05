@@ -25,13 +25,39 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
 
         public int GetLength()
         {
-            return 4 + (HasStateJump ? 4 : 0) + Commands.Sum(command => command.GetLength()) +
-                (Condition != null ? Condition.GetLength() : 0);
+            return 4 + (HasStateJump ? 4 : 0) + Commands.Sum(command => command.GetLength()) + (Condition?.GetLength() ?? 0);
         }
 
         public void Compile()
         {
             return;
+        }
+
+        public void Decompile(StreamWriter writer, int tabs = 0)
+        {
+            if (Condition == null)
+            {
+                StringUtils.WriteLineTabulated(writer, "if Else(0) >= 0.5 {", tabs);
+                StringUtils.WriteLineTabulated(writer, "interval = 1.0;", tabs + 1);
+            }
+            else
+            {
+                Condition.Decompile(writer, tabs);
+            }
+
+            tabs += 1;
+            foreach (var cmd in Commands)
+            {
+                cmd.Decompile(writer, tabs);
+            }
+
+            if (HasStateJump)
+            {
+                StringUtils.WriteLineTabulated(writer, $"execute State_{JumpToState};", tabs);
+            }
+
+            tabs -= 1;
+            StringUtils.WriteLineTabulated(writer, "}", tabs);
         }
 
         public void Read(BinaryReader reader, int length)

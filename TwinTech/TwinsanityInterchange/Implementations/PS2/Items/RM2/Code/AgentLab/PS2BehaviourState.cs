@@ -17,6 +17,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
         public bool NoneBlocking { get; set; }
         public TwinBehaviourControlPacket ControlPacket { get; set; }
         public List<ITwinBehaviourStateBody> Bodies { get; set; }
+        internal int Index { get; set; }
 
         bool ITwinBehaviourState.HasNext { get; set; }
 
@@ -35,6 +36,47 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
             return;
         }
 
+        public void Decompile(StreamWriter writer, int tabs = 0)
+        {
+            ControlPacket?.Decompile(writer, tabs);
+
+            writer.WriteLine();
+            
+            if (ControlPacket != null)
+            {
+                StringUtils.WriteLineTabulated(writer, $"[ControlPacket({ControlPacket.Name})]", tabs);
+            }
+            if (UsesObjectSlot)
+            {
+                StringUtils.WriteLineTabulated(writer, $"[UseObjectSlot({(ITwinBehaviourState.ObjectBehaviourSlots)BehaviourIndexOrSlot})]", tabs);
+            }
+            if (NoneBlocking)
+            {
+                StringUtils.WriteLineTabulated(writer, "[NonBlocking]", tabs);
+            }
+            if (SkipsFirstStateBody)
+            {
+                StringUtils.WriteLineTabulated(writer, "[SkipFirstBody]", tabs);
+            }
+
+            if (BehaviourIndexOrSlot != -1 && !UsesObjectSlot)
+            {
+                StringUtils.WriteLineTabulated(writer, $"state State_{Index}({BehaviourIndexOrSlot}) {{", tabs);
+            }
+            else
+            {
+                StringUtils.WriteLineTabulated(writer, $"state State_{Index}() {{", tabs);
+            }
+
+            foreach (var body in Bodies)
+            {
+                body.Decompile(writer, tabs + 1);
+            }
+            
+            StringUtils.WriteLineTabulated(writer, "}", tabs);
+            writer.WriteLine();
+        }
+
         public void Read(BinaryReader reader, int length)
         {
             Bitfield = reader.ReadUInt16();
@@ -50,6 +92,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
             if ((Bitfield & 0x4000) != 0)
             {
                 ControlPacket = new TwinBehaviourControlPacket();
+                ControlPacket.PacketIndex = Index;
                 ControlPacket.Read(reader, length);
             }
         }
@@ -99,7 +142,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
         {
             if (BehaviourIndexOrSlot != -1)
             {
-                StringUtils.WriteLineTabulated(writer, $"State_{i}({BehaviourIndexOrSlot}) {"{"}", tabs);
+                StringUtils.WriteLineTabulated(writer, $"State_{i}({BehaviourIndexOrSlot}) {{", tabs);
                 writer.WriteLine();
             }
             else

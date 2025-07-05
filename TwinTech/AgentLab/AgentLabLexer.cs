@@ -141,7 +141,14 @@ public class AgentLabLexer : IDisposable
             if (char.IsAsciiDigit(_currentChar.Value))
             {
                 var lexeme = AdvanceLexeme();
-                if (lexeme.Contains('.'))
+                if (_currentChar == '-')
+                {
+                    lexeme += _currentChar;
+                    Advance();
+                    lexeme += AdvanceLexeme();
+                }
+                
+                if (lexeme.Contains('.') || (lexeme.ToLower().Contains('e') && !lexeme.StartsWith("0x")))
                 {
                     if (float.TryParse(lexeme, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
                     {

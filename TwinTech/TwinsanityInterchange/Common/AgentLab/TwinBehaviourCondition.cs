@@ -2,16 +2,18 @@
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text;
 using Twinsanity.Libraries;
 using Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.AgentLab;
 using Twinsanity.TwinsanityInterchange.Interfaces;
+using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code.AgentLab;
 
 namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
 {
     /// <summary>
     /// Behaviour conditions allowing to jump to different states in the behaviours
     /// </summary>
-    public class TwinBehaviourCondition : ITwinSerializable
+    public class TwinBehaviourCondition : ITwinAgentLab
     {
         /// <summary>
         /// Condition identified/delegate index in the game's table
@@ -46,6 +48,23 @@ namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
         public void Compile()
         {
             return;
+        }
+
+        public void Decompile(StreamWriter writer, int tabs = 0)
+        {
+            StringUtils.WriteTabulated(writer, $"if {MapIndex(ConditionIndex, PS2BehaviourGraph.GetAgentLabDefs())}({Parameter})", tabs);
+            if (NotGate)
+            {
+                writer.Write(" <= ");
+            }
+            else
+            {
+                writer.Write(" >= ");
+            }
+            writer.Write((ReturnCheck * ConditionPowerMultiplier).ToString(CultureInfo.InvariantCulture));
+            writer.Write(" {");
+            writer.WriteLine();
+            StringUtils.WriteLineTabulated(writer, $"interval = {CheckInterval.ToString(CultureInfo.InvariantCulture)};", tabs + 1);
         }
 
         public void Read(BinaryReader reader, Int32 length)
@@ -130,7 +149,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
             }
             else
             {
-                return $"ById_{str_index}";
+                return $"Unknown_{str_index}";
             }
         }
     }
