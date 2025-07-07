@@ -1,13 +1,18 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text;
 using Twinsanity.AgentLab;
+using Twinsanity.AgentLab.Resolvers;
+using Twinsanity.AgentLab.Resolvers.Interfaces;
 using Twinsanity.AgentLab.SymbolTable;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Common.AgentLab;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Implementations.PS2;
+using Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.AgentLab;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code.AgentLab;
 
@@ -188,8 +193,14 @@ namespace Twinsanity_Command_Interface
                 {
                     continue;
                 }
-                
-                var script = AgentLabDecompiler.Decompile(behaviour);
+
+                IResolver resolver = null;
+                if (behaviour is ITwinBehaviourGraph && (behaviours.GetItem(i - 1) is TwinBehaviourStarter))
+                {
+                    var starter = (TwinBehaviourStarter)behaviours.GetItem(i - 1);
+                    resolver = new DefaultStarterAssignerGlobalObjectIdResolversList(starter.Assigners.Select(assigner => new DefaultStarterAssignerGlobalObjectIdResolver(assigner.GlobalObjectId)).Cast<IStarterAssignerGlobalObjectIdResolver>().ToArray());
+                }
+                var script = AgentLabDecompiler.Decompile(behaviour, resolver);
                 Console.WriteLine(script);
                 var parser = new AgentLabParser(new AgentLabLexer(script));
                 if (behaviour is not TwinBehaviourStarter)
@@ -199,8 +210,6 @@ namespace Twinsanity_Command_Interface
                     Console.WriteLine("Parsed and built symbols for behaviour successfully!");
                 }
             }
-            
-            Console.WriteLine(symbols.ToString());
 
             return;
             /*if (args.Length != 2)

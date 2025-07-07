@@ -468,8 +468,8 @@ public class AgentLabParser : IDisposable
                 EatToken(AgentLabToken.TokenType.True);
                 break;
             default:
-                // TODO: Raise parser error
-                return null;
+                // TODO: Raise parser error instead of throwing an exception
+                throw new Exception($"Expected boolean instead got {token.Type}");
         }
         
         return new BooleanNode(token);
@@ -563,12 +563,27 @@ public class AgentLabParser : IDisposable
     private StarterBodyNode StarterBody()
     {
         var body = new StarterBodyNode();
-        while (_currentToken.Type == AgentLabToken.TokenType.Identifier)
+        while (_currentToken.Type == AgentLabToken.TokenType.Assigner)
         {
-            body.Children.Add(StarterAssign());
+            body.Children.Add(StarterAssignerNode());
         }
 
         return body;
+    }
+
+    private StarterAssignerNode StarterAssignerNode()
+    {
+        EatToken(AgentLabToken.TokenType.Assigner);
+        EatToken(AgentLabToken.TokenType.Assign);
+        EatToken(AgentLabToken.TokenType.OpenBracket);
+        var assignerNode = new StarterAssignerNode();
+        while (_currentToken.Type == AgentLabToken.TokenType.Identifier)
+        {
+            assignerNode.Children.Add(StarterAssign());
+        }
+        EatToken(AgentLabToken.TokenType.CloseBracket);
+
+        return assignerNode;
     }
 
     private StarterAssignNode StarterAssign()
@@ -615,11 +630,10 @@ public class AgentLabParser : IDisposable
         EatToken(AgentLabToken.TokenType.Identifier);
         EatToken(AgentLabToken.TokenType.LeftParen);
 
-        AgentLabToken? behaviourId = null;
+        IAgentLabTreeNode behaviourId = null;
         if (_currentToken.Type != AgentLabToken.TokenType.RightParen)
         {
-            behaviourId = _currentToken;
-            EatToken(_currentToken.Type);
+            behaviourId = String();
         }
         
         EatToken(AgentLabToken.TokenType.RightParen);

@@ -1,6 +1,8 @@
 ﻿using System;
 using System.IO;
 using System.Text;
+using Twinsanity.AgentLab.Resolvers;
+using Twinsanity.AgentLab.Resolvers.Interfaces;
 using Twinsanity.Libraries;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code.AgentLab;
@@ -26,13 +28,21 @@ namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
             return;
         }
 
-        public void Decompile(StreamWriter writer, int tabs = 0)
+        public void Decompile(IResolver resolver, StreamWriter writer, int tabs = 0)
         {
-            StringUtils.WriteLineTabulated(writer, "assigner = {", tabs);
-            if (GlobalObjectId != 65535)
+            var globalObjectResolver = resolver as IStarterAssignerGlobalObjectIdResolver;
+            var objectId = globalObjectResolver?.ResolveGlobalObjectId() ?? GlobalObjectId.ToString();
+            if (GlobalObjectId == 65535)
             {
-                StringUtils.WriteLineTabulated(writer, $"{nameof(GlobalObjectId)} = {GlobalObjectId};", tabs + 1);
+                objectId = null;
             }
+            
+            StringUtils.WriteLineTabulated(writer, "assigner = {", tabs);
+            if (objectId != null)
+            {
+                StringUtils.WriteLineTabulated(writer, $"{nameof(GlobalObjectId)} = \"{objectId}\";", tabs + 1);
+            }
+
             StringUtils.WriteLineTabulated(writer, $"{nameof(AssignType)} = {AssignType};", tabs + 1);
             StringUtils.WriteLineTabulated(writer, $"{nameof(AssignLocality)} = {AssignLocality};", tabs + 1);
             StringUtils.WriteLineTabulated(writer, $"{nameof(AssignStatus)} = {AssignStatus};", tabs + 1);

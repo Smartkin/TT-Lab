@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using Twinsanity.AgentLab.Resolvers;
+using Twinsanity.AgentLab.Resolvers.Interfaces;
 using Twinsanity.Libraries;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code.AgentLab;
@@ -52,7 +54,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
             return;
         }
 
-        public void Decompile(StreamWriter writer, int tabs = 0)
+        public void Decompile(IResolver resolver, StreamWriter writer, int tabs = 0)
         {
             WriteText(writer, tabs);
         }
@@ -146,20 +148,20 @@ namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
                 StringUtils.WriteLineTabulated(writer, $"MotionType = {Motion};", tabs + 2);
                 StringUtils.WriteLineTabulated(writer, $"ContinuousRotate = {ContRotate};", tabs + 2);
                 StringUtils.WriteLineTabulated(writer, $"AccelerationFunction = {AccelerationFunction};", tabs + 2);
-                StringUtils.WriteLineTabulated(writer, $"DoesTranslate = {Translates};", tabs + 2);
-                StringUtils.WriteLineTabulated(writer, $"DoesRotate = {Rotates};", tabs + 2);
-                StringUtils.WriteLineTabulated(writer, $"DoesTranslationContinue = {TranslationContinues};", tabs + 2);
-                StringUtils.WriteLineTabulated(writer, $"DoesInterpolateAngles = {InterpolatesAngles};", tabs + 2);
-                StringUtils.WriteLineTabulated(writer, $"DoesYawFaces = {YawFaces};", tabs + 2);
-                StringUtils.WriteLineTabulated(writer, $"DoesPitchFaces = {PitchFaces};", tabs + 2);
-                StringUtils.WriteLineTabulated(writer, $"DoesOrientPredicts = {OrientsPredicts};", tabs + 2);
-                StringUtils.WriteLineTabulated(writer, $"KeyIsLocal = {KeyIsLocal};", tabs + 2);
-                StringUtils.WriteLineTabulated(writer, $"UsesRotator = {UsesRotator};", tabs + 2);
-                StringUtils.WriteLineTabulated(writer, $"UsesInterpolator = {UsesInterpolator};", tabs + 2);
-                StringUtils.WriteLineTabulated(writer, $"UsesPhysics = {UsesPhysics};", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"DoesTranslate = {Translates.ToString().ToLower()};", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"DoesRotate = {Rotates.ToString().ToLower()};", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"DoesTranslationContinue = {TranslationContinues.ToString().ToLower()};", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"DoesInterpolateAngles = {InterpolatesAngles.ToString().ToLower()};", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"DoesYawFaces = {YawFaces.ToString().ToLower()};", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"DoesPitchFaces = {PitchFaces.ToString().ToLower()};", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"DoesOrientPredicts = {OrientsPredicts.ToString().ToLower()};", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"KeyIsLocal = {KeyIsLocal.ToString().ToLower()};", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"UsesRotator = {UsesRotator.ToString().ToLower()};", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"UsesInterpolator = {UsesInterpolator.ToString().ToLower()};", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"UsesPhysics = {UsesPhysics.ToString().ToLower()};", tabs + 2);
                 StringUtils.WriteLineTabulated(writer, $"ContinuouslyRotatesInWorldSpace = {ContinuouslyRotatesInWorldSpace};", tabs + 2);
                 StringUtils.WriteLineTabulated(writer, $"Axes = {Axes};", tabs + 2);
-                StringUtils.WriteLineTabulated(writer, $"Stalls = {Stalls};", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"Stalls = {Stalls.ToString().ToLower()};", tabs + 2);
             }
             StringUtils.WriteLineTabulated(writer, "}", tabs + 1);
             StringUtils.WriteLineTabulated(writer, "data {", tabs + 1);
@@ -410,6 +412,9 @@ namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
             DRIVE,
             GROUND_CHASE,
             AIR_CHASE,
+            UNKNOWN_11,
+            UNKNOWN_12,
+            UNKNOWN_13,
         }
         public enum ContinuousRotate
         {

@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using Twinsanity.AgentLab.Resolvers;
+using Twinsanity.AgentLab.Resolvers.Interfaces;
 using Twinsanity.Libraries;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 
@@ -16,12 +18,15 @@ namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
             Assigners = new List<TwinBehaviourAssigner>();
         }
 
-        public override void Decompile(StreamWriter writer, int tabs = 0)
+        public override void Decompile(IResolver resolver, StreamWriter writer, int tabs = 0)
         {
-            StringUtils.WriteLineTabulated(writer, "starter = {", tabs);
+            var assignerResolvers = resolver as IStarterAssignerGlobalObjectIdResolversList;
+            StringUtils.WriteLineTabulated(writer, "starter {", tabs);
+            var index = 0;
             foreach (var assigner in Assigners)
             {
-                assigner.Decompile(writer, tabs + 1);
+                var assignerResolver = assignerResolvers?.ResolverAssigner(index++);
+                assigner.Decompile(assignerResolver, writer, tabs + 1);
             }
             StringUtils.WriteLineTabulated(writer, "}", tabs);
         }

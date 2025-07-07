@@ -4,6 +4,8 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using Twinsanity.AgentLab.Resolvers;
+using Twinsanity.AgentLab.Resolvers.Interfaces;
 using Twinsanity.Libraries;
 using Twinsanity.TwinsanityInterchange.Common.AgentLab;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code.AgentLab;
@@ -42,7 +44,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.RMX.Code.A
             return;
         }
 
-        public void Decompile(StreamWriter writer, int tabs = 0)
+        public void Decompile(IResolver resolver, StreamWriter writer, int tabs = 0)
         {
             throw new NotImplementedException();
         }

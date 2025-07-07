@@ -10,6 +10,14 @@ namespace Twinsanity.AgentLab.SymbolTable;
 internal class AgentLabSymbolTable
 {
     private readonly Dictionary<string, AgentLabSymbol> _symbols = new();
+    
+    public AgentLabSymbolTable Parent { get; init; }
+    public List<AgentLabSymbolTable> Children { get; } = new();
+
+    public AgentLabSymbolTable()
+    {
+        InitBuiltInPrimitives();
+    }
 
     internal IEnumerable<AgentLabSymbol> GetAllSymbols()
     {
@@ -28,29 +36,31 @@ internal class AgentLabSymbolTable
 
     public AgentLabSymbol Lookup(string name)
     {
-        return _symbols.GetValueOrDefault(name);
+        var symbol = _symbols.GetValueOrDefault(name);
+        if (symbol == null)
+        {
+            foreach (var child in Children)
+            {
+                symbol = child.Lookup(name);
+                if (symbol != null)
+                {
+                    break;
+                }
+            }
+        }
+        
+        if (symbol == null && Parent != null)
+        {
+            symbol = Parent.Lookup(name);
+        }
+        return symbol;
     }
 
-    public void InitBuiltInTypes()
+    private void InitBuiltInPrimitives()
     {
         static AgentLabBuiltInSymbol CreateBuiltInSymbol(AgentLabToken.TokenType token)
         {
             return new AgentLabBuiltInSymbol(token.ToString());
-        }
-
-        AgentLabConstSymbol CreateBuiltInConstSymbol(string name, AgentLabToken.TokenType token)
-        {
-            return new AgentLabConstSymbol(name, Lookup(token.ToString()));
-        }
-
-        AgentLabArraySymbol CreateBuiltInArraySymbol(string name, int size, AgentLabToken.TokenType storageType)
-        {
-            return new AgentLabArraySymbol(name, size, Lookup(storageType.ToString()), Lookup(nameof(AgentLabToken.TokenType.ArrayType)));
-        }
-
-        AgentLabEnumSymbol CreateBuiltInEnumSymbol(string name, params string[] enumNames)
-        {
-            return new AgentLabEnumSymbol(name, Lookup(nameof(AgentLabToken.TokenType.EnumType)), enumNames);
         }
         
         Define(CreateBuiltInSymbol(AgentLabToken.TokenType.ArrayType));
@@ -65,6 +75,26 @@ internal class AgentLabSymbolTable
         Define(CreateBuiltInSymbol(AgentLabToken.TokenType.Condition));
         Define(CreateBuiltInSymbol(AgentLabToken.TokenType.Behaviour));
         Define(CreateBuiltInSymbol(AgentLabToken.TokenType.BehaviourLibrary));
+    }
+
+    public void InitBuiltInTypes()
+    {
+        AgentLabConstSymbol CreateBuiltInConstSymbol(string name, AgentLabToken.TokenType token)
+        {
+            return new AgentLabConstSymbol(name, Lookup(token.ToString()));
+        }
+
+        AgentLabArraySymbol CreateBuiltInArraySymbol(string name, int size, AgentLabToken.TokenType storageType)
+        {
+            return new AgentLabArraySymbol(name, size, Lookup(storageType.ToString()), Lookup(nameof(AgentLabToken.TokenType.ArrayType)));
+        }
+
+        AgentLabEnumSymbol CreateBuiltInEnumSymbol(string name, params string[] enumNames)
+        {
+            var enumSymbol = new AgentLabEnumSymbol(name, Lookup(nameof(AgentLabToken.TokenType.EnumType)), this, enumNames);
+            Children.Add(enumSymbol.Enums);
+            return enumSymbol;
+        }
         
         // Object behaviour slots
         Define(CreateBuiltInEnumSymbol("ObjectBehaviourSlot", Enum.GetNames<ITwinBehaviourState.ObjectBehaviourSlots>()));

@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Twinsanity.AgentLab.Resolvers;
+using Twinsanity.AgentLab.Resolvers.Interfaces;
 using Twinsanity.Libraries;
 using Twinsanity.TwinsanityInterchange.Common.AgentLab;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code.AgentLab;
@@ -33,7 +35,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
             return;
         }
 
-        public void Decompile(StreamWriter writer, int tabs = 0)
+        public void Decompile(IResolver resolver, StreamWriter writer, int tabs = 0)
         {
             if (Condition == null)
             {
@@ -42,13 +44,13 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
             }
             else
             {
-                Condition.Decompile(writer, tabs);
+                Condition.Decompile(resolver, writer, tabs);
             }
 
             tabs += 1;
             foreach (var cmd in Commands)
             {
-                cmd.Decompile(writer, tabs);
+                cmd.Decompile(resolver, writer, tabs);
             }
 
             if (HasStateJump)

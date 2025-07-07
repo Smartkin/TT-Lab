@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using Twinsanity.AgentLab.Resolvers;
+using Twinsanity.AgentLab.Resolvers.Interfaces;
 using Twinsanity.Libraries;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Implementations.Base;
@@ -30,7 +32,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
             return 4 + BehaviourPacks.Sum(pair => pair.Value.GetLength()) + BehaviourPacks.Count * Constants.SIZE_UINT16 + Commands.Sum(com => com.GetLength());
         }
 
-        public void Decompile(StreamWriter writer, int tabs = 0)
+        public void Decompile(IResolver resolver, StreamWriter writer, int tabs = 0)
         {
             StringUtils.WriteLineTabulated(writer, $"[GlobalIndex({IndexInGlobalStorage})]", tabs);
             StringUtils.WriteLineTabulated(writer, $"[InstanceType({Key})]", tabs);
@@ -39,14 +41,14 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
             foreach (var packPair in BehaviourPacks)
             {
                 StringUtils.WriteLineTabulated(writer, $"behaviour {(GameReservedIds)packPair.Key} {{", tabs + 1);
-                packPair.Value.Decompile(writer, tabs + 2);
+                packPair.Value.Decompile(resolver, writer, tabs + 2);
                 StringUtils.WriteLineTabulated(writer, "}", tabs + 1);
                 writer.WriteLine();
             }
             
             foreach (var cmd in Commands)
             {
-                cmd.Decompile(writer, tabs + 1);
+                cmd.Decompile(resolver, writer, tabs + 1);
             }
             StringUtils.WriteLineTabulated(writer, "}", tabs);
         }

@@ -4,6 +4,8 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json;
+using Twinsanity.AgentLab.Resolvers;
+using Twinsanity.AgentLab.Resolvers.Interfaces;
 using Twinsanity.Libraries;
 using Twinsanity.TwinsanityInterchange.Common.AgentLab;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code.AgentLab;
@@ -54,14 +56,25 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
             return Name;
         }
 
-        public override void Decompile(StreamWriter writer, int tabs = 0)
+        public override void Decompile(IResolver resolver, StreamWriter writer, int tabs = 0)
         {
+            var graphResolver = resolver as IGraphResolver;
             StringUtils.WriteLineTabulated(writer, $"[StartFrom(State_{StartState})]", tabs);
             StringUtils.WriteLineTabulated(writer, $"[Priority({Priority})]", tabs);
             StringUtils.WriteLineTabulated(writer, $"behaviour {Name} {{", tabs);
+
+            if (graphResolver != null)
+            {
+                writer.WriteLine();
+                var starter = graphResolver.GetStarterResolver().ResolveStarter();
+                starter.Decompile(graphResolver.GetStarterResolver().GetAssignerResolvers(), writer, tabs + 1);
+            }
+
+            var index = 0;
             foreach (var state in ScriptStates)
             {
-                state.Decompile(writer, tabs + 1);
+                var stateResolver = graphResolver?.GetStateResolvers()?.GetStateResolver(index++);
+                state.Decompile(stateResolver, writer, tabs + 1);
             }
             StringUtils.WriteLineTabulated(writer, "}", tabs);
         }

@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Twinsanity.AgentLab.Resolvers;
+using Twinsanity.AgentLab.Resolvers.Interfaces;
 using Twinsanity.Libraries;
 using Twinsanity.TwinsanityInterchange.Common.AgentLab;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code.AgentLab;
@@ -36,9 +38,10 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
             return;
         }
 
-        public void Decompile(StreamWriter writer, int tabs = 0)
+        public void Decompile(IResolver resolver, StreamWriter writer, int tabs = 0)
         {
-            ControlPacket?.Decompile(writer, tabs);
+            var stateResolver = resolver as IStateResolver;
+            ControlPacket?.Decompile(resolver, writer, tabs);
 
             writer.WriteLine();
             
@@ -59,9 +62,15 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
                 StringUtils.WriteLineTabulated(writer, "[SkipFirstBody]", tabs);
             }
 
-            if (BehaviourIndexOrSlot != -1 && !UsesObjectSlot)
+            var behaviourIndex = stateResolver?.ResolveBehaviour() ?? BehaviourIndexOrSlot.ToString();
+            if (BehaviourIndexOrSlot == -1)
             {
-                StringUtils.WriteLineTabulated(writer, $"state State_{Index}({BehaviourIndexOrSlot}) {{", tabs);
+                behaviourIndex = null;
+            }
+            
+            if (behaviourIndex != null && !UsesObjectSlot)
+            {
+                StringUtils.WriteLineTabulated(writer, $"state State_{Index}(\"{behaviourIndex}\") {{", tabs);
             }
             else
             {
@@ -70,7 +79,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
 
             foreach (var body in Bodies)
             {
-                body.Decompile(writer, tabs + 1);
+                body.Decompile(resolver, writer, tabs + 1);
             }
             
             StringUtils.WriteLineTabulated(writer, "}", tabs);

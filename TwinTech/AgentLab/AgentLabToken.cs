@@ -39,6 +39,7 @@ public struct AgentLabToken
         Const, // "const"
         Data, // "data"
         Settings, // "settings"
+        Assigner, // "assigner"
         Starter, // "starter"
         If, // "if"
         Comment, // "//"

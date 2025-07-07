@@ -18,6 +18,10 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
         Visitors.Add(typeof(ArrayNode), VisitArrayNode);
         Visitors.Add(typeof(BehaviourNode), VisitBehaviour);
         Visitors.Add(typeof(BehaviourBodyNode), VisitBehaviourBody);
+        Visitors.Add(typeof(StarterNode), VisitStarterNode);
+        Visitors.Add(typeof(StarterBodyNode), VisitStarterBodyNode);
+        Visitors.Add(typeof(StarterAssignerNode), VisitStarterAssignerNode);
+        Visitors.Add(typeof(StarterAssignNode), VisitStarterAssignNode);
         Visitors.Add(typeof(ConstListNode), VisitConstList);
         Visitors.Add(typeof(AssignNode), VisitAssign);
         Visitors.Add(typeof(ConstDeclarationNode), VisitConstDeclaration);
@@ -277,7 +281,7 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
         AssertType(SymbolTable.Lookup(nameof(AgentLabToken.TokenType.Action)), symbol.Type);
 
         var actionSymbol = (AgentLabActionSymbol)symbol;
-        var expectedSymbols = actionSymbol.Parameters?.GetAllSymbols().ToList();
+        var expectedSymbols = actionSymbol.Parameters?.GetSymbols<AgentLabParamSymbol>().ToList();
         var expectedArguments = expectedSymbols?.Count ?? 0;
         var argumentsProvided = action.Parameters == null ? 0 : action.Parameters.Children.Count;
         if (expectedArguments != argumentsProvided)
@@ -649,17 +653,15 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
         var floatSymbol = SymbolTable.Lookup(nameof(AgentLabToken.TokenType.FloatType));
         
         // No, this is not a hack, this is going into Enum symbol scope :^)
-        var oldSymbolTable = SymbolTable;
-        if (leftSymbol != null && leftSymbol == SymbolTable.Lookup(nameof(AgentLabToken.TokenType.EnumType)))
+        if (leftSymbol != null && leftSymbol.Name == SymbolTable.Lookup(nameof(AgentLabToken.TokenType.EnumType)).Name)
         {
             leftSymbol = SymbolTable.Lookup(((ConstNode)assign.Left).Name);
-            SymbolTable = GetEnumSymbolTable((ConstNode)assign.Left);
         }
+
         var rightSymbol = Visit(assign.Right) as AgentLabSymbol;
-        SymbolTable = oldSymbolTable;
 
         // Can assign integers to floats just fine!
-        if (leftSymbol == floatSymbol && rightSymbol == integerSymbol)
+        if (leftSymbol?.Name == floatSymbol.Name && rightSymbol?.Name == integerSymbol.Name)
         {
             return null;
         }
@@ -667,12 +669,6 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
         AssertType(leftSymbol, rightSymbol);
         
         return null;
-    }
-
-    private AgentLabSymbolTable GetEnumSymbolTable(ConstNode node)
-    {
-        var symbol = SymbolTable.Lookup(node.Name) as AgentLabEnumSymbol;
-        return symbol?.Enums;
     }
 
     private Object VisitConstList(IAgentLabTreeNode node)
@@ -698,6 +694,44 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
         }
     }
     
+    private Object VisitStarterAssignNode(IAgentLabTreeNode node)
+    {
+        var assign = (StarterAssignNode)node;
+        Visit(assign.Assign);
+        
+        return null;
+    }
+
+    private Object VisitStarterAssignerNode(IAgentLabTreeNode node)
+    {
+        var starterAssigner = (StarterAssignerNode)node;
+        foreach (var assign in starterAssigner.Children)
+        {
+            Visit(assign);
+        }
+        
+        return null;
+    }
+
+    private Object VisitStarterBodyNode(IAgentLabTreeNode node)
+    {
+        var starterBody = (StarterBodyNode)node;
+        foreach (var assigner in starterBody.Children)
+        {
+            Visit(assigner);
+        }
+        
+        return null;
+    }
+    
+    private Object VisitStarterNode(IAgentLabTreeNode node)
+    {
+        var starterNode = (StarterNode)node;
+        Visit(starterNode.Body);
+        
+        return null;
+    }
+    
     private Object VisitBehaviourBody(IAgentLabTreeNode node)
     {
         var behaviourBody = (BehaviourBodyNode)node;
@@ -705,6 +739,7 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
         Visit(behaviourBody.Consts);
         Visit(behaviourBody.ControlPackets);
         Visit(behaviourBody.States);
+        Visit(behaviourBody.Starter);
         return null;
     }
 

@@ -34,7 +34,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Base
 
         public ITwinItem GetItem(Int32 index)
         {
-            if (index >= Items.Count) return null;
+            if (index >= Items.Count || index < 0) return null;
             return Items[index];
         }
 

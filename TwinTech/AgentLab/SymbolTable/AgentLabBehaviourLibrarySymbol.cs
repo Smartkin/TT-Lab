@@ -8,12 +8,10 @@ internal class AgentLabBehaviourLibrarySymbol : AgentLabSymbol
     
     public AgentLabBehaviourLibrarySymbol(string name, AgentLabSymbolTable inherit) : base(name)
     {
-        BehaviourLibrarySymbolTable = new AgentLabSymbolTable();
-        BehaviourLibrarySymbolTable.InitBuiltInTypes();
-        foreach (var actionSymbol in inherit.GetSymbols<AgentLabActionSymbol>())
+        BehaviourLibrarySymbolTable = new AgentLabSymbolTable
         {
-            BehaviourLibrarySymbolTable.Define(actionSymbol);
-        }
+            Parent = inherit
+        };
     }
 
     public override String ToString()

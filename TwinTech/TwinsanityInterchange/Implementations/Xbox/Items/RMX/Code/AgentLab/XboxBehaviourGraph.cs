@@ -4,6 +4,8 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json;
+using Twinsanity.AgentLab.Resolvers;
+using Twinsanity.AgentLab.Resolvers.Interfaces;
 using Twinsanity.Libraries;
 using Twinsanity.TwinsanityInterchange.Common.AgentLab;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code.AgentLab;
@@ -41,7 +43,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.RMX.Code.A
             ScriptStates = new List<ITwinBehaviourState>();
         }
 
-        public override void Decompile(StreamWriter writer, int tabs = 0)
+        public override void Decompile(IResolver resolver, StreamWriter writer, int tabs = 0)
         {
             throw new NotImplementedException();
         }

@@ -3,6 +3,8 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using Twinsanity.AgentLab.Resolvers;
+using Twinsanity.AgentLab.Resolvers.Interfaces;
 using Twinsanity.Libraries;
 using Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.AgentLab;
 using Twinsanity.TwinsanityInterchange.Interfaces;
@@ -50,7 +52,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
             return;
         }
 
-        public void Decompile(StreamWriter writer, int tabs = 0)
+        public void Decompile(IResolver resolver, StreamWriter writer, int tabs = 0)
         {
             StringUtils.WriteTabulated(writer, $"if {MapIndex(ConditionIndex, PS2BehaviourGraph.GetAgentLabDefs())}({Parameter})", tabs);
             if (NotGate)

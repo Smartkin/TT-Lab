@@ -6,7 +6,7 @@ namespace Twinsanity.AgentLab.AbstractSyntaxTree;
 internal class NodeVisitor
 {
     protected readonly Dictionary<Type, Func<IAgentLabTreeNode, object>> Visitors = new();
-    private List<IAgentLabTreeNode> deferredVisits = new();
+    private readonly List<IAgentLabTreeNode> deferredVisits = new();
     
     public object Visit(IAgentLabTreeNode node)
     {
