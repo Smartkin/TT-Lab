@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Text.Json;
 using Twinsanity.AgentLab.Resolvers;
 using Twinsanity.AgentLab.Resolvers.Interfaces;
+using Twinsanity.AgentLab.Resolvers.Interfaces.Decompiler;
 using Twinsanity.Libraries;
 using Twinsanity.TwinsanityInterchange.Common.AgentLab;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code.AgentLab;

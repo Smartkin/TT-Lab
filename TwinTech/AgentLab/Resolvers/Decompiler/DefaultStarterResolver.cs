@@ -1,7 +1,7 @@
-using Twinsanity.AgentLab.Resolvers.Interfaces;
+using Twinsanity.AgentLab.Resolvers.Interfaces.Decompiler;
 using Twinsanity.TwinsanityInterchange.Common.AgentLab;
 
-namespace Twinsanity.AgentLab.Resolvers;
+namespace Twinsanity.AgentLab.Resolvers.Decompiler;
 
 public class DefaultStarterResolver : IStarterResolver
 {

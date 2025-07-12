@@ -8,13 +8,14 @@ internal class AgentLabEnumSymbol : AgentLabSymbol
 {
     public AgentLabSymbolTable Enums { get; }
     
-    public AgentLabEnumSymbol(string name, AgentLabSymbol type, AgentLabSymbolTable parent, params string[] enumNames) : base(name, type)
+    public AgentLabEnumSymbol(string name, AgentLabSymbol type, params string[] enumNames) : base(name, type)
     {
         Enums = new AgentLabSymbolTable();
 
+        var enumIndex = 0;
         foreach (var enumName in enumNames)
         {
-            Enums.Define(new AgentLabConstSymbol(enumName, this));
+            Enums.Define(new AgentLabConstSymbol(enumName, this, enumIndex++));
         }
     }
 

@@ -17,7 +17,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
         public List<UInt32> Floats { get; }
         public SpaceType Space { get; set; }
         public MotionType Motion { get; set; }
-        public ContinuousRotate ContRotate { get; set; }
+        public ContinuousRotateType ContinuousRotate { get; set; }
         public AccelFunction AccelerationFunction { get; set; }
         public Boolean Translates { get; set; }
         public Boolean Rotates { get; set; }
@@ -68,7 +68,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
             {
                 Space = (SpaceType)(packetSettings & 0x7);
                 Motion = (MotionType)(packetSettings >> 0x3 & 0xF);
-                ContRotate = (ContinuousRotate)(packetSettings >> 0x7 & 0xF);
+                ContinuousRotate = (ContinuousRotateType)(packetSettings >> 0x7 & 0xF);
                 AccelerationFunction = (AccelFunction)(packetSettings >> 0xB & 0x3);
                 Translates = (packetSettings >> 0xD & 0x1) == 1;
                 Rotates = (packetSettings >> 0xE & 0x1) == 1;
@@ -78,7 +78,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
                 YawFaces = (packetSettings >> 0x12 & 0x1) == 1;
                 PitchFaces = (packetSettings >> 0x13 & 0x1) == 1;
                 OrientsPredicts = (packetSettings >> 0x14 & 0x1) == 1;
-                Debug.Assert((packetSettings >> 0x15 & 0x1) == 1, "Behaviour control packet data is invalid!");
+                Debug.Assert((packetSettings >> 0x15 & 0x1) == 1, "State control packet data is invalid!");
                 KeyIsLocal = (packetSettings >> 0x16 & 0x1) == 1;
                 UsesRotator = (packetSettings >> 0x17 & 0x1) == 1;
                 UsesInterpolator = (packetSettings >> 0x18 & 0x1) == 1;
@@ -110,7 +110,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
                 static UInt32 BoolToUInt32(Boolean b) => b ? 1U : 0U;
 
                 newPacketSettings |= (UInt32)Motion << 0x3;
-                newPacketSettings |= (UInt32)ContRotate << 0x7;
+                newPacketSettings |= (UInt32)ContinuousRotate << 0x7;
                 newPacketSettings |= (UInt32)AccelerationFunction << 0xB;
                 newPacketSettings |= BoolToUInt32(Translates) << 0xD;
                 newPacketSettings |= BoolToUInt32(Rotates) << 0xE;
@@ -144,22 +144,22 @@ namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
             StringUtils.WriteLineTabulated(writer, $"packet {Name} {"{"}", tabs);
             StringUtils.WriteLineTabulated(writer, "settings {", tabs + 1);
             {
-                StringUtils.WriteLineTabulated(writer, $"SpaceType = {Space};", tabs + 2);
-                StringUtils.WriteLineTabulated(writer, $"MotionType = {Motion};", tabs + 2);
-                StringUtils.WriteLineTabulated(writer, $"ContinuousRotate = {ContRotate};", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"Space = {Space};", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"Motion = {Motion};", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"ContinuousRotate = {ContinuousRotate};", tabs + 2);
                 StringUtils.WriteLineTabulated(writer, $"AccelerationFunction = {AccelerationFunction};", tabs + 2);
-                StringUtils.WriteLineTabulated(writer, $"DoesTranslate = {Translates.ToString().ToLower()};", tabs + 2);
-                StringUtils.WriteLineTabulated(writer, $"DoesRotate = {Rotates.ToString().ToLower()};", tabs + 2);
-                StringUtils.WriteLineTabulated(writer, $"DoesTranslationContinue = {TranslationContinues.ToString().ToLower()};", tabs + 2);
-                StringUtils.WriteLineTabulated(writer, $"DoesInterpolateAngles = {InterpolatesAngles.ToString().ToLower()};", tabs + 2);
-                StringUtils.WriteLineTabulated(writer, $"DoesYawFaces = {YawFaces.ToString().ToLower()};", tabs + 2);
-                StringUtils.WriteLineTabulated(writer, $"DoesPitchFaces = {PitchFaces.ToString().ToLower()};", tabs + 2);
-                StringUtils.WriteLineTabulated(writer, $"DoesOrientPredicts = {OrientsPredicts.ToString().ToLower()};", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"Translates = {Translates.ToString().ToLower()};", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"Rotates = {Rotates.ToString().ToLower()};", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"TranslationContinues = {TranslationContinues.ToString().ToLower()};", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"InterpolatesAngles = {InterpolatesAngles.ToString().ToLower()};", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"YawFaces = {YawFaces.ToString().ToLower()};", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"PitchFaces = {PitchFaces.ToString().ToLower()};", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"OrientsPredicts = {OrientsPredicts.ToString().ToLower()};", tabs + 2);
                 StringUtils.WriteLineTabulated(writer, $"KeyIsLocal = {KeyIsLocal.ToString().ToLower()};", tabs + 2);
                 StringUtils.WriteLineTabulated(writer, $"UsesRotator = {UsesRotator.ToString().ToLower()};", tabs + 2);
                 StringUtils.WriteLineTabulated(writer, $"UsesInterpolator = {UsesInterpolator.ToString().ToLower()};", tabs + 2);
                 StringUtils.WriteLineTabulated(writer, $"UsesPhysics = {UsesPhysics.ToString().ToLower()};", tabs + 2);
-                StringUtils.WriteLineTabulated(writer, $"ContinuouslyRotatesInWorldSpace = {ContinuouslyRotatesInWorldSpace};", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"ContinuouslyRotatesInWorldSpace = {ContinuouslyRotatesInWorldSpace.ToString().ToLower()};", tabs + 2);
                 StringUtils.WriteLineTabulated(writer, $"Axes = {Axes};", tabs + 2);
                 StringUtils.WriteLineTabulated(writer, $"Stalls = {Stalls.ToString().ToLower()};", tabs + 2);
             }
@@ -221,7 +221,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
                 }
                 else if (line.StartsWith("ContinuousRotate"))
                 {
-                    ContRotate = Enum.Parse<ContinuousRotate>(valueString);
+                    ContinuousRotate = Enum.Parse<ContinuousRotateType>(valueString);
                 }
                 else if (line.StartsWith("DoesTranslate"))
                 {
@@ -416,7 +416,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
             UNKNOWN_12,
             UNKNOWN_13,
         }
-        public enum ContinuousRotate
+        public enum ContinuousRotateType
         {
             NO_CONT_ROTATION = 0,
             NUM_FULL_ROTS,

@@ -1,7 +1,7 @@
 using System.Collections.Generic;
-using Twinsanity.AgentLab.Resolvers.Interfaces;
+using Twinsanity.AgentLab.Resolvers.Interfaces.Decompiler;
 
-namespace Twinsanity.AgentLab.Resolvers;
+namespace Twinsanity.AgentLab.Resolvers.Decompiler;
 
 public class DefaultStarterAssignerGlobalObjectIdResolversList : IStarterAssignerGlobalObjectIdResolversList
 {

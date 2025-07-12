@@ -4,15 +4,24 @@ using System.Linq;
 using Twinsanity.AgentLab.AbstractSyntaxTree;
 using Twinsanity.AgentLab.AbstractSyntaxTree.Attributes;
 using Twinsanity.AgentLab.AbstractSyntaxTree.ControlPacket;
+using Twinsanity.AgentLab.Analyzers;
 
 namespace Twinsanity.AgentLab.SymbolTable;
 
 internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
 {
+    private Func<int> stateIdGenerator;
+    private Func<int, int> actionIdGenerator;
+    private Func<int, int> conditionIdGenerator;
+    
     public AgentLabSymbolTable SymbolTable { get; private set; }
     
     public AgentLabSymbolTableNodeVisitor()
     {
+        stateIdGenerator = GetIdGenerator();
+        actionIdGenerator = GetEditableIdGenerator();
+        conditionIdGenerator = GetEditableIdGenerator();
+        
         SymbolTable = new AgentLabSymbolTable();
         Visitors.Add(typeof(ConstNode), VisitConst);
         Visitors.Add(typeof(ArrayNode), VisitArrayNode);
@@ -22,7 +31,7 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
         Visitors.Add(typeof(StarterBodyNode), VisitStarterBodyNode);
         Visitors.Add(typeof(StarterAssignerNode), VisitStarterAssignerNode);
         Visitors.Add(typeof(StarterAssignNode), VisitStarterAssignNode);
-        Visitors.Add(typeof(ConstListNode), VisitConstList);
+        Visitors.Add(typeof(ConstDeclarationListNode), VisitConstList);
         Visitors.Add(typeof(AssignNode), VisitAssign);
         Visitors.Add(typeof(ConstDeclarationNode), VisitConstDeclaration);
         Visitors.Add(typeof(UnaryOperationNode), VisitUnaryOperationNode);
@@ -65,6 +74,28 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
         Visitors.Add(typeof(ConditionDefinitionListNode), VisitConditionDefinitionListNode);
         Visitors.Add(typeof(ConditionDefinitionNode), VisitConditionDefinitionNode);
         Visitors.Add(typeof(AliasNode), VisitAlias);
+    }
+
+    private Func<int, int> GetEditableIdGenerator()
+    {
+        var id = 0;
+        return (newId) =>
+        {
+            if (newId == -1)
+            {
+                return id++;
+            }
+            
+            id = newId;
+            return id;
+
+        };
+    }
+
+    private Func<int> GetIdGenerator()
+    {
+        var id = 0;
+        return () => id++;
     }
 
     private Object VisitStartFromAttributeNode(IAgentLabTreeNode node)
@@ -128,8 +159,22 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
             // TODO: Raise redefinition error instead of throwing an exception
             throw new Exception($"Condition {condDef.Name} redefinition!");
         }
+
+        int conditionIndex;
+        if (condDef.Index != null && condDef.Index is not NoOpNode)
+        {
+            var numberNode = (NumberNode)condDef.Index;
+            var numType = Visit(condDef.Index) as AgentLabSymbol;
+            AssertType(SymbolTable.Lookup(nameof(AgentLabToken.TokenType.IntegerType)), numType);
+            
+            conditionIndex = conditionIdGenerator((int)numberNode.Value);
+        }
+        else
+        {
+            conditionIndex = conditionIdGenerator(-1);
+        }
         
-        var conditionSymbol = new AgentLabConditionSymbol(condDef.Name, SymbolTable.Lookup(nameof(AgentLabToken.TokenType.Condition)),
+        var conditionSymbol = new AgentLabConditionSymbol(condDef.Name, conditionIndex, SymbolTable.Lookup(nameof(AgentLabToken.TokenType.Condition)),
             SymbolTable.Lookup(nameof(AgentLabToken.TokenType.FloatType)), Visit(condDef.Parameter) as AgentLabSymbol);
         SymbolTable.Define(conditionSymbol);
 
@@ -154,7 +199,7 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
                 throw new Exception($"Alias already defined {alias}");
             }
             
-            SymbolTable.Define(new AgentLabConditionSymbol(alias, SymbolTable.Lookup(nameof(AgentLabToken.TokenType.Condition)), SymbolTable.Lookup(nameof(AgentLabToken.TokenType.FloatType)), condition.ParameterType));
+            SymbolTable.Define(new AgentLabConditionSymbol(alias, condition.Id, SymbolTable.Lookup(nameof(AgentLabToken.TokenType.Condition)), SymbolTable.Lookup(nameof(AgentLabToken.TokenType.FloatType)), condition.ParameterType));
         }
     }
 
@@ -199,11 +244,11 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
                 throw new Exception($"Alias already defined {alias} for this or another action");
             }
             
-            var actionCopy = new AgentLabActionSymbol(alias, SymbolTable.Lookup(nameof(AgentLabToken.TokenType.Action)))
+            var actionCopy = new AgentLabActionSymbol(alias, action.Id, SymbolTable.Lookup(nameof(AgentLabToken.TokenType.Action)))
             {
                 Parameters = action.Parameters
             };
-            SymbolTable.Define(new AgentLabActionSymbol(alias, actionCopy));
+            SymbolTable.Define(actionCopy);
         }
     }
 
@@ -216,8 +261,22 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
             throw new Exception($"Action {actionDef.Name} redefinition!");
         }
         
+        int actionIndex;
+        if (actionDef.Index != null)
+        {
+            var numberNode = (NumberNode)actionDef.Index;
+            var numType = Visit(actionDef.Index) as AgentLabSymbol;
+            AssertType(SymbolTable.Lookup(nameof(AgentLabToken.TokenType.IntegerType)), numType);
+            
+            actionIndex = actionIdGenerator((int)numberNode.Value);
+        }
+        else
+        {
+            actionIndex = actionIdGenerator(-1);
+        }
+        
         var parameters = Visit(actionDef.Parameters) as AgentLabSymbol[];
-        var actionSymbol = new AgentLabActionSymbol(actionDef.Name, SymbolTable.Lookup(nameof(AgentLabToken.TokenType.Action)), parameters);
+        var actionSymbol = new AgentLabActionSymbol(actionDef.Name, actionIndex, SymbolTable.Lookup(nameof(AgentLabToken.TokenType.Action)), parameters);
         SymbolTable.Define(actionSymbol);
 
         AddAliasesToAction(actionSymbol, actionDef.Aliases as IAgentLabListNode);
@@ -499,13 +558,13 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
     {
         var controlPacket = (ControlPacketNode)node;
 
-        if (SymbolTable.Lookup(controlPacket.Token.GetValue<string>()) != null)
+        if (SymbolTable.Lookup(controlPacket.Name) != null)
         {
             // TODO: Raise redefinition error instead of throwing an exception
             throw new Exception($"Control packet {controlPacket.Token} redefinition!");
         }
         
-        var symbol = new AgentLabControlPacketSymbol(controlPacket.Token.GetValue<string>())
+        var symbol = new AgentLabControlPacketSymbol(controlPacket.Name)
         {
             Type = SymbolTable.Lookup(nameof(AgentLabToken.TokenType.ControlPacket))
         };
@@ -548,8 +607,8 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
             // TODO: Raise redefinition error instead of throwing an exception
             throw new Exception($"State {state.Name} redefinition!");
         }
-        
-        var symbol = new AgentLabStateSymbol(state.Name)
+
+        var symbol = new AgentLabStateSymbol(state.Name, stateIdGenerator())
         {
             Type = SymbolTable.Lookup(nameof(AgentLabToken.TokenType.State))
         };
@@ -639,8 +698,14 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
     {
         var constDecl = (ConstDeclarationNode)node;
         var constNode = (ConstNode)constDecl.Assign.Left;
+        if (SymbolTable.Lookup(constNode.Name) != null)
+        {
+            // TODO: Raise redefinition error instead of throwing an exception
+            throw new Exception($"Const {constNode.Name} redefinition!");
+        }
+        
         var type = SymbolTable.Lookup(constNode.Type.ToString());
-        SymbolTable.Define(new AgentLabConstSymbol(constNode.Name, type));
+        SymbolTable.Define(new AgentLabConstSymbol(constNode.Name, type, SymbolTable.GenerateConstId()));
         
         return null;
     }
@@ -673,16 +738,21 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
 
     private Object VisitConstList(IAgentLabTreeNode node)
     {
-        var consts = (ConstListNode)node;
-        foreach (var constDeclNode in consts.Children.Cast<ConstDeclarationNode>())
+        var consts = (ConstDeclarationListNode)node;
+        foreach (var constDeclNode in consts.Children)
         {
             Visit(constDeclNode);
         }
+
+        var constDeclarationReorder = new ConstDeclarationOrderAnalyzer(SymbolTable);
+        constDeclarationReorder.Analyze(consts);
+        
         DetermineConstTypes(consts);
+        
         return null;
     }
 
-    private void DetermineConstTypes(ConstListNode consts)
+    private void DetermineConstTypes(ConstDeclarationListNode consts)
     {
         foreach (var constDeclNode in consts.Children.Cast<ConstDeclarationNode>())
         {

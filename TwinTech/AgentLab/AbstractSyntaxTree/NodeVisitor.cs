@@ -16,10 +16,15 @@ internal class NodeVisitor
             return null;
         }
         
-        if (!Visitors.ContainsKey(node.GetType()))
+        if (!Visitors.ContainsKey(node.GetType()) && node is not IAgentLabListNode)
         {
-            // TODO: raise visitor error
             return null;
+        }
+
+        // Special fallback case for lists of nodes
+        if (!Visitors.ContainsKey(node.GetType()) && Visitors.ContainsKey(typeof(IAgentLabListNode)) && node is IAgentLabListNode)
+        {
+            return Visitors[typeof(IAgentLabListNode)](node);
         }
         
         return Visitors[node.GetType()](node);

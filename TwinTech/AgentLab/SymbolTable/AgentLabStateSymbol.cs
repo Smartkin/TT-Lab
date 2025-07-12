@@ -2,7 +2,10 @@ namespace Twinsanity.AgentLab.SymbolTable;
 
 internal class AgentLabStateSymbol : AgentLabSymbol
 {
-    public AgentLabStateSymbol(string name) : base(name)
+    public int Id { get; }
+    
+    public AgentLabStateSymbol(string name, int id) : base(name)
     {
+        Id = id;
     }
 }

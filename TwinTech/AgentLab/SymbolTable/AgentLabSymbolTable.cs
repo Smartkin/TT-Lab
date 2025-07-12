@@ -10,13 +10,26 @@ namespace Twinsanity.AgentLab.SymbolTable;
 internal class AgentLabSymbolTable
 {
     private readonly Dictionary<string, AgentLabSymbol> _symbols = new();
+    private Func<int> constIdGenerator;
     
     public AgentLabSymbolTable Parent { get; init; }
     public List<AgentLabSymbolTable> Children { get; } = new();
 
     public AgentLabSymbolTable()
     {
+        constIdGenerator = GetIdGenerator();
         InitBuiltInPrimitives();
+    }
+
+    internal int GenerateConstId()
+    {
+        return constIdGenerator();
+    }
+
+    private Func<int> GetIdGenerator()
+    {
+        var id = 0;
+        return () => id++;
     }
 
     internal IEnumerable<AgentLabSymbol> GetAllSymbols()
@@ -32,6 +45,11 @@ internal class AgentLabSymbolTable
     public void Define(AgentLabSymbol symbol)
     {
         _symbols.Add(symbol.Name, symbol);
+    }
+
+    public T Lookup<T>(string name) where T : AgentLabSymbol
+    {
+        return Lookup(name) as T;
     }
 
     public AgentLabSymbol Lookup(string name)
@@ -75,27 +93,11 @@ internal class AgentLabSymbolTable
         Define(CreateBuiltInSymbol(AgentLabToken.TokenType.Condition));
         Define(CreateBuiltInSymbol(AgentLabToken.TokenType.Behaviour));
         Define(CreateBuiltInSymbol(AgentLabToken.TokenType.BehaviourLibrary));
+        Define(CreateBuiltInSymbol(AgentLabToken.TokenType.Undefined));
     }
 
     public void InitBuiltInTypes()
     {
-        AgentLabConstSymbol CreateBuiltInConstSymbol(string name, AgentLabToken.TokenType token)
-        {
-            return new AgentLabConstSymbol(name, Lookup(token.ToString()));
-        }
-
-        AgentLabArraySymbol CreateBuiltInArraySymbol(string name, int size, AgentLabToken.TokenType storageType)
-        {
-            return new AgentLabArraySymbol(name, size, Lookup(storageType.ToString()), Lookup(nameof(AgentLabToken.TokenType.ArrayType)));
-        }
-
-        AgentLabEnumSymbol CreateBuiltInEnumSymbol(string name, params string[] enumNames)
-        {
-            var enumSymbol = new AgentLabEnumSymbol(name, Lookup(nameof(AgentLabToken.TokenType.EnumType)), this, enumNames);
-            Children.Add(enumSymbol.Enums);
-            return enumSymbol;
-        }
-        
         // Object behaviour slots
         Define(CreateBuiltInEnumSymbol("ObjectBehaviourSlot", Enum.GetNames<ITwinBehaviourState.ObjectBehaviourSlots>()));
         
@@ -134,26 +136,46 @@ internal class AgentLabSymbolTable
         Define(CreateBuiltInConstSymbol("DecDist", AgentLabToken.TokenType.FloatType));
         Define(CreateBuiltInConstSymbol("Bounce", AgentLabToken.TokenType.FloatType));
         
-        Define(CreateBuiltInEnumSymbol("SpaceType", Enum.GetNames<TwinBehaviourControlPacket.SpaceType>()));
-        Define(CreateBuiltInEnumSymbol("MotionType", Enum.GetNames<TwinBehaviourControlPacket.MotionType>()));
+        // ControlPacket setting consts
+        Define(CreateBuiltInEnumSymbol("Space", Enum.GetNames<TwinBehaviourControlPacket.SpaceType>()));
+        Define(CreateBuiltInEnumSymbol("Motion", Enum.GetNames<TwinBehaviourControlPacket.MotionType>()));
         Define(CreateBuiltInEnumSymbol("AccelerationFunction", Enum.GetNames<TwinBehaviourControlPacket.AccelFunction>()));
         Define(CreateBuiltInEnumSymbol("Axes", Enum.GetNames<TwinBehaviourControlPacket.NaturalAxes>()));
-        Define(CreateBuiltInEnumSymbol("ContinuousRotate", Enum.GetNames<TwinBehaviourControlPacket.ContinuousRotate>()));
-        
-        Define(CreateBuiltInConstSymbol("DoesTranslate", AgentLabToken.TokenType.BooleanType));
-        Define(CreateBuiltInConstSymbol("DoesRotate", AgentLabToken.TokenType.BooleanType));
-        Define(CreateBuiltInConstSymbol("DoesTranslationContinue", AgentLabToken.TokenType.BooleanType));
-        Define(CreateBuiltInConstSymbol("DoesInterpolateAngles", AgentLabToken.TokenType.BooleanType));
-        Define(CreateBuiltInConstSymbol("DoesYawFaces", AgentLabToken.TokenType.BooleanType));
-        Define(CreateBuiltInConstSymbol("DoesPitchFaces", AgentLabToken.TokenType.BooleanType));
-        Define(CreateBuiltInConstSymbol("DoesOrientPredicts", AgentLabToken.TokenType.BooleanType));
+        Define(CreateBuiltInEnumSymbol("ContinuousRotate", Enum.GetNames<TwinBehaviourControlPacket.ContinuousRotateType>()));
+        Define(CreateBuiltInConstSymbol("Translates", AgentLabToken.TokenType.BooleanType));
+        Define(CreateBuiltInConstSymbol("Rotates", AgentLabToken.TokenType.BooleanType));
+        Define(CreateBuiltInConstSymbol("TranslationContinues", AgentLabToken.TokenType.BooleanType));
+        Define(CreateBuiltInConstSymbol("InterpolatesAngles", AgentLabToken.TokenType.BooleanType));
+        Define(CreateBuiltInConstSymbol("YawFaces", AgentLabToken.TokenType.BooleanType));
+        Define(CreateBuiltInConstSymbol("PitchFaces", AgentLabToken.TokenType.BooleanType));
+        Define(CreateBuiltInConstSymbol("OrientsPredicts", AgentLabToken.TokenType.BooleanType));
         Define(CreateBuiltInConstSymbol("KeyIsLocal", AgentLabToken.TokenType.BooleanType));
         Define(CreateBuiltInConstSymbol("UsesInterpolator", AgentLabToken.TokenType.BooleanType));
         Define(CreateBuiltInConstSymbol("UsesPhysics", AgentLabToken.TokenType.BooleanType));
         Define(CreateBuiltInConstSymbol("UsesRotator", AgentLabToken.TokenType.BooleanType));
         Define(CreateBuiltInConstSymbol("ContinuouslyRotatesInWorldSpace", AgentLabToken.TokenType.BooleanType));
         Define(CreateBuiltInConstSymbol("Stalls", AgentLabToken.TokenType.BooleanType));
+        
+        // BuiltIn arrays
         Define(CreateBuiltInArraySymbol("InstanceFloat", 126, AgentLabToken.TokenType.FloatType));
+        return;
+
+        AgentLabEnumSymbol CreateBuiltInEnumSymbol(string name, params string[] enumNames)
+        {
+            var enumSymbol = new AgentLabEnumSymbol(name, Lookup(nameof(AgentLabToken.TokenType.EnumType)), enumNames);
+            Children.Add(enumSymbol.Enums);
+            return enumSymbol;
+        }
+
+        AgentLabArraySymbol CreateBuiltInArraySymbol(string name, int size, AgentLabToken.TokenType storageType)
+        {
+            return new AgentLabArraySymbol(name, size, Lookup(storageType.ToString()), Lookup(nameof(AgentLabToken.TokenType.ArrayType)));
+        }
+
+        AgentLabConstSymbol CreateBuiltInConstSymbol(string name, AgentLabToken.TokenType token)
+        {
+            return new AgentLabConstSymbol(name, Lookup(token.ToString()), constIdGenerator());
+        }
     }
 
     public override String ToString()

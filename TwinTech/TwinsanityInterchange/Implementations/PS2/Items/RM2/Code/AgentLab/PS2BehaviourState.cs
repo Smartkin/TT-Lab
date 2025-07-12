@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using Twinsanity.AgentLab.Resolvers;
 using Twinsanity.AgentLab.Resolvers.Interfaces;
+using Twinsanity.AgentLab.Resolvers.Interfaces.Decompiler;
 using Twinsanity.Libraries;
 using Twinsanity.TwinsanityInterchange.Common.AgentLab;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code.AgentLab;
@@ -16,7 +17,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
         public Int16 BehaviourIndexOrSlot { get; set; }
         public Boolean SkipsFirstStateBody { get; set; }
         public Boolean UsesObjectSlot { get; set; }
-        public bool NoneBlocking { get; set; }
+        public Boolean NoneBlocking { get; set; }
         public TwinBehaviourControlPacket ControlPacket { get; set; }
         public List<ITwinBehaviourStateBody> Bodies { get; set; }
         internal int Index { get; set; }
@@ -26,6 +27,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
         public PS2BehaviourState()
         {
             Bodies = new List<ITwinBehaviourStateBody>(0x1F);
+            BehaviourIndexOrSlot = -1;
         }
 
         public int GetLength()

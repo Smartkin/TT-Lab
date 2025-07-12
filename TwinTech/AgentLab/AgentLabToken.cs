@@ -63,6 +63,7 @@ public struct AgentLabToken
         Condition, // "condition"
         Packet, // "packet"
         BehaviourLibrary, // "behaviour_library"
+        Undefined, // "undefined"
         AddOperator, // "+"
         SubtractOperator, // "-"
         MultiplyOperator, // "*"

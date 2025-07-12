@@ -172,7 +172,7 @@ public class AgentLabParser : IDisposable
                 break;
             default:
                 // TODO: Raise type error instead of throwing an exception
-                throw new Exception($"Unexpected token type: {_currentToken.Type}");
+                throw new Exception($"Unsupported parameter type {_currentToken.Type}");
         }
 
         var identifier = _currentToken;
@@ -405,12 +405,12 @@ public class AgentLabParser : IDisposable
         var token = _currentToken;
         EatToken(AgentLabToken.TokenType.Identifier);
         EatToken(AgentLabToken.TokenType.OpenBracket);
-        var body = ControlPacketBody();
+        var body = ControlPacketBody(token);
         EatToken(AgentLabToken.TokenType.CloseBracket);
         return new ControlPacketNode(token, body);
     }
 
-    private ControlPacketBodyNode ControlPacketBody()
+    private ControlPacketBodyNode ControlPacketBody(AgentLabToken owner)
     {
         var settings = new List<ControlPacketSettingNode>();
         var datas = new List<ControlPacketDataNode>();
@@ -421,7 +421,7 @@ public class AgentLabParser : IDisposable
             EatToken(AgentLabToken.TokenType.OpenBracket);
             while (_currentToken.Type == AgentLabToken.TokenType.Identifier)
             {
-                settings.Add(ControlPacketSetting());
+                settings.Add(ControlPacketSetting(owner));
             }
             EatToken(AgentLabToken.TokenType.CloseBracket);
         }
@@ -432,28 +432,28 @@ public class AgentLabParser : IDisposable
             EatToken(AgentLabToken.TokenType.OpenBracket);
             while (_currentToken.Type == AgentLabToken.TokenType.Identifier)
             {
-                datas.Add(ControlPacketData());
+                datas.Add(ControlPacketData(owner));
             }
             EatToken(AgentLabToken.TokenType.CloseBracket);
         }
         
-        return new ControlPacketBodyNode(settings, datas);
+        return new ControlPacketBodyNode(settings, datas, owner.GetValue<string>());
     }
 
-    private ControlPacketSettingNode ControlPacketSetting()
+    private ControlPacketSettingNode ControlPacketSetting(AgentLabToken owner)
     {
         var token = _currentToken;
         var assign = Assign();
         EatToken(AgentLabToken.TokenType.Semicolon);
-        return new ControlPacketSettingNode(token, assign);
+        return new ControlPacketSettingNode(token, assign, owner.GetValue<string>());
     }
 
-    private ControlPacketDataNode ControlPacketData()
+    private ControlPacketDataNode ControlPacketData(AgentLabToken owner)
     {
         var token = _currentToken;
         var assign = Assign();
         EatToken(AgentLabToken.TokenType.Semicolon);
-        return new ControlPacketDataNode(token, assign);
+        return new ControlPacketDataNode(token, assign, owner.GetValue<string>());
     }
 
     private BooleanNode Boolean()
@@ -660,6 +660,7 @@ public class AgentLabParser : IDisposable
     {
         EatToken(AgentLabToken.TokenType.If);
         var condition = Condition();
+        var isNot = false;
         switch (_currentToken.Type)
         {
             case AgentLabToken.TokenType.GreaterEqual:
@@ -667,6 +668,7 @@ public class AgentLabParser : IDisposable
                 break;
             case AgentLabToken.TokenType.LessEqual:
                 EatToken(AgentLabToken.TokenType.LessEqual);
+                isNot = true;
                 break;
         }
 
@@ -693,7 +695,7 @@ public class AgentLabParser : IDisposable
         
         EatToken(AgentLabToken.TokenType.CloseBracket);
 
-        return new StateBodyNode(condition, interval, threshold, actions, execute);
+        return new StateBodyNode(condition, interval, threshold, actions, execute, isNot);
     }
 
     private IntervalNode Interval()
@@ -702,7 +704,7 @@ public class AgentLabParser : IDisposable
         EatToken(AgentLabToken.TokenType.Assign);
         var factor = Factor();
         EatToken(AgentLabToken.TokenType.Semicolon);
-        return new IntervalNode(_currentToken, factor);
+        return new IntervalNode(factor);
     }
 
     private NoOpNode Empty()
@@ -754,12 +756,12 @@ public class AgentLabParser : IDisposable
     private ParamListNode ParamList()
     {
         var @params = new ParamListNode();
-        @params.Children.Add(Factor());
+        @params.Children.Add(new ParamNode(Factor()));
         
         while (_currentToken.Type == AgentLabToken.TokenType.Comma)
         {
             EatToken(AgentLabToken.TokenType.Comma);
-            @params.Children.Add(Factor());
+            @params.Children.Add(new ParamNode(Factor()));
         }
         
         return @params;
@@ -857,7 +859,7 @@ public class AgentLabParser : IDisposable
 
     private IAttributeNode StateAttribute()
     {
-        IAttributeNode attribute = null;
+        IAttributeNode attribute;
         switch (_currentToken.Type)
         {
             case AgentLabToken.TokenType.NonBlocking:
@@ -913,7 +915,7 @@ public class AgentLabParser : IDisposable
         return new PriorityAttributeNode(resultNode);
     }
 
-    private ConstListNode ConstList(ref ConstListNode consts)
+    private ConstDeclarationListNode ConstList(ref ConstDeclarationListNode consts)
     {
         while (_currentToken.Type == AgentLabToken.TokenType.Const)
         {
@@ -927,7 +929,7 @@ public class AgentLabParser : IDisposable
 
     private BehaviourBodyNode BehaviourBody()
     {
-        var consts = new ConstListNode();
+        var consts = new ConstDeclarationListNode();
         StarterNode starter = null;
         var states = new StateListNode();
         var controlPackets = new ControlPacketListNode();

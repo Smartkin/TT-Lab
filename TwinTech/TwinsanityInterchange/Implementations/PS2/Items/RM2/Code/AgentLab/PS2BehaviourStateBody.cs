@@ -120,7 +120,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
         }
         public void WriteText(StreamWriter writer, Int32 tabs = 0)
         {
-            StringUtils.WriteLineTabulated(writer, $"Body {"{"}", tabs);
+            StringUtils.WriteLineTabulated(writer, "Body {", tabs);
  
             if (HasStateJump)
             {

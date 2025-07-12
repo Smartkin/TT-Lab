@@ -1,4 +1,4 @@
-namespace Twinsanity.AgentLab.Resolvers.Interfaces;
+namespace Twinsanity.AgentLab.Resolvers.Interfaces.Decompiler;
 
 public interface IStateResolver : IResolver
 {

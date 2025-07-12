@@ -7,7 +7,7 @@ internal class StateNode : IAgentLabTreeNode
 {
     public AttributeListNode Attributes { get; }
     public AgentLabToken Token { get; }
-    public IAgentLabTreeNode BehaviourIdToken { get; } // Can be null
+    public IAgentLabTreeNode BehaviourId { get; } // Can be null
     public StateBodyListNode Bodies { get; } // Can be null
     public string Name { get; }
     
@@ -15,7 +15,7 @@ internal class StateNode : IAgentLabTreeNode
     {
         Name = token.GetValue<string>();
         Token = token;
-        BehaviourIdToken = behaviourId;
+        BehaviourId = behaviourId;
         Attributes = attributes;
         Bodies = bodies;
     }

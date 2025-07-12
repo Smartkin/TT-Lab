@@ -46,5 +46,35 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code.AgentLab
             Pickup = 0x11,
             Projectile = 0x12,
         }
+        
+        public enum GameReservedIds : ushort
+        {
+            // Pickup custom agent
+            PUP_STATE_INACTIVE = 562,
+            PUP_STATE_INVISIBLE = 564,
+            PUP_STATE_SPAWN_IN_AIR = 566,
+            PUP_STATE_SPAWN_FROM_CRATE = 568,
+            PUP_STATE_IDLE = 570,
+            PUP_STATE_EXCITE = 572,
+            PUP_STATE_SUCK_IN = 574,
+            PUP_STATE_COLLECT = 576,
+            PUP_STATE_FLY_AWAY = 578,
+            PUP_STATE_DESTROY = 580,
+
+            // Projectile custom agent
+            PRO_STATE_INACTIVE = 590,
+            PRO_STATE_INVISIBLE = 592,
+            PRO_STATE_LAUNCH = 594,
+            PRO_STATE_TRAVEL = 596,
+            PRO_STATE_IMPACT_CRATE = 598,
+            PRO_STATE_IMPACT_CREATURE = 600,
+            PRO_STATE_IMPACT_FURNITURE = 602,
+            PRO_STATE_IMPACT_PLAYER = 604,
+            PRO_STATE_IMPACT_SCENERY = 606,
+            PRO_STATE_CREATE_DAMAGE = 608,
+            PRO_STATE_DESTROY = 610,
+            PRO_STATE_UNK1 = 612,
+            PRO_STATE_UNK2 = 614,
+        }
     }
 }

@@ -3,6 +3,7 @@ using System.IO;
 using System.Text;
 using Twinsanity.AgentLab.Resolvers;
 using Twinsanity.AgentLab.Resolvers.Interfaces;
+using Twinsanity.AgentLab.Resolvers.Interfaces.Decompiler;
 using Twinsanity.Libraries;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code.AgentLab;
@@ -17,6 +18,11 @@ namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
         public AssignLocalityID AssignLocality { get; set; }
         public AssignStatusID AssignStatus { get; set; }
         public AssignPreferenceID AssignPreference { get; set; }
+
+        public TwinBehaviourAssigner()
+        {
+            GlobalObjectId = 65535;
+        }
 
         public Int32 GetLength()
         {

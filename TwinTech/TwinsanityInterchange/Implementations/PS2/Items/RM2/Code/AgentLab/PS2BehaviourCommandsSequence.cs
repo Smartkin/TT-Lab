@@ -40,7 +40,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
 
             foreach (var packPair in BehaviourPacks)
             {
-                StringUtils.WriteLineTabulated(writer, $"behaviour {(GameReservedIds)packPair.Key} {{", tabs + 1);
+                StringUtils.WriteLineTabulated(writer, $"behaviour {(ITwinBehaviourCommandsSequence.GameReservedIds)packPair.Key} {{", tabs + 1);
                 packPair.Value.Decompile(resolver, writer, tabs + 2);
                 StringUtils.WriteLineTabulated(writer, "}", tabs + 1);
                 writer.WriteLine();
@@ -98,7 +98,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
             StringUtils.WriteLineTabulated(writer, $"IndexInGlobalStorage = {IndexInGlobalStorage}", tabs + 1);
             foreach (var packPair in BehaviourPacks)
             {
-                StringUtils.WriteLineTabulated(writer, $"Pack({(GameReservedIds)packPair.Key}) {{", tabs + 1);
+                StringUtils.WriteLineTabulated(writer, $"Pack({(ITwinBehaviourCommandsSequence.GameReservedIds)packPair.Key}) {{", tabs + 1);
                 packPair.Value.WriteText(writer, tabs + 2);
                 StringUtils.WriteLineTabulated(writer, "}", tabs + 1);
             }
@@ -179,36 +179,6 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
         public override String GetName()
         {
             return $"Behaviour Commands Sequence {id:X}";
-        }
-
-        public enum GameReservedIds : ushort
-        {
-            // Pickup custom agent
-            PUP_STATE_INACTIVE = 562,
-            PUP_STATE_INVISIBLE = 564,
-            PUP_STATE_SPAWN_IN_AIR = 566,
-            PUP_STATE_SPAWN_FROM_CRATE = 568,
-            PUP_STATE_IDLE = 570,
-            PUP_STATE_EXCITE = 572,
-            PUP_STATE_SUCK_IN = 574,
-            PUP_STATE_COLLECT = 576,
-            PUP_STATE_FLY_AWAY = 578,
-            PUP_STATE_DESTROY = 580,
-
-            // Projectile custom agent
-            PRO_STATE_INACTIVE = 590,
-            PRO_STATE_INVISIBLE = 592,
-            PRO_STATE_LAUNCH = 594,
-            PRO_STATE_TRAVEL = 596,
-            PRO_STATE_IMPACT_CRATE = 598,
-            PRO_STATE_IMPACT_CREATURE = 600,
-            PRO_STATE_IMPACT_FURNITURE = 602,
-            PRO_STATE_IMPACT_PLAYER = 604,
-            PRO_STATE_IMPACT_SCENERY = 606,
-            PRO_STATE_CREATE_DAMAGE = 608,
-            PRO_STATE_DESTROY = 610,
-            PRO_STATE_UNK1 = 612,
-            PRO_STATE_UNK2 = 614,
         }
     }
 }

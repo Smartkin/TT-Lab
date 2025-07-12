@@ -14,6 +14,11 @@ public class AgentLabSymbolTableBuilder
         
     }
 
+    internal AgentLabSymbolTable GetSymbolTable()
+    {
+        return _visitor.SymbolTable;
+    }
+
     public AgentLabSymbolTableBuilder BuildBuiltInTypes()
     {
         _visitor.SymbolTable.InitBuiltInTypes();

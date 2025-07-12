@@ -4,6 +4,7 @@ using System.IO;
 using System.Text;
 using Twinsanity.AgentLab.Resolvers;
 using Twinsanity.AgentLab.Resolvers.Interfaces;
+using Twinsanity.AgentLab.Resolvers.Interfaces.Decompiler;
 using Twinsanity.Libraries;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 

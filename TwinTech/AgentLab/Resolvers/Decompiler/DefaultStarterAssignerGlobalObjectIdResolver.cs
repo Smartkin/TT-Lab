@@ -1,6 +1,6 @@
-using System;
+using Twinsanity.AgentLab.Resolvers.Interfaces.Decompiler;
 
-namespace Twinsanity.AgentLab.Resolvers;
+namespace Twinsanity.AgentLab.Resolvers.Decompiler;
 
 public class DefaultStarterAssignerGlobalObjectIdResolver : IStarterAssignerGlobalObjectIdResolver
 {
