@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using Twinsanity.AgentLab.AgentLabObjectDescs;
+using Twinsanity.AgentLab.AgentLabObjectDescs.PS2;
 using Twinsanity.AgentLab.Resolvers;
 using Twinsanity.AgentLab.Resolvers.Interfaces;
 using Twinsanity.Libraries;

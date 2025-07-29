@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using TT_Lab.AssetData.Graphics.SubModels;
+using Twinsanity.AgentLab;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Common.AgentLab;
 using Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.Graphics;
@@ -38,12 +39,12 @@ namespace TT_Lab.Assets.Factory
             throw new NotImplementedException();
         }
 
-        public ITwinBehaviourGraph GenerateBehaviourGraph(Stream stream)
+        public AgentLabCompiler.CompilerResult GenerateBehaviourGraph(Stream stream)
         {
             throw new NotImplementedException();
         }
 
-        public TwinBehaviourStarter GenerateBehaviourStarter(Stream stream)
+        public ITwinBehaviourCommandPack GenerateBehaviourCommandPack(Stream stream)
         {
             throw new NotImplementedException();
         }

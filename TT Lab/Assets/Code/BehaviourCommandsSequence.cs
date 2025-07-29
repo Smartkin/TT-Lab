@@ -24,7 +24,7 @@ namespace TT_Lab.Assets.Code
         {
             assetData = new BehaviourCommandsSequenceData(codeModel);
             assetData.Import(package, variant, LayoutID);
-            GenerateBehaviourGraphLinks(package, variant);
+            GenerateBehaviourGraphLinks(codeModel, package, variant);
         }
 
         public override void PostDeserialize()
@@ -52,14 +52,13 @@ namespace TT_Lab.Assets.Code
             return assetData;
         }
 
-        private void GenerateBehaviourGraphLinks(LabURI package, String? variant)
+        private void GenerateBehaviourGraphLinks(ITwinBehaviourCommandsSequence codeModel, LabURI package, String? variant)
         {
             BehaviourGraphLinks.Clear();
-            var cm = (BehaviourCommandsSequenceData)assetData;
-            foreach (var e in cm.BehaviourGraphIds)
+            foreach (var e in codeModel.BehaviourPacks)
             {
-                var uri = new LabURI($"{package}/{typeof(BehaviourGraph).Name}/{e}/{ID}");
-                BehaviourGraphLinks.Add(e, uri);
+                var uri = new LabURI($"{package}/{nameof(BehaviourGraph)}/{e.Key}/{ID}");
+                BehaviourGraphLinks.Add(e.Key, uri);
             }
         }
     }

@@ -59,7 +59,7 @@ public class GameObjectViewModel : ResourceEditorViewModel
                 }
                 
                 var asset = AssetManager.Get().GetAsset(uri);
-                return asset is BehaviourStarter or BehaviourCommandsSequence;
+                return asset is BehaviourGraph or BehaviourCommandsSequence;
             });
         });
     }
@@ -98,7 +98,7 @@ public class GameObjectViewModel : ResourceEditorViewModel
         _cameraReactJointAmount = data.CameraReactJointAmount;
         _exitPointAmount = data.ExitPointAmount;
         _instanceStateFlags = new InstanceStateFlagsViewModel(data.InstanceStateFlags);
-        _commandPack = new BehaviourCommandPackViewModel(this, data.BehaviourPack.ToString());
+        _commandPack = new BehaviourCommandPackViewModel(this, data.BehaviourPack);
         DirtyTracker.AddChild(_commandPack);
         DirtyTracker.AddChild(_instanceStateFlags);
         

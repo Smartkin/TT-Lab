@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Twinsanity.AgentLab.AgentLabObjectDescs;
+using Twinsanity.AgentLab.AgentLabObjectDescs.PS2;
 using Twinsanity.AgentLab.Resolvers;
 using Twinsanity.AgentLab.Resolvers.Interfaces;
 using Twinsanity.Libraries;
@@ -27,7 +29,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
 
         public int GetLength()
         {
-            return 4 + (HasStateJump ? 4 : 0) + Commands.Sum(command => command.GetLength()) + (Condition?.GetLength() ?? 0);
+            return 4 + (HasStateJump ? 4 : 0) + (Commands?.Sum(command => command.GetLength()) ?? 0) + (Condition?.GetLength() ?? 0);
         }
 
         public void Compile()

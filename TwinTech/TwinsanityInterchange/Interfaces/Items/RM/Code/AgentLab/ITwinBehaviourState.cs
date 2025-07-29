@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using Twinsanity.AgentLab.AgentLabObjectDescs;
 using Twinsanity.TwinsanityInterchange.Common.AgentLab;
 
 namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code.AgentLab

@@ -174,7 +174,7 @@
                                 </i:Interaction.Triggers>
                                 <TextBox VerticalScrollBarVisibility="Disabled" x:Name="LogText" MaxLines="50" TextWrapping="Wrap" AllowDrop="False" IsReadOnly="True"/>
                             </ScrollViewer>
-                            <Image HorizontalAlignment="Right" Margin="10" Visibility="{Binding SadEasterEggVisibility}" gif:ImageBehavior.AnimatedSource="../Images/SadTransparent.gif"/>
+                            <Image HorizontalAlignment="Right" Margin="10" Visibility="{Binding SadEasterEggVisibility}" gif:ImageBehavior.AnimatedSource="/Images/SadTransparent.gif"/>
                         </Grid>
                     </TabItem>
                 </TabControl>

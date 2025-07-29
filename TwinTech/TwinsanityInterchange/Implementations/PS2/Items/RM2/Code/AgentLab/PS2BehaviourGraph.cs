@@ -4,6 +4,8 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json;
+using Twinsanity.AgentLab.AgentLabObjectDescs;
+using Twinsanity.AgentLab.AgentLabObjectDescs.PS2;
 using Twinsanity.AgentLab.Resolvers;
 using Twinsanity.AgentLab.Resolvers.Interfaces;
 using Twinsanity.AgentLab.Resolvers.Interfaces.Decompiler;
@@ -60,14 +62,20 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
         public override void Decompile(IResolver resolver, StreamWriter writer, int tabs = 0)
         {
             var graphResolver = resolver as IGraphResolver;
-            StringUtils.WriteLineTabulated(writer, $"[StartFrom(State_{StartState})]", tabs);
-            StringUtils.WriteLineTabulated(writer, $"[Priority({Priority})]", tabs);
-            StringUtils.WriteLineTabulated(writer, $"behaviour {Name} {{", tabs);
-
+            TwinBehaviourStarter starter = null;
             if (graphResolver != null)
             {
+                starter = graphResolver.GetStarterResolver().ResolveStarter();
+            }
+            
+            StringUtils.WriteLineTabulated(writer, $"[StartFrom(State_{StartState})]", tabs);
+            var priority = starter?.Priority ?? Priority;
+            StringUtils.WriteLineTabulated(writer, $"[Priority({priority})]", tabs);
+            StringUtils.WriteLineTabulated(writer, $"behaviour {Name} {{", tabs);
+
+            if (starter != null)
+            {
                 writer.WriteLine();
-                var starter = graphResolver.GetStarterResolver().ResolveStarter();
                 starter.Decompile(graphResolver.GetStarterResolver().GetAssignerResolvers(), writer, tabs + 1);
             }
 

@@ -20,7 +20,7 @@ public static class TwinIdGeneratorServiceProvider
     {
         RegisterGeneratorService<Animation>();
         RegisterGeneratorService<BehaviourCommandsSequence>();
-        RegisterGeneratorService<BehaviourStarter>(new TwinIdGeneratorServiceBehaviour());
+        RegisterGeneratorService<BehaviourGraph>(new TwinIdGeneratorServiceBehaviour());
         RegisterGeneratorService<GameObject>();
         RegisterGeneratorService<OGI>();
         RegisterGeneratorService<SoundEffect>();

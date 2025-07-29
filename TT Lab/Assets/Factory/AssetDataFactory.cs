@@ -145,7 +145,7 @@ public static class AssetDataFactory
 
     public static AssetCreationStatus CreateBehaviourData(IAsset asset)
     {
-        asset.SetData(new BehaviourStarterData());
+        asset.SetData(new BehaviourGraphData());
         return AssetCreationStatus.Success;
     }
 

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using TT_Lab.AssetData.Graphics.SubModels;
+using Twinsanity.AgentLab;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Common.AgentLab;
 using Twinsanity.TwinsanityInterchange.Interfaces;
@@ -26,9 +27,9 @@ namespace TT_Lab.Assets.Factory
         ITwinSkydome GenerateSkydome(Stream stream);
         ITwinTexture GenerateTexture();
         ITwinAnimation GenerateAnimation(Stream stream);
-        TwinBehaviourStarter GenerateBehaviourStarter(Stream stream);
-        ITwinBehaviourGraph GenerateBehaviourGraph(Stream stream);
+        AgentLabCompiler.CompilerResult GenerateBehaviourGraph(Stream stream);
         ITwinBehaviourCommandsSequence GenerateBehaviourCommandsSequence(Stream stream);
+        ITwinBehaviourCommandPack GenerateBehaviourCommandPack(Stream stream);
         ITwinObject GenerateObject(Stream stream);
         ITwinOGI GenerateOGI(Stream stream);
         ITwinSound GenerateSound();

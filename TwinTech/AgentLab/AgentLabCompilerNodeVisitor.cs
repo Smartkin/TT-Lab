@@ -53,6 +53,7 @@ internal class AgentLabCompilerNodeVisitor : NodeVisitor
         Visitors.Add(typeof(ControlPacketSettingNode), VisitControlPacketSettingNode);
         Visitors.Add(typeof(StateListNode), VisitStateListNode);
         Visitors.Add(typeof(StateBodyListNode), VisitStateBodyListNode);
+        Visitors.Add(typeof(StateExecuteNode), VisitStateExecuteNode);
         Visitors.Add(typeof(StateNode), VisitStateNode);
         Visitors.Add(typeof(ControlPacketAttributeNode), VisitControlPacketAttributeNode);
         Visitors.Add(typeof(UseObjectSlotAttributeNode), VisitUseObjectSlotAttributeNode);
@@ -67,6 +68,13 @@ internal class AgentLabCompilerNodeVisitor : NodeVisitor
         Visitors.Add(typeof(GlobalIndexAttributeNode), VisitGlobalIndexAttributeNode);
         Visitors.Add(typeof(InstanceTypeAttributeNode), VisitInstanceTypeAttributeNode);
         Visitors.Add(typeof(LinearBehaviourNode), VisitLinearBehaviourNode);
+    }
+
+    private Object VisitStateExecuteNode(IAgentLabTreeNode node)
+    {
+        var stateExecute = (StateExecuteNode)node;
+        var stateSymbol = _symbolTable.Lookup<AgentLabStateSymbol>(stateExecute.StateName);
+        return stateSymbol.Id;
     }
 
     private Object VisitInstanceTypeAttributeNode(IAgentLabTreeNode node)
@@ -85,7 +93,7 @@ internal class AgentLabCompilerNodeVisitor : NodeVisitor
     {
         var linearBehaviour = (LinearBehaviourNode)node;
         var pack = _options.CommandPack.Construct();
-        pack.Commands = (List<ITwinBehaviourCommand>)Visit(linearBehaviour.Actions);
+        pack.Commands = (List<ITwinBehaviourCommand>)Visit(linearBehaviour.Actions) ?? new List<ITwinBehaviourCommand>();
         var behaviourId = _options.Resolver.GetGraphResolver().ResolveGraphReference(linearBehaviour.Name);
 
         return new KeyValuePair<ushort, ITwinBehaviourCommandPack>((ushort)behaviourId, pack);
@@ -170,8 +178,8 @@ internal class AgentLabCompilerNodeVisitor : NodeVisitor
         var action = _options.Command.Construct();
         var actionSymbol = _symbolTable.Lookup<AgentLabActionSymbol>(actionNode.Name);
         action.CommandIndex = (ushort)actionSymbol.Id;
-        action.Arguments = (List<uint>)Visit(actionNode.Parameters);
-        
+        action.Arguments = (List<uint>)Visit(actionNode.Parameters) ?? new List<uint>();
+
         return action;
     }
 
@@ -226,7 +234,7 @@ internal class AgentLabCompilerNodeVisitor : NodeVisitor
         var stateBodyNode = (StateBodyNode)node;
         var stateBody = _options.StateBody.Construct();
         stateBody.Condition = (TwinBehaviourCondition)Visit(stateBodyNode.Condition);
-        stateBody.Commands = (List<ITwinBehaviourCommand>)Visit(stateBodyNode.ActionList);
+        stateBody.Commands = (List<ITwinBehaviourCommand>)Visit(stateBodyNode.ActionList) ?? new List<ITwinBehaviourCommand>();
         stateBody.JumpToState = Visit(stateBodyNode.StateExecute) is int stateExecute ? stateExecute : -1;
         if (stateBody.JumpToState != -1)
         {
@@ -283,7 +291,7 @@ internal class AgentLabCompilerNodeVisitor : NodeVisitor
             state.BehaviourIndexOrSlot = behaviourIndex;
         }
 
-        state.Bodies = (List<ITwinBehaviourStateBody>)Visit(stateNode.Bodies);
+        state.Bodies = (List<ITwinBehaviourStateBody>)Visit(stateNode.Bodies) ?? new List<ITwinBehaviourStateBody>();
         
         return state;
     }
@@ -412,11 +420,12 @@ internal class AgentLabCompilerNodeVisitor : NodeVisitor
         var assignerNode = (StarterAssignerNode)node;
         var starter = _result.Get<TwinBehaviourStarter>();
         var behaviour = _result.Get<ITwinBehaviourGraph>();
-        var assigner = new TwinBehaviourAssigner
-        {
-            Behaviour = _options.Resolver.GetGraphResolver().ResolveGraphReference(behaviour.Name) + 1
-        };
+        var assigner = new TwinBehaviourAssigner();
         starter.Assigners.Add(assigner);
+        if (starter.Assigners.Count == 1)
+        {
+            assigner.Behaviour = _options.Resolver.GetGraphResolver().ResolveGraphReference(behaviour.Name) + 1;
+        }
 
         foreach (var child in assignerNode.Children)
         {
@@ -507,7 +516,7 @@ internal class AgentLabCompilerNodeVisitor : NodeVisitor
         Visit(behaviourBody.Consts);
         Visit(behaviourBody.Starter);
         Visit(behaviourBody.ControlPackets);
-        var states = (List<ITwinBehaviourState>)Visit(behaviourBody.States);
+        var states = (List<ITwinBehaviourState>)Visit(behaviourBody.States) ?? new List<ITwinBehaviourState>();
         
         return states;
     }
@@ -521,7 +530,7 @@ internal class AgentLabCompilerNodeVisitor : NodeVisitor
         var behaviourScope = _symbolTable.Lookup<AgentLabBehaviourSymbol>(behaviour.Name);
         _symbolTable = behaviourScope.BehaviourSymbolTable;
         Visit(behaviour.Priority);
-        compiledBehaviour.ScriptStates = (List<ITwinBehaviourState>)Visit(behaviour.Body);
+        compiledBehaviour.ScriptStates = (List<ITwinBehaviourState>)Visit(behaviour.Body) ?? new List<ITwinBehaviourState>();
         Visit(behaviour.StartFrom);
         
         return null;

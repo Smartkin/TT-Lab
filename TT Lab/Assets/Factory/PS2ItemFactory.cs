@@ -3,7 +3,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using TT_Lab.AssetData.Graphics.SubModels;
+using TT_Lab.Assets.Code.Resolvers.Compiler;
 using TT_Lab.Util;
+using Twinsanity.AgentLab;
+using Twinsanity.AgentLab.AgentLabObjectDescs.PS2;
+using Twinsanity.AgentLab.Resolvers.Compiler;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Common.AgentLab;
 using Twinsanity.TwinsanityInterchange.Common.Lights;
@@ -69,42 +73,55 @@ namespace TT_Lab.Assets.Factory
 
         public ITwinBehaviourCommandsSequence GenerateBehaviourCommandsSequence(Stream stream)
         {
-            var sequence = new PS2BehaviourCommandsSequence();
             using var reader = new StreamReader(stream);
-            sequence.ReadText(reader);
-            return sequence;
-        }
-
-        public ITwinBehaviourGraph GenerateBehaviourGraph(Stream stream)
-        {
-            var graph = new PS2BehaviourGraph();
-            using var reader = new StreamReader(stream);
-            graph.ReadText(reader);
-            return graph;
-        }
-
-        public TwinBehaviourStarter GenerateBehaviourStarter(Stream stream)
-        {
-            var starter = new TwinBehaviourStarter();
-            using var reader = new BinaryReader(stream);
-            // HACK: Read the internal TwinBehaviourWrapper
-            starter.Read(reader, (Int32)stream.Length);
-            stream.Position = 4;
-
-            starter.Assigners.Clear();
-            var assignersAmount = reader.ReadUInt32();
-            for (Int32 i = 0; i < assignersAmount; i++)
+            var script = reader.ReadToEnd();
+            var compilerOptions = new AgentLabCompiler.CompilerOptions
             {
-                var assigner = new TwinBehaviourAssigner();
-                assigner.Behaviour = reader.ReadInt32();
-                assigner.GlobalObjectId = reader.ReadUInt16();
-                assigner.AssignType = (AssignTypeID)reader.ReadUInt32();
-                assigner.AssignLocality = (AssignLocalityID)reader.ReadUInt32();
-                assigner.AssignStatus = (AssignStatusID)reader.ReadUInt32();
-                assigner.AssignPreference = (AssignPreferenceID)reader.ReadUInt32();
-                starter.Assigners.Add(assigner);
+                CommandsSequence = new PS2CommandsSequenceDesc(),
+                CommandPack = new PS2CommandPackDesc(),
+                Command = new PS2CommandDesc(),
+                ActionDefinitionsFile = "ActionDefinitionsPs2.lab",
+                Resolver = new LabCompilerResolver(new DefaultGlobalObjectIdResolver(), new DefaultGraphResolver())
+            };
+            var compilerResult = AgentLabCompiler.Compile(script, compilerOptions);
+            return compilerResult.Get<ITwinBehaviourCommandsSequence>();
+        }
+
+        public AgentLabCompiler.CompilerResult GenerateBehaviourGraph(Stream stream)
+        {
+            using var binaryReader = new BinaryReader(stream);
+            var graphId = binaryReader.ReadInt32();
+            using var reader = new StreamReader(stream);
+            var script = reader.ReadToEnd();
+            var compilerOptions = new AgentLabCompiler.CompilerOptions
+            {
+                Command = new PS2CommandDesc(),
+                CommandPack = new PS2CommandPackDesc(),
+                State = new PS2StateDesc(),
+                StateBody = new PS2StateBodyDesc(),
+                Graph = new PS2GraphDesc(),
+                ActionDefinitionsFile = "ActionDefinitionsPs2.lab",
+                Resolver = new LabCompilerResolver(graphId)
+            };
+            return AgentLabCompiler.Compile(script, compilerOptions);
+        }
+
+        public ITwinBehaviourCommandPack GenerateBehaviourCommandPack(Stream stream)
+        {
+            using var reader = new StreamReader(stream);
+            var script = reader.ReadToEnd();
+            if (string.IsNullOrEmpty(script))
+            {
+                return new PS2BehaviourCommandPack();
             }
-            return starter;
+            
+            var compilerOptions = new AgentLabCompiler.CompilerOptions
+            {
+                Command = new PS2CommandDesc(),
+                CommandPack = new PS2CommandPackDesc(),
+                ActionDefinitionsFile = "ActionDefinitionsPs2.lab"
+            };
+            return AgentLabCompiler.Compile(script, compilerOptions).Get<ITwinBehaviourCommandPack>();
         }
 
         public ITwinBlendSkin GenerateBlendSkin(Int32 blendsAmount, List<SubBlendData> blends, UInt32? compileScale)

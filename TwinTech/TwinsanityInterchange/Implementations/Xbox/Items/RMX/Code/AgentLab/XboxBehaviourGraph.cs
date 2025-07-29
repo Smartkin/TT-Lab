@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json;
+using Twinsanity.AgentLab.AgentLabObjectDescs;
 using Twinsanity.AgentLab.Resolvers;
 using Twinsanity.AgentLab.Resolvers.Interfaces;
 using Twinsanity.Libraries;

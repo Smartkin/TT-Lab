@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using Twinsanity.AgentLab.AgentLabObjectDescs;
 
 namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code.AgentLab
 {
@@ -45,19 +46,19 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code.AgentLab
         /// <param name="reader"></param>
         /// <param name="length"></param>
         /// <param name="commands">Command chain</param>
-        public void Read(BinaryReader reader, int length, IList<ITwinBehaviourCommand> commands);
+        void Read(BinaryReader reader, int length, IList<ITwinBehaviourCommand> commands);
 
         /// <summary>
         /// Output the command in its text form
         /// </summary>
         /// <param name="writer"></param>
         /// <param name="tabs"></param>
-        public void WriteText(StreamWriter writer, Int32 tabs = 0);
+        void WriteText(StreamWriter writer, Int32 tabs = 0);
 
         /// <summary>
         /// Interpret command from its text form
         /// </summary>
         /// <param name="line"></param>
-        public void ReadText(String line);
+        void ReadText(String line);
     }
 }

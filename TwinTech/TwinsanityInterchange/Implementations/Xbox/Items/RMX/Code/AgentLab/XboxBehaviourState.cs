@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Twinsanity.AgentLab.AgentLabObjectDescs;
 using Twinsanity.AgentLab.Resolvers;
 using Twinsanity.AgentLab.Resolvers.Interfaces;
 using Twinsanity.Libraries;

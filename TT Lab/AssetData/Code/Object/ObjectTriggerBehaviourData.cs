@@ -25,7 +25,7 @@ namespace TT_Lab.AssetData.Code.Object
 
         public ObjectTriggerBehaviourData(LabURI package, String? variant, TwinObjectTriggerBehaviour triggerBehaviour)
         {
-            TriggerBehaviour = AssetManager.Get().GetUri(package, typeof(BehaviourStarter).Name, variant, triggerBehaviour.TriggerBehaviour);
+            TriggerBehaviour = AssetManager.Get().GetUri(package, nameof(BehaviourGraph), variant, triggerBehaviour.TriggerBehaviour + 1U);
             MessageID = triggerBehaviour.MessageID;
             BehaviourCallerIndex = triggerBehaviour.BehaviourCallerIndex;
         }

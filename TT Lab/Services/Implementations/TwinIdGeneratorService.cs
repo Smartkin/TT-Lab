@@ -58,12 +58,12 @@ public class TwinIdGeneratorServiceFolder : TwinIdGeneratorService<Folder>
     }
 }
 
-public class TwinIdGeneratorServiceBehaviour : TwinIdGeneratorService<BehaviourStarter>
+public class TwinIdGeneratorServiceBehaviour : TwinIdGeneratorService<BehaviourGraph>
 {
     public override UInt32 GenerateTwinId()
     {
-        var currentlyRegistered = AssetManager.Get().GetAllAssetsOf<BehaviourStarter>();
-        var id = 2U;
+        var currentlyRegistered = AssetManager.Get().GetAllAssetsOf<BehaviourGraph>();
+        var id = 1U;
         while (currentlyRegistered.Any(a => a.ID == id))
         {
             id += 2;

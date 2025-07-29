@@ -58,7 +58,7 @@ public class FolderElementViewModel : ResourceTreeElementViewModel
         createAssetViewModel.RegisterAssetToCreate<Material>("Material", AssetDataFactory.CreateMaterialData);
         createAssetViewModel.RegisterAssetToCreate<Skydome>("Skydome", AssetDataFactory.CreateSkydomeData);
         createAssetViewModel.RegisterAssetToCreate<GameObject>("Game Object", AssetDataFactory.CreateGameObjectData);
-        createAssetViewModel.RegisterAssetToCreate<BehaviourStarter>("Behaviour", AssetDataFactory.CreateBehaviourData);
+        createAssetViewModel.RegisterAssetToCreate<BehaviourGraph>("Behaviour", AssetDataFactory.CreateBehaviourData);
     }
 
     private void ListInstanceCreatableAssets(CreateAssetViewModel createAssetViewModel)

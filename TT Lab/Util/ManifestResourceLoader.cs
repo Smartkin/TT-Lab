@@ -15,9 +15,9 @@ namespace TT_Lab.Util
 
         public static string GetPathInExe(string pathToFile)
         {
-            string assemblyLocation = Assembly.GetExecutingAssembly().Location;
+            var assemblyLocation = AppContext.BaseDirectory;
             UriBuilder uri = new(assemblyLocation);
-            string path = Uri.UnescapeDataString(uri.Path);
+            var path = Uri.UnescapeDataString(uri.Path);
 
             return Path.Combine(Path.GetDirectoryName(path)!, pathToFile);
         }

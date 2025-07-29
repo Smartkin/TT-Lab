@@ -116,7 +116,7 @@ namespace TT_Lab.AssetData.Instance
             }
             ObjectId = assetManager.GetUri(package, nameof(GameObject), variant, instance.ObjectId);
             RefListIndex = instance.RefListIndex;
-            OnSpawnScriptId = assetManager.GetUri(package, nameof(BehaviourStarter), variant, instance.OnSpawnHeaderScriptID);
+            OnSpawnScriptId = assetManager.GetUri(package, nameof(BehaviourGraph), variant, instance.OnSpawnHeaderScriptID + 1U);
             StateFlags = instance.StateFlags;
             ParamList1 = CloneUtils.CloneList(instance.ParamList1);
             ParamList2 = CloneUtils.CloneList(instance.ParamList2);

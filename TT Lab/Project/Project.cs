@@ -591,6 +591,57 @@ namespace TT_Lab.Project
             assets.Add(ps2JpnFolder.URI, ps2JpnFolder);
             assets.Add(ps2SpaFolder.URI, ps2SpaFolder);
             assets.Add(ps2ChunksFolder.URI, ps2ChunksFolder);
+            
+            // Maps graph ID to behaviour starter
+            var starterMap = new Dictionary<string, TwinBehaviourStarter>();
+            Log.WriteLine("Creating behaviour starter map...");
+            foreach (var item in archive.Items)
+            {
+                var pathLow = item.Header.Path.ToLower();
+                var isRm2 = pathLow.EndsWith(".rm2");
+                var isDefault = pathLow.EndsWith("default.rm2");
+                if (!isRm2)
+                {
+                    continue;
+                }
+                
+                ITwinSection? chunk = null;
+                if (isDefault)
+                {
+                    chunk = new PS2Default();
+                }
+                else if (isRm2)
+                {
+                    chunk = new PS2AnyTwinsanityRM2();
+                }
+                using System.IO.MemoryStream ms = new(item.Data);
+                using System.IO.BinaryReader reader = new(ms);
+
+                // Fill chunk data
+                chunk!.Read(reader, (Int32)ms.Length);
+                
+                var code = chunk.GetItem<PS2AnyCodeSection>(Constants.LEVEL_CODE_SECTION);
+                var items = code.GetItem<PS2AnyBehavioursSection>(Constants.CODE_BEHAVIOURS_SECTION);
+                
+                for (var i = 0; i < items.GetItemsAmount(); ++i)
+                {
+                    var asset = items.GetItem<TwinBehaviourWrapper>(items.GetItem(i).GetID());
+                    var isStarter = asset.GetID() % 2 == 0;
+                    if (!isStarter)
+                    {
+                        continue;
+                    }
+
+                    var starter = (TwinBehaviourStarter)asset;
+                    var starterStr = (starter.Assigners[0].Behaviour - 1).ToString();
+                    if (starterMap.ContainsKey(starterStr))
+                    {
+                        starterStr += pathLow;
+                    }
+                    starterMap.Add(starterStr, (TwinBehaviourStarter)asset);
+                }
+            }
+
             // Unpack all assets from chunks
             foreach (var item in archive.Items)
             {
@@ -790,9 +841,16 @@ namespace TT_Lab.Project
 
                         // Behaviours are special because they are ID oddity dependent
                         var items = code.GetItem<PS2AnyBehavioursSection>(Constants.CODE_BEHAVIOURS_SECTION);
+                        
                         for (var i = 0; i < items.GetItemsAmount(); ++i)
                         {
                             var asset = items.GetItem<TwinBehaviourWrapper>(items.GetItem(i).GetID());
+                            var isStarter = asset.GetID() % 2 == 0;
+                            if (isStarter)
+                            {
+                                continue;
+                            }
+                            
                             var behaviourChecker = codeCheck[Constants.CODE_BEHAVIOURS_SECTION];
                             var hasHash = behaviourChecker.ContainsKey(asset.GetHash());
                             if (hasHash && !isDefault)
@@ -809,19 +867,21 @@ namespace TT_Lab.Project
                             }
                             // If hash was unique but Twinsanity's ID wasn't then we will mark it with a variant which is gonna be chunk's name
                             var needVariant = behaviourChecker.Values.Count(e => e == asset.GetID()) > 1 || isDefault;
-                            var isHeader = asset.GetID() % 2 == 0;
-                            var type = isHeader ? typeof(BehaviourStarter) : typeof(BehaviourGraph);
+                            
                             if (needVariant)
                             {
                                 // TODO: Add dupes addition
                             }
                             var package = isDefault ? GlobalPackagePS2 : ps2Package;
-                            var metaAsset = (IAsset?)Activator.CreateInstance(type, package.URI, needVariant, chunkPath,
-                                asset.GetID(), asset.GetName(), asset) ?? throw new ProjectException($"Could not read asset {asset.GetName()} with ID {asset.GetID()}");
-                            if (!isHeader)
+                            starterMap.TryGetValue(asset.GetID() + pathLow, out var starter);
+                            if (starter == null)
                             {
-                                scriptsFolder.AddChild(metaAsset);
+                                starterMap.TryGetValue(asset.GetID().ToString(), out starter);
                             }
+                            var metaAsset = (IAsset?)Activator.CreateInstance(typeof(BehaviourGraph), package.URI, needVariant, chunkPath,
+                                asset.GetID(), asset.GetName(), asset, starter) ?? throw new ProjectException($"Could not read asset {asset.GetName()} with ID {asset.GetID()}");
+
+                            scriptsFolder.AddChild(metaAsset);
                             assets.Add(metaAsset.URI, metaAsset);
                         }
 

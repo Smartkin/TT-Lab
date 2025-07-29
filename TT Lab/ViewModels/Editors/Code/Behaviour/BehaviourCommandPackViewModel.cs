@@ -9,7 +9,7 @@ using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code.AgentLab;
 
 namespace TT_Lab.ViewModels.Editors.Code.Behaviour;
 
-public class BehaviourCommandPackViewModel : Screen, IHaveParentEditor<GameObjectViewModel>, ISaveableViewModel<ITwinBehaviourCommandPack>
+public class BehaviourCommandPackViewModel : Screen, IHaveParentEditor<GameObjectViewModel>, ISaveableViewModel<string>
 {
     private string code;
     private bool _isDirty;
@@ -36,15 +36,9 @@ public class BehaviourCommandPackViewModel : Screen, IHaveParentEditor<GameObjec
         }
     }
     
-    public void Save(ITwinBehaviourCommandPack o)
+    public void Save(string o)
     {
-        using var memStream = new MemoryStream();
-        using var writer = new StreamWriter(memStream);
-        writer.Write(Code);
-        writer.Flush();
-        using var reader = new StreamReader(memStream);
-        memStream.Position = 0;
-        o.ReadText(reader);
+        o = Code[..];
     }
 
     public void ResetDirty()

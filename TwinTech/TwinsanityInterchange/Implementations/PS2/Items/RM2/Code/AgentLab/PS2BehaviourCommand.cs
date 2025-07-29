@@ -4,6 +4,8 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using Twinsanity.AgentLab.AgentLabObjectDescs;
+using Twinsanity.AgentLab.AgentLabObjectDescs.PS2;
 using Twinsanity.AgentLab.Resolvers;
 using Twinsanity.AgentLab.Resolvers.Interfaces;
 using Twinsanity.Libraries;
@@ -16,7 +18,8 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
     {
         public UInt32 Bitfield { get; set; }
         public UInt16 CommandIndex { get; set; }
-        public List<UInt32> Arguments { get; set; }
+        public List<UInt32> Arguments { get;
+            set; }
         public AgentLabVersion Version { get => AgentLabVersion.PS2; }
 
         Boolean ITwinBehaviourCommand.HasNext { get; set; }
@@ -36,7 +39,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
 
         public int GetLength()
         {
-            return 4 + Arguments.Count * 4;
+            return 4 + (Arguments?.Count ?? 0) * 4;
         }
 
         public void Compile()

@@ -154,7 +154,7 @@ namespace TT_Lab.ViewModels.Editors.Instance
             layoutId = MiscUtils.ConvertEnum<Enums.Layouts>(asset.LayoutID!.Value);
             
             behaviours.Clear();
-            var behaviourAssets = AssetManager.Get().GetAllAssetsOf<BehaviourStarter>();
+            var behaviourAssets = AssetManager.Get().GetAllAssetsOf<BehaviourGraph>();
             foreach (var behaviour in behaviourAssets)
             {
                 behaviours.Add(behaviour.URI);

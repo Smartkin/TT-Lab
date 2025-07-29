@@ -10,6 +10,7 @@
     <Nullable>enable</Nullable>
     <AnalysisLevel>latest</AnalysisLevel>
     <PlatformTarget>x64</PlatformTarget>
+    <LangVersion>11</LangVersion>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
@@ -2858,21 +2859,21 @@
     <Content Include="Media\Materials\positions.material">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="Libraries\Native\Windows\libOgre.dll" />
-    <Content Include="Libraries\Native\Windows\OgreBites.dll" />
-    <Content Include="Libraries\Native\Windows\OgreMain.dll" />
-    <Content Include="Libraries\Native\Windows\OgreMeshLodGenerator.dll" />
-    <Content Include="Libraries\Native\Windows\OgreOverlay.dll" />
-    <Content Include="Libraries\Native\Windows\OgrePaging.dll" />
-    <Content Include="Libraries\Native\Windows\OgreProperty.dll" />
-    <Content Include="Libraries\Native\Windows\OgreRTShaderSystem.dll" />
-    <Content Include="Libraries\Native\Windows\OgreTerrain.dll" />
-    <Content Include="Libraries\Native\Windows\OgreVolume.dll" />
-    <Content Include="Libraries\Native\Windows\Plugin_ParticleFX.dll" />
-    <Content Include="Libraries\Native\Windows\RenderSystem_Direct3D11.dll" />
-    <Content Include="Libraries\Native\Windows\RenderSystem_GL.dll" />
-    <Content Include="Libraries\Native\Windows\RenderSystem_GL3Plus.dll" />
-    <Content Include="Libraries\Native\Windows\SDL2.dll" />
+    <None Include="Libraries\Native\Windows\libOgre.dll" />
+    <None Include="Libraries\Native\Windows\OgreBites.dll" />
+    <None Include="Libraries\Native\Windows\OgreMain.dll" />
+    <None Include="Libraries\Native\Windows\OgreMeshLodGenerator.dll" />
+    <None Include="Libraries\Native\Windows\OgreOverlay.dll" />
+    <None Include="Libraries\Native\Windows\OgrePaging.dll" />
+    <None Include="Libraries\Native\Windows\OgreProperty.dll" />
+    <None Include="Libraries\Native\Windows\OgreRTShaderSystem.dll" />
+    <None Include="Libraries\Native\Windows\OgreTerrain.dll" />
+    <None Include="Libraries\Native\Windows\OgreVolume.dll" />
+    <None Include="Libraries\Native\Windows\Plugin_ParticleFX.dll" />
+    <None Include="Libraries\Native\Windows\RenderSystem_Direct3D11.dll" />
+    <None Include="Libraries\Native\Windows\RenderSystem_GL.dll" />
+    <None Include="Libraries\Native\Windows\RenderSystem_GL3Plus.dll" />
+    <None Include="Libraries\Native\Windows\SDL2.dll" />
     <None Remove="Media\Shaders\vertex_morphing.h" />
     <Content Include="Media\Shaders\vertex_morphing_declaration.h">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
@@ -2926,9 +2927,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <None Remove="Images\SadTransparent.gif" />
-    <Content Include="Images\SadTransparent.gif">
+    <Resource Include="Images\SadTransparent.gif">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
+    </Resource>
     <None Remove="Media\Programs\skinning.program" />
     <Content Include="Media\Programs\skinning.program">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
@@ -2969,6 +2970,14 @@
     <Content Include="Media\Shaders\text_outline.vert">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <None Remove="Images\tt_lab_logo_v6_2k.ico" />
+    <Resource Include="Images\tt_lab_logo_v6_2k.ico">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
+    <None Remove="Resources\LICENSE.txt" />
+    <Resource Include="Resources\LICENSE.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
   </ItemGroup>
 
   <ItemGroup>
@@ -3067,58 +3076,58 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Resource Include="Resources\InterDisplay-Black.ttf">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Resource>
     <Resource Include="Resources\InterDisplay-BlackItalic.ttf">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Resource>
     <Resource Include="Resources\InterDisplay-Bold.ttf">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Resource>
     <Resource Include="Resources\InterDisplay-BoldItalic.ttf">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Resource>
     <Resource Include="Resources\InterDisplay-ExtraBold.ttf">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Resource>
     <Resource Include="Resources\InterDisplay-ExtraBoldItalic.ttf">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Resource>
     <Resource Include="Resources\InterDisplay-ExtraLight.ttf">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Resource>
     <Resource Include="Resources\InterDisplay-ExtraLightItalic.ttf">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Resource>
     <Resource Include="Resources\InterDisplay-Italic.ttf">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Resource>
     <Resource Include="Resources\InterDisplay-Light.ttf">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Resource>
     <Resource Include="Resources\InterDisplay-LightItalic.ttf">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Resource>
     <Resource Include="Resources\InterDisplay-Medium.ttf">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Resource>
     <Resource Include="Resources\InterDisplay-MediumItalic.ttf">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Resource>
     <Resource Include="Resources\InterDisplay-Regular.ttf">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Resource>
     <Resource Include="Resources\InterDisplay-SemiBold.ttf">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Resource>
     <Resource Include="Resources\InterDisplay-SemiBoldItalic.ttf">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Resource>
     <Resource Include="Resources\InterDisplay-Thin.ttf">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Resource>
     <Resource Include="Resources\InterDisplay-ThinItalic.ttf">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Resource>
   </ItemGroup>
 

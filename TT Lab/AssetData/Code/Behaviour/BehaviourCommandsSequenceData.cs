@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
+using Twinsanity.AgentLab;
 using Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.AgentLab;
 using Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.RMX.Code.AgentLab;
 using Twinsanity.TwinsanityInterchange.Interfaces;
@@ -13,10 +14,24 @@ namespace TT_Lab.AssetData.Code.Behaviour
 {
     public class BehaviourCommandsSequenceData : AbstractAssetData
     {
+        
+        private static string _newSequenceTemplate = """
+                                                    // IT IS CURRENTLY NOT RECOMMENDED TO CREATE MORE BEHAVIOUR LIBRARIES
+                                                    // 1. At a time only 8 can be loaded into game's memory
+                                                    // 2. These behaviours are highly unexplored in how they actually function
+                                                    // 3. These behaviours can ONLY be used for Pickup and Projectile objects
+                                                    // If you wish to continue do remember to look at retail's global index usage to not collide with them
+                                                    // otherwise this most likely will result in a game crash or undefined behaviour
+                                                    [InstanceType(Pickup)] // Pickup or Projectile
+                                                    [GlobalIndex(5)] // From 0 to 7
+                                                    library NewBehaviourLibrary {
+                                                         ClearTrail(); // Call to any one and only one action is required
+                                                    }
+                                                    """;
+        
         public BehaviourCommandsSequenceData()
         {
-            Code = "";
-            BehaviourGraphIds = new List<UInt32>();
+            Code = _newSequenceTemplate[..];
         }
 
         public BehaviourCommandsSequenceData(ITwinBehaviourCommandsSequence codeModel) : this()
@@ -25,7 +40,6 @@ namespace TT_Lab.AssetData.Code.Behaviour
         }
 
         public String Code { get; set; }
-        public List<UInt32> BehaviourGraphIds { get; set; }
 
         protected override void SaveInternal(string dataPath, JsonSerializerSettings? settings = null)
         {
@@ -38,40 +52,18 @@ namespace TT_Lab.AssetData.Code.Behaviour
         {
             using FileStream fs = new(dataPath, FileMode.Open, FileAccess.Read);
             using StreamReader reader = new(fs);
-            var line = reader.ReadLine()!.Trim();
-            ITwinBehaviourCommandsSequence cm;
-
-            if (line == "@Xbox sequence")
-            {
-                cm = new XboxBehaviourCommandsSequence();
-            }
-            else
-            {
-                cm = new PS2BehaviourCommandsSequence();
-            }
-
-            reader.Close();
-
-            using FileStream fs2 = new(dataPath, FileMode.Open, FileAccess.Read);
-            using StreamReader reader2 = new(fs2);
-
-            cm.ReadText(reader2);
-            Code = cm.ToString();
-            GenerateBehaviourGraphIdsList(cm);
-            SetTwinItem(cm);
+            Code = reader.ReadToEnd();
         }
 
         protected override void Dispose(Boolean disposing)
         {
-            BehaviourGraphIds.Clear();
             Code = "";
         }
 
         public override void Import(LabURI package, String? variant, Int32? layoutId)
         {
             var codeModel = GetTwinItem<ITwinBehaviourCommandsSequence>();
-            Code = codeModel.ToString();
-            GenerateBehaviourGraphIdsList(codeModel);
+            Code = AgentLabDecompiler.Decompile(codeModel);
         }
 
         public override ITwinItem Export(ITwinItemFactory factory)
@@ -83,15 +75,6 @@ namespace TT_Lab.AssetData.Code.Behaviour
 
             ms.Position = 0;
             return factory.GenerateBehaviourCommandsSequence(ms);
-        }
-
-        private void GenerateBehaviourGraphIdsList(ITwinBehaviourCommandsSequence cm)
-        {
-            BehaviourGraphIds = new List<UInt32>();
-            foreach (var e in cm.BehaviourPacks)
-            {
-                BehaviourGraphIds.Add(e.Key);
-            }
         }
     }
 }
