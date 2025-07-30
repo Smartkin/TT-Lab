@@ -240,20 +240,22 @@ namespace TT_Lab.ViewModels.Editors
 
         public void RendererInitialized(SceneEditorRoutedEventArgs embededRender)
         {
-            if (_window == null || _window.IsClosed())
+            if (_window != null && !_window.IsClosed())
             {
-                _render = embededRender.EmbeddedWindow;
-                _window = embededRender.EmbeddedWindow.GetRenderWindow();
+                return;
+            }
+            
+            _render = embededRender.EmbeddedWindow;
+            _window = embededRender.EmbeddedWindow.GetRenderWindow();
 
-                if (SceneCreator == null)
-                {
-                    Debug.WriteLine("WARNING: SceneCreator is not set! NO SCENE WILL BE RENDERED");
-                }
+            if (SceneCreator == null)
+            {
+                Debug.WriteLine("WARNING: SceneCreator is not set! NO SCENE WILL BE RENDERED");
+            }
 
-                if (_window != null && SceneCreator != null)
-                {
-                    _window.EditScene(SceneCreator);
-                }
+            if (_window != null && SceneCreator != null)
+            {
+                _window.EditScene(SceneCreator);
             }
         }
     }

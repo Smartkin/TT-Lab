@@ -1,13 +1,14 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net7.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
 
     <RootNamespace>Twinsanity</RootNamespace>
     <AssemblyName>TwinTech</AssemblyName>
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
     <PlatformTarget>x64</PlatformTarget>
+    <LangVersion>13</LangVersion>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">

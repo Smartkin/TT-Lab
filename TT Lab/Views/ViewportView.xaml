@@ -1,0 +1,39 @@
+<UserControl x:Class="TT_Lab.Views.ViewportView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
+             xmlns:viewmodels="clr-namespace:TT_Lab.ViewModels"
+             xmlns:cal="clr-namespace:Caliburn.Micro;assembly=Caliburn.Micro.Platform"
+             mc:Ignorable="d"
+             d:DataContext="{Binding Source={d:DesignInstance viewmodels:ViewportViewModel}}"
+             cal:Bind.AtDesignTime="True"
+             HorizontalAlignment="Stretch"
+             VerticalAlignment="Stretch"
+             d:DesignHeight="300" d:DesignWidth="300">
+    <i:Interaction.Triggers>
+        <i:EventTrigger EventName="SizeChanged">
+            <cal:ActionMessage MethodName="FrameResized">
+                <cal:Parameter Value="$eventArgs"/>
+            </cal:ActionMessage>
+        </i:EventTrigger>
+        <i:EventTrigger EventName="Loaded">
+            <cal:ActionMessage MethodName="ViewportLoaded">
+                <cal:Parameter Value="$source"/>
+            </cal:ActionMessage>
+        </i:EventTrigger>
+    </i:Interaction.Triggers>
+    <Grid Margin="5">
+        <Image HorizontalAlignment="Stretch" VerticalAlignment="Stretch" StretchDirection="Both" Stretch="UniformToFill">
+            <i:Interaction.Triggers>
+                <i:EventTrigger EventName="Loaded">
+                    <cal:ActionMessage MethodName="PrepareRender">
+                        <cal:Parameter Value="$source"/>
+                    </cal:ActionMessage>
+                </i:EventTrigger>
+            </i:Interaction.Triggers>
+        </Image>
+        <TextBlock Text="{Binding SceneStatus}" FontSize="32" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+    </Grid>
+</UserControl>

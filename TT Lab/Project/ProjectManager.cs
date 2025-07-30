@@ -333,7 +333,7 @@ namespace TT_Lab.Project
                     WorkableProject = true;
                     _eventAggregator.PublishOnUIThreadAsync(new ProjectManagerMessage(nameof(ProjectOpened)));
                     _eventAggregator.PublishOnUIThreadAsync(new ProjectManagerMessage(nameof(ProjectTitle)));
-                    _ogreWindowManager.AddResourceLocation(OpenedProject!.ProjectPath);
+                    // _ogreWindowManager.AddResourceLocation(OpenedProject!.ProjectPath);
                     Log.WriteLine($"Project opened in {stopwatch.Elapsed}");
                     GC.Collect();
 #if !DEBUG

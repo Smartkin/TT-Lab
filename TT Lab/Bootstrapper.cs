@@ -3,9 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
-using org.ogre;
 using TT_Lab.Project;
-using TT_Lab.Project.Messages;
 using TT_Lab.Rendering;
 using TT_Lab.Services;
 using TT_Lab.Services.Implementations;
@@ -46,9 +44,10 @@ namespace TT_Lab
                 .Singleton<IWindowManager, WindowManager>()
                 .Singleton<IEventAggregator, EventAggregator>()
                 .Singleton<ProjectManager>()
-                .Singleton<OgreWindowManager>()
+                .Singleton<RenderContext>()
                 .Singleton<IActiveChunkService, ActiveChunkService>()
                 .RegisterPerRequest(typeof(IDataValidatorService), nameof(IDataValidatorService), typeof(DataValidatorService));
+            _container.RegisterPerRequest(typeof(Renderer), nameof(Renderer), typeof(Renderer));
 
             foreach (var assembly in SelectAssemblies())
             {
@@ -68,18 +67,6 @@ namespace TT_Lab
                             viewModelType, viewModelType.ToString(), viewModelType);
                     });
             }
-        }
-
-        protected override void StartRuntime()
-        {
-            base.StartRuntime();
-
-            _container.GetInstance<OgreWindowManager>().Initialize();
-#if DEBUG
-            org.ogre.LogManager.getSingleton().setMinLogLevel(LogMessageLevel.LML_WARNING);
-#else
-            org.ogre.LogManager.getSingleton().setMinLogLevel(LogMessageLevel.LML_CRITICAL);
-#endif
         }
 
         protected override Object GetInstance(Type service, String key)

@@ -35,14 +35,16 @@ namespace TT_Lab.ViewModels
         private Boolean _dontRemind = false;
         private Boolean _deadgeRender = false;
         private Thread _mainThread;
+        private RenderContext _renderContext;
 
-        public ShellViewModel(IWindowManager windowManager, IEventAggregator eventAggregator, ProjectManager projectManager, OgreWindowManager ogreWindowManager)
+        public ShellViewModel(IWindowManager windowManager, IEventAggregator eventAggregator, ProjectManager projectManager, OgreWindowManager ogreWindowManager, RenderContext renderContext)
         {
             _mainThread = Thread.CurrentThread;
             _windowManager = windowManager;
             _projectManager = projectManager;
             _eventAggregator = eventAggregator;
             _ogreWindowManager = ogreWindowManager;
+            _renderContext = renderContext;
             _eventAggregator.SubscribeOnUIThread(this);
 
             _managerPropsToShellProps.Add(nameof(ProjectManager.ProjectTitle), new List<String> { nameof(WindowTitle) });
@@ -53,7 +55,7 @@ namespace TT_Lab.ViewModels
             _managerPropsToShellProps.Add(nameof(ProjectManager.SearchAsset), new List<String> { nameof(SearchAsset) });
             _managerPropsToShellProps.Add(nameof(ProjectManager.IsCreatingProject), new List<String>{ nameof(IsCreatingProject), nameof(SadEasterEggVisibility) });
 
-            CompositionTarget.Rendering += PerformRender;
+            // CompositionTarget.Rendering += PerformRender;
             
             Preferences.Load();
         }
@@ -198,12 +200,12 @@ namespace TT_Lab.ViewModels
 
         public Task StopRendering()
         {
-            lock (_ogreWindowManager!.RenderLockObject)
-            {
-                _deadgeRender = true;
-                // _ogreWindowManager.CloseAndTerminateAll();
-                CompositionTarget.Rendering -= PerformRender;
-            }
+            // lock (_ogreWindowManager!.RenderLockObject)
+            // {
+            //     _deadgeRender = true;
+            //     // _ogreWindowManager.CloseAndTerminateAll();
+            //     CompositionTarget.Rendering -= PerformRender;
+            // }
 
             return Task.CompletedTask;
         }
@@ -319,7 +321,7 @@ namespace TT_Lab.ViewModels
             if (!cancellationToken.IsCancellationRequested && close)
             {
                 _dontRemind = true;
-                CompositionTarget.Rendering -= PerformRender;
+                // CompositionTarget.Rendering -= PerformRender;
             }
             else
             {

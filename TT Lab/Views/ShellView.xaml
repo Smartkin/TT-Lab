@@ -16,10 +16,11 @@
         xmlns:adonisControls="clr-namespace:AdonisUI.Controls;assembly=AdonisUI"
         xmlns:adonisExtensions="clr-namespace:AdonisUI.Extensions;assembly=AdonisUI"
         xmlns:gif="http://wpfanimatedgif.codeplex.com"
+        xmlns:controls="clr-namespace:TT_Lab.Controls"
         mc:Ignorable="d"
         d:DataContext="{Binding Source={d:DesignInstance viewmodels:ShellViewModel}}"
         cal:Bind.AtDesignTime="True"
-        Title="{Binding WindowTitle}" Height="720" Width="1280" MinWidth="854" MinHeight="480" SizeChanged="AdonisWindow_SizeChanged" LocationChanged="AdonisWindow_LocationChanged">
+        Title="{Binding WindowTitle}" Height="720" Width="1280" MinWidth="854" MinHeight="480">
     <i:Interaction.Triggers>
         <Triggers:InputBindingTrigger>
             <Triggers:InputBindingTrigger.InputBinding>
@@ -145,7 +146,6 @@
             <MenuItem Style="{DynamicResource SimpleMenuItem}" x:Name="OpenPreferences" Header="Preferences"/>
             <MenuItem Style="{DynamicResource SimpleMenuItem}" x:Name="About" Header="About"/>
         </Menu>
-
         <Grid x:Name="MainControlsGrid" Grid.Row="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="200*"/>
@@ -253,6 +253,5 @@
             </GroupBox>
             <GridSplitter Margin="0" Background="{DynamicResource {x:Static adonisUi:Brushes.AccentHighlightBrush}}" ResizeDirection="Columns" HorizontalAlignment="Stretch" Grid.Column="1"/>
         </Grid>
-
     </Grid>
 </adonisControls:AdonisWindow>

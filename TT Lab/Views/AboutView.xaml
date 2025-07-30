@@ -67,7 +67,7 @@
                     <RowDefinition/>
                     <RowDefinition/>
                 </Grid.RowDefinitions>
-                <Image Source="/Images/God_Messenger.png" Grid.RowSpan="2"/>
+                <Image Source="/Images/God_Messenger.png" Stretch="Uniform" Grid.RowSpan="2"/>
             </Grid>
         </Grid>
     </GroupBox>

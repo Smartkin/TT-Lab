@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net7.0-windows</TargetFramework>
+    <TargetFramework>net8.0-windows</TargetFramework>
     <UseWpf>true</UseWpf>
     <UseWindowsForms>True</UseWindowsForms>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
@@ -10,7 +10,16 @@
     <Nullable>enable</Nullable>
     <AnalysisLevel>latest</AnalysisLevel>
     <PlatformTarget>x64</PlatformTarget>
-    <LangVersion>11</LangVersion>
+    <LangVersion>13</LangVersion>
+    <IsWindows Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))' == 'true'">true</IsWindows>
+    <IsLinux Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' == 'true'">true</IsLinux>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(IsWindows)'=='true'">
+    <DefineConstants>_WINDOWS</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(IsLinux)'=='true'">
+    <DefineConstants>_LINUX</DefineConstants>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
@@ -35,28 +44,29 @@
     <TreatWarningsAsErrors>False</TreatWarningsAsErrors>
   </PropertyGroup>
 
-  <PropertyGroup>
-    <BuildDependsOn>
-      $(BuildDependsOn);CopyOgreLibs
-    </BuildDependsOn>
-  </PropertyGroup>
+<!--  <PropertyGroup>-->
+<!--    <BuildDependsOn>-->
+<!--      $(BuildDependsOn);CopyOgreLibs-->
+<!--    </BuildDependsOn>-->
+<!--  </PropertyGroup>-->
 
-  <Target Name="CopyOgreLibs" AfterTargets="AfterBuild">
-    <ItemGroup>
-      <OgreLibraries Include="$(MSBuildProjectDirectory)\Libraries\Native\Windows\*.dll"/>
-    </ItemGroup>
-    
-    <Message Text="Copying Ogre libraries from $(MSBuildProjectDirectory)\Libraries\Native\Windows into resulting executable..." Importance="high" />
-    <Copy SourceFiles="@(OgreLibraries)" DestinationFolder="$(MSBuildProjectDirectory)\$(OutputPath)" />
-  </Target>
+<!--  <Target Name="CopyOgreLibs" AfterTargets="AfterBuild">-->
+<!--    <ItemGroup>-->
+<!--      <OgreLibraries Include="$(MSBuildProjectDirectory)\Libraries\Native\Windows\*.dll"/>-->
+<!--    </ItemGroup>-->
+<!--    -->
+<!--    <Message Text="Copying Ogre libraries from $(MSBuildProjectDirectory)\Libraries\Native\Windows into resulting executable..." Importance="high" />-->
+<!--    <Copy SourceFiles="@(OgreLibraries)" DestinationFolder="$(MSBuildProjectDirectory)\$(OutputPath)" />-->
+<!--  </Target>-->
 
   <ItemGroup>
-    <Content Include="Images\God_Messenger.png">
+    <None Remove="Images\God_Messenger.png"/>
+    <Resource Include="Images\God_Messenger.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-	<Content Include="Images\AfroGod.png">
+    </Resource>
+	<Resource Include="Images\AfroGod.png">
 	  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	</Content>  
+	</Resource>  
     <Content Include="Media\LabIcons\AI_Path.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
@@ -157,12 +167,6 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Media\boat_guy.png">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="resources.cfg">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="plugins.cfg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Media\Shaders\lygia\LICENSE.md">
@@ -2985,16 +2989,26 @@
     <PackageReference Include="AdonisUI.ClassicTheme" Version="1.17.1" />
     <PackageReference Include="Caliburn.Micro" Version="4.0.230" />
     <PackageReference Include="GlmSharpStd" Version="0.9.8" />
-    <PackageReference Include="Hjg.Pngcs" Version="1.1.4" />
     <PackageReference Include="Meshoptimizer.NET" Version="1.0.4" />
     <PackageReference Include="Microsoft-WindowsAPICodePack-Shell" Version="1.1.5" />
     <PackageReference Include="NAudio" Version="2.2.1" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="SharpGLTF.Core" Version="1.0.0" />
     <PackageReference Include="SharpGLTF.Toolkit" Version="1.0.0" />
+    <PackageReference Include="Silk.NET.Core" Version="2.22.0" />
+    <PackageReference Include="Silk.NET.Direct3D.Compilers" Version="2.22.0" />
+    <PackageReference Include="Silk.NET.Direct3D11" Version="2.22.0" />
+    <PackageReference Include="Silk.NET.DXGI" Version="2.22.0" />
+    <PackageReference Include="Silk.NET.Input.Common" Version="2.22.0" />
+    <PackageReference Include="Silk.NET.Input.Extensions" Version="2.22.0" />
+    <PackageReference Include="Silk.NET.Maths" Version="2.22.0" />
+    <PackageReference Include="Silk.NET.OpenGL" Version="2.22.0" />
+    <PackageReference Include="Silk.NET.OpenGL.Extensions.ImGui" Version="2.22.0" />
+    <PackageReference Include="Silk.NET.Windowing.Common" Version="2.22.0" />
     <PackageReference Include="System.Drawing.Common" Version="7.0.0" />
     <PackageReference Include="System.Text.RegularExpressions" Version="4.3.1" />
     <PackageReference Include="System.Xml.ReaderWriter" Version="4.3.1" />
+    <PackageReference Include="TerraFX.Interop.Windows" Version="10.0.26100.2" />
     <PackageReference Include="WpfAnimatedGif" Version="2.0.2" />
   </ItemGroup>
 
@@ -3143,6 +3157,11 @@
       <SubType>Designer</SubType>
     </Page>
     <Page Update="Views\Composite\ResourceBrowserOpener.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <XamlRuntime>Wpf</XamlRuntime>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\ViewportView.xaml">
       <Generator>MSBuild:Compile</Generator>
       <XamlRuntime>Wpf</XamlRuntime>
       <SubType>Designer</SubType>

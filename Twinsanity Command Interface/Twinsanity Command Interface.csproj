@@ -2,13 +2,14 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net7.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
 
     <RootNamespace>Twinsanity_Command_Interface</RootNamespace>
     <AssemblyName>Twinsanity Command Interface</AssemblyName>
     <StartupObject>Twinsanity_Command_Interface.Program</StartupObject>
     <PlatformTarget>x64</PlatformTarget>
+    <LangVersion>13</LangVersion>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">

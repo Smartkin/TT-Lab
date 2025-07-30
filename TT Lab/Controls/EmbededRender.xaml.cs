@@ -12,7 +12,6 @@ namespace TT_Lab.Controls
     public delegate void EmbedRenderRoutedEventHandler(object sender, EmbedRenderRoutedEventArgs args);
     public class EmbedRenderRoutedEventArgs : RoutedEventArgs
     {
-
         public OgreWindow EmbeddedWindow { get; private set; }
 
         public EmbedRenderRoutedEventArgs(RoutedEvent routedEvent, OgreWindow window)

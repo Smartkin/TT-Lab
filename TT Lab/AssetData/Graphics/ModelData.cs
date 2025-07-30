@@ -6,7 +6,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using Caliburn.Micro;
-using Hjg.Pngcs;
 using SharpGLTF.Memory;
 using SharpGLTF.Scenes;
 using TT_Lab.AssetData.Graphics.SubModels;
@@ -401,27 +400,6 @@ namespace TT_Lab.AssetData.Graphics
             }
             
             return materials;
-        }
-
-        private SharpGLTF.Materials.ImageBuilder GenerateEmissionTexture(List<Vertex> vertices)
-        {
-            var emits = new List<Byte>();
-
-            foreach (var emit in vertices.Select(vertex => vertex.EmitColor.GetColor()))
-            {
-                emits.Add(emit.A);
-                emits.Add(emit.B);
-                emits.Add(emit.G);
-                emits.Add(emit.R);
-            }
-
-            using var pngStream = new MemoryStream();
-            var pixelsTotal = emits.Count / 4;
-            var imgInfo = new ImageInfo(pixelsTotal, 1, 8, true);
-            var pngWriter = new PngWriter(pngStream, imgInfo);
-            pngWriter.WriteRowByte(emits.ToArray(), 0);
-
-            return SharpGLTF.Materials.ImageBuilder.From(new SharpGLTF.Memory.MemoryImage(pngStream.ToArray()));
         }
     }
 }

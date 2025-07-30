@@ -293,7 +293,7 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
 
     public Visibility IsNotRenaming => !_isRenaming ? Visibility.Visible : Visibility.Collapsed;
 
-    public String IconPath => $"/Media/LabIcons/{Asset.IconPath}";
+    public String IconPath => ManifestResourceLoader.GetPathInExe($"Media/LabIcons/{Asset.IconPath}");
 
     public Boolean IsSelected
     {

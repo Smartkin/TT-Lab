@@ -18,41 +18,53 @@ namespace TT_Lab.ViewModels.Editors.Graphics
 
         public ModelViewModel()
         {
-            Scenes.Add(IoC.Get<SceneEditorViewModel>());
-            Scenes[0].SceneHeaderModel = "Model viewer";
-            InitSceneRenderer();
+            // Scenes.Add(IoC.Get<SceneEditorViewModel>());
+            // Scenes[0].SceneHeaderModel = "Model viewer";
+            // InitSceneRenderer();
+            SceneRenderer = IoC.Get<ViewportViewModel>();
         }
 
-        private void InitSceneRenderer()
+        protected override async Task OnActivateAsync(CancellationToken cancellationToken)
         {
-            SceneRenderer.SceneCreator = glControl =>
-            {
-                var sceneManager = glControl.GetSceneManager();
-                var pivot = sceneManager.getRootSceneNode().createChildSceneNode();
-                pivot.setPosition(0, 0, 0);
-                glControl.SetCameraTarget(pivot);
-                glControl.EnableImgui(true);
-
-                var model = AssetManager.Get().GetAssetData<AssetData.Graphics.ModelData>(EditableResource);
-                _model = new ModelBuffer(sceneManager, EditableResource, model);
-
-                glControl.OnRender += (sender, args) =>
-                {
-                    ImGui.Begin("Model Data");
-                    ImGui.SetWindowPos(new ImVec2(5, 5));
-                    ImGui.SetWindowSize(new ImVec2(150, 90));
-                    ImGui.Text($"Vertexes {model.Vertexes.Sum(v => v.Count)}");
-                    ImGui.Text($"Faces {model.Faces.Sum(f => f.Count)}");
-                    ImGui.Text($"Meshes {model.Meshes.Count}");
-                    ImGui.End();
-                };
-            };
+            await ActivateItemAsync(SceneRenderer, cancellationToken);
+            
+            await base.OnActivateAsync(cancellationToken);
         }
 
-        public SceneEditorViewModel SceneRenderer
+        protected override async Task OnDeactivateAsync(bool close, CancellationToken cancellationToken)
         {
-            get => Scenes[0];
+            await DeactivateItemAsync(SceneRenderer, close, cancellationToken);
+            
+            await base.OnDeactivateAsync(close, cancellationToken);
         }
+
+        // private void InitSceneRenderer()
+        // {
+        //     SceneRenderer.SceneCreator = glControl =>
+        //     {
+        //         var sceneManager = glControl.GetSceneManager();
+        //         var pivot = sceneManager.getRootSceneNode().createChildSceneNode();
+        //         pivot.setPosition(0, 0, 0);
+        //         glControl.SetCameraTarget(pivot);
+        //         glControl.EnableImgui(true);
+        //
+        //         var model = AssetManager.Get().GetAssetData<AssetData.Graphics.ModelData>(EditableResource);
+        //         _model = new ModelBuffer(sceneManager, EditableResource, model);
+        //
+        //         glControl.OnRender += (sender, args) =>
+        //         {
+        //             ImGui.Begin("Model Data");
+        //             ImGui.SetWindowPos(new ImVec2(5, 5));
+        //             ImGui.SetWindowSize(new ImVec2(150, 90));
+        //             ImGui.Text($"Vertexes {model.Vertexes.Sum(v => v.Count)}");
+        //             ImGui.Text($"Faces {model.Faces.Sum(f => f.Count)}");
+        //             ImGui.Text($"Meshes {model.Meshes.Count}");
+        //             ImGui.End();
+        //         };
+        //     };
+        // }
+
+        public ViewportViewModel SceneRenderer { get; private set; }
 
         public override void LoadData()
         {
