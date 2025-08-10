@@ -380,10 +380,10 @@ namespace TT_Lab.Project
 
         public void CloseProject()
         {
-            if (OpenedProject != null)
-            {
-                _ogreWindowManager.RemoveResourceLocation($"{OpenedProject.ProjectPath}/assets");
-            }
+            // if (OpenedProject != null)
+            // {
+            //     _ogreWindowManager.RemoveResourceLocation($"{OpenedProject.ProjectPath}/assets");
+            // }
             
             OpenedProject = null;
             WorkableProject = false;

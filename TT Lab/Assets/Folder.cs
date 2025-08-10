@@ -20,7 +20,7 @@ namespace TT_Lab.Assets
     
     public class Folder : SerializableAsset
     {
-        public override UInt32 Section => throw new NotImplementedException();
+        public override UInt32 Section => UInt32.MaxValue;
         
         [JsonProperty(Required = Required.Always)]
         public FolderMark Mark { get; set; } = FolderMark.Normal;

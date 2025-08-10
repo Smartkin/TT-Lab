@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
 using TT_Lab.Project;
-using TT_Lab.Rendering;
 using TT_Lab.Services;
 using TT_Lab.Services.Implementations;
 using TT_Lab.Util;
@@ -36,6 +35,20 @@ namespace TT_Lab
             LogManager.GetLog = type => new Logger(type, filters);
         }
 
+        protected override void OnExit(object sender, EventArgs e)
+        {
+            _container.GetInstance<Rendering.RenderContext>().ShutdownRender();
+            
+            base.OnExit(sender, e);
+        }
+
+        protected override void StartRuntime()
+        {
+            base.StartRuntime();
+            
+            _container.GetInstance<Rendering.RenderContext>().InitRenderApi();
+        }
+
         protected override void Configure()
         {
             base.Configure();
@@ -44,10 +57,19 @@ namespace TT_Lab
                 .Singleton<IWindowManager, WindowManager>()
                 .Singleton<IEventAggregator, EventAggregator>()
                 .Singleton<ProjectManager>()
-                .Singleton<RenderContext>()
+                .Singleton<Rendering.Services.BatchService>()
+                .Singleton<Rendering.SceneInstanceFactory>()
+                .Singleton<Rendering.RenderContext>()
+                .Singleton<Rendering.MeshBuilder>()
+                .Singleton<Rendering.TwinSkeletonManager>()
+                .Singleton<Rendering.Services.TextureService>()
+                .Singleton<Rendering.Factories.MeshFactory>()
+                .Singleton<Rendering.Services.MeshService>()
+                .Singleton<Rendering.Factories.MaterialFactory>()
                 .Singleton<IActiveChunkService, ActiveChunkService>()
                 .RegisterPerRequest(typeof(IDataValidatorService), nameof(IDataValidatorService), typeof(DataValidatorService));
-            _container.RegisterPerRequest(typeof(Renderer), nameof(Renderer), typeof(Renderer));
+            _container.RegisterPerRequest(typeof(Rendering.Renderer), nameof(Rendering.Renderer), typeof(Rendering.Renderer));
+            _container.RegisterPerRequest(typeof(Rendering.Services.PassService), nameof(Rendering.Services.PassService), typeof(Rendering.Services.PassService));
 
             foreach (var assembly in SelectAssemblies())
             {

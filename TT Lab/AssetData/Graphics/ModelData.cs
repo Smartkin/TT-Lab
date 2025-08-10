@@ -270,7 +270,6 @@ namespace TT_Lab.AssetData.Graphics
                     for (var i = 0; i < vertexes.Positions.Count; i++)
                     {
                         var pos = vertexes.Positions[i].ToTwin();
-                        pos.X = -pos.X;
                         var ver = new Vertex(
                             pos,
                             vertexes.Colors0[i].ToTwin(),
@@ -329,12 +328,12 @@ namespace TT_Lab.AssetData.Graphics
                         {
                             if (j % 2 == 0)
                             {
-                                var triIndices = new int[] { refIndex, refIndex + 1, refIndex + 2 };
+                                int[] triIndices = [refIndex, refIndex + 1, refIndex + 2];
                                 faceList.Add(new IndexedFace(triIndices));
                             }
                             else
                             {
-                                var triIndices = new int[] { refIndex + 1, refIndex, refIndex + 2 };
+                                int[] triIndices = [refIndex + 1, refIndex, refIndex + 2];
                                 faceList.Add(new IndexedFace(triIndices));
                             }
                         }

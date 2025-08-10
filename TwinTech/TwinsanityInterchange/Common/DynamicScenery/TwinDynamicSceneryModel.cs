@@ -21,7 +21,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.DynamicScenery
         {
             BoundingBoxBuilders = new List<TwinBoundingBoxBuilder>();
             BoundingBox = new Vector4[2];
-            Animation = new();
+            Animation = new TwinDynamicSceneryAnimation();
         }
 
         public Int32 GetLength()

@@ -1,166 +1,181 @@
 ﻿using System;
 using System.Collections.Generic;
-using org.ogre;
+using System.Linq;
+using Silk.NET.OpenGL;
 using TT_Lab.AssetData.Graphics;
-using TT_Lab.Assets;
-using TT_Lab.Util;
+using TT_Lab.AssetData.Graphics.Shaders;
+using TT_Lab.Rendering.Factories;
+using TT_Lab.Rendering.Passes;
+using TT_Lab.Rendering.UniformDescs;
 using Twinsanity.TwinsanityInterchange.Common;
-using Matrix4 = org.ogre.Matrix4;
-using Vector4 = org.ogre.Vector4;
 
 namespace TT_Lab.Rendering.Buffers;
 
-public class ModelBuffer
+public class ModelBuffer(RenderContext context, ModelBufferBuild build, MaterialFactory materialFactory, MaterialData material)
 {
-    //protected List<IndexedBufferArray> modelBuffers = new();
+    private bool _isDepthWriteEnabled;
+    private bool _isBlendingEnabled;
+    
+    public uint IndexCount => build.IndicesAmount;
+    public bool Wireframe { get; set; }
 
-    public enum MaterialType
+    public (string, int)[] GetPriorityPass()
     {
-        Opaque,
-        Transparent,
-    }
-
-    // These are all the materials that model buffer (exception being Blend Skin) will clone and set needed parameters for its needs which then later can be obtained
-    // to swap the current material for a different one, for example to enable/disable transparency of a model
-    private readonly List<string> _baseMaterials = new()
-    {
-        "DiffuseTexture",
-        "DiffuseTextureTransparent"
-    };
-
-    public List<MeshNodeMaterial> MeshNodes { get; private set; } = new();
-
-    public ModelBuffer(SceneManager sceneManager, string name, ModelData model, TwinMaterialGenerator.ShaderSettings shaderSettings = default) : this(sceneManager, sceneManager.getRootSceneNode(), name, model, shaderSettings)
-    {
-            
-    }
-
-    public ModelBuffer(SceneManager sceneManager, SceneNode parent, string name, ModelData model, TwinMaterialGenerator.ShaderSettings shaderSettings = default)
-    {
-        for (var i = 0; i < model.Vertexes.Count; ++i)
+        var result = new List<(string, int)>();
+        var shaderIndex = 0;
+        foreach (var shader in material.Shaders)
         {
-            var meshPtr = BufferGeneration.GetModelBuffer($"{name}{i}", model.Vertexes[i], model.Faces[i]);
-            var node = parent.createChildSceneNode();
-            var entity = sceneManager.createEntity(meshPtr);
-            var material = new TwinMaterialGenerator.GeneratedMaterial
+            var passName = shader.ShaderType.ToString();
+            if (shader.ABlending == TwinShader.AlphaBlending.ON)
             {
-                Material = MaterialManager.GetDefault()
-            };
-            entity.setMaterial(material.Material);
-            node.attachObject(entity);
-            MeshNodes.Add(new MeshNodeMaterial { MeshNode = node, Materials = new List<TwinMaterialGenerator.GeneratedMaterial> { material } });
-        }
-    }
-
-    public ModelBuffer(SceneManager sceneManager, string name, RigidModelData rigid, TwinMaterialGenerator.ShaderSettings shaderSettings = default) : this(sceneManager, sceneManager.getRootSceneNode(), name, rigid, shaderSettings)
-    {
-            
-    }
-
-    public ModelBuffer(SceneManager sceneManager, SceneNode parent, string name, RigidModelData rigid, TwinMaterialGenerator.ShaderSettings shaderSettings = default)
-    {
-        var model = AssetManager.Get().GetAssetData<ModelData>(rigid.Model);
-        var materials = rigid.Materials;
-        for (var i = 0; i < model.Vertexes.Count; ++i)
-        {
-            var matData = AssetManager.Get().GetAssetData<MaterialData>(materials[i]);
-            var meshPtr = BufferGeneration.GetModelBuffer($"{name}{i}", model.Vertexes[i], model.Faces[i]);
-            var node = parent.createChildSceneNode();
-            var entity = sceneManager.createEntity(meshPtr);
-            var materialList = new List<TwinMaterialGenerator.GeneratedMaterial>();
-            ushort renderPriority = 0;
-            foreach (var baseMaterial in _baseMaterials)
-            {
-                var material = TwinMaterialGenerator.GenerateMaterialFromTwinMaterial(matData, shaderSettings);
-                materialList.Add(material);
-                renderPriority = material.RenderPriority;
+                passName += "Transparent";
             }
-            entity.setMaterial(materialList[(int)MaterialType.Opaque].Material);
-            entity.setRenderQueueGroupAndPriority((byte)RenderQueueGroupID.RENDER_QUEUE_MAIN, (ushort)(renderPriority + i));
-            node.attachObject(entity);
-            entity.getSubEntity(0).setCustomParameter(0, new Vector4(1.0f, 1.0f, 1.0f, 1.0f));
-            MeshNodes.Add(new MeshNodeMaterial { MeshNode = node, Materials = materialList });
+            var priority = (int)(shader.UnkVector2.W - 128 + material.DmaChainIndex + shaderIndex);
+            result.Add((passName, priority));
+            shaderIndex++;
         }
+        return result.ToArray();
     }
-
-    public ModelBuffer(SceneManager sceneManager, string name, SkinData skin, TwinMaterialGenerator.ShaderSettings shaderSettings = default) : this(sceneManager, sceneManager.getRootSceneNode(), name, skin, shaderSettings)
+    
+    public virtual bool Bind()
     {
-    }
-
-    public ModelBuffer(SceneManager sceneManager, SceneNode parent, string name, SkinData skin, TwinMaterialGenerator.ShaderSettings shaderSettings = default)
-    {
-        var index = 0;
-        shaderSettings.UseSkinning = true;
-        foreach (var subSkin in skin.SubSkins)
+        var shader = GetShaderFromPass(context.CurrentPass);
+        if (shader == null)
         {
-            var matData = AssetManager.Get().GetAssetData<MaterialData>(subSkin.Material);
-            var texturedShaderIndex = matData.Shaders.FindIndex(0, s => s.TxtMapping == TwinShader.TextureMapping.ON);
-            var meshPtr = BufferGeneration.GetModelBuffer($"{name}{index++}", subSkin.Vertexes, subSkin.Faces, RenderOperation.OperationType.OT_TRIANGLE_LIST, true, true);
-            var node = parent.createChildSceneNode();
-            var entity = sceneManager.createEntity(meshPtr);
-            var materialList = new List<TwinMaterialGenerator.GeneratedMaterial>();
-            ushort renderPriority = 0;
-            foreach (var baseMaterial in _baseMaterials)
-            {
-                var material = TwinMaterialGenerator.GenerateMaterialFromTwinMaterial(matData, shaderSettings);
-                materialList.Add(material);
-                renderPriority = material.RenderPriority;
-            }
-            entity.setMaterial(materialList[(int)MaterialType.Opaque].Material);
-            entity.setRenderQueueGroupAndPriority((byte)RenderQueueGroupID.RENDER_QUEUE_MAIN, (ushort)(renderPriority + index));
-            node.attachObject(entity);
-            entity.getSubEntity(0).setCustomParameter(0, new Vector4(1.0f, 1.0f, 1.0f, 1.0f));
-            MeshNodes.Add(new MeshNodeMaterial { MeshNode = node, Materials = materialList });
+            return false;
         }
         
-        foreach (var meshNode in MeshNodes)
+        build.Vao.Bind();
+        var materialDesc = materialFactory.GetTwinMaterialFromShader(shader);
+        materialDesc.Texture?.Bind();
+        var program = context.CurrentPass.Program;
+        var deformSpeedLoc = program.GetUniformLocation(TwinMaterialDesc.DeformSpeedPath);
+        var billboardRenderLoc = program.GetUniformLocation(TwinMaterialDesc.BillboardRenderPath);
+        var doubleColorLoc = program.GetUniformLocation(TwinMaterialDesc.DoubleColorPath);
+        var reflectDistLoc = program.GetUniformLocation(TwinMaterialDesc.ReflectDistPath);
+        var uvScrollSpeedLoc = program.GetUniformLocation(TwinMaterialDesc.UvScrollSpeedPath);
+        var alphaTestLoc = program.GetUniformLocation(TwinMaterialDesc.AlphaTestPath);
+        var alphaBlendLoc = program.GetUniformLocation(TwinMaterialDesc.AlphaBlendPath);
+        var metalicSpecularLoc = program.GetUniformLocation(TwinMaterialDesc.MetalicSpecularPath);
+        var envMapLoc = program.GetUniformLocation(TwinMaterialDesc.EnvMapPath);
+        // var blendFuncLoc = program.GetUniformLocation(TwinMaterialDesc.BlendFuncPath);
+        var useTextureLoc = program.GetUniformLocation(TwinMaterialDesc.UseTexturePath);
+        context.Gl.Uniform1(useTextureLoc, materialDesc.UseTexture);
+        // context.Gl.Uniform1(blendFuncLoc, (int)materialDesc.BlendFunc);
+        context.Gl.Uniform1(alphaTestLoc, materialDesc.AlphaTest);
+        context.Gl.Uniform1(alphaBlendLoc, materialDesc.AlphaBlend);
+        context.Gl.Uniform1(metalicSpecularLoc, materialDesc.MetalicSpecular);
+        context.Gl.Uniform1(envMapLoc, materialDesc.EnvMap);
+        context.Gl.Uniform1(billboardRenderLoc, materialDesc.BillboardRender ? 1.0f : 0.0f);
+        context.Gl.Uniform1(doubleColorLoc, materialDesc.DoubleColor);
+        context.Gl.Uniform2(uvScrollSpeedLoc, materialDesc.UvScrollSpeed.Values);
+        context.Gl.Uniform2(deformSpeedLoc, materialDesc.DeformSpeed.Values);
+        context.Gl.Uniform2(reflectDistLoc, materialDesc.ReflectDist.Values);
+
+        _isBlendingEnabled = context.Gl.IsEnabled(EnableCap.Blend);
+        if (shader.ABlending == TwinShader.AlphaBlending.ON)
         {
-            for (var i = 0; i < 128; ++i)
+            if (!_isBlendingEnabled)
             {
-                var vertexShader = meshNode.Materials[0].Material.getTechnique(0).getPass(0).getVertexProgramParameters();
-                vertexShader.setNamedConstant($"boneMatrices[{i}]", Matrix4.IDENTITY);
+                context.Gl.Enable(EnableCap.Blend);
             }
+
+            switch (shader.AlphaRegSettingsIndex)
+            {
+                case TwinShader.AlphaBlendPresets.Mix:
+                    context.Gl.BlendEquation(BlendEquationModeEXT.FuncAdd);
+                    context.Gl.BlendFuncSeparate(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha, BlendingFactor.One, BlendingFactor.OneMinusSrcAlpha);
+                    break;
+                case TwinShader.AlphaBlendPresets.Add:
+                    context.Gl.BlendEquation(BlendEquationModeEXT.FuncAdd);
+                    context.Gl.BlendFuncSeparate(BlendingFactor.SrcAlpha, BlendingFactor.One, BlendingFactor.SrcAlpha, BlendingFactor.One);
+                    break;
+                case TwinShader.AlphaBlendPresets.Sub:
+                    context.Gl.BlendEquation(BlendEquationModeEXT.FuncReverseSubtract);
+                    context.Gl.BlendFuncSeparate(BlendingFactor.SrcAlpha, BlendingFactor.One, BlendingFactor.SrcAlpha, BlendingFactor.One);
+                    break;
+                case TwinShader.AlphaBlendPresets.Alpha:
+                    break;
+                case TwinShader.AlphaBlendPresets.Zero:
+                    break;
+                case TwinShader.AlphaBlendPresets.Destination:
+                    break;
+                case TwinShader.AlphaBlendPresets.Source:
+                    break;
+            }
+        }
+        else
+        {
+            if (_isBlendingEnabled)
+            {
+                context.Gl.Disable(EnableCap.Blend);
+            }
+        }
+
+        _isDepthWriteEnabled = context.Gl.GetBoolean(GetPName.DepthWritemask);
+        if (shader.ZValueDrawingMask == TwinShader.ZValueDrawMask.UPDATE)
+        {
+            context.Gl.DepthMask(true);
+            switch (shader.DepthTest)
+            {
+                case TwinShader.DepthTestMethod.NEVER:
+                    context.Gl.DepthFunc(DepthFunction.Never);
+                    break;
+                case TwinShader.DepthTestMethod.ALWAYS:
+                    context.Gl.DepthFunc(DepthFunction.Always);
+                    break;
+                case TwinShader.DepthTestMethod.GEQUAL:
+                    context.Gl.DepthFunc(DepthFunction.Lequal);
+                    break;
+                case TwinShader.DepthTestMethod.GREATER:
+                    context.Gl.DepthFunc(DepthFunction.Less);
+                    break;
+            }
+        }
+        else
+        {
+            context.Gl.DepthMask(false);
+        }
+
+        if (Wireframe)
+        {
+            context.Gl.PolygonMode(TriangleFace.FrontAndBack, PolygonMode.Line);
+            context.Gl.LineWidth(3);
+        }
+
+        return true;
+    }
+
+    public void Unbind()
+    {
+        context.Gl.DepthMask(_isDepthWriteEnabled);
+        if (_isBlendingEnabled)
+        {
+            context.Gl.Enable(EnableCap.Blend);
+        }
+        else
+        {
+            context.Gl.Disable(EnableCap.Blend);
+        }
+
+        if (Wireframe)
+        {
+            context.Gl.PolygonMode(TriangleFace.FrontAndBack, PolygonMode.Fill);
+            context.Gl.LineWidth(1);
         }
     }
 
-    public struct MeshNodeMaterial
+    private LabShader? GetShaderFromPass(RenderPass renderPass)
     {
-        public SceneNode MeshNode;
-        public List<TwinMaterialGenerator.GeneratedMaterial> Materials;
-    }
-
-    protected ModelBuffer(SceneManager sceneManager, SceneNode parent, string name, BlendSkinData blendSkin, TwinMaterialGenerator.ShaderSettings shaderSettings = default)
-    {
-        var index = 0;
-        shaderSettings.UseSkinning = true;
-        foreach (var blend in blendSkin.Blends)
+        var passName = renderPass.Name;
+        return material.Shaders.FirstOrDefault(s =>
         {
-            var materialName = AssetManager.Get().GetAsset<Assets.Graphics.Material>(blend.Material).Name;
-            var matData = AssetManager.Get().GetAssetData<MaterialData>(blend.Material);
-            var texturedShaderIndex = matData.Shaders.FindIndex(0, s => s.TxtMapping == TwinShader.TextureMapping.ON);
-            var hasTexture = texturedShaderIndex != -1;
-            foreach (var model in blend.Models)
+            var shaderName = s.ShaderType.ToString();
+            if (s.ABlending == TwinShader.AlphaBlending.ON)
             {
-                var meshPtr = BufferGeneration.GetModelBuffer($"{name}_{index}", model.Vertexes, model.Faces, RenderOperation.OperationType.OT_TRIANGLE_LIST, true, true);
-                var node = parent.createChildSceneNode();
-                var entity = sceneManager.createEntity(meshPtr);
-                var material = TwinMaterialGenerator.GenerateMaterialFromTwinMaterial(matData, shaderSettings);
-                entity.setMaterial(material.Material);
-                entity.setRenderQueueGroupAndPriority((byte)RenderQueueGroupID.RENDER_QUEUE_MAIN, (ushort)(material.RenderPriority + index));
-                node.attachObject(entity);
-                entity.getSubEntity(0).setCustomParameter(0, new Vector4(1.0f, 1.0f, 1.0f, 1.0f));
-                MeshNodes.Add(new MeshNodeMaterial { MeshNode = node, Materials = new List<TwinMaterialGenerator.GeneratedMaterial> { material, material }});
-                index++;
+                shaderName += "Transparent";
             }
-        }
-        
-        foreach (var meshNode in MeshNodes)
-        {
-            for (var i = 0; i < 128; ++i)
-            {
-                var vertexShader = meshNode.Materials[0].Material.getTechnique(0).getPass(0).getVertexProgramParameters();
-                vertexShader.setNamedConstant($"boneMatrices[{i}]", Matrix4.IDENTITY);
-            }
-        }
+            return shaderName == passName;
+        });
     }
 }

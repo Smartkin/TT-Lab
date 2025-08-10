@@ -73,7 +73,7 @@ namespace TT_Lab.AssetData.Instance
                 assetManager.GetAsset(model.Mesh).ResolveChunkResources(factory, meshSection);
             }
 
-            return base.ResolveChunkResources(factory, section, id);
+            return base.ResolveChunkResources(factory, section, id, layoutID);
         }
     }
 }

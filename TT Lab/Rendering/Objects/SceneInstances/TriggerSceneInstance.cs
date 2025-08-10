@@ -18,9 +18,9 @@ public sealed class TriggerSceneInstance : SceneInstance
         SupportedTransforms |= SupportedTransforms.Scale;
     }
 
-    protected override void CreateEditableObject(SceneNode? parentNode = null)
+    protected override void CreateEditableObject(Renderable? parentNode = null)
     {
-        var window = EditingContext.GetWindow();
-        AttachedEditableObject = new Trigger(window, $"{GetHashCode()}_Trigger_{AttachedViewModel.Asset.ID}", parentNode!, window.GetSceneManager(), EditingContext.CreateTriggerBillboard(), (TriggerData)AssetData, Size);
+        var renderContext = EditingContext.GetRenderContext();
+        AttachedEditableObject = new Trigger(renderContext, $"{GetHashCode()}_Trigger_{AttachedViewModel.Asset.ID}", parentNode!, EditingContext.CreateTriggerBillboard(), (TriggerData)AssetData, Size);
     }
 }

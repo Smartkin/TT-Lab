@@ -10,6 +10,7 @@ using TT_Lab.Assets;
 using TT_Lab.Extensions;
 using TT_Lab.Project;
 using TT_Lab.Rendering.Buffers;
+using TT_Lab.Rendering.Services;
 using TT_Lab.Util;
 
 namespace TT_Lab.Rendering.Objects;
@@ -17,16 +18,17 @@ namespace TT_Lab.Rendering.Objects;
 public sealed class ObjectInstance : EditableObject
 {
     private OGI skeleton;
+    private readonly TwinSkeletonManager _skeletonManager;
+    private readonly MeshService _meshService;
     private readonly ObjectInstanceData _instanceData;
 
-    public ObjectInstance(OgreWindow window, string name, ObjectInstanceData instance, vec3 size, TextDisplay display) : base(window, name, size, display)
+    public ObjectInstance(RenderContext context, TwinSkeletonManager skeletonManager, MeshService meshService, string name, ObjectInstanceData instance, vec3 size) : base(context, name, size)
     {
+        _skeletonManager = skeletonManager;
+        _meshService = meshService;
         _instanceData = instance;
         var objURI = _instanceData.ObjectId;
-        var sceneManager = window.GetSceneManager();
-        SetupModelBuffer(sceneManager, objURI);
-
-        AmbientColor = new vec3(0.5f, 0.5f, 0.5f);
+        SetupModelBuffer(context, objURI);
     }
 
     protected override void InitSceneTransform()
@@ -37,31 +39,31 @@ public sealed class ObjectInstance : EditableObject
 
     public override void Select()
     {
-        skeleton.ChangeMaterialParameter(0, new Vector4(AmbientColor.x, AmbientColor.y, AmbientColor.z, 0.5f));
+        // skeleton.ChangeMaterialParameter(0, new Vector4(AmbientColor.x, AmbientColor.y, AmbientColor.z, 0.5f));
             
         base.Select();
     }
 
     public override void Deselect()
     {
-        skeleton.ChangeMaterialParameter(0, new Vector4(1.0f, 1.0f, 1.0f, 1.0f));
+        // skeleton.ChangeMaterialParameter(0, new Vector4(1.0f, 1.0f, 1.0f, 1.0f));
             
         base.Deselect();
     }
 
-    private void SetupModelBuffer(SceneManager sceneManager, LabURI uri)
+    private void SetupModelBuffer(RenderContext context, LabURI uri)
     {
         var assetManager = AssetManager.Get();
         var objData = assetManager.GetAssetData<GameObjectData>(uri);
         if (objData.OGISlots.All(ogiUri => ogiUri == LabURI.Empty))
         {
-            skeleton = new OGI(getName() + "_ogi_skeleton", sceneManager, assetManager.GetAssetData<OGIData>(IoC.Get<ProjectManager>().OpenedProject!.Ps2Package.URI, nameof(Assets.Code.OGI), null, 0));
+            skeleton = new OGI(Context, _skeletonManager, _meshService, assetManager.GetAssetData<OGIData>(IoC.Get<ProjectManager>().OpenedProject!.Ps2Package.URI, nameof(Assets.Code.OGI), null, 0));
             return;
         }
-
+        
         var ogiURI = objData.OGISlots.First(ogiUri => ogiUri != LabURI.Empty);
         var ogiData = assetManager.GetAssetData<OGIData>(ogiURI);
-        skeleton = new OGI(getName() + "_ogi_skeleton", sceneManager, ogiData);
-        SceneNode.addChild(skeleton.GetSceneNode());
+        skeleton = new OGI(context, _skeletonManager, _meshService, ogiData);
+        AddChild(skeleton);
     }
 }

@@ -18,9 +18,9 @@ public sealed class CameraSceneInstance : SceneInstance
         SupportedTransforms |= SupportedTransforms.Scale;
     }
 
-    protected override void CreateEditableObject(SceneNode? parentNode = null)
+    protected override void CreateEditableObject(Renderable? parentNode = null)
     {
-        var window = EditingContext.GetWindow();
-        AttachedEditableObject = new Camera(window, $"{GetHashCode()}_Camera_{AttachedViewModel.Asset.ID}", parentNode!, window.GetSceneManager(), EditingContext.CreateCameraBillboard(), (CameraData)AssetData, Size);
+        var window = EditingContext.GetRenderContext();
+        AttachedEditableObject = new Camera(window, $"{GetHashCode()}_Camera_{AttachedViewModel.Asset.ID}", parentNode!, EditingContext.CreateCameraBillboard(), (CameraData)AssetData, Size);
     }
 }

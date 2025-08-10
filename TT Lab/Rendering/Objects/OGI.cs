@@ -1,114 +1,73 @@
 using System.Collections.Generic;
 using System.Linq;
 using GlmSharp;
-using org.ogre;
 using TT_Lab.AssetData.Code;
 using TT_Lab.AssetData.Graphics;
 using TT_Lab.Assets;
 using TT_Lab.Extensions;
 using TT_Lab.Rendering.Buffers;
+using TT_Lab.Rendering.Services;
 
 namespace TT_Lab.Rendering.Objects;
 
-public class OGI : ManualObject
+public class OGI : Renderable
 {
-    private readonly List<ModelBuffer> modelBuffers = new();
-    private ModelBuffer? skinBuffer = null;
-    private ModelBuffer? blendSkinBuffer = null;
+    private SkinnedMesh? skinBuffer;
+    private BlendSkinnedMesh? blendSkinBuffer;
     private TwinSkeleton defaultSkeleton = new();
-    private readonly SceneNode mainSceneNode;
-    private readonly SceneNode skeletonNode;
     
-    public OGI(string name, SceneManager sceneManager, OGIData ogiData) : base(name)
+    public OGI(RenderContext context, TwinSkeletonManager skeletonManager, MeshService meshService, OGIData ogiData, string name = "") : base(context, name)
     {
-        mainSceneNode = sceneManager.createSceneNode();
-        mainSceneNode.attachObject(this);
-        skeletonNode = mainSceneNode.createChildSceneNode();
-        
-        BuildSkeleton(sceneManager, ogiData);
-    }
-
-    public SceneNode GetSceneNode()
-    {
-        return mainSceneNode;
-    }
-
-    public new void Dispose()
-    {
-        defaultSkeleton.Dispose();
-        
-        base.Dispose();
-    }
-
-    public void ChangeMaterialParameter(uint index, Vector4 value)
-    {
-        foreach (var nodeMaterial in modelBuffers.SelectMany(model => model.MeshNodes))
-        {
-            var entity = nodeMaterial.MeshNode.getAttachedObject(0).castEntity();
-            entity.setMaterial(nodeMaterial.Materials[(int)ModelBuffer.MaterialType.Opaque].Material);
-            var subEntity = entity.getSubEntity(0);
-            subEntity.setCustomParameter(index, value);
-        }
+        BuildSkeleton(skeletonManager, meshService, ogiData);
     }
 
     public void ApplyTransformToJoint(int jointIndex, vec3 position, vec3 scale, quat rotation)
     {
-        var jointNode = defaultSkeleton.Bones[jointIndex].ResidingSceneNode;
-        jointNode.resetToInitialState();
-        jointNode.translate(position.x, position.y, position.z, Node.TransformSpace.TS_LOCAL);
-        jointNode.rotate(OgreExtensions.FromGlm(rotation), Node.TransformSpace.TS_LOCAL);
-        jointNode.setScale(scale.x, scale.y, scale.z);
-
-        if (skinBuffer != null)
-        {
-            var resultMat = defaultSkeleton.Bones[jointIndex].GetBoneMatrix();
-            foreach (var meshNode in skinBuffer.MeshNodes)
-            {
-                var vertexShader = meshNode.Materials[0].Material.getTechnique(0).getPass(0).getVertexProgramParameters();
-                vertexShader.setNamedConstant($"boneMatrices[{jointIndex}]", resultMat);
-            }
-        }
-
-        if (blendSkinBuffer != null)
-        {
-            var resultMat = defaultSkeleton.Bones[jointIndex].GetBoneMatrix();
-            foreach (var meshNode in blendSkinBuffer.MeshNodes)
-            {
-                var vertexShader = meshNode.Materials[0].Material.getTechnique(0).getPass(0).getVertexProgramParameters();
-                vertexShader.setNamedConstant($"boneMatrices[{jointIndex}]", resultMat);
-            }
-        }
+        var jointNode = defaultSkeleton.Bones[jointIndex];
+        var transform = mat4.Translate(position) * glm.ToMat4(rotation) * mat4.Scale(scale);
+        jointNode.SetLocalTransform(transform);
+        skinBuffer?.SetBoneMatrix(jointIndex, defaultSkeleton.Bones[jointIndex].GetBoneMatrix());
+        blendSkinBuffer?.SetBoneMatrix(jointIndex, defaultSkeleton.Bones[jointIndex].GetBoneMatrix());
     }
 
-    private void BuildSkeleton(SceneManager sceneManager, OGIData ogiData)
+    private void BuildSkeleton(TwinSkeletonManager skeletonManager, MeshService meshService, OGIData ogiData)
     {
-        var assetManager = AssetManager.Get();
-        
-        defaultSkeleton = TwinSkeletonManager.CreateSceneNodeSkeleton(skeletonNode, ogiData);
+        defaultSkeleton = skeletonManager.CreateSceneNodeSkeleton(this, ogiData);
         var jointIndex = 0;
-        foreach (var rigidModel in ogiData.RigidModelIds)
+        foreach (var rigidModelUri in ogiData.RigidModelIds)
         {
-            var sceneNode = defaultSkeleton.Bones[ogiData.JointIndices[jointIndex++]].ResidingSceneNode;
-            if (rigidModel == LabURI.Empty)
+            var node = defaultSkeleton.Bones[ogiData.JointIndices[jointIndex++]];
+            if (rigidModelUri == LabURI.Empty)
             {
                 continue;
             }
 
-            var rigidModelData = assetManager.GetAssetData<RigidModelData>(rigidModel);
-            modelBuffers.Add(new ModelBuffer(sceneManager, sceneNode, rigidModel, rigidModelData));
+            var mesh = meshService.GetMesh(rigidModelUri, true);
+            if (mesh.Model == null)
+            {
+                continue;
+            }
+            node.AddChild(mesh.Model);
         }
-        
+
         if (ogiData.Skin != LabURI.Empty)
         {
-            var skin = assetManager.GetAssetData<SkinData>(ogiData.Skin);
-            modelBuffers.Add(new ModelBuffer(sceneManager, skeletonNode, ogiData.Skin, skin));
-            skinBuffer = modelBuffers[^1];
+            var skin = meshService.GetMesh(ogiData.Skin, true);
+            if (skin.Model != null)
+            {
+                skinBuffer = (SkinnedMesh)skin.Model;
+                AddChild(skinBuffer);
+            }
         }
+
         if (ogiData.BlendSkin != LabURI.Empty)
         {
-            var blendSkin = assetManager.GetAssetData<BlendSkinData>(ogiData.BlendSkin);
-            modelBuffers.Add(new ModelBufferBlendSkin(sceneManager, skeletonNode, ogiData.BlendSkin, blendSkin));
-            blendSkinBuffer = modelBuffers[^1];
+            var blendSkin = meshService.GetMesh(ogiData.BlendSkin, true);
+            if (blendSkin.Model != null)
+            {
+                blendSkinBuffer = (BlendSkinnedMesh)blendSkin.Model;
+                AddChild(blendSkinBuffer);
+            }
         }
     }
     

@@ -39,7 +39,7 @@ namespace TT_Lab.AssetData.Graphics
 
         public UInt32? CompileScale { get; set; }
         public Int32 BlendsAmount { get; set; }
-        public List<SubBlendData> Blends { get; set; } = new();
+        public List<SubBlendData> Blends { get; set; } = [];
 
         public List<GltfGeometryWrapper> GetMeshes(SharpGLTF.Scenes.NodeBuilder root, List<(SharpGLTF.Scenes.NodeBuilder, System.Numerics.Matrix4x4)>? jointTree = null)
         {

@@ -17,19 +17,20 @@ namespace TT_Lab.AssetData.Graphics.Shaders
         public TwinShader.Type ShaderType { get; set; } = TwinShader.Type.StandardLit;
         public UInt32 IntParam { get; set; }
         public Single[] FloatParam { get; set; } = new Single[4];
-        public AlphaBlending ABlending { get; set; }
+        public AlphaBlending ABlending { get; set; } = AlphaBlending.OFF;
         public AlphaBlendPresets AlphaRegSettingsIndex { get; set; }
-        public AlphaTest ATest { get; set; }
+        public AlphaTest ATest { get; set; } = AlphaTest.OFF;
         public AlphaTestMethod ATestMethod { get; set; }
         public Byte AlphaValueToBeComparedTo { get; set; }
         public ProcessAfterAlphaTestFailed ProcessMethodWhenAlphaTestFailed { get; set; }
         public DestinationAlphaTest DAlphaTest { get; set; }
         public DestinationAlphaTestMode DAlphaTestMode { get; set; }
-        public DepthTestMethod DepthTest { get; set; } = DepthTestMethod.ALWAYS;
-        public ShadingMethod ShdMethod { get; set; }
-        public TextureMapping TxtMapping { get; set; }
-        public TextureCoordinatesSpecification MethodOfSpecifyingTextureCoordinates { get; set; }
-        public Fogging Fog { get; set; }
+        public DepthTestMethod DepthTest { get; set; } = DepthTestMethod.GEQUAL;
+        public ShadingMethod ShdMethod { get; set; } = ShadingMethod.GOURAND;
+        public TextureMapping TxtMapping { get; set; } = TextureMapping.OFF;
+
+        public TextureCoordinatesSpecification MethodOfSpecifyingTextureCoordinates { get; set; } = TextureCoordinatesSpecification.STQ;
+        public Fogging Fog { get; set; } = Fogging.OFF;
         public Context ContextNum { get; set; }
         public Boolean UseCustomAlphaRegSettings { get; set; }
         public ColorSpecMethod SpecOfColA { get; set; }
@@ -37,9 +38,9 @@ namespace TT_Lab.AssetData.Graphics.Shaders
         public AlphaSpecMethod SpecOfAlphaC { get; set; }
         public ColorSpecMethod SpecOfColD { get; set; }
         public Byte FixedAlphaValue { get; set; }
-        public TextureFilter TextureFilterWhenTextureIsExpanded { get; set; }
+        public TextureFilter TextureFilterWhenTextureIsExpanded { get; set; } = TextureFilter.LINEAR;
         public Boolean AlphaCorrectionValue { get; set; }
-        public ZValueDrawMask ZValueDrawingMask { get; set; }
+        public ZValueDrawMask ZValueDrawingMask { get; set; } = ZValueDrawMask.UPDATE;
         public UInt16 LodParamK { get; set; }
         public UInt16 LodParamL { get; set; }
         public LabURI TextureId { get; set; } = LabURI.Empty;

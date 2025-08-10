@@ -8,20 +8,32 @@ using TT_Lab.Assets;
 using TT_Lab.Rendering;
 using TT_Lab.Rendering.Buffers;
 using TT_Lab.Rendering.Objects;
+using TT_Lab.Rendering.Services;
 using TT_Lab.Util;
+using Mesh = TT_Lab.Rendering.Objects.Mesh;
 
 namespace TT_Lab.ViewModels.Editors.Graphics
 {
     public class ModelViewModel : ResourceEditorViewModel
     {
-        private ModelBuffer? _model;
+        private readonly MeshService _meshService;
+        private Mesh? _model;
 
-        public ModelViewModel()
+        public ModelViewModel(MeshService meshService)
         {
+            _meshService = meshService;
             // Scenes.Add(IoC.Get<SceneEditorViewModel>());
             // Scenes[0].SceneHeaderModel = "Model viewer";
             // InitSceneRenderer();
             SceneRenderer = IoC.Get<ViewportViewModel>();
+            SceneRenderer.SceneInitializer = (renderer, scene) =>
+            {
+                var mesh = _meshService.GetMesh(EditableResource);
+                if (mesh.Model != null)
+                {
+                    scene.AddChild(mesh.Model);
+                }
+            };
         }
 
         protected override async Task OnActivateAsync(CancellationToken cancellationToken)
@@ -64,7 +76,7 @@ namespace TT_Lab.ViewModels.Editors.Graphics
         //     };
         // }
 
-        public ViewportViewModel SceneRenderer { get; private set; }
+        public ViewportViewModel SceneRenderer { get; }
 
         public override void LoadData()
         {

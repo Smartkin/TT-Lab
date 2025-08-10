@@ -28,6 +28,11 @@ namespace TT_Lab.Extensions
             return new GlmSharp.vec3(twinVec.X, twinVec.Y, twinVec.Z);
         }
 
+        public static GlmSharp.mat4 ToGlm(this Twinsanity.TwinsanityInterchange.Common.Matrix4 twinMat)
+        {
+            return new mat4(twinMat.Column1.ToGlm(), twinMat.Column2.ToGlm(), twinMat.Column3.ToGlm(), twinMat.Column4.ToGlm());
+        }
+
         public static Vector4 ToTwin(this vec4 vec)
         {
             return new Vector4(vec.x, vec.y, vec.z, vec.w);
@@ -47,17 +52,9 @@ namespace TT_Lab.Extensions
 
         public static Vector3 ToEulerAngles(this Vector4 twinVec)
         {
-            var quat = new Quaternion(twinVec.W, twinVec.X, twinVec.Y, twinVec.Z);
-            var rotationMatrix = new Matrix3();
-            quat.ToRotationMatrix(rotationMatrix);
-            var rotX = new Radian();
-            var rotY = new Radian();
-            var rotZ = new Radian();
-            if (!rotationMatrix.ToEulerAnglesXYZ(rotX, rotY, rotZ))
-            {
-                Log.WriteLine($"WARNING: Received solution for {twinVec} Euler angles was not unique");
-            }
-            return new Vector3(rotX.valueDegrees(), rotY.valueDegrees(), rotZ.valueDegrees());
+            var quat = new quat(twinVec.W, twinVec.X, twinVec.Y, twinVec.Z);
+            var eulerAngles = quat.EulerAngles;
+            return new Vector3((float)eulerAngles.x, (float)eulerAngles.y, (float)eulerAngles.z);
         }
     }
 }

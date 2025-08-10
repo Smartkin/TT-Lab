@@ -15,8 +15,8 @@ namespace TT_Lab.AssetData.Graphics.SubModels
     [ReferencesAssets]
     public class SubBlendData : IDisposable
     {
-        public LabURI Material { get; set; } = LabURI.Empty;
-        public List<SubBlendModelData> Models { get; set; } = new();
+        public LabURI Material { get; set; }
+        public List<SubBlendModelData> Models { get; set; } = [];
 
         public SubBlendData(LabURI package, String? variant, ITwinSubBlendSkin blend)
         {
@@ -58,7 +58,6 @@ namespace TT_Lab.AssetData.Graphics.SubModels
                 for (var i = 0; i < vertexes.Positions.Count; i++)
                 {
                     var pos = vertexes.Positions[i].ToTwin();
-                    pos.X = -pos.X;
                     pos.W = vertexes.Colors1[i].X;
                     var ver = new Vertex(
                         pos,
@@ -87,7 +86,7 @@ namespace TT_Lab.AssetData.Graphics.SubModels
                     var zeros = new List<List<System.Numerics.Vector3>>();
                     for (var j = 0; j < blendsAmount; j++)
                     {
-                        zeros.Add(new());
+                        zeros.Add([]);
                         for (var i = 0; i < vertexes.Positions.Count; i++)
                         {
                             zeros[^1].Add(System.Numerics.Vector3.Zero);

@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Linq;
+using System.Numerics;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -8,13 +9,12 @@ using System.Windows.Forms;
 using System.Windows.Media;
 using Caliburn.Micro;
 using GlmSharp;
-using Microsoft.WindowsAPICodePack.Dialogs;
-using org.ogre;
+using ImGuiNET;
 using TT_Lab.AssetData.Code;
 using TT_Lab.Assets;
-using TT_Lab.Assets.Code;
 using TT_Lab.Extensions;
 using TT_Lab.Rendering;
+using TT_Lab.Rendering.Services;
 using TT_Lab.Util;
 using Twinsanity.TwinsanityInterchange.Common.Animation;
 using Math = System.Math;
@@ -23,6 +23,9 @@ namespace TT_Lab.ViewModels.Editors.Code;
 
 public class AnimationViewModel : ResourceEditorViewModel
 {
+    private readonly RenderContext _context;
+    private readonly TwinSkeletonManager _skeletonManager;
+    private readonly MeshService _meshService;
     private short _playbackFps;
     private ushort _totalFrames;
     private ushort _currentAnimationFrame;
@@ -39,11 +42,13 @@ public class AnimationViewModel : ResourceEditorViewModel
     private LabURI _selectedOgi = LabURI.Empty;
     private bool _tryingToClose = false;
 
-    public AnimationViewModel()
+    public AnimationViewModel(RenderContext context, TwinSkeletonManager skeletonManager, MeshService meshService)
     {
-        Scenes.Add(IoC.Get<SceneEditorViewModel>());
-
-        AnimationScene.SceneHeaderModel = "Animation Viewer";
+        _context = context;
+        _skeletonManager = skeletonManager;
+        _meshService = meshService;
+        // Scenes.Add(IoC.Get<SceneEditorViewModel>());
+        AnimationScene = IoC.Get<ViewportViewModel>();
         InitAnimationScene();
     }
 
@@ -59,16 +64,19 @@ public class AnimationViewModel : ResourceEditorViewModel
         return result;
     }
 
-    protected override Task OnDeactivateAsync(bool close, CancellationToken cancellationToken)
+    protected override async Task OnActivateAsync(CancellationToken cancellationToken)
     {
-        PauseAnimation();
-
-        if (close)
-        {
-            _ogiRender?.Dispose();
-        }
+        await ActivateItemAsync(AnimationScene, cancellationToken);
         
-        return base.OnDeactivateAsync(close, cancellationToken);
+        await base.OnActivateAsync(cancellationToken);
+    }
+
+    protected override async Task OnDeactivateAsync(bool close, CancellationToken cancellationToken)
+    {
+        await DeactivateItemAsync(AnimationScene, close, cancellationToken);
+        PauseAnimation();
+        
+        await base.OnDeactivateAsync(close, cancellationToken);
     }
 
     public override void LoadData()
@@ -357,8 +365,8 @@ public class AnimationViewModel : ResourceEditorViewModel
             rot1 -= 0x10000;
         }
 
-        var rot1Rad = rot1 / (float)(ushort.MaxValue + 1) * org.ogre.Math.TWO_PI;
-        var rot2Rad = rot2 / (float)(ushort.MaxValue + 1) * org.ogre.Math.TWO_PI;
+        var rot1Rad = rot1 / (float)(ushort.MaxValue + 1) * (float)(Math.PI * 2);
+        var rot2Rad = rot2 / (float)(ushort.MaxValue + 1) * (float)(Math.PI * 2);
         return (rot1Rad, rot2Rad);
     }
 
@@ -374,38 +382,27 @@ public class AnimationViewModel : ResourceEditorViewModel
 
     private void InitAnimationScene()
     {
-        AnimationScene.SceneCreator = glControl =>
+        AnimationScene.SceneInitializer = (renderer, scene) =>
         {
-            var sceneManager = glControl.GetSceneManager();
-            var pivot = sceneManager.getRootSceneNode().createChildSceneNode();
-            pivot.setPosition(0, 0, 0);
-            glControl.SetCameraTarget(pivot);
-            glControl.SetCameraStyle(CameraStyle.CS_ORBIT);
-            glControl.EnableImgui(true);
-
-            _ogiRender?.Dispose();
-            _ogiRender = new Rendering.Objects.OGI(_selectedOgi, sceneManager, AssetManager.Get().GetAssetData<OGIData>(_selectedOgi));
-            pivot.addChild(_ogiRender.GetSceneNode());
-            pivot.setInheritOrientation(false);
-            pivot.setInheritScale(false);
-            
-            InitImgui(glControl);
+            _ogiRender = new Rendering.Objects.OGI(_context, _skeletonManager, _meshService, AssetManager.Get().GetAssetData<OGIData>(_selectedOgi));
+            scene.AddChild(_ogiRender);
+            InitImgui(renderer);
             
             UpdateAnimationPlayback();
         };
     }
 
-    private void InitImgui(OgreWindow glControl)
+    private void InitImgui(Renderer renderer)
     {
         if (_imguiInitialized)
         {
             return;
         }
         
-        glControl.OnRender += (sender, args) =>
+        renderer.RenderImgui += () =>
         {
             ImGui.Begin("Animation Info");
-            ImGui.SetWindowPos(new ImVec2(5, 5));
+            ImGui.SetWindowPos(new Vector2(5, 5));
             ImGui.Text($"Total Frames: {TotalFrames + 1}");
             if (_doRunningCounter)
             {
@@ -467,7 +464,7 @@ public class AnimationViewModel : ResourceEditorViewModel
             if (value != _selectedOgi)
             {
                 _selectedOgi = value;
-                AnimationScene.ResetScene();
+                // AnimationScene.ResetScene();
                 NotifyOfPropertyChange();
             }
         }
@@ -475,5 +472,5 @@ public class AnimationViewModel : ResourceEditorViewModel
     
     public int TotalFrames => _totalFrames - 1;
 
-    public SceneEditorViewModel AnimationScene => Scenes[0];
+    public ViewportViewModel AnimationScene { get; }
 }

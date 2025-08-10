@@ -1,4 +1,5 @@
 using System;
+using System.Numerics;
 using GlmSharp;
 
 namespace TT_Lab.Extensions;
@@ -52,13 +53,18 @@ public static class GlmExtensions
         }
         else
         {
-            // do lerp if angle is really small.
+            // do lerp if angle is minuscule.
             blendA = 1.0f - blend;
             blendB = blend;
         }
 
         var result = new quat((blendA * new vec3(q1.x, q1.y, q1.z)) + (blendB * new vec3(q2.x, q2.y, q2.z)), (blendA * q1.w) + (blendB * q2.w));
         return result.LengthSqr > 0.0f ? result.Normalized : quat.Identity;
+    }
+
+    public static vec2 FromSystem(this Vector2 v)
+    {
+        return new vec2(v.X, v.Y);
     }
 
     public static quat Multiply(this quat left, quat right)

@@ -140,7 +140,7 @@ public class Shader
         
         _gl.LinkProgram(program);
         _gl.GetProgram(program, GLEnum.LinkStatus, out var success);
-        if (success == 0)
+        if (success != 1)
         {
             var info = _gl.GetProgramInfoLog(program);
             Debug.WriteLine($"GL.LinkProgram had info log:\n{info}");
@@ -162,7 +162,7 @@ public class Shader
         _gl.ShaderSource(shader, source);
         _gl.CompileShader(shader);
         _gl.GetShader(shader, ShaderParameterName.CompileStatus, out var success);
-        if (success == 0)
+        if (success != 1)
         {
             var info = _gl.GetShaderInfoLog(shader);
             Debug.WriteLine($"GL.CompileShader for shader [{type}] had info log:\n{info}");

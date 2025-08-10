@@ -18,7 +18,7 @@ namespace TT_Lab.AssetData.Graphics
     {
         public MaterialData()
         {
-            Shaders = new List<LabShader> { new() };
+            Shaders = [new LabShader()];
             Name = "NewMaterial";
         }
 
@@ -43,11 +43,11 @@ namespace TT_Lab.AssetData.Graphics
 
         public override void Import(LabURI package, String? variant, Int32? layoutId)
         {
-            ITwinMaterial material = GetTwinItem<ITwinMaterial>();
+            var material = GetTwinItem<ITwinMaterial>();
             ActivatedShaders = material.ActivatedShaders;
             DmaChainIndex = material.DmaChainIndex;
             Name = new string(material.Name.ToCharArray());
-            Shaders = new List<LabShader>();
+            Shaders = [];
             foreach (var shader in material.Shaders)
             {
                 Shaders.Add(new LabShader(package, variant, shader));
@@ -84,7 +84,7 @@ namespace TT_Lab.AssetData.Graphics
 
                 assetManager.GetAsset(shader.TextureId).ResolveChunkResources(factory, texturesSection);
             }
-            return base.ResolveChunkResources(factory, section, id);
+            return base.ResolveChunkResources(factory, section, id, layoutID);
         }
     }
 }

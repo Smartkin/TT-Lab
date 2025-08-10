@@ -9,10 +9,10 @@ namespace TT_Lab.AssetData.Graphics.SubModels
 {
     public class SubBlendModelData : IDisposable
     {
-        public Vector3 BlendShape { get; set; } = new();
-        public List<SubBlendFaceData> BlendFaces { get; set; } = new();
-        public List<IndexedFace> Faces { get; set; } = new();
-        public List<Vertex> Vertexes { get; set; } = new();
+        public Vector3 BlendShape { get; set; }
+        public List<SubBlendFaceData> BlendFaces { get; set; } = [];
+        public List<IndexedFace> Faces { get; set; } = [];
+        public List<Vertex> Vertexes { get; set; } = [];
         public MeshProcessor.Mesh Mesh { get; set; }
 
         public SubBlendModelData(ITwinBlendSkinModel model)

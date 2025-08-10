@@ -1,12 +1,12 @@
 ﻿using System;
 using System.Windows;
 using GlmSharp;
-using org.ogre;
 using TT_Lab.AssetData.Instance;
 using TT_Lab.Assets;
 using TT_Lab.Extensions;
 using TT_Lab.Rendering.Objects;
 using TT_Lab.Rendering.Objects.SceneInstances;
+using TT_Lab.Rendering.Scene;
 using TT_Lab.Util;
 using TT_Lab.ViewModels.Editors;
 using TT_Lab.ViewModels.Editors.Instance;
@@ -30,91 +30,91 @@ namespace TT_Lab.Rendering
         private readonly BillboardSet _aiPositionsBillboards;
         private int _currentPaletteIndex = 0;
         private readonly ChunkEditorViewModel _editor;
-        private readonly SceneNode _editCtxNode;
+        private readonly Node _editCtxNode;
         private readonly Gizmo _gizmo;
         private vec3 _gridStep;
         private mat4 _gridRotation;
-        private readonly SceneManager _sceneManager;
-        private readonly OgreWindow _renderWindow;
+        private readonly Scene.Scene _scene;
+        private readonly RenderContext _renderContext;
 
-        public EditingContext(OgreWindow renderWindow, SceneManager sceneManager, ChunkEditorViewModel editor)
+        public EditingContext(RenderContext context, Scene.Scene scene, ChunkEditorViewModel editor)
         {
             _editor = editor;
-            _renderWindow = renderWindow;
-            _sceneManager = sceneManager;
-            _editCtxNode = sceneManager.getRootSceneNode().createChildSceneNode("EditorContextNode");
+            _renderContext = context;
+            _scene = scene;
+            _editCtxNode = new Node(context, scene);
             _cursor = new EditorCursor(this);
-            _gizmo = new Gizmo(sceneManager, this);
-            _positionsBillboards = CreateBillboardSet(sceneManager, "PositionsBillboards", "BillboardPositions");
-            _triggersBillboards = CreateBillboardSet(sceneManager, "TriggersBillboards", "BillboardTriggers");
-            _camerasBillboards = CreateBillboardSet(sceneManager, "CamerasBillboards", "BillboardCameras");
-            _instancesBillboards = CreateBillboardSet(sceneManager, "InstancesBillboards", "BillboardInstances");
-            _aiPositionsBillboards = CreateBillboardSet(sceneManager, "AiPositionsBillboards", "BillboardAiPositions");
+            // _gizmo = new Gizmo(sceneManager, this);
+            _positionsBillboards = CreateBillboardSet(context, "PositionsBillboards", "BillboardPositions");
+            _triggersBillboards = CreateBillboardSet(context, "TriggersBillboards", "BillboardTriggers");
+            _camerasBillboards = CreateBillboardSet(context, "CamerasBillboards", "BillboardCameras");
+            _instancesBillboards = CreateBillboardSet(context, "InstancesBillboards", "BillboardInstances");
+            _aiPositionsBillboards = CreateBillboardSet(context, "AiPositionsBillboards", "BillboardAiPositions");
         }
 
-        public SceneNode GetEditorNode()
+        public Node GetEditorNode()
         {
             return _editCtxNode;
         }
 
-        public Entity CreateEntity(MeshPtr mesh)
-        {
-            return _sceneManager.createEntity(mesh);
-        }
+        // public Entity CreateEntity(MeshPtr mesh)
+        // {
+        //     return _sceneManager.createEntity(mesh);
+        // }
 
-        public MovableObject GetPositionBillboards()
+        public Renderable GetPositionBillboards()
         {
             return _positionsBillboards;
         }
-
-        public MovableObject GetInstancesBillboards()
+        
+        public Renderable GetInstancesBillboards()
         {
             return _instancesBillboards;
         }
-
-        public MovableObject GetTriggersBillboards()
+        
+        public Renderable GetTriggersBillboards()
         {
             return _triggersBillboards;
         }
-
-        public MovableObject GetCamerasBillboards()
+        
+        public Renderable GetCamerasBillboards()
         {
             return _camerasBillboards;
         }
-
-        public MovableObject GetAiPositionsBillboards()
+        
+        public Renderable GetAiPositionsBillboards()
         {
             return _aiPositionsBillboards;
         }
-
+        
         public Billboard CreatePositionBillboard()
         {
-            return _positionsBillboards.createBillboard(0, 0, 0);
+            return _positionsBillboards.CreateBillboard(0, 0, 0);
         }
-
+        
         public Billboard CreateTriggerBillboard()
         {
-            return _triggersBillboards.createBillboard(0, 0, 0);
+            return _triggersBillboards.CreateBillboard(0, 0, 0);
         }
-
+        
         public Billboard CreateInstanceBillboard()
         {
-            return _instancesBillboards.createBillboard(0, 0, 0);
+            return _instancesBillboards.CreateBillboard(0, 0, 0);
         }
-
+        
         public Billboard CreateCameraBillboard()
         {
-            return _camerasBillboards.createBillboard(0, 0, 0);
+            return _camerasBillboards.CreateBillboard(0, 0, 0);
         }
-
+        
         public Billboard CreateAiPositionBillboard()
         {
-            return _aiPositionsBillboards.createBillboard(0, 0, 0);
+            return _aiPositionsBillboards.CreateBillboard(0, 0, 0);
         }
 
-        public OgreWindow GetWindow()
+        public RenderContext GetRenderContext()
         {
-            return _renderWindow;
+            return _renderContext;
         }
 
         public void Deselect()
@@ -123,11 +123,11 @@ namespace TT_Lab.Rendering
             TransformAxis = TransformAxis.NONE;
             SelectedInstance?.UnlinkChangesToViewModel((ViewportEditableInstanceViewModel)_editor.CurrentInstanceEditor!);
             _editor.InstanceEditorChanged(new RoutedPropertyChangedEventArgs<Object>(null, null));
-            _renderWindow.SetCameraStyle(CameraStyle.CS_FREELOOK);
+            // _renderWindow.SetCameraStyle(CameraStyle.CS_FREELOOK);
             SelectedInstance?.Deselect();
             SelectedInstance = null;
             SelectedRenderable = null;
-            _gizmo.HideGizmo();
+            // _gizmo.HideGizmo();
         }
 
         public void Select(SceneInstance instance)
@@ -139,14 +139,14 @@ namespace TT_Lab.Rendering
             
             if (SelectedInstance != null)
             {
-                _renderWindow.SetCameraTarget(SelectedInstance.GetEditableObject().GetSceneNode());
-                _renderWindow.SetCameraStyle(CameraStyle.CS_ORBIT);
-                _renderWindow.SetYawPitchDist((float)Math.PI / 4.0f, (float)Math.PI / 4.0f, 10);
+                // _renderWindow.SetCameraTarget(SelectedInstance.GetEditableObject().GetSceneNode());
+                // _renderWindow.SetCameraStyle(CameraStyle.CS_ORBIT);
+                // _renderWindow.SetYawPitchDist((float)Math.PI / 4.0f, (float)Math.PI / 4.0f, 10);
                 _editor.InstanceEditorChanged(new RoutedPropertyChangedEventArgs<Object>(null, SelectedInstance.GetViewModel()));
                 SelectedInstance.LinkChangesToViewModel((ViewportEditableInstanceViewModel)_editor.CurrentInstanceEditor!);
-                _gizmo.DetachFromCurrentObject();
-                _gizmo.SwitchGizmo((Gizmo.GizmoType)(int)TransformMode);
-                _gizmo.AttachToObject(SelectedInstance.GetEditableObject().GetSceneNode());
+                // _gizmo.DetachFromCurrentObject();
+                // _gizmo.SwitchGizmo((Gizmo.GizmoType)(int)TransformMode);
+                // _gizmo.AttachToObject(SelectedInstance.GetEditableObject().GetSceneNode());
             }
         }
 
@@ -236,17 +236,17 @@ namespace TT_Lab.Rendering
             }
             UpdateTransform(x, y);
             transforming = false;
-            var pos = SelectedRenderable!.getParentSceneNode().getPosition();
-            var renderQuat = SelectedRenderable.getParentSceneNode().getOrientation();
-            var rotationMatrix = new Matrix3();
-            renderQuat.ToRotationMatrix(rotationMatrix);
-            var rotX = new Radian();
-            var rotY = new Radian();
-            var rotZ = new Radian();
-            rotationMatrix.ToEulerAnglesXYZ(rotX, rotY, rotZ);
-            var rot = new vec3(rotX.valueDegrees(), rotY.valueDegrees(), rotZ.valueDegrees());
-            var scl = SelectedRenderable!.getParentSceneNode().getScale();
-            SelectedInstance.SetPositionRotationScale(new vec3(pos.x, pos.y, pos.z), rot, new vec3(scl.x, scl.y, scl.z));
+            // var pos = SelectedRenderable!.getParentSceneNode().getPosition();
+            // var renderQuat = SelectedRenderable.getParentSceneNode().getOrientation();
+            // var rotationMatrix = new Matrix3();
+            // renderQuat.ToRotationMatrix(rotationMatrix);
+            // var rotX = new Radian();
+            // var rotY = new Radian();
+            // var rotZ = new Radian();
+            // rotationMatrix.ToEulerAnglesXYZ(rotX, rotY, rotZ);
+            // var rot = new vec3(rotX.valueDegrees(), rotY.valueDegrees(), rotZ.valueDegrees());
+            // var scl = SelectedRenderable!.getParentSceneNode().getScale();
+            // SelectedInstance.SetPositionRotationScale(new vec3(pos.x, pos.y, pos.z), rot, new vec3(scl.x, scl.y, scl.z));
         }
 
         public void UpdateTransform(float x, float y)
@@ -330,7 +330,7 @@ namespace TT_Lab.Rendering
                 TransformMode = TransformMode.SELECTION;
             }
             TransformAxis = TransformAxis.NONE;
-            _gizmo.SwitchGizmo((Gizmo.GizmoType)(int)TransformMode);
+            // _gizmo.SwitchGizmo((Gizmo.GizmoType)(int)TransformMode);
         }
 
         public void ToggleScale()
@@ -370,7 +370,7 @@ namespace TT_Lab.Rendering
             {
                 TransformAxis = axis;
             }
-            _gizmo.HighlightAxis(TransformAxis);
+            // _gizmo.HighlightAxis(TransformAxis);
             if (transforming)
             {
                 UpdateTransform(endPos.x, endPos.y);
@@ -407,16 +407,16 @@ namespace TT_Lab.Rendering
             SelectedRenderable.Rotate(vec3.UnitZ * value);
         }
 
-        private BillboardSet CreateBillboardSet(SceneManager sceneManager, string billboardName, string billboardMaterial)
+        private BillboardSet CreateBillboardSet(RenderContext renderContext, string billboardName, string billboardMaterial)
         {
-            var billboardSet = sceneManager.createBillboardSet(billboardName);
-            billboardSet.setMaterial(MaterialManager.GetMaterial(billboardMaterial));
-            billboardSet.setDefaultDimensions(2, 2);
-            billboardSet.setCullIndividually(true);
-            // Set the bounding box to be huge, because otherwise the node itself gets culled out and all billboards stop rendering
-            billboardSet.setBounds(new AxisAlignedBox(-1000, -1000, -1000, 1000, 1000, 1000), 1000);
-            billboardSet.setRenderQueueGroup((byte)RenderQueueGroupID.RENDER_QUEUE_OVERLAY);
-
+            var billboardSet = new BillboardSet(renderContext, billboardName);
+            // billboardSet.setMaterial(MaterialManager.GetMaterial(billboardMaterial));
+            // billboardSet.setDefaultDimensions(2, 2);
+            // billboardSet.setCullIndividually(true);
+            // // Set the bounding box to be huge, because otherwise the node itself gets culled out and all billboards stop rendering
+            // billboardSet.setBounds(new AxisAlignedBox(-1000, -1000, -1000, 1000, 1000, 1000), 1000);
+            // billboardSet.setRenderQueueGroup((byte)RenderQueueGroupID.RENDER_QUEUE_OVERLAY);
+        
             return billboardSet;
         }
     }

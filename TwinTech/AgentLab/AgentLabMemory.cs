@@ -5,8 +5,6 @@ namespace Twinsanity.AgentLab;
 internal class AgentLabMemory
 {
     private readonly Dictionary<string, object> _memory = new();
-    
-    public AgentLabMemory(){}
 
     public void Add(string key, object value)
     {

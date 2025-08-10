@@ -1,11 +1,15 @@
 using System;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using Caliburn.Micro;
 using org.ogre;
 using TT_Lab.AssetData.Code;
 using TT_Lab.Assets;
 using TT_Lab.Attributes;
+using TT_Lab.Rendering;
+using TT_Lab.Rendering.Services;
 using TT_Lab.ViewModels.Composite;
 using TT_Lab.ViewModels.Editors.Code.OGI;
 
@@ -26,17 +30,36 @@ public class OGIViewModel : ResourceEditorViewModel
     private Rendering.Objects.OGI? _ogiRender;
     private OGIData _ogiData;
 
-    public OGIViewModel()
+    public OGIViewModel(RenderContext context, TwinSkeletonManager skeletonManager, MeshService meshService)
     {
-        Scenes.Add(IoC.Get<SceneEditorViewModel>());
+        // Scenes.Add(IoC.Get<SceneEditorViewModel>());
+        OGIScene = IoC.Get<ViewportViewModel>();
+        OGIScene.SceneInitializer = (renderer, scene) =>
+        {
+            _ogiData = AssetManager.Get().GetAssetData<OGIData>(EditableResource);
+            _ogiRender = new Rendering.Objects.OGI(context, skeletonManager, meshService, _ogiData);
+            scene.AddChild(_ogiRender);
+        };
+        // OGIScene.SceneHeaderModel = "OGI/Skeleton Viewer";
+        // InitOGIScene();
+    }
 
-        OGIScene.SceneHeaderModel = "OGI/Skeleton Viewer";
-        InitOGIScene();
+    protected override async Task OnActivateAsync(CancellationToken cancellationToken)
+    {
+        await ActivateItemAsync(OGIScene, cancellationToken);
+        
+        await base.OnActivateAsync(cancellationToken);
+    }
+
+    protected override async Task OnDeactivateAsync(bool close, CancellationToken cancellationToken)
+    {
+        await DeactivateItemAsync(OGIScene, close, cancellationToken);
+        
+        await base.OnDeactivateAsync(close, cancellationToken);
     }
 
     protected override void Save()
     {
-        _ogiRender?.Dispose();
         base.Save();
     }
 
@@ -91,35 +114,35 @@ public class OGIViewModel : ResourceEditorViewModel
         ResetDirty();
     }
 
-    private void InitOGIScene()
-    {
-        OGIScene.SceneCreator = glControl =>
-        {
-            var sceneManager = glControl.GetSceneManager();
-            var pivot = sceneManager.getRootSceneNode().createChildSceneNode();
-            pivot.setPosition(0, 0, 0);
-            glControl.SetCameraTarget(pivot);
-            glControl.SetCameraStyle(CameraStyle.CS_ORBIT);
-            glControl.EnableImgui(true);
-
-            _ogiData = AssetManager.Get().GetAssetData<OGIData>(EditableResource);
-            _ogiData.BlendSkin = _blendSkin;
-            _ogiData.Skin = _skin;
-            _ogiRender = new Rendering.Objects.OGI(EditableResource, sceneManager, _ogiData);
-            pivot.addChild(_ogiRender.GetSceneNode());
-            pivot.setInheritOrientation(false);
-            pivot.setInheritScale(false);
-            
-            glControl.OnRender += (sender, args) =>
-            {
-                ImGui.Begin("OGI Information");
-                ImGui.Text($"Bones: {_ogiData.Joints.Count}");
-                ImGui.Text($"Exit Points: {_ogiData.ExitPoints.Count}");
-                ImGui.Text($"Camera affected bones: {_ogiData.Joints.Count(j => j.ReactId != 255)}");
-                ImGui.End();
-            };
-        };
-    }
+    // private void InitOGIScene()
+    // {
+    //     OGIScene.SceneCreator = glControl =>
+    //     {
+    //         var sceneManager = glControl.GetSceneManager();
+    //         var pivot = sceneManager.getRootSceneNode().createChildSceneNode();
+    //         pivot.setPosition(0, 0, 0);
+    //         glControl.SetCameraTarget(pivot);
+    //         glControl.SetCameraStyle(CameraStyle.CS_ORBIT);
+    //         glControl.EnableImgui(true);
+    //
+    //         _ogiData = AssetManager.Get().GetAssetData<OGIData>(EditableResource);
+    //         _ogiData.BlendSkin = _blendSkin;
+    //         _ogiData.Skin = _skin;
+    //         _ogiRender = new Rendering.Objects.OGI(EditableResource, sceneManager, _ogiData);
+    //         pivot.addChild(_ogiRender.GetSceneNode());
+    //         pivot.setInheritOrientation(false);
+    //         pivot.setInheritScale(false);
+    //         
+    //         glControl.OnRender += (sender, args) =>
+    //         {
+    //             ImGui.Begin("OGI Information");
+    //             ImGui.Text($"Bones: {_ogiData.Joints.Count}");
+    //             ImGui.Text($"Exit Points: {_ogiData.ExitPoints.Count}");
+    //             ImGui.Text($"Camera affected bones: {_ogiData.Joints.Count(j => j.ReactId != 255)}");
+    //             ImGui.End();
+    //         };
+    //     };
+    // }
 
     public void ExportOgi()
     {
@@ -135,7 +158,7 @@ public class OGIViewModel : ResourceEditorViewModel
         }
     }
 
-    public SceneEditorViewModel OGIScene => Scenes[0];
+    public ViewportViewModel OGIScene { get; }
     public BoundingBoxViewModel BoundingBox => _boundingBox;
     public BindableCollection<JointViewModel> Joints => _joints;
     public BindableCollection<ExitPointViewModel> ExitPoints => _exitPoints;
@@ -154,7 +177,7 @@ public class OGIViewModel : ResourceEditorViewModel
             if (_skin != value)
             {
                 _skin = value;
-                OGIScene.ResetScene();
+                // OGIScene.ResetScene();
                 NotifyOfPropertyChange();
             }
         }
@@ -169,7 +192,7 @@ public class OGIViewModel : ResourceEditorViewModel
             if (_blendSkin != value)
             {
                 _blendSkin = value;
-                OGIScene.ResetScene();
+                // OGIScene.ResetScene();
                 NotifyOfPropertyChange();
             }
         }

@@ -9,6 +9,8 @@ using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
 using TT_Lab.Attributes;
 using TT_Lab.Command;
+using TT_Lab.Rendering;
+using TT_Lab.Rendering.Services;
 using TT_Lab.ViewModels.Composite;
 using TT_Lab.ViewModels.Editors.Code.Behaviour;
 using Twinsanity.TwinsanityInterchange.Enumerations;
@@ -18,6 +20,9 @@ namespace TT_Lab.ViewModels.Editors.Code;
 
 public class GameObjectViewModel : ResourceEditorViewModel
 {
+    private readonly RenderContext _context;
+    private readonly TwinSkeletonManager _skeletonManager;
+    private readonly MeshService _meshService;
     private string _name;
     private ITwinObject.ObjectType _type;
     private byte _unkTypeValue;
@@ -42,10 +47,12 @@ public class GameObjectViewModel : ResourceEditorViewModel
     private int _selectedAnimationOgiPairSlot;
     private ICommand _behaviourFilterCommand;
 
-    public GameObjectViewModel()
+    public GameObjectViewModel(RenderContext context, TwinSkeletonManager skeletonManager, MeshService meshService)
     {
-        Scenes.Add(IoC.Get<SceneEditorViewModel>());
-        ObjectScene.SceneHeaderModel = "Object Viewer";
+        _context = context;
+        _skeletonManager = skeletonManager;
+        _meshService = meshService;
+        ObjectScene = IoC.Get<ViewportViewModel>();
         InitObjectScene();
         SelectedAnimationOgiPairSlot = 0;
         _behaviourFilterCommand = new CollectionFilterCommand(o =>
@@ -66,14 +73,14 @@ public class GameObjectViewModel : ResourceEditorViewModel
 
     private void InitObjectScene()
     {
-        ObjectScene.SceneCreator = window =>
+        ObjectScene.SceneInitializer = (renderer, scene) =>
         {
-            var sceneManager = window.GetSceneManager();
-            var pivot = sceneManager.getRootSceneNode().createChildSceneNode();
-            pivot.setPosition(0, 0, 0);
-            window.SetCameraTarget(pivot);
-            window.SetCameraStyle(CameraStyle.CS_ORBIT);
-            window.EnableImgui(true);
+            // var sceneManager = window.GetSceneManager();
+            // var pivot = sceneManager.getRootSceneNode().createChildSceneNode();
+            // pivot.setPosition(0, 0, 0);
+            // window.SetCameraTarget(pivot);
+            // window.SetCameraStyle(CameraStyle.CS_ORBIT);
+            // window.EnableImgui(true);
 
             if (SelectedAnimationOgiPairSlot == -1 || OgiSlots[SelectedAnimationOgiPairSlot].Value == LabURI.Empty)
             {
@@ -82,10 +89,11 @@ public class GameObjectViewModel : ResourceEditorViewModel
             
             // TODO: Create separate animation player that takes in OGI and animation
             var ogiData = AssetManager.Get().GetAssetData<OGIData>(OgiSlots[SelectedAnimationOgiPairSlot].Value);
-            var ogiRender = new Rendering.Objects.OGI(EditableResource, sceneManager, ogiData);
-            pivot.addChild(ogiRender.GetSceneNode());
-            pivot.setInheritOrientation(false);
-            pivot.setInheritScale(false);
+            var ogiRender = new Rendering.Objects.OGI(_context, _skeletonManager, _meshService, ogiData);
+            scene.AddChild(ogiRender);
+            // pivot.addChild(ogiRender.GetSceneNode());
+            // pivot.setInheritOrientation(false);
+            // pivot.setInheritScale(false);
         };
     }
 
@@ -359,7 +367,7 @@ public class GameObjectViewModel : ResourceEditorViewModel
 
     public InstanceStateFlagsViewModel StateFlags => _instanceStateFlags;
 
-    public SceneEditorViewModel ObjectScene => Scenes[0];
+    public ViewportViewModel ObjectScene { get; }
 
     public BindableCollection<PrimitiveWrapperViewModel<LabURI>> OgiSlots => _ogiSlots;
 
@@ -373,7 +381,7 @@ public class GameObjectViewModel : ResourceEditorViewModel
             if (_selectedAnimationOgiPairSlot != value)
             {
                 _selectedAnimationOgiPairSlot = value;
-                ObjectScene.ResetScene();
+                // ObjectScene.ResetScene();
                 NotifyOfPropertyChange();
             }
         }

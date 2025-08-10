@@ -1,96 +1,97 @@
 using System.Collections.Generic;
 using System.Linq;
 using GlmSharp;
-using org.ogre;
 using TT_Lab.AssetData.Graphics;
 using TT_Lab.AssetData.Instance;
 using TT_Lab.AssetData.Instance.Scenery;
 using TT_Lab.Assets;
 using TT_Lab.Extensions;
 using TT_Lab.Rendering.Buffers;
+using TT_Lab.Rendering.Scene;
+using TT_Lab.Rendering.Services;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.SM;
 
 namespace TT_Lab.Rendering.Objects;
 
-public class Scenery : ManualObject
+public class Scenery : Renderable
 {
-    public Scenery(string name, SceneManager sceneManager, SceneryData sceneryData) : base(name)
+    private readonly RenderContext _context;
+    private readonly MeshService _meshService;
+
+    public Scenery(RenderContext context, MeshService meshService, SceneryData sceneryData) : base(context)
     {
-        var sceneryNode = sceneManager.getRootSceneNode().createChildSceneNode("scenery");
-        BuildSceneryRenderTree(sceneryNode, sceneManager, sceneryData);
-        sceneryNode.attachObject(this);
+        _context = context;
+        _meshService = meshService;
+        SetLocalTransform(mat4.Scale(-1, 1, 1));
+        BuildSceneryRenderTree(sceneryData);
     }
 
-    private void BuildSceneryRenderTree(SceneNode sceneNode, SceneManager sceneManager, SceneryData sceneryData)
+    private void BuildSceneryRenderTree(SceneryData sceneryData)
     {
         var root = (SceneryRootData)sceneryData.Sceneries[0];
         var sceneryTree = sceneryData.Sceneries.Skip(1).ToList();
-        BuildSceneryRenderTreeForNode(sceneNode, sceneManager, root, ref sceneryTree);
+        BuildSceneryRenderTreeForNode(this, root, ref sceneryTree);
+        CreateSceneryNodes(this, root);
     }
 
-    private void BuildSceneryRenderTreeForNode(SceneNode sceneNode, SceneManager sceneManager,
-        SceneryNodeData sceneryNode, ref List<SceneryBaseData> sceneryTree)
+    private void BuildSceneryRenderTreeForNode(Renderable parent, SceneryNodeData sceneryNode, ref List<SceneryBaseData> sceneryTree)
     {
         foreach (var sceneryType in sceneryNode.SceneryTypes)
         {
             if (sceneryType == ITwinScenery.SceneryType.Node)
             {
-                var childNode = sceneNode.createChildSceneNode();
+                var childNode = new Node(_context, parent);
                 var data = (SceneryNodeData)sceneryTree[0];
                 sceneryTree = sceneryTree.Skip(1).ToList();
-                CreateSceneryNodes(childNode, sceneManager, data);
-                BuildSceneryRenderTreeForNode(childNode, sceneManager, data, ref sceneryTree);
+                CreateSceneryNodes(childNode, data);
+                BuildSceneryRenderTreeForNode(childNode, data, ref sceneryTree);
             }
             else if (sceneryType == ITwinScenery.SceneryType.Leaf)
             {
                 var data = sceneryTree[0];
                 sceneryTree = sceneryTree.Skip(1).ToList();
-                CreateSceneryNodes(sceneNode, sceneManager, data);
+                CreateSceneryNodes(parent, data);
             }
         }
     }
-
-    private void CreateSceneryNodes(SceneNode sceneNode, SceneManager sceneManager, SceneryBaseData dataScenery)
+    
+    private void CreateSceneryNodes(Renderable sceneNode, SceneryBaseData dataScenery)
     {
-        var assetManager = AssetManager.Get();
         var index = 0;
         foreach (var meshId in dataScenery.MeshIDs)
         {
-            var mesh = assetManager.GetAssetData<MeshData>(meshId);
-            var meshNode = new ModelBuffer(sceneManager, sceneNode, meshId, mesh, new TwinMaterialGenerator.ShaderSettings { MirrorX = true });
+            var mesh = _meshService.GetMesh(meshId, true);
             var meshMatrix = dataScenery.MeshModelMatrices[index];
-            SetupMeshNode(meshMatrix, meshNode);
+            if (mesh.Model != null)
+            {
+                SetupMeshNode(meshMatrix, mesh.Model);
+                sceneNode.AddChild(mesh.Model);
+            }
+
             index++;
         }
-
+        
         index = 0;
+        var assetManager = AssetManager.Get();
         foreach (var lodId in dataScenery.LodIDs)
         {
             var lod = assetManager.GetAssetData<LodModelData>(lodId);
-            var mesh = assetManager.GetAssetData<MeshData>(lod.Meshes[0]);
-            var meshNode = new ModelBuffer(sceneManager, sceneNode, lod.Meshes[0], mesh, new TwinMaterialGenerator.ShaderSettings { MirrorX = true });
+            var mesh = _meshService.GetMesh(lod.Meshes[0], true);
             var meshMatrix = dataScenery.LodModelMatrices[index];
-            SetupMeshNode(meshMatrix, meshNode);
+            if (mesh.Model != null)
+            {
+                SetupMeshNode(meshMatrix, mesh.Model);
+                sceneNode.AddChild(mesh.Model);
+            }
+
             index++;
         }
     }
     
-    private void SetupMeshNode(Twinsanity.TwinsanityInterchange.Common.Matrix4 twinMat, ModelBuffer meshNode)
+    private void SetupMeshNode(Twinsanity.TwinsanityInterchange.Common.Matrix4 twinMat, Renderable meshNode)
     {
-        var glmMatrix = new mat4(twinMat[0].ToGlm(), twinMat[1].ToGlm(), twinMat[2].ToGlm(), twinMat[3].ToGlm());
-        glmMatrix = glmMatrix.Transposed;
-        var ogreMatrix = new Matrix4(glmMatrix.m00, glmMatrix.m01, glmMatrix.m02, glmMatrix.m03, glmMatrix.m10, glmMatrix.m11, glmMatrix.m12, glmMatrix.m13,
-            glmMatrix.m20, glmMatrix.m21, glmMatrix.m22, glmMatrix.m23, glmMatrix.m30, glmMatrix.m31, glmMatrix.m32, glmMatrix.m33);
-        var affine = new Affine3(ogreMatrix);
-        var position = new Vector3();
-        var scale = new Vector3();
-        var orientation = new Quaternion();
-        affine.decomposition(position, scale, orientation);
-        foreach (var meshNodeMaterial in meshNode.MeshNodes)
-        {
-            meshNodeMaterial.MeshNode.setPosition(position);
-            meshNodeMaterial.MeshNode.setScale(scale);
-            meshNodeMaterial.MeshNode.setOrientation(orientation);
-        }
+        var transformMat = twinMat.ToGlm();
+        var scale = mat4.Scale(-1, 1, 1);
+        meshNode.SetLocalTransform(transformMat * scale);
     }
 }

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using TT_Lab.AssetData.Instance;
+using TT_Lab.Assets;
 using TT_Lab.Attributes;
 using TT_Lab.Util;
 using TT_Lab.ViewModels.Composite;
@@ -15,7 +16,7 @@ namespace TT_Lab.ViewModels.Editors.Instance.ChunkLinks
     public class LinkViewModel : Conductor<IScreen>.Collection.AllActive, ISaveableViewModel<ChunkLink>, IHaveChildrenEditors
     {
         private Boolean unkFlag;
-        private String path;
+        private PrimitiveWrapperViewModel<LabURI> path;
         private Boolean isRendered;
         private Byte unkNum;
         private Boolean isLoadWallActive;
@@ -30,10 +31,12 @@ namespace TT_Lab.ViewModels.Editors.Instance.ChunkLinks
         public LinkViewModel()
         {
             dirtyTracker = new DirtyTracker(this);
-            path = "levels\\earth\\hub\\beach";
+            var assetManager = AssetManager.Get();
+            var chunkPathUri = assetManager.GetAllAssetsOf<ChunkFolder>().First(c => c.Variation.Contains("levels\\earth\\hub\\beach", StringComparison.InvariantCultureIgnoreCase)).URI;
+            path = new PrimitiveWrapperViewModel<LabURI>(chunkPathUri);
             objectMatrix = new Matrix4ViewModel();
             chunkMatrix = new Matrix4ViewModel();
-            boundingBoxBuilders = new BindableCollection<ChunkLinkBoundingBoxBuilderViewModel>();
+            boundingBoxBuilders = [];
             dirtyTracker.AddChild(objectMatrix);
             dirtyTracker.AddChild(chunkMatrix);
             dirtyTracker.AddBindableCollection(boundingBoxBuilders);
@@ -46,7 +49,7 @@ namespace TT_Lab.ViewModels.Editors.Instance.ChunkLinks
             dirtyTracker = new DirtyTracker(this);
             
             unkFlag = link.UnkFlag;
-            path = link.Path;
+            path = new PrimitiveWrapperViewModel<LabURI>(link.Path);
             isRendered = link.IsRendered;
             unkNum = link.UnkNum;
             isLoadWallActive = link.IsLoadWallActive;
@@ -90,7 +93,7 @@ namespace TT_Lab.ViewModels.Editors.Instance.ChunkLinks
         public void Save(ChunkLink link)
         {
             link.UnkFlag = UnkFlag;
-            link.Path = Path;
+            link.Path = Path.Value;
             link.IsRendered = IsRendered;
             link.UnkNum = UnkNum;
             link.IsLoadWallActive = IsLoadWallActive;
@@ -149,7 +152,7 @@ namespace TT_Lab.ViewModels.Editors.Instance.ChunkLinks
         }
 
         [MarkDirty]
-        public String Path
+        public PrimitiveWrapperViewModel<LabURI> Path
         {
             get
             {

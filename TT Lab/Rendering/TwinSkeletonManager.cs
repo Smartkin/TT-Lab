@@ -2,103 +2,70 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using GlmSharp;
-using org.ogre;
+using Silk.NET.Maths;
 using TT_Lab.AssetData.Code;
 using TT_Lab.Assets;
 using TT_Lab.Extensions;
+using TT_Lab.Rendering.Scene;
 using TT_Lab.Util;
 
 namespace TT_Lab.Rendering;
 
-public sealed class TwinBone : IDisposable
+public sealed class TwinBone : Node
 {
-    public readonly SceneNode ResidingSceneNode;
-    private Matrix4 inverseBindMatrix;
-    private Matrix4 bindingMatrix;
-    
-    public TwinBone(SceneNode node)
-    {
-        ResidingSceneNode = node;
-        bindingMatrix = Matrix4.IDENTITY;
-        inverseBindMatrix = Matrix4.IDENTITY;
-    }
+    private mat4 inverseBindMatrix = mat4.Identity;
+    private mat4 bindingMatrix = mat4.Identity;
 
+    public TwinBone(RenderContext context, Renderable parent) : base(context)
+    {
+        parent.AddChild(this);
+    }
+    
     public void SetBindingAndInverseMatrix(mat4 mat)
     {
-        bindingMatrix = OgreExtensions.FromGlm(mat);
-        inverseBindMatrix = OgreExtensions.FromGlm(mat.Inverse);
+        bindingMatrix = mat;
+        inverseBindMatrix = mat.Inverse;
     }
 
-    public Matrix4 GetBindingMatrix()
+    public mat4 GetBoneMatrix()
     {
-        return bindingMatrix;
-    }
-
-    public Matrix4 GetBoneMatrix()
-    {
-        Vector3 globalScale = ResidingSceneNode._getDerivedScale();
-        Quaternion globalRotation = ResidingSceneNode._getDerivedOrientation();
-        Vector3 globalTranslation = ResidingSceneNode._getDerivedPosition();
-
-        var m = new Matrix4();
-        m.makeTransform(globalTranslation, globalScale, globalRotation);
-
-        return m.__mul__(inverseBindMatrix);
-    }
-
-    public void Dispose()
-    {
-        inverseBindMatrix.Dispose();
-        bindingMatrix.Dispose();
+        return WorldTransform * inverseBindMatrix;
     }
 }
 
-public sealed class TwinSkeleton : IDisposable
+public sealed class TwinSkeleton
 {
-    public Dictionary<int, TwinBone> Bones = new();
-
-    public void Dispose()
-    {
-        foreach (var (_, bone) in Bones)
-        {
-            bone.Dispose();
-        }
-    }
+    public Dictionary<int, TwinBone> Bones = [];
 }
 
-public static class TwinSkeletonManager
+public class TwinSkeletonManager(RenderContext context)
 {
-    public static TwinSkeleton CreateSceneNodeSkeleton(SceneNode parentNode, LabURI ogiData)
+    public TwinSkeleton CreateSceneNodeSkeleton(Renderable parentNode, LabURI ogiData)
     {
         var skeletonData = AssetManager.Get().GetAssetData<OGIData>(ogiData);
         return CreateSceneNodeSkeleton(parentNode, skeletonData);
     }
     
-    public static TwinSkeleton CreateSceneNodeSkeleton(SceneNode parentNode, OGIData ogiData)
+    public TwinSkeleton CreateSceneNodeSkeleton(Renderable parentNode, OGIData ogiData)
     {
         var skeleton = new TwinSkeleton();
-        var skeletonData = ogiData;
         var boneMap = new Dictionary<int, TwinBone>();
-        var rootSceneNode = parentNode.createChildSceneNode();
-        var rootBone = new TwinBone(rootSceneNode);
-        boneMap.Add(skeletonData.Joints[0].Index, rootBone);
-        var globalTransform = mat4.Identity;
-        rootBone.SetBindingAndInverseMatrix(globalTransform);
-        var allOtherJoints = skeletonData.Joints.Skip(1);
+        var rootBone = new TwinBone(context, parentNode);
+        rootBone.SetBindingAndInverseMatrix(mat4.Identity);
+        rootBone.SetLocalTransform(mat4.Identity);
+        boneMap.Add(ogiData.Joints[0].Index, rootBone);
+        var allOtherJoints = ogiData.Joints.Skip(1);
+        
         foreach (var joint in allOtherJoints)
         {
             var parentBone = boneMap[joint.ParentIndex];
-            globalTransform = OgreExtensions.FromOgre(parentBone.GetBindingMatrix());
-            var position = new Vector3(-joint.LocalTranslation.X, joint.LocalTranslation.Y, joint.LocalTranslation.Z);
+            var position = new vec3(-joint.LocalTranslation.X, joint.LocalTranslation.Y, joint.LocalTranslation.Z);
             var quat = new quat(-joint.LocalRotation.X, joint.LocalRotation.Y, joint.LocalRotation.Z, -joint.LocalRotation.W);
-            var localTransform = mat4.Translate(OgreExtensions.FromOgre(position)) * glm.ToMat4(quat);
-            globalTransform *= localTransform;
-            var sceneNode = parentBone.ResidingSceneNode.createChildSceneNode();
-            sceneNode.setInheritScale(false);
-            sceneNode.translate(position, Node.TransformSpace.TS_LOCAL);
-            sceneNode.rotate(OgreExtensions.FromGlm(quat), Node.TransformSpace.TS_LOCAL);
-            var bone = new TwinBone(sceneNode);
-            bone.SetBindingAndInverseMatrix(globalTransform);
+            var localTransform = mat4.Translate(position) * quat.ToMat4;
+            var bone = new TwinBone(context, parentBone);
+            bone.Transform(localTransform);
+            bone.SetInheritScale(false);
+            bone.SetBindingAndInverseMatrix(bone.WorldTransform);
             boneMap.TryAdd(joint.Index, bone);
         }
         skeleton.Bones = boneMap;

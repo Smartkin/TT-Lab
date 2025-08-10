@@ -33,7 +33,7 @@ namespace TT_Lab.Rendering.Objects
         public Gizmo(SceneManager sceneManager, EditingContext editingContext)
         {
             _editingContext = editingContext;
-            _gizmoNode = _editingContext.GetEditorNode().createChildSceneNode("GizmoNode");
+            // _gizmoNode = _editingContext.GetEditorNode().createChildSceneNode("GizmoNode");
             _gizmoNode.setInheritScale(false);
             
             for (var i = 0; i < (int)GizmoType.TotalGizmos; i++)

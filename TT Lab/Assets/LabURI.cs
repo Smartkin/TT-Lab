@@ -35,6 +35,15 @@ namespace TT_Lab.Assets
             }
         }
 
+        public LabURI(String uri, bool ignoreVerification = false)
+        {
+            _uri = uri;
+            if (!ignoreVerification)
+            {
+                ParseAndVerify();
+            }
+        }
+
         public override String ToString() => _uri;
         public Int32 CompareTo(object? obj)
         {

@@ -11,6 +11,9 @@
              cal:Bind.AtDesignTime="True"
              HorizontalAlignment="Stretch"
              VerticalAlignment="Stretch"
+             Loaded="ViewportView_OnLoaded"
+             SizeChanged="ViewportView_OnSizeChanged"
+             SourceUpdated="ViewportView_OnSourceUpdated"
              d:DesignHeight="300" d:DesignWidth="300">
     <i:Interaction.Triggers>
         <i:EventTrigger EventName="SizeChanged">
@@ -25,7 +28,7 @@
         </i:EventTrigger>
     </i:Interaction.Triggers>
     <Grid Margin="5">
-        <Image HorizontalAlignment="Stretch" VerticalAlignment="Stretch" StretchDirection="Both" Stretch="UniformToFill">
+        <Image Focusable="True" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" StretchDirection="Both" Stretch="UniformToFill">
             <i:Interaction.Triggers>
                 <i:EventTrigger EventName="Loaded">
                     <cal:ActionMessage MethodName="PrepareRender">

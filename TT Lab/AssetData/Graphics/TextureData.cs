@@ -22,7 +22,7 @@ namespace TT_Lab.AssetData.Graphics
             SetTwinItem(texture);
         }
 
-        public Bitmap Bitmap;
+        public Bitmap? Bitmap;
 
         public ITwinTexture.TexturePixelFormat TexturePixelFormat { get; set; }
         public ITwinTexture.TextureFunction TextureFunction { get; set; }
@@ -46,51 +46,59 @@ namespace TT_Lab.AssetData.Graphics
 
         protected override void LoadInternal(String dataPath, JsonSerializerSettings? settings = null)
         {
-            Bitmap = new Bitmap(Bitmap.FromFile(dataPath));
+            Bitmap = new Bitmap(Image.FromFile(dataPath));
         }
 
         public override void Import(LabURI package, String? variant, Int32? layoutId)
         {
-            ITwinTexture texture = GetTwinItem<ITwinTexture>();
-            if (texture.TextureFormat == ITwinTexture.TexturePixelFormat.PSMCT32 || texture.TextureFormat == ITwinTexture.TexturePixelFormat.PSMT8)
+            var texture = GetTwinItem<ITwinTexture>();
+            if (texture.TextureFormat != ITwinTexture.TexturePixelFormat.PSMCT32 &&
+                texture.TextureFormat != ITwinTexture.TexturePixelFormat.PSMT8)
             {
-                Int32 width = (Int32)Math.Pow(2, texture.ImageWidthPower);
-                Int32 height = (Int32)Math.Pow(2, texture.ImageHeightPower);
-                texture.CalculateData();
-
-                var Bits = new UInt32[width * height];
-                var BitsHandle = GCHandle.Alloc(Bits, GCHandleType.Pinned);
-                var tmpBmp = new Bitmap(width, height, width * 4, PixelFormat.Format32bppArgb, BitsHandle.AddrOfPinnedObject());
-
-                for (var x = 0; x < width; ++x)
-                {
-                    for (var y = 0; y < height; ++y)
-                    {
-                        var dstx = x;
-                        var dsty = y; //height - 1 - y; Disable image flipping because UVs are made specifically in mind for flipped images
-                        Bits[dstx + dsty * width] = texture.Colors[x + y * width].ToARGB();
-                    }
-                }
-
-                Bitmap = new Bitmap(tmpBmp);
-                tmpBmp.Dispose();
-                BitsHandle.Free();
+                return;
             }
+            
+            var width = (Int32)Math.Pow(2, texture.ImageWidthPower);
+            var height = (Int32)Math.Pow(2, texture.ImageHeightPower);
+            texture.CalculateData();
+
+            var bits = new UInt32[width * height];
+            var bitsHandle = GCHandle.Alloc(bits, GCHandleType.Pinned);
+            var tmpBmp = new Bitmap(width, height, width * 4, PixelFormat.Format32bppArgb, bitsHandle.AddrOfPinnedObject());
+
+            for (var x = 0; x < width; ++x)
+            {
+                for (var y = 0; y < height; ++y)
+                {
+                    var dstx = x;
+                    var dsty = y;
+                    bits[dstx + dsty * width] = texture.Colors[x + y * width].ToARGB();
+                }
+            }
+
+            Bitmap = new Bitmap(tmpBmp);
+            tmpBmp.Dispose();
+            bitsHandle.Free();
         }
 
         public override ITwinItem Export(ITwinItemFactory factory)
         {
-            ITwinTexture texture = factory.GenerateTexture();
+            var texture = factory.GenerateTexture();
+            if (Bitmap == null)
+            {
+                return texture;
+            }
+            
             var fun = TextureFunction;
             var format = TexturePixelFormat;
             var tex = new List<Twinsanity.TwinsanityInterchange.Common.Color>();
             var bits = Bitmap.LockBits(new Rectangle(0, 0, Bitmap.Width, Bitmap.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
             unsafe
             {
-                byte* source = (byte*)bits.Scan0;
-                for (int i = 0; i < bits.Height; i++)
+                var source = (byte*)bits.Scan0;
+                for (var i = 0; i < bits.Height; i++)
                 {
-                    for (int j = 0; j < bits.Width; j++)
+                    for (var j = 0; j < bits.Width; j++)
                     {
                         var b = source[0];
                         var g = source[1];

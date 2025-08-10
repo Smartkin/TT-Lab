@@ -1,11 +1,14 @@
 ﻿using Caliburn.Micro;
 using System;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using org.ogre;
 using TT_Lab.AssetData.Graphics;
 using TT_Lab.Assets;
 using TT_Lab.Rendering;
 using TT_Lab.Rendering.Objects;
+using TT_Lab.Rendering.Services;
 using TT_Lab.Util;
 using Twinsanity.TwinsanityInterchange.Common;
 using Vector4 = org.ogre.Vector4;
@@ -14,23 +17,53 @@ namespace TT_Lab.ViewModels.Editors.Graphics
 {
     public class BlendSkinViewModel : ResourceEditorViewModel
     {
+        private readonly MeshService _meshService;
         private Single[] shapeWeights;
-        private Rendering.Objects.BlendSkin blendSkin;
+        private BlendSkinnedMesh _blendSkin;
         private Int32 _selectedMaterial;
         private String _materialName;
 
-        public BlendSkinViewModel()
+        public BlendSkinViewModel(MeshService meshService)
         {
+            _meshService = meshService;
             shapeWeights = new Single[15];
             _materialName = "NO MATERIAL";
-            Scenes.Add(IoC.Get<SceneEditorViewModel>());
-            Scenes.Add(IoC.Get<SceneEditorViewModel>());
 
-            SceneRenderer.SceneHeaderModel = "Blend skin viewer";
-            MaterialViewer.SceneHeaderModel = "Material viewer";
+            SceneRenderer = IoC.Get<ViewportViewModel>();
+            MaterialViewer = IoC.Get<ViewportViewModel>();
+            
+            SceneRenderer.SceneInitializer = (renderer, scene) =>
+            {
+                var blendSkin = _meshService.GetMesh(EditableResource);
+                if (blendSkin.Model != null)
+                {
+                    _blendSkin = (BlendSkinnedMesh)blendSkin.Model;
+                    scene.AddChild(_blendSkin);
+                }
+            };
 
-            InitMaterialViewer();
-            InitSceneRenderer();
+            // Scenes.Add(IoC.Get<SceneEditorViewModel>());
+            // Scenes.Add(IoC.Get<SceneEditorViewModel>());
+
+            // SceneRenderer.SceneHeaderModel = "Blend skin viewer";
+            // MaterialViewer.SceneHeaderModel = "Material viewer";
+
+            // InitMaterialViewer();
+            // InitSceneRenderer();
+        }
+
+        protected override async Task OnActivateAsync(CancellationToken cancellationToken)
+        {
+            await ActivateItemAsync(SceneRenderer, cancellationToken);
+            
+            await base.OnActivateAsync(cancellationToken);
+        }
+
+        protected override async Task OnDeactivateAsync(bool close, CancellationToken cancellationToken)
+        {
+            await DeactivateItemAsync(SceneRenderer, close, cancellationToken);
+            
+            await base.OnDeactivateAsync(close, cancellationToken);
         }
 
         public override void LoadData()
@@ -43,76 +76,76 @@ namespace TT_Lab.ViewModels.Editors.Graphics
             return;
         }
 
-        public void PrevMatButton()
-        {
-            _selectedMaterial--;
-            var blendSkinData = AssetManager.Get().GetAssetData<BlendSkinData>(EditableResource);
-            if (_selectedMaterial < 0)
-            {
-                _selectedMaterial = blendSkinData.Blends.Count - 1;
-            }
-            MaterialViewer.ResetScene();
-        }
+        // public void PrevMatButton()
+        // {
+        //     _selectedMaterial--;
+        //     var blendSkinData = AssetManager.Get().GetAssetData<BlendSkinData>(EditableResource);
+        //     if (_selectedMaterial < 0)
+        //     {
+        //         _selectedMaterial = blendSkinData.Blends.Count - 1;
+        //     }
+        //     MaterialViewer.ResetScene();
+        // }
+        //
+        // public void NextMatButton()
+        // {
+        //     _selectedMaterial++;
+        //     var blendSkinData = AssetManager.Get().GetAssetData<BlendSkinData>(EditableResource);
+        //     if (_selectedMaterial >= blendSkinData.Blends.Count)
+        //     {
+        //         _selectedMaterial = 0;
+        //     }
+        //     MaterialViewer.ResetScene();
+        // }
 
-        public void NextMatButton()
-        {
-            _selectedMaterial++;
-            var blendSkinData = AssetManager.Get().GetAssetData<BlendSkinData>(EditableResource);
-            if (_selectedMaterial >= blendSkinData.Blends.Count)
-            {
-                _selectedMaterial = 0;
-            }
-            MaterialViewer.ResetScene();
-        }
-
-        private void InitSceneRenderer()
-        {
-            SceneRenderer.SceneCreator = glControl =>
-            {
-                var sceneManager = glControl.GetSceneManager();
-                var pivot = sceneManager.getRootSceneNode().createChildSceneNode();
-                pivot.setPosition(0, 0, 0);
-                glControl.SetCameraTarget(pivot);
-                glControl.EnableImgui(true);
-                
-                var blendSkinData = AssetManager.Get().GetAssetData<BlendSkinData>(EditableResource);
-                blendSkin = new BlendSkin(sceneManager, EditableResource, blendSkinData);
-
-                glControl.OnRender += (sender, args) =>
-                {
-                    ImGui.Begin("Blend Skin");
-                    ImGui.SetWindowPos(new ImVec2(5, 5));
-                    ImGui.Text($"Vertexes: {blendSkinData.Blends.Sum(b => b.Models.Sum(sb => sb.Vertexes.Count))}");
-                    ImGui.Text($"Faces: {blendSkinData.Blends.Sum(b => b.Models.Sum(sb => sb.Faces.Count))}");
-                    ImGui.Text($"Morphs: {blendSkinData.BlendsAmount}");
-                    ImGui.End();
-                };
-            };
-        }
-
-        private void InitMaterialViewer()
-        {
-            MaterialViewer.SceneCreator = glControl =>
-            {
-                // var sceneManager = glControl.GetSceneManager();
-                // var pivot = sceneManager.getRootSceneNode().createChildSceneNode();
-                // pivot.setPosition(0, 0, 0);
-                // glControl.SetCameraTarget(pivot);
-                // glControl.SetCameraStyle(CameraStyle.CS_ORBIT);
-                //
-                // var plane = sceneManager.getRootSceneNode().createChildSceneNode();
-                // var entity = sceneManager.createEntity(BufferGeneration.GetPlaneBuffer());
-                // var asset = AssetManager.Get().GetAsset(EditableResource);
-                // var blendData = asset.GetData<BlendSkinData>();
-                // var matData = AssetManager.Get().GetAssetData<MaterialData>(blendData.Blends[_selectedMaterial].Material);
-                // MaterialName = matData.Name;
-                // var material = TwinMaterialGenerator.GenerateMaterialFromTwinMaterial(matData);
-                // entity.setMaterial(material.Material);
-                // entity.getSubEntity(0).setCustomParameter(0, new Vector4(1.0f, 1.0f, 1.0f, 1.0f));
-                // plane.attachObject(entity);
-                // plane.scale(0.05f, 0.05f, 1f);
-            };
-        }
+        // private void InitSceneRenderer()
+        // {
+        //     SceneRenderer.SceneCreator = glControl =>
+        //     {
+        //         var sceneManager = glControl.GetSceneManager();
+        //         var pivot = sceneManager.getRootSceneNode().createChildSceneNode();
+        //         pivot.setPosition(0, 0, 0);
+        //         glControl.SetCameraTarget(pivot);
+        //         glControl.EnableImgui(true);
+        //         
+        //         var blendSkinData = AssetManager.Get().GetAssetData<BlendSkinData>(EditableResource);
+        //         // blendSkin = new BlendSkin(sceneManager, EditableResource, blendSkinData);
+        //
+        //         glControl.OnRender += (sender, args) =>
+        //         {
+        //             ImGui.Begin("Blend Skin");
+        //             ImGui.SetWindowPos(new ImVec2(5, 5));
+        //             ImGui.Text($"Vertexes: {blendSkinData.Blends.Sum(b => b.Models.Sum(sb => sb.Vertexes.Count))}");
+        //             ImGui.Text($"Faces: {blendSkinData.Blends.Sum(b => b.Models.Sum(sb => sb.Faces.Count))}");
+        //             ImGui.Text($"Morphs: {blendSkinData.BlendsAmount}");
+        //             ImGui.End();
+        //         };
+        //     };
+        // }
+        //
+        // private void InitMaterialViewer()
+        // {
+        //     MaterialViewer.SceneCreator = glControl =>
+        //     {
+        //         // var sceneManager = glControl.GetSceneManager();
+        //         // var pivot = sceneManager.getRootSceneNode().createChildSceneNode();
+        //         // pivot.setPosition(0, 0, 0);
+        //         // glControl.SetCameraTarget(pivot);
+        //         // glControl.SetCameraStyle(CameraStyle.CS_ORBIT);
+        //         //
+        //         // var plane = sceneManager.getRootSceneNode().createChildSceneNode();
+        //         // var entity = sceneManager.createEntity(BufferGeneration.GetPlaneBuffer());
+        //         // var asset = AssetManager.Get().GetAsset(EditableResource);
+        //         // var blendData = asset.GetData<BlendSkinData>();
+        //         // var matData = AssetManager.Get().GetAssetData<MaterialData>(blendData.Blends[_selectedMaterial].Material);
+        //         // MaterialName = matData.Name;
+        //         // var material = TwinMaterialGenerator.GenerateMaterialFromTwinMaterial(matData);
+        //         // entity.setMaterial(material.Material);
+        //         // entity.getSubEntity(0).setCustomParameter(0, new Vector4(1.0f, 1.0f, 1.0f, 1.0f));
+        //         // plane.attachObject(entity);
+        //         // plane.scale(0.05f, 0.05f, 1f);
+        //     };
+        // }
 
         private enum SceneIndex : int
         {
@@ -120,15 +153,9 @@ namespace TT_Lab.ViewModels.Editors.Graphics
             Material
         }
 
-        public SceneEditorViewModel SceneRenderer
-        {
-            get => Scenes[(int)SceneIndex.BlendSkin];
-        }
+        public ViewportViewModel SceneRenderer { get; }
 
-        public SceneEditorViewModel MaterialViewer
-        {
-            get => Scenes[(int)SceneIndex.Material];
-        }
+        public ViewportViewModel MaterialViewer { get; }
 
         public String MaterialName
         {
@@ -146,7 +173,7 @@ namespace TT_Lab.ViewModels.Editors.Graphics
             set
             {
                 shapeWeights[0] = value;
-                blendSkin.SetBlendShapeValue(0, shapeWeights[0]);
+                _blendSkin.SetShapeWeight(0, shapeWeights[0]);
                 NotifyOfPropertyChange();
             }
         }
@@ -157,7 +184,7 @@ namespace TT_Lab.ViewModels.Editors.Graphics
             set
             {
                 shapeWeights[1] = value;
-                blendSkin.SetBlendShapeValue(1, shapeWeights[1]);
+                _blendSkin.SetShapeWeight(1, shapeWeights[1]);
                 NotifyOfPropertyChange();
             }
         }
@@ -168,7 +195,7 @@ namespace TT_Lab.ViewModels.Editors.Graphics
             set
             {
                 shapeWeights[2] = value;
-                blendSkin.SetBlendShapeValue(2, shapeWeights[2]);
+                _blendSkin.SetShapeWeight(2, shapeWeights[2]);
                 NotifyOfPropertyChange();
             }
         }
@@ -179,7 +206,7 @@ namespace TT_Lab.ViewModels.Editors.Graphics
             set
             {
                 shapeWeights[3] = value;
-                blendSkin.SetBlendShapeValue(3, shapeWeights[3]);
+                _blendSkin.SetShapeWeight(3, shapeWeights[3]);
                 NotifyOfPropertyChange();
             }
         }
@@ -190,7 +217,7 @@ namespace TT_Lab.ViewModels.Editors.Graphics
             set
             {
                 shapeWeights[4] = value;
-                blendSkin.SetBlendShapeValue(4, shapeWeights[4]);
+                _blendSkin.SetShapeWeight(4, shapeWeights[4]);
                 NotifyOfPropertyChange();
             }
         }
@@ -201,7 +228,7 @@ namespace TT_Lab.ViewModels.Editors.Graphics
             set
             {
                 shapeWeights[5] = value;
-                blendSkin.SetBlendShapeValue(5, shapeWeights[5]);
+                _blendSkin.SetShapeWeight(5, shapeWeights[5]);
                 NotifyOfPropertyChange();
             }
         }
@@ -212,7 +239,7 @@ namespace TT_Lab.ViewModels.Editors.Graphics
             set
             {
                 shapeWeights[6] = value;
-                blendSkin.SetBlendShapeValue(6, shapeWeights[6]);
+                _blendSkin.SetShapeWeight(6, shapeWeights[6]);
                 NotifyOfPropertyChange();
             }
         }
@@ -223,7 +250,7 @@ namespace TT_Lab.ViewModels.Editors.Graphics
             set
             {
                 shapeWeights[7] = value;
-                blendSkin.SetBlendShapeValue(7, shapeWeights[7]);
+                _blendSkin.SetShapeWeight(7, shapeWeights[7]);
                 NotifyOfPropertyChange();
             }
         }
@@ -234,7 +261,7 @@ namespace TT_Lab.ViewModels.Editors.Graphics
             set
             {
                 shapeWeights[8] = value;
-                blendSkin.SetBlendShapeValue(8, shapeWeights[8]);
+                _blendSkin.SetShapeWeight(8, shapeWeights[8]);
                 NotifyOfPropertyChange();
             }
         }
@@ -245,7 +272,7 @@ namespace TT_Lab.ViewModels.Editors.Graphics
             set
             {
                 shapeWeights[9] = value;
-                blendSkin.SetBlendShapeValue(9, shapeWeights[9]);
+                _blendSkin.SetShapeWeight(9, shapeWeights[9]);
                 NotifyOfPropertyChange();
             }
         }
@@ -256,7 +283,7 @@ namespace TT_Lab.ViewModels.Editors.Graphics
             set
             {
                 shapeWeights[10] = value;
-                blendSkin.SetBlendShapeValue(10, shapeWeights[10]);
+                _blendSkin.SetShapeWeight(10, shapeWeights[10]);
                 NotifyOfPropertyChange();
             }
         }
@@ -267,7 +294,7 @@ namespace TT_Lab.ViewModels.Editors.Graphics
             set
             {
                 shapeWeights[11] = value;
-                blendSkin.SetBlendShapeValue(11, shapeWeights[11]);
+                _blendSkin.SetShapeWeight(11, shapeWeights[11]);
                 NotifyOfPropertyChange();
             }
         }
@@ -278,7 +305,7 @@ namespace TT_Lab.ViewModels.Editors.Graphics
             set
             {
                 shapeWeights[12] = value;
-                blendSkin.SetBlendShapeValue(12, shapeWeights[12]);
+                _blendSkin.SetShapeWeight(12, shapeWeights[12]);
                 NotifyOfPropertyChange();
             }
         }
@@ -289,7 +316,7 @@ namespace TT_Lab.ViewModels.Editors.Graphics
             set
             {
                 shapeWeights[13] = value;
-                blendSkin.SetBlendShapeValue(13, shapeWeights[13]);
+                _blendSkin.SetShapeWeight(13, shapeWeights[13]);
                 NotifyOfPropertyChange();
             }
         }
@@ -300,7 +327,7 @@ namespace TT_Lab.ViewModels.Editors.Graphics
             set
             {
                 shapeWeights[14] = value;
-                blendSkin.SetBlendShapeValue(14, shapeWeights[14]);
+                _blendSkin.SetShapeWeight(14, shapeWeights[14]);
                 NotifyOfPropertyChange();
             }
         }

@@ -2716,151 +2716,7 @@
     <Content Include="Media\Shaders\lygia\animation\easing\sineOut.glsl">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="Media\Materials\diffuse_texture.material">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\Programs\diffuse_texture.program">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\Main\DefaultShaders.metal">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\Main\GLSL_GL3Support.glsl">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\Main\HLSL_SM4Support.hlsl">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\Main\OgreUnifiedShader.h">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\Main\Shadow.material">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\Main\ShadowBlend.frag">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\Main\ShadowBlend.vert">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\Main\ShadowExtrudeDirLight.vert">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\Main\ShadowExtrudeDirLightFinite.vert">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\Main\ShadowExtrudePointLight.vert">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\Main\ShadowExtrudePointLightFinite.vert">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\Main\ShadowVolumeExtude.program">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\Main\spot_shadow_fade.dds">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\RTShaderLib\dfgLUTmultiscatter.dds">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\RTShaderLib\FFPLib_AlphaTest.glsl">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\RTShaderLib\FFPLib_Fog.glsl">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\RTShaderLib\FFPLib_Texturing.glsl">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\RTShaderLib\FFPLib_Transform.glsl">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\RTShaderLib\ltc_1.dds">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\RTShaderLib\ltc_2.dds">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\RTShaderLib\RTSLib_IBL.glsl">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\RTShaderLib\RTSLib_Lighting.glsl">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\RTShaderLib\RTSLib_LTC.glsl">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\RTShaderLib\RTSSamplers.material">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\RTShaderLib\SGXLib_CookTorrance.glsl">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\RTShaderLib\SGXLib_DualQuaternion.glsl">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\RTShaderLib\SGXLib_IntegratedPSSM.glsl">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\RTShaderLib\SGXLib_LayeredBlending.glsl">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\RTShaderLib\SGXLib_NormalMap.glsl">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\RTShaderLib\SGXLib_PerPixelLighting.glsl">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\RTShaderLib\SGXLib_TriplanarTexturing.glsl">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\RTShaderLib\SGXLib_WBOIT.glsl">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\Terrain\TerrainSurface.glsl">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\Terrain\TerrainTransforms.glsl">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\Shaders\uber_model_shader.frag">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\Shaders\uber_model_shader.vert">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\Shaders\attenuation.h">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\Shaders\color_only.vert">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\Shaders\color_only.frag">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\Programs\color_only.program">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\Materials\color_only.material">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\default_font.fontdef">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <Content Include="Media\Fonts\LICENSE.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\Materials\overlay.material">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\Materials\gizmo.material">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\Programs\gizmo.program">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Media\Materials\positions.material">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <None Include="Libraries\Native\Windows\libOgre.dll" />
@@ -2879,65 +2735,23 @@
     <None Include="Libraries\Native\Windows\RenderSystem_GL3Plus.dll" />
     <None Include="Libraries\Native\Windows\SDL2.dll" />
     <None Remove="Media\Shaders\vertex_morphing.h" />
-    <Content Include="Media\Shaders\vertex_morphing_declaration.h">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <None Remove="Media\Programs\face_morph.program" />
-    <Content Include="Media\Programs\face_morph.program">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <None Remove="Media\Materials\face_morph.material" />
-    <Content Include="Media\Materials\face_morph.material">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <None Remove="Media\Shaders\vertex_morphing_processing.h" />
-    <Content Include="Media\Shaders\vertex_morphing_processing.h">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <None Remove="Media\Materials\triggers.material" />
-    <Content Include="Media\Materials\triggers.material">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <None Remove="Media\Shaders\twinsanity_material_vars.h" />
-    <Content Include="Media\Shaders\twinsanity_material_vertex_vars.h">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <None Remove="Media\Shaders\twinsanity_material_vertex_processing.h" />
-    <Content Include="Media\Shaders\twinsanity_material_vertex_processing.h">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <None Remove="Media\Shaders\twinsanity_material_fragment_vars.h" />
-    <Content Include="Media\Shaders\twinsanity_material_fragment_vars.h">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <None Remove="Media\Shaders\twinsanity_material_fragment_processing.h" />
-    <Content Include="Media\Shaders\twinsanity_material_fragment_processing.h">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <None Remove="Media\Shaders\alpha_test_lib.h" />
-    <Content Include="Media\Shaders\alpha_test_lib.h">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <None Remove="Media\Materials\billboards.material" />
-    <Content Include="Media\Materials\billboards.material">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <None Remove="Media\Materials\cameras.material" />
-    <Content Include="Media\Materials\cameras.material">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <None Remove="Media\Materials\instances.material" />
-    <Content Include="Media\Materials\instances.material">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <None Remove="Images\SadTransparent.gif" />
     <Resource Include="Images\SadTransparent.gif">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Resource>
     <None Remove="Media\Programs\skinning.program" />
-    <Content Include="Media\Programs\skinning.program">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <None Remove="Media\LabIcons\Folder.png" />
     <Content Include="Media\LabIcons\Folder.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
@@ -2951,29 +2765,14 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <None Remove="Media\Materials\ai_positions.material" />
-    <Content Include="Media\Materials\ai_positions.material">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <None Remove="Media\Fonts\Twelve-Ton-Goldfish.ttf" />
     <Content Include="Media\Fonts\Twelve-Ton-Goldfish.ttf">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <None Remove="Media\Materials\text_outline.material" />
-    <Content Include="Media\Materials\text_outline.material">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <None Remove="Media\Programs\text_outline.program" />
-    <Content Include="Media\Programs\text_outline.program">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <None Remove="Media\Shaders\text_outline.frag" />
-    <Content Include="Media\Shaders\text_outline.frag">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <None Remove="Media\Shaders\text_outline.vert" />
-    <Content Include="Media\Shaders\text_outline.vert">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <None Remove="Images\tt_lab_logo_v6_2k.ico" />
     <Resource Include="Images\tt_lab_logo_v6_2k.ico">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
@@ -2982,6 +2781,80 @@
     <Resource Include="Resources\LICENSE.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Resource>
+    <None Remove="Media\Shaders\Light.frag" />
+    <None Remove="Media\Shaders\ModelRender.vert" />
+    <Content Include="Media\Shaders\ModelRender.vert">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <None Remove="Media\Shaders\ModelTextured.frag" />
+    <Content Include="Media\Shaders\ModelTextured.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <None Remove="Media\Shaders\Pass.frag" />
+    <Content Include="Media\Shaders\Pass.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <None Remove="Media\Shaders\test_fragment_pass.frag" />
+    <None Remove="Media\Shaders\test_vertex_pass.vert" />
+    <None Remove="Media\Shaders\TexturePass.frag" />
+    <None Remove="Media\Shaders\TwinmaterialPass.frag" />
+    <Content Include="Media\Shaders\TwinmaterialPass.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <None Remove="Media\Shaders\VertexShading.vert" />
+    <None Remove="Media\Shaders\WBOIT_blend.frag" />
+    <None Remove="Media\Shaders\Materials\TexScroll.frag" />
+    <Content Include="Media\Shaders\Materials\TexScroll.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <None Remove="Media\Shaders\Materials\TexScroll.vert" />
+    <Content Include="Media\Shaders\Materials\TexScroll.vert">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <None Remove="Media\Shaders\Includes\GlobalUniformsDeclaration.glsl" />
+    <Content Include="Media\Shaders\Includes\GlobalUniformsDeclaration.glsl">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <None Remove="Media\Shaders\Includes\ModelLayout.frag" />
+    <Content Include="Media\Shaders\Includes\ModelLayout.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <None Remove="Media\Shaders\Includes\ModelLayout.vert" />
+    <Content Include="Media\Shaders\Includes\ModelLayout.vert">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <None Remove="Media\Shaders\Includes\ShadingLibrary.frag" />
+    <Content Include="Media\Shaders\Includes\ShadingLibrary.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <None Remove="Media\Shaders\Includes\ShadingLibrary.vert" />
+    <Content Include="Media\Shaders\Includes\ShadingLibrary.vert">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <None Remove="Media\Shaders\MainPass.frag" />
+    <Content Include="Media\Shaders\MainPass.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <None Remove="Media\Shaders\MainPass.vert" />
+    <Content Include="Media\Shaders\MainPass.vert">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <None Remove="Media\Shaders\Includes\TwinMaterial.glsl" />
+    <Content Include="Media\Shaders\Includes\TwinMaterial.glsl">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <None Remove="Media\Shaders\ScreenRender.vert" />
+    <Content Include="Media\Shaders\ScreenRender.vert">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <None Remove="Media\Shaders\DrawSphere.frag" />
+    <Content Include="Media\Shaders\DrawSphere.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <None Remove="Media\Shaders\DrawBox.frag" />
+    <Content Include="Media\Shaders\DrawBox.frag">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>
@@ -3147,7 +3020,6 @@
 
   <ItemGroup>
     <Folder Include="Libraries\Native\Windows\" />
-    <Folder Include="Shaders\Materials\" />
   </ItemGroup>
 
   <ItemGroup>

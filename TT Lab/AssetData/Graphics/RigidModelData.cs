@@ -42,9 +42,9 @@ namespace TT_Lab.AssetData.Graphics
             Materials = new List<LabURI>();
             foreach (var mat in rigidModel.Materials)
             {
-                Materials.Add(AssetManager.Get().GetUri(package, typeof(Material).Name, variant, mat));
+                Materials.Add(AssetManager.Get().GetUri(package, nameof(Material), variant, mat));
             }
-            Model = AssetManager.Get().GetUri(package, typeof(Model).Name, variant, rigidModel.Model);
+            Model = AssetManager.Get().GetUri(package, nameof(Assets.Graphics.Model), variant, rigidModel.Model);
         }
 
         public override ITwinItem Export(ITwinItemFactory factory)

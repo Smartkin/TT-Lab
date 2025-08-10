@@ -187,7 +187,6 @@ namespace TT_Lab.AssetData.Graphics
                     for (var i = 0; i < vertexes.Positions.Count; i++)
                     {
                         var pos = vertexes.Positions[i].ToTwin();
-                        pos.X = -pos.X;
                         pos.W = vertexes.Colors1[i].X;
                         var ver = new Vertex(
                             pos,
@@ -195,7 +194,7 @@ namespace TT_Lab.AssetData.Graphics
                             vertexes.TexCoords0[i].ToTwin());
                         ver.UV.Z = vertexes.TexCoords1[i].X;
                         ver.UV.W = vertexes.TexCoords1[i].Y;
-                        ver.Color = new Twinsanity.TwinsanityInterchange.Common.Vector4(ver.Color.X, ver.Color.Y, ver.Color.Z, ver.Color.W);
+                        ver.Color = new Vector4(ver.Color.X, ver.Color.Y, ver.Color.Z, ver.Color.W);
                         ver.JointInfo.JointIndex1 = (Int32)vertexes.Joints0[i].X;
                         ver.JointInfo.JointIndex2 = (Int32)vertexes.Joints0[i].Y;
                         ver.JointInfo.JointIndex3 = (Int32)vertexes.Joints0[i].Z;
