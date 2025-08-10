@@ -30,6 +30,20 @@ public class OGI : Renderable
         blendSkinBuffer?.SetBoneMatrix(jointIndex, defaultSkeleton.Bones[jointIndex].GetBoneMatrix());
     }
 
+    public void ApplyWeightsToBlendSkin(float[] weights)
+    {
+        if (blendSkinBuffer == null)
+        {
+            return;
+        }
+
+        var idx = 0;
+        foreach (var weight in weights)
+        {
+            blendSkinBuffer.SetShapeWeight(idx++, weight);
+        }
+    }
+
     private void BuildSkeleton(TwinSkeletonManager skeletonManager, MeshService meshService, OGIData ogiData)
     {
         defaultSkeleton = skeletonManager.CreateSceneNodeSkeleton(this, ogiData);

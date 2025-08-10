@@ -31,6 +31,7 @@ public class RenderBatch(RenderContext context, ModelBuffer batchedBuffer) : Ren
         {
             mesh.Render(delta);
             Context.Gl.DrawArrays(PrimitiveType.Triangles, 0, batchedBuffer.IndexCount);
+            mesh.EndRender();
         }
         
         batchedBuffer.Unbind();

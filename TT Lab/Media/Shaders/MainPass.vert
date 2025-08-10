@@ -39,14 +39,14 @@ void main()
 	mat4 invView = inverse(StartView);
 	viewModel = viewModel * (1.0 - twin_material.billboard_render) + StartView * mat4(vec4(normalize(cross(vec3(0.0, 1.0, 0.0), invView[2].xyz)), 0.0), vec4(0.0, 1.0, 0.0, 0.0), vec4(normalize(cross(invView[0].xyz, vec3(0.0, 1.0, 0.0))), 0.0), StartModel[3]) * twin_material.billboard_render;
 
+	// Vertex based animation
+	processedPosition = BlendVertex(processedPosition, Morphs, gl_VertexID, MorphWeights);
+	
 	// Skinning
 	vec4 pos1 = (BoneMatrices[uint(in_BoneMatrixIndices.x)] * vec4(processedPosition, 1.0)) * in_BoneWeights.x;
 	vec4 pos2 = (BoneMatrices[uint(in_BoneMatrixIndices.y)] * vec4(processedPosition, 1.0)) * in_BoneWeights.y;
 	vec4 pos3 = (BoneMatrices[uint(in_BoneMatrixIndices.z)] * vec4(processedPosition, 1.0)) * in_BoneWeights.z;
 	processedPosition = mix(processedPosition, pos1.xyz + pos2.xyz + pos3.xyz, in_BoneWeights.x + in_BoneWeights.y + in_BoneWeights.z);
-    
-	// Vertex based animation
-	processedPosition = BlendVertex(processedPosition, Morphs, gl_VertexID, MorphWeights);
 	
 	Position = processedPosition;
 	Projection = StartProjection;

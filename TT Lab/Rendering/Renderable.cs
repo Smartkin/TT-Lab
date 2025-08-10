@@ -60,6 +60,8 @@ public abstract class Renderable
         RenderSelf(delta);
     }
 
+    public virtual void EndRender() {}
+
     public virtual void UpdateRenderTransform()
     {
         _cachedRenderTransform = _cachedWorldTransform;

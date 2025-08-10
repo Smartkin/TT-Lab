@@ -38,6 +38,7 @@ public class AnimationViewModel : ResourceEditorViewModel
     private bool _doRunningCounter = false;
     private Rendering.Objects.OGI? _ogiRender;
     private TwinAnimation _twinAnimation;
+    private TwinMorphAnimation _twinMorphAnimation;
     private Stopwatch _renderWatch = new Stopwatch();
     private LabURI _selectedOgi = LabURI.Empty;
     private bool _tryingToClose = false;
@@ -86,6 +87,7 @@ public class AnimationViewModel : ResourceEditorViewModel
         _playbackFps = data.DefaultFPS;
         _totalFrames = data.TotalFrames;
         _twinAnimation = data.MainAnimation;
+        _twinMorphAnimation = data.FacialAnimation;
         _currentAnimationFrame = 0;
 
         _doRunningCounter = Preferences.GetPreference<bool>(Preferences.SillinessEnabled) && asset.ID == 2;
@@ -192,6 +194,36 @@ public class AnimationViewModel : ResourceEditorViewModel
         
             jointIndex++;
         }
+
+        if (_twinMorphAnimation.JointSettings.Count > 0)
+        {
+            PerformAnimationForShapes(nextFrame, _twinMorphAnimation.JointSettings[0]);
+        }
+    }
+
+    private void PerformAnimationForShapes(int nextFrame, MorphJointSettings morphSettings)
+    {
+        var shapesAmount = morphSettings.FacialShapesAmount;
+        var weights = new float[shapesAmount];
+        var transformIndex = morphSettings.TransformationIndex;
+        var currentFrameTransformIndex = morphSettings.AnimationTransformationIndex;
+        var nextFrameTransformIndex = morphSettings.AnimationTransformationIndex;
+
+        for (var i = 0; i < shapesAmount; i++)
+        {
+            if (morphSettings.AnimationMorph[i] == Enums.TransformType.Animated)
+            {
+                var f1 = _twinMorphAnimation.AnimatedTransformations[CurrentAnimationFrame].Transforms[currentFrameTransformIndex++].Value;
+                var f2 = _twinMorphAnimation.AnimatedTransformations[nextFrame].Transforms[nextFrameTransformIndex++].Value;
+                weights[i] = MathExtension.Lerp(f1, f2, _frameDisplacement);
+            }
+            else
+            {
+                weights[i] = _twinMorphAnimation.StaticTransformations[transformIndex++].Value;
+            }
+        }
+        
+        _ogiRender!.ApplyWeightsToBlendSkin(weights);
     }
 
     private void PerformAnimationForJoint(int nextFrame, int jointIndex, JointSettings jointSettings)
