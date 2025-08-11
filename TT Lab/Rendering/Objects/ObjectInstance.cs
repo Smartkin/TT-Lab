@@ -33,22 +33,8 @@ public sealed class ObjectInstance : EditableObject
 
     protected override void InitSceneTransform()
     {
-        Pos = new vec3(-_instanceData.Position.X, _instanceData.Position.Y, _instanceData.Position.Z);
-        Rot = new vec3(_instanceData.RotationX.GetRotation(), -_instanceData.RotationY.GetRotation(), -_instanceData.RotationZ.GetRotation());
-    }
-
-    public override void Select()
-    {
-        // skeleton.ChangeMaterialParameter(0, new Vector4(AmbientColor.x, AmbientColor.y, AmbientColor.z, 0.5f));
-            
-        base.Select();
-    }
-
-    public override void Deselect()
-    {
-        // skeleton.ChangeMaterialParameter(0, new Vector4(1.0f, 1.0f, 1.0f, 1.0f));
-            
-        base.Deselect();
+        Pos = new vec3(_instanceData.Position.X, _instanceData.Position.Y, _instanceData.Position.Z);
+        Rot = new vec3(_instanceData.RotationX.GetRotation(), _instanceData.RotationY.GetRotation(), _instanceData.RotationZ.GetRotation());
     }
 
     private void SetupModelBuffer(RenderContext context, LabURI uri)

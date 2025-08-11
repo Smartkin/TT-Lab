@@ -59,8 +59,8 @@ public class TwinSkeletonManager(RenderContext context)
         foreach (var joint in allOtherJoints)
         {
             var parentBone = boneMap[joint.ParentIndex];
-            var position = new vec3(-joint.LocalTranslation.X, joint.LocalTranslation.Y, joint.LocalTranslation.Z);
-            var quat = new quat(-joint.LocalRotation.X, joint.LocalRotation.Y, joint.LocalRotation.Z, -joint.LocalRotation.W);
+            var position = new vec3(joint.LocalTranslation.X, joint.LocalTranslation.Y, joint.LocalTranslation.Z);
+            var quat = new quat(joint.LocalRotation.X, joint.LocalRotation.Y, joint.LocalRotation.Z, joint.LocalRotation.W);
             var localTransform = mat4.Translate(position) * quat.ToMat4;
             var bone = new TwinBone(context, parentBone);
             bone.Transform(localTransform);

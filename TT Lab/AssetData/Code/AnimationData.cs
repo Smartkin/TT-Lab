@@ -19,6 +19,13 @@ namespace TT_Lab.AssetData.Code
         public (float, System.Numerics.Quaternion) Rotation;
         public (float, System.Numerics.Vector3) Scale;
     }
+
+    public struct MorphAnimationSample
+    {
+        public float Time;
+        public float[] Weights;
+    }
+    
     public class AnimationData : AbstractAssetData
     {
         public AnimationData()
@@ -152,18 +159,14 @@ namespace TT_Lab.AssetData.Code
             }
             
             var resultTranslation = currentTranslation;
-            resultTranslation.x = -resultTranslation.x;
-            
             var quat1 = new quat(currentRotation);
             var lerpedQuat = quat1;
-            lerpedQuat.x = -lerpedQuat.x;
-            lerpedQuat.w = -lerpedQuat.w;
 
             var resRotationQuat = lerpedQuat;
             if (useAddRot)
             {
                 var additionalRotation = ogiData.Joints[jointIndex].AdditionalAnimationRotation;
-                var addRotQuat = new quat(-additionalRotation.X, additionalRotation.Y, additionalRotation.Z, -additionalRotation.W);
+                var addRotQuat = new quat(additionalRotation.X, additionalRotation.Y, additionalRotation.Z, additionalRotation.W);
                 resRotationQuat = addRotQuat * lerpedQuat;
             }
 
@@ -178,6 +181,31 @@ namespace TT_Lab.AssetData.Code
             return animationSample;
         }
 
+        public MorphAnimationSample GetAnimationSampleForMorphAnimation(int animationFrame)
+        {
+            var morphSettings = FacialAnimation.JointSettings[0];
+            var shapesAmount = morphSettings.FacialShapesAmount;
+            var weights = new float[shapesAmount];
+            var transformIndex = morphSettings.TransformationIndex;
+            var animatedTransformIndex = morphSettings.AnimationTransformationIndex;
+
+            for (var i = 0; i < shapesAmount; i++)
+            {
+                if (morphSettings.AnimationMorph[i] == Enums.TransformType.Animated)
+                {
+                    var f1 = FacialAnimation.AnimatedTransformations[animationFrame].Transforms[animatedTransformIndex++].Value;
+                    weights[i] = f1;
+                }
+                else
+                {
+                    weights[i] = FacialAnimation.StaticTransformations[transformIndex++].Value;
+                }
+            }
+
+            var sampleTime = (float)animationFrame / DefaultFPS;
+            return new MorphAnimationSample { Weights = weights, Time = sampleTime };
+        }
+
         public List<JointAnimationSample> GetAnimationKeyframesForMainAnimation(int jointIndex, OGIData ogiData)
         {
             var keyframes = new List<JointAnimationSample>();
@@ -186,6 +214,17 @@ namespace TT_Lab.AssetData.Code
                 keyframes.Add(GetAnimationSampleForMainAnimation(jointIndex, ogiData, i));
             }
 
+            return keyframes;
+        }
+
+        public List<MorphAnimationSample> GetAnimationKeyframesForMorphAnimation()
+        {
+            var keyframes = new List<MorphAnimationSample>();
+            for (var i = 0; i < TotalFrames; ++i)
+            {
+                keyframes.Add(GetAnimationSampleForMorphAnimation(i));
+            }
+            
             return keyframes;
         }
         

@@ -29,6 +29,7 @@ public class Renderer : IView
     private readonly PassService _passService;
     private readonly BatchStorage _batchStorage;
     private readonly List<Renderable> _updaters = [];
+    private VertexArrayObject<float, float> _emptyVao;
     private IInputContext? _inputContext;
     private FrameBuffer[] _pongBuffers;
     private FrameBuffer _screenBuffer;
@@ -188,6 +189,17 @@ public class Renderer : IView
             //_renderContext.GetPrimitiveRenderer().DrawSphere(new vec3(10, 10.0f, 0), 5.0f, new vec4(1.0f, 0.0f, 0.0f, 0.5f));
             primitivePass.EndPass();
         }
+        
+        _renderContext.Gl.BindFramebuffer(FramebufferTarget.DrawFramebuffer, _screenBuffer.Handler);
+        _renderContext.Gl.BindFramebuffer(FramebufferTarget.ReadFramebuffer, _pongBuffers[_writeBuffer].Handler);
+        _renderContext.Gl.BlitFramebuffer(0, 0, _frameBufferSize.x, _frameBufferSize.y, 0, 0, _frameBufferSize.x, _frameBufferSize.y, ClearBufferMask.ColorBufferBit, BlitFramebufferFilter.Linear);
+        _renderContext.Gl.BindFramebuffer(FramebufferTarget.DrawFramebuffer, _pongBuffers[_writeBuffer].Handler);
+        
+        var screenFlipProgram = _renderContext.GetProgram("ScreenFlipX");
+        screenFlipProgram.Use();
+        _screenBuffer.TextureAttachment!.Bind(TextureUnit.Texture5);
+        _emptyVao.Bind();
+        _renderContext.Gl.DrawArrays(PrimitiveType.TriangleFan, 0, 4);
         
         Render?.Invoke(delta);
         if (_imgui != null)
@@ -388,12 +400,13 @@ public class Renderer : IView
         _renderContext.MakeCurrent();
         _pongBuffers = [new FrameBuffer(_renderContext, _frameBufferSize, true), new FrameBuffer(_renderContext, _frameBufferSize, true)];
         _screenBuffer = new FrameBuffer(_renderContext, _frameBufferSize);
+        _emptyVao = new VertexArrayObject<float, float>(_renderContext, null, null);
     }
 
     private void DeleteRenderBuffer()
     {
         _renderContext.MakeCurrent();
-        
+        _emptyVao.Dispose();
         foreach (var pongBuffer in _pongBuffers)
         {
             pongBuffer.Dispose();
@@ -416,6 +429,7 @@ public class Renderer : IView
         _renderContext.QueueRenderAction(() =>
         {
             _imgui?.Dispose();
+            _emptyVao.Dispose();
             DeleteRenderBuffer();
             // ReSharper disable once AccessToDisposedClosure
             manualResetEventSlim.Set();

@@ -4,6 +4,7 @@ using GlmSharp;
 using TT_Lab.AssetData.Instance;
 using TT_Lab.Extensions;
 using TT_Lab.Rendering.Scene;
+using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Common.CameraSubtypes;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout;
 
@@ -46,6 +47,7 @@ public class Camera : EditableObject
     private void RenderMainCamera(CameraSubBase mainCamera)
     {
         var primitiveRender = Context.GetPrimitiveRenderer();
+        const float cameraPointRadius = 0.2f;
         switch (mainCamera.GetCameraType())
         {
             case ITwinCamera.CameraType.Null:
@@ -55,14 +57,14 @@ public class Camera : EditableObject
             case ITwinCamera.CameraType.CameraPoint:
                 {
                     var camera = (CameraPoint)mainCamera;
-                    primitiveRender.DrawSphere(camera.Point.ToGlm().xyz, 0.5f, new vec4(0, 0, 1.0f, 0.8f));
+                    primitiveRender.DrawSphere(GetCamerasPoint(camera.Point), cameraPointRadius, new vec4(0, 0, 1.0f, 0.8f));
                 }
                 break;
             case ITwinCamera.CameraType.CameraLine:
                 {
                     var camera = (CameraLine)mainCamera;
-                    primitiveRender.DrawSphere(camera.LineStart.ToGlm().xyz, 0.5f, new vec4(0, 0, 1.0f, 0.8f));
-                    primitiveRender.DrawSphere(camera.LineEnd.ToGlm().xyz, 0.5f, new vec4(0, 0, 1.0f, 0.8f));
+                    primitiveRender.DrawSphere(GetCamerasPoint(camera.LineStart), cameraPointRadius, new vec4(0, 0, 1.0f, 0.8f));
+                    primitiveRender.DrawSphere(GetCamerasPoint(camera.LineEnd), cameraPointRadius, new vec4(0, 0, 1.0f, 0.8f));
                 }
                 break;
             case ITwinCamera.CameraType.CameraPath:
@@ -70,7 +72,7 @@ public class Camera : EditableObject
                     var camera = (CameraPath)mainCamera;
                     foreach (var cameraPath in camera.PathPoints)
                     {
-                        primitiveRender.DrawSphere(cameraPath.ToGlm().xyz, 0.5f, new vec4(0, 0, 1.0f, 0.8f));
+                        primitiveRender.DrawSphere(GetCamerasPoint(cameraPath), cameraPointRadius, new vec4(0, 0, 1.0f, 0.8f));
                     }
                 }
                 break;
@@ -79,7 +81,7 @@ public class Camera : EditableObject
                     var camera = (CameraSpline)mainCamera;
                     foreach (var cameraPath in camera.PathPoints)
                     {
-                        primitiveRender.DrawSphere(cameraPath.ToGlm().xyz, 0.5f, new vec4(0, 0, 1.0f, 0.8f));
+                        primitiveRender.DrawSphere(GetCamerasPoint(cameraPath), cameraPointRadius, new vec4(0, 0, 1.0f, 0.8f));
                     }
                 }
                 break;
@@ -88,7 +90,7 @@ public class Camera : EditableObject
             case ITwinCamera.CameraType.CameraPoint2:
                 {
                     var camera = (CameraPoint2)mainCamera;
-                    primitiveRender.DrawSphere(camera.Point.ToGlm().xyz, 0.5f, new vec4(0, 0, 1.0f, 0.8f));
+                    primitiveRender.DrawSphere(GetCamerasPoint(camera.Point), cameraPointRadius, new vec4(0, 0, 1.0f, 0.8f));
                 }
                 break;
             case ITwinCamera.CameraType.CameraSub1C0C:
@@ -96,12 +98,21 @@ public class Camera : EditableObject
             case ITwinCamera.CameraType.CameraLine2:
                 {
                     var camera = (CameraLine2)mainCamera;
-                    primitiveRender.DrawSphere(camera.LineStart.ToGlm().xyz, 0.5f, new vec4(0, 0, 1.0f, 0.8f));
-                    primitiveRender.DrawSphere(camera.LineEnd.ToGlm().xyz, 0.5f, new vec4(0, 0, 1.0f, 0.8f));
+                    primitiveRender.DrawSphere(GetCamerasPoint(camera.LineStart), cameraPointRadius, new vec4(0, 0, 1.0f, 0.8f));
+                    primitiveRender.DrawSphere(GetCamerasPoint(camera.LineEnd), cameraPointRadius, new vec4(0, 0, 1.0f, 0.8f));
                 }
                 break;
             case ITwinCamera.CameraType.CameraZone:
                 break;
+        }
+
+        return;
+
+        static vec3 GetCamerasPoint(Vector4 twinVec)
+        {
+            var vec = twinVec.ToGlm();
+            // vec.x = -vec.x;
+            return vec.xyz;
         }
     }
 

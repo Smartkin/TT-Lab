@@ -13,6 +13,7 @@ namespace TT_Lab.AssetData.Graphics.SubModels
         public List<SubBlendFaceData> BlendFaces { get; set; } = [];
         public List<IndexedFace> Faces { get; set; } = [];
         public List<Vertex> Vertexes { get; set; } = [];
+        public bool FacesSquashedOnExport { get; } = false;
         public MeshProcessor.Mesh Mesh { get; set; }
 
         public SubBlendModelData(ITwinBlendSkinModel model)
@@ -53,11 +54,12 @@ namespace TT_Lab.AssetData.Graphics.SubModels
             MeshProcessor.MeshProcessor.ProcessMesh(Mesh);
         }
 
-        public SubBlendModelData(Vector3 blendShape, List<Vertex> vertexes, List<IndexedFace> faces, List<List<System.Numerics.Vector3>> morphTargets)
+        public SubBlendModelData(Vector3 blendShape, List<Vertex> vertexes, List<IndexedFace> faces, List<List<System.Numerics.Vector3>> morphTargets, bool facesSquashedOnExport = false)
         {
             BlendShape = blendShape;
             Vertexes = vertexes;
             Faces = faces;
+            FacesSquashedOnExport = facesSquashedOnExport;
 
             foreach (var morph in morphTargets)
             {

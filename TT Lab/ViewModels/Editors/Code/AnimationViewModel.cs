@@ -366,19 +366,15 @@ public class AnimationViewModel : ResourceEditorViewModel
         }
         
         var resultTranslation = MathExtension.Lerp(currentTranslation, nextTranslation, _frameDisplacement);
-        resultTranslation.x = -resultTranslation.x;
-        
         var quat1 = new quat(currentRotation);
         var quat2 = new quat(nextRotation);
         var lerpedQuat = GlmExtensions.SLerpSafe(quat1, quat2, _frameDisplacement);
-        lerpedQuat.x = -lerpedQuat.x;
-        lerpedQuat.w = -lerpedQuat.w;
 
         var resRotationQuat = lerpedQuat;
         if (useAddRot)
         {
             var additionalRotation = AssetManager.Get().GetAssetData<OGIData>(_selectedOgi).Joints[jointIndex].AdditionalAnimationRotation;
-            var addRotQuat = new quat(-additionalRotation.X, additionalRotation.Y, additionalRotation.Z, -additionalRotation.W);
+            var addRotQuat = new quat(additionalRotation.X, additionalRotation.Y, additionalRotation.Z, additionalRotation.W);
             resRotationQuat = addRotQuat * lerpedQuat;
         }
         

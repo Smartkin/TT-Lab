@@ -42,6 +42,8 @@ namespace TT_Lab
             using FileStream settings = File.Create(PrefFilePath);
             using BinaryWriter writer = new(settings);
             writer.Write(JsonConvert.SerializeObject(Settings, Formatting.Indented).ToCharArray());
+            writer.Flush();
+            settings.Flush(true);
         }
 
         public static void Load()
@@ -50,7 +52,14 @@ namespace TT_Lab
             {
                 using FileStream settings = new(PrefFilePath, FileMode.Open, FileAccess.Read);
                 using StreamReader reader = new(settings);
-                JsonConvert.PopulateObject(reader.ReadToEnd(), Settings);
+                try
+                {
+                    JsonConvert.PopulateObject(reader.ReadToEnd(), Settings);
+                }
+                catch (Exception)
+                {
+                    // ignored
+                }
             }
         }
 

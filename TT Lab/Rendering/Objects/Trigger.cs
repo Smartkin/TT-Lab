@@ -48,9 +48,9 @@ public class Trigger : EditableObject
 
     protected override void InitSceneTransform()
     {
-        Pos = new vec3(-_triggerData.Position.X, _triggerData.Position.Y, _triggerData.Position.Z);
+        Pos = new vec3(_triggerData.Position.X, _triggerData.Position.Y, _triggerData.Position.Z);
         var rotEuler = _triggerData.Rotation.ToEulerAngles();
-        Rot = new vec3(rotEuler.X, -rotEuler.Y, -rotEuler.Z);
+        Rot = new vec3(rotEuler.X, rotEuler.Y, rotEuler.Z);
         Size.x = -Size.x;
         Scl = Size;
     }

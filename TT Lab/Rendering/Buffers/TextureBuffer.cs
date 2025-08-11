@@ -73,7 +73,7 @@ public unsafe class TextureBuffer : IDisposable
             _renderContext.Gl.TexImage2D(GLEnum.Texture2D, 0, InternalFormat.Rgba8, (uint)size.x, (uint)size.y, 0,
                 GLEnum.Bgra, GLEnum.UnsignedByte, p);
         }
-
+        
         _renderContext.Gl.TexParameter(GLEnum.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
         _renderContext.Gl.TexParameter(GLEnum.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
         Unbind();

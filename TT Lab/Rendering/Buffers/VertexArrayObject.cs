@@ -10,14 +10,14 @@ public class VertexArrayObject<TVertexType, TIndexType> : IDisposable
     private uint _handle;
     private RenderContext _context;
 
-    public VertexArrayObject(RenderContext context, BufferObject<TVertexType> vbo, BufferObject<TIndexType> ebo)
+    public VertexArrayObject(RenderContext context, BufferObject<TVertexType>? vbo, BufferObject<TIndexType>? ebo)
     {
         _context = context;
 
         _handle = _context.Gl.GenVertexArray();
         Bind();
-        vbo.Bind();
-        ebo.Bind();
+        vbo?.Bind();
+        ebo?.Bind();
     }
 
     public unsafe void VertexAttributePointer(uint index, int count, VertexAttribPointerType type, uint vertexSize, int offSet)

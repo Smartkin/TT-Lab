@@ -108,6 +108,12 @@ public class RenderContext : IDisposable
             _programs.Add("DrawSphere", sphereProgram);
             WriteProgramUniforms(sphereProgram);
 
+            screenVertShader = new Shader(this, ShaderType.VertexShader, "ScreenRender.vert");
+            var screenFlipFragShader = new Shader(this, ShaderType.FragmentShader, "ScreenHorizontalFlip.frag");
+            var screenFlipProgram = new ShaderProgram(this, screenVertShader, screenFlipFragShader);
+            _programs.Add("ScreenFlipX", screenFlipProgram);
+            WriteProgramUniforms(screenFlipProgram);
+
             _primitiveRenderer = new PrimitiveRenderer(this);
             
             _renderWatch.Start();

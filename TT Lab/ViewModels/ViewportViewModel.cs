@@ -65,8 +65,8 @@ public class ViewportViewModel(RenderContext renderContext) : Screen
         NotifyOfPropertyChange(nameof(CanRender));
         NotifyOfPropertyChange(nameof(SceneStatus));
         
-        _viewportSize.x = (int)newSize.NewSize.Width;
-        _viewportSize.y = (int)newSize.NewSize.Height;
+        _viewportSize.x = Math.Max((int)newSize.NewSize.Width, 1);
+        _viewportSize.y = Math.Max((int)newSize.NewSize.Height, 1);
         Application.Current.Dispatcher.BeginInvoke(() =>
         {
             _renderer?.SetFrameBufferSize(_viewportSize);
@@ -228,11 +228,11 @@ public class ViewportViewModel(RenderContext renderContext) : Screen
         }
         if (_keyboard.IsKeyPressed(Key.A))
         {
-            _scene.Camera.Translate(camLeft * camSpeed * (float)delta);
+            _scene.Camera.Translate(camLeft * -camSpeed * (float)delta);
         }
         if (_keyboard.IsKeyPressed(Key.D))
         {
-            _scene.Camera.Translate(camLeft * -camSpeed * (float)delta);
+            _scene.Camera.Translate(camLeft * camSpeed * (float)delta);
         }
     }
 
@@ -264,7 +264,7 @@ public class ViewportViewModel(RenderContext renderContext) : Screen
             var camera = _scene!.Camera;
             var camPosition = camera.GetPosition();
             camera.SetPosition(vec3.Zero);
-            camera.Rotate(new vec3(0, glm.Radians(delta.x), 0));
+            camera.Rotate(new vec3(0, glm.Radians(-delta.x), 0));
             var left = camera.GetLeft() * 0.05f;
             camera.Rotate(left * delta.y);
             camera.SetPosition(camPosition);

@@ -57,7 +57,7 @@ namespace TT_Lab.AssetData.Code
             var scene = new SharpGLTF.Scenes.SceneBuilder("TwinsanitySkeleton");
             var root = new SharpGLTF.Scenes.NodeBuilder("model_root");
             scene.AddNode(root);
-            
+
             var nodeMap = new Dictionary<int, (SharpGLTF.Scenes.NodeBuilder, System.Numerics.Matrix4x4)>();
             var rootJoint = new SharpGLTF.Scenes.NodeBuilder();
             nodeMap.Add(Joints[0].Index, (rootJoint, System.Numerics.Matrix4x4.Identity));
@@ -66,12 +66,14 @@ namespace TT_Lab.AssetData.Code
             {
                 var parentJoint = nodeMap[joint.ParentIndex].Item1;
                 var jointNode = new SharpGLTF.Scenes.NodeBuilder();
-                jointNode.WithLocalTranslation(new System.Numerics.Vector3(-joint.LocalTranslation.X, joint.LocalTranslation.Y, joint.LocalTranslation.Z))
-                    .WithLocalRotation(new System.Numerics.Quaternion(-joint.LocalRotation.X, joint.LocalRotation.Y, joint.LocalRotation.Z, -joint.LocalRotation.W));
+                jointNode.WithLocalTranslation(new System.Numerics.Vector3(joint.LocalTranslation.X,
+                        joint.LocalTranslation.Y, joint.LocalTranslation.Z))
+                    .WithLocalRotation(new System.Numerics.Quaternion(joint.LocalRotation.X, joint.LocalRotation.Y,
+                        joint.LocalRotation.Z, joint.LocalRotation.W));
                 parentJoint.AddNode(jointNode);
                 nodeMap.Add(joint.Index, (jointNode, jointNode.GetInverseBindMatrix()));
             }
-            
+
             var nodeList = nodeMap.Values.ToList();
 
             if (Skin != LabURI.Empty)
@@ -84,13 +86,30 @@ namespace TT_Lab.AssetData.Code
                 }
             }
 
+            List<MorphAnimationSample>? morphAnimations = null;
+            if (animation != null && animation.FacialAnimation.JointSettings.Count > 0)
+            {
+                morphAnimations = animation.GetAnimationKeyframesForMorphAnimation();
+            }
+
             if (BlendSkin != LabURI.Empty)
             {
                 var blendSkinData = AssetManager.Get().GetAssetData<BlendSkinData>(BlendSkin);
                 var meshes = blendSkinData.GetMeshes(root, nodeList);
                 foreach (var mesh in meshes)
                 {
-                    scene.AddSkinnedMesh(mesh.Mesh, mesh.Joints.ToArray());
+                    var inst = scene.AddSkinnedMesh(mesh.Mesh, mesh.Joints.ToArray());
+                    if (mesh.FacesSquashedOnExport || morphAnimations == null)
+                    {
+                        continue;
+                    }
+                    
+                    inst.Content.UseMorphing().SetValue(new float[blendSkinData.BlendsAmount]);
+                    var morphAnim = inst.Content.UseMorphing("EXPORTED_ANIMATION");
+                    for (var i = 0; i < morphAnimations.Count; i++)
+                    {
+                        morphAnim.SetPoint(morphAnimations[i].Time, true, morphAnimations[i].Weights);
+                    }
                 }
             }
 

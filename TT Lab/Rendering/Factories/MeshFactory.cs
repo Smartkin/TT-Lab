@@ -86,7 +86,7 @@ public class MeshFactory
         material.Shaders[0].ShaderType = TwinShader.Type.UnlitGlossy;
         List<ModelBuffer> buffers = [new(_renderContext,
             _meshBuilder.BuildRigidVaoFromVertexes(
-                collisionData.Vectors.Select(v => new Vertex(new Vector4(-v.X, v.Y, v.Z, v.W))).ToList(),
+                collisionData.Vectors.Select(v => new Vertex(new Vector4(v.X, v.Y, v.Z, v.W))).ToList(),
                 collisionData.Triangles.Select(t => t.Face).ToList(),
                 i => CollisionSurface.DefaultColors[collisionData.Triangles[i].SurfaceIndex].GetVector()),
             _materialFactory, material)];
@@ -150,7 +150,7 @@ public class MeshFactory
                 }
                 if (blendShape == vec3.Ones)
                 {
-                    blendShape = new vec3(-blendModel.BlendShape.X,  blendModel.BlendShape.Y, blendModel.BlendShape.Z);
+                    blendShape = new vec3(blendModel.BlendShape.X,  blendModel.BlendShape.Y, blendModel.BlendShape.Z);
                 }
 
                 if (facesAmount == 0)

@@ -26,16 +26,14 @@ namespace TT_Lab.AssetData.Graphics
     using VERTEX = SharpGLTF.Geometry.VertexTypes.VertexPosition;
     using VERTEX_BUILDER = SharpGLTF.Geometry.VertexBuilder<SharpGLTF.Geometry.VertexTypes.VertexPosition, SharpGLTF.Geometry.VertexTypes.VertexColor2Texture2, SharpGLTF.Geometry.VertexTypes.VertexJoints4>;
     
-    public struct GltfGeometryWrapper
+    public struct GltfGeometryWrapper(
+        SharpGLTF.Geometry.IMeshBuilder<SharpGLTF.Materials.MaterialBuilder> mesh,
+        List<(SharpGLTF.Scenes.NodeBuilder, System.Numerics.Matrix4x4)> joints,
+        bool facesSquashedOnExport = false)
     {
-        public SharpGLTF.Geometry.IMeshBuilder<SharpGLTF.Materials.MaterialBuilder> Mesh;
-        public List<(SharpGLTF.Scenes.NodeBuilder, System.Numerics.Matrix4x4)> Joints;
-
-        public GltfGeometryWrapper(SharpGLTF.Geometry.IMeshBuilder<SharpGLTF.Materials.MaterialBuilder> mesh, List<(SharpGLTF.Scenes.NodeBuilder, System.Numerics.Matrix4x4)> joints)
-        {
-            Mesh = mesh;
-            Joints = joints;
-        }
+        public readonly SharpGLTF.Geometry.IMeshBuilder<SharpGLTF.Materials.MaterialBuilder> Mesh = mesh;
+        public readonly List<(SharpGLTF.Scenes.NodeBuilder, System.Numerics.Matrix4x4)> Joints = joints;
+        public readonly bool FacesSquashedOnExport = facesSquashedOnExport;
     }
     
     [ReferencesAssets]
@@ -59,7 +57,7 @@ namespace TT_Lab.AssetData.Graphics
 
             static VERTEX_BUILDER generateVertexFromTwinVertex(Vertex vertex)
             {
-                return new VERTEX_BUILDER(new VERTEX(-vertex.Position.X, vertex.Position.Y, vertex.Position.Z),
+                return new VERTEX_BUILDER(new VERTEX(vertex.Position.X, vertex.Position.Y, vertex.Position.Z),
                         new COLOR_UV(
                             new System.Numerics.Vector4(vertex.Color.X, vertex.Color.Y, vertex.Color.Z, vertex.Color.W),
                             new System.Numerics.Vector4(vertex.Position.W, vertex.Position.W, vertex.Position.W, 1.0f),

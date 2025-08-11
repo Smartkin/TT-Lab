@@ -666,12 +666,12 @@ namespace TT_Lab.ViewModels.Editors
                     var linkedSceneryRender = new Scenery(_renderContext, _meshService, linkedScenery);
                     linkedSceneryNode.AddChild(linkedSceneryRender);
                     var chunkMatrix = link.ChunkMatrix.ToGlm();
-                    var position = chunkMatrix.Column3.xyz;
-                    position.x = -position.x;
-                    var rotation = quat.FromMat4(chunkMatrix);
-                    rotation.x = -rotation.x;
-                    rotation.w = -rotation.w;
-                    linkedSceneryNode.LocalTransform = mat4.Translate(position) * glm.ToMat4(rotation);
+                    // var position = chunkMatrix.Column3.xyz;
+                    // position.x = -position.x;
+                    // var rotation = quat.FromMat4(chunkMatrix);
+                    // rotation.x = -rotation.x;
+                    // rotation.w = -rotation.w;
+                    linkedSceneryNode.LocalTransform = chunkMatrix; //mat4.Translate(position) * glm.ToMat4(rotation);
                 }
                 // var triggers = _chunkTree.First(avm => avm.Alias == "Triggers");
                 // var triggersNode = sceneManager.getRootSceneNode().createChildSceneNode();

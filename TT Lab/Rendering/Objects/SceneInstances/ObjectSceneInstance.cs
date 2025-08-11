@@ -19,8 +19,8 @@ public sealed class ObjectSceneInstance : SceneInstance
     {
         _skeletonManager = skeletonManager;
         _meshService = meshService;
-        Position = new vec3(-instanceData.Position.X, instanceData.Position.Y, instanceData.Position.Z);
-        Rotation = new vec3(instanceData.RotationX.GetRotation(), -instanceData.RotationY.GetRotation(), -instanceData.RotationZ.GetRotation());
+        Position = new vec3(instanceData.Position.X, instanceData.Position.Y, instanceData.Position.Z);
+        Rotation = new vec3(instanceData.RotationX.GetRotation(), instanceData.RotationY.GetRotation(), instanceData.RotationZ.GetRotation());
         
         var assetManager = AssetManager.Get();
         var objData = assetManager.GetAssetData<GameObjectData>(instanceData.ObjectId);

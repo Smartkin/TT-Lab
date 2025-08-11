@@ -72,7 +72,7 @@ namespace TT_Lab.AssetData.Graphics
             static VERTEX_BUILDER_VNCEU generateVertexFromTwinVertexVNCEU(Vertex vertex)
             {
                 return new VERTEX_BUILDER_VNCEU(new VERTEX_NORMAL(
-                        -vertex.Position.X, vertex.Position.Y, vertex.Position.Z,
+                        vertex.Position.X, vertex.Position.Y, vertex.Position.Z,
                         vertex.Normal.X, vertex.Normal.Y, vertex.Normal.Z),
                         new COLOR_EMIT_UV(
                             new System.Numerics.Vector4(vertex.Color.X, vertex.Color.Y, vertex.Color.Z, vertex.Color.W),
@@ -85,7 +85,7 @@ namespace TT_Lab.AssetData.Graphics
             static VERTEX_BUILDER_VNCU generateVertexFromTwinVertexVNCU(Vertex vertex)
             {
                 return new VERTEX_BUILDER_VNCU(new VERTEX_NORMAL(
-                        -vertex.Position.X, vertex.Position.Y, vertex.Position.Z,
+                        vertex.Position.X, vertex.Position.Y, vertex.Position.Z,
                         vertex.Normal.X, vertex.Normal.Y, vertex.Normal.Z),
                         new COLOR_UV(
                             new System.Numerics.Vector4(vertex.Color.X, vertex.Color.Y, vertex.Color.Z, vertex.Color.W),
@@ -97,7 +97,7 @@ namespace TT_Lab.AssetData.Graphics
             static VERTEX_BUILDER_VCEU generateVertexFromTwinVertexVCEU(Vertex vertex)
             {
                 return new VERTEX_BUILDER_VCEU(new VERTEX(
-                        -vertex.Position.X, vertex.Position.Y, vertex.Position.Z),
+                        vertex.Position.X, vertex.Position.Y, vertex.Position.Z),
                         new COLOR_EMIT_UV(
                             new System.Numerics.Vector4(vertex.Color.X, vertex.Color.Y, vertex.Color.Z, vertex.Color.W),
                             new System.Numerics.Vector4(vertex.EmitColor.X, vertex.EmitColor.Y, vertex.EmitColor.Z, vertex.EmitColor.W),
@@ -109,7 +109,7 @@ namespace TT_Lab.AssetData.Graphics
             static VERTEX_BUILDER_VCU generateVertexFromTwinVertexVCU(Vertex vertex)
             {
                 return new VERTEX_BUILDER_VCU(new VERTEX(
-                        -vertex.Position.X, vertex.Position.Y, vertex.Position.Z),
+                        vertex.Position.X, vertex.Position.Y, vertex.Position.Z),
                         new COLOR_UV(
                             new System.Numerics.Vector4(vertex.Color.X, vertex.Color.Y, vertex.Color.Z, vertex.Color.W),
                             new System.Numerics.Vector2(vertex.UV.X, vertex.UV.Y),

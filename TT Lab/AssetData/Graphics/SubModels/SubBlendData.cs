@@ -92,7 +92,7 @@ namespace TT_Lab.AssetData.Graphics.SubModels
                             zeros[^1].Add(System.Numerics.Vector3.Zero);
                         }
                     }
-                    Models.Add(new SubBlendModelData(blendShape, allVertexes, allIndices, zeros));
+                    Models.Add(new SubBlendModelData(blendShape, allVertexes, allIndices, zeros, true));
                     continue;
                 }
 

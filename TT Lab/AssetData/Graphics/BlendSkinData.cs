@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Caliburn.Micro;
+using SharpGLTF.Geometry.VertexTypes;
 using TT_Lab.AssetData.Graphics.SubModels;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
@@ -47,7 +48,7 @@ namespace TT_Lab.AssetData.Graphics
             
             static VERTEX_BUILDER generateVertexFromTwinVertex(Vertex vertex)
             {
-                return new VERTEX_BUILDER(new VERTEX(-vertex.Position.X, vertex.Position.Y, vertex.Position.Z),
+                return new VERTEX_BUILDER(new VERTEX(vertex.Position.X, vertex.Position.Y, vertex.Position.Z),
                         new COLOR_UV(
                             vertex.Color.ToSystem(),
                             new System.Numerics.Vector4(vertex.Position.W, vertex.Position.W, vertex.Position.W, 1.0f),
@@ -84,7 +85,7 @@ namespace TT_Lab.AssetData.Graphics
             }
 
             // Create all the joint nodes
-            var subSkinNodes = jointTree ?? new List<(SharpGLTF.Scenes.NodeBuilder, System.Numerics.Matrix4x4)>();
+            var subSkinNodes = jointTree ?? [];
             if (jointTree == null)
             {
                 for (var i = 0; i < jointsAmount + 1; ++i)
@@ -123,7 +124,7 @@ namespace TT_Lab.AssetData.Graphics
                 {
                     var mesh = new MeshBuilder<VERTEX, COLOR_UV, JOINT_WEIGHT>($"blend_subskin_{index++}");
                     mesh.Extras = System.Text.Json.Nodes.JsonNode.Parse(System.Text.Json.JsonSerializer.Serialize(blendModel.BlendShape));
-
+                    
                     foreach (var face in blendModel.Faces)
                     {
                         var ver1 = blendModel.Vertexes[face.Indexes![0]];
@@ -138,7 +139,7 @@ namespace TT_Lab.AssetData.Graphics
                         var idx = -1;
                         foreach (var ver in blendModel.Vertexes)
                         {
-                            if (new VERTEX(-ver.Position.X, ver.Position.Y, ver.Position.Z) == vertex.Position)
+                            if (new VERTEX(ver.Position.X, ver.Position.Y, ver.Position.Z) == vertex.Position)
                             {
                                 return idx + 1;
                             }
@@ -164,7 +165,7 @@ namespace TT_Lab.AssetData.Graphics
                         }
                     }
 
-                    meshes.Add(new GltfGeometryWrapper(mesh, subSkinNodes));
+                    meshes.Add(new GltfGeometryWrapper(mesh, subSkinNodes, blendModel.FacesSquashedOnExport));
                 }
             }
 

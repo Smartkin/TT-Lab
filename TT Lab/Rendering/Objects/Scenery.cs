@@ -22,7 +22,6 @@ public class Scenery : Renderable
     {
         _context = context;
         _meshService = meshService;
-        SetLocalTransform(mat4.Scale(-1, 1, 1));
         BuildSceneryRenderTree(sceneryData);
     }
 
@@ -91,7 +90,6 @@ public class Scenery : Renderable
     private void SetupMeshNode(Twinsanity.TwinsanityInterchange.Common.Matrix4 twinMat, Renderable meshNode)
     {
         var transformMat = twinMat.ToGlm();
-        var scale = mat4.Scale(-1, 1, 1);
-        meshNode.SetLocalTransform(transformMat * scale);
+        meshNode.SetLocalTransform(transformMat);
     }
 }
