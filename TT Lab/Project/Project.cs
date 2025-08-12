@@ -831,7 +831,7 @@ namespace TT_Lab.Project
                     if (code != null)
                     {
                         ReadSectionItems<GameObject, PS2AnyGameObjectsSection, PS2AnyObject>
-                            (assets, code, chunkPath, codeCheck, Constants.CODE_GAME_OBJECTS_SECTION, gameObjectsFolder);
+                            (assets, code, chunkPath, codeCheck, Constants.CODE_GAME_OBJECTS_SECTION, gameObjectsFolder, starterMap);
                         ReadSectionItems<Animation, PS2AnyAnimationsSection, PS2AnyAnimation>
                             (assets, code, chunkPath, codeCheck, Constants.CODE_ANIMATIONS_SECTION, animationsFolder);
                         ReadSectionItems<OGI, PS2AnyOGIsSection, PS2AnyOGI>
@@ -1406,7 +1406,7 @@ namespace TT_Lab.Project
         /// <param name="fromSection">Which section to read from</param>
         /// <param name="globalCheck">Dictionary of global resources to check against</param>
         /// <param name="secId">Subsection ID where game asset is stored at</param>
-        private void ReadSectionItems<T, S, I>(Dictionary<LabURI, IAsset> assets, ITwinSection fromSection, String chunkName, Dictionary<uint, Dictionary<String, uint>> globalCheck, uint secId, Folder folder)
+        private void ReadSectionItems<T, S, I>(Dictionary<LabURI, IAsset> assets, ITwinSection fromSection, String chunkName, Dictionary<uint, Dictionary<String, uint>> globalCheck, uint secId, Folder folder, Dictionary<string, TwinBehaviourStarter>? starterMap = null)
             where T : IAsset where S : ITwinSection where I : ITwinItem
         {
             var items = fromSection.GetItem<S>(secId);
@@ -1438,7 +1438,22 @@ namespace TT_Lab.Project
                     // TODO: Add dupes addition
                 }
                 var package = isDefault ? GlobalPackagePS2 : Ps2Package;
-                var metaAsset = (T?)Activator.CreateInstance(typeof(T), package.URI, needVariant, chunkName, asset.GetID(), asset.GetName(), asset) ?? throw new ProjectException($"Could not read asset {asset.GetName()} with ID {asset.GetID()}");
+                T? metaAsset = default(T);
+                if (starterMap != null)
+                {
+                    metaAsset =
+                        (T?)Activator.CreateInstance(typeof(T), package.URI, needVariant, chunkName, asset.GetID(),
+                            asset.GetName(), asset, starterMap) ??
+                        throw new ProjectException($"Could not read asset {asset.GetName()} with ID {asset.GetID()}");
+                }
+                else
+                {
+                    metaAsset =
+                        (T?)Activator.CreateInstance(typeof(T), package.URI, needVariant, chunkName, asset.GetID(),
+                            asset.GetName(), asset) ??
+                        throw new ProjectException($"Could not read asset {asset.GetName()} with ID {asset.GetID()}");
+                }
+
                 folder.AddChild(metaAsset);
                 assets.Add(metaAsset.URI, metaAsset);
             }

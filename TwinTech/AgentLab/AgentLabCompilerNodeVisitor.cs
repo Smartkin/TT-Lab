@@ -39,6 +39,7 @@ internal class AgentLabCompilerNodeVisitor : NodeVisitor
         Visitors.Add(typeof(ConstDeclarationNode), VisitConstDeclarationNode);
         Visitors.Add(typeof(ConstNode), VisitConstNode);
         Visitors.Add(typeof(NumberNode), VisitNumberNode);
+        Visitors.Add(typeof(BooleanNode), VisitBooleanNode);
         Visitors.Add(typeof(StringNode), VisitStringNode);
         Visitors.Add(typeof(BehaviourNode), VisitBehaviourNode);
         Visitors.Add(typeof(BehaviourBodyNode), VisitBehaviourBodyNode);
@@ -68,6 +69,12 @@ internal class AgentLabCompilerNodeVisitor : NodeVisitor
         Visitors.Add(typeof(GlobalIndexAttributeNode), VisitGlobalIndexAttributeNode);
         Visitors.Add(typeof(InstanceTypeAttributeNode), VisitInstanceTypeAttributeNode);
         Visitors.Add(typeof(LinearBehaviourNode), VisitLinearBehaviourNode);
+    }
+
+    private Object VisitBooleanNode(IAgentLabTreeNode node)
+    {
+        var boolean = (BooleanNode)node;
+        return boolean.Value;
     }
 
     private Object VisitStateExecuteNode(IAgentLabTreeNode node)

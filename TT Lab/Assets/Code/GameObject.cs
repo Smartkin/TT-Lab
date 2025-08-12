@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Collections.Generic;
 using TT_Lab.AssetData;
 using TT_Lab.AssetData.Code;
 using TT_Lab.ViewModels.Editors.Code;
+using Twinsanity.TwinsanityInterchange.Common.AgentLab;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code;
 
@@ -14,9 +16,9 @@ namespace TT_Lab.Assets.Code
 
         public GameObject() { }
 
-        public GameObject(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinObject @object) : base(id, name, package, needVariant, variant)
+        public GameObject(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinObject @object, Dictionary<string, TwinBehaviourStarter> starterMap) : base(id, name, package, needVariant, variant)
         {
-            assetData = new GameObjectData(@object);
+            assetData = new GameObjectData(@object, starterMap);
         }
 
         public override Type GetEditorType()

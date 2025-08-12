@@ -49,8 +49,9 @@ namespace TT_Lab.AssetData.Code
             BehaviourPack = string.Empty;
         }
 
-        public GameObjectData(ITwinObject gameObject)
+        public GameObjectData(ITwinObject gameObject, Dictionary<string, TwinBehaviourStarter> starterMap)
         {
+            _starterMap = starterMap;
             SetTwinItem(gameObject);
         }
 
@@ -123,6 +124,7 @@ namespace TT_Lab.AssetData.Code
             RefSounds.Clear();
         }
 
+        private Dictionary<string, TwinBehaviourStarter> _starterMap;
         public override void Import(LabURI package, String? variant, Int32? layoutId)
         {
             var assetManager = AssetManager.Get();
@@ -135,7 +137,7 @@ namespace TT_Lab.AssetData.Code
             TriggerBehaviours = new List<ObjectTriggerBehaviourData>();
             foreach (var e in gameObject.TriggerBehaviours)
             {
-                TriggerBehaviours.Add(new ObjectTriggerBehaviourData(package, variant, e));
+                TriggerBehaviours.Add(new ObjectTriggerBehaviourData(package, variant, e, _starterMap));
             }
             OGISlots = new List<LabURI>();
             foreach (var e in gameObject.OGISlots)
@@ -311,7 +313,7 @@ namespace TT_Lab.AssetData.Code
             writer.Write(TriggerBehaviours.Count);
             foreach (var triggerBehaviour in TriggerBehaviours)
             {
-                writer.Write((UInt16)assetManager.GetAsset(triggerBehaviour.TriggerBehaviour).ID);
+                writer.Write((UInt16)(assetManager.GetAsset(triggerBehaviour.TriggerBehaviour).ID - 1));
                 writer.Write(triggerBehaviour.MessageID);
                 writer.Write(triggerBehaviour.BehaviourCallerIndex);
             }

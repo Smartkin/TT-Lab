@@ -44,20 +44,20 @@
     <TreatWarningsAsErrors>False</TreatWarningsAsErrors>
   </PropertyGroup>
 
-<!--  <PropertyGroup>-->
-<!--    <BuildDependsOn>-->
-<!--      $(BuildDependsOn);CopyOgreLibs-->
-<!--    </BuildDependsOn>-->
-<!--  </PropertyGroup>-->
+  <PropertyGroup>
+    <BuildDependsOn>
+      $(BuildDependsOn);CopyOgreLibs
+    </BuildDependsOn>
+  </PropertyGroup>
 
-<!--  <Target Name="CopyOgreLibs" AfterTargets="AfterBuild">-->
-<!--    <ItemGroup>-->
-<!--      <OgreLibraries Include="$(MSBuildProjectDirectory)\Libraries\Native\Windows\*.dll"/>-->
-<!--    </ItemGroup>-->
-<!--    -->
-<!--    <Message Text="Copying Ogre libraries from $(MSBuildProjectDirectory)\Libraries\Native\Windows into resulting executable..." Importance="high" />-->
-<!--    <Copy SourceFiles="@(OgreLibraries)" DestinationFolder="$(MSBuildProjectDirectory)\$(OutputPath)" />-->
-<!--  </Target>-->
+  <Target Name="CopyOgreLibs" AfterTargets="AfterBuild">
+    <ItemGroup>
+      <OgreLibraries Include="$(MSBuildProjectDirectory)\Libraries\Native\Windows\PS2ImageMaker.dll"/>
+    </ItemGroup>
+    
+    <Message Text="Copying PS2 Image Maker library from $(MSBuildProjectDirectory)\Libraries\Native\Windows into resulting executable..." Importance="high" />
+    <Copy SourceFiles="@(OgreLibraries)" DestinationFolder="$(MSBuildProjectDirectory)\$(OutputPath)" />
+  </Target>
 
   <ItemGroup>
     <None Remove="Images\God_Messenger.png"/>

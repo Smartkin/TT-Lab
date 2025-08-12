@@ -169,10 +169,7 @@ public class DynamicSceneryMesh : Renderable
         var currentRotQuat = new quat(currentRotation.xyz);
         var nextRotQuat = new quat(nextRotation.xyz);
         var resultRotation = GlmExtensions.SLerpSafe(currentRotQuat, nextRotQuat, _frameDisplacement);
-        resultRotation.x = -resultRotation.x;
-        resultRotation.w = -resultRotation.w;
         var resultTranslation = MathExtension.Lerp(currentTranslation, nextTranslation, _frameDisplacement);
-        resultTranslation.x = -resultTranslation.x;
         
         return (resultTranslation, resultRotation);
     }
