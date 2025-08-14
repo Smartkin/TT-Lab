@@ -10,9 +10,9 @@ public sealed class TriggerSceneInstance : SceneInstance
 {
     public TriggerSceneInstance(EditingContext editingContext, TriggerData data, ResourceTreeElementViewModel attachedViewModel) : base(editingContext, data, attachedViewModel)
     {
-        Position = new vec3(-data.Position.X, data.Position.Y, data.Position.Z);
+        Position = new vec3(data.Position.X, data.Position.Y, data.Position.Z);
         var rotEuler = data.Rotation.ToEulerAngles();
-        Rotation = new vec3(rotEuler.X, -rotEuler.Y, -rotEuler.Z);
+        Rotation = new vec3(rotEuler.X, rotEuler.Y, rotEuler.Z);
         Size = new vec3(data.Scale.X, data.Scale.Y, data.Scale.Z);
         Offset = -Size;
         SupportedTransforms |= SupportedTransforms.Scale;

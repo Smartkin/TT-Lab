@@ -2848,13 +2848,7 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <None Remove="Media\Shaders\DrawSphere.frag" />
-    <Content Include="Media\Shaders\DrawSphere.frag">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <None Remove="Media\Shaders\DrawBox.frag" />
-    <Content Include="Media\Shaders\DrawBox.frag">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <None Remove="Media\Shaders\ScreenHorizontalFlip.frag" />
     <Content Include="Media\Shaders\ScreenHorizontalFlip.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>

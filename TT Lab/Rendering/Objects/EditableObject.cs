@@ -54,7 +54,7 @@ namespace TT_Lab.Rendering.Objects
 
         protected virtual void UpdateSceneTransform()
         {
-            LocalTransform = mat4.Identity;
+            LocalTransform = mat4.Identity; //mat4.Translate(Pos) * mat4.RotateZ(glm.Radians(Rot.z)) * mat4.RotateY(glm.Radians(Rot.y)) * mat4.RotateX(glm.Radians(Rot.x)) * mat4.Scale(Scl);
             Scale(Scl);
             Rotate(new vec3(glm.Radians(Rot.x), glm.Radians(Rot.y), glm.Radians(Rot.z)));
             SetPosition(Pos);

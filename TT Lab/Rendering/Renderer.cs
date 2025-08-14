@@ -110,9 +110,11 @@ public class Renderer : IView
         {
             return;
         }
-        
+
+        var idx = 0;
         foreach (var renderBatch in _batchStorage.GetRenderBatches())
         {
+            idx++;
             _passService.RegisterRenderableInPasses(renderBatch, renderBatch.GetPriorityPasses());
         }
     }

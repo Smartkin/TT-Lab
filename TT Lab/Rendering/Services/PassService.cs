@@ -88,9 +88,6 @@ public class PassService
             RenderPass renderPassTransparent = new GenericPass(context, passName + "Transparent", context.GetProgram("Generic"), passType);
             RegisterPass(passType + "Transparent", renderPassTransparent, passPriorityTransparent);
         }
-
-        var primitivePass = new PrimitivePass(context, "PRIMITIVE_PASS", context.GetProgram("DrawSphere"), TwinShader.Type.SHADER_32);
-        RegisterPass(primitivePass.Name, primitivePass, PassPriority.Primitive);
     }
 
     public void RegisterRenderableInPasses(Renderable renderable, (string, int)[] passPriorities)

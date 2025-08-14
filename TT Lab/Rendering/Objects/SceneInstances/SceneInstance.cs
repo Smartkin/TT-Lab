@@ -80,12 +80,12 @@ namespace TT_Lab.Rendering.Objects.SceneInstances
 
             _editedDirectly = true;
             var editor = (ViewportEditableInstanceViewModel)EditingContext.GetCurrentEditor()!;
-            editor.Position.X = -position.x;
+            editor.Position.X = position.x;
             editor.Position.Y = position.y;
             editor.Position.Z = position.z;
             editor.Rotation.X = rotation.x;
-            editor.Rotation.Y = -rotation.y;
-            editor.Rotation.Z = -rotation.z;
+            editor.Rotation.Y = rotation.y;
+            editor.Rotation.Z = rotation.z;
             if (scale != vec3.Zero)
             {
                 editor.Scale.X = scale.x;
@@ -94,7 +94,7 @@ namespace TT_Lab.Rendering.Objects.SceneInstances
                 AttachedEditableObject.Scale(scale);
             }
             _editedDirectly = false;
-            AttachedEditableObject.Rotate(rotation);
+            AttachedEditableObject.Rotate(rotation, true);
             AttachedEditableObject.SetPosition(position);
         }
 
@@ -124,7 +124,7 @@ namespace TT_Lab.Rendering.Objects.SceneInstances
             }
             
             var viewModel = (Vector3ViewModel)sender!;
-            AttachedEditableObject.Rotate(new vec3(viewModel.X, -viewModel.Y, -viewModel.Z));
+            AttachedEditableObject.Rotate(new vec3(viewModel.X, viewModel.Y, viewModel.Z));
         }
 
         private void PositionOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -135,7 +135,7 @@ namespace TT_Lab.Rendering.Objects.SceneInstances
             }
 
             var viewModel = (Vector4ViewModel)sender!;
-            AttachedEditableObject.SetPosition(new vec3(-viewModel.X, viewModel.Y, viewModel.Z));
+            AttachedEditableObject.SetPosition(new vec3(viewModel.X, viewModel.Y, viewModel.Z));
         }
 
         public virtual void UnlinkChangesToViewModel(ViewportEditableInstanceViewModel viewModel)

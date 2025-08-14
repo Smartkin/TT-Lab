@@ -28,6 +28,7 @@ public class MeshFactory
     private readonly MeshBuilder _meshBuilder;
     private readonly MaterialFactory _materialFactory;
     private readonly Dictionary<Type, Func<object, Mesh>> _constructors = [];
+    private readonly Dictionary<LabURI, Func<Mesh>> _builtInConstructors = [];
 
     public MeshFactory(RenderContext renderContext, MeshBuilder meshBuilder, MaterialFactory materialFactory)
     {
@@ -41,6 +42,10 @@ public class MeshFactory
         _constructors.Add(typeof(Skin), obj => CreateSkinnedMesh((SkinData)obj));
         _constructors.Add(typeof(BlendSkin), obj => CreateBlendSkinnedMesh((BlendSkinData)obj));
         _constructors.Add(typeof(Collision), obj => CreateCollisionMesh((CollisionData)obj));
+        
+        _builtInConstructors.Add(LabURI.Plane, CreatePlane);
+        _builtInConstructors.Add(LabURI.Box, CreateCube);
+        _builtInConstructors.Add(LabURI.Circle, CreateCircle);
     }
     
     public Mesh? CreateMesh(LabURI uri)
@@ -49,6 +54,11 @@ public class MeshFactory
         {
             return null;
         }
+
+        if (uri.IsBuiltIn())
+        {
+            return _builtInConstructors.TryGetValue(uri, out var primitiveConstructor) ? primitiveConstructor() : null;
+        }
         
         var assetManager = AssetManager.Get();
         var asset = assetManager.GetAsset(uri);
@@ -56,12 +66,150 @@ public class MeshFactory
         return _constructors[asset.GetType()](asset.GetData<AbstractAssetData>());
     }
 
+    private Mesh CreateCube()
+    {
+        float[] cubeVertecies = {
+            -1.0f,-1.0f,-1.0f,
+            -1.0f,-1.0f, 1.0f,
+            -1.0f, 1.0f, 1.0f,
+            1.0f, 1.0f,-1.0f,
+            -1.0f,-1.0f,-1.0f,
+            -1.0f, 1.0f,-1.0f,
+            1.0f,-1.0f, 1.0f,
+            -1.0f,-1.0f,-1.0f,
+            1.0f,-1.0f,-1.0f,
+            1.0f, 1.0f,-1.0f,
+            1.0f,-1.0f,-1.0f,
+            -1.0f,-1.0f,-1.0f,
+            -1.0f,-1.0f,-1.0f,
+            -1.0f, 1.0f, 1.0f,
+            -1.0f, 1.0f,-1.0f,
+            1.0f,-1.0f, 1.0f,
+            -1.0f,-1.0f, 1.0f,
+            -1.0f,-1.0f,-1.0f,
+            -1.0f, 1.0f, 1.0f,
+            -1.0f,-1.0f, 1.0f,
+            1.0f,-1.0f, 1.0f,
+            1.0f, 1.0f, 1.0f,
+            1.0f,-1.0f,-1.0f,
+            1.0f, 1.0f,-1.0f,
+            1.0f,-1.0f,-1.0f,
+            1.0f, 1.0f, 1.0f,
+            1.0f,-1.0f, 1.0f,
+            1.0f, 1.0f, 1.0f,
+            1.0f, 1.0f,-1.0f,
+            -1.0f, 1.0f,-1.0f,
+            1.0f, 1.0f, 1.0f,
+            -1.0f, 1.0f,-1.0f,
+            -1.0f, 1.0f, 1.0f,
+            1.0f, 1.0f, 1.0f,
+            -1.0f, 1.0f, 1.0f,
+            1.0f,-1.0f, 1.0f
+        };
+        // cubeVertecies = cubeVertecies.Select(v => v * 100.0f).ToArray();
+        var vectors = new List<vec3>();
+        var faces = new List<IndexedFace>();
+        for (var i = 0; i < cubeVertecies.Length; i += 3)
+        {
+            vectors.Add(new vec3(cubeVertecies[i], cubeVertecies[i + 1], cubeVertecies[i + 2]));
+        }
+        for (var i = 0; i < vectors.Count; i += 3)
+        {
+            faces.Add(new IndexedFace { Indexes = [i, i + 1, i + 2] });
+        }
+        
+        var material = new MaterialData();
+        material.Shaders[0].TxtMapping = TwinShader.TextureMapping.OFF;
+        material.Shaders[0].ShaderType = TwinShader.Type.ColorOnly;
+        material.Shaders[0].ABlending = TwinShader.AlphaBlending.ON;
+        // material.Shaders[0].DepthTest = TwinShader.DepthTestMethod.ALWAYS;
+        var buffer = new ModelBuffer(_renderContext, _meshBuilder.BuildRigidVaoFromVertexes(vectors.Select((v, i) => new Vertex(new Vector4(v.x, v.y, v.z, 1.0f), new Vector4(1.0f, 1.0f, 1.0f, 1.0f))).ToList(), faces), _materialFactory, material);
+        return new Mesh(_renderContext, [buffer]);
+    }
+
+    private Mesh CreateCircle()
+    {
+        var segmentPart = 1.0f;
+        var thickness = 0.1f;
+        var resolution = 16;
+        var segment = 2 * System.Math.PI * segmentPart;
+        List<vec3> vectors = new List<vec3>();
+        var step = (2 * System.Math.PI) / resolution;
+        var k = 1.0f - thickness;
+        for (var i = 0; i <= resolution; ++i)
+        {
+            var step1 = i * step;
+            if (step1 > segment)
+            {
+                break;
+            }
+            var step2 = System.Math.Min((i + 1) * step, segment);
+            vectors.Add(new vec3((float)System.Math.Cos(step1), 0, (float)System.Math.Sin(step1)));
+            vectors.Add(new vec3((float)System.Math.Cos(step1) * k, 0, (float)System.Math.Sin(step1) * k));
+            vectors.Add(new vec3((float)System.Math.Cos(step2) * k, 0, (float)System.Math.Sin(step2)));
+            vectors.Add(new vec3((float)System.Math.Cos(step1), 0, (float)System.Math.Sin(step1)));
+            vectors.Add(new vec3((float)System.Math.Cos(step2) * k, 0, (float)System.Math.Sin(step2) * k));
+            vectors.Add(new vec3((float)System.Math.Cos(step2), 0, (float)System.Math.Sin(step2)));
+        }
+        var faces = new List<IndexedFace>();
+        for (var i = 0; i < vectors.Count; i += 3)
+        {
+            faces.Add(new IndexedFace { Indexes = new int[] { i + 2, i + 1, i } });
+        }
+        
+        var material = new MaterialData();
+        material.Shaders[0].TxtMapping = TwinShader.TextureMapping.OFF;
+        material.Shaders[0].ShaderType = TwinShader.Type.ColorOnly;
+        material.Shaders[0].ABlending = TwinShader.AlphaBlending.ON;
+        var buffer = new ModelBuffer(_renderContext, _meshBuilder.BuildRigidVaoFromVertexes(vectors.Select((v, i) => new Vertex(new Vector4(v.x, v.y, v.z, 1.0f), new Vector4(1.0f, 1.0f, 1.0f, 1.0f))).ToList(), faces), _materialFactory, material);
+        return new Mesh(_renderContext, [buffer]);
+    }
+    
+    private Mesh CreatePlane()
+    {
+        var vertices = new float[] {
+            -100, -100, 0,  // pos
+            100, -100, 0,
+            -100,  100, 0,
+            -100,  100, 0 ,
+            100,  -100, 0 ,
+            100,  100, 0 ,
+        };
+            
+        var vectors = new List<vec3>();
+        var faces = new List<IndexedFace>();
+        var uvs = new List<vec2>()
+        {
+            new vec2(0, 0),
+            new vec2(1, 0),
+            new vec2(0, 1),
+            new vec2(0, 1),
+            new vec2(1, 0),
+            new vec2(1, 1),
+        };
+        for (var i = 0; i < vertices.Length; i += 3)
+        {
+            vectors.Add(new vec3(vertices[i], vertices[i + 1], vertices[i + 2]));
+        }
+        for (var i = 0; i < vectors.Count; i += 3)
+        {
+            faces.Add(new IndexedFace { Indexes = new int[] { i + 2, i + 1, i } });
+        }
+
+        var material = new MaterialData();
+        material.Shaders[0].TxtMapping = TwinShader.TextureMapping.OFF;
+        material.Shaders[0].ShaderType = TwinShader.Type.ColorOnly;
+        material.Shaders[0].ABlending = TwinShader.AlphaBlending.ON;
+        var buffer = new ModelBuffer(_renderContext, _meshBuilder.BuildRigidVaoFromVertexes(vectors.Select((v, i) => new Vertex(new Vector4(v.x, v.y, v.z, 1.0f), new Vector4(1.0f, 1.0f, 1.0f, 1.0f), new Vector4(uvs[i].x, uvs[i].y, 0.0f, 0.0f))).ToList(), faces), _materialFactory, material);
+        return new Mesh(_renderContext, [buffer]);
+    }
+
     private Mesh CreateUntexturedMesh(ModelData data)
     {
         var material = new MaterialData();
         material.Shaders[0].TxtMapping = TwinShader.TextureMapping.ON;
         material.Shaders[0].ShaderType = TwinShader.Type.UnlitGlossy;
-        material.Shaders[0].TextureId = new LabURI("boat_guy", true);
+        material.Shaders[0].TextureId = LabURI.BoatGuy;
         var buffers = data.Vertexes.Select((t, i) => new ModelBuffer(_renderContext, _meshBuilder.BuildRigidVaoFromVertexes(t, data.Faces[i]), _materialFactory, material)).ToList();
         return new Mesh(_renderContext, buffers);
     }

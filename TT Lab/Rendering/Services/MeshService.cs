@@ -6,7 +6,7 @@ using TT_Lab.Rendering.Objects;
 
 namespace TT_Lab.Rendering.Services;
 
-public class MeshService(MeshFactory factory, BatchService batchService)
+public class MeshService(MeshFactory factory)
 {
     private readonly Dictionary<LabURI, Mesh?> _meshes = [];
 

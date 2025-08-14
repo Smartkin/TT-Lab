@@ -162,9 +162,9 @@ public abstract class Renderable
         Transform(mat4.RotateZ(rotation.z) * mat4.RotateY(rotation.y) * mat4.RotateX(rotation.x), reverseOrder);
     }
 
-    public void Scale(vec3 scale)
+    public void Scale(vec3 scale, bool reverseOrder = false)
     {
-        Transform(mat4.Scale(scale));
+        Transform(mat4.Scale(scale), reverseOrder);
     }
 
     public void Transform(mat4 transform, bool reverseOrder = false)

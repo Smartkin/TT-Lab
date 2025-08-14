@@ -113,19 +113,19 @@ namespace TT_Lab.ViewModels.Editors.Graphics
         {
             MaterialViewer.SceneCreator = glControl =>
             {
-                var sceneManager = glControl.GetSceneManager();
-                var pivot = sceneManager.getRootSceneNode().createChildSceneNode();
-                pivot.setPosition(0, 0, 0);
-                glControl.SetCameraTarget(pivot);
-                glControl.SetCameraStyle(CameraStyle.CS_ORBIT);
-
-                var plane = sceneManager.getRootSceneNode().createChildSceneNode();
-                var entity = sceneManager.createEntity(BufferGeneration.GetPlaneBuffer());
-                var material = TwinMaterialGenerator.GenerateMaterialFromViewModel(this, default, true);
-                entity.setMaterial(material.Material);
-                entity.getSubEntity(0).setCustomParameter(0, new Vector4(1.0f, 1.0f, 1.0f, 1.0f));
-                plane.attachObject(entity);
-                plane.scale(0.05f, 0.05f, 1f);
+                // var sceneManager = glControl.GetSceneManager();
+                // var pivot = sceneManager.getRootSceneNode().createChildSceneNode();
+                // pivot.setPosition(0, 0, 0);
+                // glControl.SetCameraTarget(pivot);
+                // glControl.SetCameraStyle(CameraStyle.CS_ORBIT);
+                //
+                // var plane = sceneManager.getRootSceneNode().createChildSceneNode();
+                // var entity = sceneManager.createEntity(BufferGeneration.GetPlaneBuffer());
+                // var material = TwinMaterialGenerator.GenerateMaterialFromViewModel(this, default, true);
+                // entity.setMaterial(material.Material);
+                // entity.getSubEntity(0).setCustomParameter(0, new Vector4(1.0f, 1.0f, 1.0f, 1.0f));
+                // plane.attachObject(entity);
+                // plane.scale(0.05f, 0.05f, 1f);
             };
         }
 

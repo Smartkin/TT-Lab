@@ -80,6 +80,8 @@ namespace TT_Lab.ViewModels.Editors
         private Skydome? _skydomeRender;
         private DynamicScenery _dynamicSceneryRender;
         private Node _instancesNode;
+        private Node _triggersNode;
+        private Node _camerasNode;
         private Node _linkedScenery;
         private DrawFilter _drawFilter = DrawFilter.Scenery | DrawFilter.Triggers | DrawFilter.Positions | DrawFilter.Instances | DrawFilter.Cameras | DrawFilter.Skybox | DrawFilter.LinkedScenery;
 
@@ -610,12 +612,6 @@ namespace TT_Lab.ViewModels.Editors
                     inputContext.Mice[0].MouseMove += MouseMove;
                 });
 
-                // var sceneManager = glControl.GetSceneManager();
-                // glControl.EnableImgui(true);
-                // glControl.SetCameraStyle(CameraStyle.CS_FREELOOK);
-                // glControl.SetCameraSpeed(50.0f);
-                // glControl.SetCameraPosition(vec3.Zero);
-
                 _editingContext = new EditingContext(_renderContext, scene, this);
                 
                 // Currently all stuff is created as is from the data without linking it to view models
@@ -666,21 +662,17 @@ namespace TT_Lab.ViewModels.Editors
                     var linkedSceneryRender = new Scenery(_renderContext, _meshService, linkedScenery);
                     linkedSceneryNode.AddChild(linkedSceneryRender);
                     var chunkMatrix = link.ChunkMatrix.ToGlm();
-                    // var position = chunkMatrix.Column3.xyz;
-                    // position.x = -position.x;
-                    // var rotation = quat.FromMat4(chunkMatrix);
-                    // rotation.x = -rotation.x;
-                    // rotation.w = -rotation.w;
-                    linkedSceneryNode.LocalTransform = chunkMatrix; //mat4.Translate(position) * glm.ToMat4(rotation);
+                    linkedSceneryNode.LocalTransform = chunkMatrix;
                 }
-                // var triggers = _chunkTree.First(avm => avm.Alias == "Triggers");
-                // var triggersNode = sceneManager.getRootSceneNode().createChildSceneNode();
-                // triggersNode.attachObject(_editingContext.GetTriggersBillboards());
-                // foreach (var trigger in triggers!.Children)
-                // {
-                //     var trg = SceneInstanceFactory.CreateSceneInstance<TriggerSceneInstance>(_editingContext, trigger.Asset.GetData<AbstractAssetData>(), trigger, triggersNode);
-                //     _sceneInstances.Add(trg);
-                // }
+                var triggers = _chunkTree.First(avm => avm.Alias == "Triggers");
+                _triggersNode = new Node(_renderContext, scene);
+                _triggersNode.AddChild(_editingContext.GetTriggersBillboards());
+                foreach (var trigger in triggers!.Children)
+                {
+                    var trg = _sceneInstanceFactory.CreateSceneInstance<TriggerSceneInstance>(_editingContext, trigger.Asset.GetData<AbstractAssetData>(), trigger, _triggersNode);
+                    _sceneInstances.Add(trg);
+                }
+                
                 //
                 // var positions = _chunkTree.First(avm => avm.Alias == "Positions");
                 // var positionsNode = sceneManager.getRootSceneNode().createChildSceneNode();
@@ -703,11 +695,11 @@ namespace TT_Lab.ViewModels.Editors
                 // }
                 //
                 var cameras = _chunkTree.First(avm => avm.Alias == "Cameras");
-                var camerasNode = new Node(_renderContext, scene);
-                camerasNode.AddChild(_editingContext.GetCamerasBillboards());
+                _camerasNode = new Node(_renderContext, scene);
+                _camerasNode.AddChild(_editingContext.GetCamerasBillboards());
                 foreach (var camera in cameras!.Children)
                 {
-                    var cam = _sceneInstanceFactory.CreateSceneInstance<CameraSceneInstance>(_editingContext, camera.Asset.GetData<AbstractAssetData>(), camera, camerasNode);
+                    var cam = _sceneInstanceFactory.CreateSceneInstance<CameraSceneInstance>(_editingContext, camera.Asset.GetData<AbstractAssetData>(), camera, _camerasNode);
                     _sceneInstances.Add(cam);
                 }
 
@@ -724,8 +716,8 @@ namespace TT_Lab.ViewModels.Editors
                     }
 
                     // ImguiRenderFilterCheckbox("Render Positions", _editingContext.GetPositionBillboards(), DrawFilter.Positions);
-                    // ImguiRenderFilterCheckbox("Render Triggers", _editingContext.GetTriggersBillboards(), DrawFilter.Triggers);
-                    // ImguiRenderFilterCheckbox("Render Cameras", _editingContext.GetCamerasBillboards(), DrawFilter.Cameras);
+                    ImguiRenderFilterCheckbox("Render Triggers", _triggersNode, DrawFilter.Triggers);
+                    ImguiRenderFilterCheckbox("Render Cameras", _camerasNode, DrawFilter.Cameras);
                     // ImguiRenderFilterCheckbox("Render AI Positions", _editingContext.GetAiPositionsBillboards(), DrawFilter.AiPositions);
                     ImguiRenderFilterCheckbox("Render Instances", _instancesNode, DrawFilter.Instances);
                     ImguiRenderFilterCheckbox("Render Linked Scenery", _linkedScenery, DrawFilter.LinkedScenery);

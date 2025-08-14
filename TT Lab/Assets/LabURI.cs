@@ -15,6 +15,8 @@ namespace TT_Lab.Assets
         private readonly String _uri;
 
         private static string _prefix = "res://";
+        private static string _global = "__GLOBAL__";
+        private bool _isBuiltIn;
         private string _package = "";
         private string? _folder;
         private string? _id;
@@ -25,24 +27,18 @@ namespace TT_Lab.Assets
         public static explicit operator LabURI(String uri) => new(uri);
 
         [JsonConstructor]
-        public LabURI(String uri)
+        public LabURI(String uri, bool isBuiltIn = false)
         {
             _uri = uri;
+            _isBuiltIn = isBuiltIn;
             // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
             if (uri != null)
             {
                 ParseAndVerify();
             }
         }
-
-        public LabURI(String uri, bool ignoreVerification = false)
-        {
-            _uri = uri;
-            if (!ignoreVerification)
-            {
-                ParseAndVerify();
-            }
-        }
+        
+        public bool IsBuiltIn() => _isBuiltIn;
 
         public override String ToString() => _uri;
         public Int32 CompareTo(object? obj)
@@ -53,7 +49,12 @@ namespace TT_Lab.Assets
             return _uri.ToString(CultureInfo.InvariantCulture).CompareTo(labURI._uri.ToString(CultureInfo.InvariantCulture));
         }
 
-        public static LabURI Empty => new("res://EMPTY");
+        public static LabURI Empty => new($"{_prefix}EMPTY");
+        public static LabURI BoatGuy => new($"{_prefix}{_global}/BoatGuy/0", true);
+        public static LabURI Plane => new($"{_prefix}{_global}/Plane/0", true);
+        public static LabURI Box => new($"{_prefix}{_global}/Box/0", true);
+        public static LabURI Sphere => new($"{_prefix}{_global}/Sphere/0", true);
+        public static LabURI Circle => new($"{_prefix}{_global}/Circle/0", true);
 
         public static Boolean operator ==(LabURI? labURI, LabURI? other)
         {

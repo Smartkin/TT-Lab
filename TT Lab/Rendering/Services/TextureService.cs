@@ -23,8 +23,7 @@ public class TextureService
         {
             var boatGuy = ManifestResourceLoader.GetPathInExe("Media/boat_guy.png");
             var bitmap = new Bitmap(boatGuy);
-            RegisterTexture(boatGuy, bitmap);
-            _textures.Add("boat_guy", _textures[boatGuy]);
+            RegisterTexture(LabURI.BoatGuy, bitmap);
         });
     }
 
@@ -74,7 +73,7 @@ public class TextureService
         return texture;
     }
 
-    public TextureBuffer RegisterTexture(string textureName, Bitmap bitmap)
+    private TextureBuffer RegisterTexture(string textureName, Bitmap bitmap)
     {
         Debug.Assert(!_textures.ContainsKey(textureName), "Given texture name is already registered.");
         var buffer = new TextureBuffer(_renderContext, bitmap);

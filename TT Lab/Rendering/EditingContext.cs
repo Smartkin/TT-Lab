@@ -44,7 +44,7 @@ namespace TT_Lab.Rendering
             _scene = scene;
             _editCtxNode = new Node(context, scene);
             _cursor = new EditorCursor(this);
-            // _gizmo = new Gizmo(sceneManager, this);
+            _gizmo = new Gizmo(scene, context, this);
             _positionsBillboards = CreateBillboardSet(context, "PositionsBillboards", "BillboardPositions");
             _triggersBillboards = CreateBillboardSet(context, "TriggersBillboards", "BillboardTriggers");
             _camerasBillboards = CreateBillboardSet(context, "CamerasBillboards", "BillboardCameras");
@@ -144,9 +144,9 @@ namespace TT_Lab.Rendering
                 // _renderWindow.SetYawPitchDist((float)Math.PI / 4.0f, (float)Math.PI / 4.0f, 10);
                 _editor.InstanceEditorChanged(new RoutedPropertyChangedEventArgs<Object>(null, SelectedInstance.GetViewModel()));
                 SelectedInstance.LinkChangesToViewModel((ViewportEditableInstanceViewModel)_editor.CurrentInstanceEditor!);
-                // _gizmo.DetachFromCurrentObject();
-                // _gizmo.SwitchGizmo((Gizmo.GizmoType)(int)TransformMode);
-                // _gizmo.AttachToObject(SelectedInstance.GetEditableObject().GetSceneNode());
+                _gizmo.DetachFromCurrentObject();
+                _gizmo.SwitchGizmo((Gizmo.GizmoType)(int)TransformMode);
+                _gizmo.AttachToObject(SelectedInstance.GetEditableObject());
             }
         }
 
@@ -330,7 +330,7 @@ namespace TT_Lab.Rendering
                 TransformMode = TransformMode.SELECTION;
             }
             TransformAxis = TransformAxis.NONE;
-            // _gizmo.SwitchGizmo((Gizmo.GizmoType)(int)TransformMode);
+            _gizmo.SwitchGizmo((Gizmo.GizmoType)(int)TransformMode);
         }
 
         public void ToggleScale()
@@ -370,7 +370,7 @@ namespace TT_Lab.Rendering
             {
                 TransformAxis = axis;
             }
-            // _gizmo.HighlightAxis(TransformAxis);
+            _gizmo.HighlightAxis(TransformAxis);
             if (transforming)
             {
                 UpdateTransform(endPos.x, endPos.y);
@@ -394,17 +394,17 @@ namespace TT_Lab.Rendering
 
         private void RotateX(float value)
         {
-            SelectedRenderable.Rotate(vec3.UnitX * value);
+            SelectedRenderable.Rotate(vec3.UnitX * value, true);
         }
 
         private void RotateY(float value)
         {
-            SelectedRenderable.Rotate(vec3.UnitY * value);
+            SelectedRenderable.Rotate(vec3.UnitY * value, true);
         }
 
         private void RotateZ(float value)
         {
-            SelectedRenderable.Rotate(vec3.UnitZ * value);
+            SelectedRenderable.Rotate(vec3.UnitZ * value, true);
         }
 
         private BillboardSet CreateBillboardSet(RenderContext renderContext, string billboardName, string billboardMaterial)

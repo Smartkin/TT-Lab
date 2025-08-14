@@ -8,13 +8,21 @@ namespace TT_Lab.Rendering;
 public class PrimitiveRenderer(RenderContext context)
 {
     private readonly List<SphereRequest> _sphereDrawRequests = [];
+    private readonly List<BoxRequest> _boxDrawRequests = [];
     
     public void DrawSphere(vec3 center, float radius, vec4 color)
     {
         _sphereDrawRequests.Add(new SphereRequest(center, radius, color));
     }
 
+    public void DrawBox(vec3 center, vec3 halfExtents, vec4 color)
+    {
+        _boxDrawRequests.Add(new BoxRequest(center, halfExtents, color));
+    }
+
     private record SphereRequest(vec3 Position, float Radius, vec4 Color);
+
+    private record BoxRequest(vec3 Center, vec3 HalfExtents, vec4 Color);
 
     public void Render()
     {
@@ -39,6 +47,11 @@ public class PrimitiveRenderer(RenderContext context)
         {
             RenderSphere(sphere);
         }
+
+        foreach (var box in _boxDrawRequests)
+        {
+            RenderBox(box);
+        }
         
         if (!isBlendingEnabled)
         {
@@ -51,18 +64,24 @@ public class PrimitiveRenderer(RenderContext context)
         }
         
         _sphereDrawRequests.Clear();
+        _boxDrawRequests.Clear();
     }
 
     private void RenderSphere(SphereRequest sphere)
     {
         var program = context.CurrentPass.Program;
-        var spherePosLoc = program.GetUniformLocation("SpherePosition");
-        var sphereRadiusLoc = program.GetUniformLocation("SphereRadius");
-        var colorLoc = program.GetUniformLocation("Diffuse");
-        context.Gl.Uniform1(sphereRadiusLoc, sphere.Radius);
-        context.Gl.Uniform3(spherePosLoc, sphere.Position.Values);
-        context.Gl.Uniform4(colorLoc, sphere.Color.Values);
-        context.Gl.DrawArrays(PrimitiveType.TriangleFan,  0, 4);
+        // var spherePosLoc = program.GetUniformLocation("SpherePosition");
+        // var sphereRadiusLoc = program.GetUniformLocation("SphereRadius");
+        // var colorLoc = program.GetUniformLocation("Diffuse");
+        // context.Gl.Uniform1(sphereRadiusLoc, sphere.Radius);
+        // context.Gl.Uniform3(spherePosLoc, sphere.Position.Values);
+        // context.Gl.Uniform4(colorLoc, sphere.Color.Values);
+        // context.Gl.DrawArrays(PrimitiveType.TriangleFan,  0, 4);
+    }
+
+    private void RenderBox(BoxRequest box)
+    {
+        
     }
 
     //public void Init(EmbedContext gl, GLWindow window)

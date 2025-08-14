@@ -31,17 +31,17 @@ public class Camera : EditableObject
     {
         base.RenderSelf(delta);
 
-        var primitiveRender = Context.GetPrimitiveRenderer();
-        primitiveRender.DrawSphere(Pos, 1.0f, new vec4(0.0f, 0.0f, 1.0f, 0.3f));
-        if (_cameraData.MainCamera1 != null)
-        {
-            RenderMainCamera(_cameraData.MainCamera1);
-        }
-
-        if (_cameraData.MainCamera2 != null)
-        {
-            RenderMainCamera(_cameraData.MainCamera2);
-        }
+        // var primitiveRender = Context.GetPrimitiveRenderer();
+        // primitiveRender.DrawSphere(Pos, 1.0f, new vec4(0.0f, 0.0f, 1.0f, 0.3f));
+        // if (_cameraData.MainCamera1 != null)
+        // {
+        //     RenderMainCamera(_cameraData.MainCamera1);
+        // }
+        //
+        // if (_cameraData.MainCamera2 != null)
+        // {
+        //     RenderMainCamera(_cameraData.MainCamera2);
+        // }
     }
 
     private void RenderMainCamera(CameraSubBase mainCamera)
@@ -111,7 +111,6 @@ public class Camera : EditableObject
         static vec3 GetCamerasPoint(Vector4 twinVec)
         {
             var vec = twinVec.ToGlm();
-            // vec.x = -vec.x;
             return vec.xyz;
         }
     }
@@ -132,16 +131,16 @@ public class Camera : EditableObject
 
     protected override void InitSceneTransform()
     {
-        Pos = _cameraTrigger.GetPosition();
-        Rot = _cameraTrigger.GetRotation();
-        Scl = _cameraTrigger.GetScale();
+        // Pos = _cameraTrigger.GetPosition();
+        // Rot = _cameraTrigger.GetRotation();
+        // Scl = _cameraTrigger.GetScale();
     }
 
     protected override void UpdateSceneTransform()
     {
         base.UpdateSceneTransform();
-        _cameraTrigger.SetPosition(Pos);
-        _cameraTrigger.Rotate(Rot);
-        _cameraTrigger.Scale(Scl);
+        // _cameraTrigger.SetPosition(Pos);
+        // _cameraTrigger.Rotate(Rot);
+        // _cameraTrigger.Scale(Scl);
     }
 }

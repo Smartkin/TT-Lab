@@ -101,14 +101,8 @@ public class RenderContext : IDisposable
             var program = new ShaderProgram(this, colorVertShader, colorFragShader);
             _programs.Add("Generic", program);
             WriteProgramUniforms(program);
-            
-            var screenVertShader = new Shader(this, ShaderType.VertexShader, "ScreenRender.vert");
-            var drawSphereFragShader = new Shader(this, ShaderType.FragmentShader, "DrawSphere.frag");
-            var sphereProgram = new ShaderProgram(this, screenVertShader, drawSphereFragShader);
-            _programs.Add("DrawSphere", sphereProgram);
-            WriteProgramUniforms(sphereProgram);
 
-            screenVertShader = new Shader(this, ShaderType.VertexShader, "ScreenRender.vert");
+            var screenVertShader = new Shader(this, ShaderType.VertexShader, "ScreenRender.vert");
             var screenFlipFragShader = new Shader(this, ShaderType.FragmentShader, "ScreenHorizontalFlip.frag");
             var screenFlipProgram = new ShaderProgram(this, screenVertShader, screenFlipFragShader);
             _programs.Add("ScreenFlipX", screenFlipProgram);
