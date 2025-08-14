@@ -16,6 +16,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
     public class PS2BehaviourState : ITwinBehaviourState
     {
         public UInt16 Bitfield { get; set; }
+        public UInt16 Unknown { get; set; }
         public Int16 BehaviourIndexOrSlot { get; set; }
         public Boolean SkipsFirstStateBody { get; set; }
         public Boolean UsesObjectSlot { get; set; }
@@ -49,6 +50,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
 
             writer.WriteLine();
             
+            StringUtils.WriteLineTabulated(writer, $"[Unknown(0x{Unknown:X})]", tabs);
             if (ControlPacket != null)
             {
                 StringUtils.WriteLineTabulated(writer, $"[ControlPacket({ControlPacket.Name})]", tabs);
@@ -93,11 +95,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
         public void Read(BinaryReader reader, int length)
         {
             Bitfield = reader.ReadUInt16();
-            var unkDbgInfo = (Bitfield & 0x20) != 0;
-            var unkDbgInfo2 = (Bitfield & 0x40) != 0;
-            var unkDbgInfo3 = (Bitfield & 0x80) != 0;
-            var unkDbgInfo4 = (Bitfield & 0x100) != 0;
-            var unkDbgInfo5 = (Bitfield & 0x200) != 0;
+            Unknown = (UInt16)(Bitfield & 0x3E0);
             SkipsFirstStateBody = (Bitfield & 0x400) != 0;
             NoneBlocking = (Bitfield & 0x800) != 0;
             UsesObjectSlot = (Bitfield & 0x1000) != 0;
@@ -125,6 +123,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
         public void Write(BinaryWriter writer)
         {
             UInt16 newBitfield = (UInt16)(Bodies.Count & 0x1F);
+            newBitfield |= Unknown;
             if (SkipsFirstStateBody)
             {
                 newBitfield |= 0x400;

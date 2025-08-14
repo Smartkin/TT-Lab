@@ -2,6 +2,7 @@
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -32,6 +33,7 @@ using Twinsanity.TwinsanityInterchange.Implementations.PS2.Sections.RM2;
 using Twinsanity.TwinsanityInterchange.Implementations.PS2.Sections.RM2.Code;
 using Twinsanity.TwinsanityInterchange.Implementations.PS2.Sections.RM2.Layout;
 using Twinsanity.TwinsanityInterchange.Interfaces;
+using Path = TT_Lab.Assets.Instance.Path;
 
 namespace TT_Lab.Project
 {
@@ -1306,6 +1308,10 @@ namespace TT_Lab.Project
             bdWriter.Close();
             
             Log.WriteLine("Creating PS2 ISO image...");
+            if (!Directory.Exists($"{ProjectPath}\\build\\image"))
+            {
+                Directory.CreateDirectory($"{ProjectPath}\\build\\image");
+            }
             var progress = Ps2ImageMaker.StartPacking(DiscContentPathPS2!, $"{ProjectPath}\\build\\image\\{Name}.iso");
             while (!progress.Finished)
             {

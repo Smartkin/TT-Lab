@@ -63,7 +63,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
             {
                 writer.Write(" >= ");
             }
-            writer.Write((ReturnCheck * ConditionPowerMultiplier).ToString(CultureInfo.InvariantCulture));
+            writer.Write(ReturnCheck.ToString(CultureInfo.InvariantCulture));
             writer.Write(" {");
             writer.WriteLine();
             StringUtils.WriteLineTabulated(writer, $"interval = {CheckInterval.ToString(CultureInfo.InvariantCulture)};", tabs + 1);

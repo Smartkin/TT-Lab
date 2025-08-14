@@ -14,6 +14,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.RMX.Code.A
     public class XboxBehaviourState : ITwinBehaviourState
     {
         public UInt16 Bitfield { get; set; }
+        public UInt16 Unknown { get; set; }
         public Int16 BehaviourIndexOrSlot { get; set; }
         public Boolean SkipsFirstStateBody { get; set; }
         public Boolean UsesObjectSlot { get; set; }

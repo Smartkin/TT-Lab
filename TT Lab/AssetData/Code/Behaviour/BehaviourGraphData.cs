@@ -41,9 +41,9 @@ namespace TT_Lab.AssetData.Code.Behaviour
                                                         }
                                                    
                                                         state StartingState() { // State name can be anything for clarity's sake
-                                                            if Else(0) >= 1 {
+                                                            if Else(0) >= 0.5 { // The compared to value MUST be above 0
                                                                 interval = 0; // Any interval value <= 0 will check the condition every game frame. Mind this for performance
-                                                                
+                                                                unknown = false; // Purpose unknown but it does change the execution flow in some way
                                                                 // After this provide a list of actions in sequence to execute when the condition is met. They will be executed top to bottom
                                                                 MakeInert();
                                                                 
@@ -52,6 +52,7 @@ namespace TT_Lab.AssetData.Code.Behaviour
                                                         }
                                                         
                                                         // Notable attributes for states:
+                                                        // [Unknown(0x3E0)] - 0x3E0 are all the bits that are currently either unused or their purpose is unknown. Experiment around and see what results you get :^)
                                                         // [SkipsFirstBody] - will skip the first condition check
                                                         // [NonBlocking] - It is still not quite known what this actually enables but in theory this will allow other states to check for conditions in parallel to the state that has this attribute
                                                         // [UseObjectSlot(SLOT_NAME)] - The state will execute a script that is referenced by an object's event (created, damaged, etc.)

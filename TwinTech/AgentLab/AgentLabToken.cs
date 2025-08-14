@@ -26,6 +26,7 @@ public struct AgentLabToken
         GreaterEqual, // ">="
         LessEqual, // "<="
         Interval, // "interval"
+        Unknown, // "unknown"
         Assign, // '='
         Identifier, // (any identifier including reserved keywords)
         Priority, // "Priority"

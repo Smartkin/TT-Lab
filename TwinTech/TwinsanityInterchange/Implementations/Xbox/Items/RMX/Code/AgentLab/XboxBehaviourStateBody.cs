@@ -16,6 +16,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.RMX.Code.A
         public UInt32 Bitfield { get; set; }
         public Boolean HasStateJump { get; set; }
         public Int32 JumpToState { get; set; }
+        public Boolean Unknown { get; set; }
         public TwinBehaviourCondition Condition { get; set; }
         public List<ITwinBehaviourCommand> Commands { get; set; }
 

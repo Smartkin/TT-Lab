@@ -56,6 +56,7 @@ internal class AgentLabCompilerNodeVisitor : NodeVisitor
         Visitors.Add(typeof(StateBodyListNode), VisitStateBodyListNode);
         Visitors.Add(typeof(StateExecuteNode), VisitStateExecuteNode);
         Visitors.Add(typeof(StateNode), VisitStateNode);
+        Visitors.Add(typeof(UnknownAttributeNode), VisitUnknownAttribute);
         Visitors.Add(typeof(ControlPacketAttributeNode), VisitControlPacketAttributeNode);
         Visitors.Add(typeof(UseObjectSlotAttributeNode), VisitUseObjectSlotAttributeNode);
         Visitors.Add(typeof(StateBodyNode), VisitStateBodyNode);
@@ -69,6 +70,12 @@ internal class AgentLabCompilerNodeVisitor : NodeVisitor
         Visitors.Add(typeof(GlobalIndexAttributeNode), VisitGlobalIndexAttributeNode);
         Visitors.Add(typeof(InstanceTypeAttributeNode), VisitInstanceTypeAttributeNode);
         Visitors.Add(typeof(LinearBehaviourNode), VisitLinearBehaviourNode);
+    }
+
+    private Object VisitUnknownAttribute(IAgentLabTreeNode node)
+    {
+        var unknownNode = (UnknownAttributeNode)node;
+        return Visit(unknownNode.Number);
     }
 
     private Object VisitBooleanNode(IAgentLabTreeNode node)
@@ -223,7 +230,6 @@ internal class AgentLabCompilerNodeVisitor : NodeVisitor
         var condition = new TwinBehaviourCondition();
         var conditionSymbol = _symbolTable.Lookup<AgentLabConditionSymbol>(conditionNode.Name);
         condition.ConditionIndex = (ushort)conditionSymbol.Id;
-        condition.ConditionPowerMultiplier = 2;
         condition.Parameter = (ushort)(int)Visit(conditionNode.Number);
         
         return condition;
@@ -262,7 +268,14 @@ internal class AgentLabCompilerNodeVisitor : NodeVisitor
             int iValue => iValue
         };
         stateBody.Condition.ReturnCheck = returnCheckUnbox;
+        stateBody.Condition.ConditionPowerMultiplier = 1.0f / stateBody.Condition.ReturnCheck;
         stateBody.Condition.NotGate = stateBodyNode.IsNot;
+        var unknown = Visit(stateBodyNode.Unknown);
+        var unknownUnbox = unknown switch
+        {
+            bool bValue => bValue,
+        };
+        stateBody.Unknown = unknownUnbox;
         
         return stateBody;
     }
@@ -289,12 +302,23 @@ internal class AgentLabCompilerNodeVisitor : NodeVisitor
                 case ControlPacketAttributeNode:
                     state.ControlPacket = (TwinBehaviourControlPacket)Visit(attribute);
                     break;
+                case UnknownAttributeNode:
+                {
+                    var unknown = Visit(attribute);
+                    var unknownUnboxed = unknown switch
+                    {
+                        float fValue => BitConverter.SingleToInt32Bits(fValue),
+                        int iValue => iValue
+                    };
+                    state.Unknown = (UInt16)unknownUnboxed;
+                    break;
+                }
             }
         }
         
         if (stateNode.BehaviourId != null && !state.UsesObjectSlot)
         {
-            var behaviourIndex = _options.Resolver.GetGraphResolver().ResolveGraphReference((string)Visit(stateNode.BehaviourId));
+            var behaviourIndex = _options.Resolver.GetStateGraphResolver().ResolveGraphReference((string)Visit(stateNode.BehaviourId));
             state.BehaviourIndexOrSlot = behaviourIndex;
         }
 
@@ -355,13 +379,14 @@ internal class AgentLabCompilerNodeVisitor : NodeVisitor
         }
 
         var dataValue = Visit(dataValueNode);
-        if (dataValue is float fDataValue)
+        switch (dataValue)
         {
-            controlPacket.Floats.Add(BitConverter.SingleToUInt32Bits(fDataValue));
-        }
-        else
-        {
-            controlPacket.Floats.Add((uint)(int)dataValue);
+            case float fDataValue:
+                controlPacket.Floats.Add(BitConverter.SingleToUInt32Bits(fDataValue));
+                break;
+            case int iDataValue:
+                controlPacket.Floats.Add(BitConverter.SingleToUInt32Bits(iDataValue));
+                break;
         }
         
         
@@ -524,7 +549,6 @@ internal class AgentLabCompilerNodeVisitor : NodeVisitor
         Visit(behaviourBody.Starter);
         Visit(behaviourBody.ControlPackets);
         var states = (List<ITwinBehaviourState>)Visit(behaviourBody.States) ?? new List<ITwinBehaviourState>();
-        
         return states;
     }
 
@@ -539,6 +563,10 @@ internal class AgentLabCompilerNodeVisitor : NodeVisitor
         Visit(behaviour.Priority);
         compiledBehaviour.ScriptStates = (List<ITwinBehaviourState>)Visit(behaviour.Body) ?? new List<ITwinBehaviourState>();
         Visit(behaviour.StartFrom);
+        if (_result.Contains<TwinBehaviourStarter>())
+        {
+            compiledBehaviour.Priority = 0;
+        }
         
         return null;
     }

@@ -7,6 +7,7 @@ public class LabCompilerResolver : ICompilerResolver
 {
     private IGraphResolver _graphResolver;
     private IGlobalObjectIdResolver _globalObjectIdResolver = new LabGlobalObjectIdResolver();
+    private IStateGraphResolver _stateGraphResolver = new LabStateGraphResolver();
 
     public LabCompilerResolver(IGlobalObjectIdResolver globalObjectIdResolver, IGraphResolver graphResolver)
     {
@@ -22,6 +23,11 @@ public class LabCompilerResolver : ICompilerResolver
     public IGraphResolver GetGraphResolver()
     {
         return _graphResolver;
+    }
+
+    public IStateGraphResolver GetStateGraphResolver()
+    {
+        return _stateGraphResolver;
     }
 
     public IGlobalObjectIdResolver GetObjectIdResolver()

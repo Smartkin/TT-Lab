@@ -316,6 +316,9 @@ public class AgentLabParser : IDisposable
             case AgentLabToken.TokenType.InstanceType:
                 node = BehaviourLibraryAttribute();
                 break;
+            case AgentLabToken.TokenType.Unknown:
+                node = UnknownAttribute();
+                break;
             default:
                 // TODO: Raise parser error instead of throwing an exception
                 throw new Exception($"Unknown attribute {_currentToken.Value} {_currentToken.Type}");
@@ -675,6 +678,10 @@ public class AgentLabParser : IDisposable
         var threshold = Factor();
         EatToken(AgentLabToken.TokenType.OpenBracket);
         var interval = Interval();
+        EatToken(AgentLabToken.TokenType.Unknown);
+        EatToken(AgentLabToken.TokenType.Assign);
+        var unknown = Boolean();
+        EatToken(AgentLabToken.TokenType.Semicolon);
         ActionListNode actions = null;
         StateExecuteNode execute = null;
         NoOpNode noOp = null;
@@ -695,7 +702,7 @@ public class AgentLabParser : IDisposable
         
         EatToken(AgentLabToken.TokenType.CloseBracket);
 
-        return new StateBodyNode(condition, interval, threshold, actions, execute, isNot);
+        return new StateBodyNode(condition, interval, threshold, unknown, actions, execute, isNot);
     }
 
     private IntervalNode Interval()
@@ -767,6 +774,15 @@ public class AgentLabParser : IDisposable
         return @params;
     }
 
+    private UnknownAttributeNode UnknownAttribute()
+    {
+        EatToken(AgentLabToken.TokenType.Unknown);
+        EatToken(AgentLabToken.TokenType.LeftParen);
+        var number = Number();
+        EatToken(AgentLabToken.TokenType.RightParen);
+        return new UnknownAttributeNode(number);
+    }
+
     private UseObjectSlotAttributeNode UseObjectSlot()
     {
         EatToken(AgentLabToken.TokenType.UseObjectSlot);
@@ -774,7 +790,7 @@ public class AgentLabParser : IDisposable
         var node = new ObjectSlotNameNode(_currentToken);
         EatToken(AgentLabToken.TokenType.Identifier);
         EatToken(AgentLabToken.TokenType.RightParen);
-        return new  UseObjectSlotAttributeNode(node);
+        return new UseObjectSlotAttributeNode(node);
     }
 
     private GlobalIndexAttributeNode GlobalIndexAttribute()

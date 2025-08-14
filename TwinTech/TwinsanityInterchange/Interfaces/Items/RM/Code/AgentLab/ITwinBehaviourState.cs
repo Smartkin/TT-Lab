@@ -13,6 +13,10 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code.AgentLab
         /// </summary>
         public UInt16 Bitfield { get; set; }
         /// <summary>
+        /// Unknown flags :(
+        /// </summary>
+        public UInt16 Unknown { get; set; }
+        /// <summary>
         /// This can be a behaviour index or point to a slot(event) in the object
         /// </summary>
         public Int16 BehaviourIndexOrSlot { get; set; }

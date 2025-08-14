@@ -21,6 +21,10 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code.AgentLab
         /// </summary>
         public Int32 JumpToState { get; set; }
         /// <summary>
+        /// I have no idea what this boolean does but it crashes the game if it's missing
+        /// </summary>
+        public Boolean Unknown { get; set; }
+        /// <summary>
         /// Condition under which the commands are executed
         /// </summary>
         public TwinBehaviourCondition Condition { get; set; }

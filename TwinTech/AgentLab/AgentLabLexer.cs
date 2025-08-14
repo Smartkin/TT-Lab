@@ -48,6 +48,7 @@ public class AgentLabLexer : IDisposable
         _reservedKeywords.Add(GenerateKeyword("starter"));
         _reservedKeywords.Add(GenerateKeyword("assigner"));
         _reservedKeywords.Add(GenerateKeyword("interval"));
+        _reservedKeywords.Add(GenerateKeyword("unknown"));
         _reservedKeywords.Add(GenerateKeyword("threshold"));
         _reservedKeywords.Add(GenerateKeyword("if"));
         _reservedKeywords.Add(GenerateKeyword("const"));

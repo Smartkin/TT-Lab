@@ -17,6 +17,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
         public UInt32 Bitfield { get; set; }
         public Boolean HasStateJump { get; set; }
         public Int32 JumpToState { get; set; }
+        public bool Unknown { get; set; }
         public TwinBehaviourCondition Condition { get; set; }
         public List<ITwinBehaviourCommand> Commands { get; set; }
 
@@ -43,11 +44,13 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
             {
                 StringUtils.WriteLineTabulated(writer, "if Else(0) >= 0.5 {", tabs);
                 StringUtils.WriteLineTabulated(writer, "interval = 1.0;", tabs + 1);
+                StringUtils.WriteLineTabulated(writer, "unknown = false;", tabs + 1);
             }
             else
             {
                 Condition.Decompile(resolver, writer, tabs);
             }
+            StringUtils.WriteLineTabulated(writer, $"unknown = {Unknown.ToString().ToLower()};", tabs + 1);
 
             tabs += 1;
             foreach (var cmd in Commands)
@@ -72,6 +75,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
             var hasTraceEnabled = (Bitfield & 0x100) != 0; // Unused in retail
             var commandsAmt = Bitfield & 0xFF;
             HasStateJump = hasStateJump;
+            Unknown = hasTraceEnabled;
             if (HasStateJump)
             {
                 JumpToState = reader.ReadInt32();
@@ -105,6 +109,10 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
             if (Condition != null)
             {
                 newBitfield |= 0x200;
+            }
+            if (Unknown)
+            {
+                newBitfield |= 0x100;
             }
             
             Bitfield = newBitfield;
