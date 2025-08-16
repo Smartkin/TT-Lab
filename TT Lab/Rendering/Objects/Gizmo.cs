@@ -34,6 +34,7 @@ public class Gizmo
         _editingContext = editingContext;
         _gizmoNode = new Node(renderContext, scene, "GIZMOS");
         _gizmoNode.SetInheritScale(false);
+        _gizmoNode.SetInheritDiffuse(false);
         
         for (var i = 0; i < (int)GizmoType.TotalGizmos; i++)
         {
@@ -48,6 +49,8 @@ public class Gizmo
                         buffer.Model.Diffuse = new vec4(1.0f, 0.0f, 0.0f, 1.0f);
                         gizmoRootNode = new Node(renderContext, _gizmoNode);
                         gizmoRootNode.AddChild(buffer.Model);
+                        gizmoRootNode.SetInitialScale(new vec3(0.25f, 0.25f, 0.25f));
+                        gizmoRootNode.ResetLocalTransform();
                     }
                     break;
                 }
@@ -64,9 +67,9 @@ public class Gizmo
                                 var cubeMesh = BufferGeneration.GetCubeBuffer();
                                 cubeMesh.Model.Diffuse = new vec4(1.0f, 0.0f, 0.0f, 1.0f);
                                 axisNode.AddChild(cubeMesh.Model);
-                                gizmoNode.DefaultScale = new vec3(3f, 1f, 1f);
-                                axisNode.Scale(gizmoNode.DefaultScale);
-                                axisNode.Translate(new vec3(0.6f, 0, 0));
+                                gizmoNode.DefaultScale = new vec3(0.75f, 0.25f, 0.25f);
+                                axisNode.SetInitialPosition(new vec3(0.6f, 0, 0));
+                                axisNode.SetInitialScale(gizmoNode.DefaultScale);
                                 break;
                             }
                             case 1:
@@ -74,9 +77,9 @@ public class Gizmo
                                 var cubeMesh = BufferGeneration.GetCubeBuffer();
                                 cubeMesh.Model.Diffuse = new vec4(0.0f, 1.0f, 0.0f, 1.0f);
                                 axisNode.AddChild(cubeMesh.Model);
-                                gizmoNode.DefaultScale = new vec3(1f, 3f, 1f);
-                                axisNode.Scale(gizmoNode.DefaultScale);
-                                axisNode.Translate(new vec3(0, 0.6f, 0));
+                                gizmoNode.DefaultScale = new vec3(0.25f, 0.75f, 0.25f);
+                                axisNode.SetInitialPosition(new vec3(0, 0.6f, 0));
+                                axisNode.SetInitialScale(gizmoNode.DefaultScale);
                                 break;
                             }
                             case 2:
@@ -84,15 +87,17 @@ public class Gizmo
                                 var cubeMesh = BufferGeneration.GetCubeBuffer();
                                 cubeMesh.Model.Diffuse = new vec4(0.0f, 0.0f, 1.0f, 1.0f);
                                 axisNode.AddChild(cubeMesh.Model);
-                                gizmoNode.DefaultScale = new vec3(1f, 1f, 5f);
-                                axisNode.Scale(gizmoNode.DefaultScale);
-                                axisNode.Translate(new vec3(0, 0, 0.6f));
+                                gizmoNode.DefaultScale = new vec3(0.25f, 0.25f, 0.75f);
+                                axisNode.SetInitialPosition(new vec3(0, 0, 0.6f));
+                                axisNode.SetInitialScale(gizmoNode.DefaultScale);
                                 break;
                             }
                         }
                         
                         gizmoNode.Node = axisNode;
                         _translateGizmos[j] = gizmoNode;
+                        axisNode.SetInheritVisibility(false);
+                        axisNode.ResetLocalTransform();
                         axisNode.IsVisible = false;
                         gizmoRootNode.AddChild(axisNode);
                         _gizmoChildrenNodes.Add(gizmoNode);
@@ -111,7 +116,7 @@ public class Gizmo
                                 var circleMesh = BufferGeneration.GetCircleBuffer();
                                 circleMesh.Model.Diffuse = new vec4(1.0f, 0.0f, 0.0f, 1.0f);
                                 axisNode.AddChild(circleMesh.Model);
-                                axisNode.Rotate(vec3.UnitZ * (MathF.PI / 2));
+                                axisNode.SetInitialRotation(new quat(vec3.UnitZ * (MathF.PI / 2)));
                                 break;
                             }
                             case 1:
@@ -125,13 +130,16 @@ public class Gizmo
                             {
                                 var circleMesh = BufferGeneration.GetCircleBuffer();
                                 axisNode.AddChild(circleMesh.Model);
-                                axisNode.Rotate(vec3.UnitX * (MathF.PI / 2));
+                                circleMesh.Model.Diffuse = new vec4(0.0f, 0.0f, 1.0f, 1.0f);
+                                axisNode.SetInitialRotation(new quat(vec3.UnitX * (MathF.PI / 2)));
                                 break;
                             }
                         }
                         
                         gizmoNode.Node = axisNode;
                         _rotateGizmos[j] = gizmoNode;
+                        axisNode.SetInheritVisibility(false);
+                        axisNode.ResetLocalTransform();
                         axisNode.IsVisible = false;
                         gizmoRootNode.AddChild(axisNode);
                         _gizmoChildrenNodes.Add(gizmoNode);
@@ -170,6 +178,7 @@ public class Gizmo
                         
                         gizmoNode.Node = axisNode;
                         _scaleGizmos[j] = gizmoNode;
+                        axisNode.SetInheritVisibility(false);
                         axisNode.IsVisible = false;
                         
                         gizmoRootNode.AddChild(axisNode);
@@ -180,6 +189,8 @@ public class Gizmo
             
             _gizmoRenders.Add(gizmoRootNode);
         }
+
+        _gizmoNode.IsVisible = false;
     }
     
     public void HighlightAxis(TransformAxis axis)
@@ -190,28 +201,26 @@ public class Gizmo
         {
             return;
         }
-        
+
+        const float upScale = 1.5f;
         switch (axis)
         {
             case TransformAxis.X:
                 {
                     var node = axisNodes[0].Node;
-                    node.LocalTransform = mat4.Identity;
-                    node.Scale(new vec3(2.0f, 2.0f, 2.0f));
+                    node.Scale(new vec3(upScale, upScale, upScale));
                 }
                 break;
             case TransformAxis.Y:
                 {
                     var node = axisNodes[1].Node;
-                    node.LocalTransform = mat4.Identity;
-                    node.Scale(new vec3(2.0f, 2.0f, 2.0f));
+                    node.Scale(new vec3(upScale, upScale, upScale));
                 }
                 break;
             case TransformAxis.Z:
                 {
                     var node = axisNodes[2].Node;
-                    node.LocalTransform = mat4.Identity;
-                    node.Scale(new vec3(2.0f, 2.0f, 2.0f));
+                    node.Scale(new vec3(upScale, upScale, upScale));
                 }
                 break;
         }
@@ -220,6 +229,10 @@ public class Gizmo
     public void HideGizmo()
     {
         DetachCurrentGizmo();
+        foreach (var child in _gizmoChildrenNodes)
+        {
+            child.Node.IsVisible = false;
+        }
         _gizmoNode.IsVisible = false;
         _currentGizmo = GizmoType.TotalGizmos;
     }
@@ -260,14 +273,14 @@ public class Gizmo
         }
     
         var scale = 1.0f;
-        // _gizmoNode.setInheritOrientation(true);
+        _gizmoNode.SetInheritRotation(true);
         switch (gizmoType)
         {
             case GizmoType.Selection:
                 scale = 0.25f;
                 break;
             case GizmoType.Translate:
-                // _gizmoNode.setInheritOrientation(false);
+                _gizmoNode.SetInheritRotation(false);
                 foreach (var translateGizmo in _translateGizmos)
                 {
                     translateGizmo.Node.IsVisible = true;
@@ -287,7 +300,7 @@ public class Gizmo
                 break;
         }
     
-        _gizmoNode.LocalTransform = mat4.Identity;
+        _gizmoNode.ResetLocalTransform();
         _gizmoNode.Scale(new vec3(scale, scale, scale));
         
         _currentGizmo = gizmoType;
@@ -333,7 +346,7 @@ public class Gizmo
     {
         foreach (var child in _gizmoChildrenNodes)
         {
-            child.Node.Scale(child.DefaultScale);
+            child.Node.ResetLocalTransform();
         }
     }
     

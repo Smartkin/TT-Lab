@@ -19,7 +19,7 @@ public struct TwinMaterialDesc()
     public const string UseTexturePath = "twin_material.use_texture";
     
     public TextureBuffer? Texture { get; init; }
-    public TwinShader.AlphaBlendPresets BlendFunc { get; init; }
+    public TwinShader.AlphaBlendPresets BlendFunc { get; init; } = TwinShader.AlphaBlendPresets.Mix;
     public vec2 DeformSpeed { get; init; } = vec2.Zero;
     public bool BillboardRender { get; init; } = false;
     public float DoubleColor { get; init; } = 2.0f;
@@ -30,4 +30,6 @@ public struct TwinMaterialDesc()
     public float MetalicSpecular { get; init; } = 0.0f;
     public float EnvMap { get; init; } = 0.0f;
     public float UseTexture { get; init; } = 0.0f;
+    public bool DepthWrite { get; init; } = false;
+    public TwinShader.DepthTestMethod DepthTest { get; init; } = TwinShader.DepthTestMethod.GEQUAL;
 }

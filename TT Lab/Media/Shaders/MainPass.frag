@@ -5,35 +5,6 @@
 
 uniform TwinMaterial twin_material;
 
-void blend_colors(int blend_func, in vec4 original_color, inout vec4 new_color)
-{
-    switch(blend_func) {
-        case 0: // Mix
-            original_color.rgb = mix(original_color.rgb, new_color.rgb, new_color.a);
-            break;
-       case 1: // Add
-            original_color.rgb += new_color.rgb * new_color.a;
-            break;
-       case 2: // Sub
-            original_color.rgb -= new_color.rgb * new_color.a;
-            break;
-       case 3: // Alpha
-            original_color.a = original_color.a + new_color.a;
-            break;
-       case 4: // Zero
-            original_color = vec4(0.0);
-            break;
-       case 5: // Destination
-            original_color = original_color;
-            break;
-       case 6: // Source
-            original_color = new_color;
-            break;
-    }
-    
-    new_color = original_color;
-}
-
 void main()
 {
     vec2 screenUvs = gl_FragCoord.xy / Resolution;

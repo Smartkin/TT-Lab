@@ -199,8 +199,8 @@ public class RenderContext : IDisposable
 
     private static void DebugGlCallback(GLEnum source, GLEnum type, int id, GLEnum severity, int length, IntPtr message, IntPtr userParam)
     {
-        // TODO: We don't care about performance right now, maybe we will later...
-        if (type == GLEnum.DebugTypePerformance)
+        // TODO: We don't care about performance right now, maybe we will later... Also we don't care about notifications
+        if (type == GLEnum.DebugTypePerformance || severity == GLEnum.DebugSeverityNotification)
         {
             return;
         }

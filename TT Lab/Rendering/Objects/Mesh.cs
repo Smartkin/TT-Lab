@@ -37,9 +37,26 @@ public class Mesh(RenderContext context, List<ModelBuffer> models) : Renderable(
         return result.ToArray();
     }
 
+    private int _currentRenderMode;
     protected override void RenderSelf(float delta)
     {
+        _currentRenderMode = Context.Gl.GetInteger(GetPName.PolygonMode);
+        if (_currentRenderMode != (int)_renderMode)
+        {
+            Context.Gl.PolygonMode(TriangleFace.FrontAndBack, _renderMode);
+        }
+        
         var modelLoc = Context.CurrentPass.Program.GetUniformLocation("StartModel");
         Context.Gl.UniformMatrix4(modelLoc, false, RenderTransform.Values1D);
+    }
+
+    public override void EndRender()
+    {
+        if (_currentRenderMode != (int)PolygonMode.Fill)
+        {
+            Context.Gl.PolygonMode(TriangleFace.FrontAndBack, PolygonMode.Fill);
+        }
+
+        base.EndRender();
     }
 }

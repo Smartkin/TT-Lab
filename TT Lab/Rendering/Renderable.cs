@@ -14,12 +14,18 @@ public abstract class Renderable
     private mat4 _cachedWorldTransform = mat4.Identity;
     private mat4 _cachedRenderTransform = mat4.Identity;
     private mat4 _localTransform = mat4.Identity;
+    private vec3 _initialPosition = vec3.Zero;
+    private quat _initialRotation = quat.Identity;
+    private vec3 _initialScale = vec3.Ones;
     private Renderable? _parent = null;
     private readonly Dictionary<string, Renderable> _children = [];
     private bool _isVisible = true;
     private bool _canUpdate = true;
     private vec4 _diffuse = vec4.Ones;
     private bool _inheritScale = true;
+    private bool _inheritRotation = true;
+    private bool _inheritDiffuse = true;
+    private bool _inheritVisibility = true;
 
     protected Renderable(RenderContext context, string name = "")
     {
@@ -42,10 +48,53 @@ public abstract class Renderable
         UpdateSelf(delta);
     }
 
+    public void SetInitialPosition(vec3 position)
+    {
+        _initialPosition = position;
+    }
+
+    public void SetInitialRotation(quat rotation)
+    {
+        _initialRotation = rotation;
+    }
+
+    public void SetInitialScale(vec3 scale)
+    {
+        _initialScale = scale;
+    }
+
+    public void SetInitialTransform(vec3 position, quat rotation, vec3 scale)
+    {
+        SetInitialPosition(position);
+        SetInitialRotation(rotation);
+        SetInitialScale(scale);
+    }
+
+    public void ResetLocalTransform()
+    {
+        LocalTransform = mat4.Translate(_initialPosition) * _initialRotation.ToMat4 * mat4.Scale(_initialScale);
+    }
+
     public void SetInheritScale(bool inheritScale)
     {
         _inheritScale = inheritScale;
         UpdateTransform();
+    }
+
+    public void SetInheritRotation(bool inheritRotation)
+    {
+        _inheritRotation = inheritRotation;
+        UpdateTransform();
+    }
+
+    public void SetInheritDiffuse(bool inheritDiffuse)
+    {
+        _inheritDiffuse = inheritDiffuse;
+    }
+
+    public void SetInheritVisibility(bool inheritVisibility)
+    {
+        _inheritVisibility = inheritVisibility;
     }
 
     public void Render(float delta)
@@ -108,6 +157,11 @@ public abstract class Renderable
         return new vec3((float)angles.x, (float)angles.y, (float)angles.z);
     }
 
+    public quat GetRotationQuat()
+    {
+        return quat.FromMat4(WorldTransform);
+    }
+
     public vec3 GetScale()
     {
         return new vec3(WorldTransform.m00, WorldTransform.m11, WorldTransform.m22);
@@ -122,6 +176,16 @@ public abstract class Renderable
     {
         var translation = mat4.Translate(position);
         _localTransform = _localTransform with { Column3 = translation.Column3 };
+        _localTransform.m33 = 1.0f;
+        UpdateTransform();
+    }
+
+    public void SetScale(vec3 scale)
+    {
+        var scaleMat = mat4.Scale(scale);
+        var rotation = quat.FromMat4(LocalTransform);
+        var position = mat4.Translate(LocalTransform.Column3.xyz);
+        _localTransform = position * rotation.ToMat4 * scaleMat;
         _localTransform.m33 = 1.0f;
         UpdateTransform();
     }
@@ -157,19 +221,19 @@ public abstract class Renderable
         Transform(rotation.ToMat4);
     }
 
-    public void Rotate(vec3 rotation, bool reverseOrder = false)
+    public void Rotate(vec3 rotation, bool inLocalSpace = false)
     {
-        Transform(mat4.RotateZ(rotation.z) * mat4.RotateY(rotation.y) * mat4.RotateX(rotation.x), reverseOrder);
+        Transform(mat4.RotateZ(rotation.z) * mat4.RotateY(rotation.y) * mat4.RotateX(rotation.x), inLocalSpace);
     }
 
-    public void Scale(vec3 scale, bool reverseOrder = false)
+    public void Scale(vec3 scale, bool inLocalSpace = false)
     {
-        Transform(mat4.Scale(scale), reverseOrder);
+        Transform(mat4.Scale(scale), inLocalSpace);
     }
 
-    public void Transform(mat4 transform, bool reverseOrder = false)
+    public void Transform(mat4 transform, bool inLocalSpace = false)
     {
-        _localTransform = reverseOrder ? _localTransform * transform : transform * _localTransform;
+        _localTransform = inLocalSpace ? _localTransform * transform : transform * _localTransform;
         _localTransform.m33 = 1.0f;
         UpdateTransform();
     }
@@ -215,7 +279,8 @@ public abstract class Renderable
     
     private void UpdateTransform()
     {
-        if (_inheritScale)
+        // This is some horrible logic and nesting but trust me this is for optimization purposes to reduce matrix decomposition
+        if (_inheritScale && _inheritRotation)
         {
             _cachedWorldTransform = (_parent != null) ? _parent.WorldTransform * _localTransform : _localTransform;
         }
@@ -224,8 +289,26 @@ public abstract class Renderable
             if (_parent != null)
             {
                 var parentTranslation = mat4.Translate(_parent.GetPosition());
-                var rotation = new quat(_parent.GetRotation());
-                _cachedWorldTransform = parentTranslation * rotation.ToMat4 * _localTransform;
+                if (!_inheritRotation && !_inheritScale)
+                {
+                    _cachedWorldTransform = parentTranslation * _localTransform;
+                }
+                else
+                {
+                    var rotation = quat.Identity;
+                    if (_inheritRotation)
+                    {
+                        rotation = _parent.GetRotationQuat();
+                    }
+
+                    var scale = vec3.Ones;
+                    if (_inheritScale)
+                    {
+                        scale = _parent.GetScale();
+                    }
+
+                    _cachedWorldTransform = parentTranslation * rotation.ToMat4 * mat4.Scale(scale) * _localTransform;
+                }
             }
             else
             {
@@ -244,7 +327,8 @@ public abstract class Renderable
         set
         {
             _diffuse = value;
-            foreach (var child in _children.Values)
+
+            foreach (var child in _children.Values.Where(child => child._inheritDiffuse))
             {
                 child.Diffuse = value;
             }
@@ -276,7 +360,8 @@ public abstract class Renderable
         set
         {
             _isVisible = value;
-            foreach (var child in _children.Values)
+
+            foreach (var child in _children.Values.Where(child => child._inheritVisibility))
             {
                 child.IsVisible = value;
             }

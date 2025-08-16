@@ -84,6 +84,7 @@ public class MaterialFactory(TextureService textureService)
             case TwinShader.Type.SHADER_32:
                 break;
         }
+        
         return new TwinMaterialDesc
         {
             Texture = texture,
@@ -97,7 +98,9 @@ public class MaterialFactory(TextureService textureService)
             DeformSpeed = deformSpeed,
             EnvMap = envMap ? 1.0f : 0.0f,
             UvScrollSpeed = uvScrollSpeed,
-            BlendFunc = shader.AlphaRegSettingsIndex
+            BlendFunc = shader.AlphaRegSettingsIndex,
+            DepthWrite = shader.ZValueDrawingMask == TwinShader.ZValueDrawMask.UPDATE,
+            DepthTest = shader.DepthTest
         };
     }
 }

@@ -127,7 +127,7 @@ namespace TT_Lab.Rendering
             SelectedInstance?.Deselect();
             SelectedInstance = null;
             SelectedRenderable = null;
-            // _gizmo.HideGizmo();
+            _gizmo.HideGizmo();
         }
 
         public void Select(SceneInstance instance)
@@ -147,6 +147,7 @@ namespace TT_Lab.Rendering
                 _gizmo.DetachFromCurrentObject();
                 _gizmo.SwitchGizmo((Gizmo.GizmoType)(int)TransformMode);
                 _gizmo.AttachToObject(SelectedInstance.GetEditableObject());
+                _gizmo.ShowGizmo();
             }
         }
 

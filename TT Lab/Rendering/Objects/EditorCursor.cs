@@ -12,6 +12,12 @@ internal class EditorCursor
 
     public EditorCursor(EditingContext editingContext)
     {
+        _cursorNode = BufferGeneration.GetCubeBuffer().Model!;
+        var purple = Color.Purple;
+        _cursorNode.Diffuse = new vec4(purple.R / 255.0f,  purple.G / 255.0f, purple.B / 255.0f, 1.0f);
+        _cursorNode.IsVisible = false;
+        _cursorNode.Scale(new vec3(0.25f, 0.25f, 0.25f), true);
+        editingContext.GetEditorNode().AddChild(_cursorNode);
         // _cursorNode = editingContext.GetEditorNode().createChildSceneNode("EditorCursorNode");
         // var cube = BufferGeneration.GetCubeBuffer("EditorCursorCube", Color.Purple);
         // var entity = editingContext.CreateEntity(cube);
@@ -29,8 +35,8 @@ internal class EditorCursor
     public void SetPosition(vec3 newPos)
     {
         _pos = newPos;
-        // _cursorNode.setPosition(OgreExtensions.FromGlm(newPos));
-        // _cursorNode.setVisible(true);
+        _cursorNode.SetPosition(newPos);
+        _cursorNode.IsVisible = true;
     }
 
     public vec3 GetPosition()
