@@ -18,7 +18,7 @@ public class Camera : EditableObject
     public Camera(RenderContext context, string name, Renderable parentNode, Billboard cameraBillboard, CameraData cameraData, vec3 size) : base(context, parentNode, name, size)
     {
         _cameraData = cameraData;
-        _cameraTrigger = new Trigger(context, $"CameraTrigger_{name}", this, cameraBillboard, cameraData.Trigger, size, KnownColor.Blue);
+        _cameraTrigger = new Trigger(context, $"CameraTrigger_{name}", parentNode, cameraBillboard, cameraData.Trigger, size, KnownColor.Blue);
         _cameraTrigger.Init();
         _cameraTrigger.SetInheritDiffuse(false);
     }
@@ -132,16 +132,17 @@ public class Camera : EditableObject
 
     protected override void InitSceneTransform()
     {
-        // Pos = _cameraTrigger.GetPosition();
-        // Rot = _cameraTrigger.GetRotation();
-        // Scl = _cameraTrigger.GetScale();
+        Pos = _cameraTrigger.GetPosition();
+        Rot = _cameraTrigger.GetRotation();
+        Scl = _cameraTrigger.GetScale();
     }
 
     protected override void UpdateSceneTransform()
     {
+        _cameraTrigger.SetPosition(Pos);
+        _cameraTrigger.SetRotation(new quat(Rot));
+        _cameraTrigger.SetScale(Scl);
+        
         base.UpdateSceneTransform();
-        // _cameraTrigger.SetPosition(Pos);
-        // _cameraTrigger.Rotate(Rot);
-        // _cameraTrigger.Scale(Scl);
     }
 }

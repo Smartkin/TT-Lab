@@ -79,21 +79,31 @@ namespace TT_Lab.Rendering.Objects
         {
             Pos = position;
             SetInitialPosition(Pos);
-            ResetLocalTransform();
+            UpdateSceneTransform();
         }
 
         public void SetScale(vec3 scale)
         {
             Scl = scale;
             SetInitialScale(Scl);
-            ResetLocalTransform();
+            UpdateSceneTransform();
         }
 
         public void SetRotation(quat rotation)
         {
             Rot = (vec3)rotation.EulerAngles;
             SetInitialRotation(rotation);
-            ResetLocalTransform();
+            UpdateSceneTransform();
+        }
+
+        public override vec3 GetPosition()
+        {
+            return Pos;
+        }
+
+        public override vec3 GetRotation()
+        {
+            return Rot;
         }
 
         public override vec3 GetScale()

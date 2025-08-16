@@ -150,7 +150,7 @@ public abstract class Renderable
         return RenderTransform.Column2.xyz;
     }
 
-    public vec3 GetRotation()
+    public virtual vec3 GetRotation()
     {
         var quat = GlmSharp.quat.FromMat4(WorldTransform);
         var angles = quat.EulerAngles;
@@ -167,7 +167,7 @@ public abstract class Renderable
         return new vec3(WorldTransform.m00, WorldTransform.m11, WorldTransform.m22);
     }
 
-    public vec3 GetPosition()
+    public virtual vec3 GetPosition()
     {
         return WorldTransform.Column3.xyz;
     }
@@ -186,7 +186,7 @@ public abstract class Renderable
         UpdateTransform();
     }
 
-    public virtual vec3 GetLeft()
+    public vec3 GetLeft()
     {
         return WorldTransform.Column0.xyz;
     }

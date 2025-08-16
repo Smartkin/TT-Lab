@@ -214,7 +214,7 @@ namespace TT_Lab.Rendering.Objects.SceneInstances
 
         public mat4 GetTransform()
         {
-            return AttachedEditableObject.LocalTransform;
+            return mat4.Translate(Position) * (new quat(Rotation)).ToMat4;
         }
 
         public mat4 GetWorldTransform()
