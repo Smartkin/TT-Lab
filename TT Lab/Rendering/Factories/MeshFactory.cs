@@ -106,7 +106,7 @@ public class MeshFactory
             -1.0f, 1.0f, 1.0f,
             1.0f,-1.0f, 1.0f
         };
-        // cubeVertecies = cubeVertecies.Select(v => v * 100.0f).ToArray();
+        
         var vectors = new List<vec3>();
         var faces = new List<IndexedFace>();
         for (var i = 0; i < cubeVertecies.Length; i += 3)
@@ -115,14 +115,13 @@ public class MeshFactory
         }
         for (var i = 0; i < vectors.Count; i += 3)
         {
-            faces.Add(new IndexedFace { Indexes = [i, i + 1, i + 2] });
+            faces.Add(new IndexedFace { Indexes = [i + 2, i + 1, i] });
         }
         
         var material = new MaterialData();
         material.Shaders[0].TxtMapping = TwinShader.TextureMapping.OFF;
         material.Shaders[0].ShaderType = TwinShader.Type.ColorOnly;
         material.Shaders[0].ABlending = TwinShader.AlphaBlending.ON;
-        // material.Shaders[0].DepthTest = TwinShader.DepthTestMethod.ALWAYS;
         var buffer = new ModelBuffer(_renderContext, _meshBuilder.BuildRigidVaoFromVertexes(vectors.Select((v, i) => new Vertex(new Vector4(v.x, v.y, v.z, 1.0f), new Vector4(1.0f, 1.0f, 1.0f, 1.0f))).ToList(), faces), _materialFactory, material);
         return new Mesh(_renderContext, [buffer]);
     }
@@ -154,7 +153,7 @@ public class MeshFactory
         var faces = new List<IndexedFace>();
         for (var i = 0; i < vectors.Count; i += 3)
         {
-            faces.Add(new IndexedFace { Indexes = new int[] { i + 2, i + 1, i } });
+            faces.Add(new IndexedFace { Indexes = [i + 2, i + 1, i] });
         }
         
         var material = new MaterialData();
@@ -168,14 +167,14 @@ public class MeshFactory
     private Mesh CreatePlane()
     {
         var vertices = new float[] {
-            -100, -100, 0,  // pos
-            100, -100, 0,
-            -100,  100, 0,
-            -100,  100, 0 ,
-            100,  -100, 0 ,
-            100,  100, 0 ,
+            -1, -1, 0,  // pos
+            1, -1, 0,
+            -1,  1, 0,
+            -1,  1, 0 ,
+            1,  -1, 0 ,
+            1,  1, 0 ,
         };
-            
+        
         var vectors = new List<vec3>();
         var faces = new List<IndexedFace>();
         var uvs = new List<vec2>()
@@ -193,7 +192,7 @@ public class MeshFactory
         }
         for (var i = 0; i < vectors.Count; i += 3)
         {
-            faces.Add(new IndexedFace { Indexes = new int[] { i + 2, i + 1, i } });
+            faces.Add(new IndexedFace { Indexes = [i + 2, i + 1, i] });
         }
 
         var material = new MaterialData();

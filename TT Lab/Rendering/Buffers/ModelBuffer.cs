@@ -19,6 +19,8 @@ public class ModelBuffer(RenderContext context, ModelBufferBuild build, Material
     
     public uint IndexCount => build.IndicesAmount;
 
+    public TwinMaterial? GetMaterial() => _currentRenderMaterial;
+
     public (string, int)[] GetPriorityPass()
     {
         var result = new List<(string, int)>();

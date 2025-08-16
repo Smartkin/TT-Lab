@@ -162,7 +162,7 @@ public abstract class Renderable
         return quat.FromMat4(WorldTransform);
     }
 
-    public vec3 GetScale()
+    public virtual vec3 GetScale()
     {
         return new vec3(WorldTransform.m00, WorldTransform.m11, WorldTransform.m22);
     }
@@ -172,20 +172,10 @@ public abstract class Renderable
         return WorldTransform.Column3.xyz;
     }
 
-    public void SetPosition(vec3 position)
+    public virtual void SetPosition(vec3 position)
     {
         var translation = mat4.Translate(position);
         _localTransform = _localTransform with { Column3 = translation.Column3 };
-        _localTransform.m33 = 1.0f;
-        UpdateTransform();
-    }
-
-    public void SetScale(vec3 scale)
-    {
-        var scaleMat = mat4.Scale(scale);
-        var rotation = quat.FromMat4(LocalTransform);
-        var position = mat4.Translate(LocalTransform.Column3.xyz);
-        _localTransform = position * rotation.ToMat4 * scaleMat;
         _localTransform.m33 = 1.0f;
         UpdateTransform();
     }
@@ -216,9 +206,9 @@ public abstract class Renderable
         Transform(mat4.Translate(translation));
     }
 
-    public void Rotate(quat rotation)
+    public void Rotate(quat rotation, bool inLocalSpace = false)
     {
-        Transform(rotation.ToMat4);
+        Transform(rotation.ToMat4, inLocalSpace);
     }
 
     public void Rotate(vec3 rotation, bool inLocalSpace = false)
@@ -226,7 +216,7 @@ public abstract class Renderable
         Transform(mat4.RotateZ(rotation.z) * mat4.RotateY(rotation.y) * mat4.RotateX(rotation.x), inLocalSpace);
     }
 
-    public void Scale(vec3 scale, bool inLocalSpace = false)
+    public virtual void Scale(vec3 scale, bool inLocalSpace = false)
     {
         Transform(mat4.Scale(scale), inLocalSpace);
     }

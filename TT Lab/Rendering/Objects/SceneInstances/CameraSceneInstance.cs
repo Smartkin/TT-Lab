@@ -14,7 +14,6 @@ public sealed class CameraSceneInstance : SceneInstance
         var rotEuler = data.Trigger.Rotation.ToEulerAngles();
         Rotation = new vec3(rotEuler.X, rotEuler.Y, rotEuler.Z);
         Size = new vec3(data.Trigger.Scale.X, data.Trigger.Scale.Y, data.Trigger.Scale.Z);
-        Offset = Size;
         SupportedTransforms |= SupportedTransforms.Scale;
     }
 

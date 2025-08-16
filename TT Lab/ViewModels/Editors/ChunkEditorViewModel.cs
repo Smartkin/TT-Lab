@@ -488,7 +488,7 @@ namespace TT_Lab.ViewModels.Editors
                     
                     var hit = new vec3();
                     var distance = 0.0f;
-                    var worldPosition = instance.GetTransform() * new vec4(0, 0, 0, 1);
+                    var worldPosition = instance.GetWorldTransform().Column3.xyz;
                     if (!MathExtension.IntersectRayBox(rayOrigin, rayDirection, worldPosition.xyz, instance.GetOffset(),
                             instance.GetSize(), instance.GetTransform(), ref distance, ref hit))
                     {
@@ -514,8 +514,8 @@ namespace TT_Lab.ViewModels.Editors
                     var p1 = _colData.Vectors[triangle.Face.Indexes![0]];
                     var p2 = _colData.Vectors[triangle.Face.Indexes[1]];
                     var p3 = _colData.Vectors[triangle.Face.Indexes[2]];
-                    if (!MathExtension.IntersectRayTriangle(rayOrigin, rayDirection, new vec3(-p1.X, p1.Y, p1.Z),
-                            new vec3(-p2.X, p2.Y, p2.Z), new vec3(-p3.X, p3.Y, p3.Z), ref distance, ref hit))
+                    if (!MathExtension.IntersectRayTriangle(rayOrigin, rayDirection, new vec3(p1.X, p1.Y, p1.Z),
+                            new vec3(p2.X, p2.Y, p2.Z), new vec3(p3.X, p3.Y, p3.Z), ref distance, ref hit))
                     {
                         continue;
                     }
@@ -726,6 +726,7 @@ namespace TT_Lab.ViewModels.Editors
                     if (_editingContext.IsInstanceSelected())
                     {
                         ImguiRenderControls(renderer);
+                        _editingContext.SelectedRenderable?.RenderUpdate();
                     }
                 };
 

@@ -71,6 +71,29 @@ namespace TT_Lab.Rendering.Objects.SceneInstances
             TextDisplay?.Enable(enabled);
         }
 
+        public void Translate(vec3 translation)
+        {
+            AttachedEditableObject.Translate(translation);
+            Position += translation;
+            SetPositionRotationScale(Position, Rotation, GetScale());
+        }
+
+        public void Rotate(vec3 rotation)
+        {
+            var rotQuat = new quat(rotation);
+            AttachedEditableObject.Rotate(rotQuat, true);
+            var currentRot = new quat(Rotation);
+            var resultRot = currentRot.ToMat4 * rotQuat.ToMat4;
+            Rotation = (vec3)quat.FromMat4(resultRot).EulerAngles;
+            SetPositionRotationScale(Position, Rotation, GetScale());
+        }
+
+        public void Scale(vec3 scale)
+        {
+            AttachedEditableObject.Scale(scale);
+            SetPositionRotationScale(Position, Rotation, GetScale());
+        }
+
         public virtual void SetPositionRotationScale(vec3 position, vec3 rotation, vec3 scale = default)
         {
             if (!IsSelected)
@@ -83,18 +106,18 @@ namespace TT_Lab.Rendering.Objects.SceneInstances
             editor.Position.X = position.x;
             editor.Position.Y = position.y;
             editor.Position.Z = position.z;
-            editor.Rotation.X = rotation.x;
-            editor.Rotation.Y = rotation.y;
-            editor.Rotation.Z = rotation.z;
+            editor.Rotation.X = glm.Degrees(rotation.x);
+            editor.Rotation.Y = glm.Degrees(rotation.y);
+            editor.Rotation.Z = glm.Degrees(rotation.z);
             if (scale != vec3.Zero)
             {
                 editor.Scale.X = scale.x;
                 editor.Scale.Y = scale.y;
                 editor.Scale.Z = scale.z;
-                AttachedEditableObject.Scale(scale);
+                AttachedEditableObject.SetScale(scale);
             }
             _editedDirectly = false;
-            AttachedEditableObject.Rotate(rotation, true);
+            AttachedEditableObject.SetRotation(new quat(rotation));
             AttachedEditableObject.SetPosition(position);
         }
 
@@ -113,7 +136,7 @@ namespace TT_Lab.Rendering.Objects.SceneInstances
             }
 
             var viewModel = (Vector3ViewModel)sender!;
-            AttachedEditableObject.Scale(new vec3(viewModel.X, viewModel.Y, viewModel.Z));
+            AttachedEditableObject.SetScale(new vec3(viewModel.X, viewModel.Y, viewModel.Z));
         }
 
         private void RotationOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -124,7 +147,8 @@ namespace TT_Lab.Rendering.Objects.SceneInstances
             }
             
             var viewModel = (Vector3ViewModel)sender!;
-            AttachedEditableObject.Rotate(new vec3(viewModel.X, viewModel.Y, viewModel.Z));
+            Rotation = new vec3(glm.Radians(viewModel.X), glm.Radians(viewModel.Y), glm.Radians(viewModel.Z));
+            AttachedEditableObject.SetRotation(new quat(Rotation));
         }
 
         private void PositionOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -135,7 +159,8 @@ namespace TT_Lab.Rendering.Objects.SceneInstances
             }
 
             var viewModel = (Vector4ViewModel)sender!;
-            AttachedEditableObject.SetPosition(new vec3(viewModel.X, viewModel.Y, viewModel.Z));
+            Position = new vec3(viewModel.X, viewModel.Y, viewModel.Z);
+            AttachedEditableObject.SetPosition(Position);
         }
 
         public virtual void UnlinkChangesToViewModel(ViewportEditableInstanceViewModel viewModel)
@@ -190,6 +215,11 @@ namespace TT_Lab.Rendering.Objects.SceneInstances
         public mat4 GetTransform()
         {
             return AttachedEditableObject.LocalTransform;
+        }
+
+        public mat4 GetWorldTransform()
+        {
+            return AttachedEditableObject.WorldTransform;
         }
 
         public void Dispose()

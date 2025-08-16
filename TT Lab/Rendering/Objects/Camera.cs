@@ -20,6 +20,7 @@ public class Camera : EditableObject
         _cameraData = cameraData;
         _cameraTrigger = new Trigger(context, $"CameraTrigger_{name}", this, cameraBillboard, cameraData.Trigger, size, KnownColor.Blue);
         _cameraTrigger.Init();
+        _cameraTrigger.SetInheritDiffuse(false);
     }
 
     public override (String, Int32)[] GetPriorityPasses()

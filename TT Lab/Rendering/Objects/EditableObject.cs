@@ -2,7 +2,8 @@ using System;
 using GlmSharp;
 using System.Collections.Generic;
 using System.Linq;
-using org.ogre;
+using System.Numerics;
+using ImGuiNET;
 using TT_Lab.AssetData;
 using TT_Lab.AssetData.Code;
 using TT_Lab.AssetData.Graphics;
@@ -17,9 +18,11 @@ namespace TT_Lab.Rendering.Objects
     {
         protected vec3 Pos = new();
         protected vec3 Rot = new();
-        protected vec3 Scl = new();
+        protected vec3 Scl;
         protected vec3 Size;
         protected bool Selected;
+        protected vec4 SelectedColor = new(0.3f, 0.3f, 0.3f, 1.0f);
+        protected vec4 UnselectedColor = new(1.0f, 1.0f, 1.0f, 1.0f);
 
         protected EditableObject(RenderContext context, string name, vec3 size = new()) : base(context, name)
         {
@@ -47,6 +50,9 @@ namespace TT_Lab.Rendering.Objects
         public void Init()
         {
             InitSceneTransform();
+            SetInitialPosition(Pos);
+            SetInitialRotation(new quat(Rot));
+            SetInitialScale(Scl);
             UpdateSceneTransform();
         }
 
@@ -54,22 +60,52 @@ namespace TT_Lab.Rendering.Objects
 
         protected virtual void UpdateSceneTransform()
         {
-            LocalTransform = mat4.Identity; //mat4.Translate(Pos) * mat4.RotateZ(glm.Radians(Rot.z)) * mat4.RotateY(glm.Radians(Rot.y)) * mat4.RotateX(glm.Radians(Rot.x)) * mat4.Scale(Scl);
-            Scale(Scl);
-            Rotate(new vec3(glm.Radians(Rot.x), glm.Radians(Rot.y), glm.Radians(Rot.z)));
-            SetPosition(Pos);
+            ResetLocalTransform();
         }
 
         public virtual void Select()
         {
             Selected = true;
-            Diffuse = new vec4(0.3f, 0.3f, 0.3f, 1.0f);
+            Diffuse = SelectedColor;
         }
 
         public virtual void Deselect()
         {
             Selected = false;
-            Diffuse = new vec4(1.0f, 1.0f, 1.0f, 1.0f);
+            Diffuse = UnselectedColor;
+        }
+
+        public override void SetPosition(vec3 position)
+        {
+            Pos = position;
+            SetInitialPosition(Pos);
+            ResetLocalTransform();
+        }
+
+        public void SetScale(vec3 scale)
+        {
+            Scl = scale;
+            SetInitialScale(Scl);
+            ResetLocalTransform();
+        }
+
+        public void SetRotation(quat rotation)
+        {
+            Rot = (vec3)rotation.EulerAngles;
+            SetInitialRotation(rotation);
+            ResetLocalTransform();
+        }
+
+        public override vec3 GetScale()
+        {
+            return Scl;
+        }
+
+        public override void Scale(vec3 scale, bool inLocalSpace = false)
+        {
+            Scl *= scale;
+            
+            base.Scale(scale, inLocalSpace);
         }
 
         public void RenderUpdate()
@@ -85,8 +121,8 @@ namespace TT_Lab.Rendering.Objects
         private void DrawImGui()
         {
             ImGui.Begin(Name);
-            ImGui.SetWindowPos(new ImVec2(5, 5));
-            ImGui.SetWindowSize(new ImVec2(400, 100));
+            ImGui.SetWindowPos(new Vector2(5, 5));
+            ImGui.SetWindowSize(new Vector2(400, 100));
             DrawImGuiInternal();
             ImGui.End();
         }
@@ -94,10 +130,10 @@ namespace TT_Lab.Rendering.Objects
         protected virtual void DrawImGuiInternal()
         {
             var rotation = GetRotation();
-            rotation.y = -rotation.y;
-            rotation.z = -rotation.z;
+            rotation.x = glm.Degrees(rotation.x);
+            rotation.y = glm.Degrees(rotation.y);
+            rotation.z = glm.Degrees(rotation.z);
             var position = GetPosition();
-            position.x = -position.x;
             ImGui.Text($"Position: {position}");
             ImGui.Text($"Rotation: {rotation}");
             ImGui.Text($"Scale: {GetScale()}");

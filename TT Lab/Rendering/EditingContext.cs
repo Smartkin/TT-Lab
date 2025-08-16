@@ -34,17 +34,15 @@ namespace TT_Lab.Rendering
         private readonly Gizmo _gizmo;
         private vec3 _gridStep;
         private mat4 _gridRotation;
-        private readonly Scene.Scene _scene;
         private readonly RenderContext _renderContext;
 
         public EditingContext(RenderContext context, Scene.Scene scene, ChunkEditorViewModel editor)
         {
             _editor = editor;
             _renderContext = context;
-            _scene = scene;
             _editCtxNode = new Node(context, scene);
             _cursor = new EditorCursor(this);
-            _gizmo = new Gizmo(scene, context, this);
+            _gizmo = new Gizmo(context, this);
             _positionsBillboards = CreateBillboardSet(context, "PositionsBillboards", "BillboardPositions");
             _triggersBillboards = CreateBillboardSet(context, "TriggersBillboards", "BillboardTriggers");
             _camerasBillboards = CreateBillboardSet(context, "CamerasBillboards", "BillboardCameras");
@@ -139,9 +137,6 @@ namespace TT_Lab.Rendering
             
             if (SelectedInstance != null)
             {
-                // _renderWindow.SetCameraTarget(SelectedInstance.GetEditableObject().GetSceneNode());
-                // _renderWindow.SetCameraStyle(CameraStyle.CS_ORBIT);
-                // _renderWindow.SetYawPitchDist((float)Math.PI / 4.0f, (float)Math.PI / 4.0f, 10);
                 _editor.InstanceEditorChanged(new RoutedPropertyChangedEventArgs<Object>(null, SelectedInstance.GetViewModel()));
                 SelectedInstance.LinkChangesToViewModel((ViewportEditableInstanceViewModel)_editor.CurrentInstanceEditor!);
                 _gizmo.DetachFromCurrentObject();
@@ -385,27 +380,27 @@ namespace TT_Lab.Rendering
 
         private void Scale(vec3 offset)
         {
-            SelectedRenderable.Scale(offset);
+            SelectedInstance.Scale(offset + vec3.Ones);
         }
 
         private void Translate(vec3 offset)
         {
-            SelectedRenderable.Translate(offset);
+            SelectedInstance.Translate(offset);
         }
 
         private void RotateX(float value)
         {
-            SelectedRenderable.Rotate(vec3.UnitX * value, true);
+            SelectedInstance.Rotate(vec3.UnitX * value);
         }
 
         private void RotateY(float value)
         {
-            SelectedRenderable.Rotate(vec3.UnitY * value, true);
+            SelectedInstance.Rotate(vec3.UnitY * value);
         }
 
         private void RotateZ(float value)
         {
-            SelectedRenderable.Rotate(vec3.UnitZ * value, true);
+            SelectedInstance.Rotate(vec3.UnitZ * value);
         }
 
         private BillboardSet CreateBillboardSet(RenderContext renderContext, string billboardName, string billboardMaterial)

@@ -63,91 +63,12 @@ public static class BufferGeneration
     public static MeshInfo GetCubeBuffer()
     {
         GetMeshService();
-        //
-        // color ??= Color.LightGray;
-        // List<Color> colors = new List<Color> { color.Value };
-        // float[] cubeVertecies = {
-        //     -1.0f,-1.0f,-1.0f,
-        //     -1.0f,-1.0f, 1.0f,
-        //     -1.0f, 1.0f, 1.0f,
-        //     1.0f, 1.0f,-1.0f,
-        //     -1.0f,-1.0f,-1.0f,
-        //     -1.0f, 1.0f,-1.0f,
-        //     1.0f,-1.0f, 1.0f,
-        //     -1.0f,-1.0f,-1.0f,
-        //     1.0f,-1.0f,-1.0f,
-        //     1.0f, 1.0f,-1.0f,
-        //     1.0f,-1.0f,-1.0f,
-        //     -1.0f,-1.0f,-1.0f,
-        //     -1.0f,-1.0f,-1.0f,
-        //     -1.0f, 1.0f, 1.0f,
-        //     -1.0f, 1.0f,-1.0f,
-        //     1.0f,-1.0f, 1.0f,
-        //     -1.0f,-1.0f, 1.0f,
-        //     -1.0f,-1.0f,-1.0f,
-        //     -1.0f, 1.0f, 1.0f,
-        //     -1.0f,-1.0f, 1.0f,
-        //     1.0f,-1.0f, 1.0f,
-        //     1.0f, 1.0f, 1.0f,
-        //     1.0f,-1.0f,-1.0f,
-        //     1.0f, 1.0f,-1.0f,
-        //     1.0f,-1.0f,-1.0f,
-        //     1.0f, 1.0f, 1.0f,
-        //     1.0f,-1.0f, 1.0f,
-        //     1.0f, 1.0f, 1.0f,
-        //     1.0f, 1.0f,-1.0f,
-        //     -1.0f, 1.0f,-1.0f,
-        //     1.0f, 1.0f, 1.0f,
-        //     -1.0f, 1.0f,-1.0f,
-        //     -1.0f, 1.0f, 1.0f,
-        //     1.0f, 1.0f, 1.0f,
-        //     -1.0f, 1.0f, 1.0f,
-        //     1.0f,-1.0f, 1.0f
-        // };
-        //     
-        // var vectors = new List<vec3>();
-        // var faces = new List<IndexedFace>();
-        // for (var i = 0; i < cubeVertecies.Length; i += 3)
-        // {
-        //     vectors.Add(new vec3(cubeVertecies[i], cubeVertecies[i + 1], cubeVertecies[i + 2]));
-        // }
-        // for (var i = 0; i < vectors.Count; i += 3)
-        // {
-        //     faces.Add(new IndexedFace { Indexes = new int[] { i + 2, i + 1, i } });
-        // }
-        
         return _meshService!.GetMesh(LabURI.Box);
     }
 
     public static MeshInfo GetCircleBuffer(float segmentPart = 1.0f, float thickness = 0.1f, int resolution = 16)
     {
         GetMeshService();
-        //
-        // var segment = 2 * System.Math.PI * segmentPart;
-        // List<vec3> vectors = new List<vec3>();
-        // var step = (2 * System.Math.PI) / resolution;
-        // var k = 1.0f - thickness;
-        // for (var i = 0; i <= resolution; ++i)
-        // {
-        //     var step1 = i * step;
-        //     if (step1 > segment)
-        //     {
-        //         break;
-        //     }
-        //     var step2 = System.Math.Min((i + 1) * step, segment);
-        //     vectors.Add(new vec3((float)System.Math.Cos(step1), 0, (float)System.Math.Sin(step1)));
-        //     vectors.Add(new vec3((float)System.Math.Cos(step1) * k, 0, (float)System.Math.Sin(step1) * k));
-        //     vectors.Add(new vec3((float)System.Math.Cos(step2) * k, 0, (float)System.Math.Sin(step2)));
-        //     vectors.Add(new vec3((float)System.Math.Cos(step1), 0, (float)System.Math.Sin(step1)));
-        //     vectors.Add(new vec3((float)System.Math.Cos(step2) * k, 0, (float)System.Math.Sin(step2) * k));
-        //     vectors.Add(new vec3((float)System.Math.Cos(step2), 0, (float)System.Math.Sin(step2)));
-        // }
-        // var faces = new List<IndexedFace>();
-        // for (var i = 0; i < vectors.Count; i += 3)
-        // {
-        //     faces.Add(new IndexedFace { Indexes = new int[] { i + 2, i + 1, i } });
-        // }
-            
         return _meshService!.GetMesh(LabURI.Circle);
     }
 }

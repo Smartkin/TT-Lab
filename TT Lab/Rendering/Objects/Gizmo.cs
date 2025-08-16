@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Drawing;
 using GlmSharp;
 using TT_Lab.Extensions;
+using TT_Lab.Rendering.Materials;
 using TT_Lab.Rendering.Scene;
 using TT_Lab.Util;
+using Twinsanity.TwinsanityInterchange.Common;
 
 namespace TT_Lab.Rendering.Objects;
 
@@ -29,11 +31,12 @@ public class Gizmo
     private readonly List<Node> _gizmoRenders = new();
     private readonly List<GizmoNode> _gizmoChildrenNodes = new();
     
-    public Gizmo(Scene.Scene scene, RenderContext renderContext, EditingContext editingContext)
+    public Gizmo(RenderContext renderContext, EditingContext editingContext)
     {
         _editingContext = editingContext;
-        _gizmoNode = new Node(renderContext, scene, "GIZMOS");
+        _gizmoNode = new Node(renderContext, editingContext.GetEditorNode(), "GIZMOS");
         _gizmoNode.SetInheritScale(false);
+        _gizmoNode.SetInheritRotation(false);
         _gizmoNode.SetInheritDiffuse(false);
         
         for (var i = 0; i < (int)GizmoType.TotalGizmos; i++)
@@ -66,6 +69,7 @@ public class Gizmo
                             {
                                 var cubeMesh = BufferGeneration.GetCubeBuffer();
                                 cubeMesh.Model.Diffuse = new vec4(1.0f, 0.0f, 0.0f, 1.0f);
+                                cubeMesh.Model.AddMaterialOverride(new TwinMaterialDepthTestOverride { DepthTestOverride = TwinShader.DepthTestMethod.ALWAYS});
                                 axisNode.AddChild(cubeMesh.Model);
                                 gizmoNode.DefaultScale = new vec3(0.75f, 0.25f, 0.25f);
                                 axisNode.SetInitialPosition(new vec3(0.6f, 0, 0));
@@ -76,6 +80,7 @@ public class Gizmo
                             {
                                 var cubeMesh = BufferGeneration.GetCubeBuffer();
                                 cubeMesh.Model.Diffuse = new vec4(0.0f, 1.0f, 0.0f, 1.0f);
+                                cubeMesh.Model.AddMaterialOverride(new TwinMaterialDepthTestOverride { DepthTestOverride = TwinShader.DepthTestMethod.ALWAYS});
                                 axisNode.AddChild(cubeMesh.Model);
                                 gizmoNode.DefaultScale = new vec3(0.25f, 0.75f, 0.25f);
                                 axisNode.SetInitialPosition(new vec3(0, 0.6f, 0));
@@ -86,6 +91,7 @@ public class Gizmo
                             {
                                 var cubeMesh = BufferGeneration.GetCubeBuffer();
                                 cubeMesh.Model.Diffuse = new vec4(0.0f, 0.0f, 1.0f, 1.0f);
+                                cubeMesh.Model.AddMaterialOverride(new TwinMaterialDepthTestOverride { DepthTestOverride = TwinShader.DepthTestMethod.ALWAYS});
                                 axisNode.AddChild(cubeMesh.Model);
                                 gizmoNode.DefaultScale = new vec3(0.25f, 0.25f, 0.75f);
                                 axisNode.SetInitialPosition(new vec3(0, 0, 0.6f));
@@ -115,6 +121,7 @@ public class Gizmo
                             {
                                 var circleMesh = BufferGeneration.GetCircleBuffer();
                                 circleMesh.Model.Diffuse = new vec4(1.0f, 0.0f, 0.0f, 1.0f);
+                                circleMesh.Model.AddMaterialOverride(new TwinMaterialDepthTestOverride { DepthTestOverride = TwinShader.DepthTestMethod.ALWAYS});
                                 axisNode.AddChild(circleMesh.Model);
                                 axisNode.SetInitialRotation(new quat(vec3.UnitZ * (MathF.PI / 2)));
                                 break;
@@ -123,6 +130,7 @@ public class Gizmo
                             {
                                 var circleMesh = BufferGeneration.GetCircleBuffer();
                                 circleMesh.Model.Diffuse = new vec4(0.0f, 1.0f, 0.0f, 1.0f);
+                                circleMesh.Model.AddMaterialOverride(new TwinMaterialDepthTestOverride { DepthTestOverride = TwinShader.DepthTestMethod.ALWAYS});
                                 axisNode.AddChild(circleMesh.Model);
                                 break;
                             }
@@ -131,6 +139,7 @@ public class Gizmo
                                 var circleMesh = BufferGeneration.GetCircleBuffer();
                                 axisNode.AddChild(circleMesh.Model);
                                 circleMesh.Model.Diffuse = new vec4(0.0f, 0.0f, 1.0f, 1.0f);
+                                circleMesh.Model.AddMaterialOverride(new TwinMaterialDepthTestOverride { DepthTestOverride = TwinShader.DepthTestMethod.ALWAYS});
                                 axisNode.SetInitialRotation(new quat(vec3.UnitX * (MathF.PI / 2)));
                                 break;
                             }
@@ -157,6 +166,7 @@ public class Gizmo
                             {
                                 var cubeMesh = BufferGeneration.GetCubeBuffer();
                                 cubeMesh.Model.Diffuse = new vec4(1.0f, 0.0f, 0.0f, 1.0f);
+                                cubeMesh.Model.AddMaterialOverride(new TwinMaterialDepthTestOverride { DepthTestOverride = TwinShader.DepthTestMethod.ALWAYS});
                                 axisNode.AddChild(cubeMesh.Model);
                                 break;
                             }
@@ -164,6 +174,7 @@ public class Gizmo
                             {
                                 var cubeMesh = BufferGeneration.GetCubeBuffer();
                                 cubeMesh.Model.Diffuse = new vec4(0.0f, 1.0f, 0.0f, 1.0f);
+                                cubeMesh.Model.AddMaterialOverride(new TwinMaterialDepthTestOverride { DepthTestOverride = TwinShader.DepthTestMethod.ALWAYS});
                                 axisNode.AddChild(cubeMesh.Model);
                                 break;
                             }
@@ -171,6 +182,7 @@ public class Gizmo
                             {
                                 var cubeMesh = BufferGeneration.GetCubeBuffer();
                                 cubeMesh.Model.Diffuse = new vec4(0.0f, 0.0f, 1.0f, 1.0f);
+                                cubeMesh.Model.AddMaterialOverride(new TwinMaterialDepthTestOverride { DepthTestOverride = TwinShader.DepthTestMethod.ALWAYS});
                                 axisNode.AddChild(cubeMesh.Model);
                                 break;
                             }
@@ -195,7 +207,7 @@ public class Gizmo
     
     public void HighlightAxis(TransformAxis axis)
     {
-        ResetNodesScale();
+        ResetGizmoTransforms();
         var axisNodes = GetCurrentGizmos();
         if (axisNodes == null)
         {
@@ -228,7 +240,7 @@ public class Gizmo
     
     public void HideGizmo()
     {
-        DetachCurrentGizmo();
+        ResetGizmoTransforms();
         foreach (var child in _gizmoChildrenNodes)
         {
             child.Node.IsVisible = false;
@@ -239,7 +251,6 @@ public class Gizmo
     
     public void ShowGizmo()
     {
-        AttachCurrentGizmo();
         _gizmoNode.IsVisible = true;
     }
     
@@ -255,8 +266,6 @@ public class Gizmo
     
     public void SwitchGizmo(GizmoType gizmoType)
     {
-        DetachCurrentGizmo();
-        
         foreach (var rotateGizmo in _rotateGizmos)
         {
             rotateGizmo.Node.IsVisible = false;
@@ -273,14 +282,12 @@ public class Gizmo
         }
     
         var scale = 1.0f;
-        _gizmoNode.SetInheritRotation(true);
         switch (gizmoType)
         {
             case GizmoType.Selection:
                 scale = 0.25f;
                 break;
             case GizmoType.Translate:
-                _gizmoNode.SetInheritRotation(false);
                 foreach (var translateGizmo in _translateGizmos)
                 {
                     translateGizmo.Node.IsVisible = true;
@@ -304,7 +311,6 @@ public class Gizmo
         _gizmoNode.Scale(new vec3(scale, scale, scale));
         
         _currentGizmo = gizmoType;
-        AttachCurrentGizmo();
     }
     
     private GizmoNode[]? GetCurrentGizmos()
@@ -322,27 +328,7 @@ public class Gizmo
         return null;
     }
     
-    private void DetachCurrentGizmo()
-    {
-        if (_currentGizmo == GizmoType.TotalGizmos)
-        {
-            return;
-        }
-    
-        // _gizmoNode.RemoveChild(_gizmoRenders[(int)_currentGizmo]);
-    }
-    
-    private void AttachCurrentGizmo()
-    {
-        if (_currentGizmo == GizmoType.TotalGizmos)
-        {
-            return;
-        }
-    
-        // _gizmoNode.AddChild(_gizmoRenders[(int)_currentGizmo]);
-    }
-    
-    private void ResetNodesScale()
+    private void ResetGizmoTransforms()
     {
         foreach (var child in _gizmoChildrenNodes)
         {
