@@ -2719,21 +2719,6 @@
     <Content Include="Media\Fonts\LICENSE.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <None Include="Libraries\Native\Windows\libOgre.dll" />
-    <None Include="Libraries\Native\Windows\OgreBites.dll" />
-    <None Include="Libraries\Native\Windows\OgreMain.dll" />
-    <None Include="Libraries\Native\Windows\OgreMeshLodGenerator.dll" />
-    <None Include="Libraries\Native\Windows\OgreOverlay.dll" />
-    <None Include="Libraries\Native\Windows\OgrePaging.dll" />
-    <None Include="Libraries\Native\Windows\OgreProperty.dll" />
-    <None Include="Libraries\Native\Windows\OgreRTShaderSystem.dll" />
-    <None Include="Libraries\Native\Windows\OgreTerrain.dll" />
-    <None Include="Libraries\Native\Windows\OgreVolume.dll" />
-    <None Include="Libraries\Native\Windows\Plugin_ParticleFX.dll" />
-    <None Include="Libraries\Native\Windows\RenderSystem_Direct3D11.dll" />
-    <None Include="Libraries\Native\Windows\RenderSystem_GL.dll" />
-    <None Include="Libraries\Native\Windows\RenderSystem_GL3Plus.dll" />
-    <None Include="Libraries\Native\Windows\SDL2.dll" />
     <None Remove="Media\Shaders\vertex_morphing.h" />
     <None Remove="Media\Programs\face_morph.program" />
     <None Remove="Media\Materials\face_morph.material" />

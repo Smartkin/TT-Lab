@@ -1,5 +1,4 @@
 using GlmSharp;
-using org.ogre;
 using TT_Lab.AssetData.Instance;
 using TT_Lab.Extensions;
 using TT_Lab.ViewModels.ResourceTree;

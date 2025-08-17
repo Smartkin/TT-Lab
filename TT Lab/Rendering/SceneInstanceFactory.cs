@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using org.ogre;
 using TT_Lab.AssetData;
 using TT_Lab.AssetData.Instance;
 using TT_Lab.Rendering.Objects.SceneInstances;

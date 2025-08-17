@@ -1,6 +1,5 @@
 using System.Linq;
 using GlmSharp;
-using org.ogre;
 using TT_Lab.AssetData.Code;
 using TT_Lab.AssetData.Instance;
 using TT_Lab.Assets;

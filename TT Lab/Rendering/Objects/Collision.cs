@@ -1,5 +1,4 @@
 ﻿using GlmSharp;
-using org.ogre;
 using System;
 using System.Collections.Generic;
 using System.Drawing.Drawing2D;

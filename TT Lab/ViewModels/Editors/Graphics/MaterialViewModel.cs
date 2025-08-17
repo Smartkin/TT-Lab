@@ -40,8 +40,6 @@ public class MaterialViewModel : ResourceEditorViewModel
         _renderContext = renderContext;
         _meshFactory = meshFactory;
         DirtyTracker.AddBindableCollection(Shaders);
-        // Scenes.Add(IoC.Get<SceneEditorViewModel>());
-        // MaterialViewer.SceneHeaderModel = "Material viewer";
         _materialViewer = IoC.Get<ViewportViewModel>();
         _materialViewer.UseImgui = false;
         InitMaterialViewer();
@@ -120,7 +118,7 @@ public class MaterialViewModel : ResourceEditorViewModel
         DeleteShaderCommand = new DeleteItemFromListCommand(Shaders);
         CloneShaderCommand = new CloneItemIntoCollectionCommand<ShaderViewModel>(Shaders, 5);
         CurrentSelectedShader = _shaders[0];
-            
+        
         PropertyChanged += (sender, args) =>
         {
             var newMaterial = new MaterialData();

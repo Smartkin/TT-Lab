@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using org.ogre;
 using TT_Lab.AssetData.Graphics;
 using TT_Lab.Rendering.Passes;
 using Twinsanity.TwinsanityInterchange.Common;

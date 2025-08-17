@@ -3,7 +3,6 @@ using System.Linq;
 using Caliburn.Micro;
 using System.Threading;
 using System.Threading.Tasks;
-using org.ogre;
 using TT_Lab.Assets;
 using TT_Lab.Rendering;
 using TT_Lab.Rendering.Buffers;

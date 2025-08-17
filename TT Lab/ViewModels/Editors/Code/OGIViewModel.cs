@@ -4,7 +4,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Caliburn.Micro;
-using org.ogre;
 using TT_Lab.AssetData.Code;
 using TT_Lab.Assets;
 using TT_Lab.Attributes;
@@ -12,6 +11,7 @@ using TT_Lab.Rendering;
 using TT_Lab.Rendering.Services;
 using TT_Lab.ViewModels.Composite;
 using TT_Lab.ViewModels.Editors.Code.OGI;
+using Twinsanity.TwinsanityInterchange.Common;
 
 namespace TT_Lab.ViewModels.Editors.Code;
 
@@ -32,7 +32,6 @@ public class OGIViewModel : ResourceEditorViewModel
 
     public OGIViewModel(RenderContext context, TwinSkeletonManager skeletonManager, MeshService meshService)
     {
-        // Scenes.Add(IoC.Get<SceneEditorViewModel>());
         OGIScene = IoC.Get<ViewportViewModel>();
         OGIScene.SceneInitializer = (renderer, scene) =>
         {
@@ -40,8 +39,6 @@ public class OGIViewModel : ResourceEditorViewModel
             _ogiRender = new Rendering.Objects.OGI(context, skeletonManager, meshService, _ogiData);
             scene.AddChild(_ogiRender);
         };
-        // OGIScene.SceneHeaderModel = "OGI/Skeleton Viewer";
-        // InitOGIScene();
     }
 
     protected override async Task OnActivateAsync(CancellationToken cancellationToken)
@@ -60,14 +57,56 @@ public class OGIViewModel : ResourceEditorViewModel
 
     protected override void Save()
     {
+        var data = AssetManager.Get().GetAssetData<OGIData>(EditableResource);
+        _boundingBox.Save(data.BoundingBox);
+        
+        data.Joints.Clear();
+        foreach (var jointViewModel in _joints)
+        {
+            var joint = new TwinJoint();
+            jointViewModel.Save(joint);
+            data.Joints.Add(joint);
+        }
+        
+        data.ExitPoints.Clear();
+        foreach (var exitPointViewModel in _exitPoints)
+        {
+            var exitPoint = new TwinExitPoint();
+            exitPointViewModel.Save(exitPoint);
+            data.ExitPoints.Add(exitPoint);
+        }
+        
+        data.RigidModelIds.Clear();
+        foreach (var rigidModelIdViewModel in _rigidModelIds)
+        {
+            data.RigidModelIds.Add(rigidModelIdViewModel.Value);
+        }
+
+        data.Skin = _skin;
+        data.BlendSkin = _blendSkin;
+        
+        data.BoundingBoxBuilders.Clear();
+        foreach (var boundingBoxBuilderViewModel in _boundingBoxBuilders)
+        {
+            var bbBuilder = new TwinBoundingBoxBuilder();
+            boundingBoxBuilderViewModel.Save(bbBuilder);
+            data.BoundingBoxBuilders.Add(bbBuilder);
+        }
+        
+        data.BoundingBoxBuilderToJointIndex.Clear();
+        foreach (var bbBuilderToJoint in _boundingBoxBuilderToJoint)
+        {
+            data.BoundingBoxBuilderToJointIndex.Add(bbBuilderToJoint.Value);
+        }
+        
         base.Save();
     }
 
     public override void LoadData()
     {
         var data = AssetManager.Get().GetAssetData<OGIData>(EditableResource);
-        DirtyTracker.AddChild(_boundingBox);
         _boundingBox = new BoundingBoxViewModel(data.BoundingBox);
+        DirtyTracker.AddChild(_boundingBox);
         
         foreach (var joint in data.Joints)
         {
@@ -113,36 +152,6 @@ public class OGIViewModel : ResourceEditorViewModel
         
         ResetDirty();
     }
-
-    // private void InitOGIScene()
-    // {
-    //     OGIScene.SceneCreator = glControl =>
-    //     {
-    //         var sceneManager = glControl.GetSceneManager();
-    //         var pivot = sceneManager.getRootSceneNode().createChildSceneNode();
-    //         pivot.setPosition(0, 0, 0);
-    //         glControl.SetCameraTarget(pivot);
-    //         glControl.SetCameraStyle(CameraStyle.CS_ORBIT);
-    //         glControl.EnableImgui(true);
-    //
-    //         _ogiData = AssetManager.Get().GetAssetData<OGIData>(EditableResource);
-    //         _ogiData.BlendSkin = _blendSkin;
-    //         _ogiData.Skin = _skin;
-    //         _ogiRender = new Rendering.Objects.OGI(EditableResource, sceneManager, _ogiData);
-    //         pivot.addChild(_ogiRender.GetSceneNode());
-    //         pivot.setInheritOrientation(false);
-    //         pivot.setInheritScale(false);
-    //         
-    //         glControl.OnRender += (sender, args) =>
-    //         {
-    //             ImGui.Begin("OGI Information");
-    //             ImGui.Text($"Bones: {_ogiData.Joints.Count}");
-    //             ImGui.Text($"Exit Points: {_ogiData.ExitPoints.Count}");
-    //             ImGui.Text($"Camera affected bones: {_ogiData.Joints.Count(j => j.ReactId != 255)}");
-    //             ImGui.End();
-    //         };
-    //     };
-    // }
 
     public void ExportOgi()
     {

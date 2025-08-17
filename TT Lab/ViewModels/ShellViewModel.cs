@@ -29,7 +29,6 @@ namespace TT_Lab.ViewModels
         private readonly IWindowManager _windowManager;
         private readonly IEventAggregator _eventAggregator;
         private readonly ProjectManager _projectManager;
-        private OgreWindowManager? _ogreWindowManager;
         private readonly Dictionary<String, List<String>> _managerPropsToShellProps = new();
         private readonly DispatcherTimer _renderTimer = new();
         private Boolean _dontRemind = false;
@@ -37,13 +36,12 @@ namespace TT_Lab.ViewModels
         private Thread _mainThread;
         private RenderContext _renderContext;
 
-        public ShellViewModel(IWindowManager windowManager, IEventAggregator eventAggregator, ProjectManager projectManager, OgreWindowManager ogreWindowManager, RenderContext renderContext)
+        public ShellViewModel(IWindowManager windowManager, IEventAggregator eventAggregator, ProjectManager projectManager, RenderContext renderContext)
         {
             _mainThread = Thread.CurrentThread;
             _windowManager = windowManager;
             _projectManager = projectManager;
             _eventAggregator = eventAggregator;
-            _ogreWindowManager = ogreWindowManager;
             _renderContext = renderContext;
             _eventAggregator.SubscribeOnUIThread(this);
 
@@ -55,38 +53,7 @@ namespace TT_Lab.ViewModels
             _managerPropsToShellProps.Add(nameof(ProjectManager.SearchAsset), new List<String> { nameof(SearchAsset) });
             _managerPropsToShellProps.Add(nameof(ProjectManager.IsCreatingProject), new List<String>{ nameof(IsCreatingProject), nameof(SadEasterEggVisibility) });
 
-            // CompositionTarget.Rendering += PerformRender;
-            
             Preferences.Load();
-        }
-
-        private void PerformRender(Object? sender, EventArgs e)
-        {
-            Debug.Assert(Thread.CurrentThread.GetHashCode() == _mainThread.GetHashCode(), "Rendering indeed happens in separate thread.");
-            if (_deadgeRender)
-            {
-                Console.WriteLine($"RENDERER IS DEAD BUT HOW DID WE CRASH AND NOT RETURN??? {_deadgeRender}");
-                Debug.WriteLine($"RENDERER IS DEAD BUT HOW DID WE CRASH AND NOT RETURN??? {_deadgeRender}");
-                return;
-            }
-
-            if (_ogreWindowManager == null)
-            {
-                return;
-            }
-            
-            lock (_ogreWindowManager.RenderLockObject)
-            {
-                try
-                {
-                    _ogreWindowManager?.Render();
-                }
-                catch (AccessViolationException ex)
-                {
-                    Console.WriteLine("Bruh literally how?");
-                    Console.WriteLine(ex.Message);
-                }
-            }
         }
 
         public Task About()

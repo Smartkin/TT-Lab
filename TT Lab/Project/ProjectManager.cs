@@ -26,7 +26,6 @@ namespace TT_Lab.Project
         private IProject? _openedProject;
         private bool _isCreatingProject;
         private readonly CommandManager _commandManager = new();
-        private OgreWindowManager _ogreWindowManager;
         private readonly BindableCollection<MenuItem> _recentMenus = new();
         private BindableCollection<ResourceTreeElementViewModel> _projectTree = new();
         private readonly BindableCollection<ResourceTreeElementViewModel> _internalTree = new();
@@ -34,11 +33,10 @@ namespace TT_Lab.Project
         private string _searchAsset = "";
 
 
-        public ProjectManager(IEventAggregator eventAggregator, OgreWindowManager windowManager)
+        public ProjectManager(IEventAggregator eventAggregator)
         {
             BindingOperations.EnableCollectionSynchronization(_projectTree, _treeLock);
             _eventAggregator = eventAggregator;
-            _ogreWindowManager = windowManager;
 
             var recents = Properties.Settings.Default.RecentProjects;
             if (recents == null)

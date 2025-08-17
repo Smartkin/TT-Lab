@@ -1,5 +1,4 @@
 ﻿using GlmSharp;
-using org.ogre;
 using Matrix4 = Twinsanity.TwinsanityInterchange.Common.Matrix4;
 using Vector3 = Twinsanity.TwinsanityInterchange.Common.Vector3;
 using Vector4 = Twinsanity.TwinsanityInterchange.Common.Vector4;

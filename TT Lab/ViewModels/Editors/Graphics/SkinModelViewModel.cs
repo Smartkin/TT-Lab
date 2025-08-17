@@ -1,5 +1,4 @@
 ﻿using Caliburn.Micro;
-using org.ogre;
 using System;
 using System.Linq;
 using System.Threading;
@@ -13,7 +12,6 @@ using TT_Lab.Rendering.Objects;
 using TT_Lab.Rendering.Services;
 using TT_Lab.Util;
 using Twinsanity.TwinsanityInterchange.Common;
-using Vector4 = org.ogre.Vector4;
 
 namespace TT_Lab.ViewModels.Editors.Graphics
 {

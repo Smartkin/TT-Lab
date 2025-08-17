@@ -117,6 +117,60 @@ namespace TT_Lab.ViewModels.Composite
                 });
             }
             
+            builder.UnkBytes1.Clear();
+            foreach (var v in unkBytes1)
+            {
+                builder.UnkBytes1.Add(v.Value);
+            }
+            
+            builder.UnkBytes2.Clear();
+            foreach (var v in unkBytes2)
+            {
+                builder.UnkBytes2.Add(v.Value);
+            }
+            
+            builder.UnkShorts.Clear();
+            foreach (var v in unkShorts)
+            {
+                builder.UnkShorts.Add(v.Value);
+            }
+            
+            builder.UnkVectors1.Clear();
+            foreach (var v in unkVectors1)
+            {
+                builder.UnkVectors1.Add(new Vector4
+                {
+                    X = v.X,
+                    Y = v.Y,
+                    Z = v.Z,
+                    W = v.W,
+                });
+            }
+            
+            builder.UnkVectors2.Clear();
+            foreach (var v in unkVectors2)
+            {
+                builder.UnkVectors2.Add(new Vector4
+                {
+                    X = v.X,
+                    Y = v.Y,
+                    Z = v.Z,
+                    W = v.W,
+                });
+            }
+            
+            builder.UnkVectors3.Clear();
+            foreach (var v in unkVectors3)
+            {
+                builder.UnkVectors3.Add(new Vector4
+                {
+                    X = v.X,
+                    Y = v.Y,
+                    Z = v.Z,
+                    W = v.W,
+                });
+            }
+            
             dirtyTracker.ResetDirty();
         }
 

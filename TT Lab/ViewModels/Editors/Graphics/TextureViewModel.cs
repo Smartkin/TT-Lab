@@ -1,5 +1,4 @@
 ﻿using Caliburn.Micro;
-using org.ogre;
 using System;
 using System.Collections.ObjectModel;
 using System.Drawing;
@@ -122,15 +121,9 @@ namespace TT_Lab.ViewModels.Editors.Graphics
             }
         }
 
-        public static ObservableCollection<object> TexFuns
-        {
-            get => _textureFunctions;
-        }
+        public static ObservableCollection<object> TexFuns => _textureFunctions;
 
-        public static ObservableCollection<object> PixelFormats
-        {
-            get => _pixelFormats;
-        }
+        public static ObservableCollection<object> PixelFormats => _pixelFormats;
 
         [MarkDirty]
         public Bitmap Texture
@@ -147,10 +140,7 @@ namespace TT_Lab.ViewModels.Editors.Graphics
         [MarkDirty]
         public ITwinTexture.TextureFunction TextureFunction
         {
-            get
-            {
-                return _texFun;
-            }
+            get => _texFun;
             set
             {
                 if (value != _texFun)
@@ -165,10 +155,7 @@ namespace TT_Lab.ViewModels.Editors.Graphics
         [MarkDirty]
         public ITwinTexture.TexturePixelFormat PixelStorageFormat
         {
-            get
-            {
-                return _pixelFormat;
-            }
+            get => _pixelFormat;
             set
             {
                 if (value != _pixelFormat)
@@ -183,10 +170,7 @@ namespace TT_Lab.ViewModels.Editors.Graphics
         [MarkDirty]
         public Boolean GenerateMipmaps
         {
-            get
-            {
-                return _generateMipmaps;
-            }
+            get => _generateMipmaps;
 
             set
             {

@@ -2,7 +2,6 @@
 using System.ComponentModel;
 using System.Linq;
 using GlmSharp;
-using org.ogre;
 using TT_Lab.AssetData;
 using TT_Lab.AssetData.Code;
 using TT_Lab.AssetData.Instance;
@@ -28,7 +27,6 @@ namespace TT_Lab.Rendering.Objects.SceneInstances
         protected EditableObject AttachedEditableObject;
         protected readonly EditingContext EditingContext;
         protected readonly ResourceTreeElementViewModel AttachedViewModel;
-        protected TextDisplay? TextDisplay;
         protected readonly AbstractAssetData AssetData;
         protected SupportedTransforms SupportedTransforms = SupportedTransforms.Translate | SupportedTransforms.Rotate;
         
@@ -64,11 +62,6 @@ namespace TT_Lab.Rendering.Objects.SceneInstances
         {
             var supportCast = (SupportedTransforms)(1 << (int)mode);
             return SupportedTransforms.HasFlag(supportCast);
-        }
-
-        public void EnableTextDisplay(bool enabled)
-        {
-            TextDisplay?.Enable(enabled);
         }
 
         public void Translate(vec3 translation)
@@ -224,7 +217,6 @@ namespace TT_Lab.Rendering.Objects.SceneInstances
 
         public void Dispose()
         {
-            TextDisplay?.Dispose();
         }
     }
 }

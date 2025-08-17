@@ -36,7 +36,6 @@ namespace TT_Lab.ViewModels
         private Boolean _startedEditing;
         private Boolean _usingConfirmClose = false;
 
-        protected List<SceneEditorViewModel> Scenes { get; set; } = new();
         protected Boolean IsDataLoaded { get; private set; }
         protected Boolean IgnoreUnsavedPopup { get; set; } = false;
         
@@ -137,16 +136,6 @@ namespace TT_Lab.ViewModels
             base.OnViewAttached(view, context);
         }
 
-        protected override Task OnActivateAsync(CancellationToken cancellationToken)
-        {
-            foreach (var scene in Scenes)
-            {
-                ActivateItemAsync(scene, cancellationToken);
-            }
-
-            return base.OnActivateAsync(cancellationToken);
-        }
-
         protected override void OnViewReady(Object view)
         {
             base.OnViewReady(view);
@@ -161,11 +150,6 @@ namespace TT_Lab.ViewModels
 
         protected override Task OnDeactivateAsync(Boolean close, CancellationToken cancellationToken)
         {
-            foreach (var scene in Scenes)
-            {
-                DeactivateItemAsync(scene, close, cancellationToken);
-            }
-
             if (!AssetManager.Get().DoesAssetExist(EditableResource))
             {
                 return base.OnDeactivateAsync(true, cancellationToken);
