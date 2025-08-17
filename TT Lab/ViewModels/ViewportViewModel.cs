@@ -109,7 +109,7 @@ public class ViewportViewModel(RenderContext renderContext) : Screen
         _scene = new Scene(renderContext, "ROOT_SCENE");
         _renderer.RegisterForRendering(_scene.Camera);
         _inputContext = new LabInputContext(_renderer, _display!);
-        _renderer.InitInput(_inputContext);
+        _renderer.InitInput(_inputContext, UseImgui);
 
         while (_renderQueue.TryDequeue(out var action))
         {
@@ -294,5 +294,6 @@ public class ViewportViewModel(RenderContext renderContext) : Screen
 
     public Action<Renderer, Scene>? SceneInitializer { get; set; }
     public bool CanRender { get; private set; }
+    public bool UseImgui { get; set; } = true;
     public string SceneStatus => CanRender ? "" : "Loading scene...";
 }

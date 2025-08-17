@@ -14,21 +14,36 @@ namespace TT_Lab.Rendering.Buffers;
 
 public class ModelBuffer(RenderContext context, ModelBufferBuild build, MaterialFactory materialFactory, MaterialData material)
 {
-    private Dictionary<LabShader, TwinMaterial> _materials = [];
+    public event Action? MaterialReplaced;
+    
+    private readonly Dictionary<LabShader, TwinMaterial> _materials = [];
     private TwinMaterial? _currentRenderMaterial;
+    private MaterialData _material = material;
     
     public uint IndexCount => build.IndicesAmount;
 
     public TwinMaterial? GetMaterial() => _currentRenderMaterial;
 
+    private void InvalidateMaterials()
+    {
+        _materials.Clear();
+    }
+
+    public void ReplaceMaterial(MaterialData newMaterial)
+    {
+        _material = newMaterial;
+        InvalidateMaterials();
+        MaterialReplaced?.Invoke();
+    }
+
     public (string, int)[] GetPriorityPass()
     {
         var result = new List<(string, int)>();
         var shaderIndex = 0;
-        foreach (var shader in material.Shaders)
+        foreach (var shader in _material.Shaders)
         {
             var passName = shader.ShaderName;
-            var priority = (int)(shader.UnkVector2.W - 128 + material.DmaChainIndex + shaderIndex);
+            var priority = (int)(shader.UnkVector2.W - 128 + _material.DmaChainIndex + shaderIndex);
             result.Add((passName, priority));
             shaderIndex++;
         }
@@ -62,6 +77,6 @@ public class ModelBuffer(RenderContext context, ModelBufferBuild build, Material
     private LabShader? GetShaderFromPass(RenderPass renderPass)
     {
         var passName = renderPass.Name;
-        return material.Shaders.FirstOrDefault(s => s.ShaderName == passName);
+        return _material.Shaders.FirstOrDefault(s => s.ShaderName == passName);
     }
 }

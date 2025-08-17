@@ -112,6 +112,20 @@ public class PassService
         }
     }
 
+    public void UnregisterRenderableInPasses(Renderable renderable)
+    {
+        foreach (var passRenderablesValue in _passRenderables.Values)
+        {
+            var index = passRenderablesValue.IndexOfValue(renderable);
+            if (index == -1)
+            {
+                continue;
+            }
+            
+            passRenderablesValue.RemoveAt(index);
+        }
+    }
+
     public IList<RenderPass> GetSkydomeOpaquePasses()
     {
         return _sortedPasses.Where(kv => kv.Key == PassPriority.SkydomeOpaque).Select(kv => kv.Value).ToList();

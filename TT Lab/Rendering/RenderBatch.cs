@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Silk.NET.OpenGL;
@@ -6,13 +7,27 @@ using TT_Lab.Rendering.Objects;
 
 namespace TT_Lab.Rendering;
 
-public class RenderBatch(RenderContext context, ModelBuffer batchedBuffer) : Renderable(context)
+public class RenderBatch : Renderable
 {
+    public event Action? RequestPassSwitch;
+    
+    private readonly ModelBuffer _batchedBuffer;
     private readonly List<Mesh> _meshes = [];
+
+    public RenderBatch(RenderContext context, ModelBuffer batchedBuffer) : base(context)
+    {
+        _batchedBuffer = batchedBuffer;
+        _batchedBuffer.MaterialReplaced += BatchedBufferOnMaterialReplaced;
+    }
+
+    private void BatchedBufferOnMaterialReplaced()
+    {
+        RequestPassSwitch?.Invoke();
+    }
 
     public override (string, int)[] GetPriorityPasses()
     {
-        return batchedBuffer.GetPriorityPass();
+        return _batchedBuffer.GetPriorityPass();
     }
 
     public void AddToBatch(Mesh mesh)
@@ -22,7 +37,7 @@ public class RenderBatch(RenderContext context, ModelBuffer batchedBuffer) : Ren
 
     protected override void RenderSelf(float delta)
     {
-        if (!batchedBuffer.Bind())
+        if (!_batchedBuffer.Bind())
         {
             return;
         }
@@ -30,11 +45,11 @@ public class RenderBatch(RenderContext context, ModelBuffer batchedBuffer) : Ren
         foreach (var mesh in _meshes.Where(mesh => mesh.IsVisible))
         {
             mesh.Render(delta);
-            Context.Gl.DrawArrays(PrimitiveType.Triangles, 0, batchedBuffer.IndexCount);
+            Context.Gl.DrawArrays(PrimitiveType.Triangles, 0, _batchedBuffer.IndexCount);
             mesh.EndRender();
         }
         
-        batchedBuffer.Unbind();
+        _batchedBuffer.Unbind();
     }
     
     

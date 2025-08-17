@@ -56,9 +56,14 @@ public class Renderer : IView
         _updateWatch.Start();
     }
 
-    public void InitInput(IInputContext inputContext)
+    public void InitInput(IInputContext inputContext, bool useImgui = true)
     {
         _inputContext = inputContext;
+        if (!useImgui)
+        {
+            return;
+        }
+        
         _renderContext.QueueRenderAction(() =>
         {
             lock (_imguiLock)
@@ -111,11 +116,14 @@ public class Renderer : IView
             return;
         }
 
-        var idx = 0;
         foreach (var renderBatch in _batchStorage.GetRenderBatches())
         {
-            idx++;
             _passService.RegisterRenderableInPasses(renderBatch, renderBatch.GetPriorityPasses());
+            renderBatch.RequestPassSwitch += () =>
+            {
+                _passService.UnregisterRenderableInPasses(renderBatch);
+                _passService.RegisterRenderableInPasses(renderBatch, renderBatch.GetPriorityPasses());
+            };
         }
     }
 

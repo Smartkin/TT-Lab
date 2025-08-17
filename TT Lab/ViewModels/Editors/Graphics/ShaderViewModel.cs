@@ -4,7 +4,6 @@ using System.Drawing;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
-using org.ogre;
 using TT_Lab.AssetData.Graphics;
 using TT_Lab.AssetData.Graphics.Shaders;
 using TT_Lab.Assets;
