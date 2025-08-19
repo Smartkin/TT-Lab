@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using Caliburn.Micro;
@@ -14,6 +15,7 @@ namespace TT_Lab.Assets
         [JsonProperty(Required = Required.Always)]
         private readonly String _uri;
 
+        private static Dictionary<string, LabURI> _labIconUris = [];
         private static string _prefix = "res://";
         private static string _global = "__GLOBAL__";
         private bool _isBuiltIn;
@@ -49,6 +51,8 @@ namespace TT_Lab.Assets
             return _uri.ToString(CultureInfo.InvariantCulture).CompareTo(labURI._uri.ToString(CultureInfo.InvariantCulture));
         }
 
+        public static void RegisterLabIcon(string iconName) => _labIconUris[iconName] = new LabURI($"{_prefix}{_global}/{iconName}/0", true);
+        public static LabURI GetLabIcon(string iconName) => _labIconUris[iconName];
         public static LabURI Empty => new($"{_prefix}EMPTY");
         public static LabURI BoatGuy => new($"{_prefix}{_global}/BoatGuy/0", true);
         public static LabURI Plane => new($"{_prefix}{_global}/Plane/0", true);

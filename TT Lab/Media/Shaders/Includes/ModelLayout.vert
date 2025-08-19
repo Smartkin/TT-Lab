@@ -9,6 +9,7 @@ layout (location = 3) in vec3 in_Normal;
 layout (location = 4) in vec4 in_Emit;
 layout (location = 5) in vec3 in_BoneMatrixIndices;
 layout (location = 6) in vec3 in_BoneWeights;
+layout (location = 7) in mat4 in_InstanceModelMatrix;
 
 out vec3 Position;
 out vec2 Texpos;

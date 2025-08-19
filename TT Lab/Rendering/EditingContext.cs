@@ -1,9 +1,12 @@
 ﻿using System;
+using System.Drawing;
 using System.Windows;
+using Caliburn.Micro;
 using GlmSharp;
 using TT_Lab.AssetData.Instance;
 using TT_Lab.Assets;
 using TT_Lab.Extensions;
+using TT_Lab.Rendering.Factories;
 using TT_Lab.Rendering.Objects;
 using TT_Lab.Rendering.Objects.SceneInstances;
 using TT_Lab.Rendering.Scene;
@@ -43,11 +46,23 @@ namespace TT_Lab.Rendering
             _editCtxNode = new Node(context, scene);
             _cursor = new EditorCursor(this);
             _gizmo = new Gizmo(context, this);
-            _positionsBillboards = CreateBillboardSet(context, "PositionsBillboards", "BillboardPositions");
-            _triggersBillboards = CreateBillboardSet(context, "TriggersBillboards", "BillboardTriggers");
-            _camerasBillboards = CreateBillboardSet(context, "CamerasBillboards", "BillboardCameras");
-            _instancesBillboards = CreateBillboardSet(context, "InstancesBillboards", "BillboardInstances");
-            _aiPositionsBillboards = CreateBillboardSet(context, "AiPositionsBillboards", "BillboardAiPositions");
+            var color = Color.FromKnownColor(KnownColor.Green);
+            _positionsBillboards = CreateBillboardSet(context, "PositionsBillboards", "Position");
+            _positionsBillboards.Diffuse = new vec4(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f,  1.0f);
+            
+            _triggersBillboards = CreateBillboardSet(context, "TriggersBillboards", "Trigger");
+            color = Color.FromKnownColor(KnownColor.DarkOrange);
+            _triggersBillboards.Diffuse = new vec4(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f,  1.0f);
+            
+            _camerasBillboards = CreateBillboardSet(context, "CamerasBillboards", "Camera");
+            color = Color.FromKnownColor(KnownColor.Blue);
+            _camerasBillboards.Diffuse = new vec4(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, 1.0f);
+            
+            _instancesBillboards = CreateBillboardSet(context, "InstancesBillboards", "Instance");
+            
+            _aiPositionsBillboards = CreateBillboardSet(context, "AiPositionsBillboards", "AI_Position");
+            color = Color.FromKnownColor(KnownColor.Yellow);
+            _aiPositionsBillboards.Diffuse = new vec4(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, 1.0f);
         }
 
         public Node GetEditorNode()
@@ -403,16 +418,9 @@ namespace TT_Lab.Rendering
             SelectedInstance.Rotate(vec3.UnitZ * value);
         }
 
-        private BillboardSet CreateBillboardSet(RenderContext renderContext, string billboardName, string billboardMaterial)
+        private BillboardSet CreateBillboardSet(RenderContext renderContext, string billboardName, string billboardIconName)
         {
-            var billboardSet = new BillboardSet(renderContext, billboardName);
-            // billboardSet.setMaterial(MaterialManager.GetMaterial(billboardMaterial));
-            // billboardSet.setDefaultDimensions(2, 2);
-            // billboardSet.setCullIndividually(true);
-            // // Set the bounding box to be huge, because otherwise the node itself gets culled out and all billboards stop rendering
-            // billboardSet.setBounds(new AxisAlignedBox(-1000, -1000, -1000, 1000, 1000, 1000), 1000);
-            // billboardSet.setRenderQueueGroup((byte)RenderQueueGroupID.RENDER_QUEUE_OVERLAY);
-        
+            var billboardSet = new BillboardSet(renderContext, IoC.Get<MeshFactory>(), billboardIconName, billboardName);
             return billboardSet;
         }
     }

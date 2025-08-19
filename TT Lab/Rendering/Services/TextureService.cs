@@ -24,25 +24,16 @@ public class TextureService
             var boatGuy = ManifestResourceLoader.GetPathInExe("Media/boat_guy.png");
             var bitmap = new Bitmap(boatGuy);
             RegisterTexture(LabURI.BoatGuy, bitmap);
+
+            var labIcons = ManifestResourceLoader.GetFiledInExeDirectory("Media/LabIcons");
+            foreach (var labIcon in labIcons)
+            {
+                var iconName = labIcon[(labIcon.LastIndexOf('\\') + 1)..^4];
+                var iconBitmap = new Bitmap(labIcon);
+                LabURI.RegisterLabIcon(iconName);
+                RegisterTexture(LabURI.GetLabIcon(iconName), iconBitmap);
+            }
         });
-    }
-
-    public TextureBuffer? GetTexture(string file)
-    {
-        if (_textures.TryGetValue(file, out var buffer))
-        {
-            return buffer;
-        }
-
-        if (!File.Exists(file))
-        {
-            return null;
-        }
-
-        var bitmap = new Bitmap(file);
-        buffer = RegisterTexture(file, bitmap);
-        buffer.GenerateMipmaps();
-        return buffer;
     }
 
     public TextureBuffer? GetTexture(LabURI uri)

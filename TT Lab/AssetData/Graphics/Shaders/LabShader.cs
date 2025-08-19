@@ -14,7 +14,8 @@ namespace TT_Lab.AssetData.Graphics.Shaders
     [ReferencesAssets]
     public class LabShader
     {
-        public string ShaderName => ABlending == AlphaBlending.ON ? $"{ShaderType}Transparent" : ShaderType.ToString();
+        public string ShaderName => ForcedShaderName ?? (ABlending == AlphaBlending.ON ? $"{ShaderType}Transparent" : ShaderType.ToString());
+        public string? ForcedShaderName;
         public TwinShader.Type ShaderType { get; set; } = TwinShader.Type.StandardLit;
         public UInt32 IntParam { get; set; }
         public Single[] FloatParam { get; set; } = new Single[4];

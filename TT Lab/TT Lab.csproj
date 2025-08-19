@@ -2838,6 +2838,10 @@
     <Content Include="Media\Shaders\ScreenHorizontalFlip.frag">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <None Remove="Media\Shaders\MainPassInstanced.vert" />
+    <Content Include="Media\Shaders\MainPassInstanced.vert">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>

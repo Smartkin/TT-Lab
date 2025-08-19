@@ -182,6 +182,9 @@ public class Renderer : IView
         // Alpha blending pass
         PerformPassChain((float)delta, _passService.GetTransparentPasses);
         
+        // Billboards pass
+        PerformPassChain((float)delta, _passService.GetBillboardPasses);
+        
         // Primitives pass
         foreach (var primitivePass in _passService.GetPrimitivePasses())
         {

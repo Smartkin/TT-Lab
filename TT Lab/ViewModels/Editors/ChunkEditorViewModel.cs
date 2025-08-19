@@ -673,27 +673,27 @@ namespace TT_Lab.ViewModels.Editors
                     _sceneInstances.Add(trg);
                 }
                 
-                //
-                // var positions = _chunkTree.First(avm => avm.Alias == "Positions");
-                // var positionsNode = sceneManager.getRootSceneNode().createChildSceneNode();
-                // positionsNode.attachObject(_editingContext.GetPositionBillboards());
-                // foreach (var position in positions!.Children)
-                // {
-                //     var billboard = _editingContext.CreatePositionBillboard();
-                //     var pos = new Position(position.Asset.URI, sceneManager, billboard, position.Asset.LayoutID!.Value, position.Asset.GetData<PositionData>());
-                //     positionsNode.attachObject(pos);
-                // }
-                //
-                // var aiPositions = _chunkTree.First(avm => avm.Alias == "AI Navigation Positions");
-                // var aiPositionsNode = sceneManager.getRootSceneNode().createChildSceneNode();
-                // aiPositionsNode.attachObject(_editingContext.GetAiPositionsBillboards());
-                // foreach (var aiPosition in aiPositions!.Children)
-                // {
-                //     var billboard = _editingContext.CreateAiPositionBillboard();
-                //     var aiPos = new AiPosition(aiPosition.Asset.URI, sceneManager, billboard, aiPosition.Asset.LayoutID!.Value, aiPosition.Asset.GetData<AiPositionData>());
-                //     aiPositionsNode.attachObject(aiPos);
-                // }
-                //
+                
+                var positions = _chunkTree.First(avm => avm.Alias == "Positions");
+                var positionsNode = new Node(_renderContext, scene);
+                positionsNode.AddChild(_editingContext.GetPositionBillboards());
+                foreach (var position in positions!.Children)
+                {
+                    var billboard = _editingContext.CreatePositionBillboard();
+                    var pos = new Position(_renderContext, position.Asset.URI, billboard, position.Asset.LayoutID!.Value, position.Asset.GetData<PositionData>());
+                    positionsNode.AddChild(pos);
+                }
+                
+                var aiPositions = _chunkTree.First(avm => avm.Alias == "AI Navigation Positions");
+                var aiPositionsNode = new Node(_renderContext, scene);
+                aiPositionsNode.AddChild(_editingContext.GetAiPositionsBillboards());
+                foreach (var aiPosition in aiPositions!.Children)
+                {
+                    var billboard = _editingContext.CreateAiPositionBillboard();
+                    var aiPos = new AiPosition(_renderContext, aiPosition.Asset.URI, billboard, aiPosition.Asset.LayoutID!.Value, aiPosition.Asset.GetData<AiPositionData>());
+                    aiPositionsNode.AddChild(aiPos);
+                }
+                
                 var cameras = _chunkTree.First(avm => avm.Alias == "Cameras");
                 _camerasNode = new Node(_renderContext, scene);
                 _camerasNode.AddChild(_editingContext.GetCamerasBillboards());
@@ -715,10 +715,10 @@ namespace TT_Lab.ViewModels.Editors
                         ImguiRenderFilterCheckbox("Render Skydome", _skydomeRender, DrawFilter.Skybox);
                     }
 
-                    // ImguiRenderFilterCheckbox("Render Positions", _editingContext.GetPositionBillboards(), DrawFilter.Positions);
+                    ImguiRenderFilterCheckbox("Render Positions", _editingContext.GetPositionBillboards(), DrawFilter.Positions);
                     ImguiRenderFilterCheckbox("Render Triggers", _triggersNode, DrawFilter.Triggers);
                     ImguiRenderFilterCheckbox("Render Cameras", _camerasNode, DrawFilter.Cameras);
-                    // ImguiRenderFilterCheckbox("Render AI Positions", _editingContext.GetAiPositionsBillboards(), DrawFilter.AiPositions);
+                    ImguiRenderFilterCheckbox("Render AI Positions", _editingContext.GetAiPositionsBillboards(), DrawFilter.AiPositions);
                     ImguiRenderFilterCheckbox("Render Instances", _instancesNode, DrawFilter.Instances);
                     ImguiRenderFilterCheckbox("Render Linked Scenery", _linkedScenery, DrawFilter.LinkedScenery);
                     ImGui.End();

@@ -18,5 +18,6 @@ layout (location = 0) out vec4 outColor;
 // Fragment shader specific uniforms
 uniform vec4 Diffuse = vec4(1.0);
 uniform float Opacity = 1.0;
+uniform float FlipY = 0.0;
 layout (binding = 0) uniform sampler2D Texture[MAX_TEXTURES];
 layout (binding = 5) uniform sampler2D Screen;

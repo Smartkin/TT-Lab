@@ -20,10 +20,21 @@ public class VertexArrayObject<TVertexType, TIndexType> : IDisposable
         ebo?.Bind();
     }
 
-    public unsafe void VertexAttributePointer(uint index, int count, VertexAttribPointerType type, uint vertexSize, int offSet)
+    public unsafe void VertexAttributePointer(uint index, int count, VertexAttribPointerType type, uint vertexSize, int offset)
     {
-        _context.Gl.VertexAttribPointer(index, count, type, false, vertexSize * (uint) sizeof(TVertexType), (void*) (offSet * sizeof(TVertexType)));
+        _context.Gl.VertexAttribPointer(index, count, type, false, vertexSize * (uint) sizeof(TVertexType), (void*) (offset * sizeof(TVertexType)));
         _context.Gl.EnableVertexAttribArray(index);
+    }
+
+    public unsafe void VertexAttributePointerInstanced(uint index, int count, VertexAttribPointerType type, uint vertexSize, int offset)
+    {
+        _context.Gl.VertexAttribPointer(index, count, type, false, vertexSize * (uint) sizeof(TVertexType), (void*) (offset * sizeof(TVertexType)));
+        _context.Gl.VertexAttribDivisor(index, 1);
+    }
+
+    public void AddBufferObject(BufferObject<TVertexType> vbo)
+    {
+        vbo.Bind();
     }
 
     public void Bind()

@@ -14,6 +14,7 @@ public enum PassPriority
     SkydomeTransparent = -8,
     Opaque = 1,
     Transparent = 10000,
+    Billboards = 100000,
     Primitive = int.MaxValue
 }
 
@@ -87,6 +88,8 @@ public class PassService
             RenderPass renderPassTransparent = new GenericPass(context, passName + "Transparent", context.GetProgram("Generic"), passType);
             RegisterPass(passType + "Transparent", renderPassTransparent, passPriorityTransparent);
         }
+        
+        RegisterPass("CUSTOM_BILLBOARDS", new BillboardPass(context, "CUSTOM_BILLBOARDS", context.GetProgram("GenericInstanced")), PassPriority.Billboards);
     }
 
     public void RegisterRenderableInPasses(Renderable renderable, (string, int)[] passPriorities)
@@ -137,12 +140,17 @@ public class PassService
 
     public IList<RenderPass> GetTransparentPasses()
     {
-        return _sortedPasses.Where(kv => kv.Key is >= PassPriority.Transparent and < PassPriority.Primitive).Select(kv => kv.Value).ToList();
+        return _sortedPasses.Where(kv => kv.Key is >= PassPriority.Transparent and < PassPriority.Billboards).Select(kv => kv.Value).ToList();
     }
 
     public IList<RenderPass> GetPasses()
     {
-        return _sortedPasses.Where(kv => kv.Key is > PassPriority.SkydomeTransparent and < PassPriority.Transparent).Select(kv => kv.Value).ToList();
+        return _sortedPasses.Where(kv => kv.Key is > PassPriority.SkydomeTransparent and < PassPriority.Billboards).Select(kv => kv.Value).ToList();
+    }
+
+    public IList<RenderPass> GetBillboardPasses()
+    {
+        return _sortedPasses.Where(kv => kv.Key == PassPriority.Billboards).Select(kv => kv.Value).ToList();
     }
 
     public IList<RenderPass> GetPrimitivePasses()

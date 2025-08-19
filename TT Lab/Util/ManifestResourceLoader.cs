@@ -24,4 +24,9 @@ public static class ManifestResourceLoader
 
         return Path.Combine(Path.GetDirectoryName(path)!, pathToFile);
     }
+
+    public static string[] GetFiledInExeDirectory(string directory)
+    {
+        return Directory.GetFiles(GetPathInExe(directory));
+    }
 }

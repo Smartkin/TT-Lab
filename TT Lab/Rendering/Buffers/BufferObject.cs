@@ -7,22 +7,42 @@ public class BufferObject<TDataType> : IDisposable
     where TDataType : unmanaged
 {
     private readonly BufferTargetARB _bufferType;
+    private readonly BufferUsageARB _usage;
     private readonly RenderContext _context;
 
-    public unsafe BufferObject(RenderContext context, Span<TDataType> data, BufferTargetARB bufferType)
+    public BufferObject(RenderContext context, Span<TDataType> data, BufferTargetARB bufferType) : this(context, data, bufferType, BufferUsageARB.StaticDraw)
+    {
+    }
+
+    public unsafe BufferObject(RenderContext context, Span<TDataType> data, BufferTargetARB bufferType, BufferUsageARB usage)
     {
         _context = context;
         _bufferType = bufferType;
+        _usage = usage;
 
         Handle = _context.Gl.GenBuffer();
+        if (usage == BufferUsageARB.DynamicDraw)
+        {
+            return;
+        }
+        
         Bind();
         fixed (void* d = data)
         {
-            _context.Gl.BufferData(bufferType, (nuint) (data.Length * sizeof(TDataType)), d, BufferUsageARB.StaticDraw);
+            _context.Gl.BufferData(bufferType, (nuint)(data.Length * sizeof(TDataType)), d, usage);
         }
     }
     
     public uint Handle { get; }
+
+    public unsafe void BufferData(Span<TDataType> data)
+    {
+        Bind();
+        fixed (void* d = data)
+        {
+            _context.Gl.BufferData(_bufferType, (nuint)(data.Length * sizeof(TDataType)), d, _usage);
+        }
+    }
 
     public void Bind()
     {

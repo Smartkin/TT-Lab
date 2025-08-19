@@ -9,6 +9,7 @@ void main()
 {
     vec2 screenUvs = gl_FragCoord.xy / Resolution;
     vec2 uvs = twin_material.uv_scroll_speed * vec2(Time) + Texpos;
+    uvs.y = mix(uvs.y, 1.0 - uvs.y, FlipY);
     vec4 textureColor = mix(vec4(1.0), texture(Texture[0], uvs), twin_material.use_texture);
     vec3 resultColor = textureColor.rgb * Color.rgb;
     float resultAlpha = textureColor.a * Color.a;
