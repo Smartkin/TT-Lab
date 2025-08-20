@@ -19,10 +19,10 @@ void main()
     resultColor = mix(resultColor, screenColorReflected.rgb * Color.rgb * resultColor, twin_material.reflect_dist.x);
 
     vec3 surfaceNormal = normalize(Normal);
-//    if (!gl_FrontFacing)
-//    {
-//        surfaceNormal = -surfaceNormal;
-//    }
+    if (!gl_FrontFacing && twin_material.two_sided_lighting)
+    {
+        surfaceNormal = -surfaceNormal;
+    }
     vec3 eyeDirection = normalize(EyePosition - ViewPosition);
     
     // We have 2 ways either sphere mapping or doing the function BetaM wrote. I personally like doing sphere mapping :^)
@@ -44,5 +44,5 @@ void main()
     resultBlend.rgb *= mix(vec3(1.0), Color.rgb * (specular + diffuse), twin_material.metalic_specular);
     resultBlend.rgb *= Diffuse.rgb;
     resultBlend.a = mix(resultBlend.a, resultBlend.a * Diffuse.a, twin_material.alpha_blend);
-    outColor = resultBlend;
+    outColor = mix(resultBlend, Diffuse, DiffuseOnly);
 }

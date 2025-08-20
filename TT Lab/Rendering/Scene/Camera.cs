@@ -39,8 +39,8 @@ public class Camera(RenderContext context) : Renderable(context, "Scene Camera")
         var viewMatrixLoc = _context.CurrentPass.Program.GetUniformLocation("StartView");
         var cameraPositionLoc = _context.CurrentPass.Program.GetUniformLocation("EyePosition");
         var cameraDirectionLoc = _context.CurrentPass.Program.GetUniformLocation("EyeDirection");
-        var fovLoc = _context.CurrentPass.Program.GetUniformLocation("uFovY");
-        var aspectLoc = _context.CurrentPass.Program.GetUniformLocation("uAspect");
+        var fovLoc = _context.CurrentPass.Program.GetUniformLocation("Fov");
+        var aspectLoc = _context.CurrentPass.Program.GetUniformLocation("Aspect");
         var resultView = RenderTransform.Inverse;
         var position = GetRenderPosition();
         var forward = GetRenderForward();

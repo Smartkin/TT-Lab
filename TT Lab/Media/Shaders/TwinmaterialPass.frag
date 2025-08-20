@@ -11,7 +11,7 @@ uniform int SpecColB[MAX_TEXTURES];
 uniform int SpecAlphaC[MAX_TEXTURES];
 uniform int SpecColD[MAX_TEXTURES];
 
-
+// Left for legacy reasons, may get used later
 vec4 ShadeFragment(vec3 texCoord, vec4 col, vec3 diffuse, vec3 eyespaceNormal)
 {
 	vec4 color = vec4(1.0);

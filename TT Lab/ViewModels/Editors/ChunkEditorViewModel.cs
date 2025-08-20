@@ -232,7 +232,7 @@ namespace TT_Lab.ViewModels.Editors
 
             if (type == typeof(ObjectSceneInstance))
             {
-                // _instancesNode.addChild(sceneInstance.GetEditableObject().getParentSceneNode());
+                _instancesNode.AddChild(sceneInstance.GetEditableObject());
             }
             
             // _chunkTree.Refresh();
@@ -350,7 +350,7 @@ namespace TT_Lab.ViewModels.Editors
             }
         }
 
-        public void MouseMove(IMouse mouse, Vector2 mousePos)
+        private void MouseMove(IMouse mouse, Vector2 mousePos)
         {
             if (!mouse.IsButtonPressed(MouseButton.Left) || !_editingContext.IsInstanceSelected())
             {
@@ -359,13 +359,10 @@ namespace TT_Lab.ViewModels.Editors
             
             var pos = mousePos;
             _editingContext.UpdateTransform(pos.X, pos.Y);
-            // var renderWindow = _sceneEditor.RenderControl?.GetRenderWindow();
-            // renderWindow?.UpdateCamera();
         }
 
-        public void MouseDown(IMouse mouse, MouseButton button)
+        private void MouseDown(IMouse mouse, MouseButton button)
         {
-            // _sceneEditor.UnlockMouseMove();
             if (button != MouseButton.Left)
             {
                 return;
@@ -378,16 +375,12 @@ namespace TT_Lab.ViewModels.Editors
             }
             else if (_editingContext.IsInstanceSelected())
             {
-                if (_editingContext.StartTransform(pos.X, pos.Y))
-                {
-                    // _sceneEditor.LockMouseMove();
-                }
+                _editingContext.StartTransform(pos.X, pos.Y);
             }
         }
 
-        public void MouseUp(IMouse mouse, MouseButton button)
+        private void MouseUp(IMouse mouse, MouseButton button)
         {
-            // _sceneEditor.UnlockMouseMove();
             if (!_editingContext.IsInstanceSelected())
             {
                 return;
@@ -397,7 +390,7 @@ namespace TT_Lab.ViewModels.Editors
             _editingContext.EndTransform(pos.X, pos.Y);
         }
 
-        public void KeyPressed(IKeyboard keyboard, Key key, int scancode)
+        private void KeyPressed(IKeyboard keyboard, Key key, int scancode)
         {
             if (key == Key.T)
             {
@@ -649,10 +642,10 @@ namespace TT_Lab.ViewModels.Editors
                 _linkedScenery = new Node(_renderContext, scene, "Linked Scenery");
                 foreach (var link in chunkLinks.Links)
                 {
-                    // if (!link.IsRendered)
-                    // {
-                    //     continue;
-                    // }
+                    if (!link.IsRendered)
+                    {
+                        continue;
+                    }
                     
                     var linkedChunk = assetManager.GetAsset<ChunkFolder>(link.Path);
                     var chunkData = linkedChunk.GetData().To<FolderData>();

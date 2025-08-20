@@ -33,7 +33,7 @@ public sealed class ObjectInstance : EditableObject
     protected override void InitSceneTransform()
     {
         Pos = new vec3(_instanceData.Position.X, _instanceData.Position.Y, _instanceData.Position.Z);
-        Rot = new vec3(_instanceData.RotationX.GetRotation(), _instanceData.RotationY.GetRotation(), _instanceData.RotationZ.GetRotation());
+        Rot = new vec3(glm.Radians(_instanceData.RotationX.GetRotation()), glm.Radians(_instanceData.RotationY.GetRotation()), glm.Radians(_instanceData.RotationZ.GetRotation()));
     }
 
     private void SetupModelBuffer(RenderContext context, LabURI uri)
@@ -43,6 +43,7 @@ public sealed class ObjectInstance : EditableObject
         if (objData.OGISlots.All(ogiUri => ogiUri == LabURI.Empty))
         {
             skeleton = new OGI(Context, _skeletonManager, _meshService, assetManager.GetAssetData<OGIData>(IoC.Get<ProjectManager>().OpenedProject!.Ps2Package.URI, nameof(Assets.Code.OGI), null, 0));
+            AddChild(skeleton);
             return;
         }
         

@@ -90,6 +90,9 @@ public class BillboardSet : Renderable
         var flipYLoc = Context.CurrentPass.Program.GetUniformLocation("FlipY");
         Context.Gl.Uniform1(flipYLoc, 1.0f);
         
+        var diffuseOnlyLoc = Context.CurrentPass.Program.GetUniformLocation("DiffuseOnly");
+        Context.Gl.Uniform1(diffuseOnlyLoc, 1.0f);
+        
         for (uint i = 0; i < 4; ++i)
         {
             Context.Gl.EnableVertexAttribArray(7 + i);

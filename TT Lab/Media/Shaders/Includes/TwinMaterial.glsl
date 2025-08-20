@@ -14,13 +14,14 @@ vec4 texturePanorama(vec3 normal, sampler2D pano)
     }
     st /= vec2(6.2831853, 3.1415926); // Normalize to [0,1]
 
-    return textureLod(pano, st, 0.0); // No mipmaps (LOD = 0)
+    return texture(pano, st);
 }
 
 #ifndef TWIN_MATERIAL
 #define TWIN_MATERIAL
 
 struct TwinMaterial {
+    bool two_sided_lighting;
     float use_texture; // 0 is off, 1 is on
     vec2 deform_speed;
     float billboard_render;

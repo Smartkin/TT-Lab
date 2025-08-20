@@ -51,7 +51,7 @@ namespace TT_Lab.Extensions
 
         public static Vector3 ToEulerAngles(this Vector4 twinVec)
         {
-            var quat = new quat(twinVec.W, twinVec.X, twinVec.Y, twinVec.Z);
+            var quat = new quat(twinVec.X, twinVec.Y, twinVec.Z, twinVec.W);
             var eulerAngles = quat.EulerAngles;
             return new Vector3((float)eulerAngles.x, (float)eulerAngles.y, (float)eulerAngles.z);
         }
