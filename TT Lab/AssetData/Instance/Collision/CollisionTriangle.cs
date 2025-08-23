@@ -21,7 +21,7 @@ namespace TT_Lab.AssetData.Instance.Collision
 
         public CollisionTriangle(TwinCollisionTriangle triangle)
         {
-            Face = new IndexedFace(new int[] { triangle.Vector1Index, triangle.Vector2Index, triangle.Vector3Index });
+            Face = new IndexedFace(triangle.Vector1Index, triangle.Vector2Index, triangle.Vector3Index);
             SurfaceIndex = triangle.SurfaceIndex;
         }
     }

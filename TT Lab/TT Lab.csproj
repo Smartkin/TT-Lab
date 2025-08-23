@@ -2827,6 +2827,7 @@
     <PackageReference Include="AdonisUI" Version="1.17.1" />
     <PackageReference Include="AdonisUI.ClassicTheme" Version="1.17.1" />
     <PackageReference Include="Caliburn.Micro" Version="4.0.230" />
+    <PackageReference Include="geometry3Sharp" Version="1.0.324" />
     <PackageReference Include="GlmSharpStd" Version="0.9.8" />
     <PackageReference Include="Meshoptimizer.NET" Version="1.0.4" />
     <PackageReference Include="Microsoft-WindowsAPICodePack-Shell" Version="1.1.5" />
