@@ -3,6 +3,8 @@
 #include "lygia/lighting/specular/gaussian.glsl"
 #include "lygia/lighting/sphereMap.glsl"
 
+const float FOG_CAMERA_MAX_DIST = 300.0;
+
 uniform TwinMaterial twin_material;
 
 void main()
@@ -38,14 +40,17 @@ void main()
         return;
     }
     
-    float cameraDistance = distance(EyePosition, ViewPosition);
+    // Specular/Diffuse lighting
     float diffuse = max(dot(surfaceNormal, eyeDirection), 0.0);
     float specular = mix(0.0, specularGaussian(diffuse, 20.0), twin_material.metalic_specular);
     vec4 resultBlend = vec4(resultColor, mix(1.0, resultAlpha, twin_material.alpha_blend));
     resultBlend.rgb *= mix(vec3(1.0), Color.rgb * (specular + diffuse), twin_material.metalic_specular);
     resultBlend.rgb *= Diffuse.rgb;
     resultBlend.a = mix(resultBlend.a, resultBlend.a * Diffuse.a, twin_material.alpha_blend);
-    float fogPower = 0.4 * (1.0 - exp(-(cameraDistance/300.0)));
+    
+    // Fog
+    float cameraDistance = distance(EyePosition, ViewPosition);
+    float fogPower = 0.4 * (1.0 - exp(-(cameraDistance / FOG_CAMERA_MAX_DIST)));
     resultBlend.rgb = mix(resultBlend.rgb, FogColor, fogPower);
     outColor = mix(resultBlend, Diffuse, DiffuseOnly);
 }

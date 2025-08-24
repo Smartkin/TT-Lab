@@ -44,7 +44,7 @@ public class ModelBuffer(RenderContext context, ModelBufferBuild build, Material
         foreach (var shader in _material.Shaders)
         {
             var passName = shader.ShaderName;
-            var priority = (int)(shader.UnkVector2.W - 128 + _material.DmaChainIndex + shaderIndex);
+            var priority = (int)(-shader.UnkVector2.W + _material.DmaChainIndex + shaderIndex);
             result.Add((passName, priority));
             shaderIndex++;
         }

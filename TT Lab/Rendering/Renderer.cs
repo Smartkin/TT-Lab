@@ -208,11 +208,13 @@ public class Renderer : IView
         _renderContext.Gl.BlitFramebuffer(0, 0, _frameBufferSize.x, _frameBufferSize.y, 0, 0, _frameBufferSize.x, _frameBufferSize.y, ClearBufferMask.ColorBufferBit, BlitFramebufferFilter.Linear);
         _renderContext.Gl.BindFramebuffer(FramebufferTarget.DrawFramebuffer, _pongBuffers[_writeBuffer].Handler);
         
+        _renderContext.Gl.Disable(EnableCap.Blend);
         var screenFlipProgram = _renderContext.GetProgram("ScreenFlipX");
         screenFlipProgram.Use();
         _screenBuffer.TextureAttachment!.Bind(TextureUnit.Texture5);
         _emptyVao.Bind();
         _renderContext.Gl.DrawArrays(PrimitiveType.TriangleFan, 0, 4);
+        _renderContext.Gl.Enable(EnableCap.Blend);
         
         Render?.Invoke(delta);
         if (_imgui != null)

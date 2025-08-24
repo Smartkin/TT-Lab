@@ -92,6 +92,7 @@ public class RenderContext : IDisposable
             Gl.Enable(EnableCap.DepthTest);
             Gl.Enable(EnableCap.StencilTest);
             Gl.Enable(EnableCap.ScissorTest);
+            Gl.Enable(EnableCap.Blend);
             Gl.CullFace(TriangleFace.FrontAndBack);
             Gl.DepthMask(true);
             Gl.DepthFunc(DepthFunction.Lequal);
