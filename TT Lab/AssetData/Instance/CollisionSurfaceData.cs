@@ -38,7 +38,7 @@ namespace TT_Lab.AssetData.Instance
         [JsonProperty(Required = Required.Always)]
         public SurfaceType SurfaceID { get; set; }
         [JsonProperty(Required = Required.Always)]
-        public SurfaceFlags Flags { get; set; }
+        public SurfaceCollisionFlags CollisionMask { get; set; }
         [JsonProperty(Required = Required.Always)]
         public LabURI StepSoundId1 { get; set; }
         [JsonProperty(Required = Required.Always)]
@@ -73,7 +73,7 @@ namespace TT_Lab.AssetData.Instance
         {
             ITwinSurface collisionSurface = GetTwinItem<ITwinSurface>();
             SurfaceID = collisionSurface.SurfaceId;
-            Flags = collisionSurface.Flags;
+            CollisionMask = collisionSurface.CollisionMask;
             StepSoundId1 = LabURI.Empty;
             StepSoundId2 = LabURI.Empty;
             LandSoundId1 = LabURI.Empty;
@@ -117,7 +117,7 @@ namespace TT_Lab.AssetData.Instance
             var assetManager = AssetManager.Get();
             using var ms = new MemoryStream();
             using var writer = new BinaryWriter(ms);
-            writer.Write((UInt32)Flags);
+            writer.Write((UInt32)CollisionMask);
             writer.Write((UInt16)SurfaceID);
             writer.Write(StepSoundId1 == LabURI.Empty ? (UInt16)0xFFFF : (UInt16)assetManager.GetAsset(StepSoundId1).ID);
             writer.Write(StepSoundId2 == LabURI.Empty ? (UInt16)0xFFFF : (UInt16)assetManager.GetAsset(StepSoundId2).ID);

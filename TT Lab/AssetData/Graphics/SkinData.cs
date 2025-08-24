@@ -118,9 +118,19 @@ namespace TT_Lab.AssetData.Graphics
                     material.WithBaseColor(texturePath);
                 }
 
+                var blendMode = AlphaMode.OPAQUE;
                 if (twinMaterial.Shaders[0].ABlending == TwinShader.AlphaBlending.ON)
                 {
-                    material.WithAlpha(AlphaMode.BLEND);
+                    blendMode = AlphaMode.BLEND;
+                }
+                if (twinMaterial.Shaders[0].ATest == TwinShader.AlphaTest.ON)
+                {
+                    blendMode = AlphaMode.MASK;
+                }
+                material.WithAlpha(blendMode);
+                if (blendMode == AlphaMode.MASK)
+                {
+                    material.AlphaCutoff = twinMaterial.Shaders[0].AlphaValueToBeComparedTo / 255.0f;
                 }
 
                 var mesh = new SharpGLTF.Geometry.MeshBuilder<VERTEX, COLOR_UV, JOINT_WEIGHT>($"subskin_{index++}");

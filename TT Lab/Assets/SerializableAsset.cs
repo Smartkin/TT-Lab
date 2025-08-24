@@ -135,6 +135,7 @@ namespace TT_Lab.Assets
         public virtual void Deserialize(String json)
         {
             JsonConvert.PopulateObject(json, this);
+            
         }
 
         public virtual void PostDeserialize() { }
@@ -251,6 +252,8 @@ namespace TT_Lab.Assets
             return viewModel;
         }
 
+        protected virtual LabURI GetDefaultReference() => LabURI.Empty;
+
         protected virtual ResourceTreeElementViewModel CreateResourceTreeElement(ResourceTreeElementViewModel? parent = null)
         {
             return new ResourceTreeElementViewModel(URI, parent);
@@ -258,13 +261,7 @@ namespace TT_Lab.Assets
 
         private void RemoveReferencesFromData(object? data, LabURI reference)
         {
-            if (data == null)
-            {
-                return;
-            }
-            
-            var referencesData = data.GetType().GetCustomAttribute(typeof(ReferencesAssetsAttribute)) as ReferencesAssetsAttribute;
-            if (referencesData == null)
+            if (data?.GetType().GetCustomAttribute<ReferencesAssetsAttribute>() is null)
             {
                 return;
             }
@@ -277,7 +274,7 @@ namespace TT_Lab.Assets
                     var uri = prop.GetValue(data) as LabURI;
                     if (uri != null && uri == reference)
                     {
-                        prop.SetValue(data, LabURI.Empty);
+                        prop.SetValue(data, GetDefaultReference());
                     }
                 }
                 else if (prop.PropertyType.IsAssignableTo(typeof(IEnumerable<LabURI>)))
@@ -296,7 +293,7 @@ namespace TT_Lab.Assets
                             continue;
                         }
                         
-                        list.RemoveAt(i--);
+                        list[i] = GetDefaultReference();
                         referenceRemoved = true;
                     }
 
@@ -326,13 +323,7 @@ namespace TT_Lab.Assets
 
         private void ExtractReferences(object? data)
         {
-            if (data == null)
-            {
-                return;
-            }
-            
-            var referencesData = data.GetType().GetCustomAttribute(typeof(ReferencesAssetsAttribute)) as ReferencesAssetsAttribute;
-            if (referencesData == null)
+            if (data?.GetType().GetCustomAttribute<ReferencesAssetsAttribute>() is null)
             {
                 return;
             }

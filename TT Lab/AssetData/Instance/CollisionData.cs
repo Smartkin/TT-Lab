@@ -14,12 +14,13 @@ using TT_Lab.AssetData.Instance.Collision;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Assets.Instance;
+using TT_Lab.Attributes;
 using TT_Lab.Util;
+using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Common.Collision;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM;
-using Vector3 = Twinsanity.TwinsanityInterchange.Common.Vector3;
 using Vector4 = Twinsanity.TwinsanityInterchange.Common.Vector4;
 
 namespace TT_Lab.AssetData.Instance;
@@ -27,7 +28,7 @@ namespace TT_Lab.AssetData.Instance;
 using VERTEX = SharpGLTF.Geometry.VertexTypes.VertexPosition;
 using VERTEX_BUILDER = SharpGLTF.Geometry.VertexBuilder<SharpGLTF.Geometry.VertexTypes.VertexPosition, SharpGLTF.Geometry.VertexTypes.VertexEmpty, SharpGLTF.Geometry.VertexTypes.VertexEmpty>;
 
-// TODO: Add [ReferencesAssets] attribute
+[ReferencesAssets]
 public class CollisionData : AbstractAssetData
 {
     public CollisionData()
@@ -40,9 +41,6 @@ public class CollisionData : AbstractAssetData
         SetTwinItem(collision);
     }
 
-    [JsonProperty(Required = Required.Always)]
-    public UInt32 UnkInt { get; set; }
-    
     public List<CollisionTrigger> Triggers { get; set; } = new();
     public List<GroupInformation> Groups { get; set; } = new();
     public List<CollisionTriangle> Triangles { get; set; } = new();
@@ -58,8 +56,6 @@ public class CollisionData : AbstractAssetData
 
     protected override void SaveInternal(string dataPath, JsonSerializerSettings? settings = null)
     {
-        base.SaveInternal(dataPath, settings);
-        
         var scene = new SharpGLTF.Scenes.SceneBuilder("TwinsanityStaticCollision");
         var root = new SharpGLTF.Scenes.NodeBuilder("static_collision_root");
         scene.AddNode(root);
@@ -67,40 +63,41 @@ public class CollisionData : AbstractAssetData
         scene.AddRigidMesh(mesh.Mesh, root);
 
         var model = scene.ToGltf2();
-        model.SaveGLB(dataPath + ".glb");
+        model.SaveGLB(dataPath);
     }
 
     protected override void LoadInternal(string dataPath, JsonSerializerSettings? settings = null)
     {
-        base.LoadInternal(dataPath, settings);
-        
         Vectors.Clear();
         Triangles.Clear();
 
-        var model = ModelRoot.Load(dataPath + ".glb");
-        var mesh = model.LogicalMeshes[0];
+        var model = ModelRoot.Load(dataPath);
         var indexOffset = 0;
-        foreach (var prim in mesh.Primitives)
+        var assetManager = AssetManager.Get();
+        var surfaces = assetManager.GetAllAssetsOf<CollisionSurface>();
+        var defaultSurface = surfaces.First();
+        foreach (var mesh in model.LogicalMeshes)
         {
-            var columns = prim.GetVertexColumns();
-            foreach (var position in columns.Positions)
+            foreach (var prim in mesh.Primitives)
             {
-                Vectors.Add(position.ToTwin());
-            }
-            
-            foreach (var (idx1, idx2, idx3) in prim.GetTriangleIndices())
-            {
-                var triangle = new CollisionTriangle();
-                triangle.Face = new IndexedFace(idx1 + indexOffset, idx2 + indexOffset, idx3 + indexOffset);
-                if (!Enum.TryParse(prim.Material.Name, out Enums.SurfaceType surfaceType))
+                var columns = prim.GetVertexColumns();
+                foreach (var position in columns.Positions)
                 {
-                    surfaceType = Enums.SurfaceType.SURF_DEFAULT;
+                    Vectors.Add(position.ToTwin());
                 }
-                triangle.SurfaceIndex = (int)surfaceType;
-                Triangles.Add(triangle);
-            }
 
-            indexOffset += columns.Positions.Count;
+                var materialName = prim.Material.Name;
+                foreach (var (idx1, idx2, idx3) in prim.GetTriangleIndices())
+                {
+                    var triangle = new CollisionTriangle();
+                    triangle.Face = new IndexedFace(idx1 + indexOffset, idx2 + indexOffset, idx3 + indexOffset);
+                    var surfaceUri = surfaces.FirstOrDefault(surf => surf.Name == materialName, defaultSurface).URI;
+                    triangle.Surface = surfaceUri;
+                    Triangles.Add(triangle);
+                }
+
+                indexOffset += columns.Positions.Count;
+            }
         }
     }
 
@@ -113,7 +110,7 @@ public class CollisionData : AbstractAssetData
             var v1 = Vectors[collisionTriangle.Face.Indexes![0]];
             var v2 = Vectors[collisionTriangle.Face.Indexes[1]];
             var v3 = Vectors[collisionTriangle.Face.Indexes[2]];
-            var primitive = builder.UsePrimitive(materials[collisionTriangle.SurfaceIndex]);
+            var primitive = builder.UsePrimitive(materials[collisionTriangle.Surface]);
             primitive.AddTriangle(new VERTEX_BUILDER(new VERTEX(v1.X, v1.Y, v1.Z)),
                 new VERTEX_BUILDER(new VERTEX(v2.X, v2.Y, v2.Z)),
                 new VERTEX_BUILDER(new VERTEX(v3.X, v3.Y, v3.Z)));
@@ -130,8 +127,7 @@ public class CollisionData : AbstractAssetData
 
     public override void Import(LabURI package, String? variant, Int32? layoutId)
     {
-        ITwinCollision collision = GetTwinItem<ITwinCollision>();
-        UnkInt = collision.UnkInt;
+        var collision = GetTwinItem<ITwinCollision>();
         foreach (var trigger in collision.Triggers)
         {
             Triggers.Add(new CollisionTrigger(trigger));
@@ -140,9 +136,11 @@ public class CollisionData : AbstractAssetData
         {
             Groups.Add(new GroupInformation(group));
         }
+        var assetManager = AssetManager.Get();
+        var surfaces = assetManager.GetAllAssetsOf<CollisionSurface>();
         foreach (var triangle in collision.Triangles)
         {
-            Triangles.Add(new CollisionTriangle(triangle));
+            Triangles.Add(new CollisionTriangle(triangle, surfaces));
         }
         // Clone the vectors instead of reference copying
         Vectors = CloneUtils.CloneList(collision.Vectors);
@@ -154,7 +152,7 @@ public class CollisionData : AbstractAssetData
         
         using var ms = new MemoryStream();
         using var writer = new BinaryWriter(ms);
-        writer.Write(UnkInt);
+        writer.Write(0xBB9); // Collision header
         writer.Write(Triggers.Count);
         writer.Write(Groups.Count);
         writer.Write(Triangles.Count);
@@ -174,6 +172,7 @@ public class CollisionData : AbstractAssetData
             writer.Write(group.Offset);
         }
 
+        var assetManager = AssetManager.Get();
         foreach (var tri in Triangles)
         {
             var twinTri = new TwinCollisionTriangle()
@@ -181,7 +180,7 @@ public class CollisionData : AbstractAssetData
                 Vector1Index = tri.Face.Indexes![0],
                 Vector2Index = tri.Face.Indexes[1],
                 Vector3Index = tri.Face.Indexes[2],
-                SurfaceIndex = tri.SurfaceIndex
+                SurfaceIndex = (int)assetManager.GetAsset(tri.Surface).ID
             };
             twinTri.Write(writer);
         }
@@ -196,21 +195,22 @@ public class CollisionData : AbstractAssetData
         return factory.GenerateCollision(ms);
     }
 
-    private List<SharpGLTF.Materials.MaterialBuilder> GetMaterials()
+    private Dictionary<LabURI, SharpGLTF.Materials.MaterialBuilder> GetMaterials()
     {
-        var result = new List<SharpGLTF.Materials.MaterialBuilder>();
-        var surfIndex = 0;
-        foreach (var defaultColor in CollisionSurface.DefaultColors)
+        var result = new Dictionary<LabURI, SharpGLTF.Materials.MaterialBuilder>();
+        var assetManager = AssetManager.Get();
+        var surfaces = assetManager.GetAllAssetsOf<CollisionSurface>();
+        foreach (var surface in surfaces)
         {
+            var surfColor = (Color)surface.Parameters["editor_surface_color"]!;
             var surfaceMaterial = new SharpGLTF.Materials.MaterialBuilder().WithDoubleSide(true)
-                .WithBaseColor(new System.Numerics.Vector4(defaultColor.R / 255.0f, defaultColor.G / 255.0f, defaultColor.B / 255.0f, defaultColor.A / 255.0f));
-            surfaceMaterial.Name = ((Enums.SurfaceType)surfIndex).ToString();
-            if (defaultColor.A < 255)
+                .WithBaseColor(new System.Numerics.Vector4(surfColor.R / 255.0f, surfColor.G / 255.0f, surfColor.B / 255.0f, surfColor.A / 255.0f));
+            surfaceMaterial.Name = surface.Name;
+            if (surfColor.A < 255)
             {
                 surfaceMaterial.WithAlpha(SharpGLTF.Materials.AlphaMode.BLEND);
             }
-            result.Add(surfaceMaterial);
-            surfIndex++;
+            result.Add(surface.URI, surfaceMaterial);
         }
         return result;
     }

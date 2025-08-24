@@ -13,7 +13,7 @@ namespace TT_Lab.ViewModels.Editors.Instance
     {
         private Layouts layId;
         private SurfaceType surfId;
-        private SurfaceFlags flags;
+        private SurfaceCollisionFlags _collisionFlags;
         private LabURI stepSoundId1 = LabURI.Empty;
         private LabURI stepSoundId2 = LabURI.Empty;
         private LabURI landSoundId1 = LabURI.Empty;
@@ -41,7 +41,7 @@ namespace TT_Lab.ViewModels.Editors.Instance
             asset.LayoutID = (int)LayoutID;
             var data = asset.GetData<CollisionSurfaceData>();
             data.SurfaceID = SurfId;
-            data.Flags = Flags;
+            data.CollisionMask = CollisionFlags;
             data.StepSoundId1 = StepSoundId1;
             data.StepSoundId2 = StepSoundId2;
             data.LandSoundId1 = LandSoundId1;
@@ -86,7 +86,7 @@ namespace TT_Lab.ViewModels.Editors.Instance
             var asset = AssetManager.Get().GetAsset(EditableResource);
             var surfData = asset.GetData<CollisionSurfaceData>();
             surfId = surfData.SurfaceID;
-            flags = surfData.Flags;
+            _collisionFlags = surfData.CollisionMask;
             foreach (var parameter in surfData.PhysicsParameters)
             {
                 physicsParameters.Add(new PrimitiveWrapperViewModel<Single>(parameter));
@@ -140,14 +140,14 @@ namespace TT_Lab.ViewModels.Editors.Instance
         }
 
         [MarkDirty]
-        public SurfaceFlags Flags
+        public SurfaceCollisionFlags CollisionFlags
         {
-            get => flags;
+            get => _collisionFlags;
             set
             {
-                if (flags != value)
+                if (_collisionFlags != value)
                 {
-                    flags = value;
+                    _collisionFlags = value;
                     
                     NotifyOfPropertyChange();
                 }

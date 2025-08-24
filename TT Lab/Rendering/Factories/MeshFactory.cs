@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using GlmSharp;
+using Newtonsoft.Json.Linq;
 using Silk.NET.OpenGL;
 using TT_Lab.AssetData;
 using TT_Lab.AssetData.Graphics;
@@ -229,13 +230,24 @@ public class MeshFactory
 
     private CollisionMesh CreateCollisionMesh(CollisionData collisionData)
     {
+        var assetManager = AssetManager.Get();
         var material = new MaterialData();
-        material.Shaders[0].ShaderType = TwinShader.Type.UnlitGlossy;
+        material.Shaders[0].ShaderType = TwinShader.Type.StandardUnlit;
         List<ModelBuffer> buffers = [new(_renderContext,
             _meshBuilder.BuildRigidVaoFromVertexes(
                 collisionData.Vectors.Select(v => new Vertex(new Vector4(v.X, v.Y, v.Z, v.W))).ToList(),
                 collisionData.Triangles.Select(t => t.Face).ToList(),
-                i => CollisionSurface.DefaultColors[collisionData.Triangles[i].SurfaceIndex].GetVector()),
+                i =>
+                {
+                    var surface = assetManager.GetAsset(collisionData.Triangles[i].Surface);
+
+                    var surfColor = CollisionSurface.DefaultColor;
+                    if (surface.Parameters["editor_surface_color"] is JObject colorJson)
+                    {
+                        surfColor = colorJson.ToObject<Color>();
+                    }
+                    return surfColor.GetVector();
+                }),
             _materialFactory, material)];
         
         return new CollisionMesh(_renderContext, buffers);

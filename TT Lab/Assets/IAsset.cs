@@ -153,7 +153,7 @@ namespace TT_Lab.Assets
         /// <param name="reference">Resource to reference</param>
         void AddReference(LabURI reference)
         {
-            if (reference == LabURI.Empty)
+            if (reference == LabURI.Empty || References.Contains(reference))
             {
                 return;
             }

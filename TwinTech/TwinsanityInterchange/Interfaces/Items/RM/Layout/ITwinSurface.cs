@@ -7,9 +7,9 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout
     public interface ITwinSurface : ITwinItem
     {
         /// <summary>
-        /// Surface flags
+        /// Collision mask
         /// </summary>
-        SurfaceFlags Flags { get; set; }
+        SurfaceCollisionFlags CollisionMask { get; set; }
         /// <summary>
         /// Surface's ID
         /// </summary>
