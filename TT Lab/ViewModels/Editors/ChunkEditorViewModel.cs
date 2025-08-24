@@ -4,7 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Numerics;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -33,6 +32,7 @@ using TT_Lab.ViewModels.Composite;
 using TT_Lab.ViewModels.Editors.Instance;
 using TT_Lab.ViewModels.Interfaces;
 using TT_Lab.ViewModels.ResourceTree;
+using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using AiPosition = TT_Lab.Rendering.Objects.AiPosition;
 using Camera = TT_Lab.Rendering.Objects.Camera;
@@ -43,6 +43,7 @@ using Position = TT_Lab.Rendering.Objects.Position;
 using Renderable = TT_Lab.Rendering.Renderable;
 using Scenery = TT_Lab.Rendering.Objects.Scenery;
 using Trigger = TT_Lab.Rendering.Objects.Trigger;
+using Vector2 = System.Numerics.Vector2;
 
 namespace TT_Lab.ViewModels.Editors
 {
@@ -636,6 +637,8 @@ namespace TT_Lab.ViewModels.Editors
                 }
 
                 _sceneryRender = new Scenery(_renderContext, _meshService, scenery);
+                var fogColor = TT_Lab.Assets.Instance.Scenery.FogColors[scenery.FogColor];
+                scene.Camera.SetFogColor(fogColor.GetVector().ToGlm().xyz);
                 scene.AddChild(_sceneryRender);
 
                 var chunkLinks = _chunkTree.First(avm => avm.Asset.Section == Constants.SCENERY_LINK_ITEM).Asset.GetData<ChunkLinksData>();

@@ -15,6 +15,13 @@ public class TwinMaterial(RenderContext context, TwinMaterialDesc materialDesc) 
     
     public TwinMaterialDesc GetCurrentMaterialDesc() => _materialDesc;
 
+    public void ApplyFog(bool @override)
+    {
+        var program = context.CurrentPass.Program;
+        var performFogLoc = program.GetUniformLocation(TwinMaterialDesc.PerformFogPath);
+        context.Gl.Uniform1(performFogLoc, @override ? 1.0f : 0.0f);
+    }
+
     public void ApplyDeformSpeed(vec2 @override)
     {
         var program = context.CurrentPass.Program;
@@ -179,6 +186,7 @@ public class TwinMaterial(RenderContext context, TwinMaterialDesc materialDesc) 
         ApplyBlending(_materialDesc.BlendFunc);
         ApplyDepthWrite(_materialDesc.DepthWrite);
         ApplyDepthTest(_materialDesc.DepthTest);
+        ApplyFog(_materialDesc.PerformFog);
         
         // var deformSpeedLoc = program.GetUniformLocation(TwinMaterialDesc.DeformSpeedPath);
         // var billboardRenderLoc = program.GetUniformLocation(TwinMaterialDesc.BillboardRenderPath);

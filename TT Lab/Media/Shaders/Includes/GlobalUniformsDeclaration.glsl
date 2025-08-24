@@ -4,5 +4,6 @@ uniform float Time;
 uniform vec2 Resolution;
 uniform vec3 EyePosition;
 uniform vec3 EyeDirection;
+uniform vec3 FogColor;
 uniform float Fov; // In radians
 uniform float Aspect;

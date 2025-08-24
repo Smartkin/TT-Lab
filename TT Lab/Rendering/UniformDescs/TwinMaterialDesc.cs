@@ -17,6 +17,7 @@ public struct TwinMaterialDesc()
     public const string EnvMapPath = "twin_material.env_map";
     public const string BlendFuncPath = "twin_material.blend_func";
     public const string UseTexturePath = "twin_material.use_texture";
+    public const string PerformFogPath = "twin_material.perform_fog";
     
     public TextureBuffer? Texture { get; init; }
     public TwinShader.AlphaBlendPresets BlendFunc { get; init; } = TwinShader.AlphaBlendPresets.Mix;
@@ -31,5 +32,6 @@ public struct TwinMaterialDesc()
     public float EnvMap { get; init; } = 0.0f;
     public float UseTexture { get; init; } = 0.0f;
     public bool DepthWrite { get; init; } = false;
+    public bool PerformFog { get; init; } = false;
     public TwinShader.DepthTestMethod DepthTest { get; init; } = TwinShader.DepthTestMethod.GEQUAL;
 }

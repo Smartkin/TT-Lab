@@ -100,7 +100,7 @@ namespace TT_Lab.AssetData.Instance
             UnkByte = scenery.UnkByte;
             if (scenery.SkydomeID != 0)
             {
-                SkydomeID = AssetManager.Get().GetUri(package, typeof(Skydome).Name, variant, scenery.SkydomeID);
+                SkydomeID = AssetManager.Get().GetUri(package, nameof(Skydome), variant, scenery.SkydomeID);
             }
             HasLighting = scenery.HasLighting;
             if (HasLighting)
@@ -180,7 +180,7 @@ namespace TT_Lab.AssetData.Instance
                 scenery.ResolveChunkResouces(factory, graphicsSection);
             }
 
-            return base.ResolveChunkResources(factory, section, id);
+            return base.ResolveChunkResources(factory, section, id, layoutID);
         }
     }
 }

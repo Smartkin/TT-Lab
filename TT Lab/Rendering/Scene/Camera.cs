@@ -13,11 +13,17 @@ public class Camera(RenderContext context) : Renderable(context, "Scene Camera")
     private readonly float _zNear = 0.05f;
     private readonly float _zFar = 100000.0f;
     private vec2 _viewportResolution = vec2.Zero;
+    private vec3 _fogColor = vec3.Zero;
 
     public void SetResolution(vec2 resolution)
     {
         _viewportResolution = resolution;
         _projectionMatrix = mat4.Perspective(glm.Radians(_fov), resolution.x / resolution.y, _zNear, _zFar);
+    }
+
+    public void SetFogColor(vec3 color)
+    {
+        _fogColor = color;
     }
 
     public vec3 GetRayFromViewport(float x, float y)
@@ -41,13 +47,15 @@ public class Camera(RenderContext context) : Renderable(context, "Scene Camera")
         var cameraDirectionLoc = _context.CurrentPass.Program.GetUniformLocation("EyeDirection");
         var fovLoc = _context.CurrentPass.Program.GetUniformLocation("Fov");
         var aspectLoc = _context.CurrentPass.Program.GetUniformLocation("Aspect");
+        var fogColorLoc = _context.CurrentPass.Program.GetUniformLocation("FogColor");
         var resultView = RenderTransform.Inverse;
         var position = GetRenderPosition();
         var forward = GetRenderForward();
         _context.Gl.UniformMatrix4(projectionLoc, false, _projectionMatrix.Values1D);
         _context.Gl.UniformMatrix4(viewMatrixLoc, false, resultView.Values1D);
-        _context.Gl.Uniform3(cameraPositionLoc, position.x, position.y, position.z);
-        _context.Gl.Uniform3(cameraDirectionLoc, forward.x, forward.y, forward.z);
+        _context.Gl.Uniform3(fogColorLoc, _fogColor.Values);
+        _context.Gl.Uniform3(cameraPositionLoc, position.Values);
+        _context.Gl.Uniform3(cameraDirectionLoc, forward.Values);
         _context.Gl.Uniform1(fovLoc, glm.Radians(_fov));
         _context.Gl.Uniform1(aspectLoc, _viewportResolution.x / _viewportResolution.y);
     }

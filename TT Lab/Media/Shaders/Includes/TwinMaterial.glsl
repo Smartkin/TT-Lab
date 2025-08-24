@@ -22,6 +22,7 @@ vec4 texturePanorama(vec3 normal, sampler2D pano)
 
 struct TwinMaterial {
     bool two_sided_lighting;
+    float perform_fog; // 0 is off, 1 is on
     float use_texture; // 0 is off, 1 is on
     vec2 deform_speed;
     float billboard_render;

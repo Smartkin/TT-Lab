@@ -100,7 +100,8 @@ public class MaterialFactory(TextureService textureService)
             UvScrollSpeed = uvScrollSpeed,
             BlendFunc = shader.AlphaRegSettingsIndex,
             DepthWrite = shader.ZValueDrawingMask == TwinShader.ZValueDrawMask.UPDATE,
-            DepthTest = shader.DepthTest
+            DepthTest = shader.DepthTest,
+            PerformFog = shader.Fog == TwinShader.Fogging.ON
         };
     }
 }
