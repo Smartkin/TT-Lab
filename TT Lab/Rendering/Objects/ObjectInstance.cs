@@ -16,7 +16,7 @@ namespace TT_Lab.Rendering.Objects;
 
 public sealed class ObjectInstance : EditableObject
 {
-    private OGI skeleton;
+    private Renderable skeleton;
     private readonly TwinSkeletonManager _skeletonManager;
     private readonly MeshService _meshService;
     private readonly ObjectInstanceData _instanceData;
@@ -42,7 +42,8 @@ public sealed class ObjectInstance : EditableObject
         var objData = assetManager.GetAssetData<GameObjectData>(uri);
         if (objData.OGISlots.All(ogiUri => ogiUri == LabURI.Empty))
         {
-            skeleton = new OGI(Context, _skeletonManager, _meshService, assetManager.GetAssetData<OGIData>(IoC.Get<ProjectManager>().OpenedProject!.Ps2Package.URI, nameof(Assets.Code.OGI), null, 0));
+            skeleton = _meshService.GetMesh(LabURI.Box).Model!;
+            skeleton.Scale(vec3.Ones * 0.5f);
             AddChild(skeleton);
             return;
         }

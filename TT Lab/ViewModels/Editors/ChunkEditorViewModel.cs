@@ -473,6 +473,7 @@ namespace TT_Lab.ViewModels.Editors
             SceneInstance? result = null;
             if (!_keyboard.IsKeyPressed(Key.ControlLeft))
             {
+                var minDistance = float.MaxValue;
                 foreach (var instance in _sceneInstances)
                 {
                     if (!instance.GetEditableObject().IsVisible)
@@ -488,9 +489,14 @@ namespace TT_Lab.ViewModels.Editors
                     {
                         continue;
                     }
+
+                    if (!(distance < minDistance))
+                    {
+                        continue;
+                    }
                     
                     result = instance;
-                    break;
+                    minDistance = distance;
                 }
             
                 if (result != null)
@@ -502,24 +508,36 @@ namespace TT_Lab.ViewModels.Editors
             if (result == null && _colData != null)
             {
                 var hit = new vec3();
-                var distance = 0.0f;
+                var minDistance = float.MaxValue;
                 foreach (var triangle in _colData.Triangles)
                 {
+                    var hitPos = new vec3();
+                    var distance = float.MaxValue;
                     var p1 = _colData.Vectors[triangle.Face.Indexes![0]];
                     var p2 = _colData.Vectors[triangle.Face.Indexes[1]];
                     var p3 = _colData.Vectors[triangle.Face.Indexes[2]];
                     if (!MathExtension.IntersectRayTriangle(rayOrigin, rayDirection, new vec3(p1.X, p1.Y, p1.Z),
-                            new vec3(p2.X, p2.Y, p2.Z), new vec3(p3.X, p3.Y, p3.Z), ref distance, ref hit))
+                            new vec3(p2.X, p2.Y, p2.Z), new vec3(p3.X, p3.Y, p3.Z), ref distance, ref hitPos))
                     {
                         continue;
                     }
-                    
+
+                    if (!(distance < minDistance))
+                    {
+                        continue;
+                    }
+
+                    hit = hitPos;
+                    minDistance = distance;
+                }
+
+                if (!minDistance.Equals(float.MaxValue))
+                {
                     _editingContext.SetCursorCoordinates(hit);
                     if (_keyboard.IsKeyPressed(Key.ControlLeft))
                     {
                         _editingContext.SpawnAtCursor();
                     }
-                    break;
                 }
             }
         }

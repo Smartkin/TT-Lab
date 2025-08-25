@@ -20,6 +20,8 @@ public sealed class ObjectSceneInstance : SceneInstance
         _meshService = meshService;
         Position = new vec3(instanceData.Position.X, instanceData.Position.Y, instanceData.Position.Z);
         Rotation = new vec3(instanceData.RotationX.GetRotation(), instanceData.RotationY.GetRotation(), instanceData.RotationZ.GetRotation());
+        Size = vec3.Ones * 0.5f;
+        Offset = -vec3.Ones * 0.25f;
         
         var assetManager = AssetManager.Get();
         var objData = assetManager.GetAssetData<GameObjectData>(instanceData.ObjectId);
