@@ -17,12 +17,12 @@ namespace TT_Lab.Assets.Code
 
         public BehaviourGraph(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinBehaviourGraph script, TwinBehaviourStarter? starter = null) : base(package, needVariant, variant, id, name)
         {
-            assetData = new BehaviourGraphData(script, starter);
+            AssetData = new BehaviourGraphData(script, starter);
             if (starter != null)
             {
                 _starterId = (int)starter.GetID();
             }
-            RegenerateURI(needVariant);
+            RegenerateURI();
         }
 
         public int MapStarterIdToSelf(int starterId)
@@ -42,13 +42,12 @@ namespace TT_Lab.Assets.Code
 
         public override AbstractAssetData GetData()
         {
-            if (!IsLoaded || assetData.Disposed)
+            if (!IsLoaded || AssetData.Disposed)
             {
-                assetData = new BehaviourGraphData();
-                assetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
-                IsLoaded = true;
+                AssetData = new BehaviourGraphData();
+                AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
             }
-            return assetData;
+            return AssetData;
         }
     }
 }

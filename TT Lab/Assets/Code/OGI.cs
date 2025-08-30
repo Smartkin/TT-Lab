@@ -17,12 +17,12 @@ namespace TT_Lab.Assets.Code
 
         public OGI(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinOGI ogi) : base(id, name, package, needVariant, variant)
         {
-            assetData = new OGIData(ogi);
+            AssetData = new OGIData(ogi);
         }
 
         public void LinkAnimationsToData(List<LabURI> animations)
         {
-            ((OGIData)assetData).LinkAnimations(animations);
+            ((OGIData)AssetData).LinkAnimations(animations);
         }
 
         public override Type GetEditorType()
@@ -32,13 +32,12 @@ namespace TT_Lab.Assets.Code
 
         public override AbstractAssetData GetData()
         {
-            if (!IsLoaded || assetData.Disposed)
+            if (!IsLoaded || AssetData.Disposed)
             {
-                assetData = new OGIData();
-                assetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
-                IsLoaded = true;
+                AssetData = new OGIData();
+                AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
             }
-            return assetData;
+            return AssetData;
         }
     }
 }

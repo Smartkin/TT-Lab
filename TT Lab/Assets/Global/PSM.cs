@@ -15,18 +15,17 @@ namespace TT_Lab.Assets.Global
 
         public PSM(LabURI package, Boolean needVariant, String variant, String name, ITwinPSM psm) : base((UInt32)Guid.NewGuid().GetHashCode(), name, package, needVariant, variant)
         {
-            assetData = new PSMData(psm);
+            AssetData = new PSMData(psm);
         }
 
         public override AbstractAssetData GetData()
         {
-            if (!IsLoaded || assetData.Disposed)
+            if (!IsLoaded || AssetData.Disposed)
             {
-                assetData = new PSMData();
-                assetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
-                IsLoaded = true;
+                AssetData = new PSMData();
+                AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
             }
-            return assetData;
+            return AssetData;
         }
 
         public override void PreResolveResources()

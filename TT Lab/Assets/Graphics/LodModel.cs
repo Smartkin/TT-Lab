@@ -13,7 +13,7 @@ namespace TT_Lab.Assets.Graphics
 
         public LodModel(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinLOD lod) : base(id, name, package, needVariant, variant)
         {
-            assetData = new LodModelData(lod);
+            AssetData = new LodModelData(lod);
         }
 
         public LodModel()
@@ -27,13 +27,12 @@ namespace TT_Lab.Assets.Graphics
 
         public override AbstractAssetData GetData()
         {
-            if (!IsLoaded || assetData.Disposed)
+            if (!IsLoaded || AssetData.Disposed)
             {
-                assetData = new LodModelData();
-                assetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
-                IsLoaded = true;
+                AssetData = new LodModelData();
+                AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
             }
-            return assetData;
+            return AssetData;
         }
     }
 }

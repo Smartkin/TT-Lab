@@ -15,7 +15,7 @@ namespace TT_Lab.Assets.Graphics
 
         public Model(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinModel model) : base(id, name, package, needVariant, variant)
         {
-            assetData = new ModelData(model);
+            AssetData = new ModelData(model);
             Raw = false;
         }
 
@@ -30,13 +30,12 @@ namespace TT_Lab.Assets.Graphics
 
         public override AbstractAssetData GetData()
         {
-            if (!IsLoaded || assetData.Disposed)
+            if (!IsLoaded || AssetData.Disposed)
             {
-                assetData = new ModelData();
-                assetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
-                IsLoaded = true;
+                AssetData = new ModelData();
+                AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
             }
-            return assetData;
+            return AssetData;
         }
     }
 }

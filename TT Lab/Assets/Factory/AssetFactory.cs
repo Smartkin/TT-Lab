@@ -11,7 +11,7 @@ public static class AssetFactory
     {
         Debug.Assert(type.IsAssignableTo(typeof(IAsset)), $"The type {type.Name} must implement IAsset");
         var newAsset = (IAsset)Activator.CreateInstance(type)!;
-        newAsset.Name = name;
+        newAsset.InvariantName = name;
         newAsset.Alias = name;
         newAsset.Package = folder.Package;
         newAsset.Variation = variation;
@@ -21,7 +21,7 @@ public static class AssetFactory
             newAsset.LayoutID = (int)layout.Value;
         }
         
-        newAsset.RegenerateLinks(true);
+        newAsset.RegenerateLinks();
         
         var dataCreationResult = dataCreator?.Invoke(newAsset);
         if (dataCreationResult is AssetCreationStatus.Failed)

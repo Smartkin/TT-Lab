@@ -42,7 +42,7 @@ namespace TT_Lab.Assets.Code
 
         public SoundEffect(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinSound sound) : base(id, name, package, needVariant, variant)
         {
-            assetData = new SoundEffectData(sound);
+            AssetData = new SoundEffectData(sound);
             Header = sound.Header;
             UnkFlag = sound.UnkFlag;
             Param1 = sound.Param1;
@@ -59,12 +59,12 @@ namespace TT_Lab.Assets.Code
 
         public override void ResolveChunkResources(ITwinItemFactory factory, ITwinSection section)
         {
-            if (!IsLoaded || assetData.Disposed)
+            if (!IsLoaded || AssetData.Disposed)
             {
-                assetData = GetData();
+                AssetData = GetData();
             }
 
-            var item = assetData.ResolveChunkResources(factory, section, ID) as ITwinSound;
+            var item = AssetData.ResolveChunkResources(factory, section, ID) as ITwinSound;
             item?.SetID(ID);
             item?.Compile();
             if (item != null)
@@ -77,19 +77,17 @@ namespace TT_Lab.Assets.Code
                 item.Param4 = Param4;
             }
 
-            assetData.Dispose();
-            IsLoaded = false;
+            AssetData.Dispose();
         }
 
         public override AbstractAssetData GetData()
         {
-            if (!IsLoaded || assetData.Disposed)
+            if (!IsLoaded || AssetData.Disposed)
             {
-                assetData = new SoundEffectData();
-                assetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
-                IsLoaded = true;
+                AssetData = new SoundEffectData();
+                AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
             }
-            return assetData;
+            return AssetData;
         }
     }
 }

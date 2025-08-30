@@ -26,7 +26,7 @@ public abstract class AssetResolver<TTwinItem> : IAssetResolver where TTwinItem 
 
         var twinIdCollisions = HashChecker.Values.Count(e => e == twinItem.GetID());
         var needVariant = twinIdCollisions > 1;
-        var labAsset = CreateAsset(chunk, package, twinItem, needVariant, $"_alternate_{twinIdCollisions - 1}");
+        var labAsset = CreateAsset(chunk, package, twinItem, needVariant, $"alternate_{twinIdCollisions - 1}");
         Assets.Add(new MetaAsset(labAsset.URI, labAsset));
         return Assets[^1];
     }
@@ -45,7 +45,12 @@ public abstract class AssetResolver<TTwinItem> : IAssetResolver where TTwinItem 
 
     public virtual void FinalizeResolve()
     {
-        Assets.ForEach(asset => asset.Asset.Import());
+        var assetManager = AssetManager.Get();
+        Assets.ForEach(asset =>
+        {
+            assetManager.AddAsset(asset.Uri, asset.Asset);
+            asset.Asset.Import();
+        });
     }
 
     public IReadOnlyList<MetaAsset> GetAssets() => Assets;

@@ -14,18 +14,17 @@ namespace TT_Lab.Assets.Graphics
 
         public Mesh(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinMesh mesh) : base(package, needVariant, variant, id, name, mesh)
         {
-            assetData = new MeshData(mesh);
+            AssetData = new MeshData(mesh);
         }
 
         public override AbstractAssetData GetData()
         {
-            if (!IsLoaded || assetData.Disposed)
+            if (!IsLoaded || AssetData.Disposed)
             {
-                assetData = new MeshData();
-                assetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
-                IsLoaded = true;
+                AssetData = new MeshData();
+                AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
             }
-            return assetData;
+            return AssetData;
         }
     }
 }

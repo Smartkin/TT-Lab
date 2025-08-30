@@ -26,4 +26,11 @@ public class RigidModelResolver(ModelResolver modelResolver, MaterialResolver ma
 
         return new RigidModel(package.URI, needVariant, variant, item.GetID(), item.GetName(), item);
     }
+
+    public override void FinalizeResolve()
+    {
+        modelResolver.FinalizeResolve();
+        
+        base.FinalizeResolve();
+    }
 }

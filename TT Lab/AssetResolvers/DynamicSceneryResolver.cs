@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Instance;
@@ -23,5 +24,10 @@ public class DynamicSceneryResolver(MeshResolver meshResolver) : AssetResolver<I
         }
         
         return new DynamicScenery(package.URI, item.GetID(), "Dynamic Scenery", ChunkPath, item);
+    }
+
+    protected override String GetTwinItemHash(ITwinDynamicScenery item)
+    {
+        return "Dynamic Scenery";
     }
 }

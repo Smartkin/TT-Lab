@@ -14,18 +14,17 @@ namespace TT_Lab.Assets.Global
 
         public UiSoundLibrary(LabURI package, Boolean needVariant, String variant, String name, ITwinSection frontend) : base((UInt32)Guid.NewGuid().GetHashCode(), name, package, needVariant, variant)
         {
-            assetData = new UiSoundLibraryData(frontend);
+            AssetData = new UiSoundLibraryData(frontend);
         }
 
         public override AbstractAssetData GetData()
         {
-            if (!IsLoaded || assetData.Disposed)
+            if (!IsLoaded || AssetData.Disposed)
             {
-                assetData = new UiSoundLibraryData();
-                assetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
-                IsLoaded = true;
+                AssetData = new UiSoundLibraryData();
+                AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
             }
-            return assetData;
+            return AssetData;
         }
 
         public override Type GetEditorType()

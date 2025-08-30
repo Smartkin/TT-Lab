@@ -20,10 +20,7 @@ namespace TT_Lab.Assets
         private static string _global = "__GLOBAL__";
         private bool _isBuiltIn;
         private string _package = "";
-        private string? _folder;
-        private string? _id;
-        private string? _variant;
-        private string? _layoutId;
+        private string? _pathInPackage;
 
         public static implicit operator String(LabURI labURI) => labURI._uri;
         public static explicit operator LabURI(String uri) => new(uri);
@@ -41,6 +38,9 @@ namespace TT_Lab.Assets
         }
         
         public bool IsBuiltIn() => _isBuiltIn;
+        
+        public string GetPackageName() => _package;
+        public string GetPathInPackage() => _pathInPackage ?? "";
 
         public override String ToString() => _uri;
         public Int32 CompareTo(object? obj)
@@ -51,14 +51,14 @@ namespace TT_Lab.Assets
             return _uri.ToString(CultureInfo.InvariantCulture).CompareTo(labURI._uri.ToString(CultureInfo.InvariantCulture));
         }
 
-        public static void RegisterLabIcon(string iconName) => _labIconUris[iconName] = new LabURI($"{_prefix}{_global}/{iconName}/0", true);
+        public static void RegisterLabIcon(string iconName) => _labIconUris[iconName] = new LabURI($"{_prefix}{_global}/{iconName}", true);
         public static LabURI GetLabIcon(string iconName) => _labIconUris[iconName];
         public static LabURI Empty => new($"{_prefix}EMPTY");
-        public static LabURI BoatGuy => new($"{_prefix}{_global}/BoatGuy/0", true);
-        public static LabURI Plane => new($"{_prefix}{_global}/Plane/0", true);
-        public static LabURI Box => new($"{_prefix}{_global}/Box/0", true);
-        public static LabURI Sphere => new($"{_prefix}{_global}/Sphere/0", true);
-        public static LabURI Circle => new($"{_prefix}{_global}/Circle/0", true);
+        public static LabURI BoatGuy => new($"{_prefix}{_global}/BoatGuy", true);
+        public static LabURI Plane => new($"{_prefix}{_global}/Plane", true);
+        public static LabURI Box => new($"{_prefix}{_global}/Box", true);
+        public static LabURI Sphere => new($"{_prefix}{_global}/Sphere", true);
+        public static LabURI Circle => new($"{_prefix}{_global}/Circle", true);
 
         public static Boolean operator ==(LabURI? labURI, LabURI? other)
         {
@@ -106,26 +106,7 @@ namespace TT_Lab.Assets
             }
             uriStringCopy = uriStringCopy[1..];
             
-            _folder = uriStringCopy.Substring(0, uriStringCopy.IndexOf('/'));
-            uriStringCopy = uriStringCopy[(_folder.Length + 1)..];
-            Debug.Assert(!string.IsNullOrEmpty(uriStringCopy), "The item in the folder got no id!");
-            _id = uriStringCopy.Substring(0, uriStringCopy.Contains('/') ? uriStringCopy.IndexOf('/') : uriStringCopy.Length);;
-            uriStringCopy = uriStringCopy[_id.Length..];
-            if (string.IsNullOrEmpty(uriStringCopy))
-            {
-                return;
-            }
-            uriStringCopy = uriStringCopy[1..];
-
-            _variant = uriStringCopy.Substring(0, uriStringCopy.Contains('/') ? uriStringCopy.IndexOf('/') : uriStringCopy.Length);
-            uriStringCopy = uriStringCopy[_variant.Length..];
-            if (string.IsNullOrEmpty(uriStringCopy))
-            {
-                return;
-            }
-            uriStringCopy = uriStringCopy[1..];
-            
-            _layoutId = uriStringCopy[..];
+            _pathInPackage = uriStringCopy;
         }
 
         private String DebuggerDisplay

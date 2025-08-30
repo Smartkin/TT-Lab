@@ -18,7 +18,7 @@ namespace TT_Lab.Assets.Graphics
 
         public BlendSkin(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinBlendSkin blendSkin) : base(id, name, package, needVariant, variant)
         {
-            assetData = new BlendSkinData(blendSkin);
+            AssetData = new BlendSkinData(blendSkin);
         }
 
         public override Type GetEditorType()
@@ -46,13 +46,12 @@ namespace TT_Lab.Assets.Graphics
 
         public override AbstractAssetData GetData()
         {
-            if (!IsLoaded || assetData.Disposed)
+            if (!IsLoaded || AssetData.Disposed)
             {
-                assetData = new BlendSkinData();
-                assetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
-                IsLoaded = true;
+                AssetData = new BlendSkinData();
+                AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
             }
-            return assetData;
+            return AssetData;
         }
     }
 }

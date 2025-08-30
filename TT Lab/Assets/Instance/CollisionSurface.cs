@@ -49,7 +49,7 @@ public class CollisionSurface : SerializableInstance
 
     public CollisionSurface(LabURI package, UInt32 id, String name, String chunk, Int32 layId, ITwinSurface surface) : base(package, id, name, chunk, layId)
     {
-        assetData = new CollisionSurfaceData(surface);
+        AssetData = new CollisionSurfaceData(surface);
         if (id < DefaultColors.Length)
         {
             Parameters.Add("editor_surface_color", DefaultColors[id]);
@@ -71,13 +71,12 @@ public class CollisionSurface : SerializableInstance
 
     public override AbstractAssetData GetData()
     {
-        if (!IsLoaded || assetData.Disposed)
+        if (!IsLoaded || AssetData.Disposed)
         {
-            assetData = new CollisionSurfaceData();
-            assetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
-            IsLoaded = true;
+            AssetData = new CollisionSurfaceData();
+            AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
         }
-        return assetData;
+        return AssetData;
     }
 
     protected override ResourceTreeElementViewModel CreateResourceTreeElement(ResourceTreeElementViewModel? parent = null)

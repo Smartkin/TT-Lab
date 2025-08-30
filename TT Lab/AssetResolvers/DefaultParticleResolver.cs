@@ -1,3 +1,4 @@
+using System;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Instance;
 using Twinsanity.TwinsanityInterchange.Enumerations;
@@ -33,5 +34,10 @@ public class DefaultParticleResolver(MaterialResolver materialResolver, TextureR
         }
         
         return new DefaultParticles(package.URI, item.GetID(), "Global Particles", ChunkPath, item);
+    }
+
+    protected override String GetTwinItemHash(ITwinDefaultParticle item)
+    {
+        return "Global Particles";
     }
 }

@@ -149,7 +149,7 @@ namespace TT_Lab.AssetData.Graphics
                     primitive.AddTriangle(vertexGenerator(ver1), vertexGenerator(ver2), vertexGenerator(ver3));
                 }
 
-                meshes.Add(new GltfGeometryWrapper(mesh, new List<(NodeBuilder, System.Numerics.Matrix4x4)> { (root, System.Numerics.Matrix4x4.Identity) }));
+                meshes.Add(new GltfGeometryWrapper(mesh, [(root, System.Numerics.Matrix4x4.Identity)]));
             }
 
             /// Generate mesh with positions, normals, colors and UV coordinates
@@ -167,7 +167,7 @@ namespace TT_Lab.AssetData.Graphics
                     primitive.AddTriangle(vertexGenerator(ver1), vertexGenerator(ver2), vertexGenerator(ver3));
                 }
 
-                meshes.Add(new GltfGeometryWrapper(mesh, new List<(NodeBuilder, System.Numerics.Matrix4x4)> { (root, System.Numerics.Matrix4x4.Identity) }));
+                meshes.Add(new GltfGeometryWrapper(mesh, [(root, System.Numerics.Matrix4x4.Identity)]));
             }
 
             /// Generate mesh with positions, colors, emission and UV coordinates
@@ -185,7 +185,7 @@ namespace TT_Lab.AssetData.Graphics
                     primitive.AddTriangle(vertexGenerator(ver1), vertexGenerator(ver2), vertexGenerator(ver3));
                 }
 
-                meshes.Add(new GltfGeometryWrapper(mesh, new List<(NodeBuilder, System.Numerics.Matrix4x4)> { (root, System.Numerics.Matrix4x4.Identity) }));
+                meshes.Add(new GltfGeometryWrapper(mesh, [(root, System.Numerics.Matrix4x4.Identity)]));
             }
 
             /// Generate mesh with positions, colors and UV coordinates
@@ -203,7 +203,7 @@ namespace TT_Lab.AssetData.Graphics
                     primitive.AddTriangle(vertexGenerator(ver1), vertexGenerator(ver2), vertexGenerator(ver3));
                 }
 
-                meshes.Add(new GltfGeometryWrapper(mesh, new List<(NodeBuilder, System.Numerics.Matrix4x4)> { (root, System.Numerics.Matrix4x4.Identity) }));
+                meshes.Add(new GltfGeometryWrapper(mesh, [(root, System.Numerics.Matrix4x4.Identity)]));
             }
 
             for (var i = 0; i < Vertexes.Count; i++)

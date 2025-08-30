@@ -23,7 +23,7 @@ namespace TT_Lab.Assets.Graphics
 
         public Texture(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinTexture texture) : base(id, name, package, needVariant, variant)
         {
-            assetData = new TextureData(texture);
+            AssetData = new TextureData(texture);
             Raw = false;
             TextureFunction = texture.TexFun;
             PixelFormat = texture.TextureFormat;
@@ -50,13 +50,12 @@ namespace TT_Lab.Assets.Graphics
 
         public override AbstractAssetData GetData()
         {
-            if (!IsLoaded || assetData.Disposed)
+            if (!IsLoaded || AssetData.Disposed)
             {
-                assetData = new TextureData();
-                assetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
-                IsLoaded = true;
+                AssetData = new TextureData();
+                AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
             }
-            return assetData;
+            return AssetData;
         }
     }
 }

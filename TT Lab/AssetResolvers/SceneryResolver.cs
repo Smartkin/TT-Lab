@@ -20,6 +20,8 @@ public class SceneryResolver : AssetResolver<ITwinScenery>
         _lodResolver = new LodResolver(_meshResolver);
     }
     
+    public MeshResolver MeshResolver => _meshResolver;
+    
     public override void CreateAssetsFromChunk(ITwinSection chunk, Package package)
     {
         CreateAssetFromId(chunk, chunk, package, Constants.SCENERY_SECENERY_ITEM);
@@ -50,5 +52,13 @@ public class SceneryResolver : AssetResolver<ITwinScenery>
         }
         
         return new Scenery(package.URI, item.GetID(), item.GetName(), ChunkPath, item);
+    }
+
+    public override void FinalizeResolve()
+    {
+        _meshResolver.FinalizeResolve();
+        _lodResolver.FinalizeResolve();
+        
+        base.FinalizeResolve();
     }
 }

@@ -18,40 +18,40 @@ namespace TT_Lab.Assets
 {
     public abstract class SerializableAsset : IAsset
     {
-        protected virtual String SavePath => Type.Name;
+        protected virtual String SavePath => $"{Package.GetPackageName()}\\{SavePathInPackage}";
+        protected virtual String SavePathInPackage => $"{Type.Name}";
         protected virtual String DataExt => ".data";
         protected virtual String TwinDataExt => "bin";
         public abstract UInt32 Section { get; }
 
-        protected AbstractAssetData assetData;
-        protected ResourceTreeElementViewModel viewModel;
+        protected AbstractAssetData? AssetData;
+        protected ResourceTreeElementViewModel? ViewModel;
 
         public Type Type { get; set; }
-
-        public String Name { get; set; }
+        public String InvariantName { get; set; }
+        public String Name => string.IsNullOrEmpty(Variation) ? InvariantName : $"{InvariantName}_{Variation}";
         public Boolean Raw { get; set; }
         public virtual String IconPath => "Common_Node.png";
-        public String Data { get; set; }
+        public String Data => $"{Name}{DataExt}";
         public String FullDataPath => $"{IoC.Get<ProjectManager>().OpenedProject!.ProjectPath}\\assets\\{SavePath}\\{Data}";
         public UInt32 ID { get; set; }
         public String Alias { get; set; }
         public String Chunk { get; set; }
         public Int32? LayoutID { get; set; }
-        public Boolean IsLoaded { get; protected set; }
+        public Boolean IsLoaded => AssetData is { Disposed: false };
         public UInt32 Order { get; set; }
         public Boolean SkipExport { get; set; } = false;
 
         public Dictionary<String, Object?> Parameters { get; set; } = new();
         public LabURI URI { get; set; }
         public LabURI Package { get; set; }
-        public List<LabURI> References { get; set; } = new();
+        public List<LabURI> References { get; set; } = [];
         public String Variation { get; set; }
 
-        private bool resolveTraversed = false;
+        private bool _resolveTraversed = false;
 
         protected SerializableAsset()
         {
-            IsLoaded = false;
             Raw = true;
             Type = GetType();
         }
@@ -59,10 +59,9 @@ namespace TT_Lab.Assets
         private SerializableAsset(UInt32 id, String name)
         {
             ID = id;
-            Name = name;
+            InvariantName = name;
             Alias = Name;
             Raw = true;
-            IsLoaded = true;
             Type = GetType();
         }
 
@@ -70,26 +69,18 @@ namespace TT_Lab.Assets
         {
             Package = package;
             Variation = variant;
-            RegenerateLinks(needVariant);
+
+            RegenerateLinks();
         }
 
-        public virtual void RegenerateURI(Boolean needVariant)
+        public virtual void RegenerateURI()
         {
-            var variantAddition = needVariant ? $"/{Variation}" : "";
-            var layoutId = LayoutID == null ? "" : $"/{LayoutID}";
-            URI = new LabURI($"{Package}/{Type.Name}/{ID}{variantAddition}{layoutId}");
+            URI = new LabURI($"{Package}/{SavePathInPackage}/{Name}");
         }
 
-        public void RegenerateDataName(Boolean needVariant)
+        public void RegenerateLinks()
         {
-            var variantPath = needVariant ? Variation.Replace("\\", "_").Replace("/", "_") : "";
-            Data = $"{Name.Replace("/", "_").Replace("\\", "_")}_{variantPath}{DataExt}";
-        }
-
-        public void RegenerateLinks(Boolean needVariant)
-        {
-            RegenerateDataName(needVariant);
-            RegenerateURI(needVariant);
+            RegenerateURI();
         }
 
         public virtual void Serialize(SerializationFlags serializationFlags = SerializationFlags.None)
@@ -101,41 +92,35 @@ namespace TT_Lab.Assets
 
             var path = SavePath;
             Directory.CreateDirectory(path);
-            var variantPath = Variation == null ? "" : Variation.Replace("\\", "_").Replace("/", "_");
-            var name = Name.Replace("/", "_").Replace("\\", "_");
-
+            
             // Created or loaded data needs to be saved on disk but then disposed of since we are not going to need it
             // unless user wishes to edit the exact asset
-            if (assetData != null && serializationFlags.HasFlag(SerializationFlags.SaveData))
+            if (IsLoaded && serializationFlags.HasFlag(SerializationFlags.SaveData))
             {
-                assetData.Save(Path.Combine(path, Data));
+                AssetData.Save(Path.Combine(path, Data));
                 if (serializationFlags.HasFlag(SerializationFlags.FixReferences))
                 {
                     References.Clear();
                     ExtractReferences(GetData());
                 }
-                assetData.Dispose();
-                IsLoaded = false;
+                AssetData.Dispose();
             }
             
             if (!serializationFlags.HasFlag(SerializationFlags.SaveData) && serializationFlags.HasFlag(SerializationFlags.FixReferences))
             {
                 References.Clear();
                 ExtractReferences(GetData());
-                assetData!.Dispose();
-                IsLoaded = false;
+                AssetData!.Dispose();
             }
             
-            using FileStream fs = new(Path.Combine(path, $"{name}_{variantPath}.json"), FileMode.Create, FileAccess.Write);
+            using FileStream fs = new(Path.Combine(path, $"{Name}.json"), FileMode.Create, FileAccess.Write);
             using BinaryWriter writer = new(fs);
             writer.Write(JsonConvert.SerializeObject(this, Formatting.Indented).ToCharArray());
-            
         }
 
         public virtual void Deserialize(String json)
         {
             JsonConvert.PopulateObject(json, this);
-            
         }
 
         public virtual void PostDeserialize() { }
@@ -150,9 +135,7 @@ namespace TT_Lab.Assets
             }
 
             var path = SavePath;
-            var variantPath = Variation == null ? "" : Variation.Replace("\\", "_").Replace("/", "_");
-            var name = Name.Replace("/", "_").Replace("\\", "_");
-            File.Delete(Path.Combine(path, $"{name}_{variantPath}.json"));
+            File.Delete(Path.Combine(path, $"{Name}.json"));
             File.Delete(Path.Combine(path, Data));
         }
 
@@ -161,30 +144,25 @@ namespace TT_Lab.Assets
         
         public void SetData(AbstractAssetData data)
         {
-            if (IsLoaded && assetData is { Disposed: false })
-            {
-                assetData.Dispose();
-            }
-            
-            assetData = data;
-            IsLoaded = true;
+            DisposeData();
+            AssetData = data;
         }
 
         public virtual void Import()
         {
-            assetData.Import(Package, Variation, LayoutID);
-            ExtractReferences(assetData);
-            assetData.NullifyReference();
+            AssetData!.Import(Package, Variation, LayoutID);
+            ExtractReferences(AssetData);
+            AssetData.NullifyReference();
         }
 
         public virtual ITwinItem Export(Factory.ITwinItemFactory factory)
         {
-            if (!IsLoaded || assetData.Disposed)
+            if (!IsLoaded)
             {
-                assetData = GetData();
+                AssetData = GetData();
             }
-            var item = assetData.Export(factory);
-            assetData.Dispose();
+            var item = AssetData!.Export(factory);
+            AssetData.Dispose();
             return item;
         }
 
@@ -210,24 +188,30 @@ namespace TT_Lab.Assets
             item?.Compile();
         }
 
-        private void DisposeData()
+        protected void DisposeData()
         {
-            assetData.Dispose();
-            IsLoaded = false;
+            if (!IsLoaded)
+            {
+                AssetData = null;
+                return;
+            }
+            
+            AssetData?.Dispose();
+            AssetData = null;
         }
 
         public virtual void ResolveChunkResources(Factory.ITwinItemFactory factory, ITwinSection section)
         {
-            if (resolveTraversed) return;
+            if (_resolveTraversed) return;
 
-            resolveTraversed = true;
-            assetData = GetData();
+            _resolveTraversed = true;
+            AssetData = GetData();
             PreResolveResources();
-            var item = assetData.ResolveChunkResources(factory, section, ID, LayoutID);
+            var item = AssetData.ResolveChunkResources(factory, section, ID, LayoutID);
             PostResolveResources(factory, section, item);
 
             DisposeData();
-            resolveTraversed = false;
+            _resolveTraversed = false;
         }
 
         public void RemoveReference(LabURI reference)
@@ -243,13 +227,15 @@ namespace TT_Lab.Assets
 
         public ResourceTreeElementViewModel GetResourceTreeElement(ResourceTreeElementViewModel? parent = null)
         {
-            if (viewModel == null)
+            if (ViewModel != null)
             {
-                viewModel = CreateResourceTreeElement(parent);
-                viewModel.Init();
+                return ViewModel;
             }
+            
+            ViewModel = CreateResourceTreeElement(parent);
+            ViewModel.Init();
 
-            return viewModel;
+            return ViewModel;
         }
 
         protected virtual LabURI GetDefaultReference() => LabURI.Empty;

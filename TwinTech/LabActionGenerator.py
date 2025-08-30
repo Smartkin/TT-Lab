@@ -26,12 +26,12 @@ def generateFile(labDefs):
                 typeStr = "int "
                 if str(index) in commands:
                     storedType = commands[str(index)]["Arguments"][paramIndex]
-                    if storedType == 'single':
+                    if storedType == 'single' or storedType == 'float':
                         typeStr = 'float '
                 if paramIndex != int(parametersPerFunc[index] - 1):
                     actionDefinition += typeStr + "param" + str(paramIndex + 1) + ", "
                 else:
-                    actionDefinition += "int param" + str(paramIndex + 1)
+                    actionDefinition += typeStr + " param" + str(paramIndex + 1)
         actionDefinition += ") : " + str(index) + ";"
         actionDefinitionResultText += actionDefinition + "\n"
     with open('AgentLab/ActionDefinitionsPs2.lab', 'w') as res:

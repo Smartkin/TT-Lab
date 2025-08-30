@@ -19,7 +19,7 @@ namespace TT_Lab.Assets.Instance
 
         public Collision(LabURI package, UInt32 id, String name, String chunk, ITwinCollision collisionData) : base(package, id, name, chunk, null)
         {
-            assetData = new CollisionData(collisionData);
+            AssetData = new CollisionData(collisionData);
         }
 
         public override Type GetEditorType()
@@ -29,13 +29,12 @@ namespace TT_Lab.Assets.Instance
 
         public override AbstractAssetData GetData()
         {
-            if (!IsLoaded || assetData.Disposed)
+            if (!IsLoaded || AssetData.Disposed)
             {
-                assetData = new CollisionData();
-                assetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
-                IsLoaded = true;
+                AssetData = new CollisionData();
+                AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
             }
-            return assetData;
+            return AssetData;
         }
 
         protected override ResourceTreeElementViewModel CreateResourceTreeElement(ResourceTreeElementViewModel? parent = null)

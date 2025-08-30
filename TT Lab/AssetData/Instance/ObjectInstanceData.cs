@@ -91,7 +91,7 @@ namespace TT_Lab.AssetData.Instance
         public override void Import(LabURI package, String? variant, Int32? layoutId)
         {
             var assetManager = AssetManager.Get();
-            ITwinInstance instance = GetTwinItem<ITwinInstance>();
+            var instance = GetTwinItem<ITwinInstance>();
             Position = CloneUtils.Clone(instance.Position);
             RotationX = CloneUtils.Clone(instance.RotationX);
             RotationY = CloneUtils.Clone(instance.RotationY);

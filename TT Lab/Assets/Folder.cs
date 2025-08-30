@@ -33,9 +33,8 @@ namespace TT_Lab.Assets
 
         public Folder()
         {
-            IsLoaded = true;
             SkipExport = true;
-            assetData = new FolderData();
+            AssetData = new FolderData();
         }
 
         public static Folder CreatePackageFolder(Package package, String name, String? variant = null)
@@ -87,9 +86,8 @@ namespace TT_Lab.Assets
 
         protected Folder(LabURI package, String? variant, UInt32 id, String name) : base(id, name, package, variant != null, variant ?? "")
         {
-            IsLoaded = true;
             SkipExport = true;
-            assetData = new FolderData();
+            AssetData = new FolderData();
         }
 
         public void AddChild(IAsset asset)
@@ -101,7 +99,8 @@ namespace TT_Lab.Assets
         public override void Deserialize(String json)
         {
             base.Deserialize(json);
-            assetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
+            
+            AssetData!.Load(System.IO.Path.Combine("assets", SavePath, Data));
         }
 
         public override Type GetEditorType()
@@ -111,19 +110,19 @@ namespace TT_Lab.Assets
 
         public override AbstractAssetData GetData()
         {
-            if (!IsLoaded || assetData.Disposed)
+            if (!IsLoaded || AssetData is {Disposed: true})
             {
-                assetData = new FolderData();
-                assetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
-                IsLoaded = true;
+                AssetData = new FolderData();
+                AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
             }
-            return assetData;
+            
+            return AssetData!;
         }
 
         public override void ResolveChunkResources(ITwinItemFactory factory, ITwinSection section)
         {
             var assetManager = AssetManager.Get();
-            foreach (var item in assetData.To<FolderData>().Children)
+            foreach (var item in AssetData!.To<FolderData>().Children)
             {
                 assetManager.GetAsset(item).ResolveChunkResources(factory, section);
             }

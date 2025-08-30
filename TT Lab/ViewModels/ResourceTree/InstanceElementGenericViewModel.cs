@@ -25,9 +25,9 @@ public class InstanceElementGenericViewModel<T> : InstanceElementViewModel where
             ID = TwinIdGeneratorServiceProvider.GetGeneratorForChunk<T>(Asset.Chunk, MiscUtils.ConvertEnum<Enums.Layouts>(Asset.LayoutID!)).GenerateTwinId(),
             Package = Asset.Package
         };
-        newInstance.Name = Asset.Name + newInstance.ID;
+        newInstance.InvariantName = Asset.InvariantName + newInstance.ID;
         newInstance.Alias = Asset.Name;
-        newInstance.RegenerateLinks(true);
+        newInstance.RegenerateLinks();
         var dataToCopy = ((SerializableInstance)Asset).GetData();
         newInstance.SetData((AbstractAssetData)CloneUtils.DeepClone(dataToCopy, dataToCopy.GetType()));
 
