@@ -57,5 +57,5 @@ void main()
 	gl_Position = StartProjection * viewModel * vec4(processedPosition, 1.0);
 	Texpos = in_Texpos;
 	Normal = in_Normal;
-	Color = in_Color * twin_material.double_color;
+	Color = vec4(in_Color.rgb * twin_material.double_color, in_Color.a);
 }

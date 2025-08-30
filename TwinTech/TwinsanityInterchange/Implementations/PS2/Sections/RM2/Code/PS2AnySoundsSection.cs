@@ -31,7 +31,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Sections.RM2.Code
             var offset = 0;
             foreach (PS2AnySound item in Items.Cast<PS2AnySound>())
             {
-                newExtraData.Write(item.Sound, 0, item.Sound.Length);
+                newExtraData.Write(item.Sound);
                 item.offset = offset;
                 offset += item.Sound.Length;
             }

@@ -161,7 +161,7 @@ namespace TT_Lab.Assets
         
         public void SetData(AbstractAssetData data)
         {
-            if (IsLoaded && assetData != null && !assetData.Disposed)
+            if (IsLoaded && assetData is { Disposed: false })
             {
                 assetData.Dispose();
             }

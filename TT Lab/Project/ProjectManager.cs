@@ -338,7 +338,7 @@ namespace TT_Lab.Project
                         }
                         catch (Exception ex)
                         {
-                            Log.WriteLine($"Error opening project: {ex.Message}\n{ex.StackTrace}");
+                            Log.WriteLine($"Error opening project: {ex.Message}");
                         }
 #endif
                 });
@@ -360,7 +360,16 @@ namespace TT_Lab.Project
             Task.Factory.StartNew(() =>
             {
                 var pr = OpenedProject!;
+#if !DEBUG
+                try {
+#endif
                 pr.PackAssetsPS2();
+#if !DEBUG
+                } catch (Exception ex)
+                {
+                    Log.WriteLine($"Error building PS2 project: {ex.Message}");
+                }
+#endif
                 WorkableProject = true;
             });
         }
@@ -371,7 +380,16 @@ namespace TT_Lab.Project
             Task.Factory.StartNew(() =>
             {
                 var pr = OpenedProject!;
+#if !DEBUG
+                try {
+#endif
                 pr.CreatePs2ArchivesAndIso();
+#if !DEBUG
+                } catch (Exception ex)
+                {
+                    Log.WriteLine($"Error creating PS2 ISO: {ex.Message}");
+                }
+#endif
                 WorkableProject = true;
             });
         }

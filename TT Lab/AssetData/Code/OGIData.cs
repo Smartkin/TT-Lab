@@ -23,6 +23,8 @@ namespace TT_Lab.AssetData.Code
     [ReferencesAssets]
     public class OGIData : AbstractAssetData
     {
+        private List<LabURI> _animationLinks = [];
+        
         public OGIData()
         {
             BoundingBox = new[] { new Vector4(0, 0, 0, 1), new Vector4(10, 10, 10, 1) };
@@ -50,6 +52,11 @@ namespace TT_Lab.AssetData.Code
         public OGIData(ITwinOGI ogi) : this()
         {
             SetTwinItem(ogi);
+        }
+
+        public void LinkAnimations(List<LabURI> animations)
+        {
+            _animationLinks = animations;
         }
 
         public void ExportGltf(string path, AnimationData? animation = null)

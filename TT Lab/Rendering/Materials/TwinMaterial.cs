@@ -128,12 +128,20 @@ public class TwinMaterial(RenderContext context, TwinMaterialDesc materialDesc) 
                 context.Gl.BlendFuncSeparate(BlendingFactor.SrcAlpha, BlendingFactor.One, BlendingFactor.SrcAlpha, BlendingFactor.One);
                 break;
             case TwinShader.AlphaBlendPresets.Alpha:
+                context.Gl.BlendEquation(BlendEquationModeEXT.FuncAdd);
+                context.Gl.BlendFuncSeparate(BlendingFactor.Zero, BlendingFactor.SrcAlpha, BlendingFactor.Zero, BlendingFactor.One);
                 break;
             case TwinShader.AlphaBlendPresets.Zero:
+                context.Gl.BlendEquation(BlendEquationModeEXT.FuncReverseSubtract);
+                context.Gl.BlendFuncSeparate(BlendingFactor.Zero, BlendingFactor.One, BlendingFactor.Zero, BlendingFactor.One);
                 break;
             case TwinShader.AlphaBlendPresets.Destination:
+                context.Gl.BlendEquation(BlendEquationModeEXT.FuncAdd);
+                context.Gl.BlendFuncSeparate(BlendingFactor.Zero, BlendingFactor.DstAlpha, BlendingFactor.Zero, BlendingFactor.One);
                 break;
             case TwinShader.AlphaBlendPresets.Source:
+                context.Gl.BlendEquation(BlendEquationModeEXT.FuncAdd);
+                context.Gl.BlendFuncSeparate(BlendingFactor.SrcAlpha, BlendingFactor.Zero, BlendingFactor.One, BlendingFactor.Zero);
                 break;
         }
     }

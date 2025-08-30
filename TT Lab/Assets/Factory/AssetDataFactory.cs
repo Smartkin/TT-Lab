@@ -143,6 +143,11 @@ public static class AssetDataFactory
         return AssetCreationStatus.Success;
     }
 
+    public static AssetCreationStatus CreateChunkData(IAsset asset)
+    {
+        throw new System.NotImplementedException();
+    }
+
     public static AssetCreationStatus CreateBehaviourData(IAsset asset)
     {
         asset.SetData(new BehaviourGraphData());

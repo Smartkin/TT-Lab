@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using TT_Lab.AssetData;
 using TT_Lab.AssetData.Code;
 using TT_Lab.ViewModels.Editors.Code;
@@ -17,6 +18,11 @@ namespace TT_Lab.Assets.Code
         public OGI(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinOGI ogi) : base(id, name, package, needVariant, variant)
         {
             assetData = new OGIData(ogi);
+        }
+
+        public void LinkAnimationsToData(List<LabURI> animations)
+        {
+            ((OGIData)assetData).LinkAnimations(animations);
         }
 
         public override Type GetEditorType()

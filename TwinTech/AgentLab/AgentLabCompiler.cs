@@ -106,8 +106,8 @@ public static class AgentLabCompiler
     public static CompilerResult Compile(string script, CompilerOptions options)
     {
         var result = new CompilerResult();
-        // try
-        // {
+        try
+        {
             var lexer = new AgentLabLexer(script);
             var parser = new AgentLabParser(lexer);
             // Lexical analysis
@@ -117,16 +117,12 @@ public static class AgentLabCompiler
             symbolTable.BuildBuiltInTypes().BuildActions(options.ActionDefinitionsFile).BuildConditions().BuildFromAst(tree);
             var visitor = new AgentLabCompilerNodeVisitor(result, options, symbolTable.GetSymbolTable());
             visitor.Visit(tree);
-        // }
-        // catch (Exception ex)
-        // {
-        //     result.CompilerStatus.IsError = true;
-        //     result.CompilerStatus.Message = ex.Message;
-        //     if (ex.StackTrace != null)
-        //     {
-        //         result.CompilerStatus.Message += "\n" + ex.StackTrace;
-        //     }
-        // }
+        }
+        catch (Exception ex)
+        {
+            result.CompilerStatus.IsError = true;
+            result.CompilerStatus.Message = ex.Message;
+        }
 
         return result;
     }

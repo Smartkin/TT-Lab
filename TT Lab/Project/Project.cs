@@ -758,7 +758,7 @@ namespace TT_Lab.Project
                 if (isRm2 || isSm2)
                 {
                     ITwinSection? chunk = null;
-                    uint graphicsSectionID = Constants.LEVEL_GRAPHICS_SECTION;
+                    uint graphicsSectionId = Constants.LEVEL_GRAPHICS_SECTION;
                     if (isDefault)
                     {
                         chunk = new PS2Default();
@@ -770,7 +770,7 @@ namespace TT_Lab.Project
                     else if (isSm2)
                     {
                         chunk = new PS2AnyTwinsanitySM2();
-                        graphicsSectionID = Constants.SCENERY_GRAPHICS_SECTION;
+                        graphicsSectionId = Constants.SCENERY_GRAPHICS_SECTION;
                     }
                     // Fill chunk data
                     chunk!.Read(reader, (Int32)ms.Length);
@@ -808,7 +808,7 @@ namespace TT_Lab.Project
                     path = path[..^4];
 
                     // Read graphics stuff
-                    var graphics = chunk.GetItem<PS2AnyGraphicsSection>(graphicsSectionID);
+                    var graphics = chunk.GetItem<PS2AnyGraphicsSection>(graphicsSectionId);
                     ReadSectionItems<Texture, PS2AnyTexturesSection, PS2AnyTexture>
                         (assets, graphics, chunkPath, graphicsCheck, Constants.GRAPHICS_TEXTURES_SECTION, texturesFolder);
                     ReadSectionItems<Material, PS2AnyMaterialsSection, PS2AnyMaterial>

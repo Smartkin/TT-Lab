@@ -53,12 +53,13 @@ public class FolderElementViewModel : ResourceTreeElementViewModel
 
     private void ListNormalFolderCreatableAssets(CreateAssetViewModel createAssetViewModel)
     {
+        createAssetViewModel.RegisterAssetToCreate<ChunkFolder>("Chunk", AssetDataFactory.CreateChunkData);
+        createAssetViewModel.RegisterAssetToCreate<GameObject>("Game Object", AssetDataFactory.CreateGameObjectData);
+        createAssetViewModel.RegisterAssetToCreate<BehaviourGraph>("Behaviour", AssetDataFactory.CreateBehaviourData);
         createAssetViewModel.RegisterAssetToCreate<SoundEffect>("Sound Effect", AssetDataFactory.CreateSoundEffectData);
         createAssetViewModel.RegisterAssetToCreate<Texture>("Texture", AssetDataFactory.CreateTextureData);
         createAssetViewModel.RegisterAssetToCreate<Material>("Material", AssetDataFactory.CreateMaterialData);
         createAssetViewModel.RegisterAssetToCreate<Skydome>("Skydome", AssetDataFactory.CreateSkydomeData);
-        createAssetViewModel.RegisterAssetToCreate<GameObject>("Game Object", AssetDataFactory.CreateGameObjectData);
-        createAssetViewModel.RegisterAssetToCreate<BehaviourGraph>("Behaviour", AssetDataFactory.CreateBehaviourData);
     }
 
     private void ListInstanceCreatableAssets(CreateAssetViewModel createAssetViewModel)

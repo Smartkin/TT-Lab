@@ -9,6 +9,9 @@
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
     <PlatformTarget>x64</PlatformTarget>
     <LangVersion>13</LangVersion>
+    <Title>TwinTech</Title>
+    <Authors>Neo_Kesha, Smartkin</Authors>
+    <Description>Crash Twinsanity Toolbox to read and write its resources</Description>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">

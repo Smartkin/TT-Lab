@@ -149,10 +149,10 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SubItems
                 for (Int32 j = 0; j < verts; j++)
                 {
                     var color = new Color(
-                        (byte)(Math.Min((int)(colorsVertexBatch[j].GetBinaryX() & 0xFF), 255)),
-                        (byte)(Math.Min((int)(colorsVertexBatch[j].GetBinaryY() & 0xFF), 255)),
-                        (byte)(Math.Min((int)(colorsVertexBatch[j].GetBinaryZ() & 0xFF), 255)),
-                        (byte)(Math.Min((int)(colorsVertexBatch[j].GetBinaryW() & 0xFF), 255)));
+                        (byte)(colorsVertexBatch[j].GetBinaryX() & 0xFF),
+                        (byte)(colorsVertexBatch[j].GetBinaryY() & 0xFF),
+                        (byte)(colorsVertexBatch[j].GetBinaryZ() & 0xFF),
+                        (byte)(colorsVertexBatch[j].GetBinaryW() & 0xFF));
                     Vertexes.Add(positionVertexBatch[j]);
                     UVW.Add(uvVertexBatch[j]);
                     Colors.Add(Vector4.FromColor(color));

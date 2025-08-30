@@ -100,10 +100,10 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SubItems
                     {
                         var conn = (e.GetBinaryW() & 0xFF00) >> 8;
                         Connection.Add(conn != 128);
-                        var r = Math.Min(e.GetBinaryX() & 0xFF, 255);
-                        var g = Math.Min(e.GetBinaryY() & 0xFF, 255);
-                        var b = Math.Min(e.GetBinaryZ() & 0xFF, 255);
-                        var a = Math.Min(e.GetBinaryW() & 0xFF, 255);
+                        var r = e.GetBinaryX() & 0xFF;
+                        var g = e.GetBinaryY() & 0xFF;
+                        var b = e.GetBinaryZ() & 0xFF;
+                        var a = e.GetBinaryW() & 0xFF;
 
                         Color col = new((byte)r, (byte)g, (byte)b, (byte)a, true);
                         Colors.Add(Vector4.FromColor(col));
@@ -131,10 +131,10 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SubItems
                         if (e == null)
                             break;
 
-                        var r = Math.Min((byte)(e.GetBinaryX() & 0xFF), (byte)255);
-                        var g = Math.Min((byte)(e.GetBinaryY() & 0xFF), (byte)255);
-                        var b = Math.Min((byte)(e.GetBinaryZ() & 0xFF), (byte)255);
-                        var a = Math.Min((byte)(e.GetBinaryW() & 0xFF), (byte)255);
+                        var r = (byte)(e.GetBinaryX() & 0xFF);
+                        var g = (byte)(e.GetBinaryY() & 0xFF);
+                        var b = (byte)(e.GetBinaryZ() & 0xFF);
+                        var a = (byte)(e.GetBinaryW() & 0xFF);
                         Color col = new(r, g, b, a, true);
 
                         EmitColor.Add(Vector4.FromColor(col));

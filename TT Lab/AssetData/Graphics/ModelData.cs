@@ -2,11 +2,8 @@
 using SharpGLTF.Schema2;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using System.IO;
 using System.Linq;
 using Caliburn.Micro;
-using SharpGLTF.Memory;
 using SharpGLTF.Scenes;
 using TT_Lab.AssetData.Graphics.SubModels;
 using TT_Lab.Assets;
@@ -275,12 +272,13 @@ namespace TT_Lab.AssetData.Graphics
                             vertexes.Colors0[i].ToTwin(),
                             vertexes.TexCoords0[i].ToTwin())
                         {
-                            AlphaBlendingBit = true
+                            AlphaBlendingBit = false
                         };
-                        if (alphaBlendingBits != null)
-                        {
-                            ver.AlphaBlendingBit = Math.Abs(alphaBlendingBits[i].X - 1.0f) < 0.00001f;
-                        }
+                        ver.Color.StoresColorWithAlphaBlend = false;
+                        // if (alphaBlendingBits != null)
+                        // {
+                        //     ver.AlphaBlendingBit = Math.Abs(alphaBlendingBits[i].X - 1.0f) < 0.00001f;
+                        // }
                         if (vertexes.Normals != null)
                         {
                             ver.Normal = vertexes.Normals[i].ToTwin();
@@ -288,6 +286,7 @@ namespace TT_Lab.AssetData.Graphics
                         if (hasEmitsStored)
                         {
                             ver.EmitColor = vertexes.Colors1[i].ToTwin();
+                            ver.EmitColor.StoresColorWithAlphaBlend = false;
                         }
                         submodel.Add(ver);
                     }

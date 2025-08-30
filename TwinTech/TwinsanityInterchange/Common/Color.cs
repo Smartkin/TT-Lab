@@ -41,7 +41,7 @@ namespace Twinsanity.TwinsanityInterchange.Common
 
         public Byte GetAlphaBasedOnBlend()
         {
-            return AlphaBlendFlag ? (Byte)((A & 127) | (1 << 7)) : A;
+            return AlphaBlendFlag ? (Byte)((A & 127) | (1 << 7)) : (Byte)(A & 127);
         }
         public Byte A { get; set; }
         public Byte R { get; set; }
