@@ -32,7 +32,7 @@ namespace TT_Lab.ViewModels.Editors.Instance.ChunkLinks
         {
             dirtyTracker = new DirtyTracker(this);
             var assetManager = AssetManager.Get();
-            var chunkPathUri = assetManager.GetAllAssetsOf<ChunkFolder>().First(c => c.Variation.Contains("levels\\earth\\hub\\beach", StringComparison.InvariantCultureIgnoreCase)).URI;
+            var chunkPathUri = assetManager.GetAllAssetsOf<LevelChunk>().First(c => c.Variation.Contains("levels\\earth\\hub\\beach", StringComparison.InvariantCultureIgnoreCase)).URI;
             path = new PrimitiveWrapperViewModel<LabURI>(chunkPathUri);
             objectMatrix = new Matrix4ViewModel();
             chunkMatrix = new Matrix4ViewModel();

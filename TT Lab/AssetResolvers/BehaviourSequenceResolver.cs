@@ -1,6 +1,7 @@
 using System;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
+using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code.AgentLab;
 
@@ -10,7 +11,13 @@ public class BehaviourSequenceResolver : AssetResolver<ITwinBehaviourCommandsSeq
 {
     public override void CreateAssetsFromChunk(ITwinSection chunk, Package package)
     {
-        throw new System.NotImplementedException();
+        var code = chunk.GetItem<ITwinSection>(Constants.LEVEL_CODE_SECTION);
+        var behaviours = code.GetItem<ITwinSection>(Constants.CODE_BEHAVIOUR_COMMANDS_SEQUENCES_SECTION);
+        for (var i = 0; i < behaviours.GetItemsAmount(); ++i)
+        {
+            var itemId = behaviours.GetItem(i).GetID();
+            CreateAssetFromId(chunk, behaviours, package, itemId);
+        }
     }
 
     protected override IAsset CreateAsset(ITwinSection chunk, Package package, ITwinBehaviourCommandsSequence item, bool needVariant, string variant)

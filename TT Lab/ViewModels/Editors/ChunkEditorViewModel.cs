@@ -158,7 +158,7 @@ namespace TT_Lab.ViewModels.Editors
             {
                 _tabDisplayName = tabbedEditorViewModel.DisplayName;
             }
-            TwinIdGeneratorServiceProvider.RegisterGeneratorServiceForChunk(AssetManager.Get().GetAsset<ChunkFolder>(EditableResource));
+            TwinIdGeneratorServiceProvider.RegisterGeneratorServiceForChunk(AssetManager.Get().GetAsset<LevelChunk>(EditableResource));
             ResetDirty();
         }
 
@@ -174,7 +174,7 @@ namespace TT_Lab.ViewModels.Editors
         {
             if (close)
             {
-                TwinIdGeneratorServiceProvider.DeregisterGeneratorServiceForChunk(AssetManager.Get().GetAsset<ChunkFolder>(EditableResource).Variation);
+                TwinIdGeneratorServiceProvider.DeregisterGeneratorServiceForChunk(AssetManager.Get().GetAsset<LevelChunk>(EditableResource).Variation);
             }
             
             _activeChunkService.SetCurrentChunkEditor(null);
@@ -214,8 +214,8 @@ namespace TT_Lab.ViewModels.Editors
 
         public SceneInstance NewSceneInstance(Type type, ResourceTreeElementViewModel basedOn)
         {
-            var chunk = AssetManager.Get().GetAsset<ChunkFolder>(EditableResource);
-            var newInstance = AssetFactory.CreateAsset(basedOn.Asset.Type, basedOn.Parent != null ? basedOn.Parent.GetAsset<Folder>() : chunk,
+            var chunk = AssetManager.Get().GetAsset<LevelChunk>(EditableResource);
+            var newInstance = AssetFactory.CreateAsset(basedOn.Asset.Type, basedOn.Parent != null ? basedOn.Parent.GetAsset<Folder>() : chunk.GetChunkFolder(),
                 $"New {basedOn.Asset.GetType().Name} {(uint)Guid.NewGuid().GetHashCode()}", chunk.Variation,
                 TwinIdGeneratorServiceProvider.GetGeneratorForChunk(basedOn.Asset.Type, chunk.Variation, (Enums.Layouts)basedOn.Asset.LayoutID!),
                 (asset) =>
@@ -601,8 +601,8 @@ namespace TT_Lab.ViewModels.Editors
                 _renderer = renderer;
                 var assetManager = AssetManager.Get();
                 var chunkAss = assetManager.GetAsset(EditableResource).GetResourceTreeElement();
-                var chunk = chunkAss.GetAsset<ChunkFolder>();
-                foreach (var resourceElement in chunk.GetData().To<FolderData>().Children.Select(item => assetManager.GetAsset(item).GetResourceTreeElement()))
+                var chunk = chunkAss.GetAsset<LevelChunk>();
+                foreach (var resourceElement in chunk.ChunkResources.Select(item => assetManager.GetAsset(item).GetResourceTreeElement()))
                 {
                     _chunkTree.Add(resourceElement);
                 }
@@ -668,9 +668,9 @@ namespace TT_Lab.ViewModels.Editors
                         continue;
                     }
                     
-                    var linkedChunk = assetManager.GetAsset<ChunkFolder>(link.Path);
-                    var chunkData = linkedChunk.GetData().To<FolderData>();
-                    var linkedSceneryUri = chunkData.Children.First(uri => assetManager.GetAsset(uri).Section == Constants.SCENERY_SECENERY_ITEM);
+                    var linkedChunk = assetManager.GetAsset<LevelChunk>(link.Path);
+                    var chunkData = linkedChunk.ChunkResources;
+                    var linkedSceneryUri = chunkData.First(uri => assetManager.GetAsset(uri).Section == Constants.SCENERY_SECENERY_ITEM);
                     var linkedScenery = assetManager.GetAssetData<SceneryData>(linkedSceneryUri);
                     var linkedSceneryNode = new Node(_renderContext, _linkedScenery);
                     var linkedSceneryRender = new Scenery(_renderContext, _meshService, linkedScenery);

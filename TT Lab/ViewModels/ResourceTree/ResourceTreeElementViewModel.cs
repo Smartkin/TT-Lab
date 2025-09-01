@@ -64,7 +64,7 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
         _newAlias = Alias;
     }
 
-    public BindableCollection<ResourceTreeElementViewModel>? Children => _asset.Type == typeof(ChunkFolder) ? null : _children;
+    public BindableCollection<ResourceTreeElementViewModel>? Children => _asset.Type == typeof(LevelChunk) ? null : _children;
 
     public virtual void Init()
     {
@@ -78,9 +78,8 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
     protected void BuildChildren(Folder folder)
     {
         // Build the tree
-        var myChildren = folder.GetData().To<FolderData>().Children;
+        var myChildren = folder.Children;
         var children = (from child in myChildren
-            orderby _asset.Order
             let c = AssetManager.Get().GetAsset(child)
             select c.GetResourceTreeElement(this));
         _children = new BindableCollection<ResourceTreeElementViewModel>(children);

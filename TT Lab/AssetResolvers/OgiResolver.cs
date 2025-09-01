@@ -18,8 +18,8 @@ public class OgiResolver : AssetResolver<ITwinOGI>
     public OgiResolver(AnimationResolver animationResolver)
     {
         _animationResolver = animationResolver;
-        var modelResolver = new ModelResolver();
-        var textureResolver = new TextureResolver();
+        var modelResolver = new ModelResolver(false);
+        var textureResolver = new TextureResolver(false);
         var materialResolver = new MaterialResolver(textureResolver, false);
         _blendSkinResolver = new BlendSkinResolver(materialResolver);
         _skinResolver = new SkinResolver(materialResolver);

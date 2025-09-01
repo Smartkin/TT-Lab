@@ -21,7 +21,10 @@ public class MaterialResolver(TextureResolver textureResolver, bool isInScenery)
         {
             textureResolver.CreateAssetFromId(chunk, textureSection, package, itemShader.TextureId);
         }
-        
-        return new Material(package.URI, needVariant, variant, item.GetID(), item.GetName(), item);
+
+        return new Material(package.URI, needVariant, variant, item.GetID(), item.GetName(), item)
+        {
+            AdditionalPath = isInScenery ? ChunkPath : string.Empty
+        };
     }
 }

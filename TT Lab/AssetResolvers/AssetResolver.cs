@@ -10,7 +10,8 @@ public abstract class AssetResolver<TTwinItem> : IAssetResolver where TTwinItem 
     protected readonly Dictionary<string, uint> HashChecker = [];
     protected readonly List<MetaAsset> Assets = [];
 
-    public string ChunkPath { get; set; } = "";
+    public string? ChunkPathOverride { get; init; }
+    public string ChunkPath => string.IsNullOrEmpty(ChunkPathOverride) ? ResolverManager.ChunkPath[..] : ChunkPathOverride;
     public abstract void CreateAssetsFromChunk(ITwinSection chunk, Package package);
 
     public MetaAsset? CreateAssetFromId(ITwinSection chunk, ITwinSection itemSection, Package package, uint itemId)
@@ -26,7 +27,8 @@ public abstract class AssetResolver<TTwinItem> : IAssetResolver where TTwinItem 
 
         var twinIdCollisions = HashChecker.Values.Count(e => e == twinItem.GetID());
         var needVariant = twinIdCollisions > 1;
-        var labAsset = CreateAsset(chunk, package, twinItem, needVariant, $"alternate_{twinIdCollisions - 1}");
+        var labAsset = CreateAsset(chunk, package, twinItem, needVariant, ChunkPath);
+        labAsset.RegenerateLinks();
         Assets.Add(new MetaAsset(labAsset.URI, labAsset));
         return Assets[^1];
     }
@@ -48,8 +50,8 @@ public abstract class AssetResolver<TTwinItem> : IAssetResolver where TTwinItem 
         var assetManager = AssetManager.Get();
         Assets.ForEach(asset =>
         {
-            assetManager.AddAsset(asset.Uri, asset.Asset);
-            asset.Asset.Import();
+            asset.Asset.RegenerateLinks();
+            assetManager.AddAsset(asset.Asset);
         });
     }
 

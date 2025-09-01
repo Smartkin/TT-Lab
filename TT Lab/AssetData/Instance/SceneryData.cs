@@ -100,7 +100,7 @@ namespace TT_Lab.AssetData.Instance
             UnkByte = scenery.UnkByte;
             if (scenery.SkydomeID != 0)
             {
-                SkydomeID = AssetManager.Get().GetUri(package, nameof(Skydome), variant, scenery.SkydomeID);
+                SkydomeID = AssetManager.Get().GetUriByTwinId<Skydome>(package, variant, scenery.SkydomeID);
             }
             HasLighting = scenery.HasLighting;
             if (HasLighting)

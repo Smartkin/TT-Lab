@@ -40,8 +40,8 @@ namespace TT_Lab.AssetData.Instance
         public override void Import(LabURI package, String? variant, Int32? layoutId)
         {
             var aiPath = GetTwinItem<ITwinAIPath>();
-            PathBegin = AssetManager.Get().GetUri(package, nameof(AiPosition), variant, layoutId, aiPath.Args[0]);
-            PathEnd = AssetManager.Get().GetUri(package, nameof(AiPosition), variant, layoutId, aiPath.Args[1]);
+            PathBegin = AssetManager.Get().GetUriByTwinId<AiPosition>(package, variant, aiPath.Args[0], layoutId);
+            PathEnd = AssetManager.Get().GetUriByTwinId<AiPosition>(package, variant, aiPath.Args[1], layoutId);
             Args = [aiPath.Args[2], aiPath.Args[3], aiPath.Args[4]];
         }
 

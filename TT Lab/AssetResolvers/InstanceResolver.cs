@@ -27,6 +27,13 @@ public class InstanceResolver<TInstance, TTwinItem>(int layoutId, int sectionId)
         }
     }
 
+    protected override Boolean IsAlreadyContained(string hash) => false;
+
+    protected override String GetTwinItemHash(TTwinItem item)
+    {
+        return base.GetTwinItemHash(item) + layoutId + item.GetID();
+    }
+
     protected override IAsset CreateAsset(ITwinSection chunk, Package package, TTwinItem item, bool needVariant, string variant)
     {
         return CreateInstance(chunk, package, item);

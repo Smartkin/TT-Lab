@@ -19,13 +19,13 @@ namespace TT_Lab.Assets
     public abstract class SerializableAsset : IAsset
     {
         protected virtual String SavePath => $"{Package.GetPackageName()}\\{SavePathInPackage}";
-        protected virtual String SavePathInPackage => $"{Type.Name}";
+        protected virtual String SavePathInPackage => string.IsNullOrEmpty(AdditionalPath) ? $"{Type.Name}" : $"{AdditionalPath}\\{Type.Name}";
         protected virtual String DataExt => ".data";
         protected virtual String TwinDataExt => "bin";
-        public abstract UInt32 Section { get; }
-
         protected AbstractAssetData? AssetData;
         protected ResourceTreeElementViewModel? ViewModel;
+        
+        public abstract UInt32 Section { get; }
 
         public Type Type { get; set; }
         public String InvariantName { get; set; }
@@ -33,6 +33,7 @@ namespace TT_Lab.Assets
         public Boolean Raw { get; set; }
         public virtual String IconPath => "Common_Node.png";
         public String Data => $"{Name}{DataExt}";
+        public String? AdditionalPath { get; set; }
         public String FullDataPath => $"{IoC.Get<ProjectManager>().OpenedProject!.ProjectPath}\\assets\\{SavePath}\\{Data}";
         public UInt32 ID { get; set; }
         public String Alias { get; set; }
@@ -68,19 +69,18 @@ namespace TT_Lab.Assets
         protected SerializableAsset(UInt32 id, String name, LabURI package, Boolean needVariant, String variant) : this(id, name)
         {
             Package = package;
-            Variation = variant;
-
-            RegenerateLinks();
+            Variation = needVariant ? variant.Replace('\\', '_').Replace('/', '_') : string.Empty;
+            Alias = Name;
         }
 
-        public virtual void RegenerateURI()
+        public virtual void RegenerateUri()
         {
-            URI = new LabURI($"{Package}/{SavePathInPackage}/{Name}");
+            URI = new LabURI($"{Package}/{SavePathInPackage.Replace('\\', '/')}/{Name}");
         }
 
         public void RegenerateLinks()
         {
-            RegenerateURI();
+            RegenerateUri();
         }
 
         public virtual void Serialize(SerializationFlags serializationFlags = SerializationFlags.None)

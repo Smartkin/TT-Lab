@@ -22,9 +22,6 @@ public static class AssetDataFactory
 {
     public static AssetCreationStatus CreateFolderData(IAsset parent, IAsset asset)
     {
-        var folderData = asset.GetData<FolderData>();
-        folderData.Parent = parent.URI;
-
         return AssetCreationStatus.Success;
     }
     

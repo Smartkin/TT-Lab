@@ -39,8 +39,7 @@ public class ChunkLink
 
     public ChunkLink()
     {
-        var assetManager = AssetManager.Get();
-        Path = assetManager.GetAllAssetsOf<ChunkFolder>().First(c => c.Variation[..^4].Equals("levels\\earth\\hub\\beach", StringComparison.InvariantCultureIgnoreCase)).URI;
+        Path = LabURI.Empty;
         IsRendered = true;
         IsLoadWallActive = true;
         ObjectMatrix = mat4.Identity.ToTwin();
@@ -52,7 +51,7 @@ public class ChunkLink
     {
         var assetManager = AssetManager.Get();
         UnkFlag = link.UnkFlag;
-        Path = assetManager.GetAllAssetsOf<ChunkFolder>().First(c => c.Variation[..^4].Equals(link.Path[..], StringComparison.InvariantCultureIgnoreCase)).URI;
+        Path = assetManager.GetAllAssetsOf<LevelChunk>().First(c => c.GetChunkPath().Equals(link.Path[..], StringComparison.InvariantCultureIgnoreCase)).URI;
         IsRendered = link.IsRendered;
         UnkNum = link.UnkNum;
         IsLoadWallActive = link.IsLoadWallActive;

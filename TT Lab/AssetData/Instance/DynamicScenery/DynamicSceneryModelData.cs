@@ -36,7 +36,7 @@ namespace TT_Lab.AssetData.Instance.DynamicScenery
             AnimatedFrames = model.AnimatedFrames;
             Animation = CloneUtils.DeepClone(model.Animation);
             LodFlag = model.LodFlag;
-            Mesh = AssetManager.Get().GetUri(package, typeof(Mesh).Name, variant, model.MeshID);
+            Mesh = AssetManager.Get().GetUriByTwinId<Mesh>(package, variant, model.MeshID);
             BoundingBox = new Vector4[2];
             for (Int32 i = 0; i < BoundingBox.Length; i++)
             {

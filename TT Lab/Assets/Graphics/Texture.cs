@@ -42,6 +42,7 @@ namespace TT_Lab.Assets.Graphics
         public override void PreResolveResources()
         {
             base.PreResolveResources();
+            
             var textureData = (TextureData)GetData();
             textureData.GenerateMipmaps = GenerateMipmaps;
             textureData.TextureFunction = TextureFunction;

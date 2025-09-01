@@ -39,7 +39,7 @@ namespace TT_Lab.AssetData.Graphics
             Meshes = new List<LabURI>();
             foreach (var mesh in skydome.Meshes)
             {
-                Meshes.Add(AssetManager.Get().GetUri(package, typeof(Mesh).Name, variant, mesh));
+                Meshes.Add(AssetManager.Get().GetUriByTwinId<Mesh>(package, variant, mesh));
             }
         }
 

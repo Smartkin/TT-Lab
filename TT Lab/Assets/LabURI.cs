@@ -19,8 +19,8 @@ namespace TT_Lab.Assets
         private static string _prefix = "res://";
         private static string _global = "__GLOBAL__";
         private bool _isBuiltIn;
-        private string _package = "";
-        private string? _pathInPackage;
+        private string? _package = "";
+        private string? _filePathInPackage;
 
         public static implicit operator String(LabURI labURI) => labURI._uri;
         public static explicit operator LabURI(String uri) => new(uri);
@@ -39,8 +39,8 @@ namespace TT_Lab.Assets
         
         public bool IsBuiltIn() => _isBuiltIn;
         
-        public string GetPackageName() => _package;
-        public string GetPathInPackage() => _pathInPackage ?? "";
+        public string GetPackageName() => _package ?? "";
+        public string GetFilePathInPackage() => _filePathInPackage ?? "";
 
         public override String ToString() => _uri;
         public Int32 CompareTo(object? obj)
@@ -98,7 +98,10 @@ namespace TT_Lab.Assets
             Debug.Assert(uriStringCopy.StartsWith(_prefix), $"Created URI does not start with {_prefix}");
             uriStringCopy = uriStringCopy.Replace(_prefix, "");
             _package = uriStringCopy.Substring(0, uriStringCopy.Contains('/') ? uriStringCopy.IndexOf('/') : uriStringCopy.Length);
-            Debug.Assert(!string.IsNullOrEmpty(_package), "This asset's URI is not in a package!");
+            if (string.IsNullOrEmpty(_package))
+            {
+                return;
+            }
             uriStringCopy = uriStringCopy[_package.Length..];
             if (string.IsNullOrEmpty(uriStringCopy))
             {
@@ -106,7 +109,7 @@ namespace TT_Lab.Assets
             }
             uriStringCopy = uriStringCopy[1..];
             
-            _pathInPackage = uriStringCopy;
+            _filePathInPackage = uriStringCopy;
         }
 
         private String DebuggerDisplay

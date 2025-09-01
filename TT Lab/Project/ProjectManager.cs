@@ -396,11 +396,6 @@ namespace TT_Lab.Project
 
         public void CloseProject()
         {
-            // if (OpenedProject != null)
-            // {
-            //     _ogreWindowManager.RemoveResourceLocation($"{OpenedProject.ProjectPath}/assets");
-            // }
-            
             OpenedProject = null;
             WorkableProject = false;
             ProjectTree.Clear();
@@ -430,11 +425,13 @@ namespace TT_Lab.Project
 
         private void BuildProjectTree()
         {
+            var root = new Folder(OpenedProject!.Name);
+            var assetDirectories = Directory.GetDirectories($"{OpenedProject!.ProjectPath}\\assets", "*", SearchOption.AllDirectories);
+            
             var tree = (from asset in OpenedProject!.AssetManager.GetAssets()
                         where asset is Folder
                         let folder = (Folder)asset
-                        where folder.GetData().To<FolderData>().Parent == null
-                        orderby folder.Order
+                        where folder.Parent == null
                         select folder.GetResourceTreeElement());
             ProjectTree = new BindableCollection<ResourceTreeElementViewModel>(tree);
             _internalTree.AddRange(ProjectTree);

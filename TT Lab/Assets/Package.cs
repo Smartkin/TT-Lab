@@ -1,19 +1,23 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.IO;
+using Caliburn.Micro;
 using TT_Lab.AssetData;
+using TT_Lab.Project;
 using TT_Lab.ViewModels.ResourceTree;
 
 namespace TT_Lab.Assets;
 
-public class Package : Folder
+public class Package : SerializableAsset
 {
     protected override string SavePath => Name;
+    protected override string SavePathInPackage => string.Empty;
 
     [JsonProperty(Required = Required.Always)]
     public Boolean Enabled { get; set; }
     [JsonProperty(Required = Required.Always)]
-    public List<LabURI> Dependencies { get; private set; } = new();
+    public List<LabURI> Dependencies { get; private set; } = [];
     [JsonProperty(Required = Required.Always)]
     public String Variant { get; set; } = "";
 
@@ -25,10 +29,15 @@ public class Package : Folder
         SkipExport = false;
     }
 
-    public Package(String name, Folder? parent = null) : base((LabURI)$"res://{name}", name, null, parent)
+    public Package(String name, String? variant = null) : base((uint)Guid.NewGuid().GetHashCode(), name, (LabURI)$"res://{name}", !string.IsNullOrEmpty(variant), variant ?? string.Empty)
     {
         Enabled = true;
         SkipExport = false;
+    }
+
+    public Folder GetPackageFolder()
+    {
+        throw new NotImplementedException();
     }
 
     public void AddDependency(LabURI uri)
@@ -41,15 +50,37 @@ public class Package : Folder
         Dependencies.Remove(uri);
     }
 
-    public override AbstractAssetData GetData()
+    public override void Serialize(SerializationFlags serializationFlags = SerializationFlags.None)
     {
-        return base.GetData();
+        if (serializationFlags.HasFlag(SerializationFlags.SetDirectoryToAssets))
+        {
+            Directory.SetCurrentDirectory($"{IoC.Get<ProjectManager>().OpenedProject!.ProjectPath}\\assets");
+        }
+        
+        var path = SavePath;
+        Directory.CreateDirectory(path);
+        
+        using FileStream fs = new(Path.Combine(path, $"{Name}.json"), FileMode.Create, FileAccess.Write);
+        using BinaryWriter writer = new(fs);
+        writer.Write(JsonConvert.SerializeObject(this, Formatting.Indented).ToCharArray());
+        writer.Flush();
     }
 
-    public override void RegenerateURI()
+    public override AbstractAssetData GetData()
+    {
+        throw new NotSupportedException();
+    }
+
+    public override void RegenerateUri()
     {
         URI = new LabURI($"res://{Name}");
     }
+
+    public override void Import()
+    {
+    }
+
+    public override uint Section { get; }
 
     public override Type GetEditorType()
     {

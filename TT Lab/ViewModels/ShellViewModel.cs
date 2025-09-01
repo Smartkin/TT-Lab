@@ -30,28 +30,22 @@ namespace TT_Lab.ViewModels
         private readonly IEventAggregator _eventAggregator;
         private readonly ProjectManager _projectManager;
         private readonly Dictionary<String, List<String>> _managerPropsToShellProps = new();
-        private readonly DispatcherTimer _renderTimer = new();
         private Boolean _dontRemind = false;
-        private Boolean _deadgeRender = false;
-        private Thread _mainThread;
-        private RenderContext _renderContext;
 
         public ShellViewModel(IWindowManager windowManager, IEventAggregator eventAggregator, ProjectManager projectManager, RenderContext renderContext)
         {
-            _mainThread = Thread.CurrentThread;
             _windowManager = windowManager;
             _projectManager = projectManager;
             _eventAggregator = eventAggregator;
-            _renderContext = renderContext;
             _eventAggregator.SubscribeOnUIThread(this);
 
-            _managerPropsToShellProps.Add(nameof(ProjectManager.ProjectTitle), new List<String> { nameof(WindowTitle) });
-            _managerPropsToShellProps.Add(nameof(ProjectManager.ProjectOpened), new List<String> { nameof(ProjectOpened), nameof(TreeOptionsVisibility) });
-            _managerPropsToShellProps.Add(nameof(ProjectManager.RecentlyOpened), new List<String> { nameof(RecentlyOpened) });
-            _managerPropsToShellProps.Add(nameof(ProjectManager.ProjectTree), new List<String> { nameof(ProjectTree) });
-            _managerPropsToShellProps.Add(nameof(ProjectManager.HasRecents), new List<String> { nameof(HasRecents) });
-            _managerPropsToShellProps.Add(nameof(ProjectManager.SearchAsset), new List<String> { nameof(SearchAsset) });
-            _managerPropsToShellProps.Add(nameof(ProjectManager.IsCreatingProject), new List<String>{ nameof(IsCreatingProject), nameof(SadEasterEggVisibility) });
+            _managerPropsToShellProps.Add(nameof(ProjectManager.ProjectTitle), [nameof(WindowTitle)]);
+            _managerPropsToShellProps.Add(nameof(ProjectManager.ProjectOpened), [nameof(ProjectOpened), nameof(TreeOptionsVisibility)]);
+            _managerPropsToShellProps.Add(nameof(ProjectManager.RecentlyOpened), [nameof(RecentlyOpened)]);
+            _managerPropsToShellProps.Add(nameof(ProjectManager.ProjectTree), [nameof(ProjectTree)]);
+            _managerPropsToShellProps.Add(nameof(ProjectManager.HasRecents), [nameof(HasRecents)]);
+            _managerPropsToShellProps.Add(nameof(ProjectManager.SearchAsset), [nameof(SearchAsset)]);
+            _managerPropsToShellProps.Add(nameof(ProjectManager.IsCreatingProject), [nameof(IsCreatingProject), nameof(SadEasterEggVisibility)]);
 
             Preferences.Load();
         }
@@ -100,7 +94,11 @@ namespace TT_Lab.ViewModels
                 return;
             }
 
-            var asset = (ResourceTreeElementViewModel)selectedItem;
+            if (selectedItem is not ResourceTreeElementViewModel asset)
+            {
+                return;
+            }
+            
             OpenEditor(asset.Asset);
         }
 
@@ -111,7 +109,7 @@ namespace TT_Lab.ViewModels
                 if (asset.Type == typeof(Folder) || asset.Type == typeof(Package)) return;
 
                 var editorsViewModel = ActiveItem;
-                if (asset.Type == typeof(ChunkFolder))
+                if (asset.Type == typeof(LevelChunk))
                 {
                     // Automatically switch to Scenes Viewer tab
                     editorsViewModel.ActivateItemAsync(editorsViewModel.Items[0]);
@@ -146,37 +144,6 @@ namespace TT_Lab.ViewModels
             DragDrop.DoDragDrop(projectTree, data, DragDropEffects.Copy);
         }
 
-        public async Task PauseRendering()
-        {
-            // if (_deadgeRender)
-            // {
-            //     return;
-            // }
-            //
-            // CompositionTarget.Rendering -= PerformRender;
-            //
-            // await Task.Delay(100);
-            //
-            // if (_deadgeRender)
-            // {
-            //     return;
-            // }
-            //
-            // CompositionTarget.Rendering += PerformRender;
-        }
-
-        public Task StopRendering()
-        {
-            // lock (_ogreWindowManager!.RenderLockObject)
-            // {
-            //     _deadgeRender = true;
-            //     // _ogreWindowManager.CloseAndTerminateAll();
-            //     CompositionTarget.Rendering -= PerformRender;
-            // }
-
-            return Task.CompletedTask;
-        }
-
         // Props to https://stackoverflow.com/a/25765336
         public void LogViewerScroll(ScrollViewer sv, ScrollChangedEventArgs e)
         {
@@ -187,7 +154,7 @@ namespace TT_Lab.ViewModels
             }
             if (e.ExtentHeightChange == 0)// user scroll
             {
-                autoScrollToEnd = sv.ScrollableHeight == sv.VerticalOffset;
+                autoScrollToEnd = Math.Abs(sv.ScrollableHeight - sv.VerticalOffset) < 0.001f;
             }
             else// content change
             {
@@ -235,20 +202,12 @@ namespace TT_Lab.ViewModels
 
         public override async Task<Boolean> CanCloseAsync(CancellationToken cancellationToken = new CancellationToken())
         {
-            _deadgeRender = true;
             if (_dontRemind)
             {
-                await StopRendering();
                 return true;
             }
 
-            if (await ActiveItem.CanCloseAsync(cancellationToken))
-            {
-                await StopRendering();
-                return true;
-            }
-            
-            return false;
+            return await ActiveItem.CanCloseAsync(cancellationToken);
         }
 
         public Task HandleAsync(ProjectManagerMessage message, CancellationToken cancellationToken)
@@ -278,7 +237,6 @@ namespace TT_Lab.ViewModels
         {
             if (close)
             {
-                _deadgeRender = true;
                 Properties.Settings.Default.Save();
                 Preferences.Save();
             }
@@ -288,11 +246,6 @@ namespace TT_Lab.ViewModels
             if (!cancellationToken.IsCancellationRequested && close)
             {
                 _dontRemind = true;
-                // CompositionTarget.Rendering -= PerformRender;
-            }
-            else
-            {
-                _deadgeRender = false;
             }
         }
 

@@ -43,9 +43,17 @@ namespace TT_Lab.AssetData.Global
         {
             var assetManager = AssetManager.Get();
             var ptc = GetTwinItem<ITwinPTC>();
-            var texture = new Texture(package, true, $"{ptc.GetName()}_{variant}", ptc.TexID, $"{ptc.GetName()}_Texture", ptc.Texture);
+            var texture = new Texture(package, true, $"{ptc.GetName()}_{variant}", ptc.TexID, $"{ptc.GetName()}_Texture", ptc.Texture)
+            {
+                AdditionalPath = variant
+            };
+            texture.RegenerateLinks();
             assetManager.AddAssetToImport(texture);
-            var material = new Material(package, true, $"{ptc.GetName()}_{variant}", ptc.MatID, $"{ptc.GetName()}_Material", ptc.Material);
+            var material = new Material(package, true, $"{ptc.GetName()}_{variant}", ptc.MatID, $"{ptc.GetName()}_Material", ptc.Material)
+            {
+                AdditionalPath = variant
+            };
+            material.RegenerateLinks();
             assetManager.AddAssetToImport(material);
 
             TextureID = texture.URI;

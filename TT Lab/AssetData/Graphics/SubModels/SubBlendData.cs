@@ -20,7 +20,7 @@ namespace TT_Lab.AssetData.Graphics.SubModels
 
         public SubBlendData(LabURI package, String? variant, ITwinSubBlendSkin blend)
         {
-            Material = AssetManager.Get().GetUri(package, nameof(Assets.Graphics.Material), variant, blend.Material);
+            Material = AssetManager.Get().GetUriByTwinId<Assets.Graphics.Material>(package, variant, blend.Material);
             if (Material == LabURI.Empty)
             {
                 var allMaterials = AssetManager.Get().GetAssets().FindAll(a => a is Assets.Graphics.Material).ConvertAll(a => a.URI);

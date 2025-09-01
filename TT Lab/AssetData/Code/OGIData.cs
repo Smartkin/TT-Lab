@@ -194,15 +194,15 @@ namespace TT_Lab.AssetData.Code
             RigidModelIds = new List<LabURI>();
             foreach (var model in ogi.RigidModelIds)
             {
-                RigidModelIds.Add(AssetManager.Get().GetUri(package, typeof(RigidModel).Name, variant, model));
+                RigidModelIds.Add(AssetManager.Get().GetUriByTwinId<RigidModel>(package, variant, model));
             }
             BoundingBoxBuilderToJointIndex = CloneUtils.CloneList(ogi.CollisionJointIndices);
             Joints = CloneUtils.DeepClone(ogi.Joints);
             ExitPoints = CloneUtils.DeepClone(ogi.ExitPoints);
             BoundingBoxBuilders = CloneUtils.DeepClone(ogi.Collisions);
             SkinInverseMatrices = CloneUtils.CloneListUnsafe(ogi.SkinInverseBindMatrices);
-            Skin = ogi.SkinID != 0 ? AssetManager.Get().GetUri(package, typeof(Skin).Name, variant, ogi.SkinID) : LabURI.Empty;
-            BlendSkin = ogi.BlendSkinID != 0 ? AssetManager.Get().GetUri(package, typeof(BlendSkin).Name, variant, ogi.BlendSkinID) : LabURI.Empty;
+            Skin = ogi.SkinID != 0 ? AssetManager.Get().GetUriByTwinId<Skin>(package, variant, ogi.SkinID) : LabURI.Empty;
+            BlendSkin = ogi.BlendSkinID != 0 ? AssetManager.Get().GetUriByTwinId<BlendSkin>(package, variant, ogi.BlendSkinID) : LabURI.Empty;
         }
 
         public override ITwinItem Export(ITwinItemFactory factory)

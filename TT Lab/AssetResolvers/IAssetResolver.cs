@@ -8,7 +8,7 @@ public record MetaAsset(LabURI Uri, IAsset Asset);
 
 public interface IAssetResolver
 {
-    string ChunkPath { get; set; }
+    string ChunkPath { get; }
     void CreateAssetsFromChunk(ITwinSection chunk, Package package);
     MetaAsset? CreateAssetFromId(ITwinSection chunk, ITwinSection itemSection, Package package, uint itemId);
     void FinalizeResolve();

@@ -3,45 +3,44 @@ using TT_Lab.AssetData;
 using TT_Lab.AssetData.Global;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 
-namespace TT_Lab.Assets.Global
+namespace TT_Lab.Assets.Global;
+
+public class PSM : GlobalAsset
 {
-    public class PSM : SerializableAsset
+    protected override String TwinDataExt => "psm";
+    public override UInt32 Section => throw new NotImplementedException();
+    public override String IconPath => "PSM.png";
+
+    public PSM() { }
+
+    public PSM(LabURI package, Boolean needVariant, String variant, String name, ITwinPSM psm) : base((UInt32)Guid.NewGuid().GetHashCode(), name, package, needVariant, variant)
     {
-        protected override String TwinDataExt => "psm";
-        public override UInt32 Section => throw new NotImplementedException();
-        public override String IconPath => "PSM.png";
+        AssetData = new PSMData(psm);
+    }
 
-        public PSM() { }
-
-        public PSM(LabURI package, Boolean needVariant, String variant, String name, ITwinPSM psm) : base((UInt32)Guid.NewGuid().GetHashCode(), name, package, needVariant, variant)
+    public override AbstractAssetData GetData()
+    {
+        if (!IsLoaded || AssetData.Disposed)
         {
-            AssetData = new PSMData(psm);
+            AssetData = new PSMData();
+            AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
         }
+        return AssetData;
+    }
 
-        public override AbstractAssetData GetData()
+    public override void PreResolveResources()
+    {
+        base.PreResolveResources();
+        var assetManager = AssetManager.Get();
+        PSMData data = (PSMData)GetData();
+        foreach (var ptc in data.PTCs)
         {
-            if (!IsLoaded || AssetData.Disposed)
-            {
-                AssetData = new PSMData();
-                AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
-            }
-            return AssetData;
+            assetManager.GetAsset<PTC>(ptc).PreResolveResources();
         }
+    }
 
-        public override void PreResolveResources()
-        {
-            base.PreResolveResources();
-            var assetManager = AssetManager.Get();
-            PSMData data = (PSMData)GetData();
-            foreach (var ptc in data.PTCs)
-            {
-                assetManager.GetAsset<PTC>(ptc).PreResolveResources();
-            }
-        }
-
-        public override Type GetEditorType()
-        {
-            throw new NotImplementedException();
-        }
+    public override Type GetEditorType()
+    {
+        throw new NotImplementedException();
     }
 }

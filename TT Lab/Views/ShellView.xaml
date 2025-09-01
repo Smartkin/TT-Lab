@@ -34,9 +34,6 @@
             </Triggers:InputBindingTrigger.InputBinding>
             <cal:ActionMessage MethodName="SaveProject"/>
         </Triggers:InputBindingTrigger>
-        <i:EventTrigger EventName="Closing">
-            <cal:ActionMessage MethodName="StopRendering"/>
-        </i:EventTrigger>
     </i:Interaction.Triggers>
     <Window.Style>
         <Style TargetType="adonisControls:AdonisWindow" BasedOn="{StaticResource {x:Type adonisControls:AdonisWindow}}"/>

@@ -17,11 +17,6 @@ namespace TT_Lab.Project
         AssetManager AssetManager { get; }
 
         /// <summary>
-        /// Project's packages enabled or disabled
-        /// </summary>
-        Folder Packages { get; }
-
-        /// <summary>
         /// Base package required for all projects
         /// </summary>
         Package BasePackage { get; }

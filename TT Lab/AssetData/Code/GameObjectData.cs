@@ -142,12 +142,12 @@ namespace TT_Lab.AssetData.Code
             OGISlots = new List<LabURI>();
             foreach (var e in gameObject.OGISlots)
             {
-                OGISlots.Add((e == 65535) ? LabURI.Empty : assetManager.GetUri(package, nameof(OGI), variant, e));
+                OGISlots.Add((e == 65535) ? LabURI.Empty : assetManager.GetUriByTwinId<OGI>(package, variant, e));
             }
             AnimationSlots = new List<LabURI>();
             foreach (var e in gameObject.AnimationSlots)
             {
-                AnimationSlots.Add((e == 65535) ? LabURI.Empty : assetManager.GetUri(package, nameof(Animation), variant, e));
+                AnimationSlots.Add((e == 65535) ? LabURI.Empty : assetManager.GetUriByTwinId<Animation>(package, variant, e));
             }
             BehaviourSlots = new List<LabURI>();
             foreach (var e in gameObject.BehaviourSlots)
@@ -155,7 +155,7 @@ namespace TT_Lab.AssetData.Code
                 var found = false;
                 foreach (var cm in gameObject.RefCodeModels)
                 {
-                    BehaviourCommandsSequence cmGuid = assetManager.GetAsset<BehaviourCommandsSequence>(package, nameof(BehaviourCommandsSequence), variant, cm);
+                    BehaviourCommandsSequence cmGuid = assetManager.GetAsset<BehaviourCommandsSequence>(package, variant, cm);
                     if (cmGuid.BehaviourGraphLinks.ContainsKey(e))
                     {
                         BehaviourSlots.Add(cmGuid.BehaviourGraphLinks[e]);
@@ -180,13 +180,13 @@ namespace TT_Lab.AssetData.Code
                             break;
                         }
                     }
-                    BehaviourSlots.Add((e == 65535) ? LabURI.Empty : assetManager.GetUri(package, nameof(BehaviourGraph), variant, id));
+                    BehaviourSlots.Add((e == 65535) ? LabURI.Empty : assetManager.GetUriByTwinId<BehaviourGraph>(package, variant, id));
                 }
             }
             ObjectSlots = new List<LabURI>();
             foreach (var e in gameObject.ObjectSlots)
             {
-                ObjectSlots.Add((e == 65535) ? LabURI.Empty : assetManager.GetUri(package, nameof(GameObject), variant, e));
+                ObjectSlots.Add((e == 65535) ? LabURI.Empty : assetManager.GetUriByTwinId<GameObject>(package, variant, e));
             }
             SoundSlots = new List<LabURI>();
             foreach (var e in gameObject.SoundSlots)
@@ -198,34 +198,34 @@ namespace TT_Lab.AssetData.Code
                 }
                 else
                 {
-                    SoundSlots.Add((e == 65535) ? LabURI.Empty : assetManager.GetUri(package, nameof(SoundEffect), variant, e));
+                    SoundSlots.Add((e == 65535) ? LabURI.Empty : assetManager.GetUriByTwinId<SoundEffect>(package, variant, e));
                 }
             }
             RefObjects = new List<LabURI>();
             foreach (var e in gameObject.RefObjects)
             {
-                var uri = assetManager.GetUri(package, nameof(GameObject), variant, e);
+                var uri = assetManager.GetUriByTwinId<GameObject>(package, variant, e);
                 Debug.Assert(uri != LabURI.Empty, "REFERENCES CAN NOT CONTAIN REFERENCE TO NULL DATA");
                 RefObjects.Add(uri);
             }
             RefOGIs = new List<LabURI>();
             foreach (var e in gameObject.RefOGIs)
             {
-                var uri = assetManager.GetUri(package, nameof(OGI), variant, e);
+                var uri = assetManager.GetUriByTwinId<OGI>(package, variant, e);
                 Debug.Assert(uri != LabURI.Empty, "REFERENCES CAN NOT CONTAIN REFERENCE TO NULL DATA");
                 RefOGIs.Add(uri);
             }
             RefAnimations = new List<LabURI>();
             foreach (var e in gameObject.RefAnimations)
             {
-                var uri = assetManager.GetUri(package, nameof(Animation), variant, e);
+                var uri = assetManager.GetUriByTwinId<Animation>(package, variant, e);
                 Debug.Assert(uri != LabURI.Empty, "REFERENCES CAN NOT CONTAIN REFERENCE TO NULL DATA");
                 RefAnimations.Add(uri);
             }
             RefBehaviourCommandsSequences = new List<LabURI>();
             foreach (var e in gameObject.RefCodeModels)
             {
-                var uri = assetManager.GetUri(package, nameof(BehaviourCommandsSequence), variant, e);
+                var uri = assetManager.GetUriByTwinId<BehaviourCommandsSequence>(package, variant, e);
                 Debug.Assert(uri != LabURI.Empty, "REFERENCES CAN NOT CONTAIN REFERENCE TO NULL DATA");
                 RefBehaviourCommandsSequences.Add(uri);
             }
@@ -270,7 +270,7 @@ namespace TT_Lab.AssetData.Code
                         continue;
                     }
                     
-                    var uri = assetManager.GetUri(package, nameof(BehaviourGraph), variant, e);
+                    var uri = assetManager.GetUriByTwinId<BehaviourGraph>(package, variant, e);
                     Debug.Assert(uri != LabURI.Empty, $"REFERENCES CAN NOT CONTAIN REFERENCE TO NULL DATA. ATTEMPTED REFERENCE TO GAME ID {e}");
                     RefBehaviours.Add(uri);
                 }
@@ -278,7 +278,7 @@ namespace TT_Lab.AssetData.Code
             RefSounds = new List<LabURI>();
             foreach (var e in gameObject.RefSounds)
             {
-                var sndUri = assetManager.GetUri(package, nameof(SoundEffect), variant, e);
+                var sndUri = assetManager.GetUriByTwinId<SoundEffect>(package, variant, e);
                 if (sndUri == LabURI.Empty)
                 {
                     var multi5 = CollectMulti5Uri(package, null, e);
@@ -465,12 +465,12 @@ namespace TT_Lab.AssetData.Code
         private static List<LabURI> CollectMulti5Uri(LabURI package, String? variant, UInt16 id)
         {
             var result = new List<LabURI>();
-            var enUri = AssetManager.Get().GetUri(package, nameof(SoundEffectEN), variant, id);
-            var frUri = AssetManager.Get().GetUri(package, nameof(SoundEffectFR), variant, id);
-            var grUri = AssetManager.Get().GetUri(package, nameof(SoundEffectGR), variant, id);
-            var itUri = AssetManager.Get().GetUri(package, nameof(SoundEffectIT), variant, id);
-            var spUri = AssetManager.Get().GetUri(package, nameof(SoundEffectSP), variant, id);
-            var jpUri = AssetManager.Get().GetUri(package, nameof(SoundEffectJP), variant, id);
+            var enUri = AssetManager.Get().GetUriByTwinId<SoundEffectEN>(package,variant, id);
+            var frUri = AssetManager.Get().GetUriByTwinId<SoundEffectFR>(package, variant, id);
+            var grUri = AssetManager.Get().GetUriByTwinId<SoundEffectGR>(package, variant, id);
+            var itUri = AssetManager.Get().GetUriByTwinId<SoundEffectIT>(package, variant, id);
+            var spUri = AssetManager.Get().GetUriByTwinId<SoundEffectSP>(package, variant, id);
+            var jpUri = AssetManager.Get().GetUriByTwinId<SoundEffectJP>(package, variant, id);
 
             if (!enUri.Equals(LabURI.Empty))
             {

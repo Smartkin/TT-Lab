@@ -52,7 +52,7 @@ public static class TwinIdGeneratorServiceProvider
         _idGeneratorServices.Add(typeof(T), gen);
     }
 
-    public static void RegisterGeneratorServiceForChunk(ChunkFolder chunk)
+    public static void RegisterGeneratorServiceForChunk(LevelChunk chunk)
     {
         var chunkGenerators = new Dictionary<(Enums.Layouts, Type), ITwinIdGeneratorService>();
         for (var i = 0; i < (int)Enums.Layouts.LAYER_8 + 1; ++i)
@@ -74,7 +74,7 @@ public static class TwinIdGeneratorServiceProvider
         _chunkIdGeneratorServices.Remove(chunk);
     }
 
-    private static void RegisterChunkGenerator<T>(Enums.Layouts layout, ChunkFolder folder, Dictionary<(Enums.Layouts, Type), ITwinIdGeneratorService> chunkGenerators) where T : SerializableInstance
+    private static void RegisterChunkGenerator<T>(Enums.Layouts layout, LevelChunk folder, Dictionary<(Enums.Layouts, Type), ITwinIdGeneratorService> chunkGenerators) where T : SerializableInstance
     {
         chunkGenerators.Add((layout, typeof(T)), new TwinIdGeneratorServiceInstance<T>(layout, folder));
     }

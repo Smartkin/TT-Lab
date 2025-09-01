@@ -16,7 +16,7 @@ public class SceneryResolver : AssetResolver<ITwinScenery>
     public SceneryResolver(SkydomeResolver skydomeResolver)
     {
         _skydomeResolver = skydomeResolver;
-        _meshResolver = new MeshResolver(new ModelResolver(), new MaterialResolver(new TextureResolver(), true));
+        _meshResolver = new MeshResolver(new ModelResolver(true), new MaterialResolver(new TextureResolver(true), true));
         _lodResolver = new LodResolver(_meshResolver);
     }
     

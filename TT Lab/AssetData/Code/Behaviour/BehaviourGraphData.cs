@@ -114,7 +114,7 @@ namespace TT_Lab.AssetData.Code.Behaviour
                 string? graphName = null;
                 if (state.BehaviourIndexOrSlot != -1 && !state.UsesObjectSlot)
                 {
-                    graphName = AssetManager.Get().GetUri(package, nameof(BehaviourGraph), variant, (uint)state.BehaviourIndexOrSlot);
+                    graphName = AssetManager.Get().GetUriByTwinId<BehaviourGraph>(package, variant, (uint)state.BehaviourIndexOrSlot);
                 }
 
                 stateList.Add(new DefaultStateResolver(graphName));

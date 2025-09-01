@@ -50,7 +50,11 @@ namespace TT_Lab.AssetData.Global
             var psfIndex = 0;
             foreach (var ptc in psf.FontPages)
             {
-                var asset = new PTC(package, true, $"{psf.GetName()}_{variant}_page_{psfIndex++}", $"{psf.GetName()}_page_{psfIndex++}", ptc);
+                var asset = new PTC(package, true, $"{psf.GetName()}_{variant}_page_{psfIndex++}", $"{psf.GetName()}_page_{psfIndex++}", ptc)
+                {
+                    GlobalPath = $"Fonts/{psf.GetName()}/{variant!}"
+                };
+                asset.RegenerateLinks();
                 AssetManager.Get().AddAssetToImport(asset);
                 FontPages.Add(asset.URI);
             }

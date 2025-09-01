@@ -94,9 +94,9 @@ public class AnimationViewModel : ResourceEditorViewModel
         
         SuitableModels.Clear();
         var allOgis = AssetManager.Get().GetAllAssetsOf<Assets.Code.OGI>().Where(ogi =>
-            ogi.GetData<OGIData>().Joints.Count >= data.MainAnimation.JointSettings.Count).ToList();
+            ogi.GetData().To<OGIData>().Joints.Count >= data.MainAnimation.JointSettings.Count).ToList();
         var allOgiUris = allOgis.Select(ogi => ogi.URI).ToList();
-        var bestFitIndex = allOgis.FindIndex(ogi => ogi.GetData<OGIData>().Joints.Count == data.MainAnimation.JointSettings.Count);
+        var bestFitIndex = allOgis.FindIndex(ogi => ogi.GetData().To<OGIData>().Joints.Count == data.MainAnimation.JointSettings.Count);
         SuitableModels.AddRange(allOgiUris);
         _selectedOgi = SuitableModels[bestFitIndex == -1 ? 0 : bestFitIndex];
     }

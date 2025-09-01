@@ -1,29 +1,34 @@
 using System.Linq;
 using TT_Lab.Assets;
-using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 
 namespace TT_Lab.AssetResolvers;
 
-public class ResourceChunkResolver : AssetResolver<ITwinSection>
+public class DefaultChunkResolver : AssetResolver<ITwinSection>
 {
     private readonly GameObjectResolver _gameObjectResolver;
     private readonly BehaviourResolver _behaviourResolver;
     private readonly BehaviourSequenceResolver _behaviourSequenceResolver;
-    private readonly CollisionResolver _collisionResolver = new();
-    private readonly ParticleResolver _particleResolver = new();
+    private readonly MeshResolver _meshResolver;
+    private readonly DefaultParticleResolver _particleResolver;
     private readonly InstanceSectionResolver[] _instanceSectionResolvers;
-
+    
     private LevelChunk _levelChunk;
     
     private string ChunkName => ChunkPath.Split('\\')[^1];
-
-    public ResourceChunkResolver(GameObjectResolver gameObjectResolver, BehaviourResolver behaviourResolver, BehaviourSequenceResolver behaviourSequenceResolver)
+    
+    public DefaultChunkResolver(GameObjectResolver gameObjectResolver, BehaviourResolver behaviourResolver, BehaviourSequenceResolver behaviourSequenceResolver)
     {
         _gameObjectResolver = gameObjectResolver;
         _behaviourResolver = behaviourResolver;
         _behaviourSequenceResolver = behaviourSequenceResolver;
         
+        var modelResolver = new ModelResolver(false);
+        var textureResolver = new TextureResolver(false);
+        var materialResolver = new MaterialResolver(textureResolver, false);
+        _meshResolver = new MeshResolver(modelResolver, materialResolver, true);
+        _particleResolver = new DefaultParticleResolver(materialResolver, textureResolver);
+
         _instanceSectionResolvers = new InstanceSectionResolver[8];
         for (var i = 0; i < _instanceSectionResolvers.Length; i++)
         {
@@ -48,8 +53,8 @@ public class ResourceChunkResolver : AssetResolver<ITwinSection>
         {
             _levelChunk = assetManager.GetAsset<LevelChunk>(chunkAsset.URI);
         }
-
-        _collisionResolver.CreateAssetsFromChunk(chunk, package);
+        
+        _meshResolver.CreateAssetsFromChunk(chunk, package);
         _particleResolver.CreateAssetsFromChunk(chunk, package);
         _behaviourResolver.CreateAssetsFromChunk(chunk, package);
         _behaviourSequenceResolver.CreateAssetsFromChunk(chunk, package);
@@ -67,8 +72,8 @@ public class ResourceChunkResolver : AssetResolver<ITwinSection>
 
     public override void FinalizeResolve()
     {
-        _collisionResolver.FinalizeResolve();
-        _levelChunk.ChunkResources.AddRange(_collisionResolver.GetAssets().Select(m => m.Uri));
+        _meshResolver.FinalizeResolve();
+        _levelChunk.ChunkResources.AddRange(_meshResolver.GetAssets().Select(m => m.Uri));
         _particleResolver.FinalizeResolve();
         _levelChunk.ChunkResources.AddRange(_particleResolver.GetAssets().Select(m => m.Uri));
         foreach (var instanceSectionResolver in _instanceSectionResolvers)

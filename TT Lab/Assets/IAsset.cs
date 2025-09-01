@@ -1,10 +1,8 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using TT_Lab.AssetData;
 using TT_Lab.Util;
-using TT_Lab.ViewModels;
 using TT_Lab.ViewModels.ResourceTree;
 
 namespace TT_Lab.Assets;
@@ -276,6 +274,7 @@ public interface IAsset
     /// <summary>
     /// Traverses the chunk sections to fill it with all the referenced data
     /// </summary>
+    /// <param name="factory"></param>
     /// <param name="section"></param>
     void ResolveChunkResources(Factory.ITwinItemFactory factory, Twinsanity.TwinsanityInterchange.Interfaces.ITwinSection section);
 }

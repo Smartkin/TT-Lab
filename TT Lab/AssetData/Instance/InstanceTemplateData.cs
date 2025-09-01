@@ -72,7 +72,7 @@ namespace TT_Lab.AssetData.Instance
         {
             ITwinTemplate template = GetTwinItem<ITwinTemplate>();
             TemplateName = new String(template.Name.ToCharArray());
-            ObjectId = AssetManager.Get().GetUri(package, nameof(GameObject), variant, template.ObjectId);
+            ObjectId = AssetManager.Get().GetUriByTwinId<GameObject>(package, variant, template.ObjectId);
             UnkByte1 = template.UnkByte1;
             UnkByte2 = template.UnkByte2;
             UnkByte3 = template.UnkByte3;
@@ -82,7 +82,7 @@ namespace TT_Lab.AssetData.Instance
             UnkBehaviourIds = new(template.UnkBehaviourIds.Count);
             foreach (var behaviourId in template.UnkBehaviourIds)
             {
-                UnkBehaviourIds.Add(AssetManager.Get().GetUri(package, nameof(BehaviourGraph), variant, behaviourId + 1U));
+                UnkBehaviourIds.Add(AssetManager.Get().GetUriByTwinId<BehaviourGraph>(package, variant, behaviourId + 1U));
             }
             InstancePropsHeader = template.InstancePropsHeader;
             UnkInt1 = template.UnkInt1;

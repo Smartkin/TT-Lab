@@ -29,6 +29,7 @@ public class RigidModelResolver(ModelResolver modelResolver, MaterialResolver ma
 
     public override void FinalizeResolve()
     {
+        materialResolver.FinalizeResolve();
         modelResolver.FinalizeResolve();
         
         base.FinalizeResolve();

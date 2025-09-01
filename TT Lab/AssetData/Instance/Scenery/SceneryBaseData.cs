@@ -48,17 +48,17 @@ namespace TT_Lab.AssetData.Instance.Scenery
             MeshIDs = new List<LabURI>();
             foreach (var m in baseType.MeshIDs)
             {
-                MeshIDs.Add(AssetManager.Get().GetUri(package, typeof(Mesh).Name, variant, m));
+                MeshIDs.Add(AssetManager.Get().GetUriByTwinId<Mesh>(package, variant, m));
             }
             LodIDs = new List<LabURI>();
             foreach (var l in baseType.LodIDs)
             {
-                LodIDs.Add(AssetManager.Get().GetUri(package, typeof(LodModel).Name, variant, l));
+                LodIDs.Add(AssetManager.Get().GetUriByTwinId<LodModel>(package, variant, l));
             }
             BoundingBoxes = new List<Vector4[]>();
             foreach (var bb in baseType.BoundingBoxes)
             {
-                BoundingBoxes.Add(new Vector4[] { CloneUtils.Clone(bb[0]), CloneUtils.Clone(bb[1]) });
+                BoundingBoxes.Add([CloneUtils.Clone(bb[0]), CloneUtils.Clone(bb[1])]);
             }
             MeshModelMatrices = new List<Matrix4>();
             foreach (var mat in baseType.MeshModelMatrices)

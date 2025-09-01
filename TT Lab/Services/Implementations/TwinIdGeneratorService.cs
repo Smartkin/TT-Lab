@@ -27,9 +27,9 @@ public class TwinIdGeneratorService<T> : ITwinIdGeneratorService where T : IAsse
 public class TwinIdGeneratorServiceInstance<T> : TwinIdGeneratorService<SerializableInstance> where T : SerializableInstance
 {
     private readonly Enums.Layouts _boundLayout;
-    private readonly ChunkFolder _boundChunk;
+    private readonly LevelChunk _boundChunk;
     
-    public TwinIdGeneratorServiceInstance(Enums.Layouts layout, ChunkFolder chunk)
+    public TwinIdGeneratorServiceInstance(Enums.Layouts layout, LevelChunk chunk)
     {
         _boundLayout = layout;
         _boundChunk = chunk;

@@ -9,7 +9,7 @@ public class LabStarterAssignerGlobalObjectIdResolver : IStarterAssignerGlobalOb
     
     public LabStarterAssignerGlobalObjectIdResolver(LabURI package, string? variant, uint objectId)
     {
-        resolvedObjectUri = AssetManager.Get().GetUri(package, nameof(GameObject), variant, objectId);
+        resolvedObjectUri = AssetManager.Get().GetUriByTwinId<GameObject>(package, variant, objectId);
     }
     
     public String ResolveGlobalObjectId()

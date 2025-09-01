@@ -22,7 +22,7 @@ namespace TT_Lab.Assets.Code
             {
                 _starterId = (int)starter.GetID();
             }
-            RegenerateURI();
+            RegenerateUri();
         }
 
         public int MapStarterIdToSelf(int starterId)

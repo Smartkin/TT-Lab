@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using TT_Lab.Assets;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 
@@ -9,26 +10,36 @@ public class SceneryChunkResolver : AssetResolver<ITwinSection>
     private readonly SceneryResolver _sceneryResolver;
     private readonly DynamicSceneryResolver _dynamicSceneryResolver;
     private readonly ChunkLinkResolver _chunkLinkResolver;
+    
+    private LevelChunk _levelChunk;
+    
+    private string ChunkName => ChunkPath.Split('\\')[^1];
 
-    public SceneryChunkResolver(string chunkPath, SkydomeResolver skydomeResolver)
+    public SceneryChunkResolver(SkydomeResolver skydomeResolver)
     {
-        ChunkPath = chunkPath[..];
-        _sceneryResolver = new SceneryResolver(skydomeResolver)
-        {
-            ChunkPath = chunkPath[..]
-        };
-        _dynamicSceneryResolver = new DynamicSceneryResolver(_sceneryResolver.MeshResolver)
-        {
-            ChunkPath = chunkPath[..]
-        };
-        _chunkLinkResolver = new ChunkLinkResolver
-        {
-            ChunkPath = chunkPath[..]
-        };
+        _sceneryResolver = new SceneryResolver(skydomeResolver);
+        _dynamicSceneryResolver = new DynamicSceneryResolver(_sceneryResolver.MeshResolver);
+        _chunkLinkResolver = new ChunkLinkResolver();
     }
     
     public override void CreateAssetsFromChunk(ITwinSection chunk, Package package)
     {
+        var chunkAsset = new LevelChunk(package.URI, ChunkName)
+        {
+            AdditionalPath = ChunkPath[..]
+        };
+        chunkAsset.RegenerateLinks();
+        var assetManager = AssetManager.Get();
+        if (!assetManager.DoesAssetExist(chunkAsset.URI))
+        {
+            _levelChunk = chunkAsset;
+            assetManager.AddAsset(chunkAsset);
+        }
+        else
+        {
+            _levelChunk = assetManager.GetAsset<LevelChunk>(chunkAsset.URI);
+        }
+        
         _sceneryResolver.CreateAssetsFromChunk(chunk, package);
         _dynamicSceneryResolver.CreateAssetsFromChunk(chunk, package);
         _chunkLinkResolver.CreateAssetsFromChunk(chunk, package);
@@ -47,8 +58,11 @@ public class SceneryChunkResolver : AssetResolver<ITwinSection>
     public override void FinalizeResolve()
     {
         _sceneryResolver.FinalizeResolve();
+        _levelChunk.ChunkResources.AddRange(_sceneryResolver.GetAssets().Select(m => m.Uri));
         _dynamicSceneryResolver.FinalizeResolve();
+        _levelChunk.ChunkResources.AddRange(_dynamicSceneryResolver.GetAssets().Select(m => m.Uri));
         _chunkLinkResolver.FinalizeResolve();
+        _levelChunk.ChunkResources.AddRange(_chunkLinkResolver.GetAssets().Select(m => m.Uri));
         
         base.FinalizeResolve();
     }

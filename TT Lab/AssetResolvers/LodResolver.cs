@@ -18,8 +18,12 @@ public class LodResolver(MeshResolver meshResolver) : AssetResolver<ITwinLOD>
         var meshSection = chunk.GetItem<ITwinSection>(Constants.SCENERY_GRAPHICS_SECTION).GetItem<ITwinSection>(Constants.GRAPHICS_MESHES_SECTION);
         foreach (var itemMesh in item.Meshes)
         {
-            meshResolver.CreateAssetFromId(chunk, null, package, itemMesh);
+            meshResolver.CreateAssetFromId(chunk, meshSection, package, itemMesh);
         }
-        return new LodModel(package.URI, needVariant, variant, item.GetID(), item.GetName(), item);
+
+        return new LodModel(package.URI, needVariant, variant, item.GetID(), item.GetName(), item)
+        {
+            AdditionalPath = ChunkPath
+        };
     }
 }
