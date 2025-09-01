@@ -27,4 +27,11 @@ public class MaterialResolver(TextureResolver textureResolver, bool isInScenery)
             AdditionalPath = isInScenery ? ChunkPath : string.Empty
         };
     }
+
+    public override void FinalizeResolve()
+    {
+        textureResolver.FinalizeResolve();
+        
+        base.FinalizeResolve();
+    }
 }

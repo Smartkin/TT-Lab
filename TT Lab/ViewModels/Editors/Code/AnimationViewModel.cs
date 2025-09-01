@@ -131,16 +131,16 @@ public class AnimationViewModel : ResourceEditorViewModel
 
     public void ExportAnimation()
     {
-        using var sfd = new SaveFileDialog();
-        sfd.Title = "Export Animation";
-        sfd.Filter = "GLB file (*.glb)|*.glb";
-        var result = sfd.ShowDialog();
-        if (result == DialogResult.OK)
-        {
-            var path = sfd.FileName;
-            var ogiData = AssetManager.Get().GetAssetData<OGIData>(_selectedOgi);
-            ogiData.ExportGltf(path, AssetManager.Get().GetAssetData<AnimationData>(EditableResource));
-        }
+        // using var sfd = new SaveFileDialog();
+        // sfd.Title = "Export Animation";
+        // sfd.Filter = "GLB file (*.glb)|*.glb";
+        // var result = sfd.ShowDialog();
+        // if (result == DialogResult.OK)
+        // {
+        //     var path = sfd.FileName;
+        //     var ogiData = AssetManager.Get().GetAssetData<OGIData>(_selectedOgi);
+        //     ogiData.ExportGltf(path, AssetManager.Get().GetAssetData<AnimationData>(EditableResource));
+        // }
     }
 
     private void UpdateAnimationPlayback()

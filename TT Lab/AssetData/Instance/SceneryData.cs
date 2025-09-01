@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using TT_Lab.AssetData.Instance.Scenery;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
@@ -18,18 +19,18 @@ namespace TT_Lab.AssetData.Instance
     [ReferencesAssets]
     public class SceneryData : AbstractAssetData
     {
-        private readonly static Dictionary<ITwinScenery.SceneryType, Type> scIndexToType = new();
+        private static readonly Dictionary<ITwinScenery.SceneryType, Type> ScIndexToType = new();
 
         static SceneryData()
         {
-            scIndexToType.Add(ITwinScenery.SceneryType.Root, typeof(SceneryRootData));
-            scIndexToType.Add(ITwinScenery.SceneryType.Leaf, typeof(SceneryLeafData));
-            scIndexToType.Add(ITwinScenery.SceneryType.Node, typeof(SceneryNodeData));
+            ScIndexToType.Add(ITwinScenery.SceneryType.Root, typeof(SceneryRootData));
+            ScIndexToType.Add(ITwinScenery.SceneryType.Leaf, typeof(SceneryLeafData));
+            ScIndexToType.Add(ITwinScenery.SceneryType.Node, typeof(SceneryNodeData));
         }
 
         public SceneryData()
         {
-            ChunkPath = "levels\\earth\\hub\\beach";
+            ChunkPath = LabURI.Empty;
             SkydomeID = LabURI.Empty;
             HasLighting = false;
             AmbientLights = new List<AmbientLight>();
@@ -45,7 +46,7 @@ namespace TT_Lab.AssetData.Instance
         }
 
         [JsonProperty(Required = Required.Always)]
-        public String ChunkPath { get; set; } // TODO: Replace with ChunkFolder LabURI reference
+        public LabURI ChunkPath { get; set; }
         [JsonProperty(Required = Required.Always)]
         public UInt32 FogColor { get; set; }
         [JsonProperty(Required = Required.Always)]
@@ -94,8 +95,9 @@ namespace TT_Lab.AssetData.Instance
 
         public override void Import(LabURI package, String? variant, Int32? layoutId)
         {
+            var assetManager = AssetManager.Get();
             ITwinScenery scenery = GetTwinItem<ITwinScenery>();
-            ChunkPath = scenery.Name[..];
+            ChunkPath = assetManager.GetAllAssetsOf<LevelChunk>().First(c => c.GetChunkPath().Equals(scenery.Name, StringComparison.InvariantCultureIgnoreCase)).URI;
             FogColor = scenery.FogColor;
             UnkByte = scenery.UnkByte;
             if (scenery.SkydomeID != 0)
@@ -113,7 +115,7 @@ namespace TT_Lab.AssetData.Instance
             Sceneries = new List<SceneryBaseData>();
             foreach (var sc in scenery.Sceneries)
             {
-                Sceneries.Add((SceneryBaseData)Activator.CreateInstance(scIndexToType[sc.GetObjectIndex()], package, variant, sc)!);
+                Sceneries.Add((SceneryBaseData)Activator.CreateInstance(ScIndexToType[sc.GetObjectIndex()], package, variant, sc)!);
             }
         }
 
@@ -122,7 +124,7 @@ namespace TT_Lab.AssetData.Instance
             var assetManager = AssetManager.Get();
             using var ms = new MemoryStream();
             using var writer = new BinaryWriter(ms);
-            writer.Write(ChunkPath);
+            writer.Write(ChunkPath == LabURI.Empty ? string.Empty : assetManager.GetAsset<LevelChunk>(ChunkPath).GetChunkPath());
             writer.Write(FogColor);
             writer.Write(UnkByte);
             writer.Write(SkydomeID == LabURI.Empty ? 0 : assetManager.GetAsset(SkydomeID).ID);

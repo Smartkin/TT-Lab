@@ -106,9 +106,11 @@ namespace TT_Lab.AssetData.Graphics
             {
                 var twinMaterial = AssetManager.Get().GetAssetData<MaterialData>(subSkin.Material);
                 var texture = twinMaterial.Shaders[0].TextureId == LabURI.Empty ? null : AssetManager.Get().GetAsset<Texture>(twinMaterial.Shaders[0].TextureId);
-                var texturePath = texture == null ? null : $"{IoC.Get<ProjectManager>().OpenedProject!.ProjectPath}/assets/{nameof(Texture)}/{texture.Data}";
+                var texturePath = texture?.FullDataPath;
                 var material = new SharpGLTF.Materials.MaterialBuilder($"Material_{index}")
                     .WithDoubleSide(true);
+                material.Name = twinMaterial.Name;
+                
                 if (texturePath == null)
                 {
                     material.WithBaseColor(new System.Numerics.Vector4(0.5f, 0.5f, 0.5f, 1));

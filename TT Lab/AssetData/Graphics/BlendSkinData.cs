@@ -61,27 +61,20 @@ namespace TT_Lab.AssetData.Graphics
             };
 
             var jointsAmount = 0;
-            foreach (var blend in Blends)
+            foreach (var ver in Blends.SelectMany(blend => blend.Models.SelectMany(blendModel => blendModel.Vertexes)))
             {
-                foreach (var blendModel in blend.Models)
+                if (ver.JointInfo.JointIndex1 > jointsAmount)
                 {
-                    foreach (var ver in blendModel.Vertexes)
-                    {
-                        if (ver.JointInfo.JointIndex1 > jointsAmount)
-                        {
-                            jointsAmount = ver.JointInfo.JointIndex1;
-                        }
-                        if (ver.JointInfo.JointIndex2 > jointsAmount)
-                        {
-                            jointsAmount = ver.JointInfo.JointIndex2;
-                        }
-                        if (ver.JointInfo.JointIndex3 > jointsAmount)
-                        {
-                            jointsAmount = ver.JointInfo.JointIndex3;
-                        }
-                    }
+                    jointsAmount = ver.JointInfo.JointIndex1;
                 }
-
+                if (ver.JointInfo.JointIndex2 > jointsAmount)
+                {
+                    jointsAmount = ver.JointInfo.JointIndex2;
+                }
+                if (ver.JointInfo.JointIndex3 > jointsAmount)
+                {
+                    jointsAmount = ver.JointInfo.JointIndex3;
+                }
             }
 
             // Create all the joint nodes
@@ -101,10 +94,11 @@ namespace TT_Lab.AssetData.Graphics
             foreach (var blend in Blends)
             {
                 var twinMaterial = AssetManager.Get().GetAssetData<MaterialData>(blend.Material);
-                var texture = twinMaterial.Shaders[0].TextureId == LabURI.Empty ? null : AssetManager.Get().GetAsset<Assets.Graphics.Texture>(twinMaterial.Shaders[0].TextureId);
-                var texturePath = texture == null ? null : $"{IoC.Get<ProjectManager>().OpenedProject!.ProjectPath}/assets/{nameof(Texture)}/{texture.Data}";
+                var texture = twinMaterial.Shaders[0].TextureId == LabURI.Empty ? null : AssetManager.Get().GetAsset<Texture>(twinMaterial.Shaders[0].TextureId);
+                var texturePath = texture?.FullDataPath;
                 var material = new SharpGLTF.Materials.MaterialBuilder($"Material_{materialIndex++}")
                     .WithDoubleSide(true);
+                material.Name = twinMaterial.Name;
 
                 if (texturePath == null)
                 {
@@ -132,9 +126,11 @@ namespace TT_Lab.AssetData.Graphics
 
                 foreach (var blendModel in blend.Models)
                 {
-                    var mesh = new MeshBuilder<VERTEX, COLOR_UV, JOINT_WEIGHT>($"blend_subskin_{index++}");
-                    mesh.Extras = System.Text.Json.Nodes.JsonNode.Parse(System.Text.Json.JsonSerializer.Serialize(blendModel.BlendShape));
-                    
+                    var mesh = new MeshBuilder<VERTEX, COLOR_UV, JOINT_WEIGHT>($"blend_subskin_{index++}")
+                    {
+                        Extras = System.Text.Json.Nodes.JsonNode.Parse(System.Text.Json.JsonSerializer.Serialize(blendModel.BlendShape))
+                    };
+
                     foreach (var face in blendModel.Faces)
                     {
                         var ver1 = blendModel.Vertexes[face.Indexes![0]];
@@ -160,7 +156,8 @@ namespace TT_Lab.AssetData.Graphics
                         return -1;
                     }
 
-                    for (Int32 i = 0; i < blendModel.BlendFaces.Count; i++)
+                    var facesSquashedOnExport = false;
+                    for (var i = 0; i < blendModel.BlendFaces.Count; i++)
                     {
                         var blendFace = blendModel.BlendFaces[i];
                         var morph = mesh.UseMorphTarget(i);
@@ -173,9 +170,11 @@ namespace TT_Lab.AssetData.Graphics
                             newVer.Position += new System.Numerics.Vector3(blendVec.X, blendVec.Y, blendVec.Z);
                             morph.SetVertex(vertex, newVer);
                         }
+
+                        facesSquashedOnExport = blendFace.BlendShapes.All(bs => bs.Offset.Length().Equals(0.0f));
                     }
 
-                    meshes.Add(new GltfGeometryWrapper(mesh, subSkinNodes, blendModel.FacesSquashedOnExport));
+                    meshes.Add(new GltfGeometryWrapper(mesh, subSkinNodes, facesSquashedOnExport));
                 }
             }
 

@@ -39,7 +39,7 @@ public class SoundResolver : AssetResolver<ITwinSound>
 
         var twinIdCollisions = HashChecker.Values.Count(e => e == twinSound.GetID());
         var needVariant = twinIdCollisions > 1;
-        var soundAsset = (T)Activator.CreateInstance(typeof(T), package.URI, needVariant, $"_alternate_{twinIdCollisions - 1}", twinSound.GetID(), twinSound.GetName(), twinSound)!;
+        var soundAsset = (T)Activator.CreateInstance(typeof(T), package.URI, needVariant, ChunkPath, twinSound.GetID(), twinSound.GetName(), twinSound)!;
         Assets.Add(new MetaAsset(soundAsset.URI, soundAsset));
         return Assets[^1];
     }

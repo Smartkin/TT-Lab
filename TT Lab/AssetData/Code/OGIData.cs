@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using GlmSharp;
 using SharpGLTF.Animations;
+using SharpGLTF.Schema2;
 using TT_Lab.AssetData.Graphics;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
@@ -17,6 +18,7 @@ using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code;
+using Skin = TT_Lab.Assets.Graphics.Skin;
 
 namespace TT_Lab.AssetData.Code
 {
@@ -27,7 +29,7 @@ namespace TT_Lab.AssetData.Code
         
         public OGIData()
         {
-            BoundingBox = new[] { new Vector4(0, 0, 0, 1), new Vector4(10, 10, 10, 1) };
+            BoundingBox = [new Vector4(0, 0, 0, 1), new Vector4(10, 10, 10, 1)];
             var rootJoint = new TwinJoint
             {
                 Index = 0,
@@ -39,14 +41,14 @@ namespace TT_Lab.AssetData.Code
             {
                 rootJoint
             };
-            ExitPoints = new List<TwinExitPoint>();
-            JointIndices = new List<Byte> { 0 };
-            RigidModelIds = new List<LabURI> { LabURI.Empty };
-            SkinInverseMatrices = new List<Matrix4> { mat4.Identity.ToTwin() };
+            ExitPoints = [];
+            JointIndices = [0];
+            RigidModelIds = [LabURI.Empty];
+            SkinInverseMatrices = [mat4.Identity.ToTwin()];
             Skin = LabURI.Empty;
             BlendSkin = LabURI.Empty;
-            BoundingBoxBuilders = new List<TwinBoundingBoxBuilder>();
-            BoundingBoxBuilderToJointIndex = new List<Byte>();
+            BoundingBoxBuilders = [];
+            BoundingBoxBuilderToJointIndex = [];
         }
 
         public OGIData(ITwinOGI ogi) : this()
@@ -59,8 +61,25 @@ namespace TT_Lab.AssetData.Code
             _animationLinks = animations;
         }
 
-        public void ExportGltf(string path, AnimationData? animation = null)
+        protected override void SaveInternal(string dataPath, JsonSerializerSettings? settings = null)
         {
+            base.SaveInternal(dataPath, settings);
+            
+            ExportGltf(dataPath + ".glb");
+        }
+
+        protected override void LoadInternal(string dataPath, JsonSerializerSettings? settings = null)
+        {
+            base.LoadInternal(dataPath, settings);
+            
+            var model = ModelRoot.Load(dataPath + ".glb");
+            
+        }
+
+        private void ExportGltf(string path)
+        {
+            var assetManager = AssetManager.Get();
+            var animations = _animationLinks.Select(animLink => assetManager.GetAsset(animLink)).ToList();
             var scene = new SharpGLTF.Scenes.SceneBuilder("TwinsanitySkeleton");
             var root = new SharpGLTF.Scenes.NodeBuilder("model_root");
             scene.AddNode(root);
@@ -85,37 +104,41 @@ namespace TT_Lab.AssetData.Code
 
             if (Skin != LabURI.Empty)
             {
-                var skinData = AssetManager.Get().GetAssetData<SkinData>(Skin);
+                var skinData = assetManager.GetAssetData<SkinData>(Skin);
                 var meshes = skinData.GetMeshes(root, nodeList);
                 foreach (var mesh in meshes)
                 {
                     scene.AddSkinnedMesh(mesh.Mesh, mesh.Joints.ToArray());
                 }
             }
-
-            List<MorphAnimationSample>? morphAnimations = null;
-            if (animation != null && animation.FacialAnimation.JointSettings.Count > 0)
-            {
-                morphAnimations = animation.GetAnimationKeyframesForMorphAnimation();
-            }
-
+            
             if (BlendSkin != LabURI.Empty)
             {
-                var blendSkinData = AssetManager.Get().GetAssetData<BlendSkinData>(BlendSkin);
+                var blendSkinData = assetManager.GetAssetData<BlendSkinData>(BlendSkin);
                 var meshes = blendSkinData.GetMeshes(root, nodeList);
                 foreach (var mesh in meshes)
                 {
                     var inst = scene.AddSkinnedMesh(mesh.Mesh, mesh.Joints.ToArray());
-                    if (mesh.FacesSquashedOnExport || morphAnimations == null)
+                    if (mesh.FacesSquashedOnExport)
                     {
                         continue;
                     }
                     
-                    inst.Content.UseMorphing().SetValue(new float[blendSkinData.BlendsAmount]);
-                    var morphAnim = inst.Content.UseMorphing("EXPORTED_ANIMATION");
-                    for (var i = 0; i < morphAnimations.Count; i++)
+                    foreach (var animation in animations)
                     {
-                        morphAnim.SetPoint(morphAnimations[i].Time, true, morphAnimations[i].Weights);
+                        var animData = animation.GetData<AnimationData>();
+                        if (animData.FacialAnimation.JointSettings.Count <= 0)
+                        {
+                            continue;
+                        }
+                        
+                        var morphAnimations = animData.GetAnimationKeyframesForMorphAnimation();
+                        inst.Content.UseMorphing().SetValue(new float[blendSkinData.BlendsAmount]);
+                        var morphAnim = inst.Content.UseMorphing(animation.Name);
+                        for (var i = 0; i < morphAnimations.Count; i++)
+                        {
+                            morphAnim.SetPoint(morphAnimations[i].Time, true, morphAnimations[i].Weights);
+                        }
                     }
                 }
             }
@@ -129,24 +152,26 @@ namespace TT_Lab.AssetData.Code
                     continue;
                 }
 
-                var rigidModelData = AssetManager.Get().GetAssetData<RigidModelData>(rigidModelId);
-                var model = AssetManager.Get().GetAssetData<ModelData>(rigidModelData.Model);
-                var meshes = model.GetMeshes(jointNode.Item1, rigidModelData.Materials.Select(matUri => AssetManager.Get().GetAssetData<MaterialData>(matUri)).ToList());
+                var rigidModelData = assetManager.GetAssetData<RigidModelData>(rigidModelId);
+                var model = assetManager.GetAssetData<ModelData>(rigidModelData.Model);
+                var meshes = model.GetMeshes(jointNode.Item1, rigidModelData.Materials.Select(matUri => assetManager.GetAssetData<MaterialData>(matUri)).ToList());
                 foreach (var mesh in meshes)
                 {
                     scene.AddRigidMesh(mesh.Mesh, jointNode.Item1);
                 }
             }
             
-            if (animation != null)
+            foreach (var animation in animations)
             {
-                for (var i = 0; i < nodeList.Count; i++)
+                var animData = animation.GetData<AnimationData>();
+                var jointCount = Math.Min(nodeList.Count, animData.MainAnimation.JointSettings.Count);
+                for (var i = 0; i < jointCount; i++)
                 {
                     var node = nodeMap[i];
-                    var keyframes = animation.GetAnimationKeyframesForMainAnimation(i, this);
-                    node.Item1.SetTranslationTrack("EXPORTED_ANIMATION", keyframes.Select(key => key.Translation).CreateSampler());
-                    node.Item1.SetRotationTrack("EXPORTED_ANIMATION", keyframes.Select(key => key.Rotation).CreateSampler());
-                    node.Item1.SetScaleTrack("EXPORTED_ANIMATION", keyframes.Select(key => key.Scale).CreateSampler());
+                    var keyframes = animData.GetAnimationKeyframesForMainAnimation(i, this);
+                    node.Item1.SetTranslationTrack(animation.Name, keyframes.Select(key => key.Translation).CreateSampler());
+                    node.Item1.SetRotationTrack(animation.Name, keyframes.Select(key => key.Rotation).CreateSampler());
+                    node.Item1.SetScaleTrack(animation.Name, keyframes.Select(key => key.Scale).CreateSampler());
                 }
             }
 
@@ -161,19 +186,15 @@ namespace TT_Lab.AssetData.Code
         [JsonProperty(Required = Required.Always)]
         public List<TwinExitPoint> ExitPoints { get; set; }
         [JsonProperty(Required = Required.Always)]
-        public List<Byte> JointIndices { get; set; }
-        [JsonProperty(Required = Required.Always)]
-        public List<LabURI> RigidModelIds { get; set; }
-        [JsonProperty(Required = Required.Always)]
-        public List<Matrix4> SkinInverseMatrices { get; set; }
-        [JsonProperty(Required = Required.Always)]
-        public LabURI Skin { get; set; }
-        [JsonProperty(Required = Required.Always)]
-        public LabURI BlendSkin { get; set; }
-        [JsonProperty(Required = Required.Always)]
         public List<TwinBoundingBoxBuilder> BoundingBoxBuilders { get; set; }
         [JsonProperty(Required = Required.Always)]
         public List<Byte> BoundingBoxBuilderToJointIndex { get; set; }
+        
+        public List<Byte> JointIndices { get; set; }
+        public List<LabURI> RigidModelIds { get; set; }
+        public List<Matrix4> SkinInverseMatrices { get; set; }
+        public LabURI Skin { get; set; }
+        public LabURI BlendSkin { get; set; }
 
         protected override void Dispose(Boolean disposing)
         {

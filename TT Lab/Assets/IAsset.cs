@@ -78,7 +78,6 @@ public interface IAsset
     /// <summary>
     /// Asset's name with variation if present
     /// </summary>
-    [JsonProperty(Required = Required.Always)]
     String Name { get; }
 
     /// <summary>

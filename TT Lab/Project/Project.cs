@@ -113,12 +113,12 @@ public class Project : IProject
         var query = from asset in AssetManager.GetAssets()
             group asset by asset.Type;
         var assetTypesQuery = query as IGrouping<Type, IAsset>[] ?? query.ToArray();
-        var tasks = new Task[assetTypesQuery.Length - 2];
+        var tasks = new Task[assetTypesQuery.Length - 3];
         var index = 0;
-        DateTime startAsset = DateTime.Now;
+        var startAsset = DateTime.Now;
         foreach (var group in assetTypesQuery)
         {
-            if (group.Key.Name is nameof(BlendSkin) or nameof(Skin))
+            if (group.Key.Name is nameof(BlendSkin) or nameof(Skin) or nameof(OGI))
                 continue;
             tasks[index++] = Task.Factory.StartNew(() =>
             {
@@ -153,7 +153,7 @@ public class Project : IProject
         // and needing all the materials and textures serialized
         foreach (var group in assetTypesQuery)
         {
-            if (group.Key.Name != typeof(BlendSkin).Name && group.Key.Name != typeof(Skin).Name)
+            if (group.Key.Name != nameof(BlendSkin) && group.Key.Name != nameof(Skin) && group.Key.Name != nameof(OGI))
                 continue;
             Log.WriteLine($"Serializing {group.Key.Name}...");
             var now = DateTime.Now;
@@ -349,7 +349,6 @@ public class Project : IProject
         {
             archive.Read(reader, (int)fs.Length);
         }
-
             
         // Maps graph ID to behaviour starter
         var starterMap = new Dictionary<string, TwinBehaviourStarter>();
@@ -569,6 +568,7 @@ public class Project : IProject
             chunkResolver.FinalizeResolve();
         }
         
+        skydomeResolver.FinalizeResolve();
         behaviourSequenceResolver.FinalizeResolve();
         behaviourResolver.FinalizeResolve();
         gameObjectResolver.FinalizeResolve();

@@ -243,11 +243,40 @@ namespace TT_Lab.Project
                 Log.WriteLine("Unpacking XBox assets...");
                 OpenedProject.UnpackAssetsXbox();
 
-                Log.WriteLine($"Converting assets...");
-                foreach (var asset in OpenedProject.AssetManager.GetAssets())
+                Log.WriteLine($"Importing assets...");
+                var query = from asset in OpenedProject.AssetManager.GetAssets()
+                    group asset by asset.Type;
+                var assetTypesQuery = query as IGrouping<Type, IAsset>[] ?? query.ToArray();
+                var tasks = new Task[assetTypesQuery.Length];
+                var index = 0;
+                var startAsset = DateTime.Now;
+                foreach (var group in assetTypesQuery)
                 {
-                    asset.Import();
+                    tasks[index++] = Task.Factory.StartNew(() =>
+                    {
+                        Log.WriteLine($"Importing {group.Key.Name}...");
+                        var now = DateTime.Now;
+#if !DEBUG
+                    try
+                    {
+#endif
+                        foreach (var asset in group)
+                        {
+                            asset.Import();
+                        }
+#if !DEBUG
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.WriteLine($"Error serializing: {ex.Message}");
+                    }
+#endif
+                        var span = DateTime.Now - now;
+                        Log.WriteLine($"Finished importing {group.Key.Name} in {span}");
+                    });
                 }
+
+                Task.WaitAll(tasks);
                 var assetsToImport = OpenedProject.AssetManager.GetAssetsToImport();
                 while (!assetsToImport.IsEmpty)
                 {
@@ -260,6 +289,8 @@ namespace TT_Lab.Project
                     }
                     assetsToImport = OpenedProject.AssetManager.GetAssetsToImport();
                 }
+                
+                Log.WriteLine($"Imported assets in {(DateTime.Now - startAsset)}");
 
                 Log.WriteLine("Serializing assets...");
                 OpenedProject.Serialize(); // Call to serialize the asset list and chunk list

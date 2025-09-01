@@ -13,17 +13,17 @@ namespace TT_Lab.ViewModels.Editors.Instance
     public class SceneryViewModel : InstanceSectionResourceEditorViewModel
     {
 
-        private String sceneryName = "new_scenery";
-        private UInt32 unkUInt;
-        private Byte unkByte;
-        private LabURI skydome = LabURI.Empty;
-        private SceneryRootViewModel? sceneryTree;
+        private LabURI _chunk = LabURI.Empty;
+        private UInt32 _unkUInt;
+        private Byte _unkByte;
+        private LabURI _skydome = LabURI.Empty;
+        private SceneryRootViewModel? _sceneryTree;
 
         protected override void Save()
         {
             var asset = AssetManager.Get().GetAsset(EditableResource);
             var data = asset.GetData<SceneryData>();
-            data.ChunkPath = sceneryName;
+            data.ChunkPath = _chunk;
             data.FogColor = UnkUInt;
             data.UnkByte = UnkByte;
             data.SkydomeID = Skydome;
@@ -44,29 +44,29 @@ namespace TT_Lab.ViewModels.Editors.Instance
         {
             var asset = AssetManager.Get().GetAsset(EditableResource);
             var data = asset.GetData<SceneryData>();
-            sceneryName = data.ChunkPath[..];
-            unkUInt = data.FogColor;
-            unkByte = data.UnkByte;
-            skydome = data.SkydomeID;
+            _chunk = data.ChunkPath;
+            _unkUInt = data.FogColor;
+            _unkByte = data.UnkByte;
+            _skydome = data.SkydomeID;
             if (data.Sceneries.Count != 0)
             {
-                sceneryTree = new SceneryRootViewModel(data.Sceneries[0], data.Sceneries.Skip(1).ToList());
-                sceneryTree.BuildTree();
-                DirtyTracker.AddChild(sceneryTree);
+                _sceneryTree = new SceneryRootViewModel(data.Sceneries[0], data.Sceneries.Skip(1).ToList());
+                _sceneryTree.BuildTree();
+                DirtyTracker.AddChild(_sceneryTree);
             }
             
             ResetDirty();
         }
 
         [MarkDirty]
-        public String SceneryName
+        public LabURI Chunk
         {
-            get => sceneryName;
+            get => _chunk;
             set
             {
-                if (sceneryName != value)
+                if (_chunk != value)
                 {
-                    sceneryName = value;
+                    _chunk = value;
                     NotifyOfPropertyChange();
                 }
             }
@@ -74,12 +74,12 @@ namespace TT_Lab.ViewModels.Editors.Instance
         [MarkDirty]
         public UInt32 UnkUInt
         {
-            get => unkUInt;
+            get => _unkUInt;
             set
             {
-                if (value != unkUInt)
+                if (value != _unkUInt)
                 {
-                    unkUInt = value;
+                    _unkUInt = value;
                     NotifyOfPropertyChange();
                 }
             }
@@ -87,12 +87,12 @@ namespace TT_Lab.ViewModels.Editors.Instance
         [MarkDirty]
         public Byte UnkByte
         {
-            get => unkByte;
+            get => _unkByte;
             set
             {
-                if (unkByte != value)
+                if (_unkByte != value)
                 {
-                    unkByte = value;
+                    _unkByte = value;
                     NotifyOfPropertyChange();
                 }
             }
@@ -100,19 +100,19 @@ namespace TT_Lab.ViewModels.Editors.Instance
         [MarkDirty]
         public LabURI Skydome
         {
-            get => skydome;
+            get => _skydome;
             set
             {
-                if (value != skydome)
+                if (value != _skydome)
                 {
-                    skydome = value;
+                    _skydome = value;
                     NotifyOfPropertyChange();
                 }
             }
         }
         public SceneryRootViewModel? SceneryTree
         {
-            get => sceneryTree;
+            get => _sceneryTree;
         }
     }
 }

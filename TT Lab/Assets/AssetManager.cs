@@ -18,7 +18,7 @@ public class AssetManager
     private readonly AssetStorage _importAssets = [];
 
     // TODO: Check if locks are required to access assets for thread-safety
-    //private object assetAccessLock = new object();
+    private readonly object _assetAccessLock = new();
 
     public AssetManager() { }
 
@@ -87,7 +87,10 @@ public class AssetManager
     /// <param name="asset">Asset to add</param>
     public void AddAssetToImport(IAsset asset)
     {
-        _importAssets.Add(asset.URI, asset);
+        lock (_assetAccessLock)
+        {
+            _importAssets.Add(asset.URI, asset);
+        }
     }
 
     /// <summary>
@@ -247,24 +250,24 @@ public class AssetManager
     /// <returns></returns>
     public ImmutableList<T> GetAllAssetsOf<T>() where T : IAsset
     {
-        return _assets.Values.Distinct().Where(asset => asset is T).Cast<T>().ToImmutableList();
+        return _assets.GetValuesByType(typeof(T)).Cast<T>().ToImmutableList();
     }
 
     public ImmutableList<IAsset> GetAllAssetsOf(Type type)
     {
         Debug.Assert(type.IsAssignableTo(typeof(IAsset)), $"Given type {type.Name} must implement IAsset");
-        return _assets.Values.Distinct().Where(asset => asset.GetType().IsAssignableTo(type)).ToImmutableList();
+        return _assets.GetValuesByType(type).ToImmutableList();
     }
 
     public ImmutableList<LabURI> GetAllAssetUrisOf<T>() where T : IAsset
     {
-        return _assets.Values.Distinct().Where(asset => asset is T).Select(asset => asset.URI).ToImmutableList();
+        return _assets.GetValuesByType(typeof(T)).Select(asset => asset.URI).ToImmutableList();
     }
         
     public ImmutableList<LabURI> GetAllAssetUrisOf(Type type)
     {
         Debug.Assert(type.IsAssignableTo(typeof(IAsset)), $"Given type {type.Name} must implement IAsset");
-        return _assets.Values.Distinct().Where(asset => asset.GetType().IsAssignableTo(type)).Select(asset => asset.URI).ToImmutableList();
+        return _assets.GetValuesByType(type).Select(asset => asset.URI).ToImmutableList();
     }
 
     /// <summary>
@@ -277,5 +280,13 @@ public class AssetManager
     /// 
     /// </summary>
     /// <returns>All assets queued for delayed import stage</returns>
-    public ImmutableList<IAsset> GetAssetsToImport() { var immut = _importAssets.Values.Distinct().ToImmutableList(); _importAssets.Clear(); return immut; }
+    public ImmutableList<IAsset> GetAssetsToImport()
+    {
+        lock (_assetAccessLock)
+        {
+            var immut = _importAssets.Values.Distinct().ToImmutableList();
+            _importAssets.Clear();
+            return immut;
+        }
+    }
 }

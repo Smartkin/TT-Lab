@@ -168,7 +168,7 @@ namespace TT_Lab.AssetData.Code
                     var id = e;
                     if (id % 2 == 0)
                     {
-                        var allGraphs = assetManager.GetAllAssetsOf<BehaviourGraph>().Cast<BehaviourGraph>();
+                        var allGraphs = assetManager.GetAllAssetsOf<BehaviourGraph>();
                         foreach (var graph in allGraphs)
                         {
                             if (graph.MapStarterIdToSelf(id) == -1)
@@ -250,7 +250,7 @@ namespace TT_Lab.AssetData.Code
                     }
                     else
                     {
-                        var allCms = assetManager.GetAllAssetsOf<BehaviourCommandsSequence>().Cast<BehaviourCommandsSequence>();
+                        var allCms = assetManager.GetAllAssetsOf<BehaviourCommandsSequence>();
                         foreach (var cm in allCms)
                         {
                             if (cm.BehaviourGraphLinks.ContainsKey(e))

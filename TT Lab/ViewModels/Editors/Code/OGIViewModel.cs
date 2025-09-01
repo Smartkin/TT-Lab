@@ -155,16 +155,16 @@ public class OGIViewModel : ResourceEditorViewModel
 
     public void ExportOgi()
     {
-        using var sfd = new SaveFileDialog();
-        sfd.Title = "Export Skeleton";
-        sfd.Filter = "GLB file (*.glb)|*.glb";
-        var result = sfd.ShowDialog();
-        if (result == DialogResult.OK)
-        {
-            var path = sfd.FileName;
-            var ogiData = AssetManager.Get().GetAssetData<OGIData>(EditableResource);
-            ogiData.ExportGltf(path);
-        }
+        // using var sfd = new SaveFileDialog();
+        // sfd.Title = "Export Skeleton";
+        // sfd.Filter = "GLB file (*.glb)|*.glb";
+        // var result = sfd.ShowDialog();
+        // if (result == DialogResult.OK)
+        // {
+        //     var path = sfd.FileName;
+        //     var ogiData = AssetManager.Get().GetAssetData<OGIData>(EditableResource);
+        //     ogiData.ExportGltf(path);
+        // }
     }
 
     public ViewportViewModel OGIScene { get; }
