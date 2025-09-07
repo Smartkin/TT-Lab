@@ -81,23 +81,23 @@ namespace TT_Lab.AssetData.Instance
             UnkSoundId = LabURI.Empty;
             if (collisionSurface.StepSoundId1 != 0xFFFF)
             {
-                StepSoundId1 = AssetManager.Get().GetUriByTwinId<SoundEffect>(package, variant, collisionSurface.StepSoundId1);
+                StepSoundId1 = AssetManager.Get().GetUriByTwinId<SoundEffect>(Owner, collisionSurface.StepSoundId1);
             }
             if (collisionSurface.StepSoundId2 != 0xFFFF)
             {
-                StepSoundId2 = AssetManager.Get().GetUriByTwinId<SoundEffect>(package, variant, collisionSurface.StepSoundId2);
+                StepSoundId2 = AssetManager.Get().GetUriByTwinId<SoundEffect>(Owner, collisionSurface.StepSoundId2);
             }
             if (collisionSurface.LandSoundId1 != 0xFFFF)
             {
-                LandSoundId1 = AssetManager.Get().GetUriByTwinId<SoundEffect>(package, variant, collisionSurface.LandSoundId1);
+                LandSoundId1 = AssetManager.Get().GetUriByTwinId<SoundEffect>(Owner, collisionSurface.LandSoundId1);
             }
             if (collisionSurface.LandSoundId2 != 0xFFFF)
             {
-                LandSoundId2 = AssetManager.Get().GetUriByTwinId<SoundEffect>(package, variant, collisionSurface.LandSoundId2);
+                LandSoundId2 = AssetManager.Get().GetUriByTwinId<SoundEffect>(Owner, collisionSurface.LandSoundId2);
             }
             if (collisionSurface.UnkSoundId != 0xFFFF)
             {
-                UnkSoundId = AssetManager.Get().GetUriByTwinId<SoundEffect>(package, variant, collisionSurface.UnkSoundId);
+                UnkSoundId = AssetManager.Get().GetUriByTwinId<SoundEffect>(Owner, collisionSurface.UnkSoundId);
             }
             WalkOnParticleSystemId1 = collisionSurface.WalkOnParticleSystemId;
             WalkOnParticleSystemId2 = collisionSurface.WalkOnParticleSystemId2;

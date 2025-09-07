@@ -24,7 +24,7 @@ public class TextFile : GlobalAsset
         if (!IsLoaded || AssetData.Disposed)
         {
             AssetData = new TextFileData(this);
-            AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
+            AssetData.Load(DataLoadPath);
         }
         return AssetData;
     }

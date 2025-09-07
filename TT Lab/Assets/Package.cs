@@ -11,7 +11,7 @@ namespace TT_Lab.Assets;
 
 public class Package : SerializableAsset
 {
-    protected override string SavePath => Name;
+    public override string SavePath => Name;
     protected override string SavePathInPackage => string.Empty;
 
     [JsonProperty(Required = Required.Always)]

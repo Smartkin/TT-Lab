@@ -100,23 +100,23 @@ namespace TT_Lab.AssetData.Instance
             Instances = new(instance.Instances.Count);
             foreach (var inst in instance.Instances)
             {
-                Instances.Add(assetManager.GetUriByTwinId<ObjectInstance>(package, variant, inst, layoutId));
+                Instances.Add(assetManager.GetUriByTwinId<ObjectInstance>(Owner, inst, layoutId));
             }
             PositionsRelated = instance.PositionsRelated;
             Positions = new(instance.Positions.Count);
             foreach (var pos in instance.Positions)
             {
-                Positions.Add(assetManager.GetUriByTwinId<Position>(package, variant, pos, layoutId));
+                Positions.Add(assetManager.GetUriByTwinId<Position>(Owner, pos, layoutId));
             }
             PathsRelated = instance.PathsRelated;
             Paths = new(instance.Paths.Count);
             foreach (var path in instance.Paths)
             {
-                Paths.Add(assetManager.GetUriByTwinId<Path>(package, variant, path, layoutId));
+                Paths.Add(assetManager.GetUriByTwinId<Path>(Owner, path, layoutId));
             }
-            ObjectId = assetManager.GetUriByTwinId<GameObject>(package, variant, instance.ObjectId);
+            ObjectId = assetManager.GetUriByTwinId<GameObject>(Owner, instance.ObjectId);
             RefListIndex = instance.RefListIndex;
-            OnSpawnScriptId = assetManager.GetUriByTwinId<BehaviourGraph>(package, variant, instance.OnSpawnHeaderScriptID + 1U);
+            OnSpawnScriptId = assetManager.GetUriByTwinId<BehaviourGraph>(Owner, instance.OnSpawnHeaderScriptID + 1U);
             StateFlags = instance.StateFlags;
             ParamList1 = CloneUtils.CloneList(instance.ParamList1);
             ParamList2 = CloneUtils.CloneList(instance.ParamList2);

@@ -105,7 +105,7 @@ namespace TT_Lab.AssetData.Code.Behaviour
             IStarterAssignerGlobalObjectIdResolversList? globalObjectIdResolver = null;
             if (starter != null)
             {
-                globalObjectIdResolver = new DefaultStarterAssignerGlobalObjectIdResolversList(starter.Assigners.Select(assigner => new LabStarterAssignerGlobalObjectIdResolver(package, variant, assigner.GlobalObjectId)).Cast<IStarterAssignerGlobalObjectIdResolver>().ToArray());
+                globalObjectIdResolver = new DefaultStarterAssignerGlobalObjectIdResolversList(starter.Assigners.Select(assigner => new LabStarterAssignerGlobalObjectIdResolver(Owner, assigner.GlobalObjectId)).Cast<IStarterAssignerGlobalObjectIdResolver>().ToArray());
             }
             
             var stateList = new List<IStateResolver>();
@@ -114,7 +114,7 @@ namespace TT_Lab.AssetData.Code.Behaviour
                 string? graphName = null;
                 if (state.BehaviourIndexOrSlot != -1 && !state.UsesObjectSlot)
                 {
-                    graphName = AssetManager.Get().GetUriByTwinId<BehaviourGraph>(package, variant, (uint)state.BehaviourIndexOrSlot);
+                    graphName = AssetManager.Get().GetUriByTwinId<BehaviourGraph>(Owner, (uint)state.BehaviourIndexOrSlot);
                 }
 
                 stateList.Add(new DefaultStateResolver(graphName));

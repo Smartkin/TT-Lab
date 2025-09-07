@@ -3,11 +3,13 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using TT_Lab.AssetData.Graphics;
 using TT_Lab.AssetData.Instance.Scenery;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Assets.Graphics;
 using TT_Lab.Attributes;
+using TT_Lab.Extensions;
 using TT_Lab.Util;
 using Twinsanity.TwinsanityInterchange.Common.Lights;
 using Twinsanity.TwinsanityInterchange.Enumerations;
@@ -75,6 +77,104 @@ namespace TT_Lab.AssetData.Instance
             Sceneries.Clear();
         }
 
+        private void ExportGltf(string path)
+        {
+            var scene = new SharpGLTF.Scenes.SceneBuilder($"TwinsanityScenery_{Owner.Name}");
+            var root = new SharpGLTF.Scenes.NodeBuilder("scenery_root");
+            scene.AddNode(root);
+
+            // TODO: Figure out lighting
+            if (HasLighting)
+            {
+                foreach (var ambientLight in AmbientLights)
+                {
+                }
+
+                foreach (var directionalLight in DirectionalLights)
+                {
+                }
+
+                foreach (var pointLight in PointLights)
+                {
+                }
+
+                foreach (var negativeLight in NegativeLights)
+                {
+                }
+            }
+
+            var sceneryRoot = (SceneryRootData)Sceneries[0];
+            var sceneryList = Sceneries.Skip(1).ToList();
+            BuildSceneryRenderTreeForNode(scene, root, sceneryRoot, ref sceneryList);
+            ExportSceneryNodesToGltf(scene, root, sceneryRoot);
+            
+            var resultModel = scene.ToGltf2();
+            resultModel.SaveGLB(path);
+        }
+        
+        private void BuildSceneryRenderTreeForNode(SharpGLTF.Scenes.SceneBuilder scene, SharpGLTF.Scenes.NodeBuilder parentNode, SceneryNodeData sceneryNode, ref List<SceneryBaseData> sceneryTree)
+        {
+            foreach (var sceneryType in sceneryNode.SceneryTypes)
+            {
+                if (sceneryType == ITwinScenery.SceneryType.Node)
+                {
+                    var childNode = parentNode.CreateNode();
+                    var data = (SceneryNodeData)sceneryTree[0];
+                    sceneryTree = sceneryTree.Skip(1).ToList();
+                    ExportSceneryNodesToGltf(scene, childNode, data);
+                    BuildSceneryRenderTreeForNode(scene, childNode, data, ref sceneryTree);
+                }
+                else if (sceneryType == ITwinScenery.SceneryType.Leaf)
+                {
+                    var data = sceneryTree[0];
+                    sceneryTree = sceneryTree.Skip(1).ToList();
+                    ExportSceneryNodesToGltf(scene, parentNode, data);
+                }
+            }
+        }
+
+        private void ExportSceneryNodesToGltf(SharpGLTF.Scenes.SceneBuilder scene, SharpGLTF.Scenes.NodeBuilder parentNode, SceneryBaseData sceneryData)
+        {
+            var assetManager = AssetManager.Get();
+            var index = 0;
+            foreach (var meshId in sceneryData.MeshIDs)
+            {
+                var meshData = assetManager.GetAssetData<MeshData>(meshId);
+                var model = assetManager.GetAssetData<ModelData>(meshData.Model);
+                var meshMatrix = sceneryData.MeshModelMatrices[index];
+                var meshNode = parentNode.CreateNode();
+                meshNode.LocalMatrix = meshMatrix.ToSystem();
+                var meshes = model.GetMeshes(parentNode, meshData.Materials.Select(matUri => assetManager.GetAssetData<MaterialData>(matUri)).ToList());
+                foreach (var mesh in meshes)
+                {
+                    scene.AddRigidMesh(mesh.Mesh, meshNode);
+                }
+
+                index++;
+            }
+
+            index = 0;
+            foreach (var lodId in sceneryData.LodIDs)
+            {
+                var lodData = assetManager.GetAssetData<LodModelData>(lodId);
+                var lodNode = parentNode.CreateNode();
+                var lodMatrix = sceneryData.LodModelMatrices[index];
+                lodNode.LocalMatrix = lodMatrix.ToSystem();
+                foreach (var meshId in lodData.Meshes)
+                {
+                    var meshData = assetManager.GetAssetData<MeshData>(meshId);
+                    var model = assetManager.GetAssetData<ModelData>(meshData.Model);
+                    var meshes = model.GetMeshes(parentNode, meshData.Materials.Select(matUri => assetManager.GetAssetData<MaterialData>(matUri)).ToList());
+                    foreach (var mesh in meshes)
+                    {
+                        scene.AddRigidMesh(mesh.Mesh, lodNode);
+                    }
+                }
+
+                index++;
+            }
+        }
+
         protected override void SaveInternal(String dataPath, JsonSerializerSettings? settings = null)
         {
             settings = new JsonSerializerSettings
@@ -82,6 +182,8 @@ namespace TT_Lab.AssetData.Instance
                 TypeNameHandling = TypeNameHandling.All
             };
             base.SaveInternal(dataPath, settings);
+            
+            ExportGltf(dataPath + ".glb");
         }
 
         protected override void LoadInternal(String dataPath, JsonSerializerSettings? settings = null)
@@ -102,7 +204,7 @@ namespace TT_Lab.AssetData.Instance
             UnkByte = scenery.UnkByte;
             if (scenery.SkydomeID != 0)
             {
-                SkydomeID = AssetManager.Get().GetUriByTwinId<Skydome>(package, variant, scenery.SkydomeID);
+                SkydomeID = AssetManager.Get().GetUriByTwinId<Skydome>(Owner, scenery.SkydomeID);
             }
             HasLighting = scenery.HasLighting;
             if (HasLighting)
@@ -115,7 +217,7 @@ namespace TT_Lab.AssetData.Instance
             Sceneries = new List<SceneryBaseData>();
             foreach (var sc in scenery.Sceneries)
             {
-                Sceneries.Add((SceneryBaseData)Activator.CreateInstance(ScIndexToType[sc.GetObjectIndex()], package, variant, sc)!);
+                Sceneries.Add((SceneryBaseData)Activator.CreateInstance(ScIndexToType[sc.GetObjectIndex()], Owner, sc)!);
             }
         }
 

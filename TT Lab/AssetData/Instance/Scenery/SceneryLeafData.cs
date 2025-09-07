@@ -8,7 +8,7 @@ namespace TT_Lab.AssetData.Instance.Scenery
     public class SceneryLeafData : SceneryBaseData
     {
         public SceneryLeafData() { }
-        public SceneryLeafData(LabURI package, String? variant, TwinSceneryBaseType baseType) : base(package, variant, baseType)
+        public SceneryLeafData(IAsset owner, TwinSceneryBaseType baseType) : base(owner, baseType)
         {
         }
         public SceneryLeafData(BaseSceneryViewModel vm) : base(vm) { }

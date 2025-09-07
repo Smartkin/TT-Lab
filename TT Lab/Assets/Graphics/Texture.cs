@@ -54,7 +54,7 @@ namespace TT_Lab.Assets.Graphics
             if (!IsLoaded || AssetData.Disposed)
             {
                 AssetData = new TextureData(this);
-                AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
+                AssetData.Load(DataLoadPath);
             }
             return AssetData;
         }

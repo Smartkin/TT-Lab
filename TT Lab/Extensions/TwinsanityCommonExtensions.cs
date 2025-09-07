@@ -12,6 +12,15 @@ namespace TT_Lab.Extensions
             return new System.Numerics.Vector4(twinVec.X, twinVec.Y, twinVec.Z, twinVec.W);
         }
 
+        public static System.Numerics.Matrix4x4 ToSystem(this Twinsanity.TwinsanityInterchange.Common.Matrix4 twinMat)
+        {
+            var glmMat = twinMat.ToGlm().Transposed;
+            return new System.Numerics.Matrix4x4(glmMat.Row0.x, glmMat.Row0.y, glmMat.Row0.z, glmMat.Row0.w,
+                glmMat.Row1.x, glmMat.Row1.y, glmMat.Row1.z, glmMat.Row1.w,
+                glmMat.Row2.x, glmMat.Row2.y, glmMat.Row2.z, glmMat.Row2.w,
+                glmMat.Row3.x, glmMat.Row3.y, glmMat.Row3.z, glmMat.Row3.w);
+        }
+
         public static GlmSharp.vec4 ToGlm(this Twinsanity.TwinsanityInterchange.Common.Vector4 twinVec)
         {
             return new GlmSharp.vec4(twinVec.X, twinVec.Y, twinVec.Z, twinVec.W);

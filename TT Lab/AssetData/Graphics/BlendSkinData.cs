@@ -251,7 +251,7 @@ public class BlendSkinData : AbstractAssetData
         BlendsAmount = blendSkin.BlendsAmount;
         foreach (var blend in blendSkin.SubBlends)
         {
-            Blends.Add(new SubBlendData(package, variant, blend));
+            Blends.Add(new SubBlendData(Owner, blend));
         }
     }
 

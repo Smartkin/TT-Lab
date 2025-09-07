@@ -59,7 +59,7 @@ namespace TT_Lab.AssetData.Graphics.Shaders
 
         public LabShader() { }
         
-        public LabShader(LabURI package, String? variant, TwinShader twinShader)
+        public LabShader(IAsset owner, TwinShader twinShader)
         {
             ShaderType = twinShader.ShaderType;
             IntParam = twinShader.IntParam;
@@ -89,7 +89,7 @@ namespace TT_Lab.AssetData.Graphics.Shaders
             ZValueDrawingMask = twinShader.ZValueDrawingMask;
             LodParamK = twinShader.LodParamK;
             LodParamL = twinShader.LodParamL;
-            TextureId = (twinShader.TextureId == 0) ? LabURI.Empty : AssetManager.Get().GetUriByTwinId<Texture>(package, variant, twinShader.TextureId);
+            TextureId = (twinShader.TextureId == 0) ? LabURI.Empty : AssetManager.Get().GetUriByTwinId<Texture>(owner, twinShader.TextureId);
             UnkVal1 = twinShader.UnkVal1;
             XScrollSettings = twinShader.XScrollSettings;
             YScrollSettings = twinShader.YScrollSettings;

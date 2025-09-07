@@ -16,9 +16,9 @@ namespace TT_Lab.AssetData.Graphics.SubModels
         public List<IndexedFace> Faces { get; set; }
         public MeshProcessor.Mesh Mesh { get; set; }
 
-        public SubSkinData(LabURI package, String? variant, ITwinSubSkin subSkin)
+        public SubSkinData(IAsset owner, ITwinSubSkin subSkin)
         {
-            Material = AssetManager.Get().GetUriByTwinId<Assets.Graphics.Material>(package, variant, subSkin.Material);
+            Material = AssetManager.Get().GetUriByTwinId<Assets.Graphics.Material>(owner, subSkin.Material);
             if (Material == LabURI.Empty)
             {
                 var allMaterials = AssetManager.Get().GetAssets().FindAll(a => a is Material).ConvertAll(a => a.URI);

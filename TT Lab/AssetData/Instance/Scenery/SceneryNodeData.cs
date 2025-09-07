@@ -17,7 +17,7 @@ namespace TT_Lab.AssetData.Instance.Scenery
 
         public SceneryNodeData() { }
 
-        public SceneryNodeData(LabURI package, String? variant, TwinSceneryBaseType baseType) : base(package, variant, baseType)
+        public SceneryNodeData(IAsset owner, TwinSceneryBaseType baseType) : base(owner, baseType)
         {
             var node = (TwinSceneryNode)baseType;
             SceneryTypes = CloneUtils.DeepClone(node.SceneryTypes);

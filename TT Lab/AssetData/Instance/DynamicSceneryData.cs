@@ -42,7 +42,7 @@ namespace TT_Lab.AssetData.Instance
             DynamicModels.Clear();
             foreach (var model in dynamicScenery.DynamicModels)
             {
-                DynamicModels.Add(new DynamicSceneryModelData(package, variant, model));
+                DynamicModels.Add(new DynamicSceneryModelData(Owner, model));
             }
         }
 

@@ -136,12 +136,51 @@ public class AssetManager
         return IoC.Get<ProjectManager>().OpenedProject!.AssetManager;
     }
 
-    private LabURI GetUriByTwinId(LabURI package, Type type, String? variant, UInt32 id, int? layoutId = null)
+    private LabURI GetUriByTwinId(LabURI package, Type type, IAsset requester, UInt32 id, int? layoutId = null)
     {
         var filteredAssets = GetAllAssetsOf(type);
-        var result = filteredAssets.Where(f => f.ID == id
-                                               && (!string.IsNullOrEmpty(variant) || f.Variation == variant)
-                                               && (layoutId != null || f.LayoutID == layoutId)).Select(f => f.URI).FirstOrDefault(LabURI.Empty);
+        var variation = requester.Variation;
+        var savePathFolders = requester.SavePath.Replace('/', '\\').Split('\\');
+        var result = LabURI.Empty;
+        var matchedAssets = filteredAssets.Where(f => f.ID == id
+                                                      && (!string.IsNullOrEmpty(variation) || f.Variation == variation)
+                                                      && (layoutId != null || f.LayoutID == layoutId)).ToList();
+        if (matchedAssets.Count > 1)
+        {
+            matchedAssets.Sort((a1, a2) =>
+            {
+                var asset1SavePathFolders = a1.SavePath.Replace('/', '\\').Split('\\');
+                var asset2SavePathFolders = a2.SavePath.Replace('/', '\\').Split('\\');
+                var asset1Matches = 0;
+                var asset2Matches = 0;
+                var searchDepth = Math.Min(savePathFolders.Length, asset1SavePathFolders.Length);
+                for (var i = 0; i < searchDepth; i++)
+                {
+                    if (savePathFolders[i] == asset1SavePathFolders[i])
+                    {
+                        asset1Matches++;
+                    }
+                }
+                
+                searchDepth = Math.Min(savePathFolders.Length, asset2SavePathFolders.Length);
+                for (var i = 0; i < searchDepth; i++)
+                {
+                    if (savePathFolders[i] == asset2SavePathFolders[i])
+                    {
+                        asset2Matches++;
+                    }
+                }
+                
+                return asset2Matches - asset1Matches;
+            });
+
+            result = matchedAssets[0].URI;
+        }
+        else if (matchedAssets.Count == 1)
+        {
+            result = matchedAssets[0].URI;
+        }
+        
         if (result != LabURI.Empty)
         {
             return result;
@@ -150,7 +189,7 @@ public class AssetManager
         var packageAsset = GetAsset<Package>(package);
         foreach (var dependency in packageAsset.Dependencies)
         {
-            result = GetUriByTwinId(dependency, type, variant, id);
+            result = GetUriByTwinId(dependency, type, requester, id, layoutId);
             if (result != LabURI.Empty)
             {
                 break;
@@ -160,14 +199,9 @@ public class AssetManager
         return result;
     }
 
-    public LabURI GetUriByTwinId<T>(LabURI package, String? variant, UInt32 id) where T : IAsset
+    public LabURI GetUriByTwinId<T>(IAsset requester, UInt32 id, int? layoutId = null) where T : IAsset
     {
-        return GetUriByTwinId(package, typeof(T), variant, id);
-    }
-    
-    public LabURI GetUriByTwinId<T>(LabURI package, String? variant, UInt32 id, int? layoutId) where T : IAsset
-    {
-        return GetUriByTwinId(package, typeof(T), variant, id, layoutId);
+        return GetUriByTwinId(requester.Package, typeof(T), requester, id, layoutId);
     }
 
     // Disallow obtaining URIs by pure strings publicly
@@ -187,12 +221,12 @@ public class AssetManager
     /// </summary>
     /// <param name="package"></param>
     /// <param name="type"></param>
-    /// <param name="variant"></param>
+    /// <param name="requester"></param>
     /// <param name="id"></param>
     /// <returns>Any asset</returns>
-    private IAsset GetAsset(LabURI package, Type type, String? variant, uint id)
+    private IAsset GetAsset(LabURI package, Type type, IAsset requester, uint id)
     {
-        return _assets[GetUriByTwinId(package, type, variant, id)];
+        return _assets[GetUriByTwinId(package, type, requester, id)];
     }
 
     /// <summary>
@@ -210,14 +244,13 @@ public class AssetManager
     /// </summary>
     /// <typeparam name="T">Specific asset type</typeparam>
     /// <param name="package"></param>
-    /// <param name="folder"></param>
-    /// <param name="variant"></param>
+    /// <param name="requester"></param>
     /// <param name="id"></param>
     /// <returns>Asset of a specific type</returns>
-    /// <seealso cref="GetAsset(LabURI, string, string?, uint)"/>
-    public T GetAsset<T>(LabURI package, String? variant, uint id) where T : IAsset
+    /// <seealso cref="GetAsset(LabURI, Type, IAsset, uint)"/>
+    public T GetAsset<T>(LabURI package, IAsset requester, uint id) where T : IAsset
     {
-        return (T)GetAsset(package, typeof(T), variant, id);
+        return (T)GetAsset(package, typeof(T), requester, id);
     }
 
     /// <summary>
@@ -237,13 +270,12 @@ public class AssetManager
     /// </summary>
     /// <typeparam name="T">Specific asset data type</typeparam>
     /// <param name="package"></param>
-    /// <param name="folder"></param>
-    /// <param name="variant"></param>
+    /// <param name="requester"></param>
     /// <param name="id"></param>
     /// <returns>Data of the asset of a specified type</returns>
-    public T GetAssetData<T>(LabURI package, String? variant, uint id) where T : AbstractAssetData
+    public T GetAssetData<T>(LabURI package, IAsset requester, uint id) where T : AbstractAssetData
     {
-        return GetAsset(package, typeof(T), variant, id).GetData<T>();
+        return GetAsset(package, typeof(T), requester, id).GetData<T>();
     }
 
     /// <summary>

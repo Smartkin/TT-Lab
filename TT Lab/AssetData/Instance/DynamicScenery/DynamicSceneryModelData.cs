@@ -29,14 +29,14 @@ namespace TT_Lab.AssetData.Instance.DynamicScenery
             BoundingBox = new[] { new Vector4(0, 0, 0, 1), new Vector4(10, 10, 10, 1) };
         }
 
-        public DynamicSceneryModelData(LabURI package, String? variant, TwinDynamicSceneryModel model)
+        public DynamicSceneryModelData(IAsset owner, TwinDynamicSceneryModel model)
         {
             UnkInt = model.UnkInt;
             BoundingBoxBuilders = CloneUtils.DeepClone(model.BoundingBoxBuilders);
             AnimatedFrames = model.AnimatedFrames;
             Animation = CloneUtils.DeepClone(model.Animation);
             LodFlag = model.LodFlag;
-            Mesh = AssetManager.Get().GetUriByTwinId<Mesh>(package, variant, model.MeshID);
+            Mesh = AssetManager.Get().GetUriByTwinId<Mesh>(owner, model.MeshID);
             BoundingBox = new Vector4[2];
             for (Int32 i = 0; i < BoundingBox.Length; i++)
             {

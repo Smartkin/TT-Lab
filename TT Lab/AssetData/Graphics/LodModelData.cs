@@ -57,7 +57,7 @@ namespace TT_Lab.AssetData.Graphics
             Meshes = new List<LabURI>();
             foreach (var mesh in lod.Meshes)
             {
-                Meshes.Add(AssetManager.Get().GetUriByTwinId<Mesh>(package, variant, mesh));
+                Meshes.Add(AssetManager.Get().GetUriByTwinId<Mesh>(Owner, mesh));
             }
         }
 

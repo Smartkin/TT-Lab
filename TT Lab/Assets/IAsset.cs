@@ -19,7 +19,6 @@ namespace TT_Lab.Assets;
  * -    Mesh: Same as rigid model
  * -    Skin: Skinned models with materials
  * -    BlendSkins: Skinned models with facial poses
- * -    Animations: Raw animation data
  * All the above-mentioned assets are merged into higher level assets such as Scenery, DynamicScenery, Skydome and OGI
  * which consequently get imported into GLTF and metadata files with all the necessary data
  */
@@ -39,6 +38,11 @@ public enum SerializationFlags
 [JsonObject(MemberSerialization.OptIn)]
 public interface IAsset
 {
+    /// <summary>
+    /// Where the asset is saved in the assets folder of the project root
+    /// </summary>
+    String SavePath { get; }
+    
     /// <summary>
     /// Asset's string type
     /// </summary>

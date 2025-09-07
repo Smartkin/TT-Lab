@@ -120,7 +120,7 @@ namespace TT_Lab.Assets
             {
                 return;
             }
-            uriStringCopy = uriStringCopy[1..];
+            uriStringCopy = uriStringCopy[1..(uriStringCopy.LastIndexOf('/') is -1 or 0 ? uriStringCopy.Length : uriStringCopy.LastIndexOf('/'))];
             
             _filePathInPackage = uriStringCopy;
         }

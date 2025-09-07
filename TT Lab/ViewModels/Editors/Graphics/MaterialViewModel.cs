@@ -137,10 +137,10 @@ public class MaterialViewModel : ResourceEditorViewModel
 
     private void InitMaterialViewer()
     {
-        var material = new MaterialData(AssetManager.Get().GetAsset(EditableResource));
-        Save(ref material);
         MaterialViewer.SceneInitializer = (renderer, scene) =>
         {
+            var material = new MaterialData(AssetManager.Get().GetAsset(EditableResource));
+            Save(ref material);
             // Explicitly create new mesh
             _planeMesh = _meshFactory.CreateMesh(LabURI.Plane)!;
             _planeMesh.GetModels()[0].ReplaceMaterial(material);

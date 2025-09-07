@@ -23,7 +23,7 @@ public class Font : GlobalAsset
         if (!IsLoaded || AssetData.Disposed)
         {
             AssetData = new FontData(this);
-            AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
+            AssetData.Load(DataLoadPath);
         }
         return AssetData;
     }

@@ -50,7 +50,7 @@ namespace TT_Lab.AssetData.Graphics
             Shaders = [];
             foreach (var shader in material.Shaders)
             {
-                Shaders.Add(new LabShader(package, variant, shader));
+                Shaders.Add(new LabShader(Owner, shader));
             }
         }
 

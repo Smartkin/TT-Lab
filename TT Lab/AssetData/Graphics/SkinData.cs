@@ -243,7 +243,7 @@ public class SkinData : AbstractAssetData
         SubSkins = new List<SubSkinData>();
         foreach (var e in skin.SubSkins)
         {
-            SubSkins.Add(new SubSkinData(package, variant, e));
+            SubSkins.Add(new SubSkinData(Owner, e));
         }
     }
 

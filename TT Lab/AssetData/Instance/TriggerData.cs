@@ -40,7 +40,7 @@ namespace TT_Lab.AssetData.Instance
             Instances = new(trigger.Instances.Count);
             foreach (var inst in trigger.Instances)
             {
-                Instances.Add(AssetManager.Get().GetUriByTwinId<ObjectInstance>(package, variant, inst, layoutId));
+                Instances.Add(AssetManager.Get().GetUriByTwinId<ObjectInstance>(Owner, inst, layoutId));
             }
             Header = trigger.Header;
             UnkFloat = trigger.UnkFloat;
@@ -91,7 +91,7 @@ namespace TT_Lab.AssetData.Instance
             Instances = new List<LabURI>(trigger.Trigger.Instances.Count);
             foreach (var inst in trigger.Trigger.Instances)
             {
-                Instances.Add(AssetManager.Get().GetUriByTwinId<ObjectInstance>(package, variant, inst, layoutId));
+                Instances.Add(AssetManager.Get().GetUriByTwinId<ObjectInstance>(Owner, inst, layoutId));
             }
             Header = trigger.Trigger.Header;
             UnkFloat = trigger.Trigger.UnkFloat;

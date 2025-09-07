@@ -27,10 +27,10 @@ namespace TT_Lab.AssetData.Code.Object
             MessageID = 0;
         }
 
-        public ObjectTriggerBehaviourData(LabURI package, String? variant, TwinObjectTriggerBehaviour triggerBehaviour, Dictionary<string, TwinBehaviourStarter> starterMap)
+        public ObjectTriggerBehaviourData(IAsset owner, TwinObjectTriggerBehaviour triggerBehaviour, Dictionary<string, TwinBehaviourStarter> starterMap)
         {
             var starter = starterMap.Values.First(s => s.GetID() == triggerBehaviour.TriggerBehaviour);
-            TriggerBehaviour = AssetManager.Get().GetUriByTwinId<BehaviourGraph>(package, variant, (uint)(starter.Assigners[0].Behaviour - 1));
+            TriggerBehaviour = AssetManager.Get().GetUriByTwinId<BehaviourGraph>(owner, (uint)(starter.Assigners[0].Behaviour - 1));
             Debug.Assert(TriggerBehaviour != LabURI.Empty, "Trigger behaviour must not link to an empty behaviour");
             MessageID = triggerBehaviour.MessageID;
             BehaviourCallerIndex = triggerBehaviour.BehaviourCallerIndex;

@@ -38,8 +38,6 @@ public struct GltfBone
 [ReferencesAssets]
 public class OGIData : AbstractAssetData
 {
-    private List<LabURI> _animationLinks = [];
-    
     public OGIData(IAsset asset) : base(asset)
     {
         BoundingBox = [new Vector4(0, 0, 0, 1), new Vector4(10, 10, 10, 1)];
@@ -62,6 +60,7 @@ public class OGIData : AbstractAssetData
         BlendSkin = LabURI.Empty;
         BoundingBoxBuilders = [];
         BoundingBoxBuilderToJointIndex = [];
+        AnimationLinks = [];
     }
 
     public OGIData(IAsset asset, ITwinOGI ogi) : this(asset)
@@ -71,7 +70,7 @@ public class OGIData : AbstractAssetData
 
     public void LinkAnimations(List<LabURI> animations)
     {
-        _animationLinks = animations;
+        AnimationLinks = animations;
     }
 
     protected override void SaveInternal(string dataPath, JsonSerializerSettings? settings = null)
@@ -186,7 +185,6 @@ public class OGIData : AbstractAssetData
     private void ExportGltf(string path)
     {
         var assetManager = AssetManager.Get();
-        var animations = _animationLinks.Select(animLink => assetManager.GetAsset(animLink)).ToList();
         var scene = new SharpGLTF.Scenes.SceneBuilder($"TwinsanityModel_{Owner.Name}");
         var root = new SharpGLTF.Scenes.NodeBuilder("model_root");
         scene.AddNode(root);
@@ -327,7 +325,10 @@ public class OGIData : AbstractAssetData
     public List<TwinBoundingBoxBuilder> BoundingBoxBuilders { get; set; }
     [JsonProperty(Required = Required.Always)]
     public List<Byte> BoundingBoxBuilderToJointIndex { get; set; }
-        
+
+    [JsonProperty(Required = Required.Always)]
+    public List<LabURI> AnimationLinks { get; set; }
+    
     public List<Byte> JointIndices { get; set; }
     public List<LabURI> RigidModelIds { get; set; }
     public List<Matrix4> SkinInverseMatrices { get; set; }
@@ -353,15 +354,15 @@ public class OGIData : AbstractAssetData
         RigidModelIds = new List<LabURI>();
         foreach (var model in ogi.RigidModelIds)
         {
-            RigidModelIds.Add(AssetManager.Get().GetUriByTwinId<RigidModel>(package, variant, model));
+            RigidModelIds.Add(AssetManager.Get().GetUriByTwinId<RigidModel>(Owner, model));
         }
         BoundingBoxBuilderToJointIndex = CloneUtils.CloneList(ogi.CollisionJointIndices);
         Joints = CloneUtils.DeepClone(ogi.Joints);
         ExitPoints = CloneUtils.DeepClone(ogi.ExitPoints);
         BoundingBoxBuilders = CloneUtils.DeepClone(ogi.Collisions);
         SkinInverseMatrices = CloneUtils.CloneListUnsafe(ogi.SkinInverseBindMatrices);
-        Skin = ogi.SkinID != 0 ? AssetManager.Get().GetUriByTwinId<Skin>(package, variant, ogi.SkinID) : LabURI.Empty;
-        BlendSkin = ogi.BlendSkinID != 0 ? AssetManager.Get().GetUriByTwinId<BlendSkin>(package, variant, ogi.BlendSkinID) : LabURI.Empty;
+        Skin = ogi.SkinID != 0 ? AssetManager.Get().GetUriByTwinId<Skin>(Owner, ogi.SkinID) : LabURI.Empty;
+        BlendSkin = ogi.BlendSkinID != 0 ? AssetManager.Get().GetUriByTwinId<BlendSkin>(Owner, ogi.BlendSkinID) : LabURI.Empty;
     }
 
     public override ITwinItem Export(ITwinItemFactory factory)

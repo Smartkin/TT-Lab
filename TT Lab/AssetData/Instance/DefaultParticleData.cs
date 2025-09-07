@@ -88,16 +88,16 @@ namespace TT_Lab.AssetData.Instance
 
             foreach (var texture in particle.TextureIDs)
             {
-                TextureIDs.Add(assetManager.GetUriByTwinId<Texture>(package, variant, texture));
+                TextureIDs.Add(assetManager.GetUriByTwinId<Texture>(Owner, texture));
             }
 
             foreach (var material in particle.MaterialIDs)
             {
-                MaterialIDs.Add(assetManager.GetUriByTwinId<Material>(package, variant, material));
+                MaterialIDs.Add(assetManager.GetUriByTwinId<Material>(Owner, material));
             }
 
-            DecalTextureID = assetManager.GetUriByTwinId<Texture>(package, variant, particle.DecalTextureID);
-            DecalMaterialID = assetManager.GetUriByTwinId<Material>(package, variant, particle.DecalMaterialID);
+            DecalTextureID = assetManager.GetUriByTwinId<Texture>(Owner, particle.DecalTextureID);
+            DecalMaterialID = assetManager.GetUriByTwinId<Material>(Owner, particle.DecalMaterialID);
 
             UnkData = CloneUtils.CloneArray(particle.UnkData);
             UnkBlob = CloneUtils.CloneArray(particle.UnkBlob);

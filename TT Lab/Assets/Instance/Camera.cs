@@ -75,7 +75,7 @@ namespace TT_Lab.Assets.Instance
             if (!IsLoaded || AssetData.Disposed)
             {
                 AssetData = new CameraData(this, (Type?)Parameters["MainCamera1Type"], (Type?)Parameters["MainCamera2Type"]);
-                AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
+                AssetData.Load(DataLoadPath);
             }
             return AssetData;
         }
