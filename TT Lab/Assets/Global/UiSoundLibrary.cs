@@ -14,14 +14,14 @@ public class UiSoundLibrary : GlobalAsset
 
     public UiSoundLibrary(LabURI package, Boolean needVariant, String variant, String name, ITwinSection frontend) : base((UInt32)Guid.NewGuid().GetHashCode(), name, package, needVariant, variant)
     {
-        AssetData = new UiSoundLibraryData(frontend);
+        AssetData = new UiSoundLibraryData(this, frontend);
     }
 
     public override AbstractAssetData GetData()
     {
         if (!IsLoaded)
         {
-            AssetData = new UiSoundLibraryData();
+            AssetData = new UiSoundLibraryData(this);
             AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
         }
             

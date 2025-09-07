@@ -15,7 +15,7 @@ namespace TT_Lab.Assets.Instance
 
         public AiPath(LabURI package, UInt32 id, String name, String chunk, Int32 layId, ITwinAIPath path) : base(package, id, name, chunk, layId)
         {
-            AssetData = new AiPathData(path);
+            AssetData = new AiPathData(this, path);
         }
 
         public AiPath()
@@ -31,7 +31,7 @@ namespace TT_Lab.Assets.Instance
         {
             if (!IsLoaded || AssetData.Disposed)
             {
-                AssetData = new AiPathData();
+                AssetData = new AiPathData(this);
                 AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
             }
             return AssetData;

@@ -17,7 +17,7 @@ namespace TT_Lab.AssetData.Instance
     [ReferencesAssets]
     public class TriggerData : AbstractAssetData
     {
-        public TriggerData()
+        public TriggerData(IAsset asset) : base(asset)
         {
             Position = new Vector4(0, 0, 0, 1);
             Rotation = new Vector4(0, 0, 0, 1);
@@ -26,12 +26,12 @@ namespace TT_Lab.AssetData.Instance
             InstanceExtensionValue = 10;
         }
 
-        public TriggerData(ITwinTrigger trigger) : this()
+        public TriggerData(IAsset asset, ITwinTrigger trigger) : this(asset)
         {
             SetTwinItem(trigger);
         }
 
-        public TriggerData(LabURI package, String? variant, TwinTrigger trigger, Int32? layoutId) : this()
+        public TriggerData(IAsset asset, LabURI package, String? variant, TwinTrigger trigger, Int32? layoutId) : this(asset)
         {
             ObjectActivatorMask = trigger.ObjectActivatorMask;
             Position = CloneUtils.Clone(trigger.Position);

@@ -230,6 +230,7 @@ public class AnimationViewModel : ResourceEditorViewModel
     {
         // TODO: Use animation's sampler method to reduce code duplication
         var useAddRot = jointSettings.UseAdditionalRotation;
+        var independentScaling = jointSettings.IndependentScaling;
         var transformIndex = jointSettings.TransformationIndex;
         var currentFrameTransformIndex = jointSettings.AnimationTransformationIndex;
         var nextFrameTransformIndex = jointSettings.AnimationTransformationIndex;
@@ -378,6 +379,7 @@ public class AnimationViewModel : ResourceEditorViewModel
             resRotationQuat = addRotQuat * lerpedQuat;
         }
         
+        _ogiRender!.SetInheritScaleForJoint(jointIndex, !independentScaling);
         _ogiRender!.ApplyTransformToJoint(jointIndex, resultTranslation, scale, resRotationQuat);
     }
 

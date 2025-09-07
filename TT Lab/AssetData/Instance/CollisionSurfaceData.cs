@@ -17,7 +17,7 @@ namespace TT_Lab.AssetData.Instance
     [ReferencesAssets]
     public class CollisionSurfaceData : AbstractAssetData
     {
-        public CollisionSurfaceData()
+        public CollisionSurfaceData(IAsset asset) : base(asset)
         {
             SurfaceID = SurfaceType.SURF_DEFAULT;
             PhysicsParameters = new float[10];
@@ -30,7 +30,7 @@ namespace TT_Lab.AssetData.Instance
             UnkSoundId = LabURI.Empty;
         }
 
-        public CollisionSurfaceData(ITwinSurface collisionSurface) : this()
+        public CollisionSurfaceData(IAsset asset, ITwinSurface collisionSurface) : this(asset)
         {
             SetTwinItem(collisionSurface);
         }

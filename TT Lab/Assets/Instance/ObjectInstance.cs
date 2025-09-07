@@ -15,7 +15,7 @@ namespace TT_Lab.Assets.Instance
 
         public ObjectInstance(LabURI package, UInt32 id, String name, String chunk, Int32 layId, ITwinInstance instance) : base(package, id, name, chunk, layId)
         {
-            AssetData = new ObjectInstanceData(instance);
+            AssetData = new ObjectInstanceData(this, instance);
         }
 
         public ObjectInstance()
@@ -31,7 +31,7 @@ namespace TT_Lab.Assets.Instance
         {
             if (!IsLoaded || AssetData.Disposed)
             {
-                AssetData = new ObjectInstanceData();
+                AssetData = new ObjectInstanceData(this);
                 AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
             }
             return AssetData;

@@ -16,7 +16,7 @@ namespace TT_Lab.AssetData.Instance
     [ReferencesAssets]
     public class InstanceTemplateData : AbstractAssetData
     {
-        public InstanceTemplateData()
+        public InstanceTemplateData(IAsset asset) : base(asset)
         {
             TemplateName = "New Instance Template";
             ObjectId = LabURI.Empty;
@@ -26,7 +26,7 @@ namespace TT_Lab.AssetData.Instance
             Ints = new List<UInt32>();
         }
 
-        public InstanceTemplateData(ITwinTemplate template) : this()
+        public InstanceTemplateData(IAsset asset, ITwinTemplate template) : this(asset)
         {
             SetTwinItem(template);
         }

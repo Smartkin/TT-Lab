@@ -17,7 +17,7 @@ namespace TT_Lab.Assets.Code
 
         public BehaviourGraph(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinBehaviourGraph script, TwinBehaviourStarter? starter = null) : base(package, needVariant, variant, id, name)
         {
-            AssetData = new BehaviourGraphData(script, starter);
+            AssetData = new BehaviourGraphData(this, script, starter);
             if (starter != null)
             {
                 _starterId = (int)starter.GetID();
@@ -44,7 +44,7 @@ namespace TT_Lab.Assets.Code
         {
             if (!IsLoaded || AssetData.Disposed)
             {
-                AssetData = new BehaviourGraphData();
+                AssetData = new BehaviourGraphData(this);
                 AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
             }
             return AssetData;

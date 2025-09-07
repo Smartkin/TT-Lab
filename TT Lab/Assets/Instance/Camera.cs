@@ -17,7 +17,7 @@ namespace TT_Lab.Assets.Instance
 
         public Camera(LabURI package, UInt32 id, String name, String chunk, Int32 layId, ITwinCamera camera) : base(package, id, name, chunk, layId)
         {
-            AssetData = new CameraData(camera);
+            AssetData = new CameraData(this, camera);
             Parameters = new Dictionary<string, object?>
             {
                 ["MainCamera1Type"] = null,
@@ -74,7 +74,7 @@ namespace TT_Lab.Assets.Instance
         {
             if (!IsLoaded || AssetData.Disposed)
             {
-                AssetData = new CameraData((Type?)Parameters["MainCamera1Type"], (Type?)Parameters["MainCamera2Type"]);
+                AssetData = new CameraData(this, (Type?)Parameters["MainCamera1Type"], (Type?)Parameters["MainCamera2Type"]);
                 AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
             }
             return AssetData;

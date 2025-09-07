@@ -16,13 +16,13 @@ namespace TT_Lab.AssetData.Graphics
     [ReferencesAssets]
     public class MaterialData : AbstractAssetData
     {
-        public MaterialData()
+        public MaterialData(IAsset asset) : base(asset)
         {
             Shaders = [new LabShader()];
             Name = "NewMaterial";
         }
 
-        public MaterialData(ITwinMaterial material) : this()
+        public MaterialData(IAsset asset, ITwinMaterial material) : this(asset)
         {
             SetTwinItem(material);
         }

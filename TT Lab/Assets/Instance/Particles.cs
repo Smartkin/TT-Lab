@@ -19,7 +19,7 @@ namespace TT_Lab.Assets.Instance
 
         public Particles(LabURI package, UInt32 id, String name, String chunk, ITwinParticle particleData) : base(package, id, name, chunk, null)
         {
-            AssetData = new ParticleData(particleData);
+            AssetData = new ParticleData(this, particleData);
         }
 
         public override Type GetEditorType()
@@ -31,7 +31,7 @@ namespace TT_Lab.Assets.Instance
         {
             if (!IsLoaded || AssetData.Disposed)
             {
-                AssetData = new ParticleData();
+                AssetData = new ParticleData(this);
                 AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
             }
             return AssetData;

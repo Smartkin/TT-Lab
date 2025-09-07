@@ -5,7 +5,7 @@ using TT_Lab.Assets;
 
 namespace TT_Lab.ViewModels.ResourceTree;
 
-public class PackageElementViewModel : FolderElementViewModel
+public class PackageElementViewModel : ResourceTreeElementViewModel
 {
     private bool _isEnabled;
     private MenuItem _isEnabledItem;
@@ -41,11 +41,6 @@ public class PackageElementViewModel : FolderElementViewModel
             IsCheckable = true,
             IsChecked = binding
         });
-    }
-
-    protected override void ListCreatableAssets(CreateAssetViewModel createAssetViewModel)
-    {
-        // Only allow creating folders in packages
     }
 
     public override bool IsEnabled => IsPackageEnabled;

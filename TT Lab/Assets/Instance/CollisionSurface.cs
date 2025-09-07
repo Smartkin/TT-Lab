@@ -49,7 +49,7 @@ public class CollisionSurface : SerializableInstance
 
     public CollisionSurface(LabURI package, UInt32 id, String name, String chunk, Int32 layId, ITwinSurface surface) : base(package, id, name, chunk, layId)
     {
-        AssetData = new CollisionSurfaceData(surface);
+        AssetData = new CollisionSurfaceData(this, surface);
         if (id < DefaultColors.Length)
         {
             Parameters.Add("editor_surface_color", DefaultColors[id]);
@@ -73,7 +73,7 @@ public class CollisionSurface : SerializableInstance
     {
         if (!IsLoaded || AssetData.Disposed)
         {
-            AssetData = new CollisionSurfaceData();
+            AssetData = new CollisionSurfaceData(this);
             AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
         }
         return AssetData;

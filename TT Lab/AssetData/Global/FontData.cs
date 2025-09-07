@@ -14,13 +14,13 @@ namespace TT_Lab.AssetData.Global
     [ReferencesAssets]
     public class FontData : AbstractAssetData
     {
-        public FontData()
+        public FontData(IAsset asset) : base(asset)
         {
             FontPages = new();
             UnkVecs = new();
         }
 
-        public FontData(ITwinPSF psf) : this()
+        public FontData(IAsset asset, ITwinPSF psf) : this(asset)
         {
             SetTwinItem(psf);
         }
@@ -48,11 +48,12 @@ namespace TT_Lab.AssetData.Global
         {
             var psf = GetTwinItem<ITwinPSF>();
             var psfIndex = 0;
+            var owner = (GlobalAsset)Owner;
             foreach (var ptc in psf.FontPages)
             {
                 var asset = new PTC(package, true, $"{psf.GetName()}_{variant}_page_{psfIndex++}", $"{psf.GetName()}_page_{psfIndex++}", ptc)
                 {
-                    GlobalPath = $"Fonts/{psf.GetName()}/{variant!}"
+                    GlobalPath = $"{owner.GlobalPath}/{psf.GetName()}/{variant!}"
                 };
                 asset.RegenerateLinks();
                 AssetManager.Get().AddAssetToImport(asset);

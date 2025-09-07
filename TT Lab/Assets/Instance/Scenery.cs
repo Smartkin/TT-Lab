@@ -32,7 +32,7 @@ namespace TT_Lab.Assets.Instance
 
         public Scenery(LabURI package, UInt32 id, String name, String chunk, ITwinScenery scenery) : base(package, id, name, chunk, null)
         {
-            AssetData = new SceneryData(scenery);
+            AssetData = new SceneryData(this, scenery);
         }
 
         public override Type GetEditorType()
@@ -44,7 +44,7 @@ namespace TT_Lab.Assets.Instance
         {
             if (!IsLoaded || AssetData.Disposed)
             {
-                AssetData = new SceneryData();
+                AssetData = new SceneryData(this);
                 AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
             }
             

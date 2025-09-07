@@ -16,14 +16,14 @@ public class TextFile : GlobalAsset
 
     public TextFile(LabURI package, Boolean needVariant, String variant, String name, String data) : base((UInt32)Guid.NewGuid().GetHashCode(), name, package, needVariant, variant)
     {
-        AssetData = new TextFileData(data);
+        AssetData = new TextFileData(this, data);
     }
 
     public override AbstractAssetData GetData()
     {
         if (!IsLoaded || AssetData.Disposed)
         {
-            AssetData = new TextFileData();
+            AssetData = new TextFileData(this);
             AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
         }
         return AssetData;

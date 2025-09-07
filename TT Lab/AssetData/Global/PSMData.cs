@@ -12,12 +12,12 @@ namespace TT_Lab.AssetData.Global
     [ReferencesAssets]
     public class PSMData : AbstractAssetData
     {
-        public PSMData()
+        public PSMData(IAsset asset) : base(asset)
         {
             PTCs = new();
         }
 
-        public PSMData(ITwinPSM psm) : this()
+        public PSMData(IAsset asset, ITwinPSM psm) : this(asset)
         {
             SetTwinItem(psm);
         }
@@ -41,11 +41,12 @@ namespace TT_Lab.AssetData.Global
         {
             var psm = GetTwinItem<ITwinPSM>();
             var ptcIndex = 0;
+            var owner = (GlobalAsset)Owner;
             foreach (var ptc in psm.PTCs)
             {
                 var asset = new PTC(package, true, $"{psm.GetName()}_{variant}_{ptcIndex++}", $"{psm.GetName()}_{ptcIndex++}", ptc)
                 {
-                    GlobalPath = $"PTC/{psm.GetName()}/{variant!}"
+                    GlobalPath = $"{owner.GlobalPath}/{psm.GetName()}/{variant!}"
                 };
                 asset.RegenerateLinks();
                 AssetManager.Get().AddAssetToImport(asset);

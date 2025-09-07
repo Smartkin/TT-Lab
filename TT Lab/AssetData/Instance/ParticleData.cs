@@ -13,13 +13,13 @@ namespace TT_Lab.AssetData.Instance
 {
     public class ParticleData : AbstractAssetData
     {
-        public ParticleData()
+        public ParticleData(IAsset asset) : base(asset)
         {
             ParticleSystems = new List<TwinParticleSystem>();
             ParticleEmitters = new List<TwinParticleEmitter>();
         }
 
-        public ParticleData(ITwinParticle particleData) : this()
+        public ParticleData(IAsset asset, ITwinParticle particleData) : this(asset)
         {
             SetTwinItem(particleData);
         }

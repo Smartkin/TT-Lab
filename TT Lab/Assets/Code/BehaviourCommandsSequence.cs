@@ -22,7 +22,7 @@ namespace TT_Lab.Assets.Code
 
         public BehaviourCommandsSequence(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinBehaviourCommandsSequence codeModel) : base(id, name, package, needVariant, variant)
         {
-            AssetData = new BehaviourCommandsSequenceData(codeModel);
+            AssetData = new BehaviourCommandsSequenceData(this, codeModel);
             AssetData.Import(package, variant, LayoutID);
             GenerateBehaviourGraphLinks(codeModel, package, variant);
         }
@@ -45,7 +45,7 @@ namespace TT_Lab.Assets.Code
         {
             if (!IsLoaded || AssetData.Disposed)
             {
-                AssetData = new BehaviourCommandsSequenceData();
+                AssetData = new BehaviourCommandsSequenceData(this);
                 AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
             }
             return AssetData;

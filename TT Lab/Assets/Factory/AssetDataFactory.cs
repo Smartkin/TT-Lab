@@ -56,7 +56,7 @@ public static class AssetDataFactory
         fs.Close();
         reader.Close();
 
-        var newSoundData = new SoundEffectData(file);
+        var newSoundData = new SoundEffectData(asset, file);
         asset.SetData(newSoundData);
             
         return AssetCreationStatus.Success;
@@ -117,7 +117,7 @@ public static class AssetDataFactory
             return creationStatusResult;
         }
 
-        var newTexture = new TextureData();
+        var newTexture = new TextureData(asset);
         newTexture.Bitmap = image;
         newTexture.TextureFunction = ITwinTexture.TextureFunction.MODULATE;
         newTexture.TexturePixelFormat = ITwinTexture.TexturePixelFormat.PSMT8;
@@ -128,13 +128,13 @@ public static class AssetDataFactory
 
     public static AssetCreationStatus CreateSkydomeData(IAsset asset)
     {
-        asset.SetData(new SkydomeData());
+        asset.SetData(new SkydomeData(asset));
         return AssetCreationStatus.Success;
     }
 
     public static AssetCreationStatus CreateGameObjectData(IAsset asset)
     {
-        var gameObjectData = new GameObjectData();
+        var gameObjectData = new GameObjectData(asset);
         gameObjectData.Name = asset.Name.Trim();
         asset.SetData(gameObjectData);
         return AssetCreationStatus.Success;
@@ -147,73 +147,73 @@ public static class AssetDataFactory
 
     public static AssetCreationStatus CreateBehaviourData(IAsset asset)
     {
-        asset.SetData(new BehaviourGraphData());
+        asset.SetData(new BehaviourGraphData(asset));
         return AssetCreationStatus.Success;
     }
 
     public static AssetCreationStatus CreateLodModelData(IAsset asset)
     {
-        asset.SetData(new LodModelData());
+        asset.SetData(new LodModelData(asset));
         return AssetCreationStatus.Success;
     }
 
     public static AssetCreationStatus CreateMaterialData(IAsset asset)
     {
-        asset.SetData(new MaterialData());
+        asset.SetData(new MaterialData(asset));
         return AssetCreationStatus.Success;
     }
 
     public static AssetCreationStatus CreateAiPathData(IAsset asset)
     {
-        asset.SetData(new AiPathData());
+        asset.SetData(new AiPathData(asset));
         return AssetCreationStatus.Success;
     }
 
     public static AssetCreationStatus CreateAiPositionData(IAsset asset)
     {
-        asset.SetData(new AiPositionData());
+        asset.SetData(new AiPositionData(asset));
         return AssetCreationStatus.Success;
     }
 
     public static AssetCreationStatus CreateCameraData(IAsset asset)
     {
-        asset.SetData(new CameraData());
+        asset.SetData(new CameraData(asset));
         return AssetCreationStatus.Success;
     }
 
     public static AssetCreationStatus CreateCollisionSurfaceData(IAsset asset)
     {
-        asset.SetData(new CollisionSurfaceData());
+        asset.SetData(new CollisionSurfaceData(asset));
         return AssetCreationStatus.Success;
     }
 
     public static AssetCreationStatus CreateInstanceTemplateData(IAsset asset)
     {
-        asset.SetData(new InstanceTemplateData());
+        asset.SetData(new InstanceTemplateData(asset));
         return AssetCreationStatus.Success;
     }
 
     public static AssetCreationStatus CreateObjectInstanceData(IAsset asset)
     {
-        asset.SetData(new ObjectInstanceData());
+        asset.SetData(new ObjectInstanceData(asset));
         return AssetCreationStatus.Success;
     }
 
     public static AssetCreationStatus CreatePathData(IAsset asset)
     {
-        asset.SetData(new PathData());
+        asset.SetData(new PathData(asset));
         return AssetCreationStatus.Success;
     }
 
     public static AssetCreationStatus CreatePositionData(IAsset asset)
     {
-        asset.SetData(new PositionData());
+        asset.SetData(new PositionData(asset));
         return AssetCreationStatus.Success;
     }
 
     public static AssetCreationStatus CreateTriggerData(IAsset asset)
     {
-        asset.SetData(new TriggerData());
+        asset.SetData(new TriggerData(asset));
         return AssetCreationStatus.Success;
     }
 }

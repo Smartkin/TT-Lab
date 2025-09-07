@@ -12,12 +12,12 @@ namespace TT_Lab.AssetData.Instance
 {
     public class AiPositionData : AbstractAssetData
     {
-        public AiPositionData()
+        public AiPositionData(IAsset asset) : base(asset)
         {
             Coords = new Vector4(0, 0, 0, 1);
         }
 
-        public AiPositionData(ITwinAIPosition aiPosition) : this()
+        public AiPositionData(IAsset asset, ITwinAIPosition aiPosition) : this(asset)
         {
             SetTwinItem(aiPosition);
         }

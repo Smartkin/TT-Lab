@@ -64,7 +64,6 @@ public class TwinSkeletonManager(RenderContext context)
             var localTransform = mat4.Translate(position) * quat.ToMat4;
             var bone = new TwinBone(context, parentBone);
             bone.Transform(localTransform);
-            bone.SetInheritScale(false);
             bone.SetBindingAndInverseMatrix(bone.WorldTransform);
             boneMap.TryAdd(joint.Index, bone);
         }

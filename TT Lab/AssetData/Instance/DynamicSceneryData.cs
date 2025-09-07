@@ -15,12 +15,12 @@ namespace TT_Lab.AssetData.Instance
     [ReferencesAssets]
     public class DynamicSceneryData : AbstractAssetData
     {
-        public DynamicSceneryData()
+        public DynamicSceneryData(IAsset asset) : base(asset)
         {
             DynamicModels = new List<DynamicSceneryModelData>();
         }
 
-        public DynamicSceneryData(ITwinDynamicScenery dynamicScenery) : this()
+        public DynamicSceneryData(IAsset asset, ITwinDynamicScenery dynamicScenery) : this(asset)
         {
             SetTwinItem(dynamicScenery);
         }

@@ -16,14 +16,14 @@ namespace TT_Lab.AssetData.Instance
     [JsonObject(ItemTypeNameHandling = TypeNameHandling.Auto, MemberSerialization = MemberSerialization.OptIn)]
     public class CameraData : AbstractAssetData
     {
-        public CameraData()
+        public CameraData(IAsset asset) : base(asset)
         {
-            Trigger = new TriggerData();
+            Trigger = new TriggerData(asset);
             UnkVector1 = new Vector4(0, 0, 0, 1);
             UnkVector2 = new Vector4(0, 0, 0, 1);
         }
 
-        public CameraData(Type? mainCam1T, Type? mainCam2T)
+        public CameraData(IAsset asset, Type? mainCam1T, Type? mainCam2T) : base(asset)
         {
             if (mainCam1T != null)
             {
@@ -35,7 +35,7 @@ namespace TT_Lab.AssetData.Instance
             }
         }
 
-        public CameraData(ITwinCamera camera) : this()
+        public CameraData(IAsset asset, ITwinCamera camera) : this(asset)
         {
             SetTwinItem(camera);
         }
@@ -104,7 +104,7 @@ namespace TT_Lab.AssetData.Instance
         public override void Import(LabURI package, String? variant, Int32? layoutId)
         {
             ITwinCamera camera = GetTwinItem<ITwinCamera>();
-            Trigger = new TriggerData(package, variant, camera.CamTrigger, layoutId);
+            Trigger = new TriggerData(Owner, package, variant, camera.CamTrigger, layoutId);
             CameraHeader = camera.CameraHeader;
             UnkShort = camera.UnkShort;
             UnkFloat1 = camera.UnkFloat1;

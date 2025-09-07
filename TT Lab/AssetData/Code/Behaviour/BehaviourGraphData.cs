@@ -66,12 +66,12 @@ namespace TT_Lab.AssetData.Code.Behaviour
                                                    }
                                                    """;
         
-        public BehaviourGraphData()
+        public BehaviourGraphData(IAsset asset) : base(asset)
         {
             Graph = _behaviourTemplate[..];
         }
 
-        public BehaviourGraphData(ITwinBehaviourGraph mainScript, TwinBehaviourStarter? starter = null) : this()
+        public BehaviourGraphData(IAsset asset, ITwinBehaviourGraph mainScript, TwinBehaviourStarter? starter = null) : this(asset)
         {
             SetTwinItem(mainScript);
             SetStarter(starter);

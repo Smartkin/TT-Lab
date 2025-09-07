@@ -119,7 +119,7 @@ public class MeshFactory
             faces.Add(new IndexedFace { Indexes = [i + 2, i + 1, i] });
         }
         
-        var material = new MaterialData();
+        var material = new MaterialData(null);
         material.Shaders[0].TxtMapping = TwinShader.TextureMapping.OFF;
         material.Shaders[0].ShaderType = TwinShader.Type.ColorOnly;
         material.Shaders[0].ABlending = TwinShader.AlphaBlending.ON;
@@ -157,7 +157,7 @@ public class MeshFactory
             faces.Add(new IndexedFace { Indexes = [i + 2, i + 1, i] });
         }
         
-        var material = new MaterialData();
+        var material = new MaterialData(null);
         material.Shaders[0].TxtMapping = TwinShader.TextureMapping.OFF;
         material.Shaders[0].ShaderType = TwinShader.Type.ColorOnly;
         material.Shaders[0].ABlending = TwinShader.AlphaBlending.ON;
@@ -196,7 +196,7 @@ public class MeshFactory
             faces.Add(new IndexedFace { Indexes = [i + 2, i + 1, i] });
         }
 
-        var material = new MaterialData();
+        var material = new MaterialData(null);
         material.Shaders[0].TxtMapping = TwinShader.TextureMapping.OFF;
         material.Shaders[0].ShaderType = TwinShader.Type.ColorOnly;
         material.Shaders[0].ABlending = TwinShader.AlphaBlending.ON;
@@ -206,7 +206,7 @@ public class MeshFactory
 
     private Mesh CreateUntexturedMesh(ModelData data)
     {
-        var material = new MaterialData();
+        var material = new MaterialData(null);
         material.Shaders[0].TxtMapping = TwinShader.TextureMapping.ON;
         material.Shaders[0].ShaderType = TwinShader.Type.UnlitGlossy;
         material.Shaders[0].TextureId = LabURI.BoatGuy;
@@ -231,7 +231,7 @@ public class MeshFactory
     private CollisionMesh CreateCollisionMesh(CollisionData collisionData)
     {
         var assetManager = AssetManager.Get();
-        var material = new MaterialData();
+        var material = new MaterialData(null);
         material.Shaders[0].ShaderType = TwinShader.Type.StandardUnlit;
         List<ModelBuffer> buffers = [new(_renderContext,
             _meshBuilder.BuildRigidVaoFromVertexes(
@@ -244,7 +244,7 @@ public class MeshFactory
                     var surfColor = CollisionSurface.DefaultColor;
                     if (surface.Parameters["editor_surface_color"] is JObject colorJson)
                     {
-                        surfColor = colorJson.ToObject<Color>();
+                        surfColor = colorJson.ToObject<Color>()!;
                     }
                     return surfColor.GetVector();
                 }),

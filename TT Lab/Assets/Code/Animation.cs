@@ -21,7 +21,7 @@ namespace TT_Lab.Assets.Code
                 return;
             }
             
-            AssetData = new AnimationData(animation);
+            AssetData = new AnimationData(this, animation);
         }
 
         public override Type GetEditorType()
@@ -33,7 +33,7 @@ namespace TT_Lab.Assets.Code
         {
             if (!IsLoaded || AssetData.Disposed)
             {
-                AssetData = new AnimationData();
+                AssetData = new AnimationData(this);
                 AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
             }
             return AssetData;

@@ -11,16 +11,16 @@ namespace TT_Lab.AssetData.Code
 {
     public sealed class SoundEffectData : AbstractAssetData
     {
-        public SoundEffectData()
+        public SoundEffectData(IAsset asset) : base(asset)
         {
         }
 
-        public SoundEffectData(string filepath)
+        public SoundEffectData(IAsset asset, string filepath) : this(asset)
         {
             LoadInternal(filepath);
         }
 
-        public SoundEffectData(ITwinSound sound) : this()
+        public SoundEffectData(IAsset asset, ITwinSound sound) : this(asset)
         {
             SetTwinItem(sound);
         }

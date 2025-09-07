@@ -3,6 +3,7 @@ using System;
 using TT_Lab.AssetData.Graphics;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
+using TT_Lab.Assets.Global;
 using TT_Lab.Assets.Graphics;
 using TT_Lab.Attributes;
 using Twinsanity.TwinsanityInterchange.Interfaces;
@@ -13,13 +14,13 @@ namespace TT_Lab.AssetData.Global
     [ReferencesAssets]
     public class PTCData : AbstractAssetData
     {
-        public PTCData()
+        public PTCData(IAsset asset) : base(asset)
         {
             TextureID = LabURI.Empty;
             MaterialID = LabURI.Empty;
         }
 
-        public PTCData(ITwinPTC ptc) : this()
+        public PTCData(IAsset asset, ITwinPTC ptc) : this(asset)
         {
             SetTwinItem(ptc);
         }
@@ -43,15 +44,16 @@ namespace TT_Lab.AssetData.Global
         {
             var assetManager = AssetManager.Get();
             var ptc = GetTwinItem<ITwinPTC>();
-            var texture = new Texture(package, true, $"{ptc.GetName()}_{variant}", ptc.TexID, $"{ptc.GetName()}_Texture", ptc.Texture)
+            var owner = (GlobalAsset)Owner;
+            var texture = new Texture(package, false, "", ptc.TexID, $"{ptc.GetName()}_Texture", ptc.Texture)
             {
-                AdditionalPath = variant
+                AdditionalPath = $"{owner.GlobalPath}/{variant}"
             };
             texture.RegenerateLinks();
             assetManager.AddAssetToImport(texture);
-            var material = new Material(package, true, $"{ptc.GetName()}_{variant}", ptc.MatID, $"{ptc.GetName()}_Material", ptc.Material)
+            var material = new Material(package, false, "", ptc.MatID, $"{ptc.GetName()}_Material", ptc.Material)
             {
-                AdditionalPath = variant
+                AdditionalPath = $"{owner.GlobalPath}/{variant}"
             };
             material.RegenerateLinks();
             assetManager.AddAssetToImport(material);

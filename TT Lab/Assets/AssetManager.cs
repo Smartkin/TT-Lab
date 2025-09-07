@@ -69,6 +69,20 @@ public class AssetManager
 
         _assets.Add(uri, asset);
     }
+    
+    /// <summary>
+    /// Adds the asset to the manager with a specified URI
+    /// </summary>
+    /// <param name="uri">Asset's unique resource identifier</param>
+    /// <param name="asset">Asset to add</param>
+    /// <remarks>
+    /// THIS METHOD SHOULD ONLY BE USED WHEN YOU ARE SURE THAT DUPLICATES ARE SKIPPED INTENTIONALLY.
+    /// AS THIS SKIPS LOGGING A WARNING INTO A LOG CONSOLE OF TT Lab
+    /// </remarks>
+    public void AddAssetUnsafe(IAsset asset)
+    {
+        AddAssetUnsafe(asset.URI, asset);
+    }
 
     /// <summary>
     /// Adds the asset to the manager

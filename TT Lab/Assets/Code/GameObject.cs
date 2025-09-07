@@ -18,7 +18,7 @@ namespace TT_Lab.Assets.Code
 
         public GameObject(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinObject @object, Dictionary<string, TwinBehaviourStarter> starterMap) : base(id, name, package, needVariant, variant)
         {
-            AssetData = new GameObjectData(@object, starterMap);
+            AssetData = new GameObjectData(this, @object, starterMap);
         }
 
         public override Type GetEditorType()
@@ -30,7 +30,7 @@ namespace TT_Lab.Assets.Code
         {
             if (!IsLoaded || AssetData.Disposed)
             {
-                AssetData = new GameObjectData();
+                AssetData = new GameObjectData(this);
                 AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
             }
             return AssetData;

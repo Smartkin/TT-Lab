@@ -17,14 +17,14 @@ namespace TT_Lab.AssetData.Instance
     public class DefaultParticleData : ParticleData
     {
 
-        public DefaultParticleData()
+        public DefaultParticleData(IAsset asset) : base(asset)
         {
             UnkData = new Byte[4];
             UnkBlob = new Byte[0x420];
             UnkInts = new Int32[10];
         }
 
-        public DefaultParticleData(ITwinDefaultParticle particle) : base(particle) { }
+        public DefaultParticleData(IAsset asset, ITwinDefaultParticle particle) : base(asset, particle) { }
 
         [JsonProperty(Required = Required.Always)]
         public List<LabURI> TextureIDs { get; set; } = new();

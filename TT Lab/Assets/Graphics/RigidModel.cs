@@ -14,7 +14,7 @@ namespace TT_Lab.Assets.Graphics
 
         public RigidModel(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinRigidModel rigidModel) : base(id, name, package, needVariant, variant)
         {
-            AssetData = new RigidModelData(rigidModel);
+            AssetData = new RigidModelData(this, rigidModel);
         }
 
         public RigidModel()
@@ -30,7 +30,7 @@ namespace TT_Lab.Assets.Graphics
         {
             if (!IsLoaded || AssetData.Disposed)
             {
-                AssetData = new RigidModelData();
+                AssetData = new RigidModelData(this);
                 AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
             }
             return AssetData;

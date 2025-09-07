@@ -55,5 +55,5 @@ public abstract class AssetResolver<TTwinItem> : IAssetResolver where TTwinItem 
         });
     }
 
-    public IReadOnlyList<MetaAsset> GetAssets() => Assets;
+    public virtual IReadOnlyList<MetaAsset> GetAssets() => Assets;
 }

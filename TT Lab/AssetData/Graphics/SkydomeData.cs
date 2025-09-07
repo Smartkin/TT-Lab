@@ -15,12 +15,12 @@ namespace TT_Lab.AssetData.Graphics
     [ReferencesAssets]
     public class SkydomeData : AbstractAssetData
     {
-        public SkydomeData()
+        public SkydomeData(IAsset asset) : base(asset)
         {
             Meshes = new List<LabURI>();
         }
 
-        public SkydomeData(ITwinSkydome skydome) : this()
+        public SkydomeData(IAsset asset, ITwinSkydome skydome) : this(asset)
         {
             SetTwinItem(skydome);
         }

@@ -28,7 +28,7 @@ namespace TT_Lab.AssetData.Instance
             ScIndexToType.Add(ITwinScenery.SceneryType.Node, typeof(SceneryNodeData));
         }
 
-        public SceneryData()
+        public SceneryData(IAsset asset) : base(asset)
         {
             ChunkPath = LabURI.Empty;
             SkydomeID = LabURI.Empty;
@@ -40,7 +40,7 @@ namespace TT_Lab.AssetData.Instance
             Sceneries = new List<SceneryBaseData>();
         }
 
-        public SceneryData(ITwinScenery scenery) : this()
+        public SceneryData(IAsset asset, ITwinScenery scenery) : this(asset)
         {
             SetTwinItem(scenery);
         }

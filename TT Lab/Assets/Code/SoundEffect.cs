@@ -42,7 +42,7 @@ namespace TT_Lab.Assets.Code
 
         public SoundEffect(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinSound sound) : base(id, name, package, needVariant, variant)
         {
-            AssetData = new SoundEffectData(sound);
+            AssetData = new SoundEffectData(this, sound);
             Header = sound.Header;
             UnkFlag = sound.UnkFlag;
             Param1 = sound.Param1;
@@ -84,7 +84,7 @@ namespace TT_Lab.Assets.Code
         {
             if (!IsLoaded || AssetData.Disposed)
             {
-                AssetData = new SoundEffectData();
+                AssetData = new SoundEffectData(this);
                 AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
             }
             return AssetData;

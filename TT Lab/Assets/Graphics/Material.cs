@@ -14,7 +14,7 @@ namespace TT_Lab.Assets.Graphics
 
         public Material(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinMaterial material) : base(id, name, package, needVariant, variant)
         {
-            AssetData = new MaterialData(material);
+            AssetData = new MaterialData(this, material);
         }
 
         public Material()
@@ -30,7 +30,7 @@ namespace TT_Lab.Assets.Graphics
         {
             if (!IsLoaded || AssetData.Disposed)
             {
-                AssetData = new MaterialData();
+                AssetData = new MaterialData(this);
                 AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
             }
             return AssetData;

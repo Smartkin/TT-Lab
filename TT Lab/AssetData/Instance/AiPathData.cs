@@ -13,14 +13,14 @@ namespace TT_Lab.AssetData.Instance
     [ReferencesAssets]
     public class AiPathData : AbstractAssetData
     {
-        public AiPathData()
+        public AiPathData(IAsset asset) : base(asset)
         {
             PathBegin = LabURI.Empty;
             PathEnd = LabURI.Empty;
             Args = new UInt16[3];
         }
 
-        public AiPathData(ITwinAIPath aiPath) : this()
+        public AiPathData(IAsset asset, ITwinAIPath aiPath) : this(asset)
         {
             SetTwinItem(aiPath);
         }

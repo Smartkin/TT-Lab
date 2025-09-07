@@ -10,12 +10,12 @@ namespace TT_Lab.AssetData.Global
 {
     public class SaveIconData : AbstractAssetData
     {
-        public SaveIconData()
+        public SaveIconData(IAsset asset) : base(asset)
         {
             IconData = Array.Empty<Byte>();
         }
 
-        public SaveIconData(Byte[] iconData)
+        public SaveIconData(IAsset asset, Byte[] iconData) : base(asset)
         {
             IconData = CloneUtils.CloneArray(iconData);
         }

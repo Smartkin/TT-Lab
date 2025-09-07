@@ -14,7 +14,7 @@ namespace TT_Lab.Assets.Instance
 
         public InstanceTemplate(LabURI package, UInt32 id, String name, String chunk, Int32 layId, ITwinTemplate template) : base(package, id, name, chunk, layId)
         {
-            AssetData = new InstanceTemplateData(template);
+            AssetData = new InstanceTemplateData(this, template);
         }
 
         public InstanceTemplate()
@@ -30,7 +30,7 @@ namespace TT_Lab.Assets.Instance
         {
             if (!IsLoaded || AssetData.Disposed)
             {
-                AssetData = new InstanceTemplateData();
+                AssetData = new InstanceTemplateData(this);
                 AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
             }
             return AssetData;

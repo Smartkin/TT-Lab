@@ -42,18 +42,11 @@ namespace TT_Lab.AssetData.Graphics.SubModels
             {
                 var allVertexes = new List<Vertex>();
                 var allIndices = new List<IndexedFace>();
-                var indiceAccessor = 0;
                 var blendShapeJson = mesh.Extras;
                 var blendShape = new Vector3((float)blendShapeJson["X"]!, (float)blendShapeJson["Y"]!, (float)blendShapeJson["Z"]!);
                 var primitive = mesh.Primitives[0];
                 var vertexes = primitive.GetVertexColumns();
                 var indices = primitive.GetTriangleIndices();
-                var amountOfSubmodels = (indices.Count() * 3) / TwinVIFCompiler.VertexStripCache;
-                var leftovers = (indices.Count() * 3) % TwinVIFCompiler.VertexStripCache;
-                if (leftovers > 0)
-                {
-                    amountOfSubmodels++;
-                }
 
                 for (var i = 0; i < vertexes.Positions.Count; i++)
                 {

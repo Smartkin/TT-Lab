@@ -13,11 +13,11 @@ namespace TT_Lab.AssetData.Graphics
 {
     public class TextureData : AbstractAssetData
     {
-        public TextureData()
+        public TextureData(IAsset asset) : base(asset)
         {
         }
 
-        public TextureData(ITwinTexture texture) : this()
+        public TextureData(IAsset asset, ITwinTexture texture) : this(asset)
         {
             SetTwinItem(texture);
         }

@@ -52,4 +52,11 @@ public class SkydomeResolver : AssetResolver<ITwinSkydome>
     {
         return item.GetID().ToString();
     }
+
+    public override void FinalizeResolve()
+    {
+        _meshResolver.FinalizeResolve();
+        
+        base.FinalizeResolve();
+    }
 }

@@ -9,11 +9,11 @@ namespace TT_Lab.AssetData.Graphics
 {
     public class MeshData : RigidModelData
     {
-        public MeshData() : base()
+        public MeshData(IAsset asset) : base(asset)
         {
         }
 
-        public MeshData(ITwinMesh mesh) : base(mesh)
+        public MeshData(IAsset asset, ITwinMesh mesh) : base(asset, mesh)
         {
         }
 

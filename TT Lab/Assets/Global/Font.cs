@@ -15,14 +15,14 @@ public class Font : GlobalAsset
 
     public Font(LabURI package, Boolean needVariant, String variant, String name, ITwinPSF psf) : base((UInt32)Guid.NewGuid().GetHashCode(), name, package, needVariant, variant)
     {
-        AssetData = new FontData(psf);
+        AssetData = new FontData(this, psf);
     }
 
     public override AbstractAssetData GetData()
     {
         if (!IsLoaded || AssetData.Disposed)
         {
-            AssetData = new FontData();
+            AssetData = new FontData(this);
             AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
         }
         return AssetData;

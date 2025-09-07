@@ -18,7 +18,7 @@ namespace TT_Lab.Assets.Instance
 
         public DynamicScenery(LabURI package, UInt32 id, String name, String chunk, ITwinDynamicScenery dynamicScenery) : base(package, id, name, chunk, null)
         {
-            AssetData = new DynamicSceneryData(dynamicScenery);
+            AssetData = new DynamicSceneryData(this, dynamicScenery);
         }
 
         public override Type GetEditorType()
@@ -30,7 +30,7 @@ namespace TT_Lab.Assets.Instance
         {
             if (!IsLoaded || AssetData.Disposed)
             {
-                AssetData = new DynamicSceneryData();
+                AssetData = new DynamicSceneryData(this);
                 AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
             }
             return AssetData;

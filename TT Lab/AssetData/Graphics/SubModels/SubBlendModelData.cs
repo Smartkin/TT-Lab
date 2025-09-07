@@ -35,11 +35,11 @@ namespace TT_Lab.AssetData.Graphics.SubModels
                     {
                         if (i % 2 == 0)
                         {
-                            Faces.Add(new IndexedFace(new int[] { refIndex, refIndex + 1, refIndex + 2 }));
+                            Faces.Add(new IndexedFace(refIndex, refIndex + 1, refIndex + 2));
                         }
                         else
                         {
-                            Faces.Add(new IndexedFace(new int[] { refIndex + 1, refIndex, refIndex + 2 }));
+                            Faces.Add(new IndexedFace(refIndex + 1, refIndex, refIndex + 2));
                         }
                     }
                     ++refIndex;

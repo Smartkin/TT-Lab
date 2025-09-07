@@ -219,6 +219,10 @@ public class Project : IProject
             taskList.Clear();
         }
         
+        Task.WaitAll(taskList.Cast<Task>().ToArray());
+        completedTasks.AddRange(taskList);
+        taskList.Clear();
+        
         foreach (var task in completedTasks.ToArray())
         {
             task.Dispose();
@@ -240,10 +244,10 @@ public class Project : IProject
             asset.Value.PostDeserialize();
         }
         pr.BasePackage = (Package)assets.Values.First(a => a.Name == pr.Name);
-        pr.GlobalPackagePS2 = (Package)assets.Values.First(a => a.Name == "Global PS2");
-        pr.GlobalPackageXbox = (Package)assets.Values.First(a => a.Name == "Global XBOX");
-        pr.Ps2Package = (Package)assets.Values.First(a => a.Name == "PS2");
-        pr.XboxPackage = (Package)assets.Values.First(a => a.Name == "XBOX");
+        pr.GlobalPackagePS2 = (Package)assets.Values.First(a => a.Name == $"Global PS2_{pr.Name}");
+        pr.GlobalPackageXbox = (Package)assets.Values.First(a => a.Name == $"Global XBOX_{pr.Name}");
+        pr.Ps2Package = (Package)assets.Values.First(a => a.Name == $"PS2_{pr.Name}");
+        pr.XboxPackage = (Package)assets.Values.First(a => a.Name == $"XBOX_{pr.Name}");
     }
 
     public void CopyDiscContents()

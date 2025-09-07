@@ -15,7 +15,7 @@ namespace TT_Lab.Assets.Instance
 
         public Position(LabURI package, UInt32 id, String name, String chunk, Int32 layId, ITwinPosition position) : base(package, id, name, chunk, layId)
         {
-            AssetData = new PositionData(position);
+            AssetData = new PositionData(this, position);
         }
 
         public Position()
@@ -31,7 +31,7 @@ namespace TT_Lab.Assets.Instance
         {
             if (!IsLoaded || AssetData.Disposed)
             {
-                AssetData = new PositionData();
+                AssetData = new PositionData(this);
                 AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
             }
             

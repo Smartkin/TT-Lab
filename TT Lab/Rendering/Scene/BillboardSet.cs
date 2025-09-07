@@ -21,7 +21,7 @@ public class BillboardSet : Renderable
     
     public BillboardSet(RenderContext context, MeshFactory meshFactory, string labIconName, string name = "") : base(context, name)
     {
-        _renderMaterial = new MaterialData();
+        _renderMaterial = new MaterialData(null);
         _renderMaterial.Shaders[0].TxtMapping = TwinShader.TextureMapping.ON;
         _renderMaterial.Shaders[0].TextureId = LabURI.GetLabIcon(labIconName);
         _renderMaterial.Shaders[0].DepthTest = TwinShader.DepthTestMethod.ALWAYS;

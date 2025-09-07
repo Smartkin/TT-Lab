@@ -13,11 +13,11 @@ namespace TT_Lab.AssetData.Instance;
 [ReferencesAssets]
 public class ChunkLinksData : AbstractAssetData
 {
-    public ChunkLinksData()
+    public ChunkLinksData(IAsset asset) : base(asset)
     {
     }
 
-    public ChunkLinksData(ITwinLink link) : this()
+    public ChunkLinksData(IAsset asset, ITwinLink link) : this(asset)
     {
         SetTwinItem(link);
     }

@@ -19,7 +19,7 @@ namespace TT_Lab.AssetData.Instance
     [ReferencesAssets]
     public class ObjectInstanceData : AbstractAssetData
     {
-        public ObjectInstanceData()
+        public ObjectInstanceData(IAsset asset) : base(asset)
         {
             InstancesRelated = 10;
             PathsRelated = 10;
@@ -38,7 +38,7 @@ namespace TT_Lab.AssetData.Instance
             ParamList3 = new List<UInt32>();
         }
 
-        public ObjectInstanceData(ITwinInstance instance) : this()
+        public ObjectInstanceData(IAsset asset, ITwinInstance instance) : this(asset)
         {
             SetTwinItem(instance);
         }

@@ -7,6 +7,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Controls;
 using System.Windows.Data;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using TT_Lab.AssetData;
 using TT_Lab.Assets;
 using TT_Lab.Command;
@@ -456,17 +458,49 @@ namespace TT_Lab.Project
 
         private void BuildProjectTree()
         {
-            var root = new Folder(OpenedProject!.Name);
-            var assetDirectories = Directory.GetDirectories($"{OpenedProject!.ProjectPath}\\assets", "*", SearchOption.AllDirectories);
-            
-            var tree = (from asset in OpenedProject!.AssetManager.GetAssets()
-                        where asset is Folder
-                        let folder = (Folder)asset
-                        where folder.Parent == null
-                        select folder.GetResourceTreeElement());
-            ProjectTree = new BindableCollection<ResourceTreeElementViewModel>(tree);
+            var root = new Folder(OpenedProject!.Name)
+            {
+                Mark = FolderMark.Locked
+            };
+            OpenedProject!.AssetManager.AddAsset(root);
+            var assetRoot = $"{OpenedProject!.ProjectPath}\\assets";
+            var dirInfo = new DirectoryInfo(assetRoot);
+            foreach (var assetDirectory in dirInfo.GetDirectories())
+            {
+                var directoryName = assetDirectory.Name;
+                var folder = new Folder(directoryName)
+                {
+                    Parent = root.URI
+                };
+                OpenedProject!.AssetManager.AddAsset(folder);
+                root.AddChild(folder);
+                ExploreFolder(folder, assetDirectory);
+            }
+            ProjectTree = [root.GetResourceTreeElement()];
             _internalTree.AddRange(ProjectTree);
             _eventAggregator.PublishOnUIThreadAsync(new ProjectManagerMessage(nameof(ProjectTree)));
+        }
+
+        private void ExploreFolder(Folder folder, DirectoryInfo directory)
+        {
+            var serializer = JsonSerializer.Create();
+            foreach (var fileInfo in directory.GetFiles("*.json"))
+            {
+                using var reader = new JsonTextReader(new StreamReader(fileInfo.FullName));
+                var deserialized = (JObject)serializer.Deserialize(reader)!;
+                folder.AddChild(deserialized["URI"]!.ToObject<LabURI>()!);
+            }
+            foreach (var assetDirectory in directory.GetDirectories())
+            {
+                var directoryName = assetDirectory.Name;
+                var newFolder = new Folder(directoryName)
+                {
+                    Parent = folder.URI
+                };
+                OpenedProject!.AssetManager.AddAsset(newFolder);
+                folder.AddChild(newFolder);
+                ExploreFolder(newFolder, assetDirectory);
+            }
         }
 
         private void AddRecentlyOpened(string path)

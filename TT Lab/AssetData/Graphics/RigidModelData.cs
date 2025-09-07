@@ -15,13 +15,13 @@ namespace TT_Lab.AssetData.Graphics
     [ReferencesAssets]
     public class RigidModelData : AbstractAssetData
     {
-        public RigidModelData()
+        public RigidModelData(IAsset asset) : base(asset)
         {
             Materials = new List<LabURI>();
             Model = LabURI.Empty;
         }
 
-        public RigidModelData(ITwinRigidModel rigidModel) : this()
+        public RigidModelData(IAsset asset, ITwinRigidModel rigidModel) : this(asset)
         {
             SetTwinItem(rigidModel);
         }

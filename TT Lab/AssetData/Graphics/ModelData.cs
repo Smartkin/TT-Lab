@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Caliburn.Micro;
 using SharpGLTF.Scenes;
+using TT_Lab.AssetData.Code;
 using TT_Lab.AssetData.Graphics.SubModels;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
@@ -34,14 +35,14 @@ public class ModelData : AbstractAssetData
         public bool Value { get; set; }
     }
         
-    public ModelData()
+    public ModelData(IAsset asset) : base(asset)
     {
         Vertexes = new List<List<Vertex>>();
         Faces = new List<List<IndexedFace>>();
         Meshes = new List<MeshProcessor.Mesh>();
     }
 
-    public ModelData(ITwinModel model) : this()
+    public ModelData(IAsset asset, ITwinModel model) : this(asset)
     {
         SetTwinItem(model);
     }
@@ -148,7 +149,11 @@ public class ModelData : AbstractAssetData
                 primitive.AddTriangle(vertexGenerator(ver1), vertexGenerator(ver2), vertexGenerator(ver3));
             }
 
-            meshes.Add(new GltfGeometryWrapper(mesh, [(root, System.Numerics.Matrix4x4.Identity)]));
+            meshes.Add(new GltfGeometryWrapper(mesh, [new GltfBone
+            {
+                Node = root,
+                InverseBindMatrix = System.Numerics.Matrix4x4.Identity
+            }]));
         }
 
         /// Generate mesh with positions, normals, colors and UV coordinates
@@ -166,7 +171,11 @@ public class ModelData : AbstractAssetData
                 primitive.AddTriangle(vertexGenerator(ver1), vertexGenerator(ver2), vertexGenerator(ver3));
             }
 
-            meshes.Add(new GltfGeometryWrapper(mesh, [(root, System.Numerics.Matrix4x4.Identity)]));
+            meshes.Add(new GltfGeometryWrapper(mesh, [new GltfBone
+            {
+                Node = root,
+                InverseBindMatrix = System.Numerics.Matrix4x4.Identity
+            }]));
         }
 
         /// Generate mesh with positions, colors, emission and UV coordinates
@@ -184,7 +193,11 @@ public class ModelData : AbstractAssetData
                 primitive.AddTriangle(vertexGenerator(ver1), vertexGenerator(ver2), vertexGenerator(ver3));
             }
 
-            meshes.Add(new GltfGeometryWrapper(mesh, [(root, System.Numerics.Matrix4x4.Identity)]));
+            meshes.Add(new GltfGeometryWrapper(mesh, [new GltfBone
+            {
+                Node = root,
+                InverseBindMatrix = System.Numerics.Matrix4x4.Identity
+            }]));
         }
 
         /// Generate mesh with positions, colors and UV coordinates
@@ -202,7 +215,11 @@ public class ModelData : AbstractAssetData
                 primitive.AddTriangle(vertexGenerator(ver1), vertexGenerator(ver2), vertexGenerator(ver3));
             }
 
-            meshes.Add(new GltfGeometryWrapper(mesh, [(root, System.Numerics.Matrix4x4.Identity)]));
+            meshes.Add(new GltfGeometryWrapper(mesh, [new GltfBone
+            {
+                Node = root,
+                InverseBindMatrix = System.Numerics.Matrix4x4.Identity
+            }]));
         }
 
         for (var i = 0; i < Vertexes.Count; i++)
@@ -245,14 +262,9 @@ public class ModelData : AbstractAssetData
         model.SaveGLB(dataPath);
     }
 
-    protected override void LoadInternal(String dataPath, JsonSerializerSettings? settings = null)
+    public void LoadFromGltfMeshes(IReadOnlyList<Mesh> meshes)
     {
-        Vertexes.Clear();
-        Faces.Clear();
-        Meshes.Clear();
-        var model = ModelRoot.Load(dataPath);
-
-        foreach (var mesh in model.LogicalMeshes)
+        foreach (var mesh in meshes)
         {
             var submodel = new List<Vertex>();
             var faces = new List<IndexedFace>();
@@ -298,6 +310,16 @@ public class ModelData : AbstractAssetData
             Vertexes.Add(submodel);
             Faces.Add(faces);
         }
+    }
+
+    protected override void LoadInternal(String dataPath, JsonSerializerSettings? settings = null)
+    {
+        Vertexes.Clear();
+        Faces.Clear();
+        Meshes.Clear();
+        var model = ModelRoot.Load(dataPath);
+
+        LoadFromGltfMeshes(model.LogicalMeshes);
 
         for (var i = 0; i < Vertexes.Count; ++i)
         {
@@ -370,7 +392,7 @@ public class ModelData : AbstractAssetData
                 .WithDoubleSide(true);
             var twinMaterial = twinMaterials?[index++];
             material.Name = twinMaterial?.Name;
-                
+            
             var textureId = twinMaterial?.Shaders[0].TextureId;
             if (textureId == null || textureId == LabURI.Empty)
             {

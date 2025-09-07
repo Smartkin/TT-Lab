@@ -24,7 +24,7 @@ public abstract class SerializableAsset : IAsset
     protected virtual String TwinDataExt => "bin";
     protected AbstractAssetData? AssetData;
     protected ResourceTreeElementViewModel? ViewModel;
-        
+    
     public abstract UInt32 Section { get; }
 
     public Type Type { get; set; }

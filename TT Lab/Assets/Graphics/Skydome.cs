@@ -14,7 +14,7 @@ namespace TT_Lab.Assets.Graphics
 
         public Skydome(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinSkydome skydome) : base(id, name, package, needVariant, variant)
         {
-            AssetData = new SkydomeData(skydome);
+            AssetData = new SkydomeData(this, skydome);
         }
 
         public Skydome()
@@ -30,7 +30,7 @@ namespace TT_Lab.Assets.Graphics
         {
             if (!IsLoaded || AssetData.Disposed)
             {
-                AssetData = new SkydomeData();
+                AssetData = new SkydomeData(this);
                 AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
             }
             return AssetData;

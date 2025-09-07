@@ -15,7 +15,7 @@ namespace TT_Lab.Assets.Instance
 
         public Trigger(LabURI package, UInt32 id, String name, String chunk, Int32 layId, ITwinTrigger trigger) : base(package, id, name, chunk, layId)
         {
-            AssetData = new TriggerData(trigger);
+            AssetData = new TriggerData(this, trigger);
         }
 
         public Trigger()
@@ -31,7 +31,7 @@ namespace TT_Lab.Assets.Instance
         {
             if (!IsLoaded || AssetData.Disposed)
             {
-                AssetData = new TriggerData();
+                AssetData = new TriggerData(this);
                 AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
             }
             

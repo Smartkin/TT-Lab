@@ -15,14 +15,14 @@ public class PSM : GlobalAsset
 
     public PSM(LabURI package, Boolean needVariant, String variant, String name, ITwinPSM psm) : base((UInt32)Guid.NewGuid().GetHashCode(), name, package, needVariant, variant)
     {
-        AssetData = new PSMData(psm);
+        AssetData = new PSMData(this, psm);
     }
 
     public override AbstractAssetData GetData()
     {
         if (!IsLoaded || AssetData.Disposed)
         {
-            AssetData = new PSMData();
+            AssetData = new PSMData(this);
             AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
         }
         return AssetData;

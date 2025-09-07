@@ -17,7 +17,7 @@ namespace TT_Lab.Assets.Graphics
 
         public Skin(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinSkin skin) : base(id, name, package, needVariant, variant)
         {
-            AssetData = new SkinData(skin);
+            AssetData = new SkinData(this, skin);
             Raw = false;
         }
 
@@ -30,7 +30,7 @@ namespace TT_Lab.Assets.Graphics
         {
             if (!IsLoaded || AssetData.Disposed)
             {
-                AssetData = new SkinData();
+                AssetData = new SkinData(this);
                 AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
             }
             return AssetData;

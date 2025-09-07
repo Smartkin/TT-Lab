@@ -8,6 +8,7 @@ using System.Numerics;
 using GlmSharp;
 using SharpGLTF.Schema2;
 using Silk.NET.Maths;
+using TT_Lab.AssetData.Code;
 using TT_Lab.AssetData.Graphics;
 using TT_Lab.AssetData.Graphics.SubModels;
 using TT_Lab.AssetData.Instance.Collision;
@@ -31,12 +32,12 @@ using VERTEX_BUILDER = SharpGLTF.Geometry.VertexBuilder<SharpGLTF.Geometry.Verte
 [ReferencesAssets]
 public class CollisionData : AbstractAssetData
 {
-    public CollisionData()
+    public CollisionData(IAsset asset) : base(asset)
     {
         Vectors = new List<Vector4>();
     }
 
-    public CollisionData(ITwinCollision collision) : this()
+    public CollisionData(IAsset asset, ITwinCollision collision) : this(asset)
     {
         SetTwinItem(collision);
     }
@@ -115,7 +116,11 @@ public class CollisionData : AbstractAssetData
                 new VERTEX_BUILDER(new VERTEX(v2.X, v2.Y, v2.Z)),
                 new VERTEX_BUILDER(new VERTEX(v3.X, v3.Y, v3.Z)));
         }
-        return new GltfGeometryWrapper(builder, [(root, Matrix4x4.Identity)]);
+        return new GltfGeometryWrapper(builder, [new GltfBone
+        {
+            Node = root,
+            InverseBindMatrix = Matrix4x4.Identity
+        }]);
     }
 
     public void RebuildBvh()

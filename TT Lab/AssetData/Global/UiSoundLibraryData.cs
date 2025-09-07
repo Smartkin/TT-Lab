@@ -5,6 +5,7 @@ using TT_Lab.AssetData.Code;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
 using TT_Lab.Assets.Factory;
+using TT_Lab.Assets.Global;
 using TT_Lab.Attributes;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code;
@@ -15,9 +16,9 @@ namespace TT_Lab.AssetData.Global
     public class UiSoundLibraryData : AbstractAssetData
     {
 
-        public UiSoundLibraryData() { }
+        public UiSoundLibraryData(IAsset asset) : base(asset) { }
 
-        public UiSoundLibraryData(ITwinSection section) : this()
+        public UiSoundLibraryData(IAsset asset, ITwinSection section) : this(asset)
         {
             SetTwinItem(section);
         }
@@ -40,12 +41,13 @@ namespace TT_Lab.AssetData.Global
         public override void Import(LabURI package, String? variant, Int32? layoutId)
         {
             var frontend = GetTwinItem<ITwinSection>();
+            var owner = (GlobalAsset)Owner;
             for (var i = 0; i < frontend.GetItemsAmount(); i++)
             {
                 var sound = frontend.GetItem<ITwinSound>(frontend.GetItem(i).GetID());
                 var soundImport = new SoundEffect(package, true, $"{sound.GetName()}_ui_sfx_{i}", sound.GetID(), $"{sound.GetName()}_ui_sfx_{i}", sound)
                 {
-                    AdditionalPath = variant
+                    AdditionalPath = owner.GlobalPath
                 };
                 soundImport.RegenerateLinks();
                 AssetManager.Get().AddAssetToImport(soundImport);

@@ -29,12 +29,12 @@ namespace TT_Lab.AssetData.Code.Behaviour
                                                     }
                                                     """;
         
-        public BehaviourCommandsSequenceData()
+        public BehaviourCommandsSequenceData(IAsset asset) : base(asset)
         {
             Code = _newSequenceTemplate[..];
         }
 
-        public BehaviourCommandsSequenceData(ITwinBehaviourCommandsSequence codeModel) : this()
+        public BehaviourCommandsSequenceData(IAsset asset, ITwinBehaviourCommandsSequence codeModel) : this(asset)
         {
             SetTwinItem(codeModel);
         }

@@ -121,7 +121,7 @@ public class MaterialViewModel : ResourceEditorViewModel
         
         PropertyChanged += (sender, args) =>
         {
-            var newMaterial = new MaterialData();
+            var newMaterial = new MaterialData(AssetManager.Get().GetAsset(EditableResource));
             Save(ref newMaterial);
             _renderContext.QueueRenderAction(() =>
             {
@@ -137,7 +137,7 @@ public class MaterialViewModel : ResourceEditorViewModel
 
     private void InitMaterialViewer()
     {
-        var material = new MaterialData();
+        var material = new MaterialData(AssetManager.Get().GetAsset(EditableResource));
         Save(ref material);
         MaterialViewer.SceneInitializer = (renderer, scene) =>
         {

@@ -17,7 +17,7 @@ namespace TT_Lab.Assets.Code
 
         public OGI(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinOGI ogi) : base(id, name, package, needVariant, variant)
         {
-            AssetData = new OGIData(ogi);
+            AssetData = new OGIData(this, ogi);
         }
 
         public void LinkAnimationsToData(List<LabURI> animations)
@@ -34,7 +34,7 @@ namespace TT_Lab.Assets.Code
         {
             if (!IsLoaded || AssetData.Disposed)
             {
-                AssetData = new OGIData();
+                AssetData = new OGIData(this);
                 AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
             }
             return AssetData;

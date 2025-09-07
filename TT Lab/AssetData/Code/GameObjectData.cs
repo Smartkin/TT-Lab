@@ -26,7 +26,7 @@ namespace TT_Lab.AssetData.Code
     [ReferencesAssets]
     public class GameObjectData : AbstractAssetData
     {
-        public GameObjectData()
+        public GameObjectData(IAsset asset) : base(asset)
         {
             Name = "NewGameObject";
             Type = ITwinObject.ObjectType.GenericObject;
@@ -49,13 +49,13 @@ namespace TT_Lab.AssetData.Code
             BehaviourPack = string.Empty;
         }
 
-        public GameObjectData(ITwinObject gameObject, Dictionary<string, TwinBehaviourStarter> starterMap)
+        public GameObjectData(IAsset asset, ITwinObject gameObject, Dictionary<string, TwinBehaviourStarter> starterMap) : base(asset)
         {
             _starterMap = starterMap;
             SetTwinItem(gameObject);
         }
 
-        public GameObjectData(String path) => Load(path, new JsonSerializerSettings
+        public GameObjectData(IAsset asset, String path) : base(asset) => Load(path, new JsonSerializerSettings
         {
             Formatting = Formatting.Indented
         });

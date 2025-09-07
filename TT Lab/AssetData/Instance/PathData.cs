@@ -13,13 +13,13 @@ namespace TT_Lab.AssetData.Instance
 {
     public class PathData : AbstractAssetData
     {
-        public PathData()
+        public PathData(IAsset asset) : base(asset)
         {
             Points = new List<Vector4>();
             Parameters = new List<Vector2>();
         }
 
-        public PathData(ITwinPath path) : this()
+        public PathData(IAsset asset, ITwinPath path) : this(asset)
         {
             SetTwinItem(path);
         }

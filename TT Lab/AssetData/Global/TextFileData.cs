@@ -9,12 +9,12 @@ namespace TT_Lab.AssetData.Global
 {
     public class TextFileData : AbstractAssetData
     {
-        public TextFileData()
+        public TextFileData(IAsset asset) : base(asset)
         {
             Text = "";
         }
 
-        public TextFileData(String text) : this()
+        public TextFileData(IAsset asset, String text) : this(asset)
         {
             Text = $"{text}";
         }

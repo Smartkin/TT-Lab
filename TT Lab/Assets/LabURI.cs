@@ -12,8 +12,21 @@ namespace TT_Lab.Assets
     [DebuggerDisplay("{DebuggerDisplay,nq}")]
     public class LabURI : IEquatable<LabURI>, IComparable
     {
-        [JsonProperty(Required = Required.Always)]
-        private readonly String _uri;
+        private String _uri;
+
+        [JsonProperty(Required = Required.Always, PropertyName = "_uri")]
+        private String JsonUri
+        {
+            get => _uri;
+            set
+            {
+                _uri = value;
+                if (_uri != null)
+                {
+                    ParseAndVerify();
+                }
+            }
+        }
 
         private static Dictionary<string, LabURI> _labIconUris = [];
         private static string _prefix = "res://";

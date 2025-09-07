@@ -16,14 +16,14 @@ public class PTC : GlobalAsset
 
     public PTC(LabURI package, Boolean needVariant, String variant, String name, ITwinPTC ptc) : base((UInt32)Guid.NewGuid().GetHashCode(), name, package, needVariant, variant)
     {
-        AssetData = new PTCData(ptc);
+        AssetData = new PTCData(this, ptc);
     }
 
     public override AbstractAssetData GetData()
     {
         if (!IsLoaded || AssetData.Disposed)
         {
-            AssetData = new PTCData();
+            AssetData = new PTCData(this);
             AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
         }
         return AssetData;

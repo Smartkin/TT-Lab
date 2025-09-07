@@ -37,11 +37,36 @@ public class Folder : SerializableAsset
     public Folder(string name)
     {
         InvariantName = name;
+        Alias = InvariantName;
+    }
+
+    public void AddChild(LabURI uri)
+    {
+        Children.Add(uri);
     }
 
     public void AddChild(IAsset asset)
     {
         Children.Add(asset.URI);
+    }
+
+    public string GetPath()
+    {
+        var result = "";
+        if (Parent == null)
+        {
+            return $"{result}/{Name}";
+        }
+        
+        var parentFolder = AssetManager.Get().GetAsset<Folder>(Parent);
+        result += parentFolder.GetPath();
+
+        return $"{result}/{Name}";
+    }
+
+    public override void RegenerateUri()
+    {
+        URI = new LabURI($"res://__GLOBAL_FOLDER__{GetPath()}");
     }
 
     public override Type GetEditorType()

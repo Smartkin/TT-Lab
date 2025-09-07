@@ -30,6 +30,11 @@ public class OGI : Renderable
         blendSkinBuffer?.SetBoneMatrix(jointIndex, defaultSkeleton.Bones[jointIndex].GetBoneMatrix());
     }
 
+    public void SetInheritScaleForJoint(int jointIndex, bool inherit)
+    {
+        defaultSkeleton.Bones[jointIndex].SetInheritScale(inherit);
+    }
+
     public void ApplyWeightsToBlendSkin(float[] weights)
     {
         if (blendSkinBuffer == null)

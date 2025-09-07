@@ -17,7 +17,7 @@ namespace TT_Lab.AssetData.Graphics
     [ReferencesAssets]
     public class LodModelData : AbstractAssetData
     {
-        public LodModelData()
+        public LodModelData(IAsset asset) : base(asset)
         {
             Type = LodType.COMPRESSED;
             ModelsDrawDistances = new Int32[3];
@@ -26,7 +26,7 @@ namespace TT_Lab.AssetData.Graphics
             MaxDrawDistance = UInt16.MaxValue;
         }
 
-        public LodModelData(ITwinLOD lod) : this()
+        public LodModelData(IAsset asset, ITwinLOD lod) : this(asset)
         {
             SetTwinItem(lod);
         }

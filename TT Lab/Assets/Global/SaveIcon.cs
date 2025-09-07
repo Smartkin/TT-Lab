@@ -25,14 +25,14 @@ public class SaveIcon : GlobalAsset
 
     public SaveIcon(LabURI package, Boolean needVariant, String variant, String name, Byte[] data) : base((UInt32)Guid.NewGuid().GetHashCode(), name, package, needVariant, variant)
     {
-        AssetData = new SaveIconData(data);
+        AssetData = new SaveIconData(this, data);
     }
 
     public override AbstractAssetData GetData()
     {
         if (!IsLoaded || AssetData.Disposed)
         {
-            AssetData = new SaveIconData();
+            AssetData = new SaveIconData(this);
             AssetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
         }
         return AssetData;
