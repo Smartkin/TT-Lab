@@ -113,12 +113,12 @@ public class Project : IProject
         var query = from asset in AssetManager.GetAssets()
             group asset by asset.Type;
         var assetTypesQuery = query as IGrouping<Type, IAsset>[] ?? query.ToArray();
-        var tasks = new Task[assetTypesQuery.Length - 4];
+        var tasks = new Task[assetTypesQuery.Length - 6];
         var index = 0;
         var startAsset = DateTime.Now;
         foreach (var group in assetTypesQuery)
         {
-            if (group.Key.Name is nameof(BlendSkin) or nameof(Skin) or nameof(OGI) or nameof(Scenery))
+            if (group.Key.Name is nameof(BlendSkin) or nameof(Skin) or nameof(OGI) or nameof(Scenery) or nameof(Skydome) or nameof(DynamicScenery))
                 continue;
             tasks[index++] = Task.Factory.StartNew(() =>
             {
@@ -153,7 +153,7 @@ public class Project : IProject
         // and needing all the materials and textures serialized
         foreach (var group in assetTypesQuery)
         {
-            if (group.Key.Name != nameof(BlendSkin) && group.Key.Name != nameof(Skin) && group.Key.Name != nameof(OGI) && group.Key.Name != nameof(Scenery))
+            if (group.Key.Name != nameof(BlendSkin) && group.Key.Name != nameof(Skin) && group.Key.Name != nameof(OGI) && group.Key.Name != nameof(Scenery) && group.Key.Name != nameof(DynamicScenery) && group.Key.Name != nameof(Skydome))
                 continue;
             Log.WriteLine($"Serializing {group.Key.Name}...");
             var now = DateTime.Now;

@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Assets.Graphics;
@@ -31,6 +32,30 @@ namespace TT_Lab.AssetData.Graphics
         protected override void Dispose(Boolean disposing)
         {
             Meshes.Clear();
+        }
+
+        protected override void SaveInternal(string dataPath, JsonSerializerSettings? settings = null)
+        {
+            base.SaveInternal(dataPath, settings);
+            
+            var scene = new SharpGLTF.Scenes.SceneBuilder($"TwinsanitySkydome_{Owner.Name}");
+            var root = new SharpGLTF.Scenes.NodeBuilder("skydome_root");
+
+            var meshesRoot = root.CreateNode();
+            var assetManager = AssetManager.Get();
+            foreach (var meshId in Meshes)
+            {
+                var meshData = assetManager.GetAssetData<MeshData>(meshId);
+                var model = assetManager.GetAssetData<ModelData>(meshData.Model);
+                var meshes = model.GetMeshes(meshesRoot, meshData.Materials.Select(matUri => assetManager.GetAssetData<MaterialData>(matUri)).ToList());
+                foreach (var mesh in meshes)
+                {
+                    scene.AddRigidMesh(mesh.Mesh, meshesRoot);
+                }
+            }
+            
+            var resultModel = scene.ToGltf2();
+            resultModel.SaveGLB(dataPath + ".glb");
         }
 
         public override void Import(LabURI package, String? variant, Int32? layoutId)
