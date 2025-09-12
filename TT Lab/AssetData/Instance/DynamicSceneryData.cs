@@ -4,10 +4,12 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using SharpGLTF.Animations;
+using SharpGLTF.Schema2;
 using TT_Lab.AssetData.Graphics;
 using TT_Lab.AssetData.Instance.DynamicScenery;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
+using TT_Lab.Assets.Graphics;
 using TT_Lab.Attributes;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces;
@@ -62,6 +64,35 @@ public class DynamicSceneryData : AbstractAssetData
         
         var resultModel = scene.ToGltf2();
         resultModel.SaveGLB(dataPath + ".glb");
+    }
+
+    protected override void LoadInternal(string dataPath, JsonSerializerSettings? settings = null)
+    {
+        base.LoadInternal(dataPath, settings);
+        
+        var assetManager = AssetManager.Get();
+        var model = ModelRoot.Load(dataPath + ".glb");
+        var modelId = 0;
+        foreach (var node in model.LogicalNodes)
+        {
+            if (node.Name == "dynamic_scenery_root")
+            {
+                continue;
+            }
+            
+            var modelMeshes = model.LogicalMeshes
+                .Where(m => m.VisualParents.All(n => n.LogicalIndex == node.LogicalIndex)).ToList();
+            var labModel = new Model
+            {
+                Package = Owner.Package,
+                InvariantName = $"Model_{modelId++}_{Owner.Name}",
+            };
+            labModel.RegenerateLinks();
+            assetManager.AddAssetUnsafe(labModel);
+            var modelData = new ModelData(labModel);
+            modelData.LoadFromGltfMeshes(modelMeshes);
+            labModel.SetData(modelData);
+        }
     }
 
     public override void Import(LabURI package, String? variant, Int32? layoutId)

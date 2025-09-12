@@ -50,6 +50,11 @@ public class DynamicSceneryModelData
         }
     }
 
+    public void CreateFromGltfAnimation()
+    {
+        
+    }
+
     public List<DynamicModelAnimationSample> GetAnimationSamples()
     {
         var result = new List<DynamicModelAnimationSample>();

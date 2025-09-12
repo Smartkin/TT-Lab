@@ -88,13 +88,13 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Base
         {
             if (length > 0)
             {
-                ComputeHash(reader.BaseStream);
+                // ComputeHash(reader.BaseStream);
                 Int64 baseOffset = reader.BaseStream.Position;
                 var magicNumber = reader.ReadUInt32();
-                if ((magicNumber >> 0x10) >= 2 || (magicNumber & 0xFFFF) != GetMagicNumber())
-                {
-                    throw new Exception("Invalid section!");
-                }
+                // if ((magicNumber >> 0x10) >= 2 || (magicNumber & 0xFFFF) != GetMagicNumber())
+                // {
+                //     throw new Exception("Invalid section!");
+                // }
                 UInt32 itemsCount = reader.ReadUInt32();
                 UInt32 streamLength = reader.ReadUInt32();
                 Record[] records = new Record[itemsCount];
@@ -120,11 +120,17 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Base
                     }
                     reader.BaseStream.Position = records[i].Offset + baseOffset;
                     item.SetID(records[i].ItemId);
-                    item.ComputeHash(reader.BaseStream, records[i].Size);
+                    // item.ComputeHash(reader.BaseStream, records[i].Size);
                     item.Read(reader, (Int32)records[i].Size);
                     Items.Add(item);
                 }
-                extraData = reader.ReadBytes((Int32)(length - (reader.BaseStream.Position - baseOffset)));
+
+                var leftOverBytes = (Int32)(length - (reader.BaseStream.Position - baseOffset));
+                if (leftOverBytes < 0)
+                {
+                    leftOverBytes = 0;
+                }
+                extraData = reader.ReadBytes(leftOverBytes);
             }
             else
             {

@@ -2,6 +2,8 @@
 using SharpGLTF.Schema2;
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.IO.Hashing;
 using System.Linq;
 using Caliburn.Micro;
 using SharpGLTF.Scenes;
@@ -47,6 +49,7 @@ public class ModelData : AbstractAssetData
         SetTwinItem(model);
     }
 
+    public uint HashId { get; set; }
     public List<List<Vertex>> Vertexes { get; set; }
     public List<List<IndexedFace>> Faces { get; set; }
     public List<MeshProcessor.Mesh> Meshes { get; set; }
@@ -327,6 +330,43 @@ public class ModelData : AbstractAssetData
             MeshProcessor.MeshProcessor.ProcessMesh(mesh);
             Meshes.Add(mesh);
         }
+
+        using var memStream = new MemoryStream();
+        using var dataStream = new BinaryWriter(memStream);
+        foreach (var faceList in Faces)
+        {
+            foreach (var face in faceList)
+            {
+                dataStream.Write(face.Indexes![0]);
+                dataStream.Write(face.Indexes[1]);
+                dataStream.Write(face.Indexes[2]);
+            }
+        }
+        
+        foreach (var vertexList in Vertexes)
+        {
+            foreach (var vertex in vertexList)
+            {
+                vertex.Position.Write(dataStream);
+                vertex.UV.Write(dataStream);
+                vertex.Color.Write(dataStream);
+                if (vertex.HasNormals)
+                {
+                    vertex.Normal.Write(dataStream);
+                }
+                if (vertex.HasEmitColor)
+                {
+                    vertex.EmitColor.Write(dataStream);
+                }
+            }
+        }
+        dataStream.Flush();
+
+        memStream.Position = 0;
+        using var binaryReader = new BinaryReader(memStream);
+        
+        var modelHash = Crc32.Hash(binaryReader.ReadBytes((int)memStream.Length));
+        HashId = (uint)(modelHash[0] | (modelHash[1] << 8) | (modelHash[2] << 16) | (modelHash[3] << 24));
     }
 
     public override void Import(LabURI package, String? variant, Int32? layoutId)

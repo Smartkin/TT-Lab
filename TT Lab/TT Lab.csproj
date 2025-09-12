@@ -2847,6 +2847,7 @@
     <PackageReference Include="Silk.NET.OpenGL.Extensions.ImGui" Version="2.22.0" />
     <PackageReference Include="Silk.NET.Windowing.Common" Version="2.22.0" />
     <PackageReference Include="System.Drawing.Common" Version="7.0.0" />
+    <PackageReference Include="System.IO.Hashing" Version="9.0.9" />
     <PackageReference Include="System.Text.RegularExpressions" Version="4.3.1" />
     <PackageReference Include="System.Xml.ReaderWriter" Version="4.3.1" />
     <PackageReference Include="TerraFX.Interop.Windows" Version="10.0.26100.2" />

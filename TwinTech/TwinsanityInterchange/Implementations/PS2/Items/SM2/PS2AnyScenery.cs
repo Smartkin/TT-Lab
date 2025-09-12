@@ -43,6 +43,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SM2
 
         public override void Read(BinaryReader reader, Int32 length)
         {
+            SkydomeID = reader.ReadUInt32();
             var flags = reader.ReadUInt32();
             {
                 HasLighting = (flags & 0x20000) != 0;
@@ -54,7 +55,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SM2
             UnkByte = reader.ReadByte();
             if ((flags & 0x10000) != 0)
             {
-                SkydomeID = reader.ReadUInt32();
+                
             }
             if (HasLighting)
             {

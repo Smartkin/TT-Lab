@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using SharpGLTF.Schema2;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Assets.Graphics;
@@ -10,6 +11,7 @@ using TT_Lab.Attributes;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items;
+using Mesh = TT_Lab.Assets.Graphics.Mesh;
 
 namespace TT_Lab.AssetData.Graphics
 {
@@ -45,17 +47,47 @@ namespace TT_Lab.AssetData.Graphics
             var assetManager = AssetManager.Get();
             foreach (var meshId in Meshes)
             {
+                var meshNode = meshesRoot.CreateNode();
                 var meshData = assetManager.GetAssetData<MeshData>(meshId);
                 var model = assetManager.GetAssetData<ModelData>(meshData.Model);
                 var meshes = model.GetMeshes(meshesRoot, meshData.Materials.Select(matUri => assetManager.GetAssetData<MaterialData>(matUri)).ToList());
                 foreach (var mesh in meshes)
                 {
-                    scene.AddRigidMesh(mesh.Mesh, meshesRoot);
+                    scene.AddRigidMesh(mesh.Mesh, meshNode);
                 }
             }
             
             var resultModel = scene.ToGltf2();
             resultModel.SaveGLB(dataPath + ".glb");
+        }
+
+        protected override void LoadInternal(string dataPath, JsonSerializerSettings? settings = null)
+        {
+            base.LoadInternal(dataPath, settings);
+            
+            var assetManager = AssetManager.Get();
+            var model = ModelRoot.Load(dataPath + ".glb");
+            var modelId = 0;
+            foreach (var node in model.LogicalNodes)
+            {
+                if (node.Name == "skydome_root")
+                {
+                    continue;
+                }
+
+                var modelMeshes = model.LogicalMeshes
+                    .Where(m => m.VisualParents.All(n => n.LogicalIndex == node.LogicalIndex)).ToList();
+                var labModel = new Model
+                {
+                    Package = Owner.Package,
+                    InvariantName = $"Model_{modelId++}_{Owner.Name}",
+                };
+                labModel.RegenerateLinks();
+                assetManager.AddAssetUnsafe(labModel);
+                var modelData = new ModelData(labModel);
+                modelData.LoadFromGltfMeshes(modelMeshes);
+                labModel.SetData(modelData);
+            }
         }
 
         public override void Import(LabURI package, String? variant, Int32? layoutId)
