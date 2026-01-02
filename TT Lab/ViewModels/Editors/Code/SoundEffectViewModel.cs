@@ -6,8 +6,8 @@ using System.Media;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Media;
-using System.Windows.Threading;
+using Avalonia;
+using Avalonia.Threading;
 using Caliburn.Micro;
 using NAudio.Wave;
 using TT_Lab.AssetData.Code;
@@ -18,7 +18,6 @@ using TT_Lab.Audio;
 using TT_Lab.Util;
 using Twinsanity.Libraries;
 using Action = System.Action;
-using Package = System.IO.Packaging.Package;
 using Timer = System.Timers.Timer;
 
 namespace TT_Lab.ViewModels.Editors.Code;
@@ -38,9 +37,9 @@ public class SoundEffectViewModel : ResourceEditorViewModel
 
     public SoundEffectViewModel()
     {
-        Application.Current.Dispatcher.BeginInvoke(() =>
+        Dispatcher.UIThread.Post(() =>
         {
-            CompositionTarget.Rendering += UpdateTrackUi;
+            // CompositionTarget.Rendering += UpdateTrackUi;
         });
     }
 
@@ -49,7 +48,7 @@ public class SoundEffectViewModel : ResourceEditorViewModel
         if (close)
         {
             _audioPlayer.Dispose();
-            CompositionTarget.Rendering -= UpdateTrackUi;
+            // CompositionTarget.Rendering -= UpdateTrackUi;
         }
         else
         {
@@ -159,7 +158,7 @@ public class SoundEffectViewModel : ResourceEditorViewModel
         NotifyOfPropertyChange(nameof(ReplacedAudioMark));
     }
 
-    public void ChangeTrackPosition(RoutedPropertyChangedEventArgs<double> e)
+    public void ChangeTrackPosition(AvaloniaPropertyChangedEventArgs e)
     {
         if (_audioPlayer.GetPlaybackState() == PlaybackState.Playing)
         {
@@ -167,7 +166,7 @@ public class SoundEffectViewModel : ResourceEditorViewModel
         }
         
         _audioPlayer.Pause();
-        _audioPlayer.SetPosition(e.NewValue);
+        _audioPlayer.SetPosition((double)e.NewValue);
         NotifyOfPropertyChange(nameof(CurrentTime));
     }
 

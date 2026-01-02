@@ -1,0 +1,22 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+             xmlns:controls1="clr-namespace:TT_Lab.Controls"
+             xmlns:viewModels="clr-namespace:TT_Lab.ViewModels.Composite"
+             xmlns:valueConverters="clr-namespace:TT_Lab.ValueConverters"
+             d:DataContext="{Binding Source={d:DesignInstance viewModels:Vector2ViewModel}}"
+             x:DataType="viewModels:Vector2ViewModel"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Views.Composite.Vector2View">
+    <UserControl.Resources>
+        <valueConverters:FloatConverter x:Key="FloatConverter"/>
+    </UserControl.Resources>
+    <controls:GroupBox>
+        <UniformGrid x:Name="FormationGrid" Columns="2">
+            <controls1:LabeledTextBox LayoutOrientation="Horizontal" Text="{Binding X, Converter={StaticResource FloatConverter}}" VerticalAlignment="Center" TextBoxName="X" Margin="5,5,5,5" HorizontalAlignment="Stretch"/>
+            <controls1:LabeledTextBox LayoutOrientation="Horizontal" Text="{Binding Y, Converter={StaticResource FloatConverter}}" VerticalAlignment="Center" TextBoxName="Y" Margin="5,5,5,5" HorizontalAlignment="Stretch"/>
+        </UniformGrid>
+    </controls:GroupBox>
+</UserControl>

@@ -1,13 +1,14 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
-using System.Windows.Data;
-using Microsoft.Xaml.Behaviors.Core;
+using Avalonia.Data.Converters;
+using Avalonia.Xaml.Interactivity;
 
 namespace TT_Lab.ValueConverters;
 
 public class EditableListBoxButtonEnabledConverter : IMultiValueConverter
 {
-    public Object Convert(object?[] values, Type targetType, object parameter, CultureInfo culture)
+    public Object Convert(IList<object?> values, Type targetType, object? parameter, CultureInfo culture)
     {
         var selectedItem = values[0];
         if (selectedItem == null)
@@ -47,10 +48,5 @@ public class EditableListBoxButtonEnabledConverter : IMultiValueConverter
         }
         
         return true;
-    }
-
-    public Object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
-    {
-        throw new NotImplementedException();
     }
 }

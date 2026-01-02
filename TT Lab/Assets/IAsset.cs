@@ -33,7 +33,7 @@ public enum SerializationFlags
 }
     
 /// <summary>
-/// Interface for all the assets TT Lab manages
+/// Interface for all the assets TT Lab WPF manages
 /// </summary>
 [JsonObject(MemberSerialization.OptIn)]
 public interface IAsset
@@ -121,7 +121,7 @@ public interface IAsset
     LabURI URI { get; set; }
 
     /// <summary>
-    /// TT Lab specific data
+    /// TT Lab WPF specific data
     /// </summary>
     [JsonProperty(Required = Required.AllowNull)]
     Dictionary<String, Object?> Parameters { get; }

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using Avalonia.Input;
 using static TT_Lab.Libraries.SDL2;
 
 namespace TT_Lab.Libraries

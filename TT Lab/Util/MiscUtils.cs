@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
+using Avalonia.Media.Imaging;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 
 namespace TT_Lab.Util
@@ -43,37 +44,19 @@ namespace TT_Lab.Util
             return _labIconStorage[iconName];
         }
 
-        // Ah yes, WinForms being garbage as usual
-        [Obsolete("WinForms are not used anymore. DO NOT EVER USE THIS METHOD")]
-        public static object GetDragDropData(this System.Windows.Forms.IDataObject dataObject)
-        {
-            var info = dataObject.GetType().GetField("innerData", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            var obj = info.GetValue(dataObject);
-            info = obj.GetType().GetField("innerData", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            obj = info.GetValue(obj);
-            info = obj.GetType().GetField("_innerData", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            obj = info.GetValue(obj);
-            info = obj.GetType().GetField("_data", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            var table = info.GetValue(obj) as System.Collections.Hashtable;
-            var values = (object[])table.Cast<System.Collections.DictionaryEntry>().First().Value;
-            var value = values[0];
-            info = value.GetType().GetField("_data", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            return info.GetValue(value);
-        }
-
         public static string GetFileFromDialogue(string filter, string initial_directory = "")
         {
-            using (System.Windows.Forms.OpenFileDialog ofd = new System.Windows.Forms.OpenFileDialog
-            {
-                InitialDirectory = initial_directory,
-                Filter = filter
-            })
-            {
-                if (System.Windows.Forms.DialogResult.OK == ofd.ShowDialog())
-                {
-                    return ofd.FileName;
-                }
-            }
+            // using (System.Windows.Forms.OpenFileDialog ofd = new System.Windows.Forms.OpenFileDialog
+            // {
+            //     InitialDirectory = initial_directory,
+            //     Filter = filter
+            // })
+            // {
+            //     if (System.Windows.Forms.DialogResult.OK == ofd.ShowDialog())
+            //     {
+            //         return ofd.FileName;
+            //     }
+            // }
             return string.Empty;
         }
 

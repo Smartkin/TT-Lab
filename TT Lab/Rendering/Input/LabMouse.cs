@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Numerics;
-using System.Windows.Controls;
-using System.Windows.Input;
+using Avalonia.Controls;
+using Avalonia.Input;
 using Silk.NET.Input;
 using MouseButton = Silk.NET.Input.MouseButton;
 
@@ -12,18 +12,20 @@ public class LabMouse : IMouse, IDisposable
 {
     private readonly Image _renderArea;
     private bool _scrollModified = false;
+    private Pointer _mouse;
     
-    public string Name => "TT Lab Mouse";
+    public string Name => "TT Lab Avalonia Mouse";
     public int Index => 0;
     public bool IsConnected => true;
 
     public LabMouse(Image renderArea)
     {
-        Mouse.AddMouseMoveHandler(renderArea, MouseMoveHandler);
-        Mouse.AddMouseDownHandler(renderArea, MouseDownHandler);
-        Mouse.AddMouseUpHandler(renderArea, MouseUpHandler);
-        Mouse.AddMouseWheelHandler(renderArea, MouseWheelHandler);
-        Mouse.AddMouseEnterHandler(renderArea, MouseEnterHandler);
+        _mouse = new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, true);
+        // Mouse.AddMouseMoveHandler(renderArea, MouseMoveHandler);
+        // Mouse.AddMouseDownHandler(renderArea, MouseDownHandler);
+        // Mouse.AddMouseUpHandler(renderArea, MouseUpHandler);
+        // Mouse.AddMouseWheelHandler(renderArea, MouseWheelHandler);
+        // Mouse.AddMouseEnterHandler(renderArea, MouseEnterHandler);
         
         _renderArea = renderArea;
     }
@@ -38,15 +40,14 @@ public class LabMouse : IMouse, IDisposable
         _scrollModified = false;
     }
 
-    private void MouseEnterHandler(object sender, MouseEventArgs e)
+    private void MouseEnterHandler(object sender, PointerEventArgs e)
     {
-        Keyboard.Focus(_renderArea);
-        _renderArea.Focus();
+        _renderArea.Focus(NavigationMethod.Directional);
     }
 
-    private void MouseWheelHandler(object sender, MouseWheelEventArgs e)
+    private void MouseWheelHandler(object sender, PointerWheelEventArgs e)
     {
-        var scrollWheel = new ScrollWheel(0, (float)e.Delta / Mouse.MouseWheelDeltaForOneLine);
+        var scrollWheel = new ScrollWheel((float)e.Delta.X, (float)e.Delta.Y);
         if (Math.Abs(ScrollWheels[0].Y - scrollWheel.Y) > 0.001f)
         {
             _scrollModified = true;
@@ -56,9 +57,11 @@ public class LabMouse : IMouse, IDisposable
         Scroll?.Invoke(this, scrollWheel);
     }
 
-    private void MouseUpHandler(object sender, MouseButtonEventArgs e)
+    private void MouseUpHandler(object sender, PointerPressedEventArgs e)
     {
-        var button = GetButton(e.ChangedButton);
+        return;
+        
+        var button = GetButton(Avalonia.Input.MouseButton.Left);
         if (button == null)
         {
             return;
@@ -67,9 +70,10 @@ public class LabMouse : IMouse, IDisposable
         MouseUp?.Invoke(this, button.Value);
     }
 
-    private void MouseDownHandler(object sender, MouseButtonEventArgs e)
+    private void MouseDownHandler(object sender, PointerPressedEventArgs e)
     {
-        var button = GetButton(e.ChangedButton);
+        return;
+        var button = GetButton(Avalonia.Input.MouseButton.Left);
         if (button == null)
         {
             return;
@@ -94,7 +98,7 @@ public class LabMouse : IMouse, IDisposable
         }
     }
     
-    private void MouseMoveHandler(object sender, MouseEventArgs e)
+    private void MouseMoveHandler(object sender, PointerEventArgs e)
     {
         var position = e.GetPosition(_renderArea);
         Position = new Vector2((float)position.X, (float)position.Y);
@@ -103,11 +107,11 @@ public class LabMouse : IMouse, IDisposable
 
     public void Dispose()
     {
-        Mouse.RemoveMouseMoveHandler(_renderArea, MouseMoveHandler);
-        Mouse.RemoveMouseDownHandler(_renderArea, MouseDownHandler);
-        Mouse.RemoveMouseUpHandler(_renderArea, MouseUpHandler);
-        Mouse.RemoveMouseWheelHandler(_renderArea, MouseWheelHandler);
-        Mouse.RemoveMouseEnterHandler(_renderArea, MouseEnterHandler);
+        // Mouse.RemoveMouseMoveHandler(_renderArea, MouseMoveHandler);
+        // Mouse.RemoveMouseDownHandler(_renderArea, MouseDownHandler);
+        // Mouse.RemoveMouseUpHandler(_renderArea, MouseUpHandler);
+        // Mouse.RemoveMouseWheelHandler(_renderArea, MouseWheelHandler);
+        // Mouse.RemoveMouseEnterHandler(_renderArea, MouseEnterHandler);
         
         ((LabCursor)Cursor).Dispose();
         GC.SuppressFinalize(this);
@@ -117,11 +121,11 @@ public class LabMouse : IMouse, IDisposable
     {
         return btn switch
         {
-            MouseButton.Left => Mouse.LeftButton == MouseButtonState.Pressed,
-            MouseButton.Right => Mouse.RightButton == MouseButtonState.Pressed,
-            MouseButton.Middle => Mouse.MiddleButton == MouseButtonState.Pressed,
-            MouseButton.Button4 => Mouse.XButton1 == MouseButtonState.Pressed,
-            MouseButton.Button5 => Mouse.XButton2 == MouseButtonState.Pressed,
+            // MouseButton.Left => Mouse.LeftButton == MouseButtonState.Pressed,
+            // MouseButton.Right => Mouse.RightButton == MouseButtonState.Pressed,
+            // MouseButton.Middle => Mouse.MiddleButton == MouseButtonState.Pressed,
+            // MouseButton.Button4 => Mouse.XButton1 == MouseButtonState.Pressed,
+            // MouseButton.Button5 => Mouse.XButton2 == MouseButtonState.Pressed,
             _ => false
         };
     }
@@ -139,15 +143,15 @@ public class LabMouse : IMouse, IDisposable
     public event Action<IMouse, Vector2>? MouseMove;
     public event Action<IMouse, ScrollWheel>? Scroll;
 
-    public static MouseButton? GetButton(System.Windows.Input.MouseButton btn)
+    public static MouseButton? GetButton(Avalonia.Input.MouseButton btn)
     {
         return btn switch
         {
-            System.Windows.Input.MouseButton.Left => MouseButton.Left,
-            System.Windows.Input.MouseButton.Middle => MouseButton.Middle,
-            System.Windows.Input.MouseButton.Right => MouseButton.Right,
-            System.Windows.Input.MouseButton.XButton1 => MouseButton.Button4,
-            System.Windows.Input.MouseButton.XButton2 => MouseButton.Button5,
+            Avalonia.Input.MouseButton.Left => MouseButton.Left,
+            Avalonia.Input.MouseButton.Middle => MouseButton.Middle,
+            Avalonia.Input.MouseButton.Right => MouseButton.Right,
+            Avalonia.Input.MouseButton.XButton1 => MouseButton.Button4,
+            Avalonia.Input.MouseButton.XButton2 => MouseButton.Button5,
             _ => null
         };
     }

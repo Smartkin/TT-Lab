@@ -1,3 +1,4 @@
+#if _WINDOWS
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
@@ -192,4 +193,4 @@ public unsafe class LabWinNativeContext : IGlContext
     private const int WGL_CONTEXT_DEBUG_BIT_ARB = 0x00000001;
     private const int WGL_CONTEXT_FLAGS_ARB = 0x2094;
 }
-
+#endif

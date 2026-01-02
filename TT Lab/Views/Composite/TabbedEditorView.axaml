@@ -1,0 +1,34 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:cal="clr-namespace:Caliburn.Micro;assembly=Caliburn.Micro.Platform"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:CompileBindings="False"
+             x:Class="TT_Lab.Views.Composite.TabbedEditorView">
+    <UserControl.KeyBindings>
+        <KeyBinding Command="{Binding CloseEditorTab}" Gesture="Ctrl+W"/>
+        <KeyBinding Command="{Binding SaveEditorTab}" Gesture="Ctrl+S"/>
+    </UserControl.KeyBindings>
+    <!-- <i:Interaction.Triggers> -->
+    <!--     <Triggers:InputBindingTrigger> -->
+    <!--         <Triggers:InputBindingTrigger.InputBinding> -->
+    <!--             <KeyBinding Modifiers="Ctrl" Key="W"/> -->
+    <!--         </Triggers:InputBindingTrigger.InputBinding> -->
+    <!--         <cal:ActionMessage MethodName="CloseEditorTab"> -->
+    <!--             <cal:Parameter Value="$dataContext"/> -->
+    <!--         </cal:ActionMessage> -->
+    <!--     </Triggers:InputBindingTrigger> -->
+    <!--     <Triggers:InputBindingTrigger> -->
+    <!--         <Triggers:InputBindingTrigger.InputBinding> -->
+    <!--             <KeyBinding Modifiers="Ctrl" Key="S"/> -->
+    <!--         </Triggers:InputBindingTrigger.InputBinding> -->
+    <!--         <cal:ActionMessage MethodName="SaveEditorTab"> -->
+    <!--             <cal:Parameter Value="$dataContext"/> -->
+    <!--         </cal:ActionMessage> -->
+    <!--     </Triggers:InputBindingTrigger> -->
+    <!-- </i:Interaction.Triggers> -->
+    <Grid>
+        <ContentControl x:Name="ActiveItem"/>
+    </Grid>
+</UserControl>

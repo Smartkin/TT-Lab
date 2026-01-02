@@ -3,12 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
 using System.Windows.Input;
-using System.Windows.Threading;
+using Avalonia.Controls;
+using Avalonia.Data;
+using Avalonia.Input;
+using Avalonia.Layout;
+using Avalonia.Threading;
 using Caliburn.Micro;
-using Microsoft.Xaml.Behaviors.Core;
 using Newtonsoft.Json;
 using TT_Lab.AssetData;
 using TT_Lab.Assets;
@@ -53,7 +54,7 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
     private Boolean _isTargetItem;
     private Boolean _isSelected;
     private Boolean _isExpanded;
-    private Visibility _isVisible;
+    private Boolean _isVisible;
     private Boolean _isRenaming;
     private Boolean _contextMenuCreated;
 
@@ -152,19 +153,19 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
         var newItem = new MenuItem
         {
             Header = settings.Header,
-            IsCheckable = settings.IsCheckable,
-            HorizontalContentAlignment = HorizontalAlignment.Stretch,
-            VerticalContentAlignment = VerticalAlignment.Center
+            // IsCheckable = settings.IsCheckable,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Center
         };
         
         if (settings.Action != null)
         {
-            newItem.Command = new ActionCommand(settings.Action);
+            // newItem.Command = new ActionCommand(settings.Action);
         }
 
         if (settings is { IsCheckable: true, IsChecked: not null })
         {
-            newItem.SetBinding(MenuItem.IsCheckedProperty, settings.IsChecked);
+            // newItem.SetBinding(MenuItem.IsCheckedProperty, settings.IsChecked);
         }
         
         _menuOptions.Add(newItem);
@@ -195,7 +196,7 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
         }
         
         _contextMenuCreated = true;
-        await Application.Current.Dispatcher.BeginInvoke(CreateContextMenu, DispatcherPriority.Background);
+        await Dispatcher.UIThread.InvokeAsync(CreateContextMenu, DispatcherPriority.Background);
     }
 
     public void StopRenaming()
@@ -288,9 +289,9 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
         }
     }
 
-    public Visibility IsRenaming => _isRenaming ? Visibility.Visible : Visibility.Collapsed;
+    public Boolean IsRenaming => _isRenaming;
 
-    public Visibility IsNotRenaming => !_isRenaming ? Visibility.Visible : Visibility.Collapsed;
+    public Boolean IsNotRenaming => !_isRenaming;
 
     public String IconPath => ManifestResourceLoader.GetPathInExe($"Media/LabIcons/{Asset.IconPath}");
 
@@ -329,7 +330,7 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
     
     public ResourceTreeElementViewModel? Parent => _parent;
 
-    public Visibility IsVisible
+    public Boolean IsVisible
     {
         get => _isVisible;
         set
@@ -340,9 +341,9 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
                 NotifyOfPropertyChange();
             }
 
-            if (_isVisible == Visibility.Visible && _parent != null)
+            if (_isVisible && _parent != null)
             {
-                _parent._isVisible = Visibility.Visible;
+                _parent._isVisible = true;
             }
         }
     }

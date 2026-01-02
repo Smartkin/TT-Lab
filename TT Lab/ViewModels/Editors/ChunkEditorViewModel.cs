@@ -7,6 +7,8 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using Avalonia;
+using Avalonia.Threading;
 using ImGuiNET;
 using Silk.NET.Input;
 using TT_Lab.AssetData;
@@ -243,7 +245,7 @@ namespace TT_Lab.ViewModels.Editors
             return sceneInstance;
         }
 
-        public void InstanceEditorChanged(RoutedPropertyChangedEventArgs<Object> e)
+        public void InstanceEditorChanged(AvaloniaPropertyChangedEventArgs e)
         {
             if (e.NewValue == null)
             {
@@ -287,7 +289,7 @@ namespace TT_Lab.ViewModels.Editors
             }
         }
 
-        public void SelectDifferentInstance(RoutedPropertyChangedEventArgs<Object> e)
+        public void SelectDifferentInstance(AvaloniaPropertyChangedEventArgs e)
         {
             if (!_isChunkReady)
             {
@@ -614,7 +616,7 @@ namespace TT_Lab.ViewModels.Editors
                     return;
                 }
 
-                Application.Current.Dispatcher.BeginInvoke(() =>
+                Dispatcher.UIThread.Post(() =>
                 {
                     var inputContext = _renderer.GetInputContext()!;
                     inputContext.Keyboards[0].KeyDown += KeyPressed;

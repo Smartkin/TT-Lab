@@ -1,0 +1,46 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:TT_Lab.Controls"
+             xmlns:controls1="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+             xmlns:cm="http://caliburnmicro.com"
+             xmlns:valueConverters="clr-namespace:TT_Lab.ValueConverters"
+             xmlns:viewModels="clr-namespace:TT_Lab.ViewModels.Editors.Graphics"
+             x:DataType="viewModels:TextureViewModel"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Views.Editors.Graphics.TextureView">
+    <UserControl.Resources>
+        <valueConverters:BitmapImageConverter x:Key="BitmapImageConverter"></valueConverters:BitmapImageConverter>
+    </UserControl.Resources>
+    <Interaction.Behaviors>
+        <EventTrigger EventName="Drop">
+            <cm:ActionMessage MethodName="TextureViewerDrop">
+                <cm:ActionMessage.Parameters>
+                    <cm:Parameter Value="$eventArgs"/>
+                </cm:ActionMessage.Parameters>
+            </cm:ActionMessage>
+        </EventTrigger>
+    </Interaction.Behaviors>
+    <controls1:GroupBox>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="50"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="30"/>
+            </Grid.RowDefinitions>
+            <Grid Margin="5">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="2*"/>
+                    <ColumnDefinition Width="2*"/>
+                    <ColumnDefinition/>
+                </Grid.ColumnDefinitions>
+                <controls:LabeledDropList LayoutOrientation="Horizontal" VerticalAlignment="Center" Items="{Binding TexFuns}" SelectedItem="{Binding TextureFunction}" x:Name="TextureFunctionList" Margin="0" DropListName="Texture function" Padding="1" IsEnabled="False"/>
+                <controls:LabeledDropList LayoutOrientation="Horizontal" VerticalAlignment="Center" Items="{Binding PixelFormats}" SelectedItem="{Binding PixelStorageFormat}" x:Name="PSMList" Margin="0" DropListName="Pixel storage format" Grid.Column="1" Padding="1" IsEnabled="False"/>
+                <controls:LabeledCheckBox LayoutOrientation="Horizontal" Checked="{Binding GenerateMipmaps}" Grid.Column="2" HorizontalAlignment="Left" CheckBoxName="Generate Mipmaps" VerticalAlignment="Center" Margin="5,0,0,0"/>
+            </Grid>
+            <Image Grid.Row="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="5" Source="{Binding Texture, Converter={StaticResource BitmapImageConverter}}"></Image>
+            <Button x:Name="ReplaceButton" Content="Replace" Margin="0" Grid.Row="2"/>
+        </Grid>
+    </controls1:GroupBox>
+</UserControl>

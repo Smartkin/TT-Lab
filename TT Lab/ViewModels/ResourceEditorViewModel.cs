@@ -5,7 +5,6 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows.Threading;
 using TT_Lab.AssetData;
 using TT_Lab.Assets;
 using TT_Lab.Command;

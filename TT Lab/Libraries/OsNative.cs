@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Runtime.InteropServices;
 using System.Windows;
+using Avalonia;
+using Avalonia.Controls;
 
 namespace TT_Lab.Libraries
 {
@@ -43,10 +45,10 @@ namespace TT_Lab.Libraries
             
             var windowBounds = new Win32Rect
             {
-                Left = (int)window.Left,
-                Top = (int)window.Top,
-                Right = (int)(window.Left + window.Width),
-                Bottom = (int)(window.Top + window.Height)
+                Left = window.Position.X,
+                Top = window.Position.Y,
+                Right = (int)(window.Position.X + window.Width),
+                Bottom = (int)(window.Position.Y + window.Height)
             };
 
             ClipCursor(ref windowBounds);

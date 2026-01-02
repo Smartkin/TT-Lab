@@ -6,7 +6,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
 using GlmSharp;
 using TT_Lab.AssetData.Graphics;
 using TT_Lab.AssetData.Graphics.Shaders;

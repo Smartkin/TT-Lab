@@ -5,8 +5,8 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Windows.Controls;
-using System.Windows.Data;
+using Avalonia.Controls;
+using Avalonia.Data;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using TT_Lab.AssetData;
@@ -37,19 +37,19 @@ namespace TT_Lab.Project
 
         public ProjectManager(IEventAggregator eventAggregator)
         {
-            BindingOperations.EnableCollectionSynchronization(_projectTree, _treeLock);
+            // BindingOperations.EnableCollectionSynchronization(_projectTree, _treeLock);
             _eventAggregator = eventAggregator;
 
-            var recents = Properties.Settings.Default.RecentProjects;
-            if (recents == null)
-            {
-                return;
-            }
-            
-            foreach (var recent in recents)
-            {
-                _recentMenus.Add(GenerateRecentMenu(recent!));
-            }
+            // var recents = Properties.Settings.Default.RecentProjects;
+            // if (recents == null)
+            // {
+            //     return;
+            // }
+            //
+            // foreach (var recent in recents)
+            // {
+            //     _recentMenus.Add(GenerateRecentMenu(recent!));
+            // }
         }
 
         public IProject? OpenedProject
@@ -505,45 +505,45 @@ namespace TT_Lab.Project
 
         private void AddRecentlyOpened(string path)
         {
-            var recents = Properties.Settings.Default.RecentProjects;
-            if (recents == null)
-            {
-                recents = new System.Collections.Specialized.StringCollection();
-                Properties.Settings.Default.RecentProjects = recents;
-            }
-            if (!recents.Contains(path))
-            {
-                recents.Insert(0, path);
-                RecentlyOpened.Insert(0, GenerateRecentMenu(path));
-                // Store only last 10 paths
-                if (recents.Count > 10)
-                {
-                    recents.RemoveAt(10);
-                    RecentlyOpened.RemoveAt(10);
-                }
-            }
-            else
-            {
-                var index = recents.IndexOf(path);
-                recents.RemoveAt(index);
-                RecentlyOpened.RemoveAt(index);
-                recents.Insert(0, path);
-                RecentlyOpened.Insert(0, GenerateRecentMenu(path));
-            }
-            _eventAggregator.PublishOnUIThreadAsync(new ProjectManagerMessage(nameof(RecentlyOpened)));
-            _eventAggregator.PublishOnUIThreadAsync(new ProjectManagerMessage(nameof(HasRecents)));
+            // var recents = Properties.Settings.Default.RecentProjects;
+            // if (recents == null)
+            // {
+            //     recents = new System.Collections.Specialized.StringCollection();
+            //     Properties.Settings.Default.RecentProjects = recents;
+            // }
+            // if (!recents.Contains(path))
+            // {
+            //     recents.Insert(0, path);
+            //     RecentlyOpened.Insert(0, GenerateRecentMenu(path));
+            //     // Store only last 10 paths
+            //     if (recents.Count > 10)
+            //     {
+            //         recents.RemoveAt(10);
+            //         RecentlyOpened.RemoveAt(10);
+            //     }
+            // }
+            // else
+            // {
+            //     var index = recents.IndexOf(path);
+            //     recents.RemoveAt(index);
+            //     RecentlyOpened.RemoveAt(index);
+            //     recents.Insert(0, path);
+            //     RecentlyOpened.Insert(0, GenerateRecentMenu(path));
+            // }
+            // _eventAggregator.PublishOnUIThreadAsync(new ProjectManagerMessage(nameof(RecentlyOpened)));
+            // _eventAggregator.PublishOnUIThreadAsync(new ProjectManagerMessage(nameof(HasRecents)));
         }
 
         private void RemoveRecentlyOpened(string path)
         {
-            if (Properties.Settings.Default.RecentProjects == null || !Properties.Settings.Default.RecentProjects.Contains(path)) return;
-
-            var recents = Properties.Settings.Default.RecentProjects;
-            var recentIdx = recents.IndexOf(path);
-            recents.Remove(path);
-            RecentlyOpened.RemoveAt(recentIdx);
-            _eventAggregator.PublishOnUIThreadAsync(new ProjectManagerMessage(nameof(RecentlyOpened)));
-            _eventAggregator.PublishOnUIThreadAsync(new ProjectManagerMessage(nameof(HasRecents)));
+            // if (Properties.Settings.Default.RecentProjects == null || !Properties.Settings.Default.RecentProjects.Contains(path)) return;
+            //
+            // var recents = Properties.Settings.Default.RecentProjects;
+            // var recentIdx = recents.IndexOf(path);
+            // recents.Remove(path);
+            // RecentlyOpened.RemoveAt(recentIdx);
+            // _eventAggregator.PublishOnUIThreadAsync(new ProjectManagerMessage(nameof(RecentlyOpened)));
+            // _eventAggregator.PublishOnUIThreadAsync(new ProjectManagerMessage(nameof(HasRecents)));
         }
 
         private static MenuItem GenerateRecentMenu(String recentPath)
@@ -552,10 +552,8 @@ namespace TT_Lab.Project
             {
                 Header = $"{recentPath}",
                 Command = new OpenProjectCommand(recentPath),
-                HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch,
-                VerticalAlignment = System.Windows.VerticalAlignment.Center,
-                HorizontalContentAlignment = System.Windows.HorizontalAlignment.Stretch,
-                VerticalContentAlignment = System.Windows.VerticalAlignment.Center,
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
             };
         }
     }

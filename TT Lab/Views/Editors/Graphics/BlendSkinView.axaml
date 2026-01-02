@@ -1,0 +1,41 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Views.Editors.Graphics.BlendSkinView">
+    <controls:GroupBox>
+        <Grid RowDefinitions="118*,113*,219*" ColumnDefinitions="659*,141*">
+            <ContentControl x:Name="SceneRenderer" Margin="10,0,0,0" Grid.RowSpan="3"/>
+            <ContentControl x:Name="MaterialViewer" Grid.Row="0" Grid.Column="1"/>
+            <controls:GroupBox Grid.Column="1" Header="Morph weights" Grid.Row="2">
+                <ScrollViewer>
+                    <Grid ScrollViewer.VerticalScrollBarVisibility="Disabled" Height="500.1"
+                          RowDefinitions="19*,19*,19*,19*,19*,19*,19*,19*,19*,19*,19*,19*,19*,19*,19*">
+                        <Slider x:Name="Weight1" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1"/>
+                        <Slider x:Name="Weight2" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="1"/>
+                        <Slider x:Name="Weight3" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="2"/>
+                        <Slider x:Name="Weight4" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="3"/>
+                        <Slider x:Name="Weight5" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="4"/>
+                        <Slider x:Name="Weight6" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="5"/>
+                        <Slider x:Name="Weight7" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="6"/>
+                        <Slider x:Name="Weight8" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="7"/>
+                        <Slider x:Name="Weight9" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="8"/>
+                        <Slider x:Name="Weight10" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="9"/>
+                        <Slider x:Name="Weight11" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="10"/>
+                        <Slider x:Name="Weight12" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="11"/>
+                        <Slider x:Name="Weight13" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="12"/>
+                        <Slider x:Name="Weight14" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="13"/>
+                        <Slider x:Name="Weight15" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="14"/>
+                    </Grid>
+                </ScrollViewer>
+            </controls:GroupBox>
+            <Grid Grid.Column="1" Grid.Row="1" RowDefinitions="24*,24*,24*">
+                <Button x:Name="NextMatButton" Content="Next material" VerticalAlignment="Center" Grid.Row="0" Height="25"/>
+                <TextBlock Foreground="White" x:Name="MaterialName" TextWrapping="Wrap" Text="Material Name" TextAlignment="Center" VerticalAlignment="Center" Grid.Row="1"/>
+                <Button x:Name="PrevMatButton" Content="Previous material" VerticalAlignment="Center" Height="25" Grid.Row="2"/>
+            </Grid>
+        </Grid>
+    </controls:GroupBox>
+</UserControl>

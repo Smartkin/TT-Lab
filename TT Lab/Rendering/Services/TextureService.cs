@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Windows;
+using Avalonia.Media.Imaging;
 using TT_Lab.AssetData.Graphics;
 using TT_Lab.Assets;
 using TT_Lab.Rendering.Buffers;

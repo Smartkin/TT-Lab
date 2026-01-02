@@ -1,6 +1,11 @@
-﻿using Microsoft.WindowsAPICodePack.Dialogs;
+﻿#if WINDOWS
+using Microsoft.WindowsAPICodePack.Dialogs;
+#endif
 using System;
-using System.Windows;
+using System.Diagnostics;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 
 namespace TT_Lab.Command
 {
@@ -9,7 +14,7 @@ namespace TT_Lab.Command
         private readonly object target;
         private readonly string propName;
         private readonly string startPath;
-        private readonly Window? owner;
+        private TopLevel? owner;
 
         public SelectFolderCommand(object target, string textStoragePropName, string startPath = "")
         {
@@ -18,7 +23,7 @@ namespace TT_Lab.Command
             propName = textStoragePropName;
         }
 
-        public SelectFolderCommand(Window? owner, object target, string textStoragePropName, string startPath = "")
+        public SelectFolderCommand(TopLevel? owner, object target, string textStoragePropName, string startPath = "")
             : this(target, textStoragePropName, startPath)
         {
             this.owner = owner;
@@ -33,6 +38,7 @@ namespace TT_Lab.Command
 
         public void Execute(object? parameter = null)
         {
+#if WINDOWS
             using CommonOpenFileDialog ofd = new()
             {
                 IsFolderPicker = true,
@@ -44,6 +50,31 @@ namespace TT_Lab.Command
                 var prop = target.GetType().GetProperty(propName)!;
                 prop.SetValue(target, ofd.FileName);
             }
+#else
+            if (owner == null)
+            {
+                if (Application.Current.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+                {
+                    owner = desktop.MainWindow;
+                }
+                else if (Application.Current.ApplicationLifetime is ISingleViewApplicationLifetime singleView)
+                {
+                    owner = singleView.MainView as TopLevel;
+                }
+            }
+
+            if (owner == null)
+            {
+                throw new Exception("Unsupported platform!");
+            }
+            
+            var folder = owner.StorageProvider.TryGetFolderFromPathAsync(new Uri(startPath)).ConfigureAwait(false).GetAwaiter().GetResult();
+            if (folder != null)
+            {
+                var prop = target.GetType().GetProperty(propName);
+                prop.SetValue(target, folder.Name);
+            }
+#endif
         }
 
         public void Unexecute()

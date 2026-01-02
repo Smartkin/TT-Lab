@@ -7,7 +7,6 @@ using System.Linq;
 using System.Numerics;
 using GlmSharp;
 using SharpGLTF.Schema2;
-using Silk.NET.Maths;
 using TT_Lab.AssetData.Code;
 using TT_Lab.AssetData.Graphics;
 using TT_Lab.AssetData.Graphics.SubModels;

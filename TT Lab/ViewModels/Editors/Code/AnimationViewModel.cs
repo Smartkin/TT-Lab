@@ -4,9 +4,7 @@ using System.Linq;
 using System.Numerics;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Forms;
-using System.Windows.Media;
+using Avalonia;
 using Caliburn.Micro;
 using GlmSharp;
 using ImGuiNET;
@@ -101,7 +99,7 @@ public class AnimationViewModel : ResourceEditorViewModel
         _selectedOgi = SuitableModels[bestFitIndex == -1 ? 0 : bestFitIndex];
     }
     
-    public void ChangeTrackPosition(RoutedPropertyChangedEventArgs<double> e)
+    public void ChangeTrackPosition(AvaloniaPropertyChangedEventArgs e)
     {
         if (_isPlaying)
         {
@@ -118,7 +116,7 @@ public class AnimationViewModel : ResourceEditorViewModel
         _isPlaying = true;
         
         _renderWatch.Start();
-        CompositionTarget.Rendering += UpdateAnimationPlayback;
+        // CompositionTarget.Rendering += UpdateAnimationPlayback;
     }
     
     public void PauseAnimation()
@@ -126,7 +124,7 @@ public class AnimationViewModel : ResourceEditorViewModel
         _runCounter = 0;
         _isPlaying = false;
         _renderWatch.Reset();
-        CompositionTarget.Rendering -= UpdateAnimationPlayback;
+        // CompositionTarget.Rendering -= UpdateAnimationPlayback;
     }
 
     public void ExportAnimation()

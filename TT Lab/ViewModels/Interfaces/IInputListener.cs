@@ -1,5 +1,6 @@
 using System;
 using System.Windows.Input;
+using Avalonia.Input;
 
 namespace TT_Lab.ViewModels.Interfaces;
 
@@ -8,10 +9,10 @@ namespace TT_Lab.ViewModels.Interfaces;
 /// </summary>
 public interface IInputListener
 {
-    bool MouseMove(Object? sender, MouseEventArgs e) { return false; }
-    bool MouseDown(Object? sender, MouseButtonEventArgs e) { return false; }
-    bool MouseUp(Object? sender, MouseButtonEventArgs e) { return false; }
-    bool MouseWheel(Object? sender, MouseWheelEventArgs e) { return false; }
+    bool MouseMove(Object? sender, PointerEventArgs e) { return false; }
+    bool MouseDown(Object? sender, PointerPressedEventArgs e) { return false; }
+    bool MouseUp(Object? sender, PointerPressedEventArgs e) { return false; }
+    bool MouseWheel(Object? sender, PointerWheelEventArgs e) { return false; }
     bool KeyPressed(Object sender, KeyEventArgs arg) { return false; }
     bool KeyReleased(Object sender, KeyEventArgs arg) { return false; }
 }

@@ -1,0 +1,27 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:TT_Lab.Controls"
+             xmlns:controls1="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+             xmlns:cameras="clr-namespace:TT_Lab.Views.Editors.Instance.Cameras"
+             xmlns:composite="clr-namespace:TT_Lab.Views.Composite"
+             xmlns:vm="clr-namespace:TT_Lab.ViewModels.Editors.Instance.Cameras"
+             x:DataType="vm:CameraPoint2ViewModel"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Views.Editors.Instance.Cameras.CameraPoint2View">
+    <controls1:GroupBox>
+        <StackPanel Orientation="Vertical">
+            <cameras:BaseCameraView DataContext="{Binding}"/>
+            <controls1:GroupBox Header="Parameters">
+                <StackPanel Orientation="Vertical">
+                    <controls:LabeledTextBox HorizontalAlignment="Stretch" Text="{Binding UnkFloat3}" TextBoxName="Unknown Float 3"/>
+                    <controls:LabeledTextBox HorizontalAlignment="Stretch" Text="{Binding UnkByte}" TextBoxName="Unknown Byte"/>
+                </StackPanel>
+            </controls1:GroupBox>
+            <controls1:GroupBox Header="Point">
+                <composite:Vector4View DataContext="{Binding Point}"/>
+            </controls1:GroupBox>
+        </StackPanel>
+    </controls1:GroupBox>
+</UserControl>

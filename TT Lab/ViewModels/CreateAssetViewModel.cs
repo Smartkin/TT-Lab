@@ -5,8 +5,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Controls;
 using Caliburn.Micro;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
@@ -185,9 +183,9 @@ public class CreateAssetViewModel : Screen, INotifyDataErrorInfo
 
     public bool HasErrors => _dataValidatorService.HasErrors;
 
-    public Visibility IsInstance => SelectedCreationModel.IsInstance ? Visibility.Visible : Visibility.Collapsed;
+    public Boolean IsInstance => SelectedCreationModel.IsInstance;
     
-    public string LayoutRowHeight => (IsInstance == Visibility.Visible) ? "2*" : "0";
+    public string LayoutRowHeight => IsInstance ? "2*" : "0";
 
     public event EventHandler<DataErrorsChangedEventArgs>? ErrorsChanged
     {

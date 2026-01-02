@@ -1,5 +1,5 @@
 ﻿using System;
-using System.Windows;
+using Avalonia.Controls;
 
 namespace TT_Lab.Command
 {
@@ -26,7 +26,7 @@ namespace TT_Lab.Command
 
         public void Execute(Object? parameter = null)
         {
-            _getWindow.Invoke().ShowDialog();
+            _getWindow.Invoke().ShowDialog(null);
         }
 
         public void Unexecute()

@@ -1,0 +1,36 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:controls="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+        xmlns:viewmodels="clr-namespace:TT_Lab.ViewModels"
+        x:DataType="viewmodels:AboutViewModel"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        x:Class="TT_Lab.Views.AboutView"
+        Title="AboutView">
+    <controls:GroupBox>
+        <Grid ColumnDefinitions="*,*">
+            <Grid Grid.Column="1" RowDefinitions="*,*">
+                <TextBlock Text="{Binding AboutData.Description}" TextWrapping="Wrap" Margin="0"/>
+                <Grid Grid.Row="1" RowDefinitions="1*,1*,1*,1*,1*" ColumnDefinitions="1*,2*">
+                    <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center">Version:</TextBlock>
+                    <TextBlock Text="{Binding AboutData.Version}" Grid.Row="0" Grid.Column="1" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center">Authors:</TextBlock>
+                    <TextBlock Text="{Binding AboutData.Authors}" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center">Special Thanks:</TextBlock>
+                    <TextBlock Text="{Binding AboutData.SpecialThanks}" Grid.Row="2" Grid.Column="1" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Row="3" Grid.Column="0" VerticalAlignment="Center">Source Code:</TextBlock>
+                    <TextBlock Grid.Row="3" Grid.Column="1" VerticalAlignment="Center">
+                        <HyperlinkButton NavigateUri="{Binding AboutData.SourceCodeLink}">
+                            <TextBlock Text="{Binding AboutData.SourceCodeLink}"/>
+                        </HyperlinkButton>
+                    </TextBlock>
+                </Grid>
+
+            </Grid>
+            <Grid Grid.Column="0" RowDefinitions="*,*">
+                <Image Source="/Images/God_Messenger.png" Stretch="Uniform" Grid.RowSpan="2"/>
+            </Grid>
+        </Grid>
+    </controls:GroupBox>
+</Window>

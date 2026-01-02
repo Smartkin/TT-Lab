@@ -9,7 +9,6 @@ using TT_Lab.Assets;
 using TT_Lab.ViewModels.Composite;
 using TT_Lab.ViewModels.Editors.Instance;
 using TT_Lab.ViewModels.ResourceTree;
-using TT_Lab.Views.Composite;
 
 namespace TT_Lab.Rendering.Objects.SceneInstances
 {

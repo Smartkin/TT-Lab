@@ -3,9 +3,9 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 using System.Threading;
+using Avalonia.Media.Imaging;
 using GlmSharp;
 using Silk.NET.OpenGL;
-using PixelFormat = System.Drawing.Imaging.PixelFormat;
 
 namespace TT_Lab.Rendering.Buffers;
 
@@ -52,10 +52,10 @@ public unsafe class TextureBuffer : IDisposable
     /// <param name="bitmap"></param>
     public TextureBuffer(RenderContext renderContext, Bitmap bitmap) : this(renderContext)
     {
-        _data = new byte[bitmap.Width * bitmap.Height * 4];
+        _data = new byte[(int)bitmap.Size.Width * (int)bitmap.Size.Height * 4];
         CopyImageData(bitmap);
         
-        InitDefaultParams((uint)bitmap.Width, (uint)bitmap.Height);
+        InitDefaultParams((uint)bitmap.Size.Width, (uint)bitmap.Size.Height);
     }
     
     /// <summary>
@@ -81,9 +81,9 @@ public unsafe class TextureBuffer : IDisposable
 
     public void InvalidateWithData(Bitmap bitmap)
     {
-        _data = new byte[bitmap.Width * bitmap.Height * 4];
+        _data = new byte[(int)bitmap.Size.Width * (int)bitmap.Size.Height * 4];
         CopyImageData(bitmap);
-        UploadTextureData((uint)bitmap.Width, (uint)bitmap.Height);
+        UploadTextureData((uint)bitmap.Size.Width, (uint)bitmap.Size.Height);
     }
 
     public void Resize(ivec2 newSize)
@@ -139,10 +139,10 @@ public unsafe class TextureBuffer : IDisposable
 
     private void CopyImageData(Bitmap bitmap)
     {
-        var imageData = bitmap.LockBits(new Rectangle(0, 0, bitmap.Width, bitmap.Height), ImageLockMode.ReadOnly,
-            PixelFormat.Format32bppArgb);
-        Marshal.Copy(imageData.Scan0, _data, 0, _data.Length);
-        bitmap.UnlockBits(imageData);
+        // var imageData = bitmap.LockBits(new Rectangle(0, 0, bitmap.Width, bitmap.Height), ImageLockMode.ReadOnly,
+        //     PixelFormat.Format32bppArgb);
+        // Marshal.Copy(imageData.Scan0, _data, 0, _data.Length);
+        // bitmap.UnlockBits(imageData);
     }
     
     public uint Handler => _textureBuffer;

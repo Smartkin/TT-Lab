@@ -42,7 +42,7 @@ public class AssetManager
     /// <param name="asset">Asset to add</param>
     /// <remarks>
     /// THIS METHOD SHOULD ONLY BE USED WHEN YOU ARE SURE THAT DUPLICATES ARE SKIPPED INTENTIONALLY.
-    /// AS THIS SKIPS LOGGING A WARNING INTO A LOG CONSOLE OF TT Lab
+    /// AS THIS SKIPS LOGGING A WARNING INTO A LOG CONSOLE OF TT Lab WPF
     /// </remarks>
     public void AddAssetUnsafe(LabURI uri, IAsset asset)
     {
@@ -77,7 +77,7 @@ public class AssetManager
     /// <param name="asset">Asset to add</param>
     /// <remarks>
     /// THIS METHOD SHOULD ONLY BE USED WHEN YOU ARE SURE THAT DUPLICATES ARE SKIPPED INTENTIONALLY.
-    /// AS THIS SKIPS LOGGING A WARNING INTO A LOG CONSOLE OF TT Lab
+    /// AS THIS SKIPS LOGGING A WARNING INTO A LOG CONSOLE OF TT Lab WPF
     /// </remarks>
     public void AddAssetUnsafe(IAsset asset)
     {

@@ -5,7 +5,9 @@ using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using System.Numerics;
 using System.Windows;
-using System.Windows.Media.Imaging;
+using Avalonia;
+using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 using GlmSharp;
 using Silk.NET.Core.Contexts;
 using Silk.NET.Input;
@@ -369,7 +371,7 @@ public class Renderer : IView
 
     public void FireSceneInitialized()
     {
-        Application.Current.Dispatcher.BeginInvoke(() =>
+        Dispatcher.UIThread.Post(() =>
         {
             SceneInitialized?.Invoke();
         });
@@ -385,10 +387,12 @@ public class Renderer : IView
     {
         lock (_framebufferWriteLock)
         {
-            bitmap.Lock();
-            bitmap.WritePixels(new Int32Rect(0, 0, _frameBufferSize.x, _frameBufferSize.y), _framebufferData,
-                bitmap.BackBufferStride, 0);
-            bitmap.Unlock();
+            // bitmap.CopyPixels(new PixelRect(0, 0, _frameBufferSize.x, _frameBufferSize.y), _framebufferData, _framebufferData.Length);
+            
+            // using var bitmapLock = bitmap.Lock();
+            // bitmap.WritePixels(new Int32Rect(0, 0, _frameBufferSize.x, _frameBufferSize.y), _framebufferData,
+            //     bitmap.BackBufferStride, 0);
+            // bitmap.Unlock();
         }
     }
     

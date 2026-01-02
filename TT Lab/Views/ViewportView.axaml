@@ -1,0 +1,47 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:cm="http://caliburnmicro.com"
+             xmlns:viewmodels="clr-namespace:TT_Lab.ViewModels"
+             d:DataContext="{Binding Source={d:DesignInstance viewmodels:ViewportViewModel}}"
+             x:DataType="viewmodels:ViewportViewModel"
+             cm:Bind.AtDesignTime="True"
+             HorizontalAlignment="Stretch"
+             VerticalAlignment="Stretch"
+             Loaded="ViewportView_OnLoaded"
+             SizeChanged="ViewportView_OnSizeChanged"
+             LayoutUpdated="ViewportView_OnSourceUpdated"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Views.ViewportView">
+    <Interaction.Behaviors>
+        <EventTrigger EventName="SizeChanged">
+            <cm:ActionMessage MethodName="FrameResized">
+                <cm:ActionMessage.Parameters>
+                    <cm:Parameter Value="$eventArgs"/>
+                </cm:ActionMessage.Parameters>
+            </cm:ActionMessage>
+        </EventTrigger>
+        <EventTrigger EventName="Loaded">
+            <cm:ActionMessage MethodName="ViewportLoaded">
+                <cm:ActionMessage.Parameters>
+                    <cm:Parameter Value="$source"/>
+                </cm:ActionMessage.Parameters>
+            </cm:ActionMessage>
+        </EventTrigger>
+    </Interaction.Behaviors>
+    <Grid Margin="5">
+        <Image Focusable="True" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" StretchDirection="Both" Stretch="UniformToFill">
+            <Interaction.Behaviors>
+                <EventTrigger EventName="Loaded">
+                    <cm:ActionMessage MethodName="PrepareRender">
+                        <cm:ActionMessage.Parameters>
+                            <cm:Parameter Value="$source"/>
+                        </cm:ActionMessage.Parameters>
+                    </cm:ActionMessage>
+                </EventTrigger>
+            </Interaction.Behaviors>
+        </Image>
+        <TextBlock Text="{Binding SceneStatus}" FontSize="32" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+    </Grid>
+</UserControl>

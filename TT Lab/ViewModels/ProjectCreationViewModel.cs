@@ -9,7 +9,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using TT_Lab.Command;
 using TT_Lab.Project;
-using TT_Lab.Properties;
 using TT_Lab.Services;
 
 namespace TT_Lab.ViewModels

@@ -1,5 +1,5 @@
+#if false
 using System;
-using System.Windows.Media;
 
 namespace TT_Lab.Util;
 
@@ -34,3 +34,4 @@ public static class CompositionTargetEx
         _FrameUpdating?.Invoke(sender, args);
     }
 }
+#endif

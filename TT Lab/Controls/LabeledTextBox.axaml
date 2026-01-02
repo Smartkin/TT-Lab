@@ -1,0 +1,19 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:TT_Lab.Controls"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Controls.LabeledTextBox">
+    <DockPanel x:Name="ElementContainer">
+        <Label x:Name="LblTextBoxName" DockPanel.Dock="Top" Content="{Binding TextBoxName, RelativeSource={RelativeSource AncestorType=controls:LabeledTextBox}}" HorizontalAlignment="Left" Margin="5" VerticalAlignment="Bottom"/>
+        <controls:BaseTextBox
+            Text="{Binding Text, RelativeSource={RelativeSource AncestorType=controls:LabeledTextBox}, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+            Margin="0"
+            TextWrapping="NoWrap"
+            Height="25"
+            MaxLines="1"
+            VerticalAlignment="Top"
+            IsReadOnly="{Binding IsReadOnly, RelativeSource={RelativeSource AncestorType=controls:LabeledTextBox}}"/>
+    </DockPanel>
+</UserControl>

@@ -1,0 +1,29 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:local="clr-namespace:TT_Lab.Controls"
+             xmlns:valueConverters="clr-namespace:TT_Lab.ValueConverters"
+             xmlns:composite="clr-namespace:TT_Lab.Views.Composite"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Views.Composite.ResourceBrowserOpener">
+    <UserControl.Resources>
+        <valueConverters:LabUriConverter x:Key="UriConverter"/>
+    </UserControl.Resources>
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition/>
+            <ColumnDefinition Width="40"/>
+            <ColumnDefinition Width="40"/>
+        </Grid.ColumnDefinitions>
+        <local:LabeledTextBox
+            LayoutOrientation="Horizontal"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Center"
+            TextBoxName="{Binding BrowserName, RelativeSource={RelativeSource AncestorType=composite:ResourceBrowserOpener}, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+            Text="{Binding LinkedResource, RelativeSource={RelativeSource AncestorType=composite:ResourceBrowserOpener}, Converter={StaticResource UriConverter}}"
+            IsReadOnly="True"/>
+        <Button Click="OnOpenBrowser" VerticalAlignment="Center" Margin="0, 0, 0, 0" Height="25" Grid.Column="1" Content="..."/>
+        <Button Click="OnOpenLink" VerticalAlignment="Center" Margin="0, 0, 0, 0" Height="25" Grid.Column="2" Content="->"/>
+    </Grid>
+</UserControl>

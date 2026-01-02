@@ -8,7 +8,12 @@ using GlmSharp;
 using Silk.NET.Core.Native;
 using Silk.NET.OpenGL;
 using TT_Lab.Rendering.Native;
+#if _LINUX
+using TT_Lab.Rendering.Native.Linux;
+#endif
+#if _WINDOWS
 using TT_Lab.Rendering.Native.Windows;
+#endif
 using TT_Lab.Rendering.Passes;
 using TT_Lab.Rendering.Shaders;
 using GL = Silk.NET.OpenGL.GL;
@@ -53,96 +58,96 @@ public class RenderContext : IDisposable
         _tokenSource = new CancellationTokenSource();
         _renderCancelToken = _tokenSource.Token;
         
-        _createdThread = new Thread(() =>
-        {
-#if _WINDOWS
-            _gl = GL.GetApi(new LabWinNativeContext());
-#elif _LINUX
-            _gl = GL.GetApi(new LabLinuxNativeContext());
-#else
-            throw new Exception("Unsupported platform.");
-#endif
-
-            var version = Gl.GetStringS(GLEnum.Version);
-            if (version == null)
-            {
-                throw new Exception("Failed to initialize OpenGL context");
-            }
-            
-            var majorVersion = Gl.GetInteger(GLEnum.MajorVersion);
-            if (majorVersion < 3)
-            {
-                throw new Exception("OpenGL version 4 or above is required for TT Lab");
-            }
-            
-            Console.WriteLine($@"OpenGL version loaded: {version}");
-            var renderer = Gl.GetStringS(StringName.Renderer);
-            var vendor = Gl.GetStringS(StringName.Vendor);
-            Console.WriteLine($@"Renderer: {renderer}");
-            Console.WriteLine($@"Vendor: {vendor}");
-
-            var maxTextureSize = Gl.GetInteger(GLEnum.MaxTextureSize);
-            Console.WriteLine($@"Max texture size: {maxTextureSize}");
-            
-#if DEBUG
-            Gl.Enable(EnableCap.DebugOutputSynchronous);
-            Gl.DebugMessageCallback(DebugGlCallback, IntPtr.Zero);
-#endif
-            
-            Gl.Enable(EnableCap.DepthTest);
-            Gl.Enable(EnableCap.StencilTest);
-            Gl.Enable(EnableCap.ScissorTest);
-            Gl.Enable(EnableCap.Blend);
-            Gl.CullFace(TriangleFace.FrontAndBack);
-            Gl.DepthMask(true);
-            Gl.DepthFunc(DepthFunction.Lequal);
-
-            var colorVertShader = new Shader(this, ShaderType.VertexShader, "MainPass.vert");
-            var colorFragShader = new Shader(this, ShaderType.FragmentShader, "MainPass.frag");
-            var program = new ShaderProgram(this, colorVertShader, colorFragShader);
-            _programs.Add("Generic", program);
-            WriteProgramUniforms(program);
-            
-            var instancedVertShader = new Shader(this, ShaderType.VertexShader, "MainPassInstanced.vert");
-            var instancedFragShader = new Shader(this, ShaderType.FragmentShader, "MainPass.frag");
-            var instancedProgram = new ShaderProgram(this, instancedVertShader, instancedFragShader);
-            _programs.Add("GenericInstanced", instancedProgram);
-            WriteProgramUniforms(instancedProgram);
-
-            var screenVertShader = new Shader(this, ShaderType.VertexShader, "ScreenRender.vert");
-            var screenFlipFragShader = new Shader(this, ShaderType.FragmentShader, "ScreenHorizontalFlip.frag");
-            var screenFlipProgram = new ShaderProgram(this, screenVertShader, screenFlipFragShader);
-            _programs.Add("ScreenFlipX", screenFlipProgram);
-            WriteProgramUniforms(screenFlipProgram);
-
-            _primitiveRenderer = new PrimitiveRenderer(this);
-            
-            _renderWatch.Start();
-            
-            while (!_renderCancelToken.IsCancellationRequested)
-            {
-                var delta = _renderWatch.Elapsed.TotalSeconds;
-                if (delta < RenderDelta)
-                {
-                    continue;
-                }
-                
-                _renderWatch.Restart();
-                MakeCurrent();
-                Render?.Invoke(delta);
-
-                while (_renderQueue.TryDequeue(out var renderAction))
-                {
-                    renderAction.Invoke();
-                }
-            }
-        })
-        {
-            IsBackground = true,
-            Name = "Render Thread"
-        };
-
-        _createdThread.Start();
+//         _createdThread = new Thread(() =>
+//         {
+// #if _WINDOWS
+//             _gl = GL.GetApi(new LabWinNativeContext());
+// #elif _LINUX
+//             _gl = GL.GetApi(new LabLinuxNativeContext());
+// #else
+//             throw new Exception("Unsupported platform.");
+// #endif
+//
+//             var version = Gl.GetStringS(GLEnum.Version);
+//             if (version == null)
+//             {
+//                 throw new Exception("Failed to initialize OpenGL context");
+//             }
+//             
+//             var majorVersion = Gl.GetInteger(GLEnum.MajorVersion);
+//             if (majorVersion < 3)
+//             {
+//                 throw new Exception("OpenGL version 4 or above is required for TT Lab WPF");
+//             }
+//             
+//             Console.WriteLine($@"OpenGL version loaded: {version}");
+//             var renderer = Gl.GetStringS(StringName.Renderer);
+//             var vendor = Gl.GetStringS(StringName.Vendor);
+//             Console.WriteLine($@"Renderer: {renderer}");
+//             Console.WriteLine($@"Vendor: {vendor}");
+//
+//             var maxTextureSize = Gl.GetInteger(GLEnum.MaxTextureSize);
+//             Console.WriteLine($@"Max texture size: {maxTextureSize}");
+//             
+// #if DEBUG
+//             Gl.Enable(EnableCap.DebugOutputSynchronous);
+//             Gl.DebugMessageCallback(DebugGlCallback, IntPtr.Zero);
+// #endif
+//             
+//             Gl.Enable(EnableCap.DepthTest);
+//             Gl.Enable(EnableCap.StencilTest);
+//             Gl.Enable(EnableCap.ScissorTest);
+//             Gl.Enable(EnableCap.Blend);
+//             Gl.CullFace(TriangleFace.FrontAndBack);
+//             Gl.DepthMask(true);
+//             Gl.DepthFunc(DepthFunction.Lequal);
+//
+//             var colorVertShader = new Shader(this, ShaderType.VertexShader, "MainPass.vert");
+//             var colorFragShader = new Shader(this, ShaderType.FragmentShader, "MainPass.frag");
+//             var program = new ShaderProgram(this, colorVertShader, colorFragShader);
+//             _programs.Add("Generic", program);
+//             WriteProgramUniforms(program);
+//             
+//             var instancedVertShader = new Shader(this, ShaderType.VertexShader, "MainPassInstanced.vert");
+//             var instancedFragShader = new Shader(this, ShaderType.FragmentShader, "MainPass.frag");
+//             var instancedProgram = new ShaderProgram(this, instancedVertShader, instancedFragShader);
+//             _programs.Add("GenericInstanced", instancedProgram);
+//             WriteProgramUniforms(instancedProgram);
+//
+//             var screenVertShader = new Shader(this, ShaderType.VertexShader, "ScreenRender.vert");
+//             var screenFlipFragShader = new Shader(this, ShaderType.FragmentShader, "ScreenHorizontalFlip.frag");
+//             var screenFlipProgram = new ShaderProgram(this, screenVertShader, screenFlipFragShader);
+//             _programs.Add("ScreenFlipX", screenFlipProgram);
+//             WriteProgramUniforms(screenFlipProgram);
+//
+//             _primitiveRenderer = new PrimitiveRenderer(this);
+//             
+//             _renderWatch.Start();
+//             
+//             while (!_renderCancelToken.IsCancellationRequested)
+//             {
+//                 var delta = _renderWatch.Elapsed.TotalSeconds;
+//                 if (delta < RenderDelta)
+//                 {
+//                     continue;
+//                 }
+//                 
+//                 _renderWatch.Restart();
+//                 MakeCurrent();
+//                 Render?.Invoke(delta);
+//
+//                 while (_renderQueue.TryDequeue(out var renderAction))
+//                 {
+//                     renderAction.Invoke();
+//                 }
+//             }
+//         })
+//         {
+//             IsBackground = true,
+//             Name = "Render Thread"
+//         };
+//
+//         _createdThread.Start();
     }
     
     public PrimitiveRenderer GetPrimitiveRenderer() => _primitiveRenderer;

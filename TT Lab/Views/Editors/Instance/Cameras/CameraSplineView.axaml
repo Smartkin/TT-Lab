@@ -1,0 +1,87 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:TT_Lab.Controls"
+             xmlns:controls1="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+             xmlns:cameras="clr-namespace:TT_Lab.Views.Editors.Instance.Cameras"
+             xmlns:composite="clr-namespace:TT_Lab.Views.Composite"
+             xmlns:vm="clr-namespace:TT_Lab.ViewModels.Editors.Instance.Cameras"
+             x:DataType="vm:CameraSplineViewModel"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Views.Editors.Instance.Cameras.CameraSplineView">
+    <controls1:GroupBox>
+        <StackPanel Orientation="Vertical">
+            <cameras:BaseCameraView DataContext="{Binding}"></cameras:BaseCameraView>
+            <controls1:GroupBox Header="Parameters">
+                <StackPanel Orientation="Vertical">
+                    <controls:LabeledTextBox HorizontalAlignment="Stretch" TextBoxName="Unknown Float 3" Text="{Binding UnkFloat3}"/>
+                    <controls:LabeledTextBox HorizontalAlignment="Stretch" TextBoxName="Unknown Short" Text="{Binding UnkShort}"/>
+                </StackPanel>
+            </controls1:GroupBox>
+            <controls1:GroupBox Header="Path Points">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition/>
+                        <RowDefinition/>
+                    </Grid.RowDefinitions>
+                    <controls1:GroupBox Grid.Row="0">
+                        <ListBox x:Name="PathPointList"
+                                 ItemsSource="{Binding PathPoints}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding DisplayString}"></TextBlock>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </controls1:GroupBox>
+                    <controls1:GroupBox Grid.Row="1" Header="Edited Point">
+                        <composite:Vector4View DataContext="{Binding SelectedItem, ElementName=PathPointList}"/>
+                    </controls1:GroupBox>
+                </Grid>
+            </controls1:GroupBox>
+            <controls1:GroupBox Header="Interpolation Points">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition/>
+                        <RowDefinition/>
+                    </Grid.RowDefinitions>
+                    <controls1:GroupBox Grid.Row="0">
+                        <ListBox x:Name="InterpolationPointList"
+                                 ItemsSource="{Binding InterpolationPoints}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding DisplayString}"></TextBlock>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </controls1:GroupBox>
+                    <controls1:GroupBox Grid.Row="1" Header="Edited Point">
+                        <composite:Vector4View DataContext="{Binding SelectedItem, ElementName=InterpolationPointList}"/>
+                    </controls1:GroupBox>
+                </Grid>
+            </controls1:GroupBox>
+            <controls1:GroupBox Header="Unknown Data">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition/>
+                        <RowDefinition/>
+                    </Grid.RowDefinitions>
+                    <controls1:GroupBox Grid.Row="0">
+                        <ListBox x:Name="UnkDataList"
+                                 ItemsSource="{Binding UnkData}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding DisplayString}"></TextBlock>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </controls1:GroupBox>
+                    <controls1:GroupBox Grid.Row="1" Header="Edited Data">
+                        <composite:Vector2View DataContext="{Binding SelectedItem, ElementName=UnkDataList}"/>
+                    </controls1:GroupBox>
+                </Grid>
+            </controls1:GroupBox>
+        </StackPanel>
+    </controls1:GroupBox>
+</UserControl>

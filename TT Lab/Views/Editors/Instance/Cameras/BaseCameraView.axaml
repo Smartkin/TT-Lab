@@ -1,0 +1,18 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:TT_Lab.Controls"
+             xmlns:controls1="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+             xmlns:vm="clr-namespace:TT_Lab.ViewModels.Editors.Instance.Cameras"
+             x:DataType="vm:BaseCameraViewModel"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Views.Editors.Instance.Cameras.BaseCameraView">
+    <controls1:GroupBox Header="Base Parameters">
+        <StackPanel Orientation="Vertical">
+            <controls:LabeledTextBox HorizontalAlignment="Stretch" TextBoxName="Unknown Integer" Text="{Binding UnkInt}"/>
+            <controls:LabeledTextBox HorizontalAlignment="Stretch" TextBoxName="Unknown Float 1" Text="{Binding UnkFloat1}"/>
+            <controls:LabeledTextBox HorizontalAlignment="Stretch" TextBoxName="Unknown Float 2" Text="{Binding UnkFloat2}"/>
+        </StackPanel>
+    </controls1:GroupBox>
+</UserControl>

@@ -1,6 +1,7 @@
 using System;
 using System.Drawing;
 using System.IO;
+using Avalonia.Media.Imaging;
 using TT_Lab.AssetData;
 using TT_Lab.AssetData.Code;
 using TT_Lab.AssetData.Code.Behaviour;
@@ -73,37 +74,37 @@ public static class AssetDataFactory
         
         Bitmap image = new(file);
         var creationStatusResult = AssetCreationStatus.Success;
-        if (image.Width > 256)
+        if (image.Size.Width > 256)
         {
             Log.WriteLine("ERROR: Texture's width can't exceed 256 pixels.");
             creationStatusResult = AssetCreationStatus.Failed;
         }
 
-        if (image.Height > 256)
+        if (image.Size.Height > 256)
         {
             Log.WriteLine("ERROR: Texture's height can't exceed 256 pixels.");
             creationStatusResult = AssetCreationStatus.Failed;
         }
 
-        if (!MathExtension.IsPowerOfTwo(image.Width))
+        if (!MathExtension.IsPowerOfTwo((long)image.Size.Width))
         {
             Log.WriteLine("ERROR: Texture's width must be a power of two.");
             creationStatusResult = AssetCreationStatus.Failed;
         }
 
-        if (!MathExtension.IsPowerOfTwo(image.Height))
+        if (!MathExtension.IsPowerOfTwo((long)image.Size.Height))
         {
             Log.WriteLine("ERROR: Texture's height must be a power of two.");
             creationStatusResult = AssetCreationStatus.Failed;
         }
 
-        if (image.Width < 8)
+        if (image.Size.Width < 8)
         {
             Log.WriteLine("ERROR: Texture's width can't be smaller than 8 pixels.");
             creationStatusResult = AssetCreationStatus.Failed;
         }
 
-        if (image.Height < 8)
+        if (image.Size.Height < 8)
         {
             Log.WriteLine("ERROR: Texture's height can't be smaller than 8 pixels.");
             creationStatusResult = AssetCreationStatus.Failed;

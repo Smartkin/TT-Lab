@@ -6,6 +6,9 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using Avalonia;
+using Avalonia.Input;
+using Avalonia.Media.Imaging;
 using TT_Lab.AssetData.Graphics;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Graphics;
@@ -70,21 +73,21 @@ namespace TT_Lab.ViewModels.Editors.Graphics
 
         public void TextureViewerDrop(DragEventArgs e)
         {
-            if (e.Data.GetDataPresent(DataFormats.FileDrop))
-            {
-                var file = (string[])e.Data.GetData(DataFormats.FileDrop);
-                TextureViewerFileDrop(new Controls.FileDropEventArgs { File = file[0] });
-            }
-            else if (e.Data.GetDataPresent(typeof(Controls.DraggedData)))
-            {
-                var data = (Controls.DraggedData)e.Data.GetData(typeof(Controls.DraggedData));
-                TextureViewerFileDrop(new Controls.FileDropEventArgs { Data = data });
-            }
-            else
-            {
-                Log.WriteLine("Format not compatible!");
-                e.Effects = DragDropEffects.None;
-            }
+            // if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            // {
+            //     var file = (string[])e.Data.GetData(DataFormats.FileDrop);
+            //     TextureViewerFileDrop(new Controls.FileDropEventArgs { File = file[0] });
+            // }
+            // else if (e.Data.GetDataPresent(typeof(Controls.DraggedData)))
+            // {
+            //     var data = (Controls.DraggedData)e.Data.GetData(typeof(Controls.DraggedData));
+            //     TextureViewerFileDrop(new Controls.FileDropEventArgs { Data = data });
+            // }
+            // else
+            // {
+            //     Log.WriteLine("Format not compatible!");
+            //     e.Effects = DragDropEffects.None;
+            // }
         }
 
         private void TextureViewerFileDrop(Controls.FileDropEventArgs e)
@@ -92,8 +95,9 @@ namespace TT_Lab.ViewModels.Editors.Graphics
             if (!string.IsNullOrEmpty(e.File))
             {
                 Bitmap image = new(e.File);
-                if (image.Width > 256 || image.Height > 256 || !MathExtension.IsPowerOfTwo(image.Width) || !MathExtension.IsPowerOfTwo(image.Height)
-                    || image.Width < 8 || image.Height < 8)
+                if (image.Size.Width > 256 || image.Size.Height > 256 || !MathExtension.IsPowerOfTwo((long)image.Size.Width)
+                    || !MathExtension.IsPowerOfTwo((long)image.Size.Height)
+                    || image.Size.Width < 8 || image.Size.Height < 8)
                 {
                     Log.WriteLine(@"Image is not compatible.
                 * Width and height can't exceed 256 pixels
@@ -131,10 +135,11 @@ namespace TT_Lab.ViewModels.Editors.Graphics
             get
             {
                 var asset = AssetManager.Get().GetAsset(EditableResource);
-                _texture ??= (Bitmap)asset.GetData<TextureData>().Bitmap.Clone();
+                var textureBitmap = asset.GetData<TextureData>().Bitmap;
+                _texture ??= textureBitmap.CreateScaledBitmap(new PixelSize((int)textureBitmap.Size.Width, (int)textureBitmap.Size.Height));
                 return _texture;
             }
-            set => _texture = (Bitmap)value.Clone();
+            set => _texture = value.CreateScaledBitmap(new PixelSize((int)value.Size.Width, (int)value.Size.Height));
         }
 
         [MarkDirty]

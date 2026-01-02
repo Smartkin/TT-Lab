@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Drawing;
 using System.Windows;
+using Avalonia;
+using Avalonia.Data;
 using Caliburn.Micro;
 using GlmSharp;
 using TT_Lab.AssetData.Instance;
@@ -135,7 +137,7 @@ namespace TT_Lab.Rendering
             TransformMode = TransformMode.SELECTION;
             TransformAxis = TransformAxis.NONE;
             SelectedInstance?.UnlinkChangesToViewModel((ViewportEditableInstanceViewModel)_editor.CurrentInstanceEditor!);
-            _editor.InstanceEditorChanged(new RoutedPropertyChangedEventArgs<Object>(null, null));
+            _editor.InstanceEditorChanged(new AvaloniaPropertyChangedEventArgs<Object>(null, null, null, null, BindingPriority.LocalValue));
             // _renderWindow.SetCameraStyle(CameraStyle.CS_FREELOOK);
             SelectedInstance?.Deselect();
             SelectedInstance = null;
@@ -152,7 +154,7 @@ namespace TT_Lab.Rendering
             
             if (SelectedInstance != null)
             {
-                _editor.InstanceEditorChanged(new RoutedPropertyChangedEventArgs<Object>(null, SelectedInstance.GetViewModel()));
+                _editor.InstanceEditorChanged(new AvaloniaPropertyChangedEventArgs<Object>(null, null, null, SelectedInstance.GetViewModel(), BindingPriority.LocalValue));
                 SelectedInstance.LinkChangesToViewModel((ViewportEditableInstanceViewModel)_editor.CurrentInstanceEditor!);
                 _gizmo.DetachFromCurrentObject();
                 _gizmo.SwitchGizmo((Gizmo.GizmoType)(int)TransformMode);

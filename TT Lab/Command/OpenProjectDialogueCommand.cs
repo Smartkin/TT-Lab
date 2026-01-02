@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using TT_Lab.Util;
 
 namespace TT_Lab.Command
@@ -14,8 +15,8 @@ namespace TT_Lab.Command
 
         public void Execute(Object? parameter = null)
         {
-            var recents = Properties.Settings.Default.RecentProjects;
-            var proj = MiscUtils.GetFileFromDialogue("PS2 TT Lab Project|*.tson|XBox TT Lab Project|*.xson", (recents != null && recents.Count != 0 ? recents[0] : "")!);
+            List<string>? recents = null;
+            var proj = MiscUtils.GetFileFromDialogue("PS2 TT Lab WPF Project|*.tson|XBox TT Lab WPF Project|*.xson", (recents != null && recents.Count != 0 ? recents[0] : ""));
             if (proj != string.Empty)
             {
                 var open = new OpenProjectCommand(System.IO.Path.GetDirectoryName(proj)!);

@@ -4,9 +4,11 @@ using System.Numerics;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
+using Avalonia.Threading;
 using Caliburn.Micro;
 using GlmSharp;
 using Silk.NET.Input;
@@ -18,6 +20,7 @@ using TT_Lab.Rendering.Services;
 using TT_Lab.Util;
 using TT_Lab.Views;
 using Action = System.Action;
+using Screen = Caliburn.Micro.Screen;
 
 namespace TT_Lab.ViewModels;
 
@@ -67,7 +70,7 @@ public class ViewportViewModel(RenderContext renderContext) : Screen
         
         _viewportSize.x = Math.Max((int)newSize.NewSize.Width, 1);
         _viewportSize.y = Math.Max((int)newSize.NewSize.Height, 1);
-        Application.Current.Dispatcher.BeginInvoke(() =>
+        Dispatcher.UIThread.Post(() =>
         {
             _renderer?.SetFrameBufferSize(_viewportSize);
             _scene?.UpdateResolution(_viewportSize);
@@ -84,16 +87,16 @@ public class ViewportViewModel(RenderContext renderContext) : Screen
 
     public void PrepareRender(Image image)
     {
-        var source = PresentationSource.FromVisual(image);
-        var dpiX = 96.0;
-        var dpiY = 96.0;
-        if (source?.CompositionTarget != null)
-        {
-            var transform = source.CompositionTarget.TransformToDevice;
-            dpiX = 96.0 * transform.M11;
-            dpiY = 96.0 * transform.M22;
-        }
-        _renderOutput = new WriteableBitmap(_viewportSize.x, _viewportSize.y, dpiX, dpiY, PixelFormats.Bgra32, null);
+        // var source = PresentationSource.FromVisual(image);
+        // var dpiX = 96.0;
+        // var dpiY = 96.0;
+        // if (source?.CompositionTarget != null)
+        // {
+        //     var transform = source.CompositionTarget.TransformToDevice;
+        //     dpiX = 96.0 * transform.M11;
+        //     dpiY = 96.0 * transform.M22;
+        // }
+        // _renderOutput = new WriteableBitmap(_viewportSize.x, _viewportSize.y, dpiX, dpiY, PixelFormats.Bgra32, null);
         _display = image;
         _display.Source = _renderOutput;
 
@@ -157,7 +160,7 @@ public class ViewportViewModel(RenderContext renderContext) : Screen
     private void RendererOnFinishRender()
     {
         _scene?.UpdateRenderTransform();
-        Application.Current.Dispatcher.BeginInvoke(() =>
+        Dispatcher.UIThread.Post(() =>
         {
             if (_renderOutput == null)
             {
@@ -172,9 +175,9 @@ public class ViewportViewModel(RenderContext renderContext) : Screen
 
     public void ViewportLoaded(ViewportView viewport)
     {
-        _viewportSize.x = (int)viewport.ActualWidth;
-        _viewportSize.y = (int)viewport.ActualHeight;
-        Application.Current.Dispatcher.BeginInvoke(() =>
+        _viewportSize.x = (int)viewport.Width;
+        _viewportSize.y = (int)viewport.Height;
+        Dispatcher.UIThread.Post(() =>
         {
             _renderer?.SetFrameBufferSize(_viewportSize);
             _scene?.UpdateResolution(_viewportSize);
@@ -196,9 +199,9 @@ public class ViewportViewModel(RenderContext renderContext) : Screen
             NotifyOfPropertyChange(nameof(SceneStatus));
         }
 
-        Application.Current.Dispatcher.BeginInvoke(() =>
+        Dispatcher.UIThread.Post(() =>
         {
-            CompositionTargetEx.FrameUpdating += CompositionTargetOnRendering;
+            // CompositionTargetEx.FrameUpdating += CompositionTargetOnRendering;
         });
         
         return Task.CompletedTask;
@@ -248,7 +251,7 @@ public class ViewportViewModel(RenderContext renderContext) : Screen
     private void OnMouseMove(IMouse mouse, Vector2 mousePos)
     {
         var viewRect = new Rect(0, 0, _viewportSize.x, _viewportSize.y);
-        if (!viewRect.Contains(mousePos.X, mousePos.Y))
+        if (!viewRect.Contains(new Point(mousePos.X, mousePos.Y)))
         {
             return;
         }
@@ -279,9 +282,9 @@ public class ViewportViewModel(RenderContext renderContext) : Screen
         NotifyOfPropertyChange(nameof(CanRender));
         NotifyOfPropertyChange(nameof(SceneStatus));
         
-        Application.Current.Dispatcher.BeginInvoke(() =>
+        Dispatcher.UIThread.Post(() =>
         {
-            CompositionTargetEx.FrameUpdating -= CompositionTargetOnRendering;
+            // CompositionTargetEx.FrameUpdating -= CompositionTargetOnRendering;
         });
 
         if (close)

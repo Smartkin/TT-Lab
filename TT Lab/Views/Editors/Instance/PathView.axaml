@@ -1,0 +1,51 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:composite="clr-namespace:TT_Lab.Views.Composite"
+             xmlns:controls="clr-namespace:TT_Lab.Controls"
+             xmlns:controls1="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+             xmlns:viewModel="clr-namespace:TT_Lab.ViewModels.Editors.Instance"
+             x:DataType="viewModel:PathViewModel"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Views.Editors.Instance.PathView">
+    <!-- <UserControl.Resources> -->
+    <!--     <ObjectDataProvider MethodName="GetValues" ObjectType="{x:Type sys:Enum}" x:Key="InstanceLayouts"> -->
+    <!--         <ObjectDataProvider.MethodParameters> -->
+    <!--             <x:Type TypeName="twinTech:Enums+Layouts"></x:Type> -->
+    <!--         </ObjectDataProvider.MethodParameters> -->
+    <!--     </ObjectDataProvider> -->
+    <!-- </UserControl.Resources> -->
+    <controls1:GroupBox>
+        <Grid ColumnDefinitions="*,*" RowDefinitions="64,150,67*">
+
+            <controls:LabeledDropList Items="{Binding Source={StaticResource InstanceLayouts}}" SelectedItem="{Binding LayoutID}" x:Name="InstanceLayoutList" Grid.ColumnSpan="2" DropListName="Instance layout"/>
+            <controls1:GroupBox Grid.Column="0" Header="Points" ScrollViewer.VerticalScrollBarVisibility="Disabled" Grid.Row="1">
+                <ListBox x:Name="PointsList" ItemsSource="{Binding Points}" ScrollViewer.VerticalScrollBarVisibility="Visible" VerticalAlignment="Stretch" d:ItemsSource="{d:SampleData ItemCount=5}">
+                    <ListBox.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="Add" Command="{Binding AddPointCommand}"/>
+                            <MenuItem Header="Delete" Command="{Binding DeletePointCommand}"/>
+                        </ContextMenu>
+                    </ListBox.ContextMenu>
+                </ListBox>
+            </controls1:GroupBox>
+            <controls1:GroupBox Grid.Column="1" Header="Arguments" ScrollViewer.VerticalScrollBarVisibility="Disabled" Grid.Row="1">
+                <ListBox x:Name="ArgumentsList" ItemsSource="{Binding Arguments}" ScrollViewer.VerticalScrollBarVisibility="Visible" VerticalAlignment="Stretch" d:ItemsSource="{d:SampleData ItemCount=5}">
+                    <ListBox.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="Add" Command="{Binding AddArgumentCommand}"/>
+                            <MenuItem Header="Delete" Command="{Binding DeleteArgumentCommand}"/>
+                        </ContextMenu>
+                    </ListBox.ContextMenu>
+                </ListBox>
+            </controls1:GroupBox>
+            <controls1:GroupBox Header="CoordEditor" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,14,0,0">
+                <Grid RowDefinitions="*,*">
+                    <composite:Vector4View Grid.Row="0" DataContext="{Binding SelectedItem, ElementName=PointsList}"/>
+                    <composite:Vector2View Grid.Row="1" DataContext="{Binding SelectedItem, ElementName=ArgumentsList}"/>
+                </Grid>
+            </controls1:GroupBox>
+        </Grid>
+    </controls1:GroupBox>
+</UserControl>
