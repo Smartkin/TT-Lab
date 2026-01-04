@@ -11,15 +11,7 @@
              x:Class="TT_Lab.Views.Editors.Code.SoundEffectView">
     <controls1:GroupBox>
         <StackPanel Orientation="Vertical">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition></RowDefinition>
-                    <RowDefinition></RowDefinition>
-                </Grid.RowDefinitions>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition></ColumnDefinition>
-                    <ColumnDefinition></ColumnDefinition>
-                </Grid.ColumnDefinitions>
+            <Grid RowDefinitions="*,*" ColumnDefinitions="*,*">
                 <Slider x:Name="PlayerTrack" Value="{Binding SoundProgress, Mode=TwoWay}"
                         Margin="0, 0, 0, 5"
                         TickFrequency="0.05"
@@ -29,27 +21,24 @@
                         Grid.Column="0" Grid.ColumnSpan="2" Grid.Row="0">
                     <Interaction.Behaviors>
                         <EventTrigger EventName="ValueChanged">
-                            <cm:ActionMessage MethodName="ChangeTrackPosition">
-                                <cm:ActionMessage.Parameters>
-                                    <cm:Parameter Value="$eventArgs"/>
-                                </cm:ActionMessage.Parameters>
-                            </cm:ActionMessage>
+                            <InvokeCommandAction Command="{Binding ChangeTrackPosition}" PassEventArgsToCommand="True"/>
+                            <!-- <cm:ActionMessage MethodName="ChangeTrackPosition"> -->
+                            <!--     <cm:ActionMessage.Parameters> -->
+                            <!--         <cm:Parameter Value="$eventArgs"/> -->
+                            <!--     </cm:ActionMessage.Parameters> -->
+                            <!-- </cm:ActionMessage> -->
                         </EventTrigger>
                     </Interaction.Behaviors>
                 </Slider>
-                <TextBlock x:Name="CurrentTime" Margin="0, 0, 0, 5" Grid.Column="0" Grid.Row="1" Text="0:00"></TextBlock>
-                <TextBlock x:Name="TotalTimeLength" Margin="0, 0, 0, 5" Grid.Column="1" Grid.Row="1" Text="0:00" TextAlignment="Right"></TextBlock>
+                <TextBlock Text="{Binding CurrentTime, FallbackValue='0:00'}" Margin="0, 0, 0, 5" Grid.Column="0" Grid.Row="1"></TextBlock>
+                <TextBlock Text="{Binding TotalTimeLength, FallbackValue='0:00'}" Margin="0, 0, 0, 5" Grid.Column="1" Grid.Row="1" TextAlignment="Right"></TextBlock>
             </Grid>
             <UniformGrid Columns="3">
-                <Button HorizontalAlignment="Stretch" Margin="5" x:Name="PlaySound" Content="Play"></Button>
-                <Button HorizontalAlignment="Stretch" Margin="5" x:Name="PauseSound" Content="Pause"></Button>
-                <Button HorizontalAlignment="Stretch" Margin="5" x:Name="ReplaceSound" Content="Replace"></Button>
+                <Button HorizontalAlignment="Stretch" Margin="5" Command="{Binding PlaySound}" Content="Play"></Button>
+                <Button HorizontalAlignment="Stretch" Margin="5" Command="{Binding PauseSound}" Content="Pause"></Button>
+                <Button HorizontalAlignment="Stretch" Margin="5" Command="{Binding ReplaceSound}" Content="Replace"></Button>
             </UniformGrid>
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition/>
-                    <RowDefinition/>
-                </Grid.RowDefinitions>
+            <Grid RowDefinitions="*,*">
                 <UniformGrid Grid.Row="0" Columns="2">
                     <controls:LabeledTextBox Text="{Binding Header}" TextBoxName="Header" Margin="5" HorizontalAlignment="Stretch"/>
                     <controls:LabeledTextBox Text="{Binding UnkFlag}" TextBoxName="Unknown Flag" Margin="5" HorizontalAlignment="Stretch"/>

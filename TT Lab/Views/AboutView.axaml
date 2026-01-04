@@ -7,7 +7,13 @@
         x:DataType="viewmodels:AboutViewModel"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="TT_Lab.Views.AboutView"
-        Title="AboutView">
+        Title="About TT Lab"
+        Height="450" Width="900" CanResize="False" CanMinimize="True" CanMaximize="False" WindowStartupLocation="CenterOwner">
+    <Window.Styles>
+        <Style Selector="TextBlock">
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+    </Window.Styles>
     <controls:GroupBox>
         <Grid ColumnDefinitions="*,*">
             <Grid Grid.Column="1" RowDefinitions="*,*">
@@ -26,7 +32,6 @@
                         </HyperlinkButton>
                     </TextBlock>
                 </Grid>
-
             </Grid>
             <Grid Grid.Column="0" RowDefinitions="*,*">
                 <Image Source="/Images/God_Messenger.png" Stretch="Uniform" Grid.RowSpan="2"/>

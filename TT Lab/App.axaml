@@ -1,9 +1,14 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:util="clr-namespace:TT_Lab.Util"
              x:Class="TT_Lab.App"
-             RequestedThemeVariant="Default">
+             RequestedThemeVariant="Dark">
              <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
 
+    <Application.DataTemplates>
+        <util:ViewLocator/>
+    </Application.DataTemplates>
+    
     <Application.Styles>
         <ClassicTheme />
     </Application.Styles>

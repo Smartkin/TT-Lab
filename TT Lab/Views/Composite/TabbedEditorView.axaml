@@ -3,8 +3,10 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:cal="clr-namespace:Caliburn.Micro;assembly=Caliburn.Micro.Platform"
+             xmlns:composite="clr-namespace:TT_Lab.ViewModels.Composite"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:CompileBindings="False"
+             x:DataType="composite:TabbedEditorViewModel"
              x:Class="TT_Lab.Views.Composite.TabbedEditorView">
     <UserControl.KeyBindings>
         <KeyBinding Command="{Binding CloseEditorTab}" Gesture="Ctrl+W"/>
@@ -29,6 +31,6 @@
     <!--     </Triggers:InputBindingTrigger> -->
     <!-- </i:Interaction.Triggers> -->
     <Grid>
-        <ContentControl x:Name="ActiveItem"/>
+        <ContentControl Content="{Binding ActiveItem}"/>
     </Grid>
 </UserControl>

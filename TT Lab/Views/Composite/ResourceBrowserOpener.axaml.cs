@@ -6,6 +6,7 @@ using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Interactivity;
 using Caliburn.Micro;
+using Splat;
 using TT_Lab.Assets;
 using TT_Lab.Command;
 using TT_Lab.ViewModels;
@@ -127,6 +128,6 @@ public partial class ResourceBrowserOpener : UserControl
             return;
         }
         
-        IoC.Get<ILabManager>().OpenEditor(AssetManager.Get().GetAsset(LinkedResource));
+        Locator.Current.GetService<ILabManager>()!.OpenEditor(AssetManager.Get().GetAsset(LinkedResource));
     }
 }

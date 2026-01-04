@@ -8,14 +8,17 @@ using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Layout;
+using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Caliburn.Micro;
 using Newtonsoft.Json;
+using Splat;
 using TT_Lab.AssetData;
 using TT_Lab.Assets;
 using TT_Lab.Command;
 using TT_Lab.Controls;
 using TT_Lab.Util;
+using TT_Lab.ViewModels.Interfaces;
 using Action = System.Action;
 
 namespace TT_Lab.ViewModels.ResourceTree;
@@ -187,6 +190,12 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
         });
     }
 
+    public void CreateEditor()
+    {
+        var mainShell = Locator.Current.GetService<ILabManager>()!;
+        mainShell.OpenEditor(Asset);
+    }
+
     public async Task CreateContextMenuAction()
     {
         // TODO: Rework this so menu gets recreated because if you click on many resources the memory consumption is gonna be pretty high
@@ -293,7 +302,7 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
 
     public Boolean IsNotRenaming => !_isRenaming;
 
-    public String IconPath => ManifestResourceLoader.GetPathInExe($"Media/LabIcons/{Asset.IconPath}");
+    public Bitmap IconPath => new(ManifestResourceLoader.GetPathInExe($"Media/LabIcons/{Asset.IconPath}"));
 
     public Boolean IsSelected
     {

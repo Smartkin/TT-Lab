@@ -463,7 +463,7 @@ namespace TT_Lab.Project
                 Mark = FolderMark.Locked
             };
             OpenedProject!.AssetManager.AddAsset(root);
-            var assetRoot = $"{OpenedProject!.ProjectPath}\\assets";
+            var assetRoot = $"{OpenedProject!.ProjectPath}/assets";
             var dirInfo = new DirectoryInfo(assetRoot);
             foreach (var assetDirectory in dirInfo.GetDirectories())
             {

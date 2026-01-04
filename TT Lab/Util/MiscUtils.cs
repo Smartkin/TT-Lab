@@ -2,7 +2,12 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
+using System.Threading.Tasks;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media.Imaging;
+using Avalonia.Platform.Storage;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 
 namespace TT_Lab.Util
@@ -46,17 +51,65 @@ namespace TT_Lab.Util
 
         public static string GetFileFromDialogue(string filter, string initial_directory = "")
         {
-            // using (System.Windows.Forms.OpenFileDialog ofd = new System.Windows.Forms.OpenFileDialog
+            Window? owner = null;
+            if (Application.Current!.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            {
+                owner = desktop.MainWindow;
+            }
+
+            if (owner == null)
+            {
+                return string.Empty;
+            }
+
+            var pickerOptions = new FilePickerOpenOptions
+            {
+                AllowMultiple = false,
+                FileTypeFilter = [new FilePickerFileType("tson")],
+                Title = filter
+            };
+            var filePickerTask = Task.Factory.StartNew(async () =>
+            {
+                var getFolderTask = await TopLevel.GetTopLevel(owner)!.StorageProvider.OpenFilePickerAsync(pickerOptions);
+            });
+            // var getFolderTask = TopLevel.GetTopLevel(owner)!.StorageProvider.OpenFilePickerAsync(pickerOptions);
+            // var folder = getFolderTask.Result;
+            // if (folder.Count > 0)
             // {
-            //     InitialDirectory = initial_directory,
-            //     Filter = filter
-            // })
-            // {
-            //     if (System.Windows.Forms.DialogResult.OK == ofd.ShowDialog())
-            //     {
-            //         return ofd.FileName;
-            //     }
+            //     return folder[0].Name;
             // }
+            
+            return string.Empty;
+        }
+        
+        public static async Task<string> GetFileFromDialogueAsync(string filter, string initial_directory = "")
+        {
+            Window? owner = null;
+            if (Application.Current!.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            {
+                owner = desktop.MainWindow;
+            }
+
+            if (owner == null)
+            {
+                return string.Empty;
+            }
+
+            var startingLocation = await owner.StorageProvider.TryGetFolderFromPathAsync(new Uri($"file://{initial_directory}"));
+            var pickerOptions = new FilePickerOpenOptions
+            {
+                AllowMultiple = false,
+                FileTypeFilter = [new FilePickerFileType("tson")],
+                Title = filter,
+                SuggestedStartLocation = startingLocation
+            };
+            
+            var files = await owner.StorageProvider.OpenFilePickerAsync(pickerOptions);
+            if (files.Count > 0)
+            {
+                return files[0].TryGetLocalPath() ?? string.Empty;
+            }
+            
             return string.Empty;
         }
 

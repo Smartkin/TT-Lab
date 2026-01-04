@@ -10,7 +10,7 @@
         cm:Bind.AtDesignTime="True"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="TT_Lab.Views.ProjectCreationView"
-        Title="ProjectCreationView">
+        Title="Create Project..." Height="310" Width="800" CanMinimize="True" CanMaximize="False" CanResize="False" WindowStartupLocation="CenterOwner">
     <controls:GroupBox>
         <Grid ColumnDefinitions="205*,506*,89*" RowDefinitions="45,45,45,45,45,45">
             <Label Content="Project name:" VerticalAlignment="Center" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" UseLayoutRounding="True" HorizontalAlignment="Right"/>

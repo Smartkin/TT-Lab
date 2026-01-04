@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Linq;
+using Splat;
 using TT_Lab.AssetData;
 using TT_Lab.Project;
 
@@ -133,7 +134,7 @@ public class AssetManager
     /// <returns>AssetManager for the currently opened project</returns>
     public static AssetManager Get()
     {
-        return IoC.Get<ProjectManager>().OpenedProject!.AssetManager;
+        return Locator.Current.GetService<ProjectManager>()!.OpenedProject!.AssetManager;
     }
 
     private LabURI GetUriByTwinId(LabURI package, Type type, IAsset requester, UInt32 id, int? layoutId = null)

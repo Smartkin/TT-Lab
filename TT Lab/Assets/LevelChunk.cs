@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using Caliburn.Micro;
 using Newtonsoft.Json;
+using Splat;
 using TT_Lab.AssetData;
 using TT_Lab.Project;
 using TT_Lab.ViewModels.Editors;
@@ -35,7 +36,7 @@ public class LevelChunk : SerializableAsset
     {
         if (serializationFlags.HasFlag(SerializationFlags.SetDirectoryToAssets))
         {
-            Directory.SetCurrentDirectory($"{IoC.Get<ProjectManager>().OpenedProject!.ProjectPath}\\assets");
+            Directory.SetCurrentDirectory($"{Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath}\\assets");
         }
         
         var path = SavePath;

@@ -9,26 +9,12 @@
         xmlns:controls="clr-namespace:TT_Lab.Controls"
         xmlns:cal="http://caliburnmicro.com"
         xmlns:controls1="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+        x:Name="MainApplication"
         mc:Ignorable="d"
         x:Class="TT_Lab.Views.ShellView"
         x:DataType="viewmodels:ShellViewModel"
         cal:Bind.AtDesignTime="True"
         Title="{Binding WindowTitle}" Height="720" Width="1280" MinWidth="854" MinHeight="480">
-    
-    <!-- <Interaction.Behaviors> -->
-    <!--     <Triggers:InputBindingTrigger> -->
-    <!--         <Triggers:InputBindingTrigger.InputBinding> -->
-    <!--             <KeyBinding Modifiers="Ctrl" Key="O"/> -->
-    <!--         </Triggers:InputBindingTrigger.InputBinding> -->
-    <!--         <cal:ActionMessage MethodName="OpenProject"/> -->
-    <!--     </Triggers:InputBindingTrigger> -->
-    <!--     <Triggers:InputBindingTrigger> -->
-    <!--         <Triggers:InputBindingTrigger.InputBinding> -->
-    <!--             <KeyBinding Modifiers="Ctrl+Shift" Key="S"/> -->
-    <!--         </Triggers:InputBindingTrigger.InputBinding> -->
-    <!--         <cal:ActionMessage MethodName="SaveProject"/> -->
-    <!--     </Triggers:InputBindingTrigger> -->
-    <!-- </Interaction.Behaviors> -->
     <Window.Styles>
         <!-- <Style x:Key="MainCenterTabStyle" Selector="TabControl" Parent="{x:Type TabControl}"> -->
         <!--     <Setter Property="Padding" Value="2"/> -->
@@ -109,61 +95,42 @@
         <!--     </Setter> -->
         <!-- </Style> -->
     </Window.Styles>
+    <Window.Styles>
+        <Style Selector="TextBlock">
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+    </Window.Styles>
     <Window.Resources>
         <SolidColorBrush x:Key="ListBorder" Color="#828790"/>
     </Window.Resources>
-    <Grid x:Name="MainWindowGrid">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition/>
-        </Grid.RowDefinitions>
+    <Grid x:Name="MainWindowGrid" RowDefinitions="Auto,*">
         <Menu Template="{DynamicResource MainWindowMenuTemplate}" x:Name="MainMenu" UseLayoutRounding="True" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
             <MenuItem x:Name="ProjectSubMenu" Header="Project">
-                <MenuItem Name="CreateProject" Header="Create Project..."/>
-                <MenuItem x:Name="OpenProject" Header="Open Project..." InputGesture="Ctrl+O"/>
+                <MenuItem Click="CreateProject_OnClick" Header="Create Project..."/>
+                <MenuItem x:Name="OpenProjectItem" Command="{Binding OpenProject}" Header="Open Project..." InputGesture="Ctrl+O"/>
                 <MenuItem x:Name="OpenRecentSubMenu" Header="Open Recent" ItemsSource="{Binding RecentlyOpened}" IsEnabled="{Binding HasRecents}"/>
-                <MenuItem x:Name="SaveProject" Header="Save all" InputGesture="Ctrl+Shift+S" IsEnabled="{Binding ProjectOpened}"/>
-                <MenuItem x:Name="CloseProject" Header="Close Project" IsEnabled="{Binding ProjectOpened}"/>
+                <MenuItem x:Name="SaveProjectItem" Command="{Binding SaveProject}" Header="Save all" InputGesture="Ctrl+Shift+S" IsEnabled="{Binding ProjectOpened}"/>
+                <MenuItem Command="{Binding CloseProject}" Header="Close Project" IsEnabled="{Binding ProjectOpened}"/>
             </MenuItem>
             <MenuItem x:Name="BuildSubMenu" Header="Build" IsEnabled="{Binding ProjectOpened}">
-                <MenuItem x:Name="BuildPs2" Header="Full Build PS2 ISO" ToolTip.Tip="Packs all assets and chunks then creates PS2 archives then creates the ISO"/>
-                <MenuItem x:Name="BuildPs2Iso" Header="Build Only PS2 ISO" ToolTip.Tip="Creates PS2 archives then creates the ISO"/>
+                <MenuItem Command="{Binding BuildPs2}" Header="Full Build PS2 ISO" ToolTip.Tip="Packs all assets and chunks then creates PS2 archives then creates the ISO"/>
+                <MenuItem Command="{Binding BuildPs2Iso}" Header="Build Only PS2 ISO" ToolTip.Tip="Creates PS2 archives then creates the ISO"/>
                 <MenuItem x:Name="BuildXbox" Header="Build XBox ISO" IsEnabled="False"/>
             </MenuItem>
             <MenuItem x:Name="ToolsSubMenu" Header="Tools" IsEnabled="False">
                 <MenuItem/>
             </MenuItem>
-            <MenuItem x:Name="OpenPreferences" Header="Preferences"/>
-            <MenuItem x:Name="About" Header="About"/>
+            <MenuItem Click="Preferences_OnClick" Header="Preferences"/>
+            <MenuItem Click="About_OnClick" Header="About"/>
         </Menu>
-        <Grid x:Name="MainControlsGrid" Grid.Row="1">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="200*"/>
-                <ColumnDefinition Width="5"/>
-                <ColumnDefinition Width="50*"/>
-            </Grid.ColumnDefinitions>
-            <Grid x:Name="MainCenterGrid">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="100*"/>
-                    <RowDefinition Height="5"/>
-                    <RowDefinition Height="25*"/>
-                </Grid.RowDefinitions>
-                <ContentControl x:Name="ActiveItem"/>
+        <Grid x:Name="MainControlsGrid" Grid.Row="1" ColumnDefinitions="200*,5,50*">
+            <Grid x:Name="MainCenterGrid" RowDefinitions="100*,5,25*">
+                <ContentControl Content="{Binding ActiveItem}"/>
                 <GridSplitter Margin="0" ResizeDirection="Rows" HorizontalAlignment="Stretch" VerticalAlignment="Center" Height="5" Grid.Row="1"/>
                 <TabControl x:Name="LogTabs" Grid.Row="2">
                     <TabItem Header="Log">
                         <Grid>
                             <ScrollViewer VerticalScrollBarVisibility="Auto" x:Name="LogViewer" Margin="0">
-                                <Interaction.Behaviors>
-                                    <EventTrigger EventName="ScrollChanged">
-                                        <cal:ActionMessage MethodName="LogViewerScroll">
-                                            <cal:ActionMessage.Parameters>
-                                                <cal:Parameter Value="$source"/>
-                                                <cal:Parameter Value="$eventArgs"/>
-                                            </cal:ActionMessage.Parameters>
-                                        </cal:ActionMessage>
-                                    </EventTrigger>
-                                </Interaction.Behaviors>
                                 <TextBox ScrollViewer.VerticalScrollBarVisibility="Disabled" x:Name="LogText" MaxLines="50" TextWrapping="Wrap" IsReadOnly="True"/>
                             </ScrollViewer>
                             <Image HorizontalAlignment="Right" Margin="10" IsVisible="{Binding SadEasterEggVisibility}"/>
@@ -172,12 +139,10 @@
                 </TabControl>
             </Grid>
             <controls1:GroupBox Header="Project tree" Grid.Column="2">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="54"/>
-                        <RowDefinition Height="470*"/>
-                    </Grid.RowDefinitions>
+                <Grid RowDefinitions="54,470*">
                     <TextBox
+                        ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                        ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                         Watermark="Search"
                         x:Name="SearchBar" 
                         TextWrapping="NoWrap" 
@@ -194,36 +159,38 @@
                                         <ContextMenu ItemsSource="{Binding MenuOptions}"/>
                                     </StackPanel.ContextMenu>
                                     <Interaction.Behaviors>
-                                        <EventTrigger EventName="MouseDown">
-                                            <cal:ActionMessage MethodName="AssetBlockMouseDown">
-                                                <cal:ActionMessage.Parameters>
-                                                    <cal:Parameter Value="{Binding ElementName=ProjectTree, Path=SelectedItem}"/>
-                                                    <cal:Parameter Value="$eventArgs"/>
-                                                </cal:ActionMessage.Parameters>
-                                            </cal:ActionMessage>
-                                        </EventTrigger>
-                                        <EventTrigger EventName="MouseMove">
-                                            <cal:ActionMessage MethodName="AssetBlockMouseMove">
-                                                <cal:ActionMessage.Parameters>
-                                                    <cal:Parameter Value="{Binding ElementName=ProjectTree, Mode=OneWay}"/>
-                                                    <cal:Parameter Value="$eventArgs"/>
-                                                </cal:ActionMessage.Parameters>
-                                            </cal:ActionMessage>
-                                        </EventTrigger>
-                                        <EventTrigger EventName="ContextMenuOpening">
-                                            <cal:ActionMessage MethodName="CreateContextMenuAction"/>
-                                        </EventTrigger>
+                                        <EventTriggerBehavior EventName="DoubleTapped">
+                                            <InvokeCommandAction Command="{Binding CreateEditor}"></InvokeCommandAction>
+                                            <!-- <cal:ActionMessage MethodName="AssetBlockMouseDown"> -->
+                                            <!--     <cal:ActionMessage.Parameters> -->
+                                            <!--         <cal:Parameter Value="{Binding ElementName=ProjectTree, Path=SelectedItem}"/> -->
+                                            <!--         <cal:Parameter Value="$eventArgs"/> -->
+                                            <!--     </cal:ActionMessage.Parameters> -->
+                                            <!-- </cal:ActionMessage> -->
+                                        </EventTriggerBehavior>
+                                        <!-- <EventTrigger EventName="MouseMove"> -->
+                                        <!--     <cal:ActionMessage MethodName="AssetBlockMouseMove"> -->
+                                        <!--         <cal:ActionMessage.Parameters> -->
+                                        <!--             <cal:Parameter Value="{Binding ElementName=ProjectTree, Mode=OneWay}"/> -->
+                                        <!--             <cal:Parameter Value="$eventArgs"/> -->
+                                        <!--         </cal:ActionMessage.Parameters> -->
+                                        <!--     </cal:ActionMessage> -->
+                                        <!-- </EventTrigger> -->
+                                        <EventTriggerBehavior EventName="ContextRequested">
+                                            <InvokeCommandAction Command="{Binding CreateContextMenuAction}"></InvokeCommandAction>
+                                            <!-- <cal:ActionMessage MethodName="CreateContextMenuAction"/> -->
+                                        </EventTriggerBehavior>
                                     </Interaction.Behaviors>
                                     <Image Source="{Binding IconPath}" VerticalAlignment="Center" HorizontalAlignment="Center" Width="24" Height="24" Margin="0,0,3,0" Stretch="Uniform"/>
                                     <TextBlock x:Name="AssetBlock" IsVisible="{Binding IsNotRenaming}" VerticalAlignment="Center" HorizontalAlignment="Center" Text="{Binding Alias}">
-                                        <Interaction.Behaviors>
-                                            <DataTriggerBehavior Binding="{Binding IsEnabled}" Value="False">
-                                                <ChangePropertyAction PropertyName="Foreground" Value="{StaticResource DisabledForegroundBrush}"></ChangePropertyAction>
-                                            </DataTriggerBehavior>
-                                            <DataTriggerBehavior Binding="{Binding IsEnabled}" Value="True">
-                                                <ChangePropertyAction PropertyName="Foreground" Value="{StaticResource LightColorBrush}"></ChangePropertyAction>
-                                            </DataTriggerBehavior>
-                                        </Interaction.Behaviors>
+                                        <!-- <Interaction.Behaviors> -->
+                                        <!--     <DataTriggerBehavior Binding="{Binding IsEnabled}" Value="False"> -->
+                                        <!--         <ChangePropertyAction PropertyName="Foreground" Value="{StaticResource DisabledForegroundBrush}"></ChangePropertyAction> -->
+                                        <!--     </DataTriggerBehavior> -->
+                                        <!--     <DataTriggerBehavior Binding="{Binding IsEnabled}" Value="True"> -->
+                                        <!--         <ChangePropertyAction PropertyName="Foreground" Value="{StaticResource LightColorBrush}"></ChangePropertyAction> -->
+                                        <!--     </DataTriggerBehavior> -->
+                                        <!-- </Interaction.Behaviors> -->
                                     </TextBlock>
                                     <TextBox x:Name="RenamingTextBox" Text="{Binding NewAlias, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center" HorizontalAlignment="Stretch" IsVisible="{Binding IsRenaming}">
                                         <Interaction.Behaviors>
@@ -231,6 +198,8 @@
                                                 <cal:ActionMessage MethodName="StopRenaming"/>
                                             </EventTrigger>
                                             <EventTrigger EventName="KeyDown">
+                                                <EventTrigger.Actions>
+                                                </EventTrigger.Actions>
                                                 <cal:ActionMessage MethodName="SaveRenaming">
                                                     <cal:ActionMessage.Parameters>
                                                         <cal:Parameter Value="$eventArgs"/>

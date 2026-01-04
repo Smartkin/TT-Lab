@@ -2,6 +2,7 @@
 using Caliburn.Micro;
 using System.Threading;
 using System.Threading.Tasks;
+using Splat;
 
 namespace TT_Lab.ViewModels
 {
@@ -30,11 +31,11 @@ namespace TT_Lab.ViewModels
             }
         }
 
-        protected override Task OnInitializeAsync(CancellationToken cancellationToken)
+        protected override Task OnInitializedAsync(CancellationToken cancellationToken)
         {
-            ActivateItemAsync(IoC.Get<ScenesEditorsViewModel>(), cancellationToken);
-            ActivateItemAsync(IoC.Get<ResourcesEditorsViewModel>(), cancellationToken);
-            return base.OnInitializeAsync(cancellationToken);
+            ActivateItemAsync(Locator.Current.GetService<ScenesEditorsViewModel>()!, cancellationToken);
+            ActivateItemAsync(Locator.Current.GetService<ResourcesEditorsViewModel>()!, cancellationToken);
+            return base.OnInitializedAsync(cancellationToken);
         }
     }
 }

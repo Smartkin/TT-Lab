@@ -10,7 +10,7 @@
              cm:Bind.AtDesignTime="True"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="TT_Lab.Views.ScenesEditorsView">
-    <TabControl x:Name="Items">
+    <TabControl  HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" ItemsSource="{Binding Items}">
         <TabControl.ItemTemplate>
             <DataTemplate DataType="{x:Type viewmodelsComposite:TabbedEditorViewModel}">
                 <StackPanel Orientation="Horizontal">

@@ -10,6 +10,9 @@ using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using ReactiveUI;
+using ReactiveUI.SourceGenerators;
+using Splat;
 using TT_Lab.Assets;
 using TT_Lab.Command;
 using TT_Lab.Controls;
@@ -32,7 +35,7 @@ public class ShellViewModel : Conductor<EditorsViewModel>, ILabManager
     private readonly Dictionary<String, List<String>> _managerPropsToShellProps = new();
     private Boolean _dontRemind = false;
 
-    public ShellViewModel(IWindowManager windowManager, IEventAggregator eventAggregator, ProjectManager projectManager, RenderContext renderContext)
+    public ShellViewModel(IWindowManager windowManager, IEventAggregator eventAggregator, ProjectManager projectManager)
     {
         _windowManager = windowManager;
         _projectManager = projectManager;
@@ -50,21 +53,6 @@ public class ShellViewModel : Conductor<EditorsViewModel>, ILabManager
         Preferences.Load();
     }
 
-    public Task About()
-    {
-        return _windowManager.ShowDialogAsync(IoC.Get<AboutViewModel>());
-    }
-
-    public Task CreateProject()
-    {
-        return _windowManager.ShowDialogAsync(IoC.Get<ProjectCreationViewModel>());
-    }
-
-    public Task OpenPreferences()
-    {
-        return _windowManager.ShowDialogAsync(IoC.Get<PreferencesViewModel>());
-    }
-
     public void SaveProject()
     {
         if (!_projectManager.ProjectOpened) return;
@@ -74,7 +62,7 @@ public class ShellViewModel : Conductor<EditorsViewModel>, ILabManager
         {
             Log.WriteLine($"Saving {_projectManager.OpenedProject!.Name}...");
             var now = DateTime.Now;
-            ActiveItem.Save();
+            // ActiveItem.Save();
             Log.WriteLine($"Saved project in {DateTime.Now - now}");
         }
         catch (Exception ex)
@@ -116,7 +104,7 @@ public class ShellViewModel : Conductor<EditorsViewModel>, ILabManager
                 _eventAggregator.PublishOnUIThreadAsync(new CreateEditorMessage<ChunkEditorViewModel>(asset.URI, typeof(ChunkEditorViewModel)));
                 return;
             }
-
+            
             // Automatically switch to Resources Editor tab
             editorsViewModel.ActivateItemAsync(editorsViewModel.Items[1]);
             var editorType = asset.GetEditorType();
@@ -145,8 +133,10 @@ public class ShellViewModel : Conductor<EditorsViewModel>, ILabManager
     }
 
     // Props to https://stackoverflow.com/a/25765336
-    public void LogViewerScroll(ScrollViewer sv, ScrollChangedEventArgs e)
+    public void LogViewerScroll(object scrollViewer, object evArgs)
     {
+        var sv = (ScrollViewer)scrollViewer;
+        var e = (ScrollChangedEventArgs)evArgs;
         bool autoScrollToEnd = true;
         if (sv.Tag != null)
         {
@@ -183,17 +173,17 @@ public class ShellViewModel : Conductor<EditorsViewModel>, ILabManager
         {
             return;
         }
-
+        
         await DeactivateItemAsync(ActiveItem, true);
         _projectManager.CloseProject();
-        await ActivateItemAsync(IoC.Get<EditorsViewModel>());
+        await ActivateItemAsync(Locator.Current.GetService<EditorsViewModel>()!);
     }
 
-    public void OpenProject()
+    public async Task OpenProject()
     {
         // var recents = Properties.Settings.Default.RecentProjects;
         List<string>? recents = null;
-        var proj = MiscUtils.GetFileFromDialogue("PS2 TT Lab WPF Project|*.tson|XBox TT Lab WPF Project|*.xson", (recents != null && recents.Count != 0 ? recents[0] : "")!);
+        var proj = await MiscUtils.GetFileFromDialogueAsync("PS2 TT Lab WPF Project|*.tson|XBox TT Lab WPF Project|*.xson", (recents != null && recents.Count != 0 ? recents[0] : "")!);
         if (proj != string.Empty)
         {
             var open = new OpenProjectCommand(System.IO.Path.GetDirectoryName(proj)!);
@@ -228,10 +218,16 @@ public class ShellViewModel : Conductor<EditorsViewModel>, ILabManager
             cancellationToken);
     }
 
-    protected override Task OnInitializeAsync(CancellationToken cancellationToken)
+    // protected override Task OnInitializedAsync(CancellationToken cancellationToken)
+    // {
+    //     ActivateItemAsync(IoC.Get<EditorsViewModel>(), cancellationToken);
+    //     return base.OnInitializedAsync(cancellationToken);
+    // }
+
+    protected override Task OnActivatedAsync(CancellationToken cancellationToken)
     {
-        ActivateItemAsync(IoC.Get<EditorsViewModel>(), cancellationToken);
-        return base.OnInitializeAsync(cancellationToken);
+        ActivateItemAsync(Locator.Current.GetService<EditorsViewModel>()!, cancellationToken);
+        return base.OnActivatedAsync(cancellationToken);
     }
 
     protected override async Task OnDeactivateAsync(Boolean close, CancellationToken cancellationToken)
@@ -248,12 +244,15 @@ public class ShellViewModel : Conductor<EditorsViewModel>, ILabManager
         {
             _dontRemind = true;
         }
+
+        await Task.CompletedTask;
     }
 
     public BindableCollection<MenuItem> RecentlyOpened => _projectManager.RecentlyOpened;
 
     public Boolean TreeOptionsVisibility => ProjectOpened;
 
+    [Reactive]
     public String WindowTitle => _projectManager.ProjectTitle;
 
     public String SearchAsset

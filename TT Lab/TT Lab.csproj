@@ -35,13 +35,28 @@
         <PackageReference Include="geometry3Sharp" Version="1.0.324" />
         <PackageReference Include="GlmSharpStd" Version="0.9.8" />
         <PackageReference Include="Meshoptimizer.NET" Version="1.0.7" />
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.1" />
+        <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.1" />
         <PackageReference Include="NAudio" Version="2.2.1" />
         <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
         <PackageReference Include="ReactiveUI.Avalonia" Version="11.3.8" />
+        <PackageReference Include="ReactiveUI.SourceGenerators" Version="2.5.1">
+          <PrivateAssets>all</PrivateAssets>
+          <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
         <PackageReference Include="SharpGLTF.Core" Version="1.0.6" />
         <PackageReference Include="SharpGLTF.Toolkit" Version="1.0.6" />
         <PackageReference Include="Silk.NET.OpenGL" Version="2.22.0" />
         <PackageReference Include="Silk.NET.OpenGL.Extensions.ImGui" Version="2.22.0" />
+        <PackageReference Include="Splat" Version="18.1.1" />
+        <PackageReference Include="Splat.Builder" Version="18.1.1" />
+        <PackageReference Include="Splat.Core" Version="18.1.1" />
+        <PackageReference Include="Splat.DependencyInjection.SourceGenerator" Version="1.2.3">
+          <PrivateAssets>all</PrivateAssets>
+          <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="Splat.Logging" Version="18.1.1" />
+        <PackageReference Include="Splat.Microsoft.Extensions.DependencyInjection" Version="18.1.1" />
         <PackageReference Include="Xaml.Behaviors.Avalonia" Version="11.3.9" />
         <PackageReference Include="Xaml.Behaviors.Interactivity" Version="11.3.9" />
     </ItemGroup>
@@ -55,25 +70,6 @@
       <AvaloniaResource Include="Images\God_Messenger.png"/>
       <AvaloniaResource Include="Images\SadTransparent.gif"/>
       <AvaloniaResource Include="Images\tt_lab_logo_v6_2k.ico" />
-      <AvaloniaResource Include="Resources\InterDisplay-Black.ttf" />
-      <AvaloniaResource Include="Resources\InterDisplay-BlackItalic.ttf" />
-      <AvaloniaResource Include="Resources\InterDisplay-Bold.ttf" />
-      <AvaloniaResource Include="Resources\InterDisplay-BoldItalic.ttf" />
-      <AvaloniaResource Include="Resources\InterDisplay-ExtraBold.ttf" />
-      <AvaloniaResource Include="Resources\InterDisplay-ExtraBoldItalic.ttf" />
-      <AvaloniaResource Include="Resources\InterDisplay-ExtraLight.ttf" />
-      <AvaloniaResource Include="Resources\InterDisplay-ExtraLightItalic.ttf" />
-      <AvaloniaResource Include="Resources\InterDisplay-Italic.ttf" />
-      <AvaloniaResource Include="Resources\InterDisplay-Light.ttf" />
-      <AvaloniaResource Include="Resources\InterDisplay-LightItalic.ttf" />
-      <AvaloniaResource Include="Resources\InterDisplay-Medium.ttf" />
-      <AvaloniaResource Include="Resources\InterDisplay-MediumItalic.ttf" />
-      <AvaloniaResource Include="Resources\InterDisplay-Regular.ttf" />
-      <AvaloniaResource Include="Resources\InterDisplay-SemiBold.ttf" />
-      <AvaloniaResource Include="Resources\InterDisplay-SemiBoldItalic.ttf" />
-      <AvaloniaResource Include="Resources\InterDisplay-Thin.ttf" />
-      <AvaloniaResource Include="Resources\InterDisplay-ThinItalic.ttf" />
-      <AvaloniaResource Include="Resources\LICENSE.txt" />
       <Content Include="Media\**\*">
           <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </Content>

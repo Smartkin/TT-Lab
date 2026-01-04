@@ -62,7 +62,7 @@ public class TextureData : AbstractAssetData
         var width = (Int32)Math.Pow(2, texture.ImageWidthPower);
         var height = (Int32)Math.Pow(2, texture.ImageHeightPower);
         texture.CalculateData();
-
+        
         // var bits = new UInt32[width * height];
         // var bitsHandle = GCHandle.Alloc(bits, GCHandleType.Pinned);
         // var tmpBmp = new Bitmap(width, height, width * 4, PixelFormat.Format32bppArgb, bitsHandle.AddrOfPinnedObject());

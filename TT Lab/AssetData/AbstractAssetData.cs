@@ -2,6 +2,7 @@
 using Newtonsoft.Json;
 using System;
 using System.Diagnostics;
+using Splat;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Project;
@@ -22,7 +23,7 @@ public abstract class AbstractAssetData(IAsset owner) : IDisposable
     public void Load(String dataPath, JsonSerializerSettings? settings = null)
     {
         var workingDirectory = System.IO.Directory.GetCurrentDirectory();
-        System.IO.Directory.SetCurrentDirectory(IoC.Get<ProjectManager>().OpenedProject!.ProjectPath);
+        System.IO.Directory.SetCurrentDirectory(Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath);
         LoadInternal(dataPath, settings);
         System.IO.Directory.SetCurrentDirectory(workingDirectory);
     }
@@ -41,7 +42,7 @@ public abstract class AbstractAssetData(IAsset owner) : IDisposable
     public void Save(String dataPath, JsonSerializerSettings? settings = null)
     {
         var workingDirectory = System.IO.Directory.GetCurrentDirectory();
-        System.IO.Directory.SetCurrentDirectory($"{IoC.Get<ProjectManager>().OpenedProject!.ProjectPath}\\assets");
+        System.IO.Directory.SetCurrentDirectory($"{Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath}\\assets");
         SaveInternal(dataPath, settings);
         System.IO.Directory.SetCurrentDirectory(workingDirectory);
     }

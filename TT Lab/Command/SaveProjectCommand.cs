@@ -1,6 +1,7 @@
 ﻿using Caliburn.Micro;
 using System;
 using System.Threading.Tasks;
+using Splat;
 using TT_Lab.Project;
 
 namespace TT_Lab.Command
@@ -16,16 +17,17 @@ namespace TT_Lab.Command
 
         public void Execute(Object? parameter = null)
         {
-            if (!IoC.Get<ProjectManager>().ProjectOpened) return;
+            var projectManager = Locator.Current.GetService<ProjectManager>()!;
+            if (!projectManager.ProjectOpened) return;
 
-            IoC.Get<ProjectManager>().WorkableProject = false;
+            projectManager.WorkableProject = false;
             Task.Factory.StartNew(() =>
             {
                 try
                 {
                     Log.WriteLine($"Saving project...");
                     var now = DateTime.Now;
-                    var pr = IoC.Get<ProjectManager>().FullProjectTree;
+                    var pr = Locator.Current.GetService<ProjectManager>()!.FullProjectTree;
                     //foreach (var viewModel in pr)
                     //{
                     //    viewModel.Save(null);
@@ -38,7 +40,7 @@ namespace TT_Lab.Command
                 }
                 finally
                 {
-                    IoC.Get<ProjectManager>().WorkableProject = true;
+                    Locator.Current.GetService<ProjectManager>()!.WorkableProject = true;
                 }
             });
         }

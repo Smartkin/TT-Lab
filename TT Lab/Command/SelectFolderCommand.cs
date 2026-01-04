@@ -1,27 +1,16 @@
-﻿#if WINDOWS
-using Microsoft.WindowsAPICodePack.Dialogs;
-#endif
-using System;
+﻿using System;
 using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Platform.Storage;
 
 namespace TT_Lab.Command
 {
-    public class SelectFolderCommand : ICommand
+    public class SelectFolderCommand(object target, string textStoragePropName, string startPath = "")
+        : ICommand
     {
-        private readonly object target;
-        private readonly string propName;
-        private readonly string startPath;
         private TopLevel? owner;
-
-        public SelectFolderCommand(object target, string textStoragePropName, string startPath = "")
-        {
-            this.target = target;
-            this.startPath = startPath;
-            propName = textStoragePropName;
-        }
 
         public SelectFolderCommand(TopLevel? owner, object target, string textStoragePropName, string startPath = "")
             : this(target, textStoragePropName, startPath)
@@ -36,24 +25,11 @@ namespace TT_Lab.Command
             return true;
         }
 
-        public void Execute(object? parameter = null)
+        public async void Execute(object? parameter = null)
         {
-#if WINDOWS
-            using CommonOpenFileDialog ofd = new()
-            {
-                IsFolderPicker = true,
-                InitialDirectory = startPath
-            };
-            var dialRes = owner == null ? ofd.ShowDialog() : ofd.ShowDialog(owner);
-            if (dialRes == CommonFileDialogResult.Ok)
-            {
-                var prop = target.GetType().GetProperty(propName)!;
-                prop.SetValue(target, ofd.FileName);
-            }
-#else
             if (owner == null)
             {
-                if (Application.Current.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+                if (Application.Current!.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
                 {
                     owner = desktop.MainWindow;
                 }
@@ -67,14 +43,18 @@ namespace TT_Lab.Command
             {
                 throw new Exception("Unsupported platform!");
             }
-            
-            var folder = owner.StorageProvider.TryGetFolderFromPathAsync(new Uri(startPath)).ConfigureAwait(false).GetAwaiter().GetResult();
-            if (folder != null)
+
+            var folderPickerOptions = new FolderPickerOpenOptions
             {
-                var prop = target.GetType().GetProperty(propName);
-                prop.SetValue(target, folder.Name);
+                AllowMultiple = false
+            };
+            var folder = await owner.StorageProvider.OpenFolderPickerAsync(folderPickerOptions);
+            if (folder.Count > 0)
+            {
+                var prop = target.GetType().GetProperty(textStoragePropName);
+                Debug.Assert(prop != null, $"Invalid property {textStoragePropName}!");
+                prop.SetValue(target, folder[0].Path.LocalPath);
             }
-#endif
         }
 
         public void Unexecute()

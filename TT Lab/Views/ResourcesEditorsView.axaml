@@ -4,18 +4,29 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:viewmodels="clr-namespace:TT_Lab.ViewModels.Composite"
              xmlns:cm="http://caliburnmicro.com"
+             xmlns:viewModels="clr-namespace:TT_Lab.ViewModels"
+             HorizontalAlignment="Stretch"
+             HorizontalContentAlignment="Stretch"
+             VerticalAlignment="Stretch"
+             VerticalContentAlignment="Stretch"
              cm:Bind.AtDesignTime="True"
+             x:DataType="viewModels:ResourcesEditorsViewModel"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="TT_Lab.Views.ResourcesEditorsView">
-    <TabControl x:Name="Items">
+    <TabControl HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" ItemsSource="{Binding Items}">
         <TabControl.ItemTemplate>
             <DataTemplate DataType="{x:Type viewmodels:TabbedEditorViewModel}">
                 <StackPanel Orientation="Horizontal">
                     <Image Source="{Binding IconPath}" VerticalAlignment="Center" HorizontalAlignment="Center" Width="24" Height="24" Margin="0,0,3,0" Stretch="Uniform"/>
                     <TextBlock Text="{Binding DisplayName, Mode=OneWay}" Margin="0,0,10,0"/>
-                    <Button Content="X" cm:Message.Attach="CloseEditorTab($dataContext)"/>
+                    <Button Content="X"/>
                 </StackPanel>
             </DataTemplate>
         </TabControl.ItemTemplate>
+        <TabControl.ContentTemplate>
+            <DataTemplate DataType="{x:Type viewmodels:TabbedEditorViewModel}">
+                <ContentControl Content="{Binding ActiveItem}"/>
+            </DataTemplate>
+        </TabControl.ContentTemplate>
     </TabControl>
 </UserControl>

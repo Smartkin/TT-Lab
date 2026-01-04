@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using System;
+using Avalonia.Logging;
 using ReactiveUI.Avalonia;
 
 namespace TT_Lab;
@@ -18,7 +19,10 @@ class Program
         => AppBuilder.Configure<App>()
             .UsePlatformDetect()
             .UseReactiveUI()
-            .LogToDelegate(Console.WriteLine)
-            .WithInterFont()
-            .LogToTrace();
+            #if DEBUG
+            .LogToDelegate(Console.WriteLine, LogEventLevel.Debug)
+            #else
+            .LogToDelegate(Console.WriteLine, LogEventLevel.Information)
+            #endif
+            .WithInterFont();
 }

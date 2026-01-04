@@ -6,24 +6,24 @@ using TT_Lab.Project;
 using TT_Lab.Project.Messages;
 using TT_Lab.ViewModels.Composite;
 
-namespace TT_Lab.ViewModels
+namespace TT_Lab.ViewModels;
+
+public class ResourcesEditorsViewModel : EditorsViewerViewModel, IHandle<CreateEditorMessage<ResourceEditorViewModel>>
 {
-    public class ResourcesEditorsViewModel : EditorsViewerViewModel, IHandle<CreateEditorMessage<ResourceEditorViewModel>>
+    private readonly IEventAggregator _eventAggregator;
+    private readonly ProjectManager _projectManager;
+
+    public ResourcesEditorsViewModel(IEventAggregator eventAggregator, ProjectManager projectManager)
     {
-        private readonly IEventAggregator _eventAggregator;
-        private readonly ProjectManager _projectManager;
+        DisplayName = "Resources Editors";
+        _projectManager = projectManager;
+        _eventAggregator = eventAggregator;
+        _eventAggregator.SubscribeOnUIThread(this);
+    }
 
-        public ResourcesEditorsViewModel(IEventAggregator eventAggregator, ProjectManager projectManager)
-        {
-            DisplayName = "Resources Editors";
-            _projectManager = projectManager;
-            _eventAggregator = eventAggregator;
-            _eventAggregator.SubscribeOnUIThread(this);
-        }
-
-        public Task HandleAsync(CreateEditorMessage<ResourceEditorViewModel> message, CancellationToken cancellationToken)
-        {
-            return Task.Factory.StartNew(() =>
+    public Task HandleAsync(CreateEditorMessage<ResourceEditorViewModel> message, CancellationToken cancellationToken)
+    {
+        return Task.Factory.StartNew(() =>
             {
                 var item = Items.FirstOrDefault(tab => tab!.EditableResource == message.ResourceURI, null);
                 if (item != null)
@@ -41,6 +41,5 @@ namespace TT_Lab.ViewModels
                 ActivateItemAsync(newEditor, cancellationToken);
             },
             cancellationToken);
-        }
     }
 }

@@ -7,6 +7,7 @@ using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using Caliburn.Micro;
+using Splat;
 using TT_Lab.AssetData;
 using TT_Lab.Attributes;
 using TT_Lab.Project;
@@ -37,8 +38,8 @@ public abstract class SerializableAsset : IAsset
     public virtual String IconPath => "Common_Node.png";
     public String Data => $"{Name}{DataExt}";
     public String? AdditionalPath { get; set; }
-    public String FullDataPath => $"{IoC.Get<ProjectManager>().OpenedProject!.ProjectPath}\\{DataLoadPath}";
-    public String FullPath => $"{IoC.Get<ProjectManager>().OpenedProject!.ProjectPath}\\{LoadPath}";
+    public String FullDataPath => $"{Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath}\\{DataLoadPath}";
+    public String FullPath => $"{Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath}\\{LoadPath}";
     public UInt32 ID { get; set; }
     public String Alias { get; set; }
     public String Chunk { get; set; }
@@ -130,7 +131,7 @@ public abstract class SerializableAsset : IAsset
             
         if (setDirectoryToAssets)
         {
-            Directory.SetCurrentDirectory($"{IoC.Get<ProjectManager>().OpenedProject!.ProjectPath}\\assets");
+            Directory.SetCurrentDirectory($"{Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath}\\assets");
         }
 
         var path = SavePath;

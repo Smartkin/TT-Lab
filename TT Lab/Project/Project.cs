@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Splat;
 using TT_Lab.AssetData;
 using TT_Lab.AssetResolvers;
 using TT_Lab.Assets;
@@ -196,7 +197,7 @@ public class Project : IProject
             throw new ProjectException("The provided version of the project is not supported!");
         }
         System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetDirectoryName(projectPath)!);
-        IoC.Get<ProjectManager>().OpenedProject = pr;
+        Locator.Current.GetService<ProjectManager>()!.OpenedProject = pr;
 
         // Let's not kill user's CPUs here
         const int taskLimit = 4;

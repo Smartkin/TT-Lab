@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using Caliburn.Micro;
+using Splat;
 using TT_Lab.Project;
 
 namespace TT_Lab.Assets
@@ -130,8 +131,8 @@ namespace TT_Lab.Assets
             get
             {
                 if (this == Empty) return "Empty";
-                if (IoC.Get<ProjectManager>().OpenedProject == null) return _uri;
-                return IoC.Get<ProjectManager>().OpenedProject == null ? _uri : AssetManager.Get().GetAsset(this).Name;
+                if (Locator.Current.GetService<ProjectManager>()!.OpenedProject == null) return _uri;
+                return Locator.Current.GetService<ProjectManager>()!.OpenedProject == null ? _uri : AssetManager.Get().GetAsset(this).Name;
             }
         }
     }
