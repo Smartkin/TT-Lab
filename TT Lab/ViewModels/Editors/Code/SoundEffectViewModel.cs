@@ -3,6 +3,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls.Primitives;
+using SoundFlow.Components;
 using SoundFlow.Interfaces;
 using TT_Lab.AssetData.Code;
 using TT_Lab.Assets;
@@ -25,7 +26,7 @@ public class SoundEffectViewModel : ResourceEditorViewModel
     private UInt16 _param3;
     private UInt16 _param4;
     
-    private ISoundPlayer _audioPlayer;
+    private SoundPlayer _audioPlayer;
 
     public SoundEffectViewModel(IAudioService audioService)
     {
@@ -53,11 +54,12 @@ public class SoundEffectViewModel : ResourceEditorViewModel
             _audioPlayer.Dispose();
         }
         
-        var soundAsset = AssetManager.Get().GetAsset<SoundEffect>(EditableResource);
         var soundData = AssetManager.Get().GetAssetData<SoundEffectData>(EditableResource);
         _audioPlayer = _audioService.CreateSoundPlayer(soundData.GetSoundEffectStream());
-        _audioPlayer.DataProvider.EndOfStreamReached += (s, e) =>
+        _audioPlayer.PlaybackEnded += (s, e) =>
         {
+            NotifyOfPropertyChange(nameof(SoundProgress));
+            NotifyOfPropertyChange(nameof(CurrentTime));
             if (_audioPlayer.State != SoundFlow.Enums.PlaybackState.Stopped)
             {
                 return;
@@ -169,12 +171,14 @@ public class SoundEffectViewModel : ResourceEditorViewModel
         NotifyOfPropertyChange(nameof(CurrentTime));
     }
 
+    public float SoundDuration => _audioPlayer.Duration;
+
     public float SoundProgress
     {
-        get => _audioPlayer.Time / _audioPlayer.Duration;
+        get => _audioPlayer.Time;
         set
         {
-            _audioPlayer.Seek(value * _audioPlayer.Duration);
+            _audioPlayer.Seek(value);
             NotifyOfPropertyChange();
             NotifyOfPropertyChange(nameof(CurrentTime));
         }

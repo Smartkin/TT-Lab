@@ -34,7 +34,7 @@ public class AudioService : IAudioService, IDisposable
         _audioDevice.Start();
     }
     
-    public ISoundPlayer CreateSoundPlayer(MemoryStream audio)
+    public SoundPlayer CreateSoundPlayer(MemoryStream audio)
     {
         var dataProvider = new StreamDataProvider(_audioEngine, _audioDevice.Format, audio);
         var player = new SoundPlayer(_audioEngine, _audioDevice.Format, dataProvider);
