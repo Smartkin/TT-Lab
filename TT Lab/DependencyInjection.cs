@@ -14,7 +14,7 @@ namespace TT_Lab;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection RegisterAllViewsForViewModels(this IServiceCollection services)
+    public static IServiceCollection RegisterAllViewsAndViewModels(this IServiceCollection services)
     {
         Locator.CurrentMutable.RegisterViewsForViewModels(Assembly.GetCallingAssembly());
         
@@ -57,6 +57,7 @@ public static class DependencyInjection
         services.AddSingleton<Rendering.Services.MeshService>();
         services.AddSingleton<Rendering.Factories.MaterialFactory>();
         services.AddSingleton<IActiveChunkService, ActiveChunkService>();
+        services.AddSingleton<IAudioService, AudioService>();
         services.AddTransient<IDataValidatorService, DataValidatorService>();
         services.AddTransient<Rendering.Renderer>();
         services.AddTransient<Rendering.Services.PassService>();

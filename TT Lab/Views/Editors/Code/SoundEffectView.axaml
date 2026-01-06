@@ -9,6 +9,11 @@
              x:DataType="code:SoundEffectViewModel"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="TT_Lab.Views.Editors.Code.SoundEffectView">
+    <Interaction.Behaviors>
+        <EventTriggerBehavior EventName="Rendered">
+            <InvokeCommandAction Command="{Binding UpdateTrackUi}"/>
+        </EventTriggerBehavior>
+    </Interaction.Behaviors>
     <controls1:GroupBox>
         <StackPanel Orientation="Vertical">
             <Grid RowDefinitions="*,*" ColumnDefinitions="*,*">
@@ -22,11 +27,6 @@
                     <Interaction.Behaviors>
                         <EventTrigger EventName="ValueChanged">
                             <InvokeCommandAction Command="{Binding ChangeTrackPosition}" PassEventArgsToCommand="True"/>
-                            <!-- <cm:ActionMessage MethodName="ChangeTrackPosition"> -->
-                            <!--     <cm:ActionMessage.Parameters> -->
-                            <!--         <cm:Parameter Value="$eventArgs"/> -->
-                            <!--     </cm:ActionMessage.Parameters> -->
-                            <!-- </cm:ActionMessage> -->
                         </EventTrigger>
                     </Interaction.Behaviors>
                 </Slider>

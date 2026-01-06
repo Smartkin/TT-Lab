@@ -1,29 +1,22 @@
 using System;
-using System.Diagnostics;
 using System.IO;
-using System.IO.Packaging;
-using System.Media;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows;
-using Avalonia;
-using Avalonia.Threading;
-using Caliburn.Micro;
-using NAudio.Wave;
+using Avalonia.Controls.Primitives;
+using SoundFlow.Interfaces;
 using TT_Lab.AssetData.Code;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
 using TT_Lab.Attributes;
-using TT_Lab.Audio;
+using TT_Lab.Services;
 using TT_Lab.Util;
 using Twinsanity.Libraries;
-using Action = System.Action;
-using Timer = System.Timers.Timer;
 
 namespace TT_Lab.ViewModels.Editors.Code;
 
 public class SoundEffectViewModel : ResourceEditorViewModel
 {
+    private readonly IAudioService _audioService;
     private bool _soundReplaced;
     private UInt32 _header;
     private Byte _unkFlag;
@@ -32,15 +25,11 @@ public class SoundEffectViewModel : ResourceEditorViewModel
     private UInt16 _param3;
     private UInt16 _param4;
     
-    private AudioPlayer _audioPlayer;
-    private MemoryStream _soundStream;
+    private ISoundPlayer _audioPlayer;
 
-    public SoundEffectViewModel()
+    public SoundEffectViewModel(IAudioService audioService)
     {
-        Dispatcher.UIThread.Post(() =>
-        {
-            // CompositionTarget.Rendering += UpdateTrackUi;
-        });
+        _audioService = audioService;
     }
 
     protected override Task OnDeactivateAsync(bool close, CancellationToken cancellationToken)
@@ -48,7 +37,6 @@ public class SoundEffectViewModel : ResourceEditorViewModel
         if (close)
         {
             _audioPlayer.Dispose();
-            // CompositionTarget.Rendering -= UpdateTrackUi;
         }
         else
         {
@@ -65,12 +53,12 @@ public class SoundEffectViewModel : ResourceEditorViewModel
             _audioPlayer.Dispose();
         }
         
+        var soundAsset = AssetManager.Get().GetAsset<SoundEffect>(EditableResource);
         var soundData = AssetManager.Get().GetAssetData<SoundEffectData>(EditableResource);
-        _soundStream = soundData.GetSoundEffectStream();
-        _audioPlayer = new AudioPlayer(_soundStream);
-        _audioPlayer.OnPlaybackStopped += () =>
+        _audioPlayer = _audioService.CreateSoundPlayer(soundData.GetSoundEffectStream());
+        _audioPlayer.DataProvider.EndOfStreamReached += (s, e) =>
         {
-            if (_audioPlayer.GetPlaybackState() != PlaybackState.Stopped)
+            if (_audioPlayer.State != SoundFlow.Enums.PlaybackState.Stopped)
             {
                 return;
             }
@@ -103,7 +91,7 @@ public class SoundEffectViewModel : ResourceEditorViewModel
 
     public void PlaySound()
     {
-        if (_audioPlayer.IsPlaying)
+        if (_audioPlayer.State is SoundFlow.Enums.PlaybackState.Playing or SoundFlow.Enums.PlaybackState.Stopped)
         {
             StopPlayback();
         }
@@ -128,7 +116,7 @@ public class SoundEffectViewModel : ResourceEditorViewModel
         
         using FileStream fs = new(file, FileMode.Open, FileAccess.Read);
         using BinaryReader reader = new(fs);
-        Byte[] pcm = Array.Empty<byte>();
+        var pcm = Array.Empty<byte>();
         short channels = 0;
         uint frequency = 0;
         RIFF.LoadRiff(reader, ref pcm, ref channels, ref frequency);
@@ -158,21 +146,21 @@ public class SoundEffectViewModel : ResourceEditorViewModel
         NotifyOfPropertyChange(nameof(ReplacedAudioMark));
     }
 
-    public void ChangeTrackPosition(AvaloniaPropertyChangedEventArgs e)
+    public void ChangeTrackPosition(RangeBaseValueChangedEventArgs e)
     {
-        if (_audioPlayer.GetPlaybackState() == PlaybackState.Playing)
+        if (_audioPlayer.State == SoundFlow.Enums.PlaybackState.Playing)
         {
             return;
         }
         
         _audioPlayer.Pause();
-        _audioPlayer.SetPosition((double)e.NewValue);
+        _audioPlayer.Seek((float)e.NewValue);
         NotifyOfPropertyChange(nameof(CurrentTime));
     }
 
-    private void UpdateTrackUi(object? sender, EventArgs e)
+    public void UpdateTrackUi()
     {
-        if (!_audioPlayer.IsPlaying)
+        if (_audioPlayer.State != SoundFlow.Enums.PlaybackState.Playing)
         {
             return;
         }
@@ -181,12 +169,12 @@ public class SoundEffectViewModel : ResourceEditorViewModel
         NotifyOfPropertyChange(nameof(CurrentTime));
     }
 
-    public double SoundProgress
+    public float SoundProgress
     {
-        get => _audioPlayer.GetProgress;
+        get => _audioPlayer.Time / _audioPlayer.Duration;
         set
         {
-            _audioPlayer.SetPosition(value);
+            _audioPlayer.Seek(value * _audioPlayer.Duration);
             NotifyOfPropertyChange();
             NotifyOfPropertyChange(nameof(CurrentTime));
         }
@@ -279,8 +267,8 @@ public class SoundEffectViewModel : ResourceEditorViewModel
         }
     }
 
-    public string CurrentTime => _audioPlayer.GetPosition.ToString(@"mm\:ss\.ff");
-    public string TotalTimeLength => _audioPlayer.GetDuration.ToString(@"mm\:ss\.ff");
+    public string CurrentTime => TimeSpan.FromSeconds(_audioPlayer.Time).ToString(@"mm\:ss\.ff");
+    public string TotalTimeLength => TimeSpan.FromSeconds(_audioPlayer.Duration).ToString(@"mm\:ss\.ff");
 
     private void StopPlayback()
     {

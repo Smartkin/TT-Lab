@@ -10,6 +10,6 @@
     </Application.DataTemplates>
     
     <Application.Styles>
-        <ClassicTheme />
+        <SimpleTheme />
     </Application.Styles>
 </Application>

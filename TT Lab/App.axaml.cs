@@ -41,7 +41,7 @@ public partial class App : Application
 
                 services
                     .AddLabServices()
-                    .RegisterAllViewsForViewModels();
+                    .RegisterAllViewsAndViewModels();
             });
         
         _host = hostBuilder.Build();

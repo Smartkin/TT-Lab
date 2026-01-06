@@ -19,6 +19,8 @@ namespace TT_Lab.Assets.Code
         [JsonProperty(Required = Required.Always)]
         public UInt32 Header { get; set; }
         [JsonProperty(Required = Required.Always)]
+        public UInt16 SampleRate { get; set; }
+        [JsonProperty(Required = Required.Always)]
         public Byte UnkFlag { get; set; }
         [JsonProperty(Required = Required.Always)]
         public UInt16 Param1 { get; set; }
@@ -37,6 +39,7 @@ namespace TT_Lab.Assets.Code
             Param2 = 16;
             Param3 = 8192;
             Param4 = Param3;
+            SampleRate = 44100;
             Raw = false;
         }
 
@@ -49,6 +52,7 @@ namespace TT_Lab.Assets.Code
             Param2 = sound.Param2;
             Param3 = sound.Param3;
             Param4 = sound.Param4;
+            SampleRate = sound.GetFreq();
             Raw = false;
         }
 
@@ -71,6 +75,7 @@ namespace TT_Lab.Assets.Code
             {
                 item.Header = Header;
                 item.UnkFlag = UnkFlag;
+                item.SetFreq(SampleRate);
                 item.Param1 = Param1;
                 item.Param2 = Param2;
                 item.Param3 = Param3;

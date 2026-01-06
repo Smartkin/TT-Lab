@@ -264,7 +264,7 @@ public class Project : IProject
                 {
                     continue;
                 }
-                    
+                
                 System.IO.Directory.CreateDirectory(dirPath.Replace(DiscContentPathPS2 + System.IO.Path.DirectorySeparatorChar, ""));
             }
 
@@ -273,7 +273,7 @@ public class Project : IProject
                 System.IO.File.Copy(newPath, newPath.Replace(DiscContentPathPS2 + System.IO.Path.DirectorySeparatorChar, ""), true);
             }
 
-            DiscContentPathPS2 = $"{ProjectPath}\\disc\\ps2";
+            DiscContentPathPS2 = $"{ProjectPath}/disc/ps2";
                 
             System.IO.Directory.SetCurrentDirectory("../");
         }
@@ -297,7 +297,7 @@ public class Project : IProject
                 System.IO.File.Copy(newPath, newPath.Replace(DiscContentPathXbox + System.IO.Path.DirectorySeparatorChar, ""), true);
             }
                 
-            DiscContentPathXbox = $"{ProjectPath}\\disc\\xbox";
+            DiscContentPathXbox = $"{ProjectPath}/disc/xbox";
                 
             System.IO.Directory.SetCurrentDirectory("../");
         }
@@ -416,8 +416,8 @@ public class Project : IProject
         // Unpack all assets from chunks
         foreach (var item in archive.Items)
         {
-            var path = item.Header.Path;
-            var pathLow = item.Header.Path.ToLower();
+            var path = item.Header.Path.Replace('\\', System.IO.Path.DirectorySeparatorChar);
+            var pathLow = item.Header.Path.Replace('\\', System.IO.Path.DirectorySeparatorChar).ToLower();
             var isRm2 = pathLow.EndsWith(".rm2");
             var isSm2 = pathLow.EndsWith(".sm2");
             var isDefault = pathLow.EndsWith("default.rm2");
@@ -435,7 +435,7 @@ public class Project : IProject
                 var resourceName = System.IO.Path.GetFileName(path)[..^4];
                 path = path[..^4];
                 var otherFolders = path.Split(System.IO.Path.DirectorySeparatorChar);
-                var resourcePath = string.Join('\\', otherFolders[..^1]);
+                var resourcePath = string.Join(System.IO.Path.DirectorySeparatorChar, otherFolders[..^1]);
 
                 // Check for text files
                 if (isTxt)
@@ -652,10 +652,10 @@ public class Project : IProject
         System.IO.Directory.CreateDirectory("Levels");
         System.IO.Directory.SetCurrentDirectory("Levels");
         var chunkLevelPath = chunk.Variation;
-        foreach (var pathToken in chunkLevelPath.Split('\\').Skip(1).SkipLast(1))
+        foreach (var pathToken in chunkLevelPath.Split(System.IO.Path.DirectorySeparatorChar).Skip(1).SkipLast(1))
         {
-            System.IO.Directory.CreateDirectory(pathToken.Replace("\\", ""));
-            System.IO.Directory.SetCurrentDirectory(pathToken.Replace("\\", ""));
+            System.IO.Directory.CreateDirectory(pathToken.Replace(System.IO.Path.DirectorySeparatorChar.ToString(), ""));
+            System.IO.Directory.SetCurrentDirectory(pathToken.Replace(System.IO.Path.DirectorySeparatorChar.ToString(), ""));
         }
         Log.WriteLine($"Writing Level {chunk.Alias}...");
         var rm2 = factory.GenerateRM();
@@ -825,27 +825,27 @@ public class Project : IProject
     public void CreatePs2ArchivesAndIso()
     {
         Log.WriteLine("Packing into BD/BH archives...");
-        var bd = new PS2BD("", $"{DiscContentPathPS2}\\Crash6\\Crash.BH");
-        using var bdFile = new System.IO.FileStream($"{DiscContentPathPS2}\\Crash6\\Crash.BD", System.IO.FileMode.Create, System.IO.FileAccess.Write);
+        var bd = new PS2BD("", $"{DiscContentPathPS2}/Crash6/Crash.BH");
+        using var bdFile = new System.IO.FileStream($"{DiscContentPathPS2}/Crash6/Crash.BD", System.IO.FileMode.Create, System.IO.FileAccess.Write);
         using var bdWriter = new System.IO.BinaryWriter(bdFile);
-        bd.BuildRecords($"{ProjectPath}\\build\\archives");
+        bd.BuildRecords($"{ProjectPath}/build/archives");
         bd.Write(bdWriter);
         bdWriter.Flush();
         bdWriter.Close();
         
         Log.WriteLine("Creating PS2 ISO image...");
-        if (!System.IO.Directory.Exists($"{ProjectPath}\\build\\image"))
+        if (!System.IO.Directory.Exists($"{ProjectPath}/build/image"))
         {
-            System.IO.Directory.CreateDirectory($"{ProjectPath}\\build\\image");
+            System.IO.Directory.CreateDirectory($"{ProjectPath}/build/image");
         }
-        var progress = Ps2ImageMaker.StartPacking(DiscContentPathPS2!, $"{ProjectPath}\\build\\image\\{Name}.iso");
+        var progress = Ps2ImageMaker.StartPacking(DiscContentPathPS2!, $"{ProjectPath}/build/image/{Name}.iso");
         while (!progress.Finished)
         {
             Thread.Sleep(TimeSpan.FromSeconds(0.5));
             progress = Ps2ImageMaker.PollProgress();
             Log.WriteLine($"ISO creating progress {progress.ProgressPercentage * 100:F2}%...");
         }
-        Log.WriteLine($"Finished creating the ISO! Check the {ProjectPath}\\build\\image folder!");
+        Log.WriteLine($"Finished creating the ISO! Check the {ProjectPath}/build/image folder!");
     }
 
     public void PackAssetsXbox()

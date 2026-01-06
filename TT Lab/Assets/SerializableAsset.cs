@@ -19,12 +19,12 @@ namespace TT_Lab.Assets;
 
 public abstract class SerializableAsset : IAsset
 {
-    public virtual String SavePath => $"{Package.GetPackageName()}\\{SavePathInPackage}";
-    protected virtual String SavePathInPackage => string.IsNullOrEmpty(AdditionalPath) ? $"{Type.Name}" : $"{AdditionalPath}\\{Type.Name}";
+    public virtual String SavePath => $"{Package.GetPackageName()}/{SavePathInPackage}";
+    protected virtual String SavePathInPackage => string.IsNullOrEmpty(AdditionalPath) ? $"{Type.Name}" : $"{AdditionalPath}/{Type.Name}";
     protected virtual String DataExt => ".data";
     protected virtual String TwinDataExt => "bin";
 
-    protected String LoadPath => Path.Combine("assets", Package.GetPackageName(), URI.GetFilePathInPackage().Replace('/', '\\'));
+    protected String LoadPath => Path.Combine("assets", Package.GetPackageName(), URI.GetFilePathInPackage().Replace('/', Path.DirectorySeparatorChar));
     protected String DataLoadPath => Path.Combine(LoadPath, Data);
     protected AbstractAssetData? AssetData;
     protected ResourceTreeElementViewModel? ViewModel;
@@ -38,8 +38,8 @@ public abstract class SerializableAsset : IAsset
     public virtual String IconPath => "Common_Node.png";
     public String Data => $"{Name}{DataExt}";
     public String? AdditionalPath { get; set; }
-    public String FullDataPath => $"{Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath}\\{DataLoadPath}";
-    public String FullPath => $"{Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath}\\{LoadPath}";
+    public String FullDataPath => $"{Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath}/{DataLoadPath}";
+    public String FullPath => $"{Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath}/{LoadPath}";
     public UInt32 ID { get; set; }
     public String Alias { get; set; }
     public String Chunk { get; set; }
@@ -131,7 +131,7 @@ public abstract class SerializableAsset : IAsset
             
         if (setDirectoryToAssets)
         {
-            Directory.SetCurrentDirectory($"{Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath}\\assets");
+            Directory.SetCurrentDirectory($"{Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath}/assets");
         }
 
         var path = SavePath;

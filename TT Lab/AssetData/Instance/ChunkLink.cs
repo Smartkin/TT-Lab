@@ -51,7 +51,7 @@ public class ChunkLink
     {
         var assetManager = AssetManager.Get();
         UnkFlag = link.UnkFlag;
-        Path = assetManager.GetAllAssetsOf<LevelChunk>().First(c => c.GetChunkPath().Equals(link.Path, StringComparison.InvariantCultureIgnoreCase)).URI;
+        Path = assetManager.GetAllAssetsOf<LevelChunk>().First(c => c.GetChunkPath().Equals(link.Path.Replace('\\', System.IO.Path.DirectorySeparatorChar), StringComparison.InvariantCultureIgnoreCase)).URI;
         IsRendered = link.IsRendered;
         UnkNum = link.UnkNum;
         IsLoadWallActive = link.IsLoadWallActive;

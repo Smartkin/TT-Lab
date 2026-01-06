@@ -199,7 +199,7 @@ namespace TT_Lab.AssetData.Instance
         {
             var assetManager = AssetManager.Get();
             ITwinScenery scenery = GetTwinItem<ITwinScenery>();
-            ChunkPath = assetManager.GetAllAssetsOf<LevelChunk>().First(c => c.GetChunkPath().Equals(scenery.Name, StringComparison.InvariantCultureIgnoreCase)).URI;
+            ChunkPath = assetManager.GetAllAssetsOf<LevelChunk>().First(c => c.GetChunkPath().Equals(scenery.Name.Replace('\\', Path.DirectorySeparatorChar), StringComparison.InvariantCultureIgnoreCase)).URI;
             FogColor = scenery.FogColor;
             UnkByte = scenery.UnkByte;
             if (scenery.SkydomeID != 0)
@@ -226,7 +226,7 @@ namespace TT_Lab.AssetData.Instance
             var assetManager = AssetManager.Get();
             using var ms = new MemoryStream();
             using var writer = new BinaryWriter(ms);
-            writer.Write(ChunkPath == LabURI.Empty ? string.Empty : assetManager.GetAsset<LevelChunk>(ChunkPath).GetChunkPath());
+            writer.Write(ChunkPath == LabURI.Empty ? string.Empty : assetManager.GetAsset<LevelChunk>(ChunkPath).GetChunkPath().Replace(Path.DirectorySeparatorChar, '\\'));
             writer.Write(FogColor);
             writer.Write(UnkByte);
             writer.Write(SkydomeID == LabURI.Empty ? 0 : assetManager.GetAsset(SkydomeID).ID);

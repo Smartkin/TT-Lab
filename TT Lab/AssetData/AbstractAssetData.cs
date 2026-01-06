@@ -42,7 +42,7 @@ public abstract class AbstractAssetData(IAsset owner) : IDisposable
     public void Save(String dataPath, JsonSerializerSettings? settings = null)
     {
         var workingDirectory = System.IO.Directory.GetCurrentDirectory();
-        System.IO.Directory.SetCurrentDirectory($"{Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath}\\assets");
+        System.IO.Directory.SetCurrentDirectory($"{Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath}/assets");
         SaveInternal(dataPath, settings);
         System.IO.Directory.SetCurrentDirectory(workingDirectory);
     }

@@ -55,7 +55,7 @@ public class Package : SerializableAsset
     {
         if (serializationFlags.HasFlag(SerializationFlags.SetDirectoryToAssets))
         {
-            Directory.SetCurrentDirectory($"{Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath}\\assets");
+            Directory.SetCurrentDirectory($"{Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath}/assets");
         }
         
         var path = SavePath;

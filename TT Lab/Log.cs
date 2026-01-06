@@ -8,7 +8,6 @@ namespace TT_Lab;
 public static class Log
 {
     private static TextBox? logBox;
-    private static readonly String[] _separator = new[] { "\r\n", "\n" };
 
     public enum LogType
     {
@@ -30,14 +29,13 @@ public static class Log
             
         await Dispatcher.UIThread.InvokeAsync(() =>
         {
-                
             logBox.Text += DateTime.Now + ": " + text + Environment.NewLine;
-            if (logBox.GetLineCount() >= logBox.MaxLines)
-            {
-                var lines = logBox.Text.Split(_separator, StringSplitOptions.None);
-                logBox.Text = string.Join(Environment.NewLine, lines.Skip(lines.Length - logBox.MaxLines));
-                logBox.CaretIndex = logBox.Text.Length;
-            }
+            // if (logBox.GetLineCount() >= logBox.MaxLines)
+            // {
+            //     var lines = logBox.Text.Split(Environment.NewLine, StringSplitOptions.None);
+            //     logBox.Text = string.Join(Environment.NewLine, lines.Skip(lines.Length - logBox.MaxLines));
+            //     logBox.CaretIndex = logBox.Text.Length;
+            // }
         });
     }
 

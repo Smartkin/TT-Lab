@@ -219,7 +219,7 @@ namespace TT_Lab.ViewModels.Editors.Graphics
             }
         }
 
-        public string TexturePath => TexID == LabURI.Empty ? ManifestResourceLoader.GetPathInExe("Media\\boat_guy.png") : AssetManager.Get().GetAsset(TexID).FullDataPath;
+        public string TexturePath => TexID == LabURI.Empty ? ManifestResourceLoader.GetPathInExe("Media/boat_guy.png") : AssetManager.Get().GetAsset(TexID).FullDataPath;
 
         public Boolean HasIntParam => _type is TwinShader.Type.UnlitClothDeformation or TwinShader.Type.UnlitClothDeformation2;
 

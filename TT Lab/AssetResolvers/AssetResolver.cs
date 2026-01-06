@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using TT_Lab.Assets;
@@ -11,7 +12,7 @@ public abstract class AssetResolver<TTwinItem> : IAssetResolver where TTwinItem 
     protected readonly List<MetaAsset> Assets = [];
 
     public string? ChunkPathOverride { get; init; }
-    public string ChunkPath => string.IsNullOrEmpty(ChunkPathOverride) ? ResolverManager.ChunkPath[..] : ChunkPathOverride;
+    public string ChunkPath => (string.IsNullOrEmpty(ChunkPathOverride) ? ResolverManager.ChunkPath[..] : ChunkPathOverride);
     public abstract void CreateAssetsFromChunk(ITwinSection chunk, Package package);
 
     public MetaAsset? CreateAssetFromId(ITwinSection chunk, ITwinSection itemSection, Package package, uint itemId)

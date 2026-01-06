@@ -29,7 +29,7 @@ public class TextureService
             var labIcons = ManifestResourceLoader.GetFiledInExeDirectory("Media/LabIcons");
             foreach (var labIcon in labIcons)
             {
-                var iconName = labIcon[(labIcon.LastIndexOf('\\') + 1)..^4];
+                var iconName = labIcon[(labIcon.LastIndexOf(Path.DirectorySeparatorChar) + 1)..^4];
                 var iconBitmap = new Bitmap(labIcon);
                 LabURI.RegisterLabIcon(iconName);
                 RegisterTexture(LabURI.GetLabIcon(iconName), iconBitmap);

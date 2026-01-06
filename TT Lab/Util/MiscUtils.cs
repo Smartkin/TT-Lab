@@ -33,7 +33,7 @@ namespace TT_Lab.Util
 
         public static Bitmap GetBoatGuy()
         {
-            _boatguy ??= new Bitmap(ManifestResourceLoader.GetPathInExe("Media\\boat_guy.png"));
+            _boatguy ??= new Bitmap(ManifestResourceLoader.GetPathInExe("Media/boat_guy.png"));
             return _boatguy;
         }
 
@@ -44,7 +44,7 @@ namespace TT_Lab.Util
                 return value;
             }
 
-            _labIconStorage.Add(iconName, new Bitmap(ManifestResourceLoader.GetPathInExe($"Media\\LabIcons\\{iconName}.png")));
+            _labIconStorage.Add(iconName, new Bitmap(ManifestResourceLoader.GetPathInExe($"Media/LabIcons/{iconName}.png")));
 
             return _labIconStorage[iconName];
         }

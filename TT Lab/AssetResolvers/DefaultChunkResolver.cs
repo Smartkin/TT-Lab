@@ -15,7 +15,7 @@ public class DefaultChunkResolver : AssetResolver<ITwinSection>
     
     private LevelChunk _levelChunk;
     
-    private string ChunkName => ChunkPath.Split('\\')[^1];
+    private string ChunkName => ChunkPath.Split(System.IO.Path.DirectorySeparatorChar)[^1];
     
     public DefaultChunkResolver(GameObjectResolver gameObjectResolver, BehaviourResolver behaviourResolver, BehaviourSequenceResolver behaviourSequenceResolver)
     {

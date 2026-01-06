@@ -141,7 +141,7 @@ namespace Twinsanity.TwinsanityInterchange.Common
             }
             writer.Write(type);
             writer.Write(Path.Length);
-            writer.Write(Path.ToCharArray());
+            writer.Write(Path.Replace(System.IO.Path.DirectorySeparatorChar, '\\').ToCharArray());
             writer.Write(flags);
             ObjectMatrix.Write(writer);
             ChunkMatrix.Write(writer);

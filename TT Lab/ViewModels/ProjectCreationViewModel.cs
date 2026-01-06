@@ -129,7 +129,7 @@ public class ProjectCreationViewModel : Screen, INotifyDataErrorInfo
             _dataValidatorService.RemoveError(nameof(ProjectName), PROJECT_NAME_INVALID_CHARS_ERROR);
         }
             
-        if (!string.IsNullOrEmpty(projectName) && Directory.Exists(ProjectPath + "\\" + projectName))
+        if (!string.IsNullOrEmpty(projectName) && Directory.Exists(ProjectPath + "/" + projectName))
         {
             _dataValidatorService.AddError(nameof(ProjectName), PROJECT_WITH_THIS_NAME_IN_THIS_FOLDER_ALREADY_EXISTS_ERROR);
             isValid = false;
