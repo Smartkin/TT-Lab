@@ -2,10 +2,11 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using TT_Lab.ViewModels;
 
 namespace TT_Lab.Views;
 
-public partial class CreateAssetView : Window
+public partial class CreateAssetView : BurnBridgeWindow<CreateAssetViewModel>
 {
     public CreateAssetView()
     {

@@ -1,5 +1,6 @@
 using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using ReactiveUI;
@@ -30,9 +31,18 @@ public class BurnBridgeWindow<TViewModel> : ReactiveWindow<TViewModel> where TVi
     
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
-        if (change.Property == ViewModelProperty)
+        if (change.Property == ViewModelProperty && change.NewValue is not null && !ReferenceEquals(change.OldValue, change.NewValue))
         {
             ViewModel!.AttachView(this);
+            ViewModel!.Deactivated += (sender, args) =>
+            {
+                if (args.WasClosed)
+                {
+                    Close();
+                }
+
+                return Task.CompletedTask;
+            };
         }
         
         base.OnPropertyChanged(change);

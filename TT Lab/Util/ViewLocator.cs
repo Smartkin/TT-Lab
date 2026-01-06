@@ -30,13 +30,13 @@ public class ViewLocator : IDataTemplate
                 baseView.ViewModel = data;
                 return (Control)baseView;
             }
-                
+            
             baseType = baseType.BaseType;
         }
 
         return new TextBlock
         {
-            Text = "Not found View for: " + data.GetType().Name
+            Text = "Not View found for: " + data.GetType().Name
         };
     }
 

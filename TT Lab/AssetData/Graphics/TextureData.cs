@@ -77,10 +77,8 @@ public class TextureData : AbstractAssetData
             }
         }
         
-        var tmpBmp = new Bitmap(PixelFormat.Bgra8888, AlphaFormat.Unpremul, bitsHandle.AddrOfPinnedObject(),
+        Bitmap = new Bitmap(PixelFormat.Bgra8888, AlphaFormat.Unpremul, bitsHandle.AddrOfPinnedObject(),
             new PixelSize(width, height), new Vector(96, 96), width * 4);
-        Bitmap = tmpBmp.CreateScaledBitmap(new PixelSize(width, height), BitmapInterpolationMode.None);
-        tmpBmp.Dispose();
         bitsHandle.Free();
     }
 
@@ -91,7 +89,7 @@ public class TextureData : AbstractAssetData
         {
             return texture;
         }
-            
+        
         var fun = TextureFunction;
         var format = TexturePixelFormat;
         var tex = new List<Twinsanity.TwinsanityInterchange.Common.Color>();

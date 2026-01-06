@@ -30,7 +30,7 @@ public abstract class BurnBridgeControl<TViewModel> : ReactiveUserControl<TViewM
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
-        if (change.Property == ViewModelProperty)
+        if (change.Property == ViewModelProperty && change.NewValue is not null && !ReferenceEquals(change.OldValue, change.NewValue))
         {
             ViewModel!.AttachView(this);
         }
