@@ -8,43 +8,44 @@ using TT_Lab.Assets;
 using TT_Lab.Util;
 using TT_Lab.ViewModels.Interfaces;
 
-namespace TT_Lab.ViewModels.Composite
+namespace TT_Lab.ViewModels.Composite;
+
+public class TabbedEditorViewModel(LabURI editableResource, Type editorType) : Conductor<IEditorViewModel>
 {
-    public class TabbedEditorViewModel : Conductor<IEditorViewModel>
+    private LabURI _editableResource = editableResource;
+    private Type _editorType = editorType;
+
+    protected override Task OnInitializedAsync(CancellationToken cancellationToken)
     {
-        private LabURI _editableResource;
-        private Type _editorType;
+        var editor = (IEditorViewModel)Locator.Current.GetService(_editorType)!;
+        editor.EditableResource = EditableResource;
+        return ActivateItemAsync(editor, cancellationToken);
+    }
 
-        public TabbedEditorViewModel(LabURI editableResource, Type editorType)
-        {
-            _editableResource = editableResource;
-            _editorType = editorType;
-        }
+    public override Task<Boolean> CanCloseAsync(CancellationToken cancellationToken = new CancellationToken())
+    {
+        return ActiveItem.CanCloseAsync(cancellationToken);
+    }
 
-        protected override Task OnInitializedAsync(CancellationToken cancellationToken)
+    public async Task CloseTab()
+    {
+        if (await ActiveItem.CanCloseAsync())
         {
-            var editor = (IEditorViewModel)Locator.Current.GetService(_editorType)!;
-            editor.EditableResource = EditableResource;
-            return ActivateItemAsync(editor, cancellationToken);
+            await this.DeactivateAsync(true);
         }
+    }
 
-        public override Task<Boolean> CanCloseAsync(CancellationToken cancellationToken = new CancellationToken())
-        {
-            return ActiveItem.CanCloseAsync(cancellationToken);
-        }
-
-        public LabURI EditableResource
-        {
-            get => _editableResource;
-            set => _editableResource = value;
-        }
+    public LabURI EditableResource
+    {
+        get => _editableResource;
+        set => _editableResource = value;
+    }
         
-        public Bitmap IconPath => new(ManifestResourceLoader.GetPathInExe($"Media/LabIcons/{AssetManager.Get().GetAsset(EditableResource).IconPath}"));
+    public Bitmap IconPath => new(ManifestResourceLoader.GetPathInExe($"Media/LabIcons/{AssetManager.Get().GetAsset(EditableResource).IconPath}"));
 
-        public Type EditorType
-        {
-            get => _editorType;
-            set => _editorType = value;
-        }
+    public Type EditorType
+    {
+        get => _editorType;
+        set => _editorType = value;
     }
 }

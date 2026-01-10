@@ -1,5 +1,6 @@
 using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using ReactiveUI.Avalonia;
@@ -21,10 +22,7 @@ public abstract class BurnBridgeControl<TViewModel> : ReactiveUserControl<TViewM
         {
             await ViewModel!.ActivateAsync();
             
-            Disposable.Create(async () =>
-            {
-                await ViewModel!.DeactivateAsync(true);
-            }).DisposeWith(disposables);
+            Disposable.Create(ViewModel, _ => { }).DisposeWith(disposables);
         });
     }
 

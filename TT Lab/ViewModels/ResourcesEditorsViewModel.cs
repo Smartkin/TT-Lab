@@ -38,6 +38,14 @@ public class ResourcesEditorsViewModel : EditorsViewerViewModel, IHandle<CreateE
                     DisplayName = assetManager.GetAsset(message.ResourceURI).Name
                 };
 
+                newEditor.Deactivated += async (sender, args) =>
+                {
+                    if (args.WasClosed)
+                    {
+                        Items.Remove(newEditor);
+                    }
+                };
+
                 ActivateItemAsync(newEditor, cancellationToken);
             },
             cancellationToken);

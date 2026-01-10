@@ -1,6 +1,7 @@
 using System;
 using System.Drawing;
 using System.IO;
+using System.Threading.Tasks;
 using Avalonia.Media.Imaging;
 using TT_Lab.AssetData;
 using TT_Lab.AssetData.Code;
@@ -26,16 +27,16 @@ public static class AssetDataFactory
         return AssetCreationStatus.Success;
     }
     
-    public static AssetCreationStatus CreateSoundEffectData(IAsset asset)
+    public static async Task<AssetCreationStatus> CreateSoundEffectData(IAsset asset)
     {
-        var file = MiscUtils.GetFileFromDialogue("Wave File|*.wav");
+        var file = await MiscUtils.GetFileFromDialogueAsync("Choose a wave file...", "Sound files", ["*.wav"]);
         if (string.IsNullOrEmpty(file))
         {
             Log.WriteLine("ERROR: No sound file provided.");
             return AssetCreationStatus.Failed;
         }
         
-        using FileStream fs = new(file, FileMode.Open, FileAccess.Read);
+        await using FileStream fs = new(file, FileMode.Open, FileAccess.Read);
         using BinaryReader reader = new(fs);
         Byte[] pcm = Array.Empty<byte>();
         short channels = 0;
@@ -63,9 +64,9 @@ public static class AssetDataFactory
         return AssetCreationStatus.Success;
     }
 
-    public static AssetCreationStatus CreateTextureData(IAsset asset)
+    public static async Task<AssetCreationStatus> CreateTextureData(IAsset asset)
     {
-        var file = MiscUtils.GetFileFromDialogue("Image file|*.jpg;*.png;*.bmp");
+        var file = await MiscUtils.GetFileFromDialogueAsync("Choose an image file...", "Image files", ["*.jpg", "*.png", "*.bmp"]);
         if (string.IsNullOrEmpty(file))
         {
             Log.WriteLine("ERROR: No texture file provided.");

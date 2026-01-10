@@ -13,13 +13,13 @@
              x:DataType="viewModels:ResourcesEditorsViewModel"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="TT_Lab.Views.ResourcesEditorsView">
-    <TabControl HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" ItemsSource="{Binding Items}">
+    <TabControl SelectedItem="{Binding ActiveItem}" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" ItemsSource="{Binding Items}">
         <TabControl.ItemTemplate>
             <DataTemplate DataType="{x:Type viewmodels:TabbedEditorViewModel}">
                 <StackPanel Orientation="Horizontal">
                     <Image Source="{Binding IconPath}" VerticalAlignment="Center" HorizontalAlignment="Center" Width="24" Height="24" Margin="0,0,3,0" Stretch="Uniform"/>
                     <TextBlock Text="{Binding DisplayName, Mode=OneWay}" Margin="0,0,10,0"/>
-                    <Button Content="X"/>
+                    <Button Command="{Binding CloseTab}" Content="X"/>
                 </StackPanel>
             </DataTemplate>
         </TabControl.ItemTemplate>

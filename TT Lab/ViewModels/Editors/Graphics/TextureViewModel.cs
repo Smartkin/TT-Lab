@@ -2,6 +2,7 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -55,19 +56,30 @@ namespace TT_Lab.ViewModels.Editors.Graphics
             _pixelFormat = asset.PixelFormat;
             _texFun = asset.TextureFunction;
             _generateMipmaps = asset.GenerateMipmaps;
+            
+            var textureBitmap = ((TextureData)asset.GetData()).Bitmap;
+            if (textureBitmap == null)
+            {
+                return;
+            }
+            
+            _texture = textureBitmap.CloneBitmap();
         }
 
         protected override Task OnDeactivateAsync(Boolean close, CancellationToken cancellationToken)
         {
-            _texture?.Dispose();
-            _texture = null;
+            if (close)
+            {
+                _texture?.Dispose();
+                _texture = null;
+            }
 
             return base.OnDeactivateAsync(close, cancellationToken);
         }
 
-        public void ReplaceButton()
+        public async Task ReplaceButton()
         {
-            var file = MiscUtils.GetFileFromDialogue("Image file|*.jpg;*.png;*.bmp");
+            var file = await MiscUtils.GetFileFromDialogueAsync("Choose an image file...", "Image files", ["*.jpg","*.png","*.bmp"]);
             TextureViewerFileDrop(new Controls.FileDropEventArgs { File = file });
         }
 
@@ -130,16 +142,10 @@ namespace TT_Lab.ViewModels.Editors.Graphics
         public static ObservableCollection<object> PixelFormats => _pixelFormats;
 
         [MarkDirty]
-        public Bitmap Texture
+        public Bitmap? Texture
         {
-            get
-            {
-                var asset = AssetManager.Get().GetAsset(EditableResource);
-                var textureBitmap = asset.GetData<TextureData>().Bitmap;
-                _texture ??= textureBitmap.CreateScaledBitmap(new PixelSize((int)textureBitmap.Size.Width, (int)textureBitmap.Size.Height));
-                return _texture;
-            }
-            set => _texture = value.CreateScaledBitmap(new PixelSize((int)value.Size.Width, (int)value.Size.Height));
+            get => _texture;
+            set => _texture = value?.CloneBitmap();
         }
 
         [MarkDirty]

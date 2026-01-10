@@ -27,6 +27,7 @@ public class SoundEffectViewModel : ResourceEditorViewModel
     private UInt16 _param4;
     
     private SoundPlayer _audioPlayer;
+    private MemoryStream _audioStream;
 
     public SoundEffectViewModel(IAudioService audioService)
     {
@@ -55,7 +56,8 @@ public class SoundEffectViewModel : ResourceEditorViewModel
         }
         
         var soundData = AssetManager.Get().GetAssetData<SoundEffectData>(EditableResource);
-        _audioPlayer = _audioService.CreateSoundPlayer(soundData.GetSoundEffectStream());
+        _audioStream = soundData.GetSoundEffectStream();
+        _audioPlayer = _audioService.CreateSoundPlayer(_audioStream);
         _audioPlayer.PlaybackEnded += (s, e) =>
         {
             NotifyOfPropertyChange(nameof(SoundProgress));
@@ -108,15 +110,15 @@ public class SoundEffectViewModel : ResourceEditorViewModel
         NotifyOfPropertyChange(nameof(CurrentTime));
     }
 
-    public void ReplaceSound()
+    public async Task ReplaceSound()
     {
-        var file = MiscUtils.GetFileFromDialogue("Wave File|*.wav");
+        var file = await MiscUtils.GetFileFromDialogueAsync("Choose a wave file...", "Sound files", ["*.wav"]);
         if (string.IsNullOrEmpty(file))
         {
             return;
         }
         
-        using FileStream fs = new(file, FileMode.Open, FileAccess.Read);
+        await using FileStream fs = new(file, FileMode.Open, FileAccess.Read);
         using BinaryReader reader = new(fs);
         var pcm = Array.Empty<byte>();
         short channels = 0;

@@ -35,6 +35,8 @@ namespace TT_Lab.ViewModels
         {
             ActivateItemAsync(Locator.Current.GetService<ScenesEditorsViewModel>()!, cancellationToken);
             ActivateItemAsync(Locator.Current.GetService<ResourcesEditorsViewModel>()!, cancellationToken);
+            ActivateItemAsync(Items[0], cancellationToken);
+            
             return base.OnInitializedAsync(cancellationToken);
         }
     }

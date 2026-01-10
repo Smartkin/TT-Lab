@@ -43,13 +43,18 @@ public class CreateAssetViewModel : Screen, INotifyDataErrorInfo
     {
         CreatableAssets.Add(AssetCreationPreviewModelFactory.CreatePreview<T>(displayName, createCallback));
     }
+    
+    public void RegisterAssetToCreate<T>(string displayName, Func<IAsset, Task<AssetCreationStatus>> createCallback) where T : IAsset, new()
+    {
+        CreatableAssets.Add(AssetCreationPreviewModelFactory.CreatePreview<T>(displayName, createCallback));
+    }
 
     public void AssignFolder(FolderElementViewModel folder)
     {
         _selectedFolder = folder;
     }
 
-    public Task CreateAssetButton()
+    public async Task CreateAssetButton()
     {
         ITwinIdGeneratorService idGenerator;
         if (SelectedCreationModel.IsInstance)
@@ -63,17 +68,26 @@ public class CreateAssetViewModel : Screen, INotifyDataErrorInfo
             idGenerator = TwinIdGeneratorServiceProvider.GetGenerator(SelectedCreationModel.AssetType);
         }
 
-        var newAsset = AssetFactory.CreateAsset(SelectedCreationModel.AssetType, _selectedFolder.GetAsset<Folder>(),
-            _assetName.Trim(), IoC.Get<ProjectManager>().OpenedProject!.BasePackage.ID.ToString(), idGenerator,
-            SelectedCreationModel.DataCreator, SelectedCreationModel.IsInstance ? LayoutID : null);
+        IAsset? newAsset = null;
+        if (SelectedCreationModel.DataCreator != null)
+        {
+            newAsset = AssetFactory.CreateAsset(SelectedCreationModel.AssetType, _selectedFolder.GetAsset<Folder>(),
+                _assetName.Trim(), IoC.Get<ProjectManager>().OpenedProject!.BasePackage.ID.ToString(), idGenerator,
+                SelectedCreationModel.DataCreator, SelectedCreationModel.IsInstance ? LayoutID : null);
+        }
+        else if (SelectedCreationModel.DataCreatorAsync != null)
+        {
+            newAsset = await AssetFactory.CreateAsset(SelectedCreationModel.AssetType,
+                _selectedFolder.GetAsset<Folder>(), _assetName.Trim(),
+                IoC.Get<ProjectManager>().OpenedProject!.BasePackage.ID.ToString(), idGenerator,
+                SelectedCreationModel.DataCreatorAsync, SelectedCreationModel.IsInstance ? LayoutID : null);
+        }
         if (newAsset != null)
         {
-            return TryCloseAsync();
+            await TryCloseAsync();
         }
         
         Log.WriteLine("Error: Failed to create asset");
-        return Task.CompletedTask;
-
     }
 
     private Boolean IsAssetNameValid(string name)

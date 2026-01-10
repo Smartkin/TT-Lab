@@ -83,7 +83,7 @@
     <!--     </Style> -->
     <!-- </UserControl.Styles> -->
     <Grid>
-        <TabControl ItemsSource="{Binding Items}" Margin="0" VerticalContentAlignment="Stretch" HorizontalContentAlignment="Stretch" UseLayoutRounding="False">
+        <TabControl ItemsSource="{Binding Items}" SelectedItem="{Binding ActiveItem}" Margin="0" VerticalContentAlignment="Stretch" HorizontalContentAlignment="Stretch" UseLayoutRounding="False">
             <TabControl.ItemTemplate>
                 <DataTemplate>
                     <StackPanel ScrollViewer.VerticalScrollBarVisibility="Disabled" Orientation="Horizontal">

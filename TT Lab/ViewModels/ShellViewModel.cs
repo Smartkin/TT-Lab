@@ -135,9 +135,14 @@ public class ShellViewModel : Conductor<EditorsViewModel>, ILabManager
     // Props to https://stackoverflow.com/a/25765336
     public void LogViewerScroll(object scrollViewer, object evArgs)
     {
+        if (Design.IsDesignMode)
+        {
+            return;
+        }
+        
         var sv = (ScrollViewer)scrollViewer;
         var e = (ScrollChangedEventArgs)evArgs;
-        bool autoScrollToEnd = true;
+        var autoScrollToEnd = true;
         if (sv.Tag != null)
         {
             autoScrollToEnd = (bool)sv.Tag;
@@ -181,9 +186,7 @@ public class ShellViewModel : Conductor<EditorsViewModel>, ILabManager
 
     public async Task OpenProject()
     {
-        // var recents = Properties.Settings.Default.RecentProjects;
-        List<string>? recents = null;
-        var proj = await MiscUtils.GetFileFromDialogueAsync("PS2 TT Lab WPF Project|*.tson|XBox TT Lab WPF Project|*.xson", (recents != null && recents.Count != 0 ? recents[0] : "")!);
+        var proj = await MiscUtils.GetFileFromDialogueAsync("Choose TT Lab Project...", "TT Lab Project Files", ["*.tson", "*.xson"], Preferences.GetPreference<string>(Preferences.ProjectsPath));
         if (proj != string.Empty)
         {
             var open = new OpenProjectCommand(System.IO.Path.GetDirectoryName(proj)!);

@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Threading.Tasks;
 using TT_Lab.Services;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 
@@ -29,6 +30,45 @@ public static class AssetFactory
             return null;
         }
         
+        folder.AddChild(newAsset);
+        AssetManager.Get().AddAsset(newAsset);
+        newAsset.Serialize(SerializationFlags.SetDirectoryToAssets | SerializationFlags.SaveData);
+        folder.Serialize(SerializationFlags.SetDirectoryToAssets | SerializationFlags.SaveData | SerializationFlags.FixReferences);
+        
+        var parent = folder.GetResourceTreeElement();
+        parent.AddNewChild(newAsset.GetResourceTreeElement(parent));
+        parent.ClearChildren();
+        parent.LoadChildrenBack();
+        parent.NotifyOfPropertyChange(nameof(parent.Children));
+        
+        return newAsset;
+    }
+    
+    public static async Task<IAsset?> CreateAsset(Type type, Folder folder, string name, string variation, ITwinIdGeneratorService idGenerator, Func<IAsset, Task<AssetCreationStatus>>? dataCreator = null, Enums.Layouts? layout = null)
+    {
+        Debug.Assert(type.IsAssignableTo(typeof(IAsset)), $"The type {type.Name} must implement IAsset");
+        var newAsset = (IAsset)Activator.CreateInstance(type)!;
+        newAsset.InvariantName = name;
+        newAsset.Alias = name;
+        newAsset.Package = folder.Package;
+        newAsset.Variation = variation;
+        newAsset.ID = idGenerator.GenerateTwinId();
+        if (layout.HasValue)
+        {
+            newAsset.LayoutID = (int)layout.Value;
+        }
+        
+        newAsset.RegenerateLinks();
+
+        if (dataCreator != null)
+        {
+            var dataCreationResult = await dataCreator.Invoke(newAsset);
+            if (dataCreationResult is AssetCreationStatus.Failed)
+            {
+                return null;
+            }
+        }
+
         folder.AddChild(newAsset);
         AssetManager.Get().AddAsset(newAsset);
         newAsset.Serialize(SerializationFlags.SetDirectoryToAssets | SerializationFlags.SaveData);

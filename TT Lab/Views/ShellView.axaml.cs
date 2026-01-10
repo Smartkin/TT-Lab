@@ -26,7 +26,7 @@ public partial class ShellView : BurnBridgeWindow<ShellViewModel>
 
     private void LogViewerOnScrollChanged(object? sender, ScrollChangedEventArgs e)
     {
-        ViewModel!.LogViewerScroll(sender!, e);
+        ViewModel?.LogViewerScroll(sender!, e);
     }
 
     private void UIElement_OnIsVisibleChanged(object sender, AvaloniaPropertyChangedEventArgs e)
