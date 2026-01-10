@@ -50,12 +50,14 @@ public class SoundEffectViewModel : ResourceEditorViewModel
 
     public override void LoadData()
     {
+        var soundData = AssetManager.Get().GetAssetData<SoundEffectData>(EditableResource);
         if (_audioPlayer != null)
         {
             _audioPlayer.Dispose();
+            soundData.Dispose();
+            soundData = AssetManager.Get().GetAssetData<SoundEffectData>(EditableResource);
         }
         
-        var soundData = AssetManager.Get().GetAssetData<SoundEffectData>(EditableResource);
         _audioStream = soundData.GetSoundEffectStream();
         _audioPlayer = _audioService.CreateSoundPlayer(_audioStream);
         _audioPlayer.PlaybackEnded += (s, e) =>
