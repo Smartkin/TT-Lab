@@ -111,14 +111,14 @@ namespace TT_Lab.ViewModels.Editors.Graphics
                     || !MathExtension.IsPowerOfTwo((long)image.Size.Height)
                     || image.Size.Width < 8 || image.Size.Height < 8)
                 {
-                    Log.WriteLine(@"Image is not compatible.
+                    Log.WriteLine($@"Image is not compatible. Provided image dimensions: {image.Size.Width:N0}x{image.Size.Height:N0}
                 * Width and height can't exceed 256 pixels
                 * Width and height have to be a power of 2
                 * Width and height can't be less than 8 pixels");
                     image.Dispose();
                     return;
                 }
-                Texture = image;
+                Texture = image.CloneBitmap();
                 NotifyOfPropertyChange(nameof(Texture));
             }
             else if (e.Data != null)
@@ -126,7 +126,7 @@ namespace TT_Lab.ViewModels.Editors.Graphics
                 try
                 {
                     var texAsset = AssetManager.Get().GetAsset((LabURI)e.Data.Data);
-                    Texture = texAsset.GetData<TextureData>().Bitmap;
+                    Texture = texAsset.GetData<TextureData>().Bitmap?.CloneBitmap();
                     NotifyOfPropertyChange(nameof(Texture));
                     Log.WriteLine($"Replacing with texture: {texAsset.Alias}");
                 }

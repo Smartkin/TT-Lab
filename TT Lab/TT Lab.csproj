@@ -20,6 +20,7 @@
 
     <ItemGroup>
         <PackageReference Include="Avalonia" Version="11.3.10"/>
+        <PackageReference Include="Avalonia.AvaloniaEdit" Version="11.3.0" />
         <PackageReference Include="Avalonia.Desktop" Version="11.3.10"/>
         <PackageReference Include="Avalonia.Markup.Xaml.Loader" Version="11.3.10" />
         <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.10"/>
@@ -29,6 +30,7 @@
             <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
             <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
         </PackageReference>
+        <PackageReference Include="AvaloniaEdit.TextMate" Version="11.3.0" />
         <PackageReference Include="Caliburn.Micro.Avalonia" Version="5.0.258-beta" />
         <PackageReference Include="Caliburn.Micro.Platform.Core" Version="5.0.181-beta" />
         <PackageReference Include="Classic.Avalonia.Theme" Version="11.3.0.3" />
