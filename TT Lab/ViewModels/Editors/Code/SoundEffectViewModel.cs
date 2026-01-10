@@ -125,7 +125,7 @@ public class SoundEffectViewModel : ResourceEditorViewModel
         var pcm = Array.Empty<byte>();
         short channels = 0;
         uint frequency = 0;
-        RIFF.LoadRiff(reader, ref pcm, ref channels, ref frequency);
+        Riff.LoadRiff(reader, ref pcm, ref channels, ref frequency);
         if (channels != 1)
         {
             Log.WriteLine("ERROR: Stereo sound effects are not supported. Sound wasn't replaced.");

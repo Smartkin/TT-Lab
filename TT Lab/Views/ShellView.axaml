@@ -7,6 +7,7 @@
         xmlns:Project="clr-namespace:TT_Lab.Project"
         xmlns:Triggers="clr-namespace:TT_Lab.Triggers"
         xmlns:controls="clr-namespace:TT_Lab.Controls"
+        xmlns:gif="clr-namespace:Avalonia.Labs.Gif;assembly=Avalonia.Labs.Gif"
         xmlns:cal="http://caliburnmicro.com"
         xmlns:controls1="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
         x:Name="MainApplication"
@@ -133,7 +134,7 @@
                             <ScrollViewer VerticalScrollBarVisibility="Auto" x:Name="LogViewer" Margin="0">
                                 <TextBox ScrollViewer.VerticalScrollBarVisibility="Disabled" x:Name="LogText" TextWrapping="Wrap" IsReadOnly="True"/>
                             </ScrollViewer>
-                            <Image Source="/Images/SadTransparent.gif" HorizontalAlignment="Right" Margin="10" IsVisible="{Binding SadEasterEggVisibility}"/>
+                            <gif:GifImage Source="/Images/SadTransparent.gif" HorizontalAlignment="Right" Margin="10" IsVisible="{Binding SadEasterEggVisibility}"/>
                         </Grid>
                     </TabItem>
                 </TabControl>
