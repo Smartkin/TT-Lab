@@ -12,7 +12,7 @@ public partial class LabeledTextBox : UserControl
     [Description("Name of the textbox displayed above."), Category("Common Properties")]
     public string TextBoxName
     {
-        get => (string)GetValue(TextBoxNameProperty);
+        get => GetValue(TextBoxNameProperty);
         set => SetValue(TextBoxNameProperty, value);
     }
 
@@ -26,14 +26,14 @@ public partial class LabeledTextBox : UserControl
     [Description("Allows updates only from the bindings"), Category("Common Properties")]
     public bool IsReadOnly
     {
-        get => (bool)GetValue(IsReadOnlyProperty);
+        get => GetValue(IsReadOnlyProperty);
         set => SetValue(IsReadOnlyProperty, value);
     }
     
     [Description("Whether the textbox label is horizontal or vertical in relation to the textbox"), Category("Common Properties")]
     public Orientation LayoutOrientation
     {
-        get => (Orientation)GetValue(LayoutOrientationProperty);
+        get => GetValue(LayoutOrientationProperty);
         set => SetValue(LayoutOrientationProperty, value);
     }
 

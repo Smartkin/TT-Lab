@@ -3,6 +3,8 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -10,8 +12,10 @@ using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Platform;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
+using SharpGLTF.Schema2;
 using Splat;
 using TT_Lab.Assets;
 using TT_Lab.Command;
@@ -255,7 +259,6 @@ public class ShellViewModel : Conductor<EditorsViewModel>, ILabManager
 
     public Boolean TreeOptionsVisibility => ProjectOpened;
 
-    [Reactive]
     public String WindowTitle => _projectManager.ProjectTitle;
 
     public String SearchAsset
@@ -271,6 +274,8 @@ public class ShellViewModel : Conductor<EditorsViewModel>, ILabManager
     public Boolean ProjectOpened => _projectManager.ProjectOpened;
 
     public Boolean IsCreatingProject => _projectManager.IsCreatingProject;
-        
+
+    public Stream SadEasterEgg => new FileStream(ManifestResourceLoader.GetPathInExe("Images/SadTransparent.gif"), FileMode.Open, FileAccess.Read);
+    
     public Boolean SadEasterEggVisibility => IsCreatingProject && Preferences.GetPreference<Boolean>(Preferences.SillinessEnabled);
 }

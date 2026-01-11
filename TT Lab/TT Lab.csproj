@@ -69,10 +69,13 @@
     </ItemGroup>
 
     <ItemGroup>
-      <AvaloniaResource Include="Images\AfroGod.png"/>
-      <AvaloniaResource Include="Images\God_Messenger.png"/>
-      <AvaloniaResource Include="Images\SadTransparent.gif"/>
-      <AvaloniaResource Include="Images\tt_lab_logo_v6_2k.ico" />
+      <AvaloniaResource Include="Images/AfroGod.png"/>
+      <AvaloniaResource Include="Images/God_Messenger.png"/>
+      <AvaloniaResource Include="Images/SadTransparent.gif"/>
+      <AvaloniaResource Include="Images/tt_lab_logo_v6_2k.ico" />
+      <Content Include="Images\SadTransparent.gif">
+          <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </Content>
       <Content Include="Media\**\*">
           <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </Content>

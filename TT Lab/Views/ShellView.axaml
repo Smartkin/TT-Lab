@@ -134,7 +134,7 @@
                             <ScrollViewer VerticalScrollBarVisibility="Auto" x:Name="LogViewer" Margin="0">
                                 <TextBox ScrollViewer.VerticalScrollBarVisibility="Disabled" x:Name="LogText" TextWrapping="Wrap" IsReadOnly="True"/>
                             </ScrollViewer>
-                            <gif:GifImage Source="/Images/SadTransparent.gif" HorizontalAlignment="Right" Margin="10" IsVisible="{Binding SadEasterEggVisibility}"/>
+                            <gif:GifImage Source="{Binding SadEasterEgg, FallbackValue={x:Null}}" HorizontalAlignment="Right" Margin="10" IsVisible="{Binding SadEasterEggVisibility}"/>
                         </Grid>
                     </TabItem>
                 </TabControl>

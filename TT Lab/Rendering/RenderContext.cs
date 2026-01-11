@@ -57,7 +57,6 @@ public class RenderContext : IDisposable
     {
         _tokenSource = new CancellationTokenSource();
         _renderCancelToken = _tokenSource.Token;
-        
 //         _createdThread = new Thread(() =>
 //         {
 // #if _WINDOWS
