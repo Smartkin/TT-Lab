@@ -47,20 +47,10 @@ public static class DependencyInjection
         services.AddSingleton<IWindowManager, WindowManager>();
         services.AddSingleton<IEventAggregator, EventAggregator>();
         services.AddSingleton<ProjectManager>();
-        services.AddSingleton<Rendering.Services.BatchService>();
-        services.AddSingleton<Rendering.SceneInstanceFactory>();
-        services.AddSingleton<Rendering.RenderContext>();
-        services.AddSingleton<Rendering.MeshBuilder>();
-        services.AddSingleton<Rendering.TwinSkeletonManager>();
-        services.AddSingleton<Rendering.Services.TextureService>();
-        services.AddSingleton<Rendering.Factories.MeshFactory>();
-        services.AddSingleton<Rendering.Services.MeshService>();
-        services.AddSingleton<Rendering.Factories.MaterialFactory>();
         services.AddSingleton<IActiveChunkService, ActiveChunkService>();
         services.AddSingleton<IAudioService, AudioService>();
-        services.AddTransient<IDataValidatorService, DataValidatorService>();
-        services.AddTransient<Rendering.Renderer>();
-        services.AddTransient<Rendering.Services.PassService>();
+        services.AddScoped<IDataValidatorService, DataValidatorService>();
+        services.AddScoped<Rendering.Renderer>();
         
         return services;
     }

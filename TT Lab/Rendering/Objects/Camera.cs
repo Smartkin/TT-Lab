@@ -47,7 +47,7 @@ public class Camera : EditableObject
 
     private void RenderMainCamera(CameraSubBase mainCamera)
     {
-        var primitiveRender = Context.GetPrimitiveRenderer();
+        var primitiveRender = Context.PrimitiveRenderer;
         const float cameraPointRadius = 0.2f;
         switch (mainCamera.GetCameraType())
         {

@@ -134,7 +134,7 @@
                             <ScrollViewer VerticalScrollBarVisibility="Auto" x:Name="LogViewer" Margin="0">
                                 <TextBox ScrollViewer.VerticalScrollBarVisibility="Disabled" x:Name="LogText" TextWrapping="Wrap" IsReadOnly="True"/>
                             </ScrollViewer>
-                            <gif:GifImage Source="{Binding SadEasterEgg, FallbackValue={x:Null}}" HorizontalAlignment="Right" Margin="10" IsVisible="{Binding SadEasterEggVisibility}"/>
+                            <gif:GifImage Source="{Binding SadEasterEgg, FallbackValue={x:Null}}" Stretch="Uniform" HorizontalAlignment="Right" Margin="10" IsVisible="{Binding SadEasterEggVisibility}"/>
                         </Grid>
                     </TabItem>
                 </TabControl>
@@ -178,7 +178,7 @@
                                         <!--     </cal:ActionMessage> -->
                                         <!-- </EventTrigger> -->
                                         <EventTriggerBehavior EventName="ContextRequested">
-                                            <InvokeCommandAction Command="{Binding CreateContextMenuAction}"></InvokeCommandAction>
+                                            <InvokeCommandAction Command="{Binding CreateContextMenuAction}"/>
                                             <!-- <cal:ActionMessage MethodName="CreateContextMenuAction"/> -->
                                         </EventTriggerBehavior>
                                     </Interaction.Behaviors>
@@ -195,17 +195,16 @@
                                     </TextBlock>
                                     <TextBox x:Name="RenamingTextBox" Text="{Binding NewAlias, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center" HorizontalAlignment="Stretch" IsVisible="{Binding IsRenaming}">
                                         <Interaction.Behaviors>
-                                            <EventTrigger EventName="LostFocus">
-                                                <cal:ActionMessage MethodName="StopRenaming"/>
-                                            </EventTrigger>
+                                            <EventTriggerBehavior EventName="LostFocus">
+                                                <InvokeCommandAction Command="{Binding StopRenaming}"/>
+                                            </EventTriggerBehavior>
                                             <EventTrigger EventName="KeyDown">
-                                                <EventTrigger.Actions>
-                                                </EventTrigger.Actions>
-                                                <cal:ActionMessage MethodName="SaveRenaming">
-                                                    <cal:ActionMessage.Parameters>
-                                                        <cal:Parameter Value="$eventArgs"/>
-                                                    </cal:ActionMessage.Parameters>
-                                                </cal:ActionMessage>
+                                                <InvokeCommandAction Command="{Binding SaveRenaming}" PassEventArgsToCommand="True"/>
+                                                <!-- <cal:ActionMessage MethodName="SaveRenaming"> -->
+                                                <!--     <cal:ActionMessage.Parameters> -->
+                                                <!--         <cal:Parameter Value="$eventArgs"/> -->
+                                                <!--     </cal:ActionMessage.Parameters> -->
+                                                <!-- </cal:ActionMessage> -->
                                             </EventTrigger>
                                         </Interaction.Behaviors>
                                     </TextBox>

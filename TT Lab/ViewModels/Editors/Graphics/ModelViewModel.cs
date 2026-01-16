@@ -1,8 +1,12 @@
 ﻿using System;
 using System.Linq;
+using System.Numerics;
 using Caliburn.Micro;
 using System.Threading;
 using System.Threading.Tasks;
+using ImGuiNET;
+using Splat;
+using TT_Lab.AssetData.Graphics;
 using TT_Lab.Assets;
 using TT_Lab.Rendering;
 using TT_Lab.Rendering.Buffers;
@@ -11,80 +15,63 @@ using TT_Lab.Rendering.Services;
 using TT_Lab.Util;
 using Mesh = TT_Lab.Rendering.Objects.Mesh;
 
-namespace TT_Lab.ViewModels.Editors.Graphics
+namespace TT_Lab.ViewModels.Editors.Graphics;
+
+public class ModelViewModel : ResourceEditorViewModel
 {
-    public class ModelViewModel : ResourceEditorViewModel
+    private Mesh? _model;
+
+    public ModelViewModel()
     {
-        private readonly MeshService _meshService;
-        private Mesh? _model;
-
-        public ModelViewModel(MeshService meshService)
+        // Scenes.Add(IoC.Get<SceneEditorViewModel>());
+        // Scenes[0].SceneHeaderModel = "Model viewer";
+        // InitSceneRenderer();
+        SceneRenderer = Locator.Current.GetService<ViewportViewModel>()!;
+        SceneRenderer.SceneInitializer = (renderer, scene) =>
         {
-            _meshService = meshService;
-            // Scenes.Add(IoC.Get<SceneEditorViewModel>());
-            // Scenes[0].SceneHeaderModel = "Model viewer";
-            // InitSceneRenderer();
-            SceneRenderer = IoC.Get<ViewportViewModel>();
-            SceneRenderer.SceneInitializer = (renderer, scene) =>
+            var mesh = renderer.GetRenderContext().MeshService.GetMesh(EditableResource);
+            if (mesh.Model != null)
             {
-                var mesh = _meshService.GetMesh(EditableResource);
-                if (mesh.Model != null)
-                {
-                    scene.AddChild(mesh.Model);
-                }
+                scene.AddChild(mesh.Model);
+            }
+
+            var modelData = AssetManager.Get().GetAssetData<ModelData>(EditableResource);
+            renderer.RenderImgui += () =>
+            {
+                ImGui.Begin("Model Data");
+                ImGui.SetWindowPos(new Vector2(5, 5));
+                ImGui.SetWindowSize(new Vector2(150, 90));
+                ImGui.Text($"Vertexes {modelData.Vertexes.Sum(v => v.Count)}");
+                ImGui.Text($"Faces {modelData.Faces.Sum(f => f.Count)}");
+                ImGui.Text($"Meshes {modelData.Meshes.Count}");
+                ImGui.End();
             };
-        }
+        };
+    }
 
-        protected override async Task OnActivateAsync(CancellationToken cancellationToken)
-        {
-            await ActivateItemAsync(SceneRenderer, cancellationToken);
+    protected override async Task OnActivateAsync(CancellationToken cancellationToken)
+    {
+        await ActivateItemAsync(SceneRenderer, cancellationToken);
             
-            await base.OnActivateAsync(cancellationToken);
-        }
+        await base.OnActivateAsync(cancellationToken);
+    }
 
-        protected override async Task OnDeactivateAsync(bool close, CancellationToken cancellationToken)
-        {
-            await DeactivateItemAsync(SceneRenderer, close, cancellationToken);
+    protected override async Task OnDeactivateAsync(bool close, CancellationToken cancellationToken)
+    {
+        await DeactivateItemAsync(SceneRenderer, close, cancellationToken);
             
-            await base.OnDeactivateAsync(close, cancellationToken);
-        }
+        await base.OnDeactivateAsync(close, cancellationToken);
+    }
 
-        // private void InitSceneRenderer()
-        // {
-        //     SceneRenderer.SceneCreator = glControl =>
-        //     {
-        //         var sceneManager = glControl.GetSceneManager();
-        //         var pivot = sceneManager.getRootSceneNode().createChildSceneNode();
-        //         pivot.setPosition(0, 0, 0);
-        //         glControl.SetCameraTarget(pivot);
-        //         glControl.EnableImgui(true);
-        //
-        //         var model = AssetManager.Get().GetAssetData<AssetData.Graphics.ModelData>(EditableResource);
-        //         _model = new ModelBuffer(sceneManager, EditableResource, model);
-        //
-        //         glControl.OnRender += (sender, args) =>
-        //         {
-        //             ImGui.Begin("Model Data");
-        //             ImGui.SetWindowPos(new ImVec2(5, 5));
-        //             ImGui.SetWindowSize(new ImVec2(150, 90));
-        //             ImGui.Text($"Vertexes {model.Vertexes.Sum(v => v.Count)}");
-        //             ImGui.Text($"Faces {model.Faces.Sum(f => f.Count)}");
-        //             ImGui.Text($"Meshes {model.Meshes.Count}");
-        //             ImGui.End();
-        //         };
-        //     };
-        // }
+    public ViewportViewModel SceneRenderer { get; }
 
-        public ViewportViewModel SceneRenderer { get; }
+    public override void LoadData()
+    {
+        return;
+    }
 
-        public override void LoadData()
-        {
-            return;
-        }
-
-        protected override void Save()
-        {
-            return;
-        }
+    protected override void Save()
+    {
+        return;
     }
 }

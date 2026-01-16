@@ -22,6 +22,8 @@ public abstract class BurnBridgeControl<TViewModel> : ReactiveUserControl<TViewM
         {
             await ViewModel!.ActivateAsync();
             
+            InvalidateVisual();
+            
             Disposable.Create(ViewModel, _ => { }).DisposeWith(disposables);
         });
     }

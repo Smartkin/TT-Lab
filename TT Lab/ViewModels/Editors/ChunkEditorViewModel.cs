@@ -11,6 +11,7 @@ using Avalonia;
 using Avalonia.Threading;
 using ImGuiNET;
 using Silk.NET.Input;
+using Splat;
 using TT_Lab.AssetData;
 using TT_Lab.AssetData.Graphics;
 using TT_Lab.AssetData.Instance;
@@ -64,9 +65,7 @@ namespace TT_Lab.ViewModels.Editors
         private Scene? _scene;
         private readonly DirtyTracker _dirtyTracker;
         private readonly IActiveChunkService _activeChunkService;
-        private readonly SceneInstanceFactory _sceneInstanceFactory;
-        private readonly RenderContext _renderContext;
-        private readonly MeshService _meshService;
+        private RenderContext _renderContext;
         private readonly ICommand _unsavedChangesCommand;
         private readonly OpenDialogueCommand.DialogueResult _dialogueResult = new();
         private readonly List<ResourceTreeElementViewModel> _addedAssets = [];
@@ -77,7 +76,7 @@ namespace TT_Lab.ViewModels.Editors
         private EditingContext _editingContext;
         private readonly List<SceneInstance> _sceneInstances = [];
         private CollisionData? _colData;
-        private ViewportViewModel _sceneEditor = IoC.Get<ViewportViewModel>();
+        private ViewportViewModel _sceneEditor = Locator.Current.GetService<ViewportViewModel>()!;
         private Collision _collisionRender;
         private Scenery _sceneryRender;
         private Skydome? _skydomeRender;
@@ -107,15 +106,12 @@ namespace TT_Lab.ViewModels.Editors
             LinkedScenery = 1 << 12,
         }
 
-        public ChunkEditorViewModel(IEventAggregator eventAggregator, IActiveChunkService activeChunkService, SceneInstanceFactory sceneInstanceFactory, RenderContext renderContext, MeshService meshService)
+        public ChunkEditorViewModel(IEventAggregator eventAggregator, IActiveChunkService activeChunkService)
         {
             _unsavedChangesCommand = new OpenDialogueCommand(() => new UnsavedChangesDialogue(_dialogueResult, AssetManager.Get().GetAsset(EditableResource).GetResourceTreeElement()));
             eventAggregator.SubscribeOnUIThread(this);
             _dirtyTracker = new DirtyTracker(this, EditorChangesHappened);
             _activeChunkService = activeChunkService;
-            _sceneInstanceFactory = sceneInstanceFactory;
-            _renderContext = renderContext;
-            _meshService = meshService;
             InitScene();
         }
 
@@ -229,7 +225,7 @@ namespace TT_Lab.ViewModels.Editors
                     return AssetCreationStatus.Success;
                 },
                 (Enums.Layouts)basedOn.Asset.LayoutID)!;
-            var sceneInstance = _sceneInstanceFactory.CreateSceneInstance(type, _editingContext, newInstance.GetData<AbstractAssetData>(), newInstance.GetResourceTreeElement());
+            var sceneInstance = _renderContext.SceneInstanceFactory.CreateSceneInstance(type, _editingContext, newInstance.GetData<AbstractAssetData>(), newInstance.GetResourceTreeElement());
             _sceneInstances.Add(sceneInstance);
             _addedAssets.Add(newInstance.GetResourceTreeElement());
 
@@ -601,6 +597,7 @@ namespace TT_Lab.ViewModels.Editors
             {
                 _scene = scene;
                 _renderer = renderer;
+                _renderContext = renderer.GetRenderContext();
                 var assetManager = AssetManager.Get();
                 var chunkAss = assetManager.GetAsset(EditableResource).GetResourceTreeElement();
                 var chunk = chunkAss.GetAsset<LevelChunk>();
@@ -632,31 +629,31 @@ namespace TT_Lab.ViewModels.Editors
                 // TODO: Link all that together so that changes in the editor reflect on the end data
                 var collisionUri = _chunkTree.First(avm => avm.Asset.Type == typeof(Assets.Instance.Collision))!.Asset.URI;
                 _colData = _chunkTree.First(avm => avm.Asset.Type == typeof(Assets.Instance.Collision))!.Asset.GetData<CollisionData>();
-                _collisionRender = (Collision)_meshService.GetMesh(collisionUri).Model!;
+                _collisionRender = (Collision)_renderContext.MeshService.GetMesh(collisionUri).Model!;
                 scene.AddChild(_collisionRender);
                 
-                var instances = _chunkTree.First(avm => avm.Alias == "Instances");
-                _instancesNode = new Node(_renderContext, scene);
-                foreach (var instance in instances!.Children)
-                {
-                    var instData = instance.Asset.GetData<ObjectInstanceData>();
-                    var objSceneInstance = _sceneInstanceFactory.CreateSceneInstance<ObjectSceneInstance>(_editingContext, instData, instance);
-                    _sceneInstances.Add(objSceneInstance);
-                    _instancesNode.AddChild(objSceneInstance.GetEditableObject());
-                }
+                // var instances = _chunkTree.First(avm => avm.Alias == "Instances");
+                // _instancesNode = new Node(_renderContext, scene);
+                // foreach (var instance in instances!.Children)
+                // {
+                //     var instData = instance.Asset.GetData<ObjectInstanceData>();
+                //     var objSceneInstance = _renderContext.SceneInstanceFactory.CreateSceneInstance<ObjectSceneInstance>(_editingContext, instData, instance);
+                //     _sceneInstances.Add(objSceneInstance);
+                //     _instancesNode.AddChild(objSceneInstance.GetEditableObject());
+                // }
                 
                 var dynamicScenery = _chunkTree.First(avm => avm.Asset.Section == Constants.SCENERY_DYNAMIC_SECENERY_ITEM).Asset.GetData<DynamicSceneryData>();
-                _dynamicSceneryRender = new DynamicScenery(_renderContext, _meshService, dynamicScenery);
+                _dynamicSceneryRender = new DynamicScenery(_renderContext, _renderContext.MeshService, dynamicScenery);
                 scene.AddChild(_dynamicSceneryRender);
                 
                 var scenery = _chunkTree.First(avm => avm.Asset.Section == Constants.SCENERY_SECENERY_ITEM).Asset.GetData<SceneryData>();
                 if (scenery.SkydomeID != LabURI.Empty)
                 {
-                    _skydomeRender = new Skydome(_renderContext, assetManager.GetAssetData<SkydomeData>(scenery.SkydomeID), _meshService);
+                    _skydomeRender = new Skydome(_renderContext, assetManager.GetAssetData<SkydomeData>(scenery.SkydomeID), _renderContext.MeshService);
                     scene.AddChild(_skydomeRender);
                 }
 
-                _sceneryRender = new Scenery(_renderContext, _meshService, scenery);
+                _sceneryRender = new Scenery(_renderContext, _renderContext.MeshService, scenery);
                 var fogColor = TT_Lab.Assets.Instance.Scenery.FogColors[scenery.FogColor];
                 scene.Camera.SetFogColor(fogColor.GetVector().ToGlm().xyz);
                 scene.AddChild(_sceneryRender);
@@ -675,49 +672,49 @@ namespace TT_Lab.ViewModels.Editors
                     var linkedSceneryUri = chunkData.First(uri => assetManager.GetAsset(uri).Section == Constants.SCENERY_SECENERY_ITEM);
                     var linkedScenery = assetManager.GetAssetData<SceneryData>(linkedSceneryUri);
                     var linkedSceneryNode = new Node(_renderContext, _linkedScenery);
-                    var linkedSceneryRender = new Scenery(_renderContext, _meshService, linkedScenery);
+                    var linkedSceneryRender = new Scenery(_renderContext, _renderContext.MeshService, linkedScenery);
                     linkedSceneryNode.AddChild(linkedSceneryRender);
                     var chunkMatrix = link.ChunkMatrix.ToGlm();
                     linkedSceneryNode.LocalTransform = chunkMatrix;
                 }
-                var triggers = _chunkTree.First(avm => avm.Alias == "Triggers");
-                _triggersNode = new Node(_renderContext, scene);
-                _triggersNode.AddChild(_editingContext.GetTriggersBillboards());
-                foreach (var trigger in triggers!.Children)
-                {
-                    var trg = _sceneInstanceFactory.CreateSceneInstance<TriggerSceneInstance>(_editingContext, trigger.Asset.GetData<AbstractAssetData>(), trigger, _triggersNode);
-                    _sceneInstances.Add(trg);
-                }
-                
-                
-                var positions = _chunkTree.First(avm => avm.Alias == "Positions");
-                var positionsNode = new Node(_renderContext, scene);
-                positionsNode.AddChild(_editingContext.GetPositionBillboards());
-                foreach (var position in positions!.Children)
-                {
-                    var billboard = _editingContext.CreatePositionBillboard();
-                    var pos = new Position(_renderContext, position.Asset.URI, billboard, position.Asset.LayoutID!.Value, position.Asset.GetData<PositionData>());
-                    positionsNode.AddChild(pos);
-                }
-                
-                var aiPositions = _chunkTree.First(avm => avm.Alias == "AI Navigation Positions");
-                var aiPositionsNode = new Node(_renderContext, scene);
-                aiPositionsNode.AddChild(_editingContext.GetAiPositionsBillboards());
-                foreach (var aiPosition in aiPositions!.Children)
-                {
-                    var billboard = _editingContext.CreateAiPositionBillboard();
-                    var aiPos = new AiPosition(_renderContext, aiPosition.Asset.URI, billboard, aiPosition.Asset.LayoutID!.Value, aiPosition.Asset.GetData<AiPositionData>());
-                    aiPositionsNode.AddChild(aiPos);
-                }
-                
-                var cameras = _chunkTree.First(avm => avm.Alias == "Cameras");
-                _camerasNode = new Node(_renderContext, scene);
-                _camerasNode.AddChild(_editingContext.GetCamerasBillboards());
-                foreach (var camera in cameras!.Children)
-                {
-                    var cam = _sceneInstanceFactory.CreateSceneInstance<CameraSceneInstance>(_editingContext, camera.Asset.GetData<AbstractAssetData>(), camera, _camerasNode);
-                    _sceneInstances.Add(cam);
-                }
+                // var triggers = _chunkTree.First(avm => avm.Alias == "Triggers");
+                // _triggersNode = new Node(_renderContext, scene);
+                // _triggersNode.AddChild(_editingContext.GetTriggersBillboards());
+                // foreach (var trigger in triggers!.Children)
+                // {
+                //     var trg = _renderContext.SceneInstanceFactory.CreateSceneInstance<TriggerSceneInstance>(_editingContext, trigger.Asset.GetData<AbstractAssetData>(), trigger, _triggersNode);
+                //     _sceneInstances.Add(trg);
+                // }
+                //
+                //
+                // var positions = _chunkTree.First(avm => avm.Alias == "Positions");
+                // var positionsNode = new Node(_renderContext, scene);
+                // positionsNode.AddChild(_editingContext.GetPositionBillboards());
+                // foreach (var position in positions!.Children)
+                // {
+                //     var billboard = _editingContext.CreatePositionBillboard();
+                //     var pos = new Position(_renderContext, position.Asset.URI, billboard, position.Asset.LayoutID!.Value, position.Asset.GetData<PositionData>());
+                //     positionsNode.AddChild(pos);
+                // }
+                //
+                // var aiPositions = _chunkTree.First(avm => avm.Alias == "AI Navigation Positions");
+                // var aiPositionsNode = new Node(_renderContext, scene);
+                // aiPositionsNode.AddChild(_editingContext.GetAiPositionsBillboards());
+                // foreach (var aiPosition in aiPositions!.Children)
+                // {
+                //     var billboard = _editingContext.CreateAiPositionBillboard();
+                //     var aiPos = new AiPosition(_renderContext, aiPosition.Asset.URI, billboard, aiPosition.Asset.LayoutID!.Value, aiPosition.Asset.GetData<AiPositionData>());
+                //     aiPositionsNode.AddChild(aiPos);
+                // }
+                //
+                // var cameras = _chunkTree.First(avm => avm.Alias == "Cameras");
+                // _camerasNode = new Node(_renderContext, scene);
+                // _camerasNode.AddChild(_editingContext.GetCamerasBillboards());
+                // foreach (var camera in cameras!.Children)
+                // {
+                //     var cam = _renderContext.SceneInstanceFactory.CreateSceneInstance<CameraSceneInstance>(_editingContext, camera.Asset.GetData<AbstractAssetData>(), camera, _camerasNode);
+                //     _sceneInstances.Add(cam);
+                // }
 
                 renderer.RenderImgui += () =>
                 {

@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 using System.Threading;
+using Avalonia;
 using Avalonia.Media.Imaging;
 using GlmSharp;
 using Silk.NET.OpenGL;
@@ -35,7 +36,7 @@ public unsafe class TextureBuffer : IDisposable
     /// <param name="internalFormat"></param>
     /// <param name="pixelFormat"></param>
     /// <param name="pixelType"></param>
-    public TextureBuffer(RenderContext renderContext, Span<byte> data, uint width, uint height, InternalFormat internalFormat = InternalFormat.Rgba8, Silk.NET.OpenGL.PixelFormat pixelFormat = Silk.NET.OpenGL.PixelFormat.Bgra, PixelType pixelType = PixelType.UnsignedByte) : this(renderContext)
+    public TextureBuffer(RenderContext renderContext, Span<byte> data, uint width, uint height, InternalFormat internalFormat = InternalFormat.Rgba8, PixelFormat pixelFormat = PixelFormat.Bgra, PixelType pixelType = PixelType.UnsignedByte) : this(renderContext)
     {
         _data = data.ToArray();
 
@@ -139,10 +140,9 @@ public unsafe class TextureBuffer : IDisposable
 
     private void CopyImageData(Bitmap bitmap)
     {
-        // var imageData = bitmap.LockBits(new Rectangle(0, 0, bitmap.Width, bitmap.Height), ImageLockMode.ReadOnly,
-        //     PixelFormat.Format32bppArgb);
-        // Marshal.Copy(imageData.Scan0, _data, 0, _data.Length);
-        // bitmap.UnlockBits(imageData);
+        var dataHandle = GCHandle.Alloc(_data, GCHandleType.Pinned);
+        bitmap.CopyPixels(new PixelRect(0, 0, bitmap.PixelSize.Width, bitmap.PixelSize.Height), dataHandle.AddrOfPinnedObject(), _data.Length, bitmap.PixelSize.Width * 4);
+        dataHandle.Free();
     }
     
     public uint Handler => _textureBuffer;

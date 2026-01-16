@@ -12,7 +12,7 @@ internal class EditorCursor
 
     public EditorCursor(EditingContext editingContext)
     {
-        _cursorNode = BufferGeneration.GetCubeBuffer().Model!;
+        _cursorNode = BufferGeneration.GetCubeBuffer(editingContext.GetRenderContext()).Model!;
         var purple = Color.Purple;
         _cursorNode.Diffuse = new vec4(purple.R / 255.0f,  purple.G / 255.0f, purple.B / 255.0f, 1.0f);
         _cursorNode.IsVisible = false;

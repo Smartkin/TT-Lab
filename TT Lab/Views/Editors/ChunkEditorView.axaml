@@ -16,13 +16,9 @@
                 ItemsSource="{Binding ChunkTree}"
             >
                 <Interaction.Behaviors>
-                    <EventTrigger EventName="SelectedItemChanged">
-                        <cm:ActionMessage MethodName="SelectDifferentInstance">
-                            <cm:ActionMessage.Parameters>
-                                <cm:Parameter Value="$eventArgs"/>
-                            </cm:ActionMessage.Parameters>
-                        </cm:ActionMessage>
-                    </EventTrigger>
+                    <EventTriggerBehavior EventName="SelectedItemChanged">
+                        <InvokeCommandAction Command="{Binding SelectDifferentInstance}" PassEventArgsToCommand="True"/>
+                    </EventTriggerBehavior>
                 </Interaction.Behaviors>
                 <TreeView.ItemTemplate>
                     <TreeDataTemplate ItemsSource="{Binding Children}">
@@ -31,40 +27,36 @@
                                 <ContextMenu ItemsSource="{Binding MenuOptions}"/>
                             </StackPanel.ContextMenu>
                             <Interaction.Behaviors>
-                                <EventTrigger EventName="MouseDown">
-                                    <cm:ActionMessage MethodName="AssetBlockMouseDown">
-                                        <cm:ActionMessage.Parameters>
-                                            <cm:Parameter Value="{Binding ElementName=ChunkTreeView, Path=SelectedItem}"/>
-                                            <cm:Parameter Value="$eventArgs"/>
-                                        </cm:ActionMessage.Parameters>
-                                    </cm:ActionMessage>
-                                </EventTrigger>
-                                <EventTrigger EventName="MouseMove">
-                                    <cm:ActionMessage MethodName="AssetBlockMouseMove">
-                                        <cm:ActionMessage.Parameters>
-                                            <cm:Parameter Value="{Binding ElementName=ChunkTreeView, Mode=OneWay}"/>
-                                            <cm:Parameter Value="$eventArgs"/>
-                                        </cm:ActionMessage.Parameters>
-                                    </cm:ActionMessage>
-                                </EventTrigger>
-                                <EventTrigger EventName="ContextMenuOpening">
-                                    <cm:ActionMessage MethodName="CreateContextMenuAction"/>
-                                </EventTrigger>
+                                <!-- <EventTrigger EventName="MouseDown"> -->
+                                <!--     <cm:ActionMessage MethodName="AssetBlockMouseDown"> -->
+                                <!--         <cm:ActionMessage.Parameters> -->
+                                <!--             <cm:Parameter Value="{Binding ElementName=ChunkTreeView, Path=SelectedItem}"/> -->
+                                <!--             <cm:Parameter Value="$eventArgs"/> -->
+                                <!--         </cm:ActionMessage.Parameters> -->
+                                <!--     </cm:ActionMessage> -->
+                                <!-- </EventTrigger> -->
+                                <!-- <EventTrigger EventName="MouseMove"> -->
+                                <!--     <cm:ActionMessage MethodName="AssetBlockMouseMove"> -->
+                                <!--         <cm:ActionMessage.Parameters> -->
+                                <!--             <cm:Parameter Value="{Binding ElementName=ChunkTreeView, Mode=OneWay}"/> -->
+                                <!--             <cm:Parameter Value="$eventArgs"/> -->
+                                <!--         </cm:ActionMessage.Parameters> -->
+                                <!--     </cm:ActionMessage> -->
+                                <!-- </EventTrigger> -->
+                                <!-- <EventTrigger EventName="ContextMenuOpening"> -->
+                                <!--     <cm:ActionMessage MethodName="CreateContextMenuAction"/> -->
+                                <!-- </EventTrigger> -->
                             </Interaction.Behaviors>
                             <Image Source="{Binding IconPath}" VerticalAlignment="Center" HorizontalAlignment="Center" Width="24" Height="24" Margin="0,0,3,0" Stretch="Uniform"/>
                             <TextBlock IsVisible="{Binding IsNotRenaming}" HorizontalAlignment="Center" VerticalAlignment="Center" Text="{Binding Alias}"/>
                             <TextBox Text="{Binding NewAlias, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center" HorizontalAlignment="Stretch" IsVisible="{Binding IsRenaming}">
                                 <Interaction.Behaviors>
-                                    <EventTrigger EventName="LostFocus">
-                                        <cm:ActionMessage MethodName="StopRenaming"/>
-                                    </EventTrigger>
-                                    <EventTrigger EventName="KeyDown">
-                                        <cm:ActionMessage MethodName="SaveRenaming">
-                                            <cm:ActionMessage.Parameters>
-                                                <cm:Parameter Value="$eventArgs"/>
-                                            </cm:ActionMessage.Parameters>
-                                        </cm:ActionMessage>
-                                    </EventTrigger>
+                                    <EventTriggerBehavior EventName="LostFocus">
+                                        <InvokeCommandAction Command="{Binding StopRenaming}"/>
+                                    </EventTriggerBehavior>
+                                    <EventTriggerBehavior EventName="KeyDown">
+                                        <InvokeCommandAction Command="{Binding SaveRenaming}" PassEventArgsToCommand="True"/>
+                                    </EventTriggerBehavior>
                                 </Interaction.Behaviors>
                             </TextBox>
                         </StackPanel>
@@ -72,10 +64,10 @@
                 </TreeView.ItemTemplate>
             </TreeView>
         </controls:GroupBox>
-        <ContentControl Grid.Row="0" x:Name="SceneEditor" Grid.Column="2" Grid.RowSpan="3"/>
+        <ContentControl Grid.Row="0" Content="{Binding SceneEditor}" Grid.Column="2" Grid.RowSpan="3"/>
         <controls:GroupBox Grid.Column="4" x:Name="ItemEditorContainer" Header="Item editor" Margin="0" Grid.Row="0" Grid.RowSpan="3">
             <ScrollViewer x:Name="EditorScroll" VerticalScrollBarVisibility="Auto" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
-                <ContentControl x:Name="CurrentInstanceEditor"/>
+                <ContentControl Content="{Binding CurrentInstanceEditor}"/>
             </ScrollViewer>
         </controls:GroupBox>
         <GridSplitter Grid.Row="0" HorizontalAlignment="Center" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" Grid.Column="1" Grid.RowSpan="3" Width="5"/>

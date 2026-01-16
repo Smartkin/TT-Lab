@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:cm="http://caliburnmicro.com"
              xmlns:viewmodels="clr-namespace:TT_Lab.ViewModels"
+             xmlns:controls="clr-namespace:TT_Lab.Controls"
              d:DataContext="{Binding Source={d:DesignInstance viewmodels:ViewportViewModel}}"
              x:DataType="viewmodels:ViewportViewModel"
              cm:Bind.AtDesignTime="True"
@@ -14,34 +15,36 @@
              LayoutUpdated="ViewportView_OnSourceUpdated"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="TT_Lab.Views.ViewportView">
-    <Interaction.Behaviors>
-        <EventTrigger EventName="SizeChanged">
-            <cm:ActionMessage MethodName="FrameResized">
-                <cm:ActionMessage.Parameters>
-                    <cm:Parameter Value="$eventArgs"/>
-                </cm:ActionMessage.Parameters>
-            </cm:ActionMessage>
-        </EventTrigger>
-        <EventTrigger EventName="Loaded">
-            <cm:ActionMessage MethodName="ViewportLoaded">
-                <cm:ActionMessage.Parameters>
-                    <cm:Parameter Value="$source"/>
-                </cm:ActionMessage.Parameters>
-            </cm:ActionMessage>
-        </EventTrigger>
-    </Interaction.Behaviors>
+    <!-- <Interaction.Behaviors> -->
+    <!--     <EventTrigger EventName="SizeChanged"> -->
+    <!--         <cm:ActionMessage MethodName="FrameResized"> -->
+    <!--             <cm:ActionMessage.Parameters> -->
+    <!--                 <cm:Parameter Value="$eventArgs"/> -->
+    <!--             </cm:ActionMessage.Parameters> -->
+    <!--         </cm:ActionMessage> -->
+    <!--     </EventTrigger> -->
+    <!--     <EventTrigger EventName="Loaded"> -->
+    <!--         <cm:ActionMessage MethodName="ViewportLoaded"> -->
+    <!--             <cm:ActionMessage.Parameters> -->
+    <!--                 <cm:Parameter Value="$source"/> -->
+    <!--             </cm:ActionMessage.Parameters> -->
+    <!--         </cm:ActionMessage> -->
+    <!--     </EventTrigger> -->
+    <!-- </Interaction.Behaviors> -->
     <Grid Margin="5">
-        <Image Focusable="True" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" StretchDirection="Both" Stretch="UniformToFill">
+        <controls:Viewport>
             <Interaction.Behaviors>
-                <EventTrigger EventName="Loaded">
-                    <cm:ActionMessage MethodName="PrepareRender">
-                        <cm:ActionMessage.Parameters>
-                            <cm:Parameter Value="$source"/>
-                        </cm:ActionMessage.Parameters>
-                    </cm:ActionMessage>
-                </EventTrigger>
+                <EventTriggerBehavior EventName="RenderInitialized">
+                    <InvokeCommandAction Command="{Binding PrepareRender}" PassEventArgsToCommand="True" />
+                </EventTriggerBehavior>
+                <EventTriggerBehavior EventName="RenderTerminated">
+                    <InvokeCommandAction Command="{Binding TerminateRender}"/>
+                </EventTriggerBehavior>
+                <EventTriggerBehavior EventName="SizeChanged">
+                    <InvokeCommandAction Command="{Binding FrameResized}" PassEventArgsToCommand="True"></InvokeCommandAction>
+                </EventTriggerBehavior>
             </Interaction.Behaviors>
-        </Image>
+        </controls:Viewport>
         <TextBlock Text="{Binding SceneStatus}" FontSize="32" VerticalAlignment="Center" HorizontalAlignment="Center"/>
     </Grid>
 </UserControl>

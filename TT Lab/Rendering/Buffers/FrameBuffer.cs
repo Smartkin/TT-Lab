@@ -4,18 +4,12 @@ using Silk.NET.OpenGL;
 
 namespace TT_Lab.Rendering.Buffers;
 
-public class FrameBuffer : IDisposable
+public class FrameBuffer(RenderContext renderContext) : IDisposable
 {
-    private readonly RenderContext _renderContext;
+    private readonly RenderContext _renderContext = renderContext;
     private readonly TextureBuffer? _textureBuffer;
     private readonly RenderBuffer? _depthStencilBuffer;
-    private uint _fbo;
-    
-    public FrameBuffer(RenderContext renderContext)
-    {
-        _renderContext = renderContext;
-        _fbo = renderContext.Gl.GenFramebuffer();
-    }
+    private uint _fbo = renderContext.Gl.GenFramebuffer();
 
     public FrameBuffer(RenderContext renderContext, ivec2 textureAttachmentSize, bool createDepthStencil = false) : this(renderContext)
     {
@@ -35,7 +29,7 @@ public class FrameBuffer : IDisposable
             _renderContext.Gl.FramebufferRenderbuffer(FramebufferTarget.Framebuffer, FramebufferAttachment.DepthStencilAttachment, RenderbufferTarget.Renderbuffer, _depthStencilBuffer!.Handler);
         }
         
-        _renderContext.Gl.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+        _renderContext.Gl.BindFramebuffer(FramebufferTarget.Framebuffer, _renderContext.GetOutputBuffer());
     }
     
     public uint Handler => _fbo;
@@ -58,7 +52,7 @@ public class FrameBuffer : IDisposable
             _renderContext.Gl.FramebufferRenderbuffer(FramebufferTarget.Framebuffer, FramebufferAttachment.DepthStencilAttachment, RenderbufferTarget.Renderbuffer, 0);
         }
         
-        _renderContext.Gl.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+        _renderContext.Gl.BindFramebuffer(FramebufferTarget.Framebuffer, _renderContext.GetOutputBuffer());
         _renderContext.Gl.DeleteFramebuffer(_fbo);
         _fbo = 0;
         

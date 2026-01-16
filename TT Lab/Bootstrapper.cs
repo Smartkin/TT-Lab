@@ -35,20 +35,6 @@ public class Bootstrapper : BootstrapperBase
         LogManager.GetLog = type => new Logger(type, filters);
     }
 
-    protected override void OnExit(object sender, ControlledApplicationLifetimeExitEventArgs e)
-    {
-        _container.GetInstance<Rendering.RenderContext>().ShutdownRender();
-            
-        base.OnExit(sender, e);
-    }
-
-    protected override void StartRuntime()
-    {
-        base.StartRuntime();
-            
-        _container.GetInstance<Rendering.RenderContext>().InitRenderApi();
-    }
-
     protected override void Configure()
     {
         base.Configure();

@@ -46,7 +46,7 @@ public class Gizmo
             {
                 case GizmoType.Selection:
                 {
-                    var buffer = BufferGeneration.GetCubeBuffer();
+                    var buffer = BufferGeneration.GetCubeBuffer(renderContext);
                     if (buffer.Model != null)
                     {
                         buffer.Model.Diffuse = new vec4(1.0f, 0.0f, 0.0f, 1.0f);
@@ -67,7 +67,7 @@ public class Gizmo
                         {
                             case 0:
                             {
-                                var cubeMesh = BufferGeneration.GetCubeBuffer();
+                                var cubeMesh = BufferGeneration.GetCubeBuffer(renderContext);
                                 cubeMesh.Model.Diffuse = new vec4(1.0f, 0.0f, 0.0f, 1.0f);
                                 cubeMesh.Model.AddMaterialOverride(new TwinMaterialDepthTestOverride { DepthTestOverride = TwinShader.DepthTestMethod.ALWAYS});
                                 axisNode.AddChild(cubeMesh.Model);
@@ -78,7 +78,7 @@ public class Gizmo
                             }
                             case 1:
                             {
-                                var cubeMesh = BufferGeneration.GetCubeBuffer();
+                                var cubeMesh = BufferGeneration.GetCubeBuffer(renderContext);
                                 cubeMesh.Model.Diffuse = new vec4(0.0f, 1.0f, 0.0f, 1.0f);
                                 cubeMesh.Model.AddMaterialOverride(new TwinMaterialDepthTestOverride { DepthTestOverride = TwinShader.DepthTestMethod.ALWAYS});
                                 axisNode.AddChild(cubeMesh.Model);
@@ -89,7 +89,7 @@ public class Gizmo
                             }
                             case 2:
                             {
-                                var cubeMesh = BufferGeneration.GetCubeBuffer();
+                                var cubeMesh = BufferGeneration.GetCubeBuffer(renderContext);
                                 cubeMesh.Model.Diffuse = new vec4(0.0f, 0.0f, 1.0f, 1.0f);
                                 cubeMesh.Model.AddMaterialOverride(new TwinMaterialDepthTestOverride { DepthTestOverride = TwinShader.DepthTestMethod.ALWAYS});
                                 axisNode.AddChild(cubeMesh.Model);
@@ -119,7 +119,7 @@ public class Gizmo
                         {
                             case 0:
                             {
-                                var circleMesh = BufferGeneration.GetCircleBuffer();
+                                var circleMesh = BufferGeneration.GetCircleBuffer(renderContext);
                                 circleMesh.Model.Diffuse = new vec4(1.0f, 0.0f, 0.0f, 1.0f);
                                 circleMesh.Model.AddMaterialOverride(new TwinMaterialDepthTestOverride { DepthTestOverride = TwinShader.DepthTestMethod.ALWAYS});
                                 axisNode.AddChild(circleMesh.Model);
@@ -128,7 +128,7 @@ public class Gizmo
                             }
                             case 1:
                             {
-                                var circleMesh = BufferGeneration.GetCircleBuffer();
+                                var circleMesh = BufferGeneration.GetCircleBuffer(renderContext);
                                 circleMesh.Model.Diffuse = new vec4(0.0f, 1.0f, 0.0f, 1.0f);
                                 circleMesh.Model.AddMaterialOverride(new TwinMaterialDepthTestOverride { DepthTestOverride = TwinShader.DepthTestMethod.ALWAYS});
                                 axisNode.AddChild(circleMesh.Model);
@@ -136,7 +136,7 @@ public class Gizmo
                             }
                             case 2:
                             {
-                                var circleMesh = BufferGeneration.GetCircleBuffer();
+                                var circleMesh = BufferGeneration.GetCircleBuffer(renderContext);
                                 axisNode.AddChild(circleMesh.Model);
                                 circleMesh.Model.Diffuse = new vec4(0.0f, 0.0f, 1.0f, 1.0f);
                                 circleMesh.Model.AddMaterialOverride(new TwinMaterialDepthTestOverride { DepthTestOverride = TwinShader.DepthTestMethod.ALWAYS});
@@ -164,7 +164,7 @@ public class Gizmo
                         {
                             case 0:
                             {
-                                var cubeMesh = BufferGeneration.GetCubeBuffer();
+                                var cubeMesh = BufferGeneration.GetCubeBuffer(renderContext);
                                 cubeMesh.Model.Diffuse = new vec4(1.0f, 0.0f, 0.0f, 1.0f);
                                 cubeMesh.Model.AddMaterialOverride(new TwinMaterialDepthTestOverride { DepthTestOverride = TwinShader.DepthTestMethod.ALWAYS});
                                 axisNode.AddChild(cubeMesh.Model);
@@ -172,7 +172,7 @@ public class Gizmo
                             }
                             case 1:
                             {
-                                var cubeMesh = BufferGeneration.GetCubeBuffer();
+                                var cubeMesh = BufferGeneration.GetCubeBuffer(renderContext);
                                 cubeMesh.Model.Diffuse = new vec4(0.0f, 1.0f, 0.0f, 1.0f);
                                 cubeMesh.Model.AddMaterialOverride(new TwinMaterialDepthTestOverride { DepthTestOverride = TwinShader.DepthTestMethod.ALWAYS});
                                 axisNode.AddChild(cubeMesh.Model);
@@ -180,7 +180,7 @@ public class Gizmo
                             }
                             case 2:
                             {
-                                var cubeMesh = BufferGeneration.GetCubeBuffer();
+                                var cubeMesh = BufferGeneration.GetCubeBuffer(renderContext);
                                 cubeMesh.Model.Diffuse = new vec4(0.0f, 0.0f, 1.0f, 1.0f);
                                 cubeMesh.Model.AddMaterialOverride(new TwinMaterialDepthTestOverride { DepthTestOverride = TwinShader.DepthTestMethod.ALWAYS});
                                 axisNode.AddChild(cubeMesh.Model);

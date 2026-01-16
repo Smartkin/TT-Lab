@@ -17,27 +17,31 @@ public class SelectedItemChangedEventArgs(object sender, RoutedEvent @event, obj
     }
 }
 
+public class EditableListBoxAddedItemEventArgs : RoutedEventArgs;
+public class EditableListBoxRemovedItemEventArgs : RoutedEventArgs;
+public class EditableListBoxDuplicatedItemEventArgs : RoutedEventArgs;
+
 public delegate void SelectedItemChangedEventHandler(object sender, SelectedItemChangedEventArgs e);
 
 public partial class EditableListBox : UserControl
 {
-    // public event EventHandler<RoutedEventArgs> AddItem
-    // {
-    //     add => AddHandler(AddItemEvent, value);
-    //     remove => RemoveHandler(AddItemEvent, value);
-    // }
-    //
-    // public event EventHandler<RoutedEventArgs> DeleteItem
-    // {
-    //     add => AddHandler(DeleteItemEvent, value);
-    //     remove => RemoveHandler(DeleteItemEvent, value);
-    // }
-    //
-    // public event EventHandler<RoutedEventArgs> DuplicateItem
-    // {
-    //     add => AddHandler(DuplicateItemEvent, value);
-    //     remove => RemoveHandler(DuplicateItemEvent, value);
-    // }
+    public event EventHandler<EditableListBoxAddedItemEventArgs> AddItem
+    {
+        add => AddHandler(AddItemEvent, value);
+        remove => RemoveHandler(AddItemEvent, value);
+    }
+    
+    public event EventHandler<EditableListBoxRemovedItemEventArgs> DeleteItem
+    {
+        add => AddHandler(DeleteItemEvent, value);
+        remove => RemoveHandler(DeleteItemEvent, value);
+    }
+    
+    public event EventHandler<EditableListBoxDuplicatedItemEventArgs> DuplicateItem
+    {
+        add => AddHandler(DuplicateItemEvent, value);
+        remove => RemoveHandler(DuplicateItemEvent, value);
+    }
     
     public event SelectedItemChangedEventHandler SelectedItemChanged
     {
@@ -50,18 +54,18 @@ public partial class EditableListBox : UserControl
     // EventManager.RegisterRoutedEvent("SelectedItemChanged",
     // RoutingStrategy.Bubble, typeof(SelectedItemChangedEventHandler), typeof(EditableListBox));
     
-    // public static readonly RoutedEvent AddItemEvent =
-    //     RoutedEvent.Register<EditableListBox, RoutedEventArgs>(nameof(AddItem), RoutingStrategies.Bubble);
+    public static readonly RoutedEvent AddItemEvent =
+        RoutedEvent.Register<EditableListBox, EditableListBoxAddedItemEventArgs>(nameof(AddItem), RoutingStrategies.Bubble);
     // // EventManager.RegisterRoutedEvent("AddItem",
     // // RoutingStrategy.Bubble, typeof(RoutedEventHandler), typeof(EditableListBox));
     //
-    // public static readonly RoutedEvent DeleteItemEvent =
-    //     RoutedEvent.Register<EditableListBox, RoutedEventArgs>(nameof(DeleteItem), RoutingStrategies.Bubble);
+    public static readonly RoutedEvent DeleteItemEvent =
+        RoutedEvent.Register<EditableListBox, EditableListBoxRemovedItemEventArgs>(nameof(DeleteItem), RoutingStrategies.Bubble);
     // // EventManager.RegisterRoutedEvent("DeleteItem",
     // // RoutingStrategy.Bubble, typeof(RoutedEventHandler), typeof(EditableListBox));
     //
-    // public static readonly RoutedEvent DuplicateItemEvent =
-    //     RoutedEvent.Register<EditableListBox, RoutedEventArgs>(nameof(DuplicateItem), RoutingStrategies.Bubble);
+    public static readonly RoutedEvent DuplicateItemEvent =
+        RoutedEvent.Register<EditableListBox, EditableListBoxDuplicatedItemEventArgs>(nameof(DuplicateItem), RoutingStrategies.Bubble);
     // EventManager.RegisterRoutedEvent("DuplicateItem",
     // RoutingStrategy.Bubble, typeof(RoutedEventHandler), typeof(EditableListBox));
 
@@ -151,23 +155,23 @@ public partial class EditableListBox : UserControl
         InitializeComponent();
     }
 
-    // private void OnAddItemClick(object sender, RoutedEventArgs e)
-    // {
-    //     e.Handled = true;
-    //     RaiseEvent(new RoutedEventArgs(AddItemEvent, this));
-    // }
-    //
-    // private void OnDeleteItemClick(object sender, RoutedEventArgs e)
-    // {
-    //     e.Handled = true;
-    //     RaiseEvent(new RoutedEventArgs(DeleteItemEvent, this));
-    // }
-    //
-    // private void OnDuplicateItemClick(object sender, RoutedEventArgs e)
-    // {
-    //     e.Handled = true;
-    //     RaiseEvent(new RoutedEventArgs(DuplicateItemEvent, this));
-    // }
+    private void OnAddItemClick(object sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        RaiseEvent(new EditableListBoxAddedItemEventArgs { RoutedEvent = AddItemEvent });
+    }
+    
+    private void OnDeleteItemClick(object sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        RaiseEvent(new EditableListBoxRemovedItemEventArgs { RoutedEvent = DeleteItemEvent });
+    }
+    
+    private void OnDuplicateItemClick(object sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        RaiseEvent(new EditableListBoxDuplicatedItemEventArgs { RoutedEvent = DuplicateItemEvent });
+    }
 
     private void OnItemsStorageSelectionChanged(object sender, SelectionChangedEventArgs e)
     {

@@ -21,7 +21,7 @@ public class Trigger : EditableObject
     {
         _triggerData = data;
         _billboard = billboard;
-        var cube = BufferGeneration.GetCubeBuffer();
+        var cube = BufferGeneration.GetCubeBuffer(context);
         if (cube.Model == null)
         {
             return;

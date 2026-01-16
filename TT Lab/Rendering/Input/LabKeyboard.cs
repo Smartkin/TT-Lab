@@ -6,37 +6,28 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Silk.NET.Input;
+using TT_Lab.Controls;
 using Key = Silk.NET.Input.Key;
 
 namespace TT_Lab.Rendering.Input;
 
-public class LabKeyboard : IKeyboard, IDisposable, IObserver<(object, RoutedEventArgs)>
+public class LabKeyboard : IKeyboard, IDisposable
 {
     private static readonly Key[] Keys = Enum.GetValues<Avalonia.Input.Key>().Select(ConvertKey)
         .Where(static x => x != Key.Unknown).Distinct().ToArray();
 
-    private readonly Image _renderArea;
+    private readonly Viewport _renderArea;
+    private readonly Dictionary<Key, bool> _keysPressed = new();
+    private readonly Dictionary<int, bool> _scancodesPressed = new();
+    
     public string Name => "TT Lab Avalonia Keyboard";
     public int Index => 0;
     public bool IsConnected => true;
 
-    private class KeyDownObserver : IObserver<(object, RoutedEventArgs)>
+    public LabKeyboard(Viewport renderArea)
     {
-        public void OnCompleted()
-        {
-        }
-
-        public void OnError(Exception error)
-        {
-        }
-
-        public void OnNext((object, RoutedEventArgs) value)
-        {
-        }
-    }
-
-    public LabKeyboard(Image renderArea)
-    {
+        renderArea.KeyDown += KeyDownHandler;
+        renderArea.KeyUp += KeyUpHandler;
         // InputElement.KeyDownEvent.Raised.Subscribe(this);
         // Keyboard.AddKeyDownHandler(renderArea, KeyDownHandler);
         // Keyboard.AddKeyUpHandler(renderArea, KeyUpHandler);
@@ -45,42 +36,39 @@ public class LabKeyboard : IKeyboard, IDisposable, IObserver<(object, RoutedEven
 
     public void Dispose()
     {
+        _renderArea.KeyDown -= KeyDownHandler;
+        _renderArea.KeyUp -= KeyUpHandler;
         // Keyboard.RemoveKeyDownHandler(_renderArea, KeyDownHandler);
         // Keyboard.RemoveKeyUpHandler(_renderArea, KeyUpHandler);
         GC.SuppressFinalize(this);
     }
 
-    private void KeyUpHandler(object sender, KeyEventArgs e)
+    private void KeyUpHandler(object? sender, KeyEventArgs e)
     {
-        var scanCode =
-            (int)typeof(KeyEventArgs).GetProperty("ScanCode",
-                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(e)!;
-        KeyUp?.Invoke(this, ConvertKey(e.Key), scanCode);
+        var key = ConvertKey(e.Key);
+        _keysPressed[key] = false;
+        _scancodesPressed[(int)e.PhysicalKey] = false;
+        KeyUp?.Invoke(this, key, (int)e.PhysicalKey);
         e.Handled = true;
     }
 
-    private void KeyDownHandler(object sender, KeyEventArgs e)
+    private void KeyDownHandler(object? sender, KeyEventArgs e)
     {
-        var scanCode =
-            (int)typeof(KeyEventArgs).GetProperty("ScanCode",
-                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(e)!;
-        KeyDown?.Invoke(this, ConvertKey(e.Key), scanCode);
-
-        var character = KeyToChar(e.Key);
-        if (character != '\0')
+        var key = ConvertKey(e.Key);
+        _keysPressed[key] = true;
+        _scancodesPressed[(int)e.PhysicalKey] = true;
+        KeyDown?.Invoke(this, key, (int)e.PhysicalKey);
+        if (e.KeySymbol != null)
         {
-            KeyChar?.Invoke(this, character);
+            KeyChar?.Invoke(this, e.KeySymbol.ToCharArray()[0]);
         }
 
         e.Handled = true;
     }
 
-    public Boolean IsKeyPressed(Key key)
-    {
-        return false;// Keyboard.IsKeyDown(ConvertKey(key));
-    }
+    public Boolean IsKeyPressed(Key key) => _keysPressed.ContainsKey(key) && _keysPressed[key];
 
-    public Boolean IsScancodePressed(int scancode) => false;
+    public Boolean IsScancodePressed(int scancode) => _scancodesPressed.ContainsKey(scancode) && _scancodesPressed[scancode];
 
     public void BeginInput()
     {

@@ -5,6 +5,7 @@ using System.Linq;
 using Caliburn.Micro;
 using TT_Lab.AssetData.Graphics.SubModels;
 using TT_Lab.Assets;
+using TT_Lab.Rendering;
 using TT_Lab.Rendering.Services;
 using Twinsanity.TwinsanityInterchange.Common;
 
@@ -12,21 +13,9 @@ namespace TT_Lab.Util;
 
 public static class BufferGeneration
 {
-    private static MeshService? _meshService;
-
-    private static void GetMeshService()
-    {
-        if (_meshService != null)
-        {
-            return;
-        }
-
-        _meshService = IoC.Get<MeshService>();
-    }
     
-    public static MeshInfo GetPlaneBuffer()
+    public static MeshInfo GetPlaneBuffer(RenderContext renderContext)
     {
-        GetMeshService();
         //
         // float[] vertices = new float[18] {
         //     -100, -100, 0,  // pos
@@ -57,18 +46,16 @@ public static class BufferGeneration
         //     faces.Add(new IndexedFace { Indexes = new int[] { i + 2, i + 1, i } });
         // }
 
-        return _meshService!.GetMesh(LabURI.Plane);
+        return renderContext.MeshService.GetMesh(LabURI.Plane);
     }
 
-    public static MeshInfo GetCubeBuffer()
+    public static MeshInfo GetCubeBuffer(RenderContext renderContext)
     {
-        GetMeshService();
-        return _meshService!.GetMesh(LabURI.Box);
+        return renderContext.MeshService.GetMesh(LabURI.Box);
     }
 
-    public static MeshInfo GetCircleBuffer(float segmentPart = 1.0f, float thickness = 0.1f, int resolution = 16)
+    public static MeshInfo GetCircleBuffer(RenderContext renderContext, float segmentPart = 1.0f, float thickness = 0.1f, int resolution = 16)
     {
-        GetMeshService();
-        return _meshService!.GetMesh(LabURI.Circle);
+        return renderContext.MeshService.GetMesh(LabURI.Circle);
     }
 }

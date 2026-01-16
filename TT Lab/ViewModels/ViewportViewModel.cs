@@ -12,6 +12,7 @@ using Avalonia.Threading;
 using Caliburn.Micro;
 using GlmSharp;
 using Silk.NET.Input;
+using TT_Lab.Controls;
 using TT_Lab.Extensions;
 using TT_Lab.Rendering;
 using TT_Lab.Rendering.Input;
@@ -24,20 +25,21 @@ using Screen = Caliburn.Micro.Screen;
 
 namespace TT_Lab.ViewModels;
 
-public class ViewportViewModel(RenderContext renderContext) : Screen
+public class ViewportViewModel : Screen
 {
     private WriteableBitmap? _renderOutput;
     private Renderer? _renderer;
     private Image? _display;
-    private ivec2 _viewportSize = ivec2.Ones;
+    
     private IInputContext? _inputContext;
     private IKeyboard? _keyboard;
     private IMouse? _mouse;
-    private readonly ConcurrentQueue<Action<Renderer, Scene>> _renderQueue = [];
     private Scene? _scene;
     private bool _renderInit;
     private bool _firstRender = true;
-
+    private RenderContext? _renderContext;
+    private ivec2 ViewportSize => _renderContext == null ? ivec2.Ones : new ivec2((int)_renderContext.ViewportSize.x, (int)_renderContext.ViewportSize.y);
+    
     private void CompositionTargetOnRendering(object? sender, EventArgs e)
     {
         if (!CanRender || _renderOutput == null || _renderer == null || _renderer.IsDisposed || _scene == null)
@@ -48,100 +50,68 @@ public class ViewportViewModel(RenderContext renderContext) : Screen
         _renderer.DoUpdate();
     }
 
-    public void QueueRenderAction(Action<Renderer, Scene> action)
-    {
-        if (!_renderInit)
-        {
-            _renderQueue.Enqueue(action);
-            return;
-        }
-        
-        renderContext.QueueRenderAction(() =>
-        {
-            action(_renderer!, _scene!);
-        });
-    }
-
     public void FrameResized(SizeChangedEventArgs newSize)
     {
         CanRender = false;
         NotifyOfPropertyChange(nameof(CanRender));
         NotifyOfPropertyChange(nameof(SceneStatus));
-        
-        _viewportSize.x = Math.Max((int)newSize.NewSize.Width, 1);
-        _viewportSize.y = Math.Max((int)newSize.NewSize.Height, 1);
         Dispatcher.UIThread.Post(() =>
         {
-            _renderer?.SetFrameBufferSize(_viewportSize);
-            _scene?.UpdateResolution(_viewportSize);
-            if (_display != null)
-            {
-                PrepareRender(_display);
-            }
-            
+            _renderer?.SetFrameBufferSize(ViewportSize);
+            _scene?.UpdateResolution(ViewportSize);
+ 
             CanRender = true;
             NotifyOfPropertyChange(nameof(CanRender));
             NotifyOfPropertyChange(nameof(SceneStatus));
         });
     }
 
-    public void PrepareRender(Image image)
+    public void PrepareRender(RenderRoutedEventArgs renderArgs)
     {
-        // var source = PresentationSource.FromVisual(image);
-        // var dpiX = 96.0;
-        // var dpiY = 96.0;
-        // if (source?.CompositionTarget != null)
-        // {
-        //     var transform = source.CompositionTarget.TransformToDevice;
-        //     dpiX = 96.0 * transform.M11;
-        //     dpiY = 96.0 * transform.M22;
-        // }
-        // _renderOutput = new WriteableBitmap(_viewportSize.x, _viewportSize.y, dpiX, dpiY, PixelFormats.Bgra32, null);
-        _display = image;
-        _display.Source = _renderOutput;
-
-        if (_renderInit)
-        {
-            return;
-        }
-
-        _renderInit = true;
-        _renderer = IoC.Get<Renderer>();
+        _renderContext = renderArgs.RenderContext;
+        _renderer = new Renderer(_renderContext);
         _renderer.FinishRender += RendererOnFinishRender;
         _renderer.SceneInitialized += RendererOnSceneInitialized;
-        _scene = new Scene(renderContext, "ROOT_SCENE");
+        _scene = new Scene(_renderContext, "ROOT_SCENE");
         _renderer.RegisterForRendering(_scene.Camera);
-        _inputContext = new LabInputContext(_renderer, _display!);
+        _inputContext = new LabInputContext(_renderer, renderArgs.RenderArea);
         _renderer.InitInput(_inputContext, UseImgui);
-
-        while (_renderQueue.TryDequeue(out var action))
-        {
-            renderContext.QueueRenderAction(() => action.Invoke(_renderer, _scene));
-        }
 
         if (SceneInitializer != null)
         {
-            renderContext.QueueRenderAction(() =>
+            _renderContext.QueueRenderAction(() =>
             {
                 SceneInitializer(_renderer, _scene);
                 _renderer.FireSceneInitialized();
                 _renderer.RegisterForRendering(_scene, true);
                 _renderer.RegisterForUpdating(_scene);
+
+                var camForward = -_scene.Camera.GetForward();
+                _scene.Camera.Translate(camForward * -5);
             });
         }
         
         _mouse = _inputContext.Mice[0];
         _keyboard = _inputContext.Keyboards[0];
-            
+        
         _keyboard.KeyDown += KeyboardOnKeyDown;
         _mouse.MouseMove += OnMouseMove;
         _renderer.Update += RendererOnUpdate;
 
         if (CanRender)
         {
-            _renderer.SetFrameBufferSize(_viewportSize);
-            _scene.UpdateResolution(_viewportSize);
+            _renderer.SetFrameBufferSize(ViewportSize);
+            _scene.UpdateResolution(ViewportSize);
         }
+    }
+
+    public void TerminateRender()
+    {
+        _renderer?.Dispose();
+        
+        CanRender = false;
+        NotifyOfPropertyChange(nameof(CanRender));
+        NotifyOfPropertyChange(nameof(SceneStatus));
     }
 
     private void RendererOnSceneInitialized()
@@ -162,35 +132,13 @@ public class ViewportViewModel(RenderContext renderContext) : Screen
         _scene?.UpdateRenderTransform();
         Dispatcher.UIThread.Post(() =>
         {
-            if (_renderOutput == null)
-            {
-                return;
-            }
-            
             _renderer?.DoUpdate();
-            _renderer?.GetRenderImage(_renderOutput);
-            _display?.InvalidateVisual();
-        });
-    }
-
-    public void ViewportLoaded(ViewportView viewport)
-    {
-        _viewportSize.x = (int)viewport.Width;
-        _viewportSize.y = (int)viewport.Height;
-        Dispatcher.UIThread.Post(() =>
-        {
-            _renderer?.SetFrameBufferSize(_viewportSize);
-            _scene?.UpdateResolution(_viewportSize);
-            if (_display != null)
-            {
-                PrepareRender(_display);
-            }
         });
     }
     
-    protected override Task OnActivateAsync(CancellationToken cancellationToken)
+    protected override Task OnActivatedAsync(CancellationToken cancellationToken)
     {
-        base.OnActivateAsync(cancellationToken);
+        base.OnActivatedAsync(cancellationToken);
 
         if (!_firstRender)
         {
@@ -198,11 +146,6 @@ public class ViewportViewModel(RenderContext renderContext) : Screen
             NotifyOfPropertyChange(nameof(CanRender));
             NotifyOfPropertyChange(nameof(SceneStatus));
         }
-
-        Dispatcher.UIThread.Post(() =>
-        {
-            // CompositionTargetEx.FrameUpdating += CompositionTargetOnRendering;
-        });
         
         return Task.CompletedTask;
     }
@@ -250,7 +193,7 @@ public class ViewportViewModel(RenderContext renderContext) : Screen
     private Vector2 _prevMousePosition = new(-1, -1);
     private void OnMouseMove(IMouse mouse, Vector2 mousePos)
     {
-        var viewRect = new Rect(0, 0, _viewportSize.x, _viewportSize.y);
+        var viewRect = new Rect(0, 0, ViewportSize.x, ViewportSize.y);
         if (!viewRect.Contains(new Point(mousePos.X, mousePos.Y)))
         {
             return;
@@ -281,16 +224,6 @@ public class ViewportViewModel(RenderContext renderContext) : Screen
         CanRender = false;
         NotifyOfPropertyChange(nameof(CanRender));
         NotifyOfPropertyChange(nameof(SceneStatus));
-        
-        Dispatcher.UIThread.Post(() =>
-        {
-            // CompositionTargetEx.FrameUpdating -= CompositionTargetOnRendering;
-        });
-
-        if (close)
-        {
-            _renderer?.Dispose();
-        }
         
         return base.OnDeactivateAsync(close, cancellationToken);
     }

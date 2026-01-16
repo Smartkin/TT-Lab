@@ -12,8 +12,9 @@ public static class ManifestResourceLoader
 {
     public static string LoadTextFile(string textFileName)
     {
-        Debug.Assert(File.Exists(textFileName), $"Attempting to load file that doesn't exist {textFileName}");
-        return File.ReadAllText(GetPathInExe(textFileName));
+        var fullPath = GetPathInExe(textFileName);
+        Debug.Assert(File.Exists(fullPath), $"Attempting to load file that doesn't exist {fullPath}");
+        return File.ReadAllText(fullPath);
     }
 
     public static string GetPathInExe(string pathToFile)

@@ -35,7 +35,7 @@ public class Renderer : IView
     private IInputContext? _inputContext;
     private FrameBuffer[] _pongBuffers;
     private FrameBuffer _screenBuffer;
-    private ivec2 _frameBufferSize = ivec2.Ones;
+    private ivec2 _frameBufferSize => new((int)_renderContext.ViewportSize.x, (int)_renderContext.ViewportSize.y);
     private ImGuiController? _imgui;
     private readonly Stopwatch _renderTime = new();
     private readonly Stopwatch _updateWatch = new();
@@ -47,13 +47,13 @@ public class Renderer : IView
     private int _readBuffer = 0;
     private int _writeBuffer = 1;
 
-    public Renderer(RenderContext renderContext, PassService passService, BatchService batchService)
+    public Renderer(RenderContext renderContext)
     {
         _renderContext = renderContext;
-        _primitiveRenderer = _renderContext.GetPrimitiveRenderer();
+        _primitiveRenderer = _renderContext.PrimitiveRenderer;
         _renderContext.QueueRenderAction(SetupRenderBuffer);
-        _batchStorage = batchService.GenerateBatchStorage();
-        _passService = passService;
+        _batchStorage = renderContext.BatchService.GenerateBatchStorage();
+        _passService = renderContext.PassService;
         renderContext.Render += DoRender;
         _updateWatch.Start();
     }
@@ -79,18 +79,10 @@ public class Renderer : IView
 
     public void SetFrameBufferSize(ivec2 frameBufferSize)
     {
-        lock (_framebufferWriteLock)
-        {
-            _framebufferData = new byte[frameBufferSize.x * frameBufferSize.y * 4];
-            _frameBufferSize = frameBufferSize;
-        }
-
         _renderContext.QueueRenderAction(() =>
         {
             DeleteRenderBuffer();
             SetupRenderBuffer();
-            _renderContext.Gl.Viewport(0, 0, (uint)_frameBufferSize.x, (uint)_frameBufferSize.y);
-            _renderContext.Gl.Scissor(0, 0, (uint)_frameBufferSize.x, (uint)_frameBufferSize.y);
             
             Resize?.Invoke(new Vector2D<Int32>(_frameBufferSize.x, _frameBufferSize.y));
             FramebufferResize?.Invoke(new Vector2D<Int32>(_frameBufferSize.x, _frameBufferSize.y));
@@ -167,9 +159,7 @@ public class Renderer : IView
             return;
         }
         
-        _renderContext.Gl.BindFramebuffer(FramebufferTarget.Framebuffer, _pongBuffers[_writeBuffer].Handler);
-        
-        _renderContext.Gl.ClearColor(Color.Gray);
+        _renderContext.Gl.ClearColor(Color.LightGray);
         _renderContext.Gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit | ClearBufferMask.StencilBufferBit);
         
         // Opaque skydome pass
@@ -206,9 +196,9 @@ public class Renderer : IView
         }
         
         _renderContext.Gl.BindFramebuffer(FramebufferTarget.DrawFramebuffer, _screenBuffer.Handler);
-        _renderContext.Gl.BindFramebuffer(FramebufferTarget.ReadFramebuffer, _pongBuffers[_writeBuffer].Handler);
+        _renderContext.Gl.BindFramebuffer(FramebufferTarget.ReadFramebuffer, _renderContext.GetOutputBuffer());
         _renderContext.Gl.BlitFramebuffer(0, 0, _frameBufferSize.x, _frameBufferSize.y, 0, 0, _frameBufferSize.x, _frameBufferSize.y, ClearBufferMask.ColorBufferBit, BlitFramebufferFilter.Linear);
-        _renderContext.Gl.BindFramebuffer(FramebufferTarget.DrawFramebuffer, _pongBuffers[_writeBuffer].Handler);
+        _renderContext.Gl.BindFramebuffer(FramebufferTarget.DrawFramebuffer, _renderContext.GetOutputBuffer());
         
         _renderContext.Gl.Disable(EnableCap.Blend);
         var screenFlipProgram = _renderContext.GetProgram("ScreenFlipX");
@@ -226,16 +216,16 @@ public class Renderer : IView
                 _imgui.StartFrame((float)delta);
                 
                 RenderImgui?.Invoke();
-
+        
                 _imgui.Render();
             }
         }
         
         _renderContext.Invalidate();
         // Swap buffers
-        SaveFramebuffer();
-        (_readBuffer, _writeBuffer) = (_writeBuffer, _readBuffer);
-        _renderContext.Gl.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+        // SaveFramebuffer();
+        // (_readBuffer, _writeBuffer) = (_writeBuffer, _readBuffer);
+        // _renderContext.Gl.BindFramebuffer(FramebufferTarget.Framebuffer, (uint)_renderContext.GetOutputBuffer());
         FinishRender?.Invoke();
     }
 
@@ -320,6 +310,11 @@ public class Renderer : IView
 
     public void ContinueEvents()
     {
+    }
+
+    public RenderContext GetRenderContext()
+    {
+        return _renderContext;
     }
 
     public IInputContext? GetInputContext()
@@ -414,9 +409,10 @@ public class Renderer : IView
     }
 
     [MemberNotNull(nameof(_screenBuffer))]
+    [MemberNotNull(nameof(_screenBuffer))]
+    [MemberNotNull(nameof(_emptyVao))]
     private void SetupRenderBuffer()
     {
-        _renderContext.MakeCurrent();
         _pongBuffers = [new FrameBuffer(_renderContext, _frameBufferSize, true), new FrameBuffer(_renderContext, _frameBufferSize, true)];
         _screenBuffer = new FrameBuffer(_renderContext, _frameBufferSize);
         _emptyVao = new VertexArrayObject<float, float>(_renderContext, null, null);
@@ -424,7 +420,6 @@ public class Renderer : IView
 
     private void DeleteRenderBuffer()
     {
-        _renderContext.MakeCurrent();
         _emptyVao.Dispose();
         foreach (var pongBuffer in _pongBuffers)
         {
@@ -443,20 +438,12 @@ public class Renderer : IView
         }
         
         Closing?.Invoke();
-        var manualResetEventSlim = new System.Threading.ManualResetEventSlim(false);
         _renderContext.Render -= DoRender;
-        _renderContext.QueueRenderAction(() =>
-        {
-            _imgui?.Dispose();
-            _emptyVao.Dispose();
-            DeleteRenderBuffer();
-            // ReSharper disable once AccessToDisposedClosure
-            manualResetEventSlim.Set();
-        });
+        _imgui?.Dispose();
+        _emptyVao.Dispose();
+        DeleteRenderBuffer();
         
         IsDisposed = true;
-        manualResetEventSlim.Wait();
-        manualResetEventSlim.Dispose();
         GC.SuppressFinalize(this);
     }
 
