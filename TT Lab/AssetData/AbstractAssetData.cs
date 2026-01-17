@@ -16,6 +16,11 @@ public abstract class AbstractAssetData(IAsset owner) : IDisposable
     protected Boolean DisposedValue;
     protected IAsset Owner = owner;
 
+    internal void SetOwner(IAsset owner)
+    {
+        Owner = owner;
+    }
+
     public virtual Boolean Disposed => DisposedValue;
 
     ITwinItem? twinRef = null;

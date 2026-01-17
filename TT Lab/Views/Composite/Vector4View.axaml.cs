@@ -2,10 +2,11 @@ using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+using TT_Lab.ViewModels.Composite;
 
 namespace TT_Lab.Views.Composite;
 
-public partial class Vector4View : UserControl
+public partial class Vector4View : BurnBridgeControl<Vector4ViewModel>
 {
     [Description("Whether the fields will be vertical or horizontal"), Category("Common Properties")]
     public bool VerticalLayout

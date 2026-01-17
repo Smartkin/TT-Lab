@@ -3,31 +3,33 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:controls="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+             xmlns:viewModels="clr-namespace:TT_Lab.ViewModels.Editors.Graphics"
+             x:DataType="viewModels:BlendSkinViewModel"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="TT_Lab.Views.Editors.Graphics.BlendSkinView">
     <controls:GroupBox>
         <Grid RowDefinitions="118*,113*,219*" ColumnDefinitions="659*,141*">
-            <ContentControl x:Name="SceneRenderer" Margin="10,0,0,0" Grid.RowSpan="3"/>
-            <ContentControl x:Name="MaterialViewer" Grid.Row="0" Grid.Column="1"/>
+            <ContentControl Content="{Binding SceneRenderer}" Margin="10,0,0,0" Grid.RowSpan="3"/>
+            <ContentControl Content="{Binding MaterialViewer}" Grid.Row="0" Grid.Column="1"/>
             <controls:GroupBox Grid.Column="1" Header="Morph weights" Grid.Row="2">
                 <ScrollViewer>
                     <Grid ScrollViewer.VerticalScrollBarVisibility="Disabled" Height="500.1"
                           RowDefinitions="19*,19*,19*,19*,19*,19*,19*,19*,19*,19*,19*,19*,19*,19*,19*">
-                        <Slider x:Name="Weight1" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1"/>
-                        <Slider x:Name="Weight2" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="1"/>
-                        <Slider x:Name="Weight3" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="2"/>
-                        <Slider x:Name="Weight4" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="3"/>
-                        <Slider x:Name="Weight5" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="4"/>
-                        <Slider x:Name="Weight6" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="5"/>
-                        <Slider x:Name="Weight7" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="6"/>
-                        <Slider x:Name="Weight8" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="7"/>
-                        <Slider x:Name="Weight9" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="8"/>
-                        <Slider x:Name="Weight10" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="9"/>
-                        <Slider x:Name="Weight11" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="10"/>
-                        <Slider x:Name="Weight12" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="11"/>
-                        <Slider x:Name="Weight13" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="12"/>
-                        <Slider x:Name="Weight14" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="13"/>
-                        <Slider x:Name="Weight15" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="14"/>
+                        <Slider Value="{Binding Weight1}" x:Name="Weight1" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="0"/>
+                        <Slider Value="{Binding Weight2}" x:Name="Weight2" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="1"/>
+                        <Slider Value="{Binding Weight3}" x:Name="Weight3" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="2"/>
+                        <Slider Value="{Binding Weight4}" x:Name="Weight4" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="3"/>
+                        <Slider Value="{Binding Weight5}" x:Name="Weight5" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="4"/>
+                        <Slider Value="{Binding Weight6}" x:Name="Weight6" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="5"/>
+                        <Slider Value="{Binding Weight7}" x:Name="Weight7" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="6"/>
+                        <Slider Value="{Binding Weight8}" x:Name="Weight8" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="7"/>
+                        <Slider Value="{Binding Weight9}" x:Name="Weight9" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="8"/>
+                        <Slider Value="{Binding Weight10}" x:Name="Weight10" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="9"/>
+                        <Slider Value="{Binding Weight11}" x:Name="Weight11" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="10"/>
+                        <Slider Value="{Binding Weight12}" x:Name="Weight12" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="11"/>
+                        <Slider Value="{Binding Weight13}" x:Name="Weight13" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="12"/>
+                        <Slider Value="{Binding Weight14}" x:Name="Weight14" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="13"/>
+                        <Slider Value="{Binding Weight15}" x:Name="Weight15" VerticalAlignment="Center" Width="120" Maximum="1" SmallChange="0.01" LargeChange="0.1" Grid.Row="14"/>
                     </Grid>
                 </ScrollViewer>
             </controls:GroupBox>

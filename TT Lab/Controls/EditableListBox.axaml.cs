@@ -109,8 +109,8 @@ public partial class EditableListBox : UserControl
         set => SetValue(ItemTemplateProperty, value);
     }
 
-    public static readonly StyledProperty<object> DataTriggerAttachedValueProperty =
-        AvaloniaProperty.Register<EditableListBox, object>("DataTriggerAttachedValue");
+    public static readonly AttachedProperty<object> DataTriggerAttachedValueProperty =
+        AvaloniaProperty.RegisterAttached<EditableListBox, object>("DataTriggerAttachedValue", typeof(EditableListBox));
     // DependencyProperty.RegisterAttached(
     // "DataTriggerAttachedValue", typeof(object), typeof(EditableListBox), new PropertyMetadata(null, OnDataTriggerValueChanged));
 
@@ -133,12 +133,12 @@ public partial class EditableListBox : UserControl
         d.Value = e.NewValue;
     }
 
-    public static object GetDataTriggerAttachedValue(EditableListBox d)
+    public static object GetDataTriggerAttachedValue(AvaloniaObject d)
     {
         return d.GetValue(DataTriggerAttachedValueProperty);
     }
 
-    public static void SetDataTriggerAttachedValue(EditableListBox d, object value)
+    public static void SetDataTriggerAttachedValue(AvaloniaObject d, object value)
     {
         d.SetValue(DataTriggerAttachedValueProperty, value);
     }

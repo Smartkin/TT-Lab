@@ -17,6 +17,11 @@ namespace TT_Lab.AssetData.Instance
     [ReferencesAssets]
     public class TriggerData : AbstractAssetData
     {
+        [JsonConstructor]
+        internal TriggerData() : base(null)
+        {
+        }
+
         public TriggerData(IAsset asset) : base(asset)
         {
             Position = new Vector4(0, 0, 0, 1);

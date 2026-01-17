@@ -6,7 +6,5 @@
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:DataType="viewModels:ModelViewModel"
              x:Class="TT_Lab.Views.Editors.Graphics.ModelView">
-    <Grid>
-        <ContentControl Content="{Binding SceneRenderer}"/>
-    </Grid>
+    <ContentControl Content="{Binding SceneRenderer}"/>
 </UserControl>

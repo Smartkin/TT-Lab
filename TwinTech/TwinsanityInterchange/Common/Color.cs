@@ -96,6 +96,11 @@ namespace Twinsanity.TwinsanityInterchange.Common
         {
             return (UInt32)((A << 24) | (R << 16) | (G << 8) | (B));
         }
+
+        public UInt32 ToRGBA()
+        {
+            return (UInt32)((R << 24) | (G << 16) | (B << 8) | (A));
+        }
         public void FromABGR(UInt32 val)
         {
             A = (Byte)((val >> 24) & 0xFF);

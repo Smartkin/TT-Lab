@@ -8,6 +8,7 @@ using Avalonia;
 using Caliburn.Micro;
 using GlmSharp;
 using ImGuiNET;
+using Splat;
 using TT_Lab.AssetData.Code;
 using TT_Lab.Assets;
 using TT_Lab.Extensions;
@@ -46,8 +47,7 @@ public class AnimationViewModel : ResourceEditorViewModel
         _context = context;
         _skeletonManager = skeletonManager;
         _meshService = meshService;
-        // Scenes.Add(IoC.Get<SceneEditorViewModel>());
-        AnimationScene = IoC.Get<ViewportViewModel>();
+        AnimationScene = Locator.Current.GetService<ViewportViewModel>()!;
         InitAnimationScene();
     }
 

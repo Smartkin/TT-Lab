@@ -52,6 +52,11 @@ public class ViewportViewModel : Screen
 
     public void FrameResized(SizeChangedEventArgs newSize)
     {
+        if (ViewportSize.Equals(new ivec2((int)newSize.NewSize.Width, (int)newSize.NewSize.Height)))
+        {
+            return;
+        }
+        
         CanRender = false;
         NotifyOfPropertyChange(nameof(CanRender));
         NotifyOfPropertyChange(nameof(SceneStatus));

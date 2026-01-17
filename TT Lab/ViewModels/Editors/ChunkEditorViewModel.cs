@@ -42,6 +42,7 @@ using Camera = TT_Lab.Rendering.Objects.Camera;
 using Collision = TT_Lab.Rendering.Objects.Collision;
 using DynamicScenery = TT_Lab.Rendering.Objects.DynamicScenery;
 using ICommand = TT_Lab.Command.ICommand;
+using ObjectInstance = TT_Lab.Assets.Instance.ObjectInstance;
 using Position = TT_Lab.Rendering.Objects.Position;
 using Renderable = TT_Lab.Rendering.Renderable;
 using Scenery = TT_Lab.Rendering.Objects.Scenery;
@@ -632,9 +633,9 @@ namespace TT_Lab.ViewModels.Editors
                 _collisionRender = (Collision)_renderContext.MeshService.GetMesh(collisionUri).Model!;
                 scene.AddChild(_collisionRender);
                 
-                // var instances = _chunkTree.First(avm => avm.Alias == "Instances");
+                // var instances = _chunkTree.Where(avm => avm is InstanceElementGenericViewModel<ObjectInstance>);
                 // _instancesNode = new Node(_renderContext, scene);
-                // foreach (var instance in instances!.Children)
+                // foreach (var instance in instances)
                 // {
                 //     var instData = instance.Asset.GetData<ObjectInstanceData>();
                 //     var objSceneInstance = _renderContext.SceneInstanceFactory.CreateSceneInstance<ObjectSceneInstance>(_editingContext, instData, instance);
@@ -677,44 +678,44 @@ namespace TT_Lab.ViewModels.Editors
                     var chunkMatrix = link.ChunkMatrix.ToGlm();
                     linkedSceneryNode.LocalTransform = chunkMatrix;
                 }
-                // var triggers = _chunkTree.First(avm => avm.Alias == "Triggers");
-                // _triggersNode = new Node(_renderContext, scene);
-                // _triggersNode.AddChild(_editingContext.GetTriggersBillboards());
-                // foreach (var trigger in triggers!.Children)
-                // {
-                //     var trg = _renderContext.SceneInstanceFactory.CreateSceneInstance<TriggerSceneInstance>(_editingContext, trigger.Asset.GetData<AbstractAssetData>(), trigger, _triggersNode);
-                //     _sceneInstances.Add(trg);
-                // }
-                //
-                //
-                // var positions = _chunkTree.First(avm => avm.Alias == "Positions");
-                // var positionsNode = new Node(_renderContext, scene);
-                // positionsNode.AddChild(_editingContext.GetPositionBillboards());
-                // foreach (var position in positions!.Children)
-                // {
-                //     var billboard = _editingContext.CreatePositionBillboard();
-                //     var pos = new Position(_renderContext, position.Asset.URI, billboard, position.Asset.LayoutID!.Value, position.Asset.GetData<PositionData>());
-                //     positionsNode.AddChild(pos);
-                // }
-                //
-                // var aiPositions = _chunkTree.First(avm => avm.Alias == "AI Navigation Positions");
-                // var aiPositionsNode = new Node(_renderContext, scene);
-                // aiPositionsNode.AddChild(_editingContext.GetAiPositionsBillboards());
-                // foreach (var aiPosition in aiPositions!.Children)
-                // {
-                //     var billboard = _editingContext.CreateAiPositionBillboard();
-                //     var aiPos = new AiPosition(_renderContext, aiPosition.Asset.URI, billboard, aiPosition.Asset.LayoutID!.Value, aiPosition.Asset.GetData<AiPositionData>());
-                //     aiPositionsNode.AddChild(aiPos);
-                // }
-                //
-                // var cameras = _chunkTree.First(avm => avm.Alias == "Cameras");
-                // _camerasNode = new Node(_renderContext, scene);
-                // _camerasNode.AddChild(_editingContext.GetCamerasBillboards());
-                // foreach (var camera in cameras!.Children)
-                // {
-                //     var cam = _renderContext.SceneInstanceFactory.CreateSceneInstance<CameraSceneInstance>(_editingContext, camera.Asset.GetData<AbstractAssetData>(), camera, _camerasNode);
-                //     _sceneInstances.Add(cam);
-                // }
+                var triggers = _chunkTree.Where(avm => avm is InstanceElementGenericViewModel<TT_Lab.Assets.Instance.Trigger>);
+                _triggersNode = new Node(_renderContext, scene);
+                _triggersNode.AddChild(_editingContext.GetTriggersBillboards());
+                foreach (var trigger in triggers)
+                {
+                    var trg = _renderContext.SceneInstanceFactory.CreateSceneInstance<TriggerSceneInstance>(_editingContext, trigger.Asset.GetData<AbstractAssetData>(), trigger, _triggersNode);
+                    _sceneInstances.Add(trg);
+                }
+                
+                
+                var positions = _chunkTree.Where(avm => avm is InstanceElementGenericViewModel<TT_Lab.Assets.Instance.Position>);
+                var positionsNode = new Node(_renderContext, scene);
+                positionsNode.AddChild(_editingContext.GetPositionBillboards());
+                foreach (var position in positions)
+                {
+                    var billboard = _editingContext.CreatePositionBillboard();
+                    var pos = new Position(_renderContext, position.Asset.URI, billboard, position.Asset.LayoutID!.Value, position.Asset.GetData<PositionData>());
+                    positionsNode.AddChild(pos);
+                }
+                
+                var aiPositions = _chunkTree.Where(avm => avm is InstanceElementGenericViewModel<TT_Lab.Assets.Instance.AiPosition>);
+                var aiPositionsNode = new Node(_renderContext, scene);
+                aiPositionsNode.AddChild(_editingContext.GetAiPositionsBillboards());
+                foreach (var aiPosition in aiPositions)
+                {
+                    var billboard = _editingContext.CreateAiPositionBillboard();
+                    var aiPos = new AiPosition(_renderContext, aiPosition.Asset.URI, billboard, aiPosition.Asset.LayoutID!.Value, aiPosition.Asset.GetData<AiPositionData>());
+                    aiPositionsNode.AddChild(aiPos);
+                }
+                
+                var cameras = _chunkTree.Where(avm => avm is InstanceElementGenericViewModel<TT_Lab.Assets.Instance.Camera>);;
+                _camerasNode = new Node(_renderContext, scene);
+                _camerasNode.AddChild(_editingContext.GetCamerasBillboards());
+                foreach (var camera in cameras)
+                {
+                    var cam = _renderContext.SceneInstanceFactory.CreateSceneInstance<CameraSceneInstance>(_editingContext, camera.Asset.GetData<AbstractAssetData>(), camera, _camerasNode);
+                    _sceneInstances.Add(cam);
+                }
 
                 renderer.RenderImgui += () =>
                 {

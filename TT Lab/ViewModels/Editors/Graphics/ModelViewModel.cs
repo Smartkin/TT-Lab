@@ -23,9 +23,6 @@ public class ModelViewModel : ResourceEditorViewModel
 
     public ModelViewModel()
     {
-        // Scenes.Add(IoC.Get<SceneEditorViewModel>());
-        // Scenes[0].SceneHeaderModel = "Model viewer";
-        // InitSceneRenderer();
         SceneRenderer = Locator.Current.GetService<ViewportViewModel>()!;
         SceneRenderer.SceneInitializer = (renderer, scene) =>
         {

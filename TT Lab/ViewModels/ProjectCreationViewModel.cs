@@ -25,7 +25,14 @@ public class ProjectCreationViewModel : Screen, INotifyDataErrorInfo
     private readonly ProjectManager _projectManager;
     private readonly IDataValidatorService _dataValidatorService;
 
-    private readonly Dictionary<String, Func<Boolean>> _discContentIsCurrentValidMap = new();
+    private enum DiscContentsStatus
+    {
+        Valid,
+        Empty,
+        Invalid
+    }
+
+    private readonly Dictionary<String, Func<string, DiscContentsStatus>> _discContentIsCurrentValidMap = new();
 
     const Int32 PROJECT_NAME_LIMIT = 32;
     const String PROJECT_NAME_INVALID_CHARS_ERROR = "Project name must not contain invalid characters";
@@ -34,6 +41,7 @@ public class ProjectCreationViewModel : Screen, INotifyDataErrorInfo
     const String PROJECT_PATH_EMPTY_ERROR = "Project path must not be empty";
     const String PROJECT_WITH_THIS_NAME_IN_THIS_FOLDER_ALREADY_EXISTS_ERROR = "Project with this name in the chosen folder already exists";
     const String DISC_CONTENT_PATH_EMPTY_ERROR = "PS2 and XBox disc content paths must not be both empty";
+    const String DISC_CONTENT_INVALID_CONTENTS = "PS2 and XBox disc content paths must contain valid files";
     const String PROJECT_ALREADY_EXISTS_IN_THAT_PATH = "Project files on this path already exist";
 
     public event EventHandler<DataErrorsChangedEventArgs>? ErrorsChanged
@@ -172,14 +180,30 @@ public class ProjectCreationViewModel : Screen, INotifyDataErrorInfo
         return true;
     }
 
-    public Boolean IsDiscContentPathValid(String otherContentPathProperty, String discContentPath)
+    private Boolean IsDiscContentPathValid(String otherContentPathProperty, String discContentPath)
     {
         Debug.Assert(_discContentIsCurrentValidMap.ContainsKey(otherContentPathProperty), "Invalid property name passed to check!");
 
-        if (!_discContentIsCurrentValidMap[otherContentPathProperty]() && String.IsNullOrEmpty(discContentPath))
+        var contentStatus = _discContentIsCurrentValidMap[otherContentPathProperty](discContentPath);
+        if (contentStatus == DiscContentsStatus.Empty)
         {
             _dataValidatorService.AddError(nameof(PS2DiscContentPath), DISC_CONTENT_PATH_EMPTY_ERROR);
             _dataValidatorService.AddError(nameof(XboxDiscContentPath), DISC_CONTENT_PATH_EMPTY_ERROR);
+            return false;
+        }
+
+        if (contentStatus == DiscContentsStatus.Invalid)
+        {
+            if (!CheckForFile(discContentPath, "System.cnf") && otherContentPathProperty == nameof(PS2DiscContentPath))
+            {
+                _dataValidatorService.AddError(nameof(PS2DiscContentPath), DISC_CONTENT_INVALID_CONTENTS);
+            }
+
+            if (!CheckForFile(PS2DiscContentPath, "Default.xbe") && otherContentPathProperty == nameof(XboxDiscContentPath))
+            {
+                _dataValidatorService.AddError(nameof(XboxDiscContentPath), DISC_CONTENT_INVALID_CONTENTS);
+            }
+
             return false;
         }
 
@@ -188,14 +212,40 @@ public class ProjectCreationViewModel : Screen, INotifyDataErrorInfo
         return true;
     }
 
-    public Boolean IsPs2DiscContentPathValid()
+    private DiscContentsStatus IsPs2DiscContentPathValid(string newVal)
     {
-        return !String.IsNullOrEmpty(PS2DiscContentPath);
+        if (String.IsNullOrEmpty(newVal))
+        {
+            return DiscContentsStatus.Empty;
+        }
+
+        if (!CheckForFile(newVal, "System.cnf"))
+        {
+            return DiscContentsStatus.Invalid;
+        }
+        
+        return DiscContentsStatus.Valid;
     }
 
-    public Boolean IsXboxDiscContentPathValid()
+    private DiscContentsStatus IsXboxDiscContentPathValid(string newVal)
     {
-        return !String.IsNullOrEmpty(XboxDiscContentPath);
+        if (String.IsNullOrEmpty(newVal))
+        {
+            return DiscContentsStatus.Empty;
+        }
+        
+        if (!CheckForFile(newVal, "Default.xbe"))
+        {
+            return DiscContentsStatus.Invalid;
+        }
+        
+        return DiscContentsStatus.Valid;
+    }
+
+    private bool CheckForFile(string path, string fileName)
+    {
+        return File.Exists(path + fileName.ToLower()) || File.Exists(path + fileName) ||
+               File.Exists(path + fileName.ToUpper());
     }
 
     public IEnumerable GetErrors(String? propertyName)

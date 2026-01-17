@@ -225,12 +225,6 @@ public class ShellViewModel : Conductor<EditorsViewModel>, ILabManager
             cancellationToken);
     }
 
-    // protected override Task OnInitializedAsync(CancellationToken cancellationToken)
-    // {
-    //     ActivateItemAsync(IoC.Get<EditorsViewModel>(), cancellationToken);
-    //     return base.OnInitializedAsync(cancellationToken);
-    // }
-
     protected override Task OnActivatedAsync(CancellationToken cancellationToken)
     {
         ActivateItemAsync(Locator.Current.GetService<EditorsViewModel>()!, cancellationToken);

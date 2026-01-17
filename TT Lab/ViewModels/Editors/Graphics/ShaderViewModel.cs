@@ -202,6 +202,21 @@ namespace TT_Lab.ViewModels.Editors.Graphics
                 W = UvScrollSpeed.W,
             };
         }
+        
+        public BindableCollection<object> AlphaTestMethods => ViewModelUtil.AlphaTestMethods;
+        public BindableCollection<object> ShaderTypes => ViewModelUtil.ShaderTypes;
+        public BindableCollection<object> ProcessesAfterTestFailed => ViewModelUtil.ProcessesAfterTestFailed;
+        public BindableCollection<object> DestinationAlphaTestMode => ViewModelUtil.DestinationAlphaTestMode;
+        public BindableCollection<object> DepthTestMethods => ViewModelUtil.DepthTestMethods;
+        public BindableCollection<object> ShadingMethods => ViewModelUtil.ShadingMethods;
+        public BindableCollection<object> TextureCoordinates => ViewModelUtil.TextureCoordinates;
+        public BindableCollection<object> TextureFilters => ViewModelUtil.TextureFilters;
+        public BindableCollection<object> ZValueDrawMasks => ViewModelUtil.ZValueDrawMask;
+        public BindableCollection<object> ColorSpecs => ViewModelUtil.ColorSpecs;
+        public BindableCollection<object> AlphaSpecs => ViewModelUtil.AlphaSpecs;
+        public BindableCollection<object> AlphaBlendingPresets => ViewModelUtil.AlphaBlendingPresets;
+        public BindableCollection<object> XApplicableScrollSettings => ViewModelUtil.XScrollSettings;
+        public BindableCollection<object> YApplicableScrollSettings => ViewModelUtil.YScrollSettings;
 
         public MaterialViewModel ParentEditor { get; set; }
 

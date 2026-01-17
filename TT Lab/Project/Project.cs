@@ -3,6 +3,7 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Splat;
@@ -260,17 +261,17 @@ public class Project : IProject
             System.IO.Directory.SetCurrentDirectory("ps2");
             foreach (var dirPath in System.IO.Directory.GetDirectories(DiscContentPathPS2, "*", System.IO.SearchOption.AllDirectories))
             {
-                if (System.IO.Directory.Exists(dirPath.Replace(DiscContentPathPS2 + System.IO.Path.DirectorySeparatorChar, "")))
+                if (System.IO.Directory.Exists(dirPath.Replace(DiscContentPathPS2, "")))
                 {
                     continue;
                 }
                 
-                System.IO.Directory.CreateDirectory(dirPath.Replace(DiscContentPathPS2 + System.IO.Path.DirectorySeparatorChar, ""));
+                System.IO.Directory.CreateDirectory(dirPath.Replace(DiscContentPathPS2, ""));
             }
 
             foreach (var newPath in System.IO.Directory.GetFiles(DiscContentPathPS2, "*.*", System.IO.SearchOption.AllDirectories))
             {
-                System.IO.File.Copy(newPath, newPath.Replace(DiscContentPathPS2 + System.IO.Path.DirectorySeparatorChar, ""), true);
+                System.IO.File.Copy(newPath, newPath.Replace(DiscContentPathPS2, ""), true);
             }
 
             DiscContentPathPS2 = $"{ProjectPath}/disc/ps2";

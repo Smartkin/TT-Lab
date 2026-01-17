@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using GlmSharp;
+using Splat;
 using TT_Lab.AssetData.Graphics;
 using TT_Lab.AssetData.Graphics.Shaders;
 using TT_Lab.Assets;
@@ -24,8 +25,7 @@ namespace TT_Lab.ViewModels.Editors.Graphics;
 
 public class MaterialViewModel : ResourceEditorViewModel
 {
-    private readonly RenderContext _renderContext;
-    private readonly MeshFactory _meshFactory;
+    private RenderContext? _renderContext;
     private AppliedShaders _activatedShaders;
     private UInt32 _dmaChainIndex;
     private String _name;
@@ -34,21 +34,19 @@ public class MaterialViewModel : ResourceEditorViewModel
     private ViewportViewModel _materialViewer;
     private Mesh? _planeMesh;
 
-    public MaterialViewModel(RenderContext renderContext, MeshFactory meshFactory)
+    public MaterialViewModel()
     {
-        _renderContext = renderContext;
-        _meshFactory = meshFactory;
         DirtyTracker.AddBindableCollection(Shaders);
-        _materialViewer = IoC.Get<ViewportViewModel>();
+        _materialViewer = Locator.Current.GetService<ViewportViewModel>()!;
         _materialViewer.UseImgui = false;
         InitMaterialViewer();
     }
 
-    protected override async Task OnActivateAsync(CancellationToken cancellationToken)
+    protected override async Task OnActivatedAsync(CancellationToken cancellationToken)
     {
         await ActivateItemAsync(MaterialViewer, cancellationToken);
         
-        await base.OnActivateAsync(cancellationToken);
+        await base.OnActivatedAsync(cancellationToken);
     }
 
     protected override Task OnDeactivateAsync(bool close, CancellationToken cancellationToken)
@@ -122,7 +120,7 @@ public class MaterialViewModel : ResourceEditorViewModel
         {
             var newMaterial = new MaterialData(AssetManager.Get().GetAsset(EditableResource));
             Save(ref newMaterial);
-            _renderContext.QueueRenderAction(() =>
+            _renderContext?.QueueRenderAction(() =>
             {
                 if (_planeMesh == null)
                 {
@@ -141,7 +139,8 @@ public class MaterialViewModel : ResourceEditorViewModel
             var material = new MaterialData(AssetManager.Get().GetAsset(EditableResource));
             Save(ref material);
             // Explicitly create new mesh
-            _planeMesh = _meshFactory.CreateMesh(LabURI.Plane)!;
+            _renderContext = renderer.GetRenderContext();
+            _planeMesh = _renderContext.MeshFactory.CreateMesh(LabURI.Plane)!;
             _planeMesh.GetModels()[0].ReplaceMaterial(material);
             scene.AddChild(_planeMesh);
             _planeMesh.Translate(vec3.UnitZ * -2);

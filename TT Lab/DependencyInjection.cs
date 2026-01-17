@@ -49,7 +49,7 @@ public static class DependencyInjection
         services.AddSingleton<ProjectManager>();
         services.AddSingleton<IActiveChunkService, ActiveChunkService>();
         services.AddSingleton<IAudioService, AudioService>();
-        services.AddScoped<IDataValidatorService, DataValidatorService>();
+        services.AddTransient<IDataValidatorService, DataValidatorService>();
         services.AddScoped<Rendering.Renderer>();
         
         return services;

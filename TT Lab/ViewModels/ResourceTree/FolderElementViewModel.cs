@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 using Caliburn.Micro;
+using Splat;
 using TT_Lab.AssetData;
 using TT_Lab.AssetData.Code;
 using TT_Lab.Assets;
@@ -104,10 +105,10 @@ public class FolderElementViewModel : ResourceTreeElementViewModel
 
     private void CreateItem()
     {
-        var assetCreatorDialogue = IoC.Get<CreateAssetViewModel>();
+        var assetCreatorDialogue = Locator.Current.GetService<CreateAssetViewModel>()!;
         DefaultCreatableAssets(assetCreatorDialogue);
         ListCreatableAssets(assetCreatorDialogue);
         assetCreatorDialogue.AssignFolder(this);
-        IoC.Get<IWindowManager>().ShowDialogAsync(assetCreatorDialogue);
+        Locator.Current.GetService<IWindowManager>()!.ShowDialogAsync(assetCreatorDialogue);
     }
 }

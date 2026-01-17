@@ -94,6 +94,8 @@ namespace TT_Lab.AssetData.Instance
         protected override void LoadInternal(String dataPath, JsonSerializerSettings? settings = null)
         {
             base.LoadInternal(dataPath, settings);
+
+            Trigger.SetOwner(Owner);
         }
 
         protected override void Dispose(Boolean disposing)
@@ -103,7 +105,7 @@ namespace TT_Lab.AssetData.Instance
 
         public override void Import(LabURI package, String? variant, Int32? layoutId)
         {
-            ITwinCamera camera = GetTwinItem<ITwinCamera>();
+            var camera = GetTwinItem<ITwinCamera>();
             Trigger = new TriggerData(Owner, package, variant, camera.CamTrigger, layoutId);
             CameraHeader = camera.CameraHeader;
             UnkShort = camera.UnkShort;
@@ -169,8 +171,8 @@ namespace TT_Lab.AssetData.Instance
             writer.Write(UnkInt8);
             writer.Write(UnkInt9);
             writer.Write(UnkFloat8);
-            writer.Write((UInt32)(MainCamera1 == null ? ITwinCamera.CameraType.Null : MainCamera1.GetCameraType()));
-            writer.Write((UInt32)(MainCamera2 == null ? ITwinCamera.CameraType.Null : MainCamera2.GetCameraType()));
+            writer.Write((UInt32)(MainCamera1?.GetCameraType() ?? ITwinCamera.CameraType.Null));
+            writer.Write((UInt32)(MainCamera2?.GetCameraType() ?? ITwinCamera.CameraType.Null));
             writer.Write(UnkByte);
             MainCamera1?.Write(writer);
             MainCamera2?.Write(writer);

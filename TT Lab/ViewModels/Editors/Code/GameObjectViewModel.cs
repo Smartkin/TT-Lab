@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using Caliburn.Micro;
+using Splat;
 using TT_Lab.AssetData.Code;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
@@ -51,7 +52,7 @@ public class GameObjectViewModel : ResourceEditorViewModel
         _context = context;
         _skeletonManager = skeletonManager;
         _meshService = meshService;
-        ObjectScene = IoC.Get<ViewportViewModel>();
+        ObjectScene = Locator.Current.GetService<ViewportViewModel>()!;
         InitObjectScene();
         SelectedAnimationOgiPairSlot = 0;
         _behaviourFilterCommand = new CollectionFilterCommand(o =>

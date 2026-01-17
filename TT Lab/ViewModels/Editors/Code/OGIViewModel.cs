@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Caliburn.Micro;
+using Splat;
 using TT_Lab.AssetData.Code;
 using TT_Lab.Assets;
 using TT_Lab.Attributes;
@@ -29,22 +30,23 @@ public class OGIViewModel : ResourceEditorViewModel
     private Rendering.Objects.OGI? _ogiRender;
     private OGIData _ogiData;
 
-    public OGIViewModel(RenderContext context, TwinSkeletonManager skeletonManager, MeshService meshService)
+    public OGIViewModel()
     {
-        OGIScene = IoC.Get<ViewportViewModel>();
+        OGIScene = Locator.Current.GetService<ViewportViewModel>()!;
         OGIScene.SceneInitializer = (renderer, scene) =>
         {
             _ogiData = AssetManager.Get().GetAssetData<OGIData>(EditableResource);
-            _ogiRender = new Rendering.Objects.OGI(context, skeletonManager, meshService, _ogiData);
+            var renderContext = renderer.GetRenderContext();
+            _ogiRender = new Rendering.Objects.OGI(renderContext, renderContext.SkeletonManager, renderContext.MeshService, _ogiData);
             scene.AddChild(_ogiRender);
         };
     }
 
-    protected override async Task OnActivateAsync(CancellationToken cancellationToken)
+    protected override async Task OnActivatedAsync(CancellationToken cancellationToken)
     {
         await ActivateItemAsync(OGIScene, cancellationToken);
         
-        await base.OnActivateAsync(cancellationToken);
+        await base.OnActivatedAsync(cancellationToken);
     }
 
     protected override async Task OnDeactivateAsync(bool close, CancellationToken cancellationToken)

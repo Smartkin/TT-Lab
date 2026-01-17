@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Caliburn.Micro;
+using Splat;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Models;
@@ -72,14 +73,14 @@ public class CreateAssetViewModel : Screen, INotifyDataErrorInfo
         if (SelectedCreationModel.DataCreator != null)
         {
             newAsset = AssetFactory.CreateAsset(SelectedCreationModel.AssetType, _selectedFolder.GetAsset<Folder>(),
-                _assetName.Trim(), IoC.Get<ProjectManager>().OpenedProject!.BasePackage.ID.ToString(), idGenerator,
+                _assetName.Trim(), Locator.Current.GetService<ProjectManager>()!.OpenedProject!.BasePackage.ID.ToString(), idGenerator,
                 SelectedCreationModel.DataCreator, SelectedCreationModel.IsInstance ? LayoutID : null);
         }
         else if (SelectedCreationModel.DataCreatorAsync != null)
         {
             newAsset = await AssetFactory.CreateAsset(SelectedCreationModel.AssetType,
                 _selectedFolder.GetAsset<Folder>(), _assetName.Trim(),
-                IoC.Get<ProjectManager>().OpenedProject!.BasePackage.ID.ToString(), idGenerator,
+                Locator.Current.GetService<ProjectManager>()!.OpenedProject!.BasePackage.ID.ToString(), idGenerator,
                 SelectedCreationModel.DataCreatorAsync, SelectedCreationModel.IsInstance ? LayoutID : null);
         }
         if (newAsset != null)

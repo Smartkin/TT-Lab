@@ -8,7 +8,7 @@ using TT_Lab.ViewModels.Composite;
 
 namespace TT_Lab.ViewModels;
 
-public class ResourcesEditorsViewModel : EditorsViewerViewModel, IHandle<CreateEditorMessage<ResourceEditorViewModel>>
+public sealed class ResourcesEditorsViewModel : EditorsViewerViewModel, IHandle<CreateEditorMessage<ResourceEditorViewModel>>
 {
     private readonly IEventAggregator _eventAggregator;
     private readonly ProjectManager _projectManager;

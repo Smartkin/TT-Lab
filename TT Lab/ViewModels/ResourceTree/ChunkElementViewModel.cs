@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using Caliburn.Micro;
+using Splat;
 using TT_Lab.Assets;
 using TT_Lab.Project;
 
@@ -25,18 +26,18 @@ public class ChunkElementViewModel : ResourceTreeElementViewModel
     {
         try
         {
-            var projectManager = IoC.Get<ProjectManager>();
+            var projectManager = Locator.Current.GetService<ProjectManager>()!;
             projectManager.WorkableProject = false;
             var buildTask = Task.Factory.StartNew(() =>
             {
-                IoC.Get<ProjectManager>().OpenedProject!.PackChunk(Asset.URI);
+                Locator.Current.GetService<ProjectManager>()!.OpenedProject!.PackChunk(Asset.URI);
             });
             await buildTask;
             projectManager.WorkableProject = true;
         }
         catch (Exception e)
         {
-            IoC.Get<ProjectManager>().WorkableProject = true;
+            Locator.Current.GetService<ProjectManager>()!.WorkableProject = true;
             Log.WriteLine($"Error when building chunk: {e.Message}");
         }
     }

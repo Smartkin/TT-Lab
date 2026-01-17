@@ -3,6 +3,7 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Splat;
 using TT_Lab.AssetData.Graphics;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Graphics;
@@ -18,7 +19,6 @@ namespace TT_Lab.ViewModels.Editors.Graphics
 {
     public class RigidModelViewModel : ResourceEditorViewModel
     {
-        private readonly MeshService _meshService;
         private Int32 _selectedMaterial;
         private String _materialName;
         private Mesh? _rigidModel;
@@ -29,17 +29,14 @@ namespace TT_Lab.ViewModels.Editors.Graphics
             Model
         }
 
-        public RigidModelViewModel(MeshService meshService)
+        public RigidModelViewModel()
         {
-            _meshService = meshService;
-            // Scenes.Add(IoC.Get<SceneEditorViewModel>());
-            // Scenes.Add(IoC.Get<SceneEditorViewModel>());
             _materialName = "NO MATERIAL";
-            SceneRenderer = IoC.Get<ViewportViewModel>();
-            MaterialViewer = IoC.Get<ViewportViewModel>();
+            SceneRenderer = Locator.Current.GetService<ViewportViewModel>()!;
+            MaterialViewer = Locator.Current.GetService<ViewportViewModel>()!;
             SceneRenderer.SceneInitializer = (renderer, scene) =>
             {
-                var mesh = _meshService.GetMesh(EditableResource);
+                var mesh = renderer.GetRenderContext().MeshService.GetMesh(EditableResource);
                 if (mesh.Model != null)
                 {
                     scene.AddChild(mesh.Model);

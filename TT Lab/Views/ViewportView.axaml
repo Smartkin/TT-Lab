@@ -45,6 +45,7 @@
                 </EventTriggerBehavior>
             </Interaction.Behaviors>
         </controls:Viewport>
-        <TextBlock Text="{Binding SceneStatus}" FontSize="32" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+        <!-- TODO: Disabled for now because sometimes it causes infinite measuring and thus infinite loop in the UI render -->
+        <!-- <TextBlock Text="{Binding SceneStatus}" FontSize="32" VerticalAlignment="Center" HorizontalAlignment="Center"/> -->
     </Grid>
 </UserControl>

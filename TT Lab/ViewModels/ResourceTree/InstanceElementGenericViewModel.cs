@@ -1,4 +1,5 @@
 using Caliburn.Micro;
+using Splat;
 using TT_Lab.AssetData;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Instance;
@@ -21,7 +22,7 @@ public class InstanceElementGenericViewModel<T> : InstanceElementViewModel where
         {
             Chunk = Asset.Chunk,
             LayoutID = Asset.LayoutID,
-            Variation = Asset.Chunk + IoC.Get<ProjectManager>().OpenedProject!.BasePackage.ID,
+            Variation = Asset.Chunk + Locator.Current.GetService<ProjectManager>()!.OpenedProject!.BasePackage.ID,
             ID = TwinIdGeneratorServiceProvider.GetGeneratorForChunk<T>(Asset.Chunk, MiscUtils.ConvertEnum<Enums.Layouts>(Asset.LayoutID!)).GenerateTwinId(),
             Package = Asset.Package
         };

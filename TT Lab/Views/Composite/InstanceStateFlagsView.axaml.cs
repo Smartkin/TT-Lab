@@ -1,10 +1,11 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+using TT_Lab.ViewModels.Composite;
 
 namespace TT_Lab.Views.Composite;
 
-public partial class InstanceStateFlagsView : UserControl
+public partial class InstanceStateFlagsView : BurnBridgeControl<InstanceStateFlagsViewModel>
 {
     public InstanceStateFlagsView()
     {

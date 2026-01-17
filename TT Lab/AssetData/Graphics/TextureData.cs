@@ -76,7 +76,7 @@ public class TextureData : AbstractAssetData
                 bits[dstx + dsty * width] = texture.Colors[x + y * width].ToARGB();
             }
         }
-        
+
         Bitmap = new Bitmap(PixelFormat.Bgra8888, AlphaFormat.Unpremul, bitsHandle.AddrOfPinnedObject(),
             new PixelSize(width, height), new Vector(96, 96), width * 4);
         bitsHandle.Free();

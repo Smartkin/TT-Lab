@@ -7,7 +7,7 @@ using TT_Lab.ViewModels.Editors.Instance;
 
 namespace TT_Lab.Views.Editors.Instance;
 
-public partial class TriggerView : UserControl
+public partial class TriggerView : BurnBridgeControl<TriggerViewModel>
 {
     public TriggerView()
     {

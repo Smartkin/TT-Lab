@@ -1,8 +1,5 @@
 using System;
-using System.Drawing;
-using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
-using System.Threading;
 using Avalonia;
 using Avalonia.Media.Imaging;
 using GlmSharp;
@@ -16,7 +13,7 @@ public unsafe class TextureBuffer : IDisposable
     private uint _textureBuffer;
     private byte[] _data;
     private readonly InternalFormat _internalFormat = InternalFormat.Rgba8;
-    private readonly Silk.NET.OpenGL.PixelFormat _pixelFormat = Silk.NET.OpenGL.PixelFormat.Bgra;
+    private readonly PixelFormat _pixelFormat = PixelFormat.Bgra;
     private readonly PixelType _pixelType = PixelType.UnsignedByte;
 
     private TextureBuffer(RenderContext renderContext)
