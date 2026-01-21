@@ -219,6 +219,11 @@ public class MeshFactory
         var assetManager = AssetManager.Get();
         var materials = rigidModelData.Materials.Select(m =>
         {
+            if (m == LabURI.Empty)
+            {
+                return MaterialData.GetEmptyMaterial();
+            }
+            
             var material = assetManager.GetAssetData<MaterialData>(m);
             return material;
         }).ToList();
@@ -258,7 +263,7 @@ public class MeshFactory
         var assetManager = AssetManager.Get();
         var buffers = skin.SubSkins.Select(ss =>
         {
-            var material = assetManager.GetAssetData<MaterialData>(ss.Material);
+            var material = ss.Material == LabURI.Empty ? MaterialData.GetEmptyMaterial() : assetManager.GetAssetData<MaterialData>(ss.Material);
             return new ModelBuffer(_renderContext, _meshBuilder.BuildSkinnedVaoFromVertexes(ss.Vertexes, ss.Faces), _materialFactory, material);
         }).ToList();
         
@@ -275,7 +280,7 @@ public class MeshFactory
         var facesAmount = 0;
         foreach (var blend in blendSkin.Blends)
         {
-            var material = assetManager.GetAssetData<MaterialData>(blend.Material);
+            var material = blend.Material == LabURI.Empty ? MaterialData.GetEmptyMaterial() : assetManager.GetAssetData<MaterialData>(blend.Material);
             foreach (var blendModel in blend.Models)
             {
                 var indices = new List<Int32>();

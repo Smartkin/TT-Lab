@@ -35,6 +35,16 @@ public class RenderBatch : Renderable
         _meshes.Add(mesh);
     }
 
+    public void RemoveFromBatch(Mesh mesh)
+    {
+        if (!_meshes.Contains(mesh))
+        {
+            return;
+        }
+        
+        _meshes.Remove(mesh);
+    }
+
     protected override void RenderSelf(float delta)
     {
         if (!_batchedBuffer.Bind())

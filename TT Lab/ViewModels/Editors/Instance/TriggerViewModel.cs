@@ -12,461 +12,460 @@ using Twinsanity.TwinsanityInterchange.Enumerations;
 using Vector3 = Twinsanity.TwinsanityInterchange.Common.Vector3;
 using Vector4 = Twinsanity.TwinsanityInterchange.Common.Vector4;
 
-namespace TT_Lab.ViewModels.Editors.Instance
+namespace TT_Lab.ViewModels.Editors.Instance;
+
+public class TriggerViewModel : ViewportEditableInstanceViewModel
 {
-    public class TriggerViewModel : ViewportEditableInstanceViewModel
-    {
-        private Enums.TriggerActivatorObjects _objActivatorMask;
-        private BindableCollection<PrimitiveWrapperViewModel<LabURI>> _instances = new();
-        private UInt32 _header;
-        private Single _unkFloat;
-        private Enums.Layouts _layId;
-        private UInt16 _triggerMessage1;
-        private UInt16 _triggerMessage2;
-        private UInt16 _triggerMessage3;
-        private UInt16 _triggerMessage4;
+    private Enums.TriggerActivatorObjects _objActivatorMask;
+    private BindableCollection<PrimitiveWrapperViewModel<LabURI>> _instances = new();
+    private UInt32 _header;
+    private Single _unkFloat;
+    private Enums.Layouts _layId;
+    private UInt16 _triggerMessage1;
+    private UInt16 _triggerMessage2;
+    private UInt16 _triggerMessage3;
+    private UInt16 _triggerMessage4;
         
-        public TriggerViewModel()
-        {}
+    public TriggerViewModel()
+    {}
 
-        public TriggerViewModel(Enums.Layouts layoutId, TriggerData data)
-        {
-            ConstructFromData(layoutId, data);
-        }
+    public TriggerViewModel(Enums.Layouts layoutId, TriggerData data)
+    {
+        ConstructFromData(layoutId, data);
+    }
 
-        protected override void Save()
-        {
-            var asset = AssetManager.Get().GetAsset(EditableResource);
-            asset.LayoutID = (int)LayoutID;
-            var data = asset.GetData<TriggerData>();
-            Save(data);
+    protected override void Save()
+    {
+        var asset = AssetManager.Get().GetAsset(EditableResource);
+        asset.LayoutID = (int)LayoutID;
+        var data = asset.GetData<TriggerData>();
+        Save(data);
             
-            base.Save();
-        }
+        base.Save();
+    }
 
-        public override void LoadData()
-        {
-            var asset = AssetManager.Get().GetAsset(EditableResource);
-            var data = asset.GetData<TriggerData>();
-            ConstructFromData(MiscUtils.ConvertEnum<Enums.Layouts>(asset.LayoutID), data);
-        }
+    public override void LoadData()
+    {
+        var asset = AssetManager.Get().GetAsset(EditableResource);
+        var data = asset.GetData<TriggerData>();
+        ConstructFromData(MiscUtils.ConvertEnum<Enums.Layouts>(asset.LayoutID), data);
+    }
 
-        public void Save(TriggerData data)
+    public void Save(TriggerData data)
+    {
+        data.ObjectActivatorMask = ObjectActivatorMask;
+        data.Header = Header;
+        data.UnkFloat = UnkFloat;
+        Position.Save(data.Position);
+        var newScale = new Vector3();
+        Scale.Save(newScale);
+        data.Scale = new Vector4(newScale.X, newScale.Y, newScale.Z, 1);
+        var quat = Quaternion.CreateFromYawPitchRoll(Rotation.X, Rotation.Y, Rotation.Z);
+        data.Rotation = new Vector4(quat.X, quat.Y, quat.Z, quat.W);
+        data.Instances.Clear();
+        foreach (var inst in Instances)
         {
-            data.ObjectActivatorMask = ObjectActivatorMask;
-            data.Header = Header;
-            data.UnkFloat = UnkFloat;
-            Position.Save(data.Position);
-            var newScale = new Vector3();
-            Scale.Save(newScale);
-            data.Scale = new Vector4(newScale.X, newScale.Y, newScale.Z, 1);
-            var quat = Quaternion.CreateFromYawPitchRoll(Rotation.X, Rotation.Y, Rotation.Z);
-            data.Rotation = new Vector4(quat.X, quat.Y, quat.Z, quat.W);
-            data.Instances.Clear();
-            foreach (var inst in Instances)
+            data.Instances.Add(inst.Value);
+        }
+        data.TriggerMessage1 = TriggerMessage1;
+        data.TriggerMessage2 = TriggerMessage2;
+        data.TriggerMessage3 = TriggerMessage3;
+        data.TriggerMessage4 = TriggerMessage4;
+    }
+
+    private void ConstructFromData(Enums.Layouts layoutId, TriggerData data)
+    {
+        _objActivatorMask = MiscUtils.ConvertEnum<Enums.TriggerActivatorObjects>(data.ObjectActivatorMask);
+        _instances = new BindableCollection<PrimitiveWrapperViewModel<LabURI>>();
+        DirtyTracker.AddBindableCollection(_instances);
+        foreach (var inst in data.Instances)
+        {
+            _instances.Add(new PrimitiveWrapperViewModel<LabURI>(inst));
+        }
+        Position = new Vector4ViewModel(data.Position);
+        Rotation = new Vector3ViewModel(data.Rotation.ToEulerAngles());
+        var scaleVector = new Vector3(data.Scale.X, data.Scale.Y, data.Scale.Z);
+        Scale = new Vector3ViewModel(scaleVector);
+        DirtyTracker.AddChild(Position);
+        DirtyTracker.AddChild(Rotation);
+        DirtyTracker.AddChild(Scale);
+        _header = data.Header;
+        _unkFloat = data.UnkFloat;
+        _triggerMessage1 = data.TriggerMessage1;
+        _triggerMessage2 = data.TriggerMessage2;
+        _triggerMessage3 = data.TriggerMessage3;
+        _triggerMessage4 = data.TriggerMessage4;
+        _layId = layoutId;
+        DeleteInstanceFromListCommand = new DeleteItemFromListCommand(_instances);
+    }
+
+    public DeleteItemFromListCommand DeleteInstanceFromListCommand { get; private set; }
+
+    [MarkDirty]
+    public Enums.Layouts LayoutID
+    {
+        get => _layId;
+        set
+        {
+            if (_layId != value)
             {
-                data.Instances.Add(inst.Value);
-            }
-            data.TriggerMessage1 = TriggerMessage1;
-            data.TriggerMessage2 = TriggerMessage2;
-            data.TriggerMessage3 = TriggerMessage3;
-            data.TriggerMessage4 = TriggerMessage4;
-        }
-
-        private void ConstructFromData(Enums.Layouts layoutId, TriggerData data)
-        {
-            _objActivatorMask = MiscUtils.ConvertEnum<Enums.TriggerActivatorObjects>(data.ObjectActivatorMask);
-            _instances = new BindableCollection<PrimitiveWrapperViewModel<LabURI>>();
-            DirtyTracker.AddBindableCollection(_instances);
-            foreach (var inst in data.Instances)
-            {
-                _instances.Add(new PrimitiveWrapperViewModel<LabURI>(inst));
-            }
-            Position = new Vector4ViewModel(data.Position);
-            Rotation = new Vector3ViewModel(data.Rotation.ToEulerAngles());
-            var scaleVector = new Vector3(data.Scale.X, data.Scale.Y, data.Scale.Z);
-            Scale = new Vector3ViewModel(scaleVector);
-            DirtyTracker.AddChild(Position);
-            DirtyTracker.AddChild(Rotation);
-            DirtyTracker.AddChild(Scale);
-            _header = data.Header;
-            _unkFloat = data.UnkFloat;
-            _triggerMessage1 = data.TriggerMessage1;
-            _triggerMessage2 = data.TriggerMessage2;
-            _triggerMessage3 = data.TriggerMessage3;
-            _triggerMessage4 = data.TriggerMessage4;
-            _layId = layoutId;
-            DeleteInstanceFromListCommand = new DeleteItemFromListCommand(_instances);
-        }
-
-        public DeleteItemFromListCommand DeleteInstanceFromListCommand { get; private set; }
-
-        [MarkDirty]
-        public Enums.Layouts LayoutID
-        {
-            get => _layId;
-            set
-            {
-                if (_layId != value)
-                {
-                    _layId = value;
+                _layId = value;
                     
-                    NotifyOfPropertyChange();
-                }
+                NotifyOfPropertyChange();
             }
         }
+    }
 
-        [MarkDirty]
-        public Enums.TriggerActivatorObjects ObjectActivatorMask
+    [MarkDirty]
+    public Enums.TriggerActivatorObjects ObjectActivatorMask
+    {
+        get => _objActivatorMask;
+        set
         {
-            get => _objActivatorMask;
-            set
+            if (value != _objActivatorMask)
             {
-                if (value != _objActivatorMask)
-                {
-                    _objActivatorMask = value;
+                _objActivatorMask = value;
                     
-                    NotifyOfPropertyChange();
-                }
+                NotifyOfPropertyChange();
             }
         }
+    }
 
-        [MarkDirty]
-        public Boolean ActivateByPlayableCharacter
+    [MarkDirty]
+    public Boolean ActivateByPlayableCharacter
+    {
+        get => _objActivatorMask.HasFlag(Enums.TriggerActivatorObjects.PlayableCharacter);
+        set
         {
-            get => _objActivatorMask.HasFlag(Enums.TriggerActivatorObjects.PlayableCharacter);
-            set
+            if (value != ActivateByPlayableCharacter)
             {
-                if (value != ActivateByPlayableCharacter)
-                {
-                    _objActivatorMask = _objActivatorMask.ChangeFlag(Enums.TriggerActivatorObjects.PlayableCharacter, value);
+                _objActivatorMask = _objActivatorMask.ChangeFlag(Enums.TriggerActivatorObjects.PlayableCharacter, value);
                     
-                    NotifyOfPropertyChange();
-                    NotifyOfPropertyChange(nameof(ObjectActivatorMask));
-                }
+                NotifyOfPropertyChange();
+                NotifyOfPropertyChange(nameof(ObjectActivatorMask));
             }
         }
+    }
 
-        [MarkDirty]
-        public Boolean ActivateByPickups
+    [MarkDirty]
+    public Boolean ActivateByPickups
+    {
+        get => _objActivatorMask.HasFlag(Enums.TriggerActivatorObjects.Pickups);
+        set
         {
-            get => _objActivatorMask.HasFlag(Enums.TriggerActivatorObjects.Pickups);
-            set
+            if (value != ActivateByPickups)
             {
-                if (value != ActivateByPickups)
-                {
-                    _objActivatorMask = _objActivatorMask.ChangeFlag(Enums.TriggerActivatorObjects.Pickups, value);
+                _objActivatorMask = _objActivatorMask.ChangeFlag(Enums.TriggerActivatorObjects.Pickups, value);
                     
-                    NotifyOfPropertyChange();
-                    NotifyOfPropertyChange(nameof(ObjectActivatorMask));
-                }
+                NotifyOfPropertyChange();
+                NotifyOfPropertyChange(nameof(ObjectActivatorMask));
             }
         }
+    }
 
-        [MarkDirty]
-        public Boolean ActivateByCrates
+    [MarkDirty]
+    public Boolean ActivateByCrates
+    {
+        get => _objActivatorMask.HasFlag(Enums.TriggerActivatorObjects.Crates);
+        set
         {
-            get => _objActivatorMask.HasFlag(Enums.TriggerActivatorObjects.Crates);
-            set
+            if (value != ActivateByCrates)
             {
-                if (value != ActivateByCrates)
-                {
-                    _objActivatorMask = _objActivatorMask.ChangeFlag(Enums.TriggerActivatorObjects.Crates, value);
+                _objActivatorMask = _objActivatorMask.ChangeFlag(Enums.TriggerActivatorObjects.Crates, value);
                     
-                    NotifyOfPropertyChange();
-                    NotifyOfPropertyChange(nameof(ObjectActivatorMask));
-                }
+                NotifyOfPropertyChange();
+                NotifyOfPropertyChange(nameof(ObjectActivatorMask));
             }
         }
+    }
 
-        [MarkDirty]
-        public Boolean ActivateByCreatures
+    [MarkDirty]
+    public Boolean ActivateByCreatures
+    {
+        get => _objActivatorMask.HasFlag(Enums.TriggerActivatorObjects.Creatures);
+        set
         {
-            get => _objActivatorMask.HasFlag(Enums.TriggerActivatorObjects.Creatures);
-            set
+            if (value != ActivateByCreatures)
             {
-                if (value != ActivateByCreatures)
-                {
-                    _objActivatorMask = _objActivatorMask.ChangeFlag(Enums.TriggerActivatorObjects.Creatures, value);
+                _objActivatorMask = _objActivatorMask.ChangeFlag(Enums.TriggerActivatorObjects.Creatures, value);
                     
-                    NotifyOfPropertyChange();
-                    NotifyOfPropertyChange(nameof(ObjectActivatorMask));
-                }
+                NotifyOfPropertyChange();
+                NotifyOfPropertyChange(nameof(ObjectActivatorMask));
             }
         }
+    }
 
-        [MarkDirty]
-        public Boolean ActivateByGenericObjects
+    [MarkDirty]
+    public Boolean ActivateByGenericObjects
+    {
+        get => _objActivatorMask.HasFlag(Enums.TriggerActivatorObjects.GenericObjects);
+        set
         {
-            get => _objActivatorMask.HasFlag(Enums.TriggerActivatorObjects.GenericObjects);
-            set
+            if (value != ActivateByGenericObjects)
             {
-                if (value != ActivateByGenericObjects)
-                {
-                    _objActivatorMask = _objActivatorMask.ChangeFlag(Enums.TriggerActivatorObjects.GenericObjects, value);
+                _objActivatorMask = _objActivatorMask.ChangeFlag(Enums.TriggerActivatorObjects.GenericObjects, value);
                     
-                    NotifyOfPropertyChange();
-                    NotifyOfPropertyChange(nameof(ObjectActivatorMask));
-                }
+                NotifyOfPropertyChange();
+                NotifyOfPropertyChange(nameof(ObjectActivatorMask));
             }
         }
+    }
 
-        [MarkDirty]
-        public Boolean ActivateByGrabbables
+    [MarkDirty]
+    public Boolean ActivateByGrabbables
+    {
+        get => _objActivatorMask.HasFlag(Enums.TriggerActivatorObjects.Grabbables);
+        set
         {
-            get => _objActivatorMask.HasFlag(Enums.TriggerActivatorObjects.Grabbables);
-            set
+            if (value != ActivateByGrabbables)
             {
-                if (value != ActivateByGrabbables)
-                {
-                    _objActivatorMask = _objActivatorMask.ChangeFlag(Enums.TriggerActivatorObjects.Grabbables, value);
+                _objActivatorMask = _objActivatorMask.ChangeFlag(Enums.TriggerActivatorObjects.Grabbables, value);
                     
-                    NotifyOfPropertyChange();
-                    NotifyOfPropertyChange(nameof(ObjectActivatorMask));
-                }
+                NotifyOfPropertyChange();
+                NotifyOfPropertyChange(nameof(ObjectActivatorMask));
             }
         }
+    }
 
-        [MarkDirty]
-        public Boolean ActivateByPayGates
+    [MarkDirty]
+    public Boolean ActivateByPayGates
+    {
+        get => _objActivatorMask.HasFlag(Enums.TriggerActivatorObjects.PayGates);
+        set
         {
-            get => _objActivatorMask.HasFlag(Enums.TriggerActivatorObjects.PayGates);
-            set
+            if (value != ActivateByPayGates)
             {
-                if (value != ActivateByPayGates)
-                {
-                    _objActivatorMask = _objActivatorMask.ChangeFlag(Enums.TriggerActivatorObjects.PayGates, value);
+                _objActivatorMask = _objActivatorMask.ChangeFlag(Enums.TriggerActivatorObjects.PayGates, value);
                     
-                    NotifyOfPropertyChange();
-                    NotifyOfPropertyChange(nameof(ObjectActivatorMask));
-                }
+                NotifyOfPropertyChange();
+                NotifyOfPropertyChange(nameof(ObjectActivatorMask));
             }
         }
+    }
 
-        [MarkDirty]
-        public Boolean ActivateByGraples
+    [MarkDirty]
+    public Boolean ActivateByGraples
+    {
+        get => _objActivatorMask.HasFlag(Enums.TriggerActivatorObjects.Graples);
+        set
         {
-            get => _objActivatorMask.HasFlag(Enums.TriggerActivatorObjects.Graples);
-            set
+            if (value != ActivateByGraples)
             {
-                if (value != ActivateByGraples)
-                {
-                    _objActivatorMask = _objActivatorMask.ChangeFlag(Enums.TriggerActivatorObjects.Graples, value);
+                _objActivatorMask = _objActivatorMask.ChangeFlag(Enums.TriggerActivatorObjects.Graples, value);
                     
-                    NotifyOfPropertyChange();
-                    NotifyOfPropertyChange(nameof(ObjectActivatorMask));
-                }
+                NotifyOfPropertyChange();
+                NotifyOfPropertyChange(nameof(ObjectActivatorMask));
             }
         }
+    }
 
-        [MarkDirty]
-        public Boolean ActivateByProjectiles
+    [MarkDirty]
+    public Boolean ActivateByProjectiles
+    {
+        get => _objActivatorMask.HasFlag(Enums.TriggerActivatorObjects.Projectiles);
+        set
         {
-            get => _objActivatorMask.HasFlag(Enums.TriggerActivatorObjects.Projectiles);
-            set
+            if (value != ActivateByProjectiles)
             {
-                if (value != ActivateByProjectiles)
-                {
-                    _objActivatorMask = _objActivatorMask.ChangeFlag(Enums.TriggerActivatorObjects.Projectiles, value);
+                _objActivatorMask = _objActivatorMask.ChangeFlag(Enums.TriggerActivatorObjects.Projectiles, value);
                     
-                    NotifyOfPropertyChange();
-                    NotifyOfPropertyChange(nameof(ObjectActivatorMask));
-                }
+                NotifyOfPropertyChange();
+                NotifyOfPropertyChange(nameof(ObjectActivatorMask));
             }
         }
+    }
 
-        public BindableCollection<PrimitiveWrapperViewModel<LabURI>> Instances
-        {
-            get => _instances;
-        }
+    public BindableCollection<PrimitiveWrapperViewModel<LabURI>> Instances
+    {
+        get => _instances;
+    }
 
-        [MarkDirty]
-        public UInt32 Header
+    [MarkDirty]
+    public UInt32 Header
+    {
+        get => _header;
+        set
         {
-            get => _header;
-            set
+            if (value != _header)
             {
-                if (value != _header)
-                {
-                    _header = value;
+                _header = value;
                     
-                    NotifyOfPropertyChange();
-                    NotifyOfPropertyChange(nameof(TriggerArgument1Enabled));
-                    NotifyOfPropertyChange(nameof(TriggerArgument2Enabled));
-                    NotifyOfPropertyChange(nameof(TriggerArgument3Enabled));
-                    NotifyOfPropertyChange(nameof(TriggerArgument4Enabled));
-                }
+                NotifyOfPropertyChange();
+                NotifyOfPropertyChange(nameof(TriggerArgument1Enabled));
+                NotifyOfPropertyChange(nameof(TriggerArgument2Enabled));
+                NotifyOfPropertyChange(nameof(TriggerArgument3Enabled));
+                NotifyOfPropertyChange(nameof(TriggerArgument4Enabled));
             }
         }
+    }
 
-        [MarkDirty]
-        public Boolean TriggerArgument1Enabled
+    [MarkDirty]
+    public Boolean TriggerArgument1Enabled
+    {
+        get => (_header >> 0xB & 0x1) != 0;
+        set
         {
-            get => (_header >> 0xB & 0x1) != 0;
-            set
+            if (value != TriggerArgument1Enabled)
             {
-                if (value != TriggerArgument1Enabled)
+                if (value)
                 {
-                    if (value)
-                    {
-                        _header |= 1 << 0xB;
-                    }
-                    else
-                    {
-                        var mask = ~(1 << 0xB);
-                        _header &= (UInt32)mask;
-                    }
-                    
-                    NotifyOfPropertyChange();
-                    NotifyOfPropertyChange(nameof(Header));
+                    _header |= 1 << 0xB;
                 }
+                else
+                {
+                    var mask = ~(1 << 0xB);
+                    _header &= (UInt32)mask;
+                }
+                    
+                NotifyOfPropertyChange();
+                NotifyOfPropertyChange(nameof(Header));
             }
         }
+    }
 
-        [MarkDirty]
-        public Boolean TriggerArgument2Enabled
+    [MarkDirty]
+    public Boolean TriggerArgument2Enabled
+    {
+        get => (_header >> 0x8 & 0x1) != 0;
+        set
         {
-            get => (_header >> 0x8 & 0x1) != 0;
-            set
+            if (value != TriggerArgument2Enabled)
             {
-                if (value != TriggerArgument2Enabled)
+                if (value)
                 {
-                    if (value)
-                    {
-                        _header |= 1 << 0x8;
-                    }
-                    else
-                    {
-                        var mask = ~(1 << 0x8);
-                        _header &= (UInt32)mask;
-                    }
-                    
-                    NotifyOfPropertyChange();
-                    NotifyOfPropertyChange(nameof(Header));
+                    _header |= 1 << 0x8;
                 }
+                else
+                {
+                    var mask = ~(1 << 0x8);
+                    _header &= (UInt32)mask;
+                }
+                    
+                NotifyOfPropertyChange();
+                NotifyOfPropertyChange(nameof(Header));
             }
         }
+    }
 
-        [MarkDirty]
-        public Boolean TriggerArgument3Enabled
+    [MarkDirty]
+    public Boolean TriggerArgument3Enabled
+    {
+        get => (_header >> 0x9 & 0x1) != 0;
+        set
         {
-            get => (_header >> 0x9 & 0x1) != 0;
-            set
+            if (value != TriggerArgument3Enabled)
             {
-                if (value != TriggerArgument3Enabled)
+                if (value)
                 {
-                    if (value)
-                    {
-                        _header |= 1 << 0x9;
-                    }
-                    else
-                    {
-                        var mask = ~(1 << 0x9);
-                        _header &= (UInt32)mask;
-                    }
-                    
-                    NotifyOfPropertyChange();
-                    NotifyOfPropertyChange(nameof(Header));
+                    _header |= 1 << 0x9;
                 }
+                else
+                {
+                    var mask = ~(1 << 0x9);
+                    _header &= (UInt32)mask;
+                }
+                    
+                NotifyOfPropertyChange();
+                NotifyOfPropertyChange(nameof(Header));
             }
         }
+    }
 
-        [MarkDirty]
-        public Boolean TriggerArgument4Enabled
+    [MarkDirty]
+    public Boolean TriggerArgument4Enabled
+    {
+        get => (_header >> 0xA & 0x1) != 0;
+        set
         {
-            get => (_header >> 0xA & 0x1) != 0;
-            set
+            if (value != TriggerArgument4Enabled)
             {
-                if (value != TriggerArgument4Enabled)
+                if (value)
                 {
-                    if (value)
-                    {
-                        _header |= 1 << 0xA;
-                    }
-                    else
-                    {
-                        var mask = ~(1 << 0xA);
-                        _header &= (UInt32)mask;
-                    }
-                    
-                    NotifyOfPropertyChange();
-                    NotifyOfPropertyChange(nameof(Header));
+                    _header |= 1 << 0xA;
                 }
+                else
+                {
+                    var mask = ~(1 << 0xA);
+                    _header &= (UInt32)mask;
+                }
+                    
+                NotifyOfPropertyChange();
+                NotifyOfPropertyChange(nameof(Header));
             }
         }
+    }
 
-        [MarkDirty]
-        public Single UnkFloat
+    [MarkDirty]
+    public Single UnkFloat
+    {
+        get => _unkFloat;
+        set
         {
-            get => _unkFloat;
-            set
+            if (value != _unkFloat)
             {
-                if (value != _unkFloat)
-                {
-                    _unkFloat = value;
+                _unkFloat = value;
                     
-                    NotifyOfPropertyChange();
-                }
+                NotifyOfPropertyChange();
             }
         }
+    }
 
-        [MarkDirty]
-        public UInt16 TriggerMessage1
+    [MarkDirty]
+    public UInt16 TriggerMessage1
+    {
+        get => _triggerMessage1;
+        set
         {
-            get => _triggerMessage1;
-            set
+            if (value != _triggerMessage1)
             {
-                if (value != _triggerMessage1)
-                {
-                    _triggerMessage1 = value;
+                _triggerMessage1 = value;
                     
-                    NotifyOfPropertyChange();
-                }
+                NotifyOfPropertyChange();
             }
         }
+    }
 
-        [MarkDirty]
-        public UInt16 TriggerMessage2
+    [MarkDirty]
+    public UInt16 TriggerMessage2
+    {
+        get => _triggerMessage2;
+        set
         {
-            get => _triggerMessage2;
-            set
+            if (value != _triggerMessage2)
             {
-                if (value != _triggerMessage2)
-                {
-                    _triggerMessage2 = value;
+                _triggerMessage2 = value;
                     
-                    NotifyOfPropertyChange();
-                }
+                NotifyOfPropertyChange();
             }
         }
+    }
 
-        [MarkDirty]
-        public UInt16 TriggerMessage3
+    [MarkDirty]
+    public UInt16 TriggerMessage3
+    {
+        get => _triggerMessage3;
+        set
         {
-            get => _triggerMessage3;
-            set
+            if (value != _triggerMessage3)
             {
-                if (value != _triggerMessage3)
-                {
-                    _triggerMessage3 = value;
+                _triggerMessage3 = value;
                     
-                    NotifyOfPropertyChange();
-                }
+                NotifyOfPropertyChange();
             }
         }
+    }
 
-        [MarkDirty]
-        public UInt16 TriggerMessage4
+    [MarkDirty]
+    public UInt16 TriggerMessage4
+    {
+        get => _triggerMessage4;
+        set
         {
-            get => _triggerMessage4;
-            set
+            if (value != _triggerMessage4)
             {
-                if (value != _triggerMessage4)
-                {
-                    _triggerMessage4 = value;
+                _triggerMessage4 = value;
                     
-                    NotifyOfPropertyChange();
-                }
+                NotifyOfPropertyChange();
             }
         }
     }

@@ -90,6 +90,7 @@ public class ViewportViewModel : Screen
                 _renderer.FireSceneInitialized();
                 _renderer.RegisterForRendering(_scene, true);
                 _renderer.RegisterForUpdating(_scene);
+                _renderer.SubscribeToSceneEvents(_scene);
 
                 var camForward = -_scene.Camera.GetForward();
                 _scene.Camera.Translate(camForward * -5);

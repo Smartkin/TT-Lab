@@ -2,12 +2,13 @@
 using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Threading;
+using AvaloniaEdit;
 
 namespace TT_Lab;
 
 public static class Log
 {
-    private static TextBox? logBox;
+    private static TextEditor? logBox;
     private const int MaxLines = 200;
 
     public enum LogType
@@ -19,7 +20,7 @@ public static class Log
         Trace
     }
 
-    public static void SetLogBox(TextBox log)
+    public static void SetLogBox(TextEditor log)
     {
         logBox = log;
     }
@@ -27,15 +28,15 @@ public static class Log
     public static async void WriteLine(string text, LogType type = LogType.Info)
     {
         if (logBox == null) throw new ArgumentNullException("logBox was not set to write the logs in!");
-            
+        
         await Dispatcher.UIThread.InvokeAsync(() =>
         {
             logBox.Text += $"[{type}]" + DateTime.Now + ": " + text + Environment.NewLine;
-            if (logBox.GetLineCount() >= MaxLines)
+            if (logBox.LineCount >= MaxLines)
             {
                 var lines = logBox.Text.Split(Environment.NewLine);
                 logBox.Text = string.Join(Environment.NewLine, lines.Skip(lines.Length - MaxLines));
-                logBox.CaretIndex = logBox.Text.Length;
+                logBox.CaretOffset = logBox.Text.Length;
             }
         });
     }

@@ -5,6 +5,7 @@ using Avalonia;
 using Avalonia.Controls;
 using ReactiveUI;
 using ReactiveUI.Avalonia;
+using TT_Lab.ViewModels.Interfaces;
 
 namespace TT_Lab.Views;
 
@@ -38,7 +39,14 @@ public class BurnBridgeWindow<TViewModel> : ReactiveWindow<TViewModel> where TVi
             {
                 if (args.WasClosed)
                 {
-                    Close();
+                    if (ViewModel is not null && ViewModel is IHaveResult result)
+                    {
+                        Close(result.GetResult());
+                    }
+                    else
+                    {
+                        Close();
+                    }
                 }
 
                 return Task.CompletedTask;

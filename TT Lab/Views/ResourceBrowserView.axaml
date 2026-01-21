@@ -6,7 +6,6 @@
         xmlns:sys="clr-namespace:System;assembly=System.Runtime"
         xmlns:viewmodels="clr-namespace:TT_Lab.ViewModels"
         xmlns:valueConverters="clr-namespace:TT_Lab.ValueConverters"
-        d:DataContext="{Binding Source={d:DesignInstance viewmodels:ResourceBrowserViewModel}}"
         x:DataType="viewmodels:ResourceBrowserViewModel"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="TT_Lab.Views.ResourceBrowserView"
@@ -32,7 +31,7 @@
                     </ListBox.ItemTemplate>
                 </ListBox>
             </controls:GroupBox>
-            <Button x:Name="Link" Content="Link" Grid.Row="2"/>
+            <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding Link}" Content="Link" Grid.Row="2"/>
         </Grid>
     </controls:GroupBox>
 </Window>

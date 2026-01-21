@@ -108,28 +108,34 @@ public class OGIViewModel : ResourceEditorViewModel
         var data = AssetManager.Get().GetAssetData<OGIData>(EditableResource);
         _boundingBox = new BoundingBoxViewModel(data.BoundingBox);
         DirtyTracker.AddChild(_boundingBox);
-        
+
+        _joints = [];
         foreach (var joint in data.Joints)
         {
             _joints.Add(new JointViewModel(this, joint));
         }
-        
-        DirtyTracker.AddBindableCollection(_exitPoints);
+        DirtyTracker.AddBindableCollection(_joints);
+
+        _exitPoints = [];
         foreach (var exitPoint in data.ExitPoints)
         {
             _exitPoints.Add(new ExitPointViewModel(this, exitPoint));
         }
-        
+        DirtyTracker.AddBindableCollection(_exitPoints);
+
+        _jointIndices = [];
         foreach (var jointIndex in data.JointIndices)
         {
             _jointIndices.Add(new PrimitiveWrapperViewModel<Byte>(jointIndex));
         }
-        
-        DirtyTracker.AddBindableCollection(_rigidModelIds);
+        DirtyTracker.AddBindableCollection(_jointIndices);
+
+        _rigidModelIds = [];
         foreach (var rigidModel in data.RigidModelIds)
         {
             _rigidModelIds.Add(new PrimitiveWrapperViewModel<LabURI>(rigidModel));
         }
+        DirtyTracker.AddBindableCollection(_rigidModelIds);
         
         foreach (var skinMatrix in data.SkinInverseMatrices)
         {
@@ -139,17 +145,17 @@ public class OGIViewModel : ResourceEditorViewModel
         _skin = data.Skin;
         _blendSkin = data.BlendSkin;
         
-        DirtyTracker.AddBindableCollection(_boundingBoxBuilders);
         foreach (var bbBuilder in data.BoundingBoxBuilders)
         {
             _boundingBoxBuilders.Add(new BoundingBoxBuilderViewModel(bbBuilder));
         }
+        DirtyTracker.AddBindableCollection(_boundingBoxBuilders);
         
-        DirtyTracker.AddBindableCollection(_boundingBoxBuilderToJoint);
         foreach (var bbBuilderToJoint in data.BoundingBoxBuilderToJointIndex)
         {
             _boundingBoxBuilderToJoint.Add(new PrimitiveWrapperViewModel<Byte>(bbBuilderToJoint));
         }
+        DirtyTracker.AddBindableCollection(_boundingBoxBuilderToJoint);
         
         ResetDirty();
     }

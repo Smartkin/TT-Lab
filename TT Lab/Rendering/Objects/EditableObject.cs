@@ -131,8 +131,8 @@ namespace TT_Lab.Rendering.Objects
         private void DrawImGui()
         {
             ImGui.Begin(Name);
-            ImGui.SetWindowPos(new Vector2(5, 5));
-            ImGui.SetWindowSize(new Vector2(400, 100));
+            ImGui.SetWindowPos(new Vector2(5, 5), ImGuiCond.FirstUseEver);
+            ImGui.SetWindowSize(new Vector2(400, 100),  ImGuiCond.FirstUseEver);
             DrawImGuiInternal();
             ImGui.End();
         }

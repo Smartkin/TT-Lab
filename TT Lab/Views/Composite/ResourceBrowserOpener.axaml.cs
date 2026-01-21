@@ -85,7 +85,7 @@ public partial class ResourceBrowserOpener : UserControl
         InitializeComponent();
     }
 
-    private void OnOpenBrowser(object sender, RoutedEventArgs e)
+    private async void OnOpenBrowser(object sender, RoutedEventArgs e)
     {
         if (ResourcesToBrowse != null && IncludeEmptyResourceInBrowse)
         {
@@ -111,10 +111,13 @@ public partial class ResourceBrowserOpener : UserControl
             linkBrowser.Filter(FilterCommand);
         }
         
-        var windowManager = Locator.Current.GetService<IWindowManager>()!;
-        var linkBrowserWindow = windowManager.ShowDialogAsync(linkBrowser);
-        linkBrowserWindow.Wait();
-        var result = linkBrowserWindow.Result;
+        // var windowManager = Locator.Current.GetService<IWindowManager>()!;
+        // var linkBrowserWindow = await windowManager.ShowDialogAsync(linkBrowser);
+        var linkBrowserDialogue = new ResourceBrowserView
+        {
+            DataContext = linkBrowser
+        };
+        var result = await linkBrowserDialogue.ShowDialog<bool?>((Window)((ShellViewModel)Locator.Current.GetService<ILabManager>()!).GetView());
         if (result.HasValue && result.Value)
         {
             LinkedResource = linkBrowser.SelectedLink;

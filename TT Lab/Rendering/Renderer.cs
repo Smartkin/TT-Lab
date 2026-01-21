@@ -53,9 +53,20 @@ public class Renderer : IView
         _primitiveRenderer = _renderContext.PrimitiveRenderer;
         _renderContext.QueueRenderAction(SetupRenderBuffer);
         _batchStorage = renderContext.BatchService.GenerateBatchStorage();
+        _batchStorage.NewBatchCreated += BatchStorageOnNewBatchCreated;
         _passService = renderContext.PassService;
         renderContext.Render += DoRender;
         _updateWatch.Start();
+    }
+
+    private void BatchStorageOnNewBatchCreated(RenderBatch renderBatch)
+    {
+        _passService.RegisterRenderableInPasses(renderBatch, renderBatch.GetPriorityPasses());
+        renderBatch.RequestPassSwitch += () =>
+        {
+            _passService.UnregisterRenderableInPasses(renderBatch);
+            _passService.RegisterRenderableInPasses(renderBatch, renderBatch.GetPriorityPasses());
+        };
     }
 
     public void InitInput(IInputContext inputContext, bool useImgui = true)
@@ -89,6 +100,20 @@ public class Renderer : IView
         });
     }
 
+    public void SubscribeToSceneEvents(Renderable scene)
+    {
+        scene.ChildAdded += child =>
+        {
+            RegisterForRendering(child);
+            RegisterForUpdating(child);
+        };
+        scene.ChildRemoved += child =>
+        {
+            UnregisterFromRendering(child);
+            UnregisterForUpdating(child);
+        };
+    }
+
     public void RegisterForRendering(Renderable renderable, bool initBatchStorage = false)
     {
         if (renderable is Mesh mesh)
@@ -104,20 +129,22 @@ public class Renderer : IView
         {
             RegisterForRendering(renderChild);
         }
+    }
 
-        if (!initBatchStorage)
+    public void UnregisterFromRendering(Renderable renderable)
+    {
+        if (renderable is Mesh mesh)
         {
-            return;
+            _batchStorage.RemoveMeshFromBatch(mesh);
+        }
+        else
+        {
+            _passService.UnregisterRenderableInPasses(renderable);
         }
 
-        foreach (var renderBatch in _batchStorage.GetRenderBatches())
+        foreach (var renderChild in renderable.Children)
         {
-            _passService.RegisterRenderableInPasses(renderBatch, renderBatch.GetPriorityPasses());
-            renderBatch.RequestPassSwitch += () =>
-            {
-                _passService.UnregisterRenderableInPasses(renderBatch);
-                _passService.RegisterRenderableInPasses(renderBatch, renderBatch.GetPriorityPasses());
-            };
+            UnregisterFromRendering(renderChild);
         }
     }
 
@@ -134,6 +161,25 @@ public class Renderer : IView
         foreach (var child in renderable.Children)
         {
             RegisterForUpdating(child);
+        }
+    }
+
+    public void UnregisterForUpdating(Renderable renderable)
+    {
+        if (renderable.DoesUpdates)
+        {
+            lock (_updatersLock)
+            {
+                if (_updaters.Contains(renderable))
+                {
+                    _updaters.Remove(renderable);
+                }
+            }
+        }
+
+        foreach (var child in renderable.Children)
+        {
+            UnregisterForUpdating(child);
         }
     }
 

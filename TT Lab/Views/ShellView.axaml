@@ -10,6 +10,7 @@
         xmlns:gif="clr-namespace:Avalonia.Labs.Gif;assembly=Avalonia.Labs.Gif"
         xmlns:cal="http://caliburnmicro.com"
         xmlns:controls1="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+        xmlns:avaloniaEdit="https://github.com/avaloniaui/avaloniaedit"
         x:Name="MainApplication"
         mc:Ignorable="d"
         x:Class="TT_Lab.Views.ShellView"
@@ -132,7 +133,7 @@
                     <TabItem Header="Log">
                         <Grid>
                             <ScrollViewer VerticalScrollBarVisibility="Auto" x:Name="LogViewer" Margin="0">
-                                <TextBox ScrollViewer.VerticalScrollBarVisibility="Disabled" x:Name="LogText" TextWrapping="Wrap" IsReadOnly="True"/>
+                                <avaloniaEdit:TextEditor x:Name="LogText" ShowLineNumbers="True" Watermark="Logs will be written here..." IsReadOnly="True"/>
                             </ScrollViewer>
                             <gif:GifImage Source="{Binding SadEasterEgg, FallbackValue={x:Null}}" Stretch="Uniform" HorizontalAlignment="Right" Margin="10" IsVisible="{Binding SadEasterEggVisibility}"/>
                         </Grid>
@@ -161,13 +162,7 @@
                                     </StackPanel.ContextMenu>
                                     <Interaction.Behaviors>
                                         <EventTriggerBehavior EventName="DoubleTapped">
-                                            <InvokeCommandAction Command="{Binding CreateEditor}"></InvokeCommandAction>
-                                            <!-- <cal:ActionMessage MethodName="AssetBlockMouseDown"> -->
-                                            <!--     <cal:ActionMessage.Parameters> -->
-                                            <!--         <cal:Parameter Value="{Binding ElementName=ProjectTree, Path=SelectedItem}"/> -->
-                                            <!--         <cal:Parameter Value="$eventArgs"/> -->
-                                            <!--     </cal:ActionMessage.Parameters> -->
-                                            <!-- </cal:ActionMessage> -->
+                                            <InvokeCommandAction Command="{Binding CreateEditor}"/>
                                         </EventTriggerBehavior>
                                         <!-- <EventTrigger EventName="MouseMove"> -->
                                         <!--     <cal:ActionMessage MethodName="AssetBlockMouseMove"> -->

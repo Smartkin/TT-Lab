@@ -11,137 +11,127 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 
-namespace TT_Lab.Util
+namespace TT_Lab.Util;
+
+public static class MiscUtils
 {
-    public static class MiscUtils
+    private static Bitmap? _boatguy;
+    private static Dictionary<string, Bitmap> _labIconStorage = new();
+
+    public static object? ConvertEnum(Type t, object? o)
     {
-        private static Bitmap? _boatguy;
-        private static Dictionary<string, Bitmap> _labIconStorage = new();
+        return o == null ? null : Enum.Parse(t, o.ToString()!);
+    }
 
-        public static object? ConvertEnum(Type t, object? o)
+    public static T? ConvertEnum<T>(object? o)
+    {
+        return (T?)ConvertEnum(typeof(T), o);
+    }
+
+    public static Bitmap GetBoatGuy()
+    {
+        _boatguy ??= new Bitmap(ManifestResourceLoader.GetPathInExe("Media/boat_guy.png"));
+        return _boatguy;
+    }
+
+    public static Bitmap GetLabIcon(string iconName)
+    {
+        if (_labIconStorage.TryGetValue(iconName, out Bitmap? value))
         {
-            if (o == null)
-            {
-                return null;
-            }
-            return Enum.Parse(t, o.ToString()!);
+            return value;
         }
 
-        public static T? ConvertEnum<T>(object? o)
-        {
-            return (T?)ConvertEnum(typeof(T), o);
-        }
+        _labIconStorage.Add(iconName, new Bitmap(ManifestResourceLoader.GetPathInExe($"Media/LabIcons/{iconName}.png")));
 
-        public static Bitmap GetBoatGuy()
-        {
-            _boatguy ??= new Bitmap(ManifestResourceLoader.GetPathInExe("Media/boat_guy.png"));
-            return _boatguy;
-        }
+        return _labIconStorage[iconName];
+    }
 
-        public static Bitmap GetLabIcon(string iconName)
-        {
-            if (_labIconStorage.TryGetValue(iconName, out Bitmap? value))
-            {
-                return value;
-            }
-
-            _labIconStorage.Add(iconName, new Bitmap(ManifestResourceLoader.GetPathInExe($"Media/LabIcons/{iconName}.png")));
-
-            return _labIconStorage[iconName];
-        }
-
-        public static Bitmap CloneBitmap(this Bitmap bitmap)
-        {
-            using var ms = new MemoryStream();
-            bitmap.Save(ms);
-            ms.Position = 0;
+    public static Bitmap CloneBitmap(this Bitmap bitmap)
+    {
+        using var ms = new MemoryStream();
+        bitmap.Save(ms);
+        ms.Position = 0;
             
-            return new Bitmap(ms);
-        }
+        return new Bitmap(ms);
+    }
         
-        public static async Task<string> GetFileFromDialogueAsync(string title, string filterName, IReadOnlyList<string> filters, string initial_directory = "")
+    public static async Task<string> GetFileFromDialogueAsync(string title, string filterName, IReadOnlyList<string> filters, string initialDirectory = "")
+    {
+        Window? owner = null;
+        if (Application.Current!.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            Window? owner = null;
-            if (Application.Current!.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-            {
-                owner = desktop.MainWindow;
-            }
+            owner = desktop.MainWindow;
+        }
 
-            if (owner == null)
-            {
-                return string.Empty;
-            }
-
-            var storageProvider = owner.StorageProvider;
-            IStorageFolder? startingLocation;
-            if (string.IsNullOrEmpty(initial_directory))
-            {
-                startingLocation =
-                    await storageProvider.TryGetWellKnownFolderAsync(WellKnownFolder.Documents);
-            }
-            else
-            {
-                startingLocation =
-                    await storageProvider.TryGetFolderFromPathAsync(initial_directory);
-            }
-            var pickerOptions = new FilePickerOpenOptions
-            {
-                AllowMultiple = false,
-                FileTypeFilter = [new FilePickerFileType(filterName) { Patterns = filters }],
-                Title = title,
-                SuggestedStartLocation = startingLocation
-            };
-            
-            var files = await storageProvider.OpenFilePickerAsync(pickerOptions);
-            if (files.Count > 0)
-            {
-                return files[0].TryGetLocalPath() ?? string.Empty;
-            }
-            
+        if (owner == null)
+        {
             return string.Empty;
         }
 
-        public static Enums.InstanceState ChangeFlag(this Enums.InstanceState state, Enums.InstanceState flags, Boolean set)
+        var storageProvider = owner.StorageProvider;
+        IStorageFolder? startingLocation;
+        if (string.IsNullOrEmpty(initialDirectory))
         {
-            if (!set)
-            {
-                return state.UnsetFlag(flags);
-            }
-            return state.SetFlag(flags);
+            startingLocation =
+                await storageProvider.TryGetWellKnownFolderAsync(WellKnownFolder.Documents);
         }
-        public static Enums.InstanceState SetFlag(this Enums.InstanceState state, Enums.InstanceState flags)
+        else
         {
-            state |= flags;
-            return state;
+            startingLocation =
+                await storageProvider.TryGetFolderFromPathAsync(initialDirectory);
         }
-        public static Enums.InstanceState UnsetFlag(this Enums.InstanceState state, Enums.InstanceState flags)
+        var pickerOptions = new FilePickerOpenOptions
         {
-            state &= ~flags;
-            return state;
-        }
-
-        public static Enums.TriggerActivatorObjects ChangeFlag(this Enums.TriggerActivatorObjects state, Enums.TriggerActivatorObjects flags, Boolean set)
+            AllowMultiple = false,
+            FileTypeFilter = [new FilePickerFileType(filterName) { Patterns = filters }],
+            Title = title,
+            SuggestedStartLocation = startingLocation
+        };
+            
+        var files = await storageProvider.OpenFilePickerAsync(pickerOptions);
+        if (files.Count > 0)
         {
-            if (!set)
-            {
-                return state.UnsetFlag(flags);
-            }
-            return state.SetFlag(flags);
+            return files[0].TryGetLocalPath() ?? string.Empty;
         }
-        public static Enums.TriggerActivatorObjects SetFlag(this Enums.TriggerActivatorObjects state, Enums.TriggerActivatorObjects flags)
-        {
-            state |= flags;
-            return state;
-        }
-        public static Enums.TriggerActivatorObjects UnsetFlag(this Enums.TriggerActivatorObjects state, Enums.TriggerActivatorObjects flags)
-        {
-            state &= ~flags;
-            return state;
-        }
+            
+        return string.Empty;
     }
 
-    public static class GlobalConsts
+    public static Enums.InstanceState ChangeFlag(this Enums.InstanceState state, Enums.InstanceState flags, Boolean set)
     {
-        public static string OgreGroup => "Project"; 
+        if (!set)
+        {
+            return state.UnsetFlag(flags);
+        }
+        return state.SetFlag(flags);
+    }
+    public static Enums.InstanceState SetFlag(this Enums.InstanceState state, Enums.InstanceState flags)
+    {
+        state |= flags;
+        return state;
+    }
+    public static Enums.InstanceState UnsetFlag(this Enums.InstanceState state, Enums.InstanceState flags)
+    {
+        state &= ~flags;
+        return state;
+    }
+
+    public static Enums.TriggerActivatorObjects ChangeFlag(this Enums.TriggerActivatorObjects state, Enums.TriggerActivatorObjects flags, Boolean set)
+    {
+        if (!set)
+        {
+            return state.UnsetFlag(flags);
+        }
+        return state.SetFlag(flags);
+    }
+    public static Enums.TriggerActivatorObjects SetFlag(this Enums.TriggerActivatorObjects state, Enums.TriggerActivatorObjects flags)
+    {
+        state |= flags;
+        return state;
+    }
+    public static Enums.TriggerActivatorObjects UnsetFlag(this Enums.TriggerActivatorObjects state, Enums.TriggerActivatorObjects flags)
+    {
+        state &= ~flags;
+        return state;
     }
 }

@@ -66,7 +66,7 @@ public class ShellViewModel : Conductor<EditorsViewModel>, ILabManager
         {
             Log.WriteLine($"Saving {_projectManager.OpenedProject!.Name}...");
             var now = DateTime.Now;
-            // ActiveItem.Save();
+            ActiveItem.Save();
             Log.WriteLine($"Saved project in {DateTime.Now - now}");
         }
         catch (Exception ex)
@@ -77,21 +77,6 @@ public class ShellViewModel : Conductor<EditorsViewModel>, ILabManager
         {
             _projectManager.WorkableProject = true;
         }
-    }
-
-    public void AssetBlockMouseDown(object selectedItem, PointerPressedEventArgs e)
-    {
-        if (e.ClickCount != 2)
-        {
-            return;
-        }
-
-        if (selectedItem is not ResourceTreeElementViewModel asset)
-        {
-            return;
-        }
-            
-        OpenEditor(asset.Asset);
     }
 
     public void OpenEditor(IAsset asset)

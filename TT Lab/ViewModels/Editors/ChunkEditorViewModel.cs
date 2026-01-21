@@ -2,11 +2,9 @@
 using GlmSharp;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows;
 using Avalonia;
 using Avalonia.Threading;
 using ImGuiNET;
@@ -21,13 +19,10 @@ using TT_Lab.Assets.Instance;
 using TT_Lab.Command;
 using TT_Lab.Controls;
 using TT_Lab.Extensions;
-using TT_Lab.Project.Messages;
 using TT_Lab.Rendering;
-using TT_Lab.Rendering.Buffers;
 using TT_Lab.Rendering.Objects;
 using TT_Lab.Rendering.Objects.SceneInstances;
 using TT_Lab.Rendering.Scene;
-using TT_Lab.Rendering.Services;
 using TT_Lab.ServiceProviders;
 using TT_Lab.Services;
 using TT_Lab.Util;
@@ -35,10 +30,8 @@ using TT_Lab.ViewModels.Composite;
 using TT_Lab.ViewModels.Editors.Instance;
 using TT_Lab.ViewModels.Interfaces;
 using TT_Lab.ViewModels.ResourceTree;
-using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using AiPosition = TT_Lab.Rendering.Objects.AiPosition;
-using Camera = TT_Lab.Rendering.Objects.Camera;
 using Collision = TT_Lab.Rendering.Objects.Collision;
 using DynamicScenery = TT_Lab.Rendering.Objects.DynamicScenery;
 using ICommand = TT_Lab.Command.ICommand;
@@ -46,7 +39,6 @@ using ObjectInstance = TT_Lab.Assets.Instance.ObjectInstance;
 using Position = TT_Lab.Rendering.Objects.Position;
 using Renderable = TT_Lab.Rendering.Renderable;
 using Scenery = TT_Lab.Rendering.Objects.Scenery;
-using Trigger = TT_Lab.Rendering.Objects.Trigger;
 using Vector2 = System.Numerics.Vector2;
 
 namespace TT_Lab.ViewModels.Editors
@@ -57,7 +49,7 @@ namespace TT_Lab.ViewModels.Editors
         IInputListener,
         IDirtyMarker
     {
-        private readonly BindableCollection<ResourceTreeElementViewModel> _chunkTree = new();
+        private readonly BindableCollection<ResourceTreeElementViewModel> _chunkTree = [];
         private bool _isDefault;
         private bool _isChunkReady = false;
         private bool _usingConfirmClose = false;
@@ -86,7 +78,9 @@ namespace TT_Lab.ViewModels.Editors
         private Node _triggersNode;
         private Node _camerasNode;
         private Node _linkedScenery;
-        private DrawFilter _drawFilter = DrawFilter.Scenery | DrawFilter.Triggers | DrawFilter.Positions | DrawFilter.Instances | DrawFilter.Cameras | DrawFilter.Skybox | DrawFilter.LinkedScenery;
+        private DrawFilter _drawFilter = DrawFilter.Scenery | DrawFilter.DynamicScenery | DrawFilter.Triggers |
+                                         DrawFilter.Positions | DrawFilter.Instances | DrawFilter.Cameras |
+                                         DrawFilter.Skybox | DrawFilter.LinkedScenery;
 
         [Flags]
         private enum DrawFilter
@@ -161,12 +155,12 @@ namespace TT_Lab.ViewModels.Editors
             ResetDirty();
         }
 
-        protected override Task OnActivateAsync(CancellationToken cancellationToken)
+        protected override Task OnActivatedAsync(CancellationToken cancellationToken)
         {
             _activeChunkService.SetCurrentChunkEditor(this);
             ActivateItemAsync(SceneEditor, cancellationToken);
             
-            return base.OnActivateAsync(cancellationToken);
+            return base.OnActivatedAsync(cancellationToken);
         }
 
         protected override Task OnDeactivateAsync(Boolean close, CancellationToken cancellationToken)
@@ -323,11 +317,11 @@ namespace TT_Lab.ViewModels.Editors
             _dirtyTracker.ResetDirty();
         }
 
-        protected override Task OnInitializeAsync(CancellationToken cancellationToken)
+        protected override Task OnInitializedAsync(CancellationToken cancellationToken)
         {
             ActivateItemAsync(_sceneEditor, cancellationToken);
 
-            return base.OnInitializeAsync(cancellationToken);
+            return base.OnInitializedAsync(cancellationToken);
         }
 
         public void SaveChanges(bool force = false)
@@ -633,15 +627,15 @@ namespace TT_Lab.ViewModels.Editors
                 _collisionRender = (Collision)_renderContext.MeshService.GetMesh(collisionUri).Model!;
                 scene.AddChild(_collisionRender);
                 
-                // var instances = _chunkTree.Where(avm => avm is InstanceElementGenericViewModel<ObjectInstance>);
-                // _instancesNode = new Node(_renderContext, scene);
-                // foreach (var instance in instances)
-                // {
-                //     var instData = instance.Asset.GetData<ObjectInstanceData>();
-                //     var objSceneInstance = _renderContext.SceneInstanceFactory.CreateSceneInstance<ObjectSceneInstance>(_editingContext, instData, instance);
-                //     _sceneInstances.Add(objSceneInstance);
-                //     _instancesNode.AddChild(objSceneInstance.GetEditableObject());
-                // }
+                var instances = _chunkTree.Where(avm => avm is InstanceElementGenericViewModel<ObjectInstance>);
+                _instancesNode = new Node(_renderContext, scene);
+                foreach (var instance in instances)
+                {
+                    var instData = instance.Asset.GetData<ObjectInstanceData>();
+                    var objSceneInstance = _renderContext.SceneInstanceFactory.CreateSceneInstance<ObjectSceneInstance>(_editingContext, instData, instance);
+                    _sceneInstances.Add(objSceneInstance);
+                    _instancesNode.AddChild(objSceneInstance.GetEditableObject());
+                }
                 
                 var dynamicScenery = _chunkTree.First(avm => avm.Asset.Section == Constants.SCENERY_DYNAMIC_SECENERY_ITEM).Asset.GetData<DynamicSceneryData>();
                 _dynamicSceneryRender = new DynamicScenery(_renderContext, _renderContext.MeshService, dynamicScenery);
@@ -720,9 +714,10 @@ namespace TT_Lab.ViewModels.Editors
                 renderer.RenderImgui += () =>
                 {
                     ImGui.Begin("Chunk Render Settings");
-                    ImGui.SetWindowPos(new Vector2(renderer.GetFrameBufferSize().x - 300, 5));
-                    ImGui.SetWindowSize(new Vector2(295, 200));
+                    ImGui.SetWindowPos(new Vector2(renderer.GetFrameBufferSize().x - 300, 5), ImGuiCond.FirstUseEver);
+                    ImGui.SetWindowSize(new Vector2(295, 200),  ImGuiCond.FirstUseEver);
                     ImguiRenderFilterCheckbox("Render Collision", _collisionRender, DrawFilter.Collision);
+                    ImguiRenderFilterCheckbox("Render Dynamic Scenery", _dynamicSceneryRender, DrawFilter.DynamicScenery);
                     ImguiRenderFilterCheckbox("Render Scenery", _sceneryRender, DrawFilter.Scenery);
                     if (_skydomeRender != null)
                     {
@@ -760,8 +755,8 @@ namespace TT_Lab.ViewModels.Editors
         private void ImguiRenderControls(Renderer renderer)
         {
             ImGui.Begin("Editor Info");
-            ImGui.SetWindowPos(new Vector2(5, renderer.GetFrameBufferSize().y - 400));
-            ImGui.SetWindowSize(new Vector2(300, 395));
+            ImGui.SetWindowPos(new Vector2(5, renderer.GetFrameBufferSize().y - 400), ImGuiCond.FirstUseEver);
+            ImGui.SetWindowSize(new Vector2(300, 395), ImGuiCond.FirstUseEver);
             ImGui.Text($"Editing mode: {_editingContext.TransformMode}");
             ImGui.Text("U - Unselect");
             ImGui.Text("T - Toggle translate");

@@ -36,7 +36,7 @@ public class ViewLocator : IDataTemplate
 
         return new TextBlock
         {
-            Text = "Not View found for: " + data.GetType().Name
+            Text = "No View found for: " + data.GetType().Name
         };
     }
 

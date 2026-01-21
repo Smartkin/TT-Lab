@@ -15,7 +15,7 @@ public class DirtyTracker
     private bool _isDirty;
     private readonly Action _onDirtyChanged;
     private readonly Dictionary<IDirtyMarker, List<string>> _markerToPropMap = new();
-    private readonly List<IDirtyMarker> _children = new();
+    private readonly List<IDirtyMarker> _children = [];
 
     public bool IsDirty
     {

@@ -239,7 +239,7 @@ public class BlendSkinData : AbstractAssetData
 
         foreach (var material in materials)
         {
-            var labMaterial = materialsUri[material.LogicalIndex];
+            var labMaterial = material.LogicalIndex >= materialsUri.Count ? LabURI.Empty : materialsUri[material.LogicalIndex];
             var meshes = gltfMeshes.Where(m => m.Primitives.All(p => p.Material.LogicalIndex == material.LogicalIndex)).ToList();
             Blends.Add(new SubBlendData(labMaterial, meshes, BlendsAmount));
         }

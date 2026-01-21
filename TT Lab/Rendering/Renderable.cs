@@ -10,6 +10,10 @@ namespace TT_Lab.Rendering;
 
 public abstract class Renderable
 {
+    public delegate void ChildChangedHandler(Renderable child);
+    public event ChildChangedHandler? ChildAdded;
+    public event ChildChangedHandler? ChildRemoved;
+    
     protected readonly RenderContext Context;
     private mat4 _cachedWorldTransform = mat4.Identity;
     private mat4 _cachedRenderTransform = mat4.Identity;
@@ -238,6 +242,7 @@ public abstract class Renderable
         _children.Add(child.Name, child);
         child.Parent = this;
         child.UpdateTransform();
+        ChildAdded?.Invoke(child);
     }
 
     public void RemoveChild(Renderable child)
@@ -245,6 +250,7 @@ public abstract class Renderable
         _children.Remove(child.Name);
         child.Parent = null;
         child.UpdateTransform();
+        ChildRemoved?.Invoke(child);
     }
 
     protected virtual void RenderSelf(float delta) {}

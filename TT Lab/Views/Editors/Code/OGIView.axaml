@@ -16,32 +16,25 @@
         <valueConverters:ListBoxItemConverterIndexed x:Key="ListBoxItemConverterIndexed"/>
     </UserControl.Resources>
     <controls:GroupBox>
-        <Grid>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition/>
-                <ColumnDefinition Width="5"/>
-                <ColumnDefinition Width="400"/>
-            </Grid.ColumnDefinitions>
-            <ContentControl Grid.Column="0" x:Name="OGIScene"/>
+        <Grid ColumnDefinitions="*,5,400">
+            <ContentControl Grid.Column="0" Content="{Binding OGIScene}"/>
             <GridSplitter ResizeDirection="Columns" Margin="0" Grid.Column="1"/>
             <ScrollViewer Grid.Column="2">
                 <StackPanel Orientation="Vertical">
                     <composite:ResourceBrowserOpener LinkedResource="{Binding BlendSkin, Mode=TwoWay}" BrowserName="Blend Skin" BrowseType="{x:Type graphics:BlendSkin}"/>
                     <composite:ResourceBrowserOpener LinkedResource="{Binding Skin, Mode=TwoWay}" BrowserName="Skin" BrowseType="{x:Type graphics:Skin}" Margin="0, 0, 0, 5"/>
                     <composite:BoundingBoxView DataContext="{Binding BoundingBox}"/>
-                    <Expander Header="Joints">
+                    <Expander HorizontalAlignment="Stretch" Header="Joints">
                         <StackPanel Orientation="Vertical">
                             <ListBox x:Name="JointsList" MaxHeight="200" ItemsSource="{Binding Joints}"/>
-                            <ogi:JointView DataContext="{Binding SelectedItem, ElementName=JointsList}"/>
                         </StackPanel>
                     </Expander>
-                    <Expander Header="Exit Points">
+                    <Expander HorizontalAlignment="Stretch" Header="Exit Points">
                         <StackPanel Orientation="Vertical">
                             <ListBox x:Name="ExitPointsList" MaxHeight="200" ItemsSource="{Binding ExitPoints}"/>
-                            <ogi:ExitPointView DataContext="{Binding SelectedItem, ElementName=ExitPointsList}"/>
                         </StackPanel>
                     </Expander>
-                    <Expander Header="Joint Indices">
+                    <Expander HorizontalAlignment="Stretch" Header="Joint Indices">
                         <ListBox MaxHeight="200" ItemsSource="{Binding JointIndices}">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
@@ -50,7 +43,7 @@
                             </ListBox.ItemTemplate>
                         </ListBox>
                     </Expander>
-                    <Expander Header="Attached Rigid Models">
+                    <Expander HorizontalAlignment="Stretch" Header="Attached Rigid Models">
                         <ListBox MaxHeight="200" ItemsSource="{Binding RigidModels}">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
@@ -59,7 +52,7 @@
                             </ListBox.ItemTemplate>
                         </ListBox>
                     </Expander>
-                    <Expander Header="Skin Inverse Matrices">
+                    <Expander HorizontalAlignment="Stretch" Header="Skin Inverse Matrices">
                         <StackPanel Orientation="Vertical">
                             <ListBox x:Name="SkinMatricesList" MaxHeight="200" ItemsSource="{Binding SkinInverseMatrices}">
                                 <ListBox.ItemTemplate>
@@ -73,7 +66,7 @@
                             </controls:GroupBox>
                         </StackPanel>
                     </Expander>
-                    <Expander Header="Bounding Box Builders">
+                    <Expander HorizontalAlignment="Stretch" Header="Bounding Box Builders">
                         <StackPanel Orientation="Vertical">
                             <ListBox x:Name="BoundingBoxBuildersList" MaxHeight="200" ItemsSource="{Binding BoundingBoxBuilders}">
                                 <ListBox.ItemTemplate>
@@ -87,7 +80,7 @@
                             </controls:GroupBox>
                         </StackPanel>
                     </Expander>
-                    <Expander Header="Bounding Box Builder To Joints">
+                    <Expander HorizontalAlignment="Stretch" Header="Bounding Box Builder To Joints">
                         <ListBox MaxHeight="200" ItemsSource="{Binding BoundingBoxBuilderToJoints}">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>

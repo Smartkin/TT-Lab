@@ -232,7 +232,7 @@ public class SkinData : AbstractAssetData
                 }
             }
 
-            var material = materialsUri[materialIndex++];
+            var material = materialIndex >= materialsUri.Count ? LabURI.Empty : materialsUri[materialIndex++];
             SubSkins.Add(new SubSkinData(material, subskin, faces));
         }
     }

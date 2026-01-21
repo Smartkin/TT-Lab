@@ -4,9 +4,11 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using AvaloniaEdit.TextMate;
 using ReactiveUI;
 using ReactiveUI.Avalonia;
 using Splat;
+using TextMateSharp.Grammars;
 using TT_Lab.ViewModels;
 
 namespace TT_Lab.Views;
@@ -17,6 +19,10 @@ public partial class ShellView : BurnBridgeWindow<ShellViewModel>
     {
         InitializeComponent();
         Log.SetLogBox(LogText);
+
+        var registryOptions = new RegistryOptions(ThemeName.DarkPlus);
+        var textMateInstallation = LogText.InstallTextMate(registryOptions);
+        textMateInstallation.SetGrammar(registryOptions.GetScopeByExtension(".log"));
         
         HotKeyManager.SetHotKey(OpenProjectItem, new KeyGesture(Key.O, KeyModifiers.Control));
         HotKeyManager.SetHotKey(SaveProjectItem, new KeyGesture(Key.S, KeyModifiers.Control | KeyModifiers.Shift));

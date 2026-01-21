@@ -4,10 +4,11 @@ using System.Linq;
 using Caliburn.Micro;
 using TT_Lab.Assets;
 using TT_Lab.Command;
+using TT_Lab.ViewModels.Interfaces;
 
 namespace TT_Lab.ViewModels;
 
-public class ResourceBrowserViewModel : Screen
+public class ResourceBrowserViewModel : Screen, IHaveResult
 {
     private BindableCollection<LabURI> _resourcesToBrowse;
     private BindableCollection<LabURI> _resourcesToBrowseView;
@@ -37,7 +38,7 @@ public class ResourceBrowserViewModel : Screen
 
     public void Link()
     {
-        TryCloseAsync(true);
+        this.DeactivateAsync(true);
     }
 
     public void Filter(ICommand filterCommand)
@@ -91,5 +92,10 @@ public class ResourceBrowserViewModel : Screen
                 DoSearch();
             }
         }
+    }
+
+    public object GetResult()
+    {
+        return true;
     }
 }

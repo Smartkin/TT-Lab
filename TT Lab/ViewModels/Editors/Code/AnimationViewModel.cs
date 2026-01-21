@@ -5,6 +5,7 @@ using System.Numerics;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
+using Avalonia.Controls.Primitives;
 using Caliburn.Micro;
 using GlmSharp;
 using ImGuiNET;
@@ -13,6 +14,7 @@ using TT_Lab.AssetData.Code;
 using TT_Lab.Assets;
 using TT_Lab.Extensions;
 using TT_Lab.Rendering;
+using TT_Lab.Rendering.Scene;
 using TT_Lab.Rendering.Services;
 using TT_Lab.Util;
 using Twinsanity.TwinsanityInterchange.Common.Animation;
@@ -22,9 +24,7 @@ namespace TT_Lab.ViewModels.Editors.Code;
 
 public class AnimationViewModel : ResourceEditorViewModel
 {
-    private readonly RenderContext _context;
-    private readonly TwinSkeletonManager _skeletonManager;
-    private readonly MeshService _meshService;
+    private RenderContext _context;
     private short _playbackFps;
     private ushort _totalFrames;
     private ushort _currentAnimationFrame;
@@ -35,6 +35,7 @@ public class AnimationViewModel : ResourceEditorViewModel
     private bool _isLooping = true;
     private int _runCounter = 0;
     private bool _doRunningCounter = false;
+    private Scene _scene;
     private Rendering.Objects.OGI? _ogiRender;
     private TwinAnimation _twinAnimation;
     private TwinMorphAnimation _twinMorphAnimation;
@@ -42,11 +43,8 @@ public class AnimationViewModel : ResourceEditorViewModel
     private LabURI _selectedOgi = LabURI.Empty;
     private bool _tryingToClose = false;
 
-    public AnimationViewModel(RenderContext context, TwinSkeletonManager skeletonManager, MeshService meshService)
+    public AnimationViewModel()
     {
-        _context = context;
-        _skeletonManager = skeletonManager;
-        _meshService = meshService;
         AnimationScene = Locator.Current.GetService<ViewportViewModel>()!;
         InitAnimationScene();
     }
@@ -63,11 +61,11 @@ public class AnimationViewModel : ResourceEditorViewModel
         return result;
     }
 
-    protected override async Task OnActivateAsync(CancellationToken cancellationToken)
+    protected override async Task OnActivatedAsync(CancellationToken cancellationToken)
     {
         await ActivateItemAsync(AnimationScene, cancellationToken);
         
-        await base.OnActivateAsync(cancellationToken);
+        await base.OnActivatedAsync(cancellationToken);
     }
 
     protected override async Task OnDeactivateAsync(bool close, CancellationToken cancellationToken)
@@ -99,7 +97,7 @@ public class AnimationViewModel : ResourceEditorViewModel
         _selectedOgi = SuitableModels[bestFitIndex == -1 ? 0 : bestFitIndex];
     }
     
-    public void ChangeTrackPosition(AvaloniaPropertyChangedEventArgs e)
+    public void ChangeTrackPosition(RangeBaseValueChangedEventArgs e)
     {
         if (_isPlaying)
         {
@@ -116,7 +114,6 @@ public class AnimationViewModel : ResourceEditorViewModel
         _isPlaying = true;
         
         _renderWatch.Start();
-        // CompositionTarget.Rendering += UpdateAnimationPlayback;
     }
     
     public void PauseAnimation()
@@ -124,7 +121,6 @@ public class AnimationViewModel : ResourceEditorViewModel
         _runCounter = 0;
         _isPlaying = false;
         _renderWatch.Reset();
-        // CompositionTarget.Rendering -= UpdateAnimationPlayback;
     }
 
     public void ExportAnimation()
@@ -141,10 +137,15 @@ public class AnimationViewModel : ResourceEditorViewModel
         // }
     }
 
-    private void UpdateAnimationPlayback()
+    public void UpdateAnimationPlayback()
+    {
+        _context?.QueueRenderAction(UpdateAnimationPlaybackRender);
+    }
+
+    private void UpdateAnimationPlaybackRender()
     {
         var nextFrame = (ushort)Math.Min(_currentAnimationFrame + 1, TotalFrames);
-        if (CurrentAnimationFrame == TotalFrames)
+        if (_currentAnimationFrame == TotalFrames)
         {
             if (_isLooping && _isPlaying)
             {
@@ -377,8 +378,8 @@ public class AnimationViewModel : ResourceEditorViewModel
             resRotationQuat = addRotQuat * lerpedQuat;
         }
         
-        _ogiRender!.SetInheritScaleForJoint(jointIndex, !independentScaling);
-        _ogiRender!.ApplyTransformToJoint(jointIndex, resultTranslation, scale, resRotationQuat);
+        _ogiRender?.SetInheritScaleForJoint(jointIndex, !independentScaling);
+        _ogiRender?.ApplyTransformToJoint(jointIndex, resultTranslation, scale, resRotationQuat);
     }
 
     private (float, float) GetRotationChanges(int rot1, int rot2)
@@ -398,22 +399,14 @@ public class AnimationViewModel : ResourceEditorViewModel
         return (rot1Rad, rot2Rad);
     }
 
-    private void UpdateAnimationPlayback(object? sender, EventArgs e)
-    {
-        if (_tryingToClose)
-        {
-            return;
-        }
-        
-        UpdateAnimationPlayback();
-    }
-
     private void InitAnimationScene()
     {
         AnimationScene.SceneInitializer = (renderer, scene) =>
         {
-            _ogiRender = new Rendering.Objects.OGI(_context, _skeletonManager, _meshService, AssetManager.Get().GetAssetData<OGIData>(_selectedOgi));
-            scene.AddChild(_ogiRender);
+            _context = renderer.GetRenderContext();
+            _ogiRender = new Rendering.Objects.OGI(_context, _context.SkeletonManager, _context.MeshService, AssetManager.Get().GetAssetData<OGIData>(_selectedOgi));
+            _scene = scene;
+            _scene.AddChild(_ogiRender);
             InitImgui(renderer);
             
             UpdateAnimationPlayback();
@@ -430,7 +423,7 @@ public class AnimationViewModel : ResourceEditorViewModel
         renderer.RenderImgui += () =>
         {
             ImGui.Begin("Animation Info");
-            ImGui.SetWindowPos(new Vector2(5, 5));
+            ImGui.SetWindowPos(new Vector2(5, 5), ImGuiCond.FirstUseEver);
             ImGui.Text($"Total Frames: {TotalFrames + 1}");
             if (_doRunningCounter)
             {
@@ -493,6 +486,15 @@ public class AnimationViewModel : ResourceEditorViewModel
             {
                 _selectedOgi = value;
                 // AnimationScene.ResetScene();
+                _context.QueueRenderAction(() =>
+                {
+                    if (_ogiRender != null)
+                    {
+                        _scene.RemoveChild(_ogiRender);
+                    }
+                    _ogiRender = new Rendering.Objects.OGI(_context, _context.SkeletonManager, _context.MeshService, AssetManager.Get().GetAssetData<OGIData>(_selectedOgi));
+                    _scene.AddChild(_ogiRender);
+                });
                 NotifyOfPropertyChange();
             }
         }
