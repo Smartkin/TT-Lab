@@ -112,6 +112,7 @@ public class RenderContext : IDisposable
     [MemberNotNull(nameof(SceneInstanceFactory))]
     [MemberNotNull(nameof(PassService))]
     [MemberNotNull(nameof(PrimitiveRenderer))]
+    [MemberNotNull(nameof(MaterialService))]
     private void InitServices()
     {
         PrimitiveRenderer = new PrimitiveRenderer(this);
@@ -124,6 +125,7 @@ public class RenderContext : IDisposable
         MeshService = new MeshService(MeshFactory);
         SceneInstanceFactory = new SceneInstanceFactory(MeshService, SkeletonManager);
         PassService = new PassService(this);
+        MaterialService = new MaterialService(this, MaterialFactory);
     }
     
     public PassService PassService { get; private set; }
@@ -132,6 +134,7 @@ public class RenderContext : IDisposable
     public BatchService BatchService { get; private set; }
     public TextureService TextureService { get; private set; }
     public MaterialFactory MaterialFactory { get; private set; }
+    public MaterialService MaterialService { get; private set; }
     public MeshFactory MeshFactory { get; private set; }
     public MeshService MeshService { get; private set; }
     public SceneInstanceFactory SceneInstanceFactory { get; private set; }

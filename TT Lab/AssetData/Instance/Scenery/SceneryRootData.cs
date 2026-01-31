@@ -6,35 +6,33 @@ using TT_Lab.ViewModels.Editors.Instance.Scenery;
 using Twinsanity.TwinsanityInterchange.Common.ScenerySubtypes;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.SM;
 
-namespace TT_Lab.AssetData.Instance.Scenery
+namespace TT_Lab.AssetData.Instance.Scenery;
+
+public class SceneryRootData : SceneryNodeData
 {
-    public class SceneryRootData : SceneryNodeData
+    public UInt32 UnkUInt { get; set; }
+
+    public SceneryRootData() { }
+
+    public SceneryRootData(IAsset owner, TwinSceneryBaseType baseType) : base(owner, baseType)
     {
-        [JsonProperty(Required = Required.Always)]
-        public UInt32 UnkUInt { get; set; }
+        var root = (TwinSceneryRoot)baseType;
+        UnkUInt = root.UnkUInt;
+    }
 
-        public SceneryRootData() { }
+    public SceneryRootData(SceneryRootViewModel vm) : base(vm)
+    {
+        UnkUInt = vm.UnkUInt;
+    }
 
-        public SceneryRootData(IAsset owner, TwinSceneryBaseType baseType) : base(owner, baseType)
-        {
-            var root = (TwinSceneryRoot)baseType;
-            UnkUInt = root.UnkUInt;
-        }
+    public override ITwinScenery.SceneryType GetSceneryType()
+    {
+        return ITwinScenery.SceneryType.Root;
+    }
 
-        public SceneryRootData(SceneryRootViewModel vm) : base(vm)
-        {
-            UnkUInt = vm.UnkUInt;
-        }
-
-        public override ITwinScenery.SceneryType GetSceneryType()
-        {
-            return ITwinScenery.SceneryType.Root;
-        }
-
-        public override void Write(BinaryWriter writer)
-        {
-            writer.Write(UnkUInt);
-            base.Write(writer);
-        }
+    public override void Write(BinaryWriter writer)
+    {
+        writer.Write(UnkUInt);
+        base.Write(writer);
     }
 }

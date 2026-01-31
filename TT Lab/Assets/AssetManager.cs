@@ -37,15 +37,15 @@ public class AssetManager
     }
 
     /// <summary>
-    /// Adds the asset to the manager with a specified URI
+    /// Attempts to add the asset with the specified URI and if it already exists then it doesn't get added
     /// </summary>
     /// <param name="uri">Asset's unique resource identifier</param>
     /// <param name="asset">Asset to add</param>
     /// <remarks>
     /// THIS METHOD SHOULD ONLY BE USED WHEN YOU ARE SURE THAT DUPLICATES ARE SKIPPED INTENTIONALLY.
-    /// AS THIS SKIPS LOGGING A WARNING INTO A LOG CONSOLE OF TT Lab WPF
+    /// AS THIS SKIPS LOGGING A WARNING INTO A LOG CONSOLE OF TT Lab
     /// </remarks>
-    public void AddAssetUnsafe(LabURI uri, IAsset asset)
+    public void TryAddAsset(LabURI uri, IAsset asset)
     {
         if (_assets.ContainsKey(uri))
         {
@@ -64,7 +64,7 @@ public class AssetManager
     {
         if (_assets.ContainsKey(uri))
         {
-            Log.WriteLine($"WARNING: Attempted to add already existing asset at {uri}! The asset was not added.");
+            Log.WriteLine($"Attempted to add already existing asset {asset.Name} at {uri}! The asset was not added.", Log.LogType.Warning);
             return;
         }
 
@@ -78,11 +78,12 @@ public class AssetManager
     /// <param name="asset">Asset to add</param>
     /// <remarks>
     /// THIS METHOD SHOULD ONLY BE USED WHEN YOU ARE SURE THAT DUPLICATES ARE SKIPPED INTENTIONALLY.
-    /// AS THIS SKIPS LOGGING A WARNING INTO A LOG CONSOLE OF TT Lab WPF
+    /// AS THIS SKIPS LOGGING A WARNING INTO A LOG CONSOLE OF TT Lab
     /// </remarks>
-    public void AddAssetUnsafe(IAsset asset)
+    public void TryAddAsset(IAsset asset)
     {
-        AddAssetUnsafe(asset.URI, asset);
+        asset.RegenerateLinks();
+        TryAddAsset(asset.URI, asset);
     }
 
     /// <summary>
@@ -116,7 +117,7 @@ public class AssetManager
     {
         if (!_assets.ContainsKey(uri))
         {
-            Log.WriteLine($"WARNING: Unable to remove unexisting asset {uri}!");
+            Log.WriteLine($"Unable to remove unexisting asset {uri}!", Log.LogType.Warning);
             return;
         }
 

@@ -8,38 +8,38 @@ using TT_Lab.ViewModels.Editors.Instance.Scenery;
 using Twinsanity.TwinsanityInterchange.Common.ScenerySubtypes;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.SM;
 
-namespace TT_Lab.AssetData.Instance.Scenery
+namespace TT_Lab.AssetData.Instance.Scenery;
+
+public class SceneryNodeData : SceneryBaseData
 {
-    public class SceneryNodeData : SceneryBaseData
+    [JsonProperty(Required = Required.Always)]
+    [System.Text.Json.Serialization.JsonIgnore]
+    public ITwinScenery.SceneryType[] SceneryTypes { get; set; }
+
+    public SceneryNodeData() { }
+
+    public SceneryNodeData(IAsset owner, TwinSceneryBaseType baseType) : base(owner, baseType)
     {
-        [JsonProperty(Required = Required.Always)]
-        public ITwinScenery.SceneryType[] SceneryTypes { get; set; }
+        var node = (TwinSceneryNode)baseType;
+        SceneryTypes = CloneUtils.DeepClone(node.SceneryTypes);
+    }
 
-        public SceneryNodeData() { }
+    public SceneryNodeData(SceneryNodeViewModel vm) : base(vm)
+    {
+        SceneryTypes = CloneUtils.DeepClone(vm.SceneryTypes.ToList().Select(e => e.Value).ToArray());
+    }
 
-        public SceneryNodeData(IAsset owner, TwinSceneryBaseType baseType) : base(owner, baseType)
+    public override ITwinScenery.SceneryType GetSceneryType()
+    {
+        return ITwinScenery.SceneryType.Node;
+    }
+
+    public override void Write(BinaryWriter writer)
+    {
+        base.Write(writer);
+        foreach (var type in SceneryTypes)
         {
-            var node = (TwinSceneryNode)baseType;
-            SceneryTypes = CloneUtils.DeepClone(node.SceneryTypes);
-        }
-
-        public SceneryNodeData(SceneryNodeViewModel vm) : base(vm)
-        {
-            SceneryTypes = CloneUtils.DeepClone(vm.SceneryTypes.ToList().Select(e => e.Value).ToArray());
-        }
-
-        public override ITwinScenery.SceneryType GetSceneryType()
-        {
-            return ITwinScenery.SceneryType.Node;
-        }
-
-        public override void Write(BinaryWriter writer)
-        {
-            base.Write(writer);
-            foreach (var type in SceneryTypes)
-            {
-                writer.Write((Int32)type);
-            }
+            writer.Write((Int32)type);
         }
     }
 }

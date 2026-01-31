@@ -28,6 +28,15 @@ public class BoundingBoxViewModel : Conductor<Vector4ViewModel>.Collection.AllAc
         dirtyTracker.AddChild(topLeft);
         dirtyTracker.AddChild(bottomRight);
     }
+    
+    public BoundingBoxViewModel(BoundingBox corners)
+    {
+        dirtyTracker = new DirtyTracker(this);
+        topLeft = new Vector4ViewModel(corners.V1);
+        bottomRight = new Vector4ViewModel(corners.V2);
+        dirtyTracker.AddChild(topLeft);
+        dirtyTracker.AddChild(bottomRight);
+    }
 
     public void Save(Vector4[] o)
     {

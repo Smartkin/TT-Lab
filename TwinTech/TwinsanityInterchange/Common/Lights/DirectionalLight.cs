@@ -6,12 +6,12 @@ namespace Twinsanity.TwinsanityInterchange.Common.Lights
 {
     public class DirectionalLight : Light
     {
-        public Vector4 UnkVec3;
+        public Vector4 Direction;
         public Int16 UnkShort;
 
         public DirectionalLight() : base()
         {
-            UnkVec3 = new Vector4();
+            Direction = new Vector4();
         }
 
         public override Int32 GetLength()
@@ -22,14 +22,14 @@ namespace Twinsanity.TwinsanityInterchange.Common.Lights
         public override void Read(BinaryReader reader, Int32 length)
         {
             base.Read(reader, length);
-            UnkVec3.Read(reader, Constants.SIZE_VECTOR4);
+            Direction.Read(reader, Constants.SIZE_VECTOR4);
             UnkShort = reader.ReadInt16();
         }
 
         public override void Write(BinaryWriter writer)
         {
             base.Write(writer);
-            UnkVec3.Write(writer);
+            Direction.Write(writer);
             writer.Write(UnkShort);
         }
     }

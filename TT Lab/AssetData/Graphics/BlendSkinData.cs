@@ -95,92 +95,102 @@ public class BlendSkinData : AbstractAssetData
             }
         }
 
-        var index = 0;
         var materialIndex = 0;
         foreach (var blend in Blends)
         {
             var twinMaterial = AssetManager.Get().GetAssetData<MaterialData>(blend.Material);
-            var texture = twinMaterial.Shaders[0].TextureId == LabURI.Empty ? null : AssetManager.Get().GetAsset<Texture>(twinMaterial.Shaders[0].TextureId);
-            var texturePath = texture?.FullDataPath;
-            var material = new SharpGLTF.Materials.MaterialBuilder($"Material_{materialIndex++}")
-                .WithDoubleSide(true);
-            material.Name = twinMaterial.Name;
+            foreach (var shader in twinMaterial.Shaders)
+            {
+                var texture = shader.TextureId == LabURI.Empty ? null : AssetManager.Get().GetAsset<Texture>(shader.TextureId);
+                var texturePath = texture?.FullDataPath;
+                var material = new SharpGLTF.Materials.MaterialBuilder($"BLEND_SKIN{GraphicsHelpers.MaterialTokenDivider}MATERIAL{GraphicsHelpers.MaterialTokenDivider}{twinMaterial.Name}{GraphicsHelpers.MaterialTokenDivider}{materialIndex}{GraphicsHelpers.MaterialTokenDivider}{shader.ShaderType}")
+                    .WithDoubleSide(true);
 
-            if (texturePath == null)
-            {
-                material.WithBaseColor(new System.Numerics.Vector4(1, 1, 1, 1));
-            }
-            else
-            {
-                material.WithBaseColor(texturePath);
-            }
+                if (texturePath == null)
+                {
+                    material.WithBaseColor(new System.Numerics.Vector4(1, 1, 1, 1));
+                }
+                else
+                {
+                    material.WithBaseColor(texturePath);
+                }
                 
-            var blendMode = AlphaMode.OPAQUE;
-            if (twinMaterial.Shaders[0].ABlending == TwinShader.AlphaBlending.ON)
-            {
-                blendMode = AlphaMode.BLEND;
-            }
-            if (twinMaterial.Shaders[0].ATest == TwinShader.AlphaTest.ON)
-            {
-                blendMode = AlphaMode.MASK;
-            }
-            material.WithAlpha(blendMode);
-            if (blendMode == AlphaMode.MASK)
-            {
-                material.AlphaCutoff = twinMaterial.Shaders[0].AlphaValueToBeComparedTo / 255.0f;
-            }
-
-            foreach (var blendModel in blend.Models)
-            {
-                var mesh = new MeshBuilder<VERTEX, COLOR_UV, JOINT_WEIGHT>($"blend_subskin_{index++}")
+                var blendMode = AlphaMode.OPAQUE;
+                if (shader.ABlending == TwinShader.AlphaBlending.ON)
                 {
-                    Extras = System.Text.Json.Nodes.JsonNode.Parse(System.Text.Json.JsonSerializer.Serialize(blendModel.BlendShape))
-                };
-
-                foreach (var face in blendModel.Faces)
+                    blendMode = AlphaMode.BLEND;
+                }
+                if (shader.ATest == TwinShader.AlphaTest.ON)
                 {
-                    var ver1 = blendModel.Vertexes[face.Indexes![0]];
-                    var ver2 = blendModel.Vertexes[face.Indexes[1]];
-                    var ver3 = blendModel.Vertexes[face.Indexes[2]];
-                    var primitive = mesh.UsePrimitive(material);
-                    primitive.AddTriangle(generateVertexFromTwinVertex(ver1), generateVertexFromTwinVertex(ver2), generateVertexFromTwinVertex(ver3));
+                    blendMode = AlphaMode.MASK;
+                }
+                material.WithAlpha(blendMode);
+                if (blendMode == AlphaMode.MASK)
+                {
+                    material.AlphaCutoff = shader.AlphaValueToBeComparedTo / 255.0f;
                 }
 
-                int findVertexIndex(VERTEX vertex)
+                material.Extras = shader.GetJsonFormat();
+
+                var index = 0;
+                foreach (var blendModel in blend.Models)
                 {
-                    var idx = -1;
-                    foreach (var ver in blendModel.Vertexes)
+                    var mesh = new MeshBuilder<VERTEX, COLOR_UV, JOINT_WEIGHT>($"blend_subskin_{materialIndex}_{index++}")
                     {
-                        if (new VERTEX(ver.Position.X, ver.Position.Y, ver.Position.Z) == vertex.Position)
+                        Extras = System.Text.Json.JsonSerializer.SerializeToNode(new MeshExtraInfo
                         {
-                            return idx + 1;
+                            BlendShape = blendModel.BlendShape,
+                            Type = MeshExportType.BlendSkinned
+                        })
+                    };
+
+                    foreach (var face in blendModel.Faces)
+                    {
+                        var ver1 = blendModel.Vertexes[face.Indexes![0]];
+                        var ver2 = blendModel.Vertexes[face.Indexes[1]];
+                        var ver3 = blendModel.Vertexes[face.Indexes[2]];
+                        var primitive = mesh.UsePrimitive(material);
+                        primitive.AddTriangle(generateVertexFromTwinVertex(ver1), generateVertexFromTwinVertex(ver2), generateVertexFromTwinVertex(ver3));
+                    }
+
+                    int findVertexIndex(VERTEX vertex)
+                    {
+                        var idx = -1;
+                        foreach (var ver in blendModel.Vertexes)
+                        {
+                            if (new VERTEX(ver.Position.X, ver.Position.Y, ver.Position.Z) == vertex.Position)
+                            {
+                                return idx + 1;
+                            }
+
+                            idx++;
                         }
 
-                        idx++;
+                        return -1;
                     }
 
-                    return -1;
-                }
-
-                var totalDelta = 0.0f;
-                for (var i = 0; i < blendModel.BlendFaces.Count; i++)
-                {
-                    var blendFace = blendModel.BlendFaces[i];
-                    var morph = mesh.UseMorphTarget(i);
-                    foreach (var vertex in morph.Vertices)
+                    var totalDelta = 0.0f;
+                    for (var i = 0; i < blendModel.BlendFaces.Count; i++)
                     {
-                        var newVer = vertex;
-                        var shapeIndex = findVertexIndex(vertex);
-                        var blendVec = blendFace.BlendShapes[shapeIndex].Offset;
+                        var blendFace = blendModel.BlendFaces[i];
+                        var morph = mesh.UseMorphTarget(i);
+                        foreach (var vertex in morph.Vertices)
+                        {
+                            var newVer = vertex;
+                            var shapeIndex = findVertexIndex(vertex);
+                            var blendVec = blendFace.BlendShapes[shapeIndex].Offset;
 
-                        newVer.Position += new System.Numerics.Vector3(blendVec.X, blendVec.Y, blendVec.Z);
-                        totalDelta += blendVec.Length();
-                        morph.SetVertex(vertex, newVer);
+                            newVer.Position += new System.Numerics.Vector3(blendVec.X, blendVec.Y, blendVec.Z);
+                            totalDelta += blendVec.Length();
+                            morph.SetVertex(vertex, newVer);
+                        }
                     }
-                }
 
-                meshes.Add(new GltfGeometryWrapper(mesh, subSkinNodes, totalDelta == 0.0f));
+                    meshes.Add(new GltfGeometryWrapper(mesh, subSkinNodes, totalDelta == 0.0f));
+                }
             }
+            
+            materialIndex++;
         }
 
         return meshes;
@@ -200,7 +210,7 @@ public class BlendSkinData : AbstractAssetData
         var scene = new SharpGLTF.Scenes.SceneBuilder("TwinsanityBlendSkin");
         var root = new SharpGLTF.Scenes.NodeBuilder("blend_skin_root");
         scene.AddNode(root);
-            
+        
         var meshes = GetMeshes(root);
         foreach (var mesh in meshes)
         {
@@ -220,7 +230,6 @@ public class BlendSkinData : AbstractAssetData
         writer.Write(JsonConvert.SerializeObject(metadata, Formatting.Indented, settings).ToCharArray());
     }
 
-
     protected override void LoadInternal(String dataPath, JsonSerializerSettings? settings = null)
     {
         var metadata = new Metadata();
@@ -232,22 +241,27 @@ public class BlendSkinData : AbstractAssetData
 
         LoadFromGltf(blendSkin.LogicalMaterials, blendSkin.LogicalMeshes, metadata.Materials);
     }
-
-    public void LoadFromGltf(IReadOnlyList<Material> materials, IReadOnlyList<Mesh> gltfMeshes, List<LabURI> materialsUri)
+    
+    public void LoadFromGltf(IReadOnlyList<Material> materials, IReadOnlyList<Mesh> gltfMeshes, List<GltfMaterialLabUri> materialsUri)
     {
         BlendsAmount = gltfMeshes.Max(m => m.Primitives.Max(prim => prim.GetVertexColumns().MorphTargets.Count));
 
         foreach (var material in materials)
         {
-            var labMaterial = material.LogicalIndex >= materialsUri.Count ? LabURI.Empty : materialsUri[material.LogicalIndex];
+            var labMaterial = materialsUri.FirstOrDefault(m => m.GltfIndex == material.LogicalIndex, new GltfMaterialLabUri(0, LabURI.Empty)).MaterialUri;
             var meshes = gltfMeshes.Where(m => m.Primitives.All(p => p.Material.LogicalIndex == material.LogicalIndex)).ToList();
             Blends.Add(new SubBlendData(labMaterial, meshes, BlendsAmount));
         }
     }
 
+    public void LoadFromGltf(IReadOnlyList<Material> materials, IReadOnlyList<Mesh> gltfMeshes, List<LabURI> materialsUri)
+    {
+        LoadFromGltf(materials, gltfMeshes, materialsUri.Select((uri, index) => new GltfMaterialLabUri(index, uri)).ToList());
+    }
+
     public override void Import(LabURI package, String? variant, Int32? layoutId)
     {
-        ITwinBlendSkin blendSkin = GetTwinItem<ITwinBlendSkin>();
+        var blendSkin = GetTwinItem<ITwinBlendSkin>();
         BlendsAmount = blendSkin.BlendsAmount;
         foreach (var blend in blendSkin.SubBlends)
         {
@@ -276,6 +290,6 @@ public class BlendSkinData : AbstractAssetData
     private class Metadata
     {
         [JsonProperty(Required = Required.Always)]
-        public List<LabURI> Materials { get; set; } = new();
+        public List<LabURI> Materials { get; set; } = [];
     }
 }

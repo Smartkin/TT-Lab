@@ -27,16 +27,6 @@ using JOINT_WEIGHT = SharpGLTF.Geometry.VertexTypes.VertexJoints4;
 using VERTEX = SharpGLTF.Geometry.VertexTypes.VertexPosition;
 using VERTEX_BUILDER = SharpGLTF.Geometry.VertexBuilder<SharpGLTF.Geometry.VertexTypes.VertexPosition, SharpGLTF.Geometry.VertexTypes.VertexColor2Texture2, SharpGLTF.Geometry.VertexTypes.VertexJoints4>;
     
-public struct GltfGeometryWrapper(
-    SharpGLTF.Geometry.IMeshBuilder<SharpGLTF.Materials.MaterialBuilder> mesh,
-    List<GltfBone> joints,
-    bool facesSquashedOnExport = false)
-{
-    public readonly SharpGLTF.Geometry.IMeshBuilder<SharpGLTF.Materials.MaterialBuilder> Mesh = mesh;
-    public readonly List<GltfBone> Joints = joints;
-    public readonly bool FacesSquashedOnExport = facesSquashedOnExport;
-}
-    
 [ReferencesAssets]
 public class SkinData : AbstractAssetData
 {
@@ -91,7 +81,7 @@ public class SkinData : AbstractAssetData
         }
 
         // Create all the joint nodes
-        var subSkinNodes = jointTree ?? new List<GltfBone>();
+        var subSkinNodes = jointTree ?? [];
         if (jointTree == null)
         {
             for (var i = 0; i < jointsAmount + 1; ++i)
@@ -107,51 +97,60 @@ public class SkinData : AbstractAssetData
             }
         }
 
-        var index = 0;
+        var materialIndex = 0;
         foreach (var subSkin in SubSkins)
         {
             var twinMaterial = AssetManager.Get().GetAssetData<MaterialData>(subSkin.Material);
-            var texture = twinMaterial.Shaders[0].TextureId == LabURI.Empty ? null : AssetManager.Get().GetAsset<Texture>(twinMaterial.Shaders[0].TextureId);
-            var texturePath = texture?.FullDataPath;
-            var material = new SharpGLTF.Materials.MaterialBuilder($"Material_{index}")
-                .WithDoubleSide(true);
-            material.Name = twinMaterial.Name;
+            foreach (var shader in twinMaterial.Shaders)
+            {
+                var texture = shader.TextureId == LabURI.Empty ? null : AssetManager.Get().GetAsset<Texture>(shader.TextureId);
+                var texturePath = texture?.FullDataPath;
+                var material = new SharpGLTF.Materials.MaterialBuilder($"SKIN{GraphicsHelpers.MaterialTokenDivider}MATERIAL{GraphicsHelpers.MaterialTokenDivider}{twinMaterial.Name}{GraphicsHelpers.MaterialTokenDivider}{materialIndex}{GraphicsHelpers.MaterialTokenDivider}{shader.ShaderType}")
+                    .WithDoubleSide(true);
                 
-            if (texturePath == null)
-            {
-                material.WithBaseColor(new System.Numerics.Vector4(0.5f, 0.5f, 0.5f, 1));
-            }
-            else
-            {
-                material.WithBaseColor(texturePath);
+                if (texturePath == null)
+                {
+                    material.WithBaseColor(new System.Numerics.Vector4(0.5f, 0.5f, 0.5f, 1));
+                }
+                else
+                {
+                    material.WithBaseColor(texturePath);
+                }
+
+                var blendMode = AlphaMode.OPAQUE;
+                if (shader.ABlending == TwinShader.AlphaBlending.ON)
+                {
+                    blendMode = AlphaMode.BLEND;
+                }
+                if (shader.ATest == TwinShader.AlphaTest.ON)
+                {
+                    blendMode = AlphaMode.MASK;
+                }
+                material.WithAlpha(blendMode);
+                if (blendMode == AlphaMode.MASK)
+                {
+                    material.AlphaCutoff = shader.AlphaValueToBeComparedTo / 255.0f;
+                }
+
+                material.Extras = shader.GetJsonFormat();
+
+                var mesh = new SharpGLTF.Geometry.MeshBuilder<VERTEX, COLOR_UV, JOINT_WEIGHT>($"subskin_{materialIndex}")
+                    {
+                        Extras = System.Text.Json.JsonSerializer.SerializeToNode(new MeshExtraInfo { Type = MeshExportType.Skinned })
+                    };
+                foreach (var face in subSkin.Faces)
+                {
+                    var ver1 = subSkin.Vertexes[face.Indexes![0]];
+                    var ver2 = subSkin.Vertexes[face.Indexes[1]];
+                    var ver3 = subSkin.Vertexes[face.Indexes[2]];
+                    var primitive = mesh.UsePrimitive(material);
+                    primitive.AddTriangle(generateVertexFromTwinVertex(ver1), generateVertexFromTwinVertex(ver2), generateVertexFromTwinVertex(ver3));
+                }
+
+                meshes.Add(new GltfGeometryWrapper(mesh, subSkinNodes));
             }
 
-            var blendMode = AlphaMode.OPAQUE;
-            if (twinMaterial.Shaders[0].ABlending == TwinShader.AlphaBlending.ON)
-            {
-                blendMode = AlphaMode.BLEND;
-            }
-            if (twinMaterial.Shaders[0].ATest == TwinShader.AlphaTest.ON)
-            {
-                blendMode = AlphaMode.MASK;
-            }
-            material.WithAlpha(blendMode);
-            if (blendMode == AlphaMode.MASK)
-            {
-                material.AlphaCutoff = twinMaterial.Shaders[0].AlphaValueToBeComparedTo / 255.0f;
-            }
-
-            var mesh = new SharpGLTF.Geometry.MeshBuilder<VERTEX, COLOR_UV, JOINT_WEIGHT>($"subskin_{index++}");
-            foreach (var face in subSkin.Faces)
-            {
-                var ver1 = subSkin.Vertexes[face.Indexes![0]];
-                var ver2 = subSkin.Vertexes[face.Indexes[1]];
-                var ver3 = subSkin.Vertexes[face.Indexes[2]];
-                var primitive = mesh.UsePrimitive(material);
-                primitive.AddTriangle(generateVertexFromTwinVertex(ver1), generateVertexFromTwinVertex(ver2), generateVertexFromTwinVertex(ver3));
-            }
-
-            meshes.Add(new GltfGeometryWrapper(mesh, subSkinNodes));
+            materialIndex++;
         }
 
         return meshes;
@@ -198,7 +197,7 @@ public class SkinData : AbstractAssetData
     public void LoadFromGltf(IReadOnlyList<Mesh> meshes, List<LabURI> materialsUri)
     {
         var materialIndex = 0;
-        foreach (var mesh in meshes)
+        foreach (var mesh in meshes.DistinctBy(m => m.Name))
         {
             var subskin = new List<Vertex>();
             var faces = new List<IndexedFace>();
@@ -239,8 +238,8 @@ public class SkinData : AbstractAssetData
 
     public override void Import(LabURI package, String? variant, Int32? layoutId)
     {
-        ITwinSkin skin = GetTwinItem<ITwinSkin>();
-        SubSkins = new List<SubSkinData>();
+        var skin = GetTwinItem<ITwinSkin>();
+        SubSkins = [];
         foreach (var e in skin.SubSkins)
         {
             SubSkins.Add(new SubSkinData(Owner, e));

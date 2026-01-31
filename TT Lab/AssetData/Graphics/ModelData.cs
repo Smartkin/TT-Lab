@@ -3,7 +3,9 @@ using SharpGLTF.Schema2;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using Caliburn.Micro;
+using SharpGLTF.Materials;
 using SharpGLTF.Scenes;
 using TT_Lab.AssetData.Code;
 using TT_Lab.AssetData.Graphics.SubModels;
@@ -34,7 +36,7 @@ public class ModelData : AbstractAssetData
     {
         public bool Value { get; set; }
     }
-        
+
     public ModelData(IAsset asset) : base(asset)
     {
         Vertexes = new List<List<Vertex>>();
@@ -65,7 +67,7 @@ public class ModelData : AbstractAssetData
     {
         var meshes = new List<GltfGeometryWrapper>();
         var materials = GenerateMaterials(material);
-            
+
         static VERTEX_BUILDER_VNCEU generateVertexFromTwinVertexVNCEU(Vertex vertex)
         {
             return new VERTEX_BUILDER_VNCEU(new VERTEX_NORMAL(
@@ -73,11 +75,12 @@ public class ModelData : AbstractAssetData
                     vertex.Normal.X, vertex.Normal.Y, vertex.Normal.Z),
                 new COLOR_EMIT_UV(
                     new System.Numerics.Vector4(vertex.Color.X, vertex.Color.Y, vertex.Color.Z, vertex.Color.W),
-                    new System.Numerics.Vector4(vertex.EmitColor.X, vertex.EmitColor.Y, vertex.EmitColor.Z, vertex.EmitColor.W),
+                    new System.Numerics.Vector4(vertex.EmitColor.X, vertex.EmitColor.Y, vertex.EmitColor.Z,
+                        vertex.EmitColor.W),
                     new System.Numerics.Vector2(vertex.UV.X, vertex.UV.Y),
                     vertex.AlphaBlendingBit
                 ));
-        };
+        }
 
         static VERTEX_BUILDER_VNCU generateVertexFromTwinVertexVNCU(Vertex vertex)
         {
@@ -89,7 +92,7 @@ public class ModelData : AbstractAssetData
                     new System.Numerics.Vector2(vertex.UV.X, vertex.UV.Y),
                     vertex.AlphaBlendingBit
                 ));
-        };
+        }
 
         static VERTEX_BUILDER_VCEU generateVertexFromTwinVertexVCEU(Vertex vertex)
         {
@@ -97,11 +100,12 @@ public class ModelData : AbstractAssetData
                     vertex.Position.X, vertex.Position.Y, vertex.Position.Z),
                 new COLOR_EMIT_UV(
                     new System.Numerics.Vector4(vertex.Color.X, vertex.Color.Y, vertex.Color.Z, vertex.Color.W),
-                    new System.Numerics.Vector4(vertex.EmitColor.X, vertex.EmitColor.Y, vertex.EmitColor.Z, vertex.EmitColor.W),
+                    new System.Numerics.Vector4(vertex.EmitColor.X, vertex.EmitColor.Y, vertex.EmitColor.Z,
+                        vertex.EmitColor.W),
                     new System.Numerics.Vector2(vertex.UV.X, vertex.UV.Y),
                     vertex.AlphaBlendingBit
                 ));
-        };
+        }
 
         static VERTEX_BUILDER_VCU generateVertexFromTwinVertexVCU(Vertex vertex)
         {
@@ -112,114 +116,142 @@ public class ModelData : AbstractAssetData
                     new System.Numerics.Vector2(vertex.UV.X, vertex.UV.Y),
                     vertex.AlphaBlendingBit
                 ));
-        };
+        }
 
         static SharpGLTF.Geometry.MeshBuilder<VERTEX_NORMAL, COLOR_EMIT_UV> getMeshBuilderVNCEU(int idx)
         {
-            return new SharpGLTF.Geometry.MeshBuilder<VERTEX_NORMAL, COLOR_EMIT_UV>($"mesh_{idx}");
+            return new SharpGLTF.Geometry.MeshBuilder<VERTEX_NORMAL, COLOR_EMIT_UV>($"mesh_RIGIDIDPLACEHOLDER_{idx}")
+            {
+                Extras = System.Text.Json.JsonSerializer.SerializeToNode(new MeshExtraInfo { HasEmits = true, Type = MeshExportType.Rigid })
+            };
         }
 
         static SharpGLTF.Geometry.MeshBuilder<VERTEX_NORMAL, COLOR_UV> getMeshBuilderVNCU(int idx)
         {
-            return new SharpGLTF.Geometry.MeshBuilder<VERTEX_NORMAL, COLOR_UV>($"mesh_{idx}");
+            return new SharpGLTF.Geometry.MeshBuilder<VERTEX_NORMAL, COLOR_UV>($"mesh_RIGIDIDPLACEHOLDER_{idx}")
+            {
+                Extras = System.Text.Json.JsonSerializer.SerializeToNode(new MeshExtraInfo { Type = MeshExportType.Rigid })
+            };
         }
 
         static SharpGLTF.Geometry.MeshBuilder<VERTEX, COLOR_EMIT_UV> getMeshBuilderVCEU(int idx)
         {
-            return new SharpGLTF.Geometry.MeshBuilder<VERTEX, COLOR_EMIT_UV>($"mesh_{idx}");
+            return new SharpGLTF.Geometry.MeshBuilder<VERTEX, COLOR_EMIT_UV>($"mesh_RIGIDIDPLACEHOLDER_{idx}")
+            {
+                Extras = System.Text.Json.JsonSerializer.SerializeToNode(new MeshExtraInfo { HasEmits = true, Type = MeshExportType.Rigid })
+            };
         }
 
         static SharpGLTF.Geometry.MeshBuilder<VERTEX, COLOR_UV> getMeshBuilderVCU(int idx)
         {
-            return new SharpGLTF.Geometry.MeshBuilder<VERTEX, COLOR_UV>($"mesh_{idx}");
+            return new SharpGLTF.Geometry.MeshBuilder<VERTEX, COLOR_UV>($"mesh_RIGIDIDPLACEHOLDER_{idx}")
+            {
+                Extras = System.Text.Json.JsonSerializer.SerializeToNode(new MeshExtraInfo { Type = MeshExportType.Rigid })
+            };
         }
 
         /// Generate mesh with positions, normals, colors, emission and UV coordinates
         void generateMeshWithVNCEU(int idx, List<IndexedFace> faces, List<Vertex> submodel)
         {
             var mesh = getMeshBuilderVNCEU(idx);
-            mesh.Extras = System.Text.Json.Nodes.JsonNode.Parse(System.Text.Json.JsonSerializer.Serialize(new HasEmits { Value = true }));
             var vertexGenerator = generateVertexFromTwinVertexVNCEU;
             foreach (var face in faces)
             {
                 var ver1 = submodel[face.Indexes![0]];
                 var ver2 = submodel[face.Indexes[1]];
                 var ver3 = submodel[face.Indexes[2]];
-                var primitive = mesh.UsePrimitive(materials[idx]);
-                primitive.AddTriangle(vertexGenerator(ver1), vertexGenerator(ver2), vertexGenerator(ver3));
+                foreach (var materialBuilder in materials[idx].MaterialBuilders)
+                {
+                    var primitive = mesh.UsePrimitive(materialBuilder);
+                    primitive.AddTriangle(vertexGenerator(ver1), vertexGenerator(ver2), vertexGenerator(ver3));
+                }
             }
 
-            meshes.Add(new GltfGeometryWrapper(mesh, [new GltfBone
-            {
-                Node = root,
-                InverseBindMatrix = System.Numerics.Matrix4x4.Identity
-            }]));
+            meshes.Add(new GltfGeometryWrapper(mesh, [
+                new GltfBone
+                {
+                    Node = root,
+                    InverseBindMatrix = System.Numerics.Matrix4x4.Identity
+                }
+            ]));
         }
 
         /// Generate mesh with positions, normals, colors and UV coordinates
         void generateMeshWithVNCU(int idx, List<IndexedFace> faces, List<Vertex> submodel)
         {
             var mesh = getMeshBuilderVNCU(idx);
-            mesh.Extras = System.Text.Json.Nodes.JsonNode.Parse(System.Text.Json.JsonSerializer.Serialize(new HasEmits { Value = false }));
             var vertexGenerator = generateVertexFromTwinVertexVNCU;
             foreach (var face in faces)
             {
                 var ver1 = submodel[face.Indexes![0]];
                 var ver2 = submodel[face.Indexes[1]];
                 var ver3 = submodel[face.Indexes[2]];
-                var primitive = mesh.UsePrimitive(materials[idx]);
-                primitive.AddTriangle(vertexGenerator(ver1), vertexGenerator(ver2), vertexGenerator(ver3));
+                foreach (var materialBuilder in materials[idx].MaterialBuilders)
+                {
+                    var primitive = mesh.UsePrimitive(materialBuilder);
+                    primitive.AddTriangle(vertexGenerator(ver1), vertexGenerator(ver2), vertexGenerator(ver3));
+                }
             }
 
-            meshes.Add(new GltfGeometryWrapper(mesh, [new GltfBone
-            {
-                Node = root,
-                InverseBindMatrix = System.Numerics.Matrix4x4.Identity
-            }]));
+            meshes.Add(new GltfGeometryWrapper(mesh, [
+                new GltfBone
+                {
+                    Node = root,
+                    InverseBindMatrix = System.Numerics.Matrix4x4.Identity
+                }
+            ]));
         }
 
         /// Generate mesh with positions, colors, emission and UV coordinates
         void generateMeshWithVCEU(int idx, List<IndexedFace> faces, List<Vertex> submodel)
         {
             var mesh = getMeshBuilderVCEU(idx);
-            mesh.Extras = System.Text.Json.Nodes.JsonNode.Parse(System.Text.Json.JsonSerializer.Serialize(new HasEmits { Value = true }));
             var vertexGenerator = generateVertexFromTwinVertexVCEU;
             foreach (var face in faces)
             {
                 var ver1 = submodel[face.Indexes![0]];
                 var ver2 = submodel[face.Indexes[1]];
                 var ver3 = submodel[face.Indexes[2]];
-                var primitive = mesh.UsePrimitive(materials[idx]);
-                primitive.AddTriangle(vertexGenerator(ver1), vertexGenerator(ver2), vertexGenerator(ver3));
+                foreach (var materialBuilder in materials[idx].MaterialBuilders)
+                {
+                    var primitive = mesh.UsePrimitive(materialBuilder);
+                    primitive.AddTriangle(vertexGenerator(ver1), vertexGenerator(ver2), vertexGenerator(ver3));
+                }
             }
 
-            meshes.Add(new GltfGeometryWrapper(mesh, [new GltfBone
-            {
-                Node = root,
-                InverseBindMatrix = System.Numerics.Matrix4x4.Identity
-            }]));
+            meshes.Add(new GltfGeometryWrapper(mesh, [
+                new GltfBone
+                {
+                    Node = root,
+                    InverseBindMatrix = System.Numerics.Matrix4x4.Identity
+                }
+            ]));
         }
 
         /// Generate mesh with positions, colors and UV coordinates
         void generateMeshWithVCU(int idx, List<IndexedFace> faces, List<Vertex> submodel)
         {
             var mesh = getMeshBuilderVCU(idx);
-            mesh.Extras = System.Text.Json.Nodes.JsonNode.Parse(System.Text.Json.JsonSerializer.Serialize(new HasEmits { Value = false }));
             var vertexGenerator = generateVertexFromTwinVertexVCU;
             foreach (var face in faces)
             {
                 var ver1 = submodel[face.Indexes![0]];
                 var ver2 = submodel[face.Indexes[1]];
                 var ver3 = submodel[face.Indexes[2]];
-                var primitive = mesh.UsePrimitive(materials[idx]);
-                primitive.AddTriangle(vertexGenerator(ver1), vertexGenerator(ver2), vertexGenerator(ver3));
+                foreach (var materialBuilder in materials[idx].MaterialBuilders)
+                {
+                    var primitive = mesh.UsePrimitive(materialBuilder);
+                    primitive.AddTriangle(vertexGenerator(ver1), vertexGenerator(ver2), vertexGenerator(ver3));
+                }
             }
 
-            meshes.Add(new GltfGeometryWrapper(mesh, [new GltfBone
-            {
-                Node = root,
-                InverseBindMatrix = System.Numerics.Matrix4x4.Identity
-            }]));
+            meshes.Add(new GltfGeometryWrapper(mesh, [
+                new GltfBone
+                {
+                    Node = root,
+                    InverseBindMatrix = System.Numerics.Matrix4x4.Identity
+                }
+            ]));
         }
 
         for (var i = 0; i < Vertexes.Count; i++)
@@ -268,13 +300,16 @@ public class ModelData : AbstractAssetData
         {
             var submodel = new List<Vertex>();
             var faces = new List<IndexedFace>();
-            var hasEmitsStored = (bool)mesh.Extras["Value"]!;
-            var attributeKey = hasEmitsStored ? COLOR_EMIT_UV.ALPHA_BLENDING_ATTRIBUTE : COLOR_UV.ALPHA_BLENDING_ATTRIBUTE;
+            var hasEmitsStored = mesh.Extras.Deserialize<MeshExtraInfo>()!.HasEmits;
+            var attributeKey =
+                hasEmitsStored ? COLOR_EMIT_UV.ALPHA_BLENDING_ATTRIBUTE : COLOR_UV.ALPHA_BLENDING_ATTRIBUTE;
             foreach (var primitive in mesh.Primitives)
             {
                 var vertexes = primitive.GetVertexColumns();
                 var hasAlphaBlendingBit = primitive.VertexAccessors.Keys.Any(a => a == attributeKey);
-                var alphaBlendingBits = hasAlphaBlendingBit ? primitive.GetVertexAccessor(attributeKey).AsVector4Array() : null;
+                var alphaBlendingBits = hasAlphaBlendingBit
+                    ? primitive.GetVertexAccessor(attributeKey).AsVector4Array()
+                    : null;
                 for (var i = 0; i < vertexes.Positions.Count; i++)
                 {
                     var pos = vertexes.Positions[i].ToTwin();
@@ -294,11 +329,13 @@ public class ModelData : AbstractAssetData
                     {
                         ver.Normal = vertexes.Normals[i].ToTwin();
                     }
+
                     if (hasEmitsStored)
                     {
                         ver.EmitColor = vertexes.Colors1[i].ToTwin();
                         ver.EmitColor.StoresColorWithAlphaBlend = false;
                     }
+
                     submodel.Add(ver);
                 }
 
@@ -307,6 +344,7 @@ public class ModelData : AbstractAssetData
                     faces.Add(new IndexedFace(idx1, idx2, idx3));
                 }
             }
+
             Vertexes.Add(submodel);
             Faces.Add(faces);
         }
@@ -357,20 +395,25 @@ public class ModelData : AbstractAssetData
                             faceList.Add(new IndexedFace(triIndices));
                         }
                     }
+
                     ++refIndex;
                 }
+
                 var ver = new Vertex(e.Vertexes[j], e.Colors[j], e.UVW[j]);
                 if (e.EmitColor.Count == e.Vertexes.Count)
                 {
                     ver.EmitColor = new Vector4(e.EmitColor[j].X, e.EmitColor[j].Y, e.EmitColor[j].Z, e.EmitColor[j].W);
                 }
+
                 if (e.Normals.Count == e.Vertexes.Count)
                 {
                     ver.Normal = new Vector4(e.Normals[j].X, e.Normals[j].Y, e.Normals[j].Z, e.Normals[j].W);
                     ver.Normal.Normalize();
                 }
+
                 vertList.Add(ver);
             }
+
             Vertexes.Add(vertList);
             Faces.Add(faceList);
         }
@@ -381,53 +424,74 @@ public class ModelData : AbstractAssetData
         return factory.GenerateModel(Meshes);
     }
 
-    private List<SharpGLTF.Materials.MaterialBuilder> GenerateMaterials(List<MaterialData>? twinMaterials = null)
+    private List<GltfMaterialBuilder> GenerateMaterials(List<MaterialData>? twinMaterials = null)
     {
-        var materials = new List<SharpGLTF.Materials.MaterialBuilder>();
-        var index = 0;
+        var materials = new List<GltfMaterialBuilder>();
+        var materialIndex = 0;
         foreach (var submodel in Vertexes)
         {
             var hasEmits = submodel.Any(v => v.HasEmitColor);
-            var material = new SharpGLTF.Materials.MaterialBuilder()
-                .WithDoubleSide(true);
-            var twinMaterial = twinMaterials?[index++];
-            material.Name = twinMaterial?.Name;
+            var gltfMaterial = new GltfMaterialBuilder([]);
+            materials.Add(gltfMaterial);
             
-            var textureId = twinMaterial?.Shaders[0].TextureId;
-            if (textureId == null || textureId == LabURI.Empty)
+            var twinMaterial = twinMaterials?[materialIndex];
+
+            if (twinMaterial == null)
             {
+                var material = new SharpGLTF.Materials.MaterialBuilder($"RIGID{GraphicsHelpers.MaterialTokenDivider}MATERIAL{GraphicsHelpers.MaterialTokenDivider}NULL{GraphicsHelpers.MaterialTokenDivider}{materialIndex++}")
+                    .WithDoubleSide(true);
                 material.WithBaseColor(new System.Numerics.Vector4(0.5f, 0.5f, 0.5f, 1.0f));
-            }
-            else
-            {
-                var texture = AssetManager.Get().GetAsset<Assets.Graphics.Texture>(textureId);
-                material.WithBaseColor(texture.FullDataPath);
+                gltfMaterial.MaterialBuilders.Add(material);
+                continue;
             }
 
-            var blendMode = AlphaMode.OPAQUE;
-            if (twinMaterial?.Shaders[0].ABlending == TwinShader.AlphaBlending.ON)
+            foreach (var shader in twinMaterial.Shaders)
             {
-                blendMode = AlphaMode.BLEND;
-            }
-            if (twinMaterial?.Shaders[0].ATest == TwinShader.AlphaTest.ON)
-            {
-                blendMode = AlphaMode.MASK;
-            }
-            material.WithAlpha(blendMode);
-            if (blendMode == AlphaMode.MASK)
-            {
-                material.AlphaCutoff = twinMaterial!.Shaders[0].AlphaValueToBeComparedTo / 255.0f;
-            }
+                var material = new SharpGLTF.Materials.MaterialBuilder($"RIGID{GraphicsHelpers.MaterialTokenDivider}MATERIAL{GraphicsHelpers.MaterialTokenDivider}{twinMaterial.Name}{GraphicsHelpers.MaterialTokenDivider}{materialIndex}{GraphicsHelpers.MaterialTokenDivider}{shader.ShaderType}")
+                    .WithDoubleSide(true);
+                var textureId = shader.TextureId;
+                if (textureId == LabURI.Empty)
+                {
+                    material.WithBaseColor(new System.Numerics.Vector4(0.5f, 0.5f, 0.5f, 1.0f));
+                }
+                else
+                {
+                    var texture = AssetManager.Get().GetAsset<Assets.Graphics.Texture>(textureId);
+                    material.WithBaseColor(texture.FullDataPath);
+                }
 
-            // if (hasEmits)
-            // {
-            //     var emissionTexture = GenerateEmissionTexture(submodel);
-            //     material.WithEmissive(emissionTexture);
-            // }
+                var blendMode = AlphaMode.OPAQUE;
+                if (shader.ABlending == TwinShader.AlphaBlending.ON)
+                {
+                    blendMode = AlphaMode.BLEND;
+                }
+
+                if (shader.ATest == TwinShader.AlphaTest.ON)
+                {
+                    blendMode = AlphaMode.MASK;
+                }
+
+                material.WithAlpha(blendMode);
+                if (blendMode == AlphaMode.MASK)
+                {
+                    material.AlphaCutoff = shader.AlphaValueToBeComparedTo / 255.0f;
+                }
+
+                material.Extras = shader.GetJsonFormat();
+
+                // if (hasEmits)
+                // {
+                //     var emissionTexture = GenerateEmissionTexture(submodel);
+                //     material.WithEmissive(emissionTexture);
+                // }
                 
-            materials.Add(material);
+                gltfMaterial.MaterialBuilders.Add(material);
+            }
+
+            materialIndex++;
         }
-            
+
         return materials;
     }
+
 }

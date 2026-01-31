@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using TT_Lab.Assets;
 using TT_Lab.Attributes;
@@ -42,8 +43,7 @@ namespace TT_Lab.AssetData.Graphics.SubModels
             {
                 var allVertexes = new List<Vertex>();
                 var allIndices = new List<IndexedFace>();
-                var blendShapeJson = mesh.Extras;
-                var blendShape = new Vector3((float)blendShapeJson["X"]!, (float)blendShapeJson["Y"]!, (float)blendShapeJson["Z"]!);
+                var blendShape = mesh.Extras.Deserialize<MeshExtraInfo>()!.BlendShape;
                 var primitive = mesh.Primitives[0];
                 var vertexes = primitive.GetVertexColumns();
                 var indices = primitive.GetTriangleIndices();

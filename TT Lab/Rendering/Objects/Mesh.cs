@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using Avalonia.Utilities;
 using GlmSharp;
 using Silk.NET.OpenGL;
 using TT_Lab.Rendering.Buffers;

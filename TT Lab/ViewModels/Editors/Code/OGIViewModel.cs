@@ -124,7 +124,7 @@ public class OGIViewModel : ResourceEditorViewModel
         DirtyTracker.AddBindableCollection(_exitPoints);
 
         _jointIndices = [];
-        foreach (var jointIndex in data.JointIndices)
+        foreach (var jointIndex in data.RigidModelJointIndices)
         {
             _jointIndices.Add(new PrimitiveWrapperViewModel<Byte>(jointIndex));
         }
@@ -158,20 +158,6 @@ public class OGIViewModel : ResourceEditorViewModel
         DirtyTracker.AddBindableCollection(_boundingBoxBuilderToJoint);
         
         ResetDirty();
-    }
-
-    public void ExportOgi()
-    {
-        // using var sfd = new SaveFileDialog();
-        // sfd.Title = "Export Skeleton";
-        // sfd.Filter = "GLB file (*.glb)|*.glb";
-        // var result = sfd.ShowDialog();
-        // if (result == DialogResult.OK)
-        // {
-        //     var path = sfd.FileName;
-        //     var ogiData = AssetManager.Get().GetAssetData<OGIData>(EditableResource);
-        //     ogiData.ExportGltf(path);
-        // }
     }
 
     public ViewportViewModel OGIScene { get; }

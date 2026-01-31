@@ -62,7 +62,7 @@ public class OGI : Renderable
         var jointIndex = 0;
         foreach (var rigidModelUri in ogiData.RigidModelIds)
         {
-            var node = defaultSkeleton.Bones[ogiData.JointIndices[jointIndex++]];
+            var node = defaultSkeleton.Bones[ogiData.RigidModelJointIndices[jointIndex++]];
             if (rigidModelUri == LabURI.Empty)
             {
                 continue;

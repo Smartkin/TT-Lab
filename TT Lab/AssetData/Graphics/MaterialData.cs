@@ -1,10 +1,16 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
+using System.Linq;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.Json.Serialization.Metadata;
 using TT_Lab.AssetData.Graphics.Shaders;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
+using TT_Lab.Assets.Graphics;
 using TT_Lab.Attributes;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Enumerations;
@@ -32,9 +38,26 @@ public class MaterialData : AbstractAssetData
     {
         var material = new MaterialData(null);
         material.Shaders[0].TxtMapping = TwinShader.TextureMapping.ON;
-        material.Shaders[0].ShaderType = TwinShader.Type.UnlitGlossy;
+        material.Shaders[0].ShaderType = TwinShader.Type.StandardLit;
         material.Shaders[0].TextureId = LabURI.BoatGuy;
         return material;
+    }
+
+    private class MaterialJsonData
+    {
+        public UInt32 DmaChainIndex { get; set; }
+        public string Name { get; set; }
+    }
+
+    public JsonNode GetJsonFormat()
+    {
+        var jsonData = new MaterialJsonData
+        {
+            Name = Name,
+            DmaChainIndex = DmaChainIndex,
+        };
+        
+        return System.Text.Json.JsonSerializer.SerializeToNode(jsonData);
     }
 
     [JsonProperty(Required = Required.Always)]
@@ -49,6 +72,44 @@ public class MaterialData : AbstractAssetData
     protected override void Dispose(Boolean disposing)
     {
         Shaders.Clear();
+    }
+
+    public static MaterialData LoadFromGltf(IAsset owner, SharpGLTF.Schema2.Node materialNode, List<SharpGLTF.Schema2.Material> gltfMaterials)
+    {
+        var materialData = new MaterialData(owner);
+        var materialInfo = materialNode.Extras.Deserialize<MaterialJsonData>();
+        materialData.DmaChainIndex = materialInfo!.DmaChainIndex;
+        materialData.Name = materialInfo.Name;
+
+        var assetManager = AssetManager.Get();
+        materialData.Shaders = [];
+        materialData.ActivatedShaders = 0;
+        foreach (var gltfMaterial in gltfMaterials)
+        {
+            var shader = LabShader.GetShaderFromGltf(gltfMaterial);
+            Debug.Assert(shader != null, "Shader must not be null!");
+            var gltfTexture = gltfMaterial.FindChannel(nameof(SharpGLTF.Materials.KnownChannel.BaseColor))?.Texture;
+            if (gltfTexture != null)
+            {
+                var texture = new Texture
+                {
+                    Package = owner.Package,
+                    InvariantName = $"Texture_{owner.Name}_{shader.ShaderName}",
+                    Alias = $"Texture_{owner.Name}_{shader.ShaderName}"
+                };
+                assetManager.AddAsset(texture);
+                
+                var textureData = TextureData.LoadFromGltf(texture, gltfTexture);
+                texture.SetData(textureData);
+
+                shader.TextureId = texture.URI;
+            }
+            
+            materialData.ActivatedShaders |= Enum.Parse<AppliedShaders>(shader.ShaderType.ToString());
+            materialData.Shaders.Add(shader);
+        }
+        
+        return materialData;
     }
 
     public override void Import(LabURI package, String? variant, Int32? layoutId)
@@ -88,12 +149,11 @@ public class MaterialData : AbstractAssetData
         var assetManager = AssetManager.Get();
         var graphicsSection = section.GetParent();
         var texturesSection = graphicsSection.GetItem<ITwinSection>(Constants.GRAPHICS_TEXTURES_SECTION);
-        foreach (var shader in Shaders)
+        foreach (var shader in Shaders.Where(shader => shader.TextureId != LabURI.Empty))
         {
-            if (shader.TextureId == LabURI.Empty) continue;
-
             assetManager.GetAsset(shader.TextureId).ResolveChunkResources(factory, texturesSection);
         }
+        
         return base.ResolveChunkResources(factory, section, id, layoutID);
     }
 }

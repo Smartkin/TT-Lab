@@ -121,35 +121,6 @@ public class ShellViewModel : Conductor<EditorsViewModel>, ILabManager
         // DragDrop.DoDragDrop(projectTree, data, DragDropEffects.Copy);
     }
 
-    // Props to https://stackoverflow.com/a/25765336
-    public void LogViewerScroll(object scrollViewer, object evArgs)
-    {
-        if (Design.IsDesignMode)
-        {
-            return;
-        }
-        
-        var sv = (ScrollViewer)scrollViewer;
-        var e = (ScrollChangedEventArgs)evArgs;
-        var autoScrollToEnd = true;
-        if (sv.Tag != null)
-        {
-            autoScrollToEnd = (bool)sv.Tag;
-        }
-        if (e.ExtentDelta.NearlyEquals(Vector.Zero))// user scroll
-        {
-            autoScrollToEnd = Math.Abs(sv.ScrollBarMaximum.Y - sv.Offset.Y) < 0.001f;
-        }
-        else// content change
-        {
-            if (autoScrollToEnd)
-            {
-                sv.ScrollToEnd();
-            }
-        }
-        sv.Tag = autoScrollToEnd;
-    }
-
     public void BuildPs2()
     {
         _projectManager.BuildPs2Project();

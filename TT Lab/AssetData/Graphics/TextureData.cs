@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.IO;
 using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Media.Imaging;
@@ -29,6 +30,21 @@ public class TextureData : AbstractAssetData
     public ITwinTexture.TexturePixelFormat TexturePixelFormat { get; set; }
     public ITwinTexture.TextureFunction TextureFunction { get; set; }
     public Boolean GenerateMipmaps { get; set; }
+
+    public static TextureData LoadFromGltf(IAsset owner, SharpGLTF.Schema2.Texture gltfTexture)
+    {
+        var textureData = new TextureData(owner);
+
+        var gltfImage = gltfTexture.PrimaryImage;
+        using var imageDataStream = new MemoryStream(gltfImage.Content.Content.ToArray());
+        textureData.Bitmap = new Bitmap(imageDataStream);
+        var isHd = textureData.Bitmap.PixelSize.Width >= 256 || textureData.Bitmap.PixelSize.Height >= 256;
+        textureData.TexturePixelFormat = isHd ? ITwinTexture.TexturePixelFormat.PSMCT32 : ITwinTexture.TexturePixelFormat.PSMT8;
+        textureData.TextureFunction = ITwinTexture.TextureFunction.MODULATE;
+        textureData.GenerateMipmaps = !isHd;
+        
+        return textureData;
+    }
 
     protected override void Dispose(Boolean disposing)
     {

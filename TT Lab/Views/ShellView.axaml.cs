@@ -1,9 +1,11 @@
+using System;
 using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using AvaloniaEdit;
 using AvaloniaEdit.TextMate;
 using ReactiveUI;
 using ReactiveUI.Avalonia;
@@ -22,17 +24,21 @@ public partial class ShellView : BurnBridgeWindow<ShellViewModel>
 
         var registryOptions = new RegistryOptions(ThemeName.DarkPlus);
         var textMateInstallation = LogText.InstallTextMate(registryOptions);
+        LogText.Options = new TextEditorOptions
+        {
+            AllowScrollBelowDocument = false,
+            EnableHyperlinks = true,
+        };
         textMateInstallation.SetGrammar(registryOptions.GetScopeByExtension(".log"));
+        LogText.TextChanged += LogTextOnTextChanged;
         
         HotKeyManager.SetHotKey(OpenProjectItem, new KeyGesture(Key.O, KeyModifiers.Control));
         HotKeyManager.SetHotKey(SaveProjectItem, new KeyGesture(Key.S, KeyModifiers.Control | KeyModifiers.Shift));
-        
-        LogViewer.ScrollChanged += LogViewerOnScrollChanged;
     }
 
-    private void LogViewerOnScrollChanged(object? sender, ScrollChangedEventArgs e)
+    private void LogTextOnTextChanged(object? sender, EventArgs e)
     {
-        ViewModel?.LogViewerScroll(sender!, e);
+        LogText.ScrollToEnd();
     }
 
     private void UIElement_OnIsVisibleChanged(object sender, AvaloniaPropertyChangedEventArgs e)

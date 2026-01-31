@@ -12,8 +12,6 @@ namespace TT_Lab.ViewModels.Editors.Instance;
 
 public class SceneryViewModel : InstanceSectionResourceEditorViewModel
 {
-
-    private LabURI _chunk = LabURI.Empty;
     private UInt32 _unkUInt;
     private Byte _unkByte;
     private LabURI _skydome = LabURI.Empty;
@@ -23,7 +21,6 @@ public class SceneryViewModel : InstanceSectionResourceEditorViewModel
     {
         var asset = AssetManager.Get().GetAsset(EditableResource);
         var data = asset.GetData<SceneryData>();
-        data.ChunkPath = _chunk;
         data.FogColor = UnkUInt;
         data.UnkByte = UnkByte;
         data.SkydomeID = Skydome;
@@ -44,7 +41,6 @@ public class SceneryViewModel : InstanceSectionResourceEditorViewModel
     {
         var asset = AssetManager.Get().GetAsset(EditableResource);
         var data = asset.GetData<SceneryData>();
-        _chunk = data.ChunkPath;
         _unkUInt = data.FogColor;
         _unkByte = data.UnkByte;
         _skydome = data.SkydomeID;
@@ -58,19 +54,6 @@ public class SceneryViewModel : InstanceSectionResourceEditorViewModel
         ResetDirty();
     }
 
-    [MarkDirty]
-    public LabURI Chunk
-    {
-        get => _chunk;
-        set
-        {
-            if (_chunk != value)
-            {
-                _chunk = value;
-                NotifyOfPropertyChange();
-            }
-        }
-    }
     [MarkDirty]
     public UInt32 UnkUInt
     {

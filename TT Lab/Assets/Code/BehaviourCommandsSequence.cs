@@ -32,7 +32,7 @@ namespace TT_Lab.Assets.Code
             base.PostDeserialize();
             foreach (var graphLink in BehaviourGraphLinks)
             {
-                AssetManager.Get().AddAssetUnsafe(graphLink.Value, this);
+                AssetManager.Get().TryAddAsset(graphLink.Value, this);
             }
         }
 

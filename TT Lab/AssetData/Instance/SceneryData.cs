@@ -3,6 +3,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Numerics;
+using System.Text.Json;
+using SharpGLTF.Schema2;
 using TT_Lab.AssetData.Graphics;
 using TT_Lab.AssetData.Instance.Scenery;
 using TT_Lab.Assets;
@@ -15,276 +18,829 @@ using Twinsanity.TwinsanityInterchange.Common.Lights;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.SM;
+using Material = TT_Lab.Assets.Graphics.Material;
+using Mesh = TT_Lab.Assets.Graphics.Mesh;
+using Vector3 = System.Numerics.Vector3;
+using Vector4 = Twinsanity.TwinsanityInterchange.Common.Vector4;
 
-namespace TT_Lab.AssetData.Instance
+namespace TT_Lab.AssetData.Instance;
+
+[ReferencesAssets]
+public class SceneryData : AbstractAssetData
 {
-    [ReferencesAssets]
-    public class SceneryData : AbstractAssetData
+    private static readonly Dictionary<ITwinScenery.SceneryType, Type> ScIndexToType = new();
+
+    static SceneryData()
     {
-        private static readonly Dictionary<ITwinScenery.SceneryType, Type> ScIndexToType = new();
+        ScIndexToType.Add(ITwinScenery.SceneryType.Root, typeof(SceneryRootData));
+        ScIndexToType.Add(ITwinScenery.SceneryType.Leaf, typeof(SceneryLeafData));
+        ScIndexToType.Add(ITwinScenery.SceneryType.Node, typeof(SceneryNodeData));
+    }
 
-        static SceneryData()
+    [System.Text.Json.Serialization.JsonConstructor]
+    private SceneryData() : base(null) { }
+
+    public SceneryData(IAsset asset) : base(asset)
+    {
+        SkydomeID = LabURI.Empty;
+        HasLighting = false;
+        AmbientLights = new List<AmbientLight>();
+        DirectionalLights = new List<DirectionalLight>();
+        PointLights = new List<PointLight>();
+        NegativeLights = new List<NegativeLight>();
+        Sceneries = new List<SceneryBaseData>();
+    }
+
+    public SceneryData(IAsset asset, ITwinScenery scenery) : this(asset)
+    {
+        SetTwinItem(scenery);
+    }
+    
+    [JsonProperty(Required = Required.Always)]
+    public LabURI SkydomeID { get; set; }
+    
+    public UInt32 FogColor { get; set; }
+    
+    public Byte UnkByte { get; set; }
+    
+    public Boolean HasLighting { get; set; }
+    
+    public List<AmbientLight> AmbientLights { get; set; }
+    
+    public List<DirectionalLight> DirectionalLights { get; set; }
+    
+    public List<PointLight> PointLights { get; set; }
+    
+    public List<NegativeLight> NegativeLights { get; set; }
+    
+    public List<SceneryBaseData> Sceneries { get; set; }
+
+    protected override void Dispose(Boolean disposing)
+    {
+        AmbientLights.Clear();
+        DirectionalLights.Clear();
+        PointLights.Clear();
+        NegativeLights.Clear();
+        Sceneries.Clear();
+    }
+    
+    private const string SceneryRootName = "SCENERY_ROOT";
+    private const string SceneryNodeStartName = "SCENERY_NODE_";
+    private const string SceneryLeafStartName = "SCENERY_LEAF_";
+    private const string LightingRootNodeName = "LIGHTING_ROOT";
+    private const string AmbientLightsNodeName = "AMBIENT_LIGHTS";
+    private const string DirectionalLightsNodeName = "DIRECTIONAL_LIGHTS";
+    private const string PointsLightsNodeName = "POINT_LIGHTS";
+    private const string NegativeLightsNodeName = "NEGATIVE_LIGHTS";
+
+    private void ExportGltf(string path)
+    {
+        var scene = new SharpGLTF.Scenes.SceneBuilder($"TwinsanityScenery_{Owner.Name}");
+        var root = new SharpGLTF.Scenes.NodeBuilder(SceneryRootName);
+        scene.AddNode(root);
+
+        // TODO: Try to use GLTF lights, maybe
+        if (HasLighting)
         {
-            ScIndexToType.Add(ITwinScenery.SceneryType.Root, typeof(SceneryRootData));
-            ScIndexToType.Add(ITwinScenery.SceneryType.Leaf, typeof(SceneryLeafData));
-            ScIndexToType.Add(ITwinScenery.SceneryType.Node, typeof(SceneryNodeData));
-        }
+            var lightingRoot = new SharpGLTF.Scenes.NodeBuilder(LightingRootNodeName);
+            scene.AddNode(lightingRoot);
 
-        public SceneryData(IAsset asset) : base(asset)
-        {
-            ChunkPath = LabURI.Empty;
-            SkydomeID = LabURI.Empty;
-            HasLighting = false;
-            AmbientLights = new List<AmbientLight>();
-            DirectionalLights = new List<DirectionalLight>();
-            PointLights = new List<PointLight>();
-            NegativeLights = new List<NegativeLight>();
-            Sceneries = new List<SceneryBaseData>();
-        }
-
-        public SceneryData(IAsset asset, ITwinScenery scenery) : this(asset)
-        {
-            SetTwinItem(scenery);
-        }
-
-        [JsonProperty(Required = Required.Always)]
-        public LabURI ChunkPath { get; set; }
-        [JsonProperty(Required = Required.Always)]
-        public UInt32 FogColor { get; set; }
-        [JsonProperty(Required = Required.Always)]
-        public Byte UnkByte { get; set; }
-        [JsonProperty(Required = Required.Always)]
-        public LabURI SkydomeID { get; set; }
-        [JsonProperty(Required = Required.Always)]
-        public Boolean HasLighting { get; set; }
-        [JsonProperty(Required = Required.AllowNull)]
-        public List<AmbientLight> AmbientLights { get; set; }
-        [JsonProperty(Required = Required.AllowNull)]
-        public List<DirectionalLight> DirectionalLights { get; set; }
-        [JsonProperty(Required = Required.AllowNull)]
-        public List<PointLight> PointLights { get; set; }
-        [JsonProperty(Required = Required.AllowNull)]
-        public List<NegativeLight> NegativeLights { get; set; }
-        [JsonProperty(Required = Required.AllowNull)]
-        public List<SceneryBaseData> Sceneries { get; set; }
-
-        protected override void Dispose(Boolean disposing)
-        {
-            AmbientLights.Clear();
-            DirectionalLights.Clear();
-            PointLights.Clear();
-            NegativeLights.Clear();
-            Sceneries.Clear();
-        }
-
-        private void ExportGltf(string path)
-        {
-            var scene = new SharpGLTF.Scenes.SceneBuilder($"TwinsanityScenery_{Owner.Name}");
-            var root = new SharpGLTF.Scenes.NodeBuilder("scenery_root");
-            scene.AddNode(root);
-
-            // TODO: Figure out lighting
-            if (HasLighting)
+            if (AmbientLights.Count > 0)
             {
+                var ambients = lightingRoot.CreateNode(AmbientLightsNodeName);
+                var ambientIndex = 0;
                 foreach (var ambientLight in AmbientLights)
                 {
+                    var ambientLightNode = ambients.CreateNode($"AMBIENT_{ambientIndex++}")
+                        .WithLocalTranslation(new Vector3(ambientLight.Position.X, ambientLight.Position.Y,
+                            ambientLight.Position.Z));
+                    var ambientJson = new AmbientLightJsonFormat(ambientLight);
+                    ambientLightNode.Extras = System.Text.Json.JsonSerializer.SerializeToNode(ambientJson);
                 }
+            }
 
+            if (DirectionalLights.Count > 0)
+            {
+                var directionals = lightingRoot.CreateNode(DirectionalLightsNodeName);
+                var directionalIndex = 0;
                 foreach (var directionalLight in DirectionalLights)
                 {
+                    var directionalLightNode = directionals.CreateNode($"DIRECTIONAL_{directionalIndex++}")
+                        .WithLocalTranslation(new Vector3(directionalLight.Position.X, directionalLight.Position.Y,
+                            directionalLight.Position.Z))
+                        .WithLocalRotation(new Quaternion(directionalLight.Direction.X,  directionalLight.Direction.Y, directionalLight.Direction.Z, directionalLight.Direction.W));
+                    var directionalJson = new DirectionalLightJsonFormat(directionalLight);
+                    directionalLightNode.Extras = System.Text.Json.JsonSerializer.SerializeToNode(directionalJson);
                 }
+            }
 
+            if (PointLights.Count > 0)
+            {
+                var points = lightingRoot.CreateNode(PointsLightsNodeName);
+                var pointIndex = 0;
                 foreach (var pointLight in PointLights)
                 {
+                    var pointLightNode = points.CreateNode($"POINT_{pointIndex++}")
+                        .WithLocalTranslation(new Vector3(pointLight.Position.X, pointLight.Position.Y,
+                            pointLight.Position.Z));
+                    var pointJson = new PointLightJsonFormat(pointLight);
+                    pointLightNode.Extras = System.Text.Json.JsonSerializer.SerializeToNode(pointJson);
                 }
+            }
 
+            if (NegativeLights.Count > 0)
+            {
+                var negatives = lightingRoot.CreateNode(NegativeLightsNodeName);
+                var negativeIndex = 0;
                 foreach (var negativeLight in NegativeLights)
                 {
+                    var negativeLightNode = negatives.CreateNode($"NEGATIVE_{negativeIndex++}")
+                        .WithLocalTranslation(new Vector3(negativeLight.Position.X, negativeLight.Position.Y,
+                            negativeLight.Position.Z));
+                    var negativeJson = new NegativeLightJsonFormat(negativeLight);
+                    negativeLightNode.Extras = System.Text.Json.JsonSerializer.SerializeToNode(negativeJson);
                 }
             }
 
-            var sceneryRoot = (SceneryRootData)Sceneries[0];
-            var sceneryList = Sceneries.Skip(1).ToList();
-            BuildSceneryRenderTreeForNode(scene, root, sceneryRoot, ref sceneryList);
-            ExportSceneryNodesToGltf(scene, root, sceneryRoot);
-            
-            var resultModel = scene.ToGltf2();
-            resultModel.SaveGLB(path);
+            // lightingRoot.WithLocalScale(new Vector3(-1, 1, 1));
         }
+
+        var sceneryRoot = (SceneryRootData)Sceneries[0];
+        var sceneryList = Sceneries.Skip(1).ToList();
+        BuildSceneryRenderTreeForNode(scene, root, sceneryRoot, ref sceneryList);
+        ExportSceneryNodesToGltf(scene, root, sceneryRoot);
+
+        // root.WithLocalScale(new Vector3(-1, 1, 1));
+        root.Extras = System.Text.Json.JsonSerializer.SerializeToNode(new SceneryRootJsonFormat
+        {
+            FogColor = FogColor,
+            UnkByte = UnkByte,
+            RootData = sceneryRoot
+        });
         
-        private void BuildSceneryRenderTreeForNode(SharpGLTF.Scenes.SceneBuilder scene, SharpGLTF.Scenes.NodeBuilder parentNode, SceneryNodeData sceneryNode, ref List<SceneryBaseData> sceneryTree)
+        var resultModel = scene.ToGltf2();
+        resultModel.SaveGLB(path);
+    }
+    
+    private void BuildSceneryRenderTreeForNode(SharpGLTF.Scenes.SceneBuilder scene, SharpGLTF.Scenes.NodeBuilder parentNode, SceneryNodeData sceneryNode, ref List<SceneryBaseData> sceneryTree)
+    {
+        foreach (var sceneryType in sceneryNode.SceneryTypes)
         {
-            foreach (var sceneryType in sceneryNode.SceneryTypes)
+            if (sceneryType == ITwinScenery.SceneryType.Node)
             {
-                if (sceneryType == ITwinScenery.SceneryType.Node)
-                {
-                    var childNode = parentNode.CreateNode();
-                    var data = (SceneryNodeData)sceneryTree[0];
-                    sceneryTree = sceneryTree.Skip(1).ToList();
-                    ExportSceneryNodesToGltf(scene, childNode, data);
-                    BuildSceneryRenderTreeForNode(scene, childNode, data, ref sceneryTree);
-                }
-                else if (sceneryType == ITwinScenery.SceneryType.Leaf)
-                {
-                    var data = sceneryTree[0];
-                    sceneryTree = sceneryTree.Skip(1).ToList();
-                    ExportSceneryNodesToGltf(scene, parentNode, data);
-                }
+                var childNode = parentNode.CreateNode($"{SceneryNodeStartName}{sceneryTree.Count}");
+                var data = (SceneryNodeData)sceneryTree[0];
+                childNode.Extras = System.Text.Json.JsonSerializer.SerializeToNode(data);
+                sceneryTree = sceneryTree.Skip(1).ToList();
+                ExportSceneryNodesToGltf(scene, childNode, data);
+                BuildSceneryRenderTreeForNode(scene, childNode, data, ref sceneryTree);
+            }
+            else if (sceneryType == ITwinScenery.SceneryType.Leaf)
+            {
+                var childNode = parentNode.CreateNode($"{SceneryLeafStartName}{sceneryTree.Count}");
+                var data = sceneryTree[0];
+                childNode.Extras = System.Text.Json.JsonSerializer.SerializeToNode(data);
+                sceneryTree = sceneryTree.Skip(1).ToList();
+                ExportSceneryNodesToGltf(scene, childNode, data);
             }
         }
+    }
 
-        private void ExportSceneryNodesToGltf(SharpGLTF.Scenes.SceneBuilder scene, SharpGLTF.Scenes.NodeBuilder parentNode, SceneryBaseData sceneryData)
+    private void ExportSceneryNodesToGltf(SharpGLTF.Scenes.SceneBuilder scene, SharpGLTF.Scenes.NodeBuilder parentNode, SceneryBaseData sceneryData)
+    {
+        var assetManager = AssetManager.Get();
+        if (sceneryData.MeshIDs.Count > 0)
         {
-            var assetManager = AssetManager.Get();
             var index = 0;
+            var meshesNode = parentNode.CreateNode($"{parentNode.Name}_MESHES");
+            var meshMaterialDescs = meshesNode.CreateNode($"{meshesNode.Name}_MATERIAL_DESCS");
             foreach (var meshId in sceneryData.MeshIDs)
             {
                 var meshData = assetManager.GetAssetData<MeshData>(meshId);
                 var model = assetManager.GetAssetData<ModelData>(meshData.Model);
                 var meshMatrix = sceneryData.MeshModelMatrices[index];
-                var meshNode = parentNode.CreateNode();
+                var meshNode = meshesNode.CreateNode($"{meshesNode.Name}_MESH_{index}");
                 meshNode.LocalMatrix = meshMatrix.ToSystem();
-                var meshes = model.GetMeshes(parentNode, meshData.Materials.Select(matUri => assetManager.GetAssetData<MaterialData>(matUri)).ToList());
+                var meshes = model.GetMeshes(meshNode,
+                    meshData.Materials.Select(matUri => assetManager.GetAssetData<MaterialData>(matUri)).ToList());
                 foreach (var mesh in meshes)
                 {
+                    mesh.Mesh.Name = $"{meshNode.Name}_{mesh.Mesh.Name.Replace("RIGIDIDPLACEHOLDER", index.ToString())}";
                     scene.AddRigidMesh(mesh.Mesh, meshNode);
+                }
+
+                var subModelId = 0;
+                foreach (var vertex in model.Vertexes)
+                {
+                    var material = assetManager.GetAssetData<MaterialData>(meshData.Materials[subModelId]);
+                    var materialDescNode = new SharpGLTF.Scenes.NodeBuilder
+                    {
+                        Extras = material.GetJsonFormat(),
+                        Name = $"{parentNode.Name}_MATERIAL_DESC_{index}_{subModelId}_{material.Name}"
+                    };
+
+                    meshMaterialDescs.AddNode(materialDescNode);
+
+                    subModelId++;
                 }
 
                 index++;
             }
+        }
 
-            index = 0;
+        if (sceneryData.LodIDs.Count > 0)
+        {
+            var index = 0;
+            var lodsNode = parentNode.CreateNode($"{parentNode.Name}_LODS");
+            var lodsMaterialDescs = lodsNode.CreateNode($"{lodsNode.Name}_MATERIAL_DESCS");
             foreach (var lodId in sceneryData.LodIDs)
             {
                 var lodData = assetManager.GetAssetData<LodModelData>(lodId);
-                var lodNode = parentNode.CreateNode();
+                var lodNode = lodsNode.CreateNode($"{lodsNode.Name}_LOD_{index}");
                 var lodMatrix = sceneryData.LodModelMatrices[index];
                 lodNode.LocalMatrix = lodMatrix.ToSystem();
+                lodNode.Extras = System.Text.Json.JsonSerializer.SerializeToNode(lodData);
+                var meshIdx = 0;
                 foreach (var meshId in lodData.Meshes)
                 {
                     var meshData = assetManager.GetAssetData<MeshData>(meshId);
                     var model = assetManager.GetAssetData<ModelData>(meshData.Model);
-                    var meshes = model.GetMeshes(parentNode, meshData.Materials.Select(matUri => assetManager.GetAssetData<MaterialData>(matUri)).ToList());
+                    var meshNode = lodNode.CreateNode($"{lodNode.Name}_MESH_{meshIdx}");
+                    var meshes = model.GetMeshes(meshNode,
+                        meshData.Materials.Select(matUri => assetManager.GetAssetData<MaterialData>(matUri)).ToList());
                     foreach (var mesh in meshes)
                     {
-                        scene.AddRigidMesh(mesh.Mesh, lodNode);
+                        mesh.Mesh.Name = $"{meshNode.Name}_{mesh.Mesh.Name.Replace("RIGIDIDPLACEHOLDER", $"lod_{meshIdx}")}";
+                        scene.AddRigidMesh(mesh.Mesh, meshNode);
                     }
+
+                    var subModelId = 0;
+                    foreach (var vertex in model.Vertexes)
+                    {
+                        var material = assetManager.GetAssetData<MaterialData>(meshData.Materials[subModelId]);
+                        var materialDescNode = new SharpGLTF.Scenes.NodeBuilder
+                        {
+                            Extras = material.GetJsonFormat(),
+                            Name = $"{meshNode.Name}_MATERIAL_DESC_{meshIdx}_{subModelId}_{material.Name}"
+                        };
+
+                        lodsMaterialDescs.AddNode(materialDescNode);
+
+                        subModelId++;
+                    }
+
+                    meshIdx++;
                 }
 
                 index++;
             }
         }
+    }
 
-        protected override void SaveInternal(String dataPath, JsonSerializerSettings? settings = null)
+    private void ImportGltf(string path)
+    {
+        Sceneries.Clear();
+        AmbientLights.Clear();
+        PointLights.Clear();
+        DirectionalLights.Clear();
+        NegativeLights.Clear();
+        var model = ModelRoot.Load(path + ".glb");
+        var scene = model.DefaultScene;
+
+        var lightsNode = scene.VisualChildren.FirstOrDefault(n => n is { Name: LightingRootNodeName });
+        HasLighting = lightsNode != null;
+        if (HasLighting)
         {
-            settings = new JsonSerializerSettings
-            {
-                TypeNameHandling = TypeNameHandling.All
-            };
-            base.SaveInternal(dataPath, settings);
-            
-            ExportGltf(dataPath + ".glb");
+            ImportGltfLights(lightsNode!);
         }
 
-        protected override void LoadInternal(String dataPath, JsonSerializerSettings? settings = null)
+        var sceneryRoot = scene.VisualChildren.FirstOrDefault(n => n is { Name : SceneryRootName });
+        if (sceneryRoot == null)
         {
-            settings = new JsonSerializerSettings
-            {
-                TypeNameHandling = TypeNameHandling.All
-            };
-            base.LoadInternal(dataPath, settings);
+            Log.WriteLine($"Misconfigured scenery {path}.glb! No root found. Make sure you have {SceneryRootName} node in your scene!", Log.LogType.Error);
+            return;
         }
+        
+        ImportGltfSceneryRootData(sceneryRoot, model);
+    }
 
-        public override void Import(LabURI package, String? variant, Int32? layoutId)
+    private void ImportGltfLights(Node lightsRoot)
+    {
+        var ambientLights = lightsRoot.VisualChildren.FirstOrDefault(n => n is { Name : AmbientLightsNodeName });
+        if (ambientLights != null)
         {
-            var assetManager = AssetManager.Get();
-            ITwinScenery scenery = GetTwinItem<ITwinScenery>();
-            ChunkPath = assetManager.GetAllAssetsOf<LevelChunk>().First(c => c.GetChunkPath().Equals(scenery.Name.Replace('\\', Path.DirectorySeparatorChar), StringComparison.InvariantCultureIgnoreCase)).URI;
-            FogColor = scenery.FogColor;
-            UnkByte = scenery.UnkByte;
-            if (scenery.SkydomeID != 0)
+            foreach (var ambientLightNode in ambientLights.VisualChildren)
             {
-                SkydomeID = AssetManager.Get().GetUriByTwinId<Skydome>(Owner, scenery.SkydomeID);
-            }
-            HasLighting = scenery.HasLighting;
-            if (HasLighting)
-            {
-                AmbientLights = CloneUtils.DeepClone(scenery.AmbientLights);
-                DirectionalLights = CloneUtils.DeepClone(scenery.DirectionalLights);
-                PointLights = CloneUtils.DeepClone(scenery.PointLights);
-                NegativeLights = CloneUtils.DeepClone(scenery.NegativeLights);
-            }
-            Sceneries = new List<SceneryBaseData>();
-            foreach (var sc in scenery.Sceneries)
-            {
-                Sceneries.Add((SceneryBaseData)Activator.CreateInstance(ScIndexToType[sc.GetObjectIndex()], Owner, sc)!);
+                var ambientLightJson = ambientLightNode.Extras.Deserialize<AmbientLightJsonFormat>()!;
+                var ambientLight = new AmbientLight
+                {
+                    Position = ambientLightNode.LocalTransform.Translation.ToTwin(),
+                    Color = ambientLightJson.Color,
+                    UnkData = ambientLightJson.UnkData,
+                    Radius = ambientLightJson.Radius,
+                    UnkVec1 = ambientLightJson.UnkVec1,
+                    UnkVec2 = ambientLightJson.UnkVec2
+                };
+                AmbientLights.Add(ambientLight);
             }
         }
 
-        public override ITwinItem Export(ITwinItemFactory factory)
+        var pointLights = lightsRoot.VisualChildren.FirstOrDefault(n => n is { Name : PointsLightsNodeName });
+        if (pointLights != null)
         {
-            var assetManager = AssetManager.Get();
-            using var ms = new MemoryStream();
-            using var writer = new BinaryWriter(ms);
-            writer.Write(ChunkPath == LabURI.Empty ? string.Empty : assetManager.GetAsset<LevelChunk>(ChunkPath).GetChunkPath().Replace(Path.DirectorySeparatorChar, '\\'));
-            writer.Write(FogColor);
-            writer.Write(UnkByte);
-            writer.Write(SkydomeID == LabURI.Empty ? 0 : assetManager.GetAsset(SkydomeID).ID);
-            writer.Write(HasLighting);
-            if (HasLighting)
+            foreach (var pointLightNode in pointLights.VisualChildren)
             {
-                writer.Write(AmbientLights.Count);
-                foreach (var ambient in AmbientLights)
+                var pointLightJson = pointLightNode.Extras.Deserialize<PointLightJsonFormat>()!;
+                var pointLight = new PointLight
                 {
-                    ambient.Write(writer);
-                }
-
-                writer.Write(DirectionalLights.Count);
-                foreach (var directional in DirectionalLights)
-                {
-                    directional.Write(writer);
-                }
-
-                writer.Write(PointLights.Count);
-                foreach (var point in PointLights)
-                {
-                    point.Write(writer);
-                }
-
-                writer.Write(NegativeLights.Count);
-                foreach (var negative in NegativeLights)
-                {
-                    negative.Write(writer);
-                }
+                    Position = pointLightNode.LocalTransform.Translation.ToTwin(),
+                    Color = pointLightJson.Color,
+                    UnkData = pointLightJson.UnkData,
+                    Radius = pointLightJson.Radius,
+                    UnkVec1 = pointLightJson.UnkVec1,
+                    UnkVec2 = pointLightJson.UnkVec2,
+                    UnkShort = pointLightJson.UnkShort
+                };
+                PointLights.Add(pointLight);
             }
-            writer.Write(Sceneries.Count);
-            foreach (var scenery in Sceneries)
-            {
-                writer.Write((Int32)scenery.GetSceneryType());
-                scenery.Write(writer);
-            }
-
-            writer.Flush();
-            ms.Position = 0;
-            return factory.GenerateScenery(ms);
         }
-
-        public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, UInt32 id, Int32? layoutID = null)
+        
+        var directionalLights = lightsRoot.VisualChildren.FirstOrDefault(n => n is { Name : DirectionalLightsNodeName });
+        if (directionalLights != null)
         {
-            var assetManager = AssetManager.Get();
-            var graphicsSection = section.GetItem<ITwinSection>(Constants.SCENERY_GRAPHICS_SECTION);
-            var skydomeSection = graphicsSection.GetItem<ITwinSection>(Constants.GRAPHICS_SKYDOMES_SECTION);
-            if (SkydomeID != LabURI.Empty)
+            foreach (var directionalLightNode in directionalLights.VisualChildren)
             {
-                assetManager.GetAsset(SkydomeID).ResolveChunkResources(factory, skydomeSection);
+                var directionalLightJson = directionalLightNode.Extras.Deserialize<DirectionalLightJsonFormat>()!;
+                var directionalLight = new DirectionalLight
+                {
+                    Position = directionalLightNode.LocalTransform.Translation.ToTwin(),
+                    Color = directionalLightJson.Color,
+                    UnkData = directionalLightJson.UnkData,
+                    Radius = directionalLightJson.Radius,
+                    UnkVec1 = directionalLightJson.UnkVec1,
+                    UnkVec2 = directionalLightJson.UnkVec2,
+                    UnkShort = directionalLightJson.UnkShort,
+                    Direction = directionalLightNode.LocalTransform.Rotation.ToTwin()
+                };
+                DirectionalLights.Add(directionalLight);
             }
-
-            foreach (var scenery in Sceneries)
+        }
+        
+        var negativeLights = lightsRoot.VisualChildren.FirstOrDefault(n => n is { Name : NegativeLightsNodeName });
+        if (negativeLights != null)
+        {
+            foreach (var negativeLightNode in negativeLights.VisualChildren)
             {
-                scenery.ResolveChunkResouces(factory, graphicsSection);
+                var negativeLightJson = negativeLightNode.Extras.Deserialize<NegativeLightJsonFormat>()!;
+                var negativeLight = new NegativeLight
+                {
+                    Position = negativeLightNode.LocalTransform.Translation.ToTwin(),
+                    Color = negativeLightJson.Color,
+                    UnkData = negativeLightJson.UnkData,
+                    Radius = negativeLightJson.Radius,
+                    UnkVec1 = negativeLightJson.UnkVec1,
+                    UnkVec2 = negativeLightJson.UnkVec2,
+                    UnkFloat1 = negativeLightJson.UnkFloat1,
+                    UnkFloat2 = negativeLightJson.UnkFloat2,
+                };
+                NegativeLights.Add(negativeLight);
             }
-
-            return base.ResolveChunkResources(factory, section, id, layoutID);
         }
     }
+
+    private void ImportGltfSceneryRootData(Node sceneryRoot, ModelRoot model)
+    {
+        var initialData = sceneryRoot.Extras.Deserialize<SceneryRootJsonFormat>()!;
+        UnkByte = initialData.UnkByte;
+        FogColor = initialData.FogColor;
+
+        initialData.RootData.SceneryTypes = [
+            ITwinScenery.SceneryType.None,
+            ITwinScenery.SceneryType.None,
+            ITwinScenery.SceneryType.None,
+            ITwinScenery.SceneryType.None,
+            ITwinScenery.SceneryType.None,
+            ITwinScenery.SceneryType.None,
+            ITwinScenery.SceneryType.None,
+            ITwinScenery.SceneryType.None
+        ];
+        Sceneries.Add(initialData.RootData);
+        var sceneryTree = Sceneries;
+        ImportGltfSceneryNodeData(sceneryRoot, (SceneryNodeData)Sceneries[0], ref sceneryTree, model);
+    }
+
+    private void ImportGltfSceneryNodeData(Node sceneryNode, SceneryNodeData parentNodeData, ref List<SceneryBaseData> sceneryTree, ModelRoot model)
+    {
+        var sceneryTypeIndex = 0;
+        foreach (var sceneryNodeChild in sceneryNode.VisualChildren)
+        {
+            if (sceneryNodeChild.Name.EndsWith("_LODS") ||
+                sceneryNodeChild.Name.EndsWith("_MESHES"))
+            {
+                continue;
+            }
+            
+            if (sceneryNodeChild.Name.StartsWith(SceneryNodeStartName))
+            {
+                parentNodeData.SceneryTypes[sceneryTypeIndex] = ITwinScenery.SceneryType.Node;
+                var nodeData = sceneryNodeChild.Extras.Deserialize<SceneryNodeData>()!;
+                nodeData.MeshIDs = [];
+                nodeData.LodIDs = [];
+                nodeData.MeshModelMatrices = [];
+                nodeData.LodModelMatrices = [];
+                nodeData.SceneryTypes = [
+                    ITwinScenery.SceneryType.None,
+                    ITwinScenery.SceneryType.None,
+                    ITwinScenery.SceneryType.None,
+                    ITwinScenery.SceneryType.None,
+                    ITwinScenery.SceneryType.None,
+                    ITwinScenery.SceneryType.None,
+                    ITwinScenery.SceneryType.None,
+                    ITwinScenery.SceneryType.None
+                ];
+                sceneryTree.Add(nodeData);
+                ImportGltfSceneryNodeData(sceneryNodeChild, nodeData, ref sceneryTree, model);
+                ImportGltfMeshesAndLods(sceneryNodeChild, nodeData, model);
+            }
+            else if (sceneryNodeChild.Name.StartsWith(SceneryLeafStartName))
+            {
+                parentNodeData.SceneryTypes[sceneryTypeIndex] = ITwinScenery.SceneryType.Leaf;
+                var leafData = sceneryNodeChild.Extras.Deserialize<SceneryLeafData>()!;
+                leafData.MeshIDs = [];
+                leafData.LodIDs = [];
+                leafData.MeshModelMatrices = [];
+                leafData.LodModelMatrices = [];
+                sceneryTree.Add(leafData);
+                ImportGltfMeshesAndLods(sceneryNodeChild, leafData, model);
+            }
+            
+            sceneryTypeIndex++;
+            if (sceneryTypeIndex < 8)
+            {
+                continue;
+            }
+            
+            Log.WriteLine($"Scenery node {sceneryNode.Name} has more than 8 child nodes! Aborting its processing...", Log.LogType.Warning);
+            break;
+        }
+    }
+
+    private void ImportGltfMeshesAndLods(Node sceneryNode, SceneryBaseData sceneryData, ModelRoot model)
+    {
+        var meshesNode = sceneryNode.VisualChildren.FirstOrDefault(n => n.Name == $"{sceneryNode.Name}_MESHES");
+        if (meshesNode != null)
+        {
+            ImportGltfMeshes(meshesNode, sceneryData, model);
+        }
+        
+        var lodsNode = sceneryNode.VisualChildren.FirstOrDefault(n => n.Name == $"{sceneryNode.Name}_LODS");
+        if (lodsNode != null)
+        {
+            ImportGltfLods(lodsNode, sceneryData, model);
+        }
+    }
+
+    private Mesh ImportGltfMesh(List<SharpGLTF.Schema2.Mesh> meshesGltf, Node meshesNode, Node meshNode, int meshNodeIndex, bool isLod, Node? materialDescs)
+    {
+        var assetManager = AssetManager.Get();
+        var model = new Model
+        {
+            Package = Owner.Package,
+            InvariantName = $"{meshNode.Name}_MODEL",
+            Alias = $"{meshNode.Name}_MODEL"
+        };
+        assetManager.AddAsset(model);
+        
+        var modelData = new ModelData(model);
+        modelData.LoadFromGltfMeshes(meshesGltf);
+        model.SetData(modelData);
+        
+        var mesh = new Mesh
+        {
+            Package = Owner.Package,
+            InvariantName = $"{meshNode.Name}_MESH{(isLod ? "_LOD" : "")}",
+            Alias = $"{meshNode.Name}_MESH{(isLod ? "_LOD" : "")}"
+        };
+        assetManager.AddAsset(mesh);
+
+        var materialsGltf = meshesGltf.SelectMany(m => m.Primitives).Select(prim => prim.Material).Distinct().ToList();
+        var materials = materialsGltf.Select(_ => LabURI.Empty).ToList();
+        if (materialDescs != null)
+        {
+            var modelIndex = 0;
+            foreach (var vertex in modelData.Vertexes)
+            {
+                var materialDescNameMask =
+                    $"{meshesNode.VisualParent.Name}_MATERIAL_DESC_{meshNodeIndex}_{modelIndex}_";
+                if (isLod)
+                {
+                    materialDescNameMask = $"{meshNode.Name}_MATERIAL_DESC_{meshNodeIndex}_{modelIndex}_";
+                }
+                var materialDesc =
+                    materialDescs.VisualChildren.FirstOrDefault(n =>
+                        n.Name.Contains(materialDescNameMask))!;
+                var materialName = materialDesc.Name.Replace(materialDescNameMask, "");
+                
+                var material = new Material
+                {
+                    Package = Owner.Package,
+                    InvariantName = $"{meshesNode.VisualParent.Name}_{materialName}_MATERIAL",
+                    Alias = $"{meshesNode.VisualParent.Name}_{materialName}_MATERIAL"
+                };
+                assetManager.TryAddAsset(material);
+
+                var materialData = MaterialData.LoadFromGltf(material, materialDesc,
+                    materialsGltf.Where(m => m.Name.Contains($"RIGID{GraphicsHelpers.MaterialTokenDivider}MATERIAL{GraphicsHelpers.MaterialTokenDivider}{materialName}{GraphicsHelpers.MaterialTokenDivider}{modelIndex}{GraphicsHelpers.MaterialTokenDivider}"))
+                        .ToList());
+                material.SetData(materialData);
+
+                materials[modelIndex] = material.URI;
+                
+                modelIndex++;
+            }
+        }
+        
+        var meshData = new MeshData(mesh);
+        meshData.Model = model.URI;
+        meshData.Materials = materials;
+        
+        mesh.SetData(meshData);
+
+        return mesh;
+    }
+
+    private void ImportGltfMeshes(Node meshesNode, SceneryBaseData sceneryData, ModelRoot sceneryModel)
+    {
+        var materialDescs = meshesNode.VisualChildren.FirstOrDefault(n => n.Name == $"{meshesNode.Name}_MATERIAL_DESCS");
+        if (materialDescs == null)
+        {
+            Log.WriteLine("No material descs for meshes found! Empty materials will be used!", Log.LogType.Warning);
+        }
+
+        var meshNodeIndex = 0;
+        foreach (var meshNode in meshesNode.VisualChildren)
+        {
+            if (meshNode == materialDescs)
+            {
+                continue;
+            }
+
+            sceneryData.MeshModelMatrices.Add(meshNode.LocalMatrix.ToTwin());
+            var meshesGltf = sceneryModel.LogicalMeshes.Where(m => m.Name.StartsWith($"{meshNode.Name}_mesh_{meshNodeIndex}")).ToList();
+            var mesh = ImportGltfMesh(meshesGltf, meshesNode, meshNode, meshNodeIndex, false, materialDescs);
+            sceneryData.MeshIDs.Add(mesh.URI);
+            meshNodeIndex++;
+        }
+    }
+
+    private void ImportGltfLods(Node lodsNode, SceneryBaseData sceneryData, ModelRoot model)
+    {
+        var assetManager = AssetManager.Get();
+        var materialDescs = lodsNode.VisualChildren.FirstOrDefault(n => n.Name == $"{lodsNode.Name}_MATERIAL_DESCS");
+        if (materialDescs == null)
+        {
+            Log.WriteLine("No material descs for LODs found! Empty materials will be used!", Log.LogType.Warning);
+        }
+
+        foreach (var lodNode in lodsNode.VisualChildren)
+        {
+            if (lodNode == materialDescs)
+            {
+                continue;
+            }
+            
+            sceneryData.LodModelMatrices.Add(lodNode.LocalMatrix.ToTwin());
+
+            var lod = new LodModel
+            {
+                Package = Owner.Package,
+                InvariantName = $"{lodNode.Name}_LOD_MODEL",
+                Alias = $"{lodNode.Name}_LOD_MODEL"
+            };
+            assetManager.AddAsset(lod);
+            
+            var lodData = lodNode.Extras.Deserialize<LodModelData>()!;
+            lodData.Meshes = [];
+            lodData.SetOwner(Owner);
+
+            var lodMeshIndex = 0;
+            foreach (var meshNode in lodNode.VisualChildren)
+            {
+                var meshesGltf = model.LogicalMeshes.Where(m => m.Name.StartsWith($"{meshNode.Name}_mesh_lod_{lodMeshIndex}_")).ToList();
+                var labMesh = ImportGltfMesh(meshesGltf, lodNode, meshNode, lodMeshIndex, true, materialDescs);
+                lodData.Meshes.Add(labMesh.URI);
+                lodMeshIndex++;
+            }
+            
+            lod.SetData(lodData);
+            
+            sceneryData.LodIDs.Add(lod.URI);
+        }
+    }
+
+    protected override void SaveInternal(String dataPath, JsonSerializerSettings? settings = null)
+    {
+        settings = new JsonSerializerSettings
+        {
+            TypeNameHandling = TypeNameHandling.All
+        };
+        base.SaveInternal(dataPath, settings);
+            
+        ExportGltf(dataPath + ".glb");
+    }
+
+    protected override void LoadInternal(String dataPath, JsonSerializerSettings? settings = null)
+    {
+        settings = new JsonSerializerSettings
+        {
+            TypeNameHandling = TypeNameHandling.All
+        };
+        base.LoadInternal(dataPath, settings);
+        
+        ImportGltf(dataPath);
+    }
+
+    public override void Import(LabURI package, String? variant, Int32? layoutId)
+    {
+        var scenery = GetTwinItem<ITwinScenery>();
+        FogColor = scenery.FogColor;
+        UnkByte = scenery.UnkByte;
+        if (scenery.SkydomeID != 0)
+        {
+            SkydomeID = AssetManager.Get().GetUriByTwinId<Skydome>(Owner, scenery.SkydomeID);
+        }
+        HasLighting = scenery.HasLighting;
+        if (HasLighting)
+        {
+            AmbientLights = CloneUtils.DeepClone(scenery.AmbientLights);
+            DirectionalLights = CloneUtils.DeepClone(scenery.DirectionalLights);
+            PointLights = CloneUtils.DeepClone(scenery.PointLights);
+            NegativeLights = CloneUtils.DeepClone(scenery.NegativeLights);
+        }
+        Sceneries = new List<SceneryBaseData>();
+        foreach (var sc in scenery.Sceneries)
+        {
+            Sceneries.Add((SceneryBaseData)Activator.CreateInstance(ScIndexToType[sc.GetObjectIndex()], Owner, sc)!);
+        }
+    }
+
+    public override ITwinItem Export(ITwinItemFactory factory)
+    {
+        var assetManager = AssetManager.Get();
+        using var ms = new MemoryStream();
+        using var writer = new BinaryWriter(ms);
+        writer.Write(Owner.Chunk);
+        writer.Write(FogColor);
+        writer.Write(UnkByte);
+        writer.Write(SkydomeID == LabURI.Empty ? 0 : assetManager.GetAsset(SkydomeID).ID);
+        writer.Write(HasLighting);
+        if (HasLighting)
+        {
+            writer.Write(AmbientLights.Count);
+            foreach (var ambient in AmbientLights)
+            {
+                ambient.Write(writer);
+            }
+
+            writer.Write(DirectionalLights.Count);
+            foreach (var directional in DirectionalLights)
+            {
+                directional.Write(writer);
+            }
+
+            writer.Write(PointLights.Count);
+            foreach (var point in PointLights)
+            {
+                point.Write(writer);
+            }
+
+            writer.Write(NegativeLights.Count);
+            foreach (var negative in NegativeLights)
+            {
+                negative.Write(writer);
+            }
+        }
+        writer.Write(Sceneries.Count);
+        foreach (var scenery in Sceneries)
+        {
+            writer.Write((Int32)scenery.GetSceneryType());
+            scenery.Write(writer);
+        }
+
+        writer.Flush();
+        ms.Position = 0;
+        return factory.GenerateScenery(ms);
+    }
+
+    public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, UInt32 id, Int32? layoutID = null)
+    {
+        var assetManager = AssetManager.Get();
+        var graphicsSection = section.GetItem<ITwinSection>(Constants.SCENERY_GRAPHICS_SECTION);
+        var skydomeSection = graphicsSection.GetItem<ITwinSection>(Constants.GRAPHICS_SKYDOMES_SECTION);
+        if (SkydomeID != LabURI.Empty)
+        {
+            assetManager.GetAsset(SkydomeID).ResolveChunkResources(factory, skydomeSection);
+        }
+
+        foreach (var scenery in Sceneries)
+        {
+            scenery.ResolveChunkResouces(factory, graphicsSection);
+        }
+
+        return base.ResolveChunkResources(factory, section, id, layoutID);
+    }
+}
+
+public abstract class LightJsonFormat
+{
+    [System.Text.Json.Serialization.JsonConstructor]
+    protected LightJsonFormat() { }
+
+    protected LightJsonFormat(Light light)
+    {
+        UnkData = light.UnkData;
+        Radius = light.Radius;
+        Color = light.Color;
+        UnkVec1 = light.UnkVec1;
+        UnkVec2 = light.UnkVec2;
+    }
+
+    public UInt32 UnkData { get; set; }
+    public Single Radius  { get; set; }
+
+    [System.Text.Json.Serialization.JsonConverter(typeof(JsonVector4Converter))]
+    public Vector4 Color { get; set; } = new(1, 1, 1, 1);
+
+    [System.Text.Json.Serialization.JsonConverter(typeof(JsonVector4Converter))]
+    public Vector4 UnkVec1 { get; set; } = new(0, 0, 0, 1);
+
+    [System.Text.Json.Serialization.JsonConverter(typeof(JsonVector4Converter))]
+    public Vector4 UnkVec2 { get; set; } = new(0, 0, 0, 1);
+}
+
+public class AmbientLightJsonFormat : LightJsonFormat
+{
+    [System.Text.Json.Serialization.JsonConstructor]
+    private AmbientLightJsonFormat() { }
+
+    public AmbientLightJsonFormat(AmbientLight light) : base(light) { }
+}
+
+public class DirectionalLightJsonFormat : LightJsonFormat
+{
+    [System.Text.Json.Serialization.JsonConstructor]
+    private DirectionalLightJsonFormat() { }
+
+    public DirectionalLightJsonFormat(DirectionalLight light) : base(light)
+    {
+        UnkShort = light.UnkShort;
+    }
+
+    public Int16 UnkShort { get; set; }
+}
+
+public class PointLightJsonFormat : LightJsonFormat
+{
+    [System.Text.Json.Serialization.JsonConstructor]
+    private PointLightJsonFormat() { }
+
+    public PointLightJsonFormat(PointLight light) : base(light)
+    {
+        UnkShort = light.UnkShort;
+    }
+    
+    public Int16 UnkShort { get; set; }
+}
+
+public class NegativeLightJsonFormat : LightJsonFormat
+{
+    [System.Text.Json.Serialization.JsonConstructor]
+    private NegativeLightJsonFormat() { }
+
+    public NegativeLightJsonFormat(NegativeLight light) : base(light)
+    {
+        UnkVec3 = light.UnkVec3;
+        UnkFloat1 = light.UnkFloat1;
+        UnkFloat2 = light.UnkFloat2;
+        UnkUInt1 = light.UnkUInt1;
+        UnkUInt2 = light.UnkUInt2;
+        UnkUShort1 = light.UnkUShort1;
+        UnkUShort2 = light.UnkUShort2;
+    }
+    
+    [System.Text.Json.Serialization.JsonConverter(typeof(JsonVector4Converter))]
+    public Vector4 UnkVec3 { get; set; } = new(0, 0, 0, 1);
+    public Single UnkFloat1 { get; set; }
+    public Single UnkFloat2 { get; set; }
+    public UInt32 UnkUInt1 { get; set; }
+    public UInt32 UnkUInt2 { get; set; }
+    public UInt16 UnkUShort1 { get; set; }
+    public UInt16 UnkUShort2 { get; set; }
+}
+
+public class SceneryRootJsonFormat
+{
+    public SceneryRootData RootData { get; set; }
+    public UInt32 FogColor { get; set; }
+    public Byte UnkByte { get; set; }
 }

@@ -12,108 +12,112 @@ using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items;
 using static Twinsanity.TwinsanityInterchange.Enumerations.Enums;
 
-namespace TT_Lab.AssetData.Graphics
+namespace TT_Lab.AssetData.Graphics;
+
+[ReferencesAssets]
+public class LodModelData : AbstractAssetData
 {
-    [ReferencesAssets]
-    public class LodModelData : AbstractAssetData
+    [System.Text.Json.Serialization.JsonConstructor]
+    private LodModelData() : base(null) { Type = LodType.COMPRESSED; }
+    
+    public LodModelData(IAsset asset) : base(asset)
     {
-        public LodModelData(IAsset asset) : base(asset)
+        Type = LodType.COMPRESSED;
+        ModelsDrawDistances = new Int32[3];
+        Meshes = new List<LabURI>();
+        MinDrawDistance = 0;
+        MaxDrawDistance = UInt16.MaxValue;
+    }
+
+    public LodModelData(IAsset asset, ITwinLOD lod) : this(asset)
+    {
+        SetTwinItem(lod);
+    }
+
+    [JsonProperty(Required = Required.Always)]
+    [System.Text.Json.Serialization.JsonIgnore]
+    public LodType Type { get; set; }
+    [JsonProperty(Required = Required.Always)]
+    public Int32 MinDrawDistance { get; set; }
+    [JsonProperty(Required = Required.Always)]
+    public Int32 MaxDrawDistance { get; set; }
+    [JsonProperty(Required = Required.Always)]
+    public Int32[] ModelsDrawDistances { get; set; }
+    [JsonProperty(Required = Required.Always)]
+    [System.Text.Json.Serialization.JsonIgnore]
+    public List<LabURI> Meshes { get; set; }
+
+    protected override void Dispose(Boolean disposing)
+    {
+        Meshes.Clear();
+    }
+
+    public override void Import(LabURI package, String? variant, Int32? layoutId)
+    {
+        ITwinLOD lod = GetTwinItem<ITwinLOD>();
+        Type = lod.Type;
+        MinDrawDistance = lod.MinDrawDistance;
+        MaxDrawDistance = lod.MaxDrawDistance;
+        ModelsDrawDistances = CloneUtils.CloneArray(lod.ModelsDrawDistances);
+        Meshes = new List<LabURI>();
+        foreach (var mesh in lod.Meshes)
         {
-            Type = LodType.COMPRESSED;
-            ModelsDrawDistances = new Int32[3];
-            Meshes = new List<LabURI>();
-            MinDrawDistance = 0;
-            MaxDrawDistance = UInt16.MaxValue;
+            Meshes.Add(AssetManager.Get().GetUriByTwinId<Mesh>(Owner, mesh));
+        }
+    }
+
+    public override ITwinItem Export(ITwinItemFactory factory)
+    {
+        var assetManager = AssetManager.Get();
+        using var ms = new MemoryStream();
+        using var writer = new BinaryWriter(ms);
+        writer.Write((Int32)Type);
+        switch (Type)
+        {
+            case LodType.FULL:
+                writer.Write(Meshes.Count & 0xFF);
+                writer.Write(MinDrawDistance);
+                writer.Write(MaxDrawDistance);
+                foreach (var dist in ModelsDrawDistances)
+                {
+                    writer.Write(dist);
+                }
+                writer.Write(0); // Unused value
+                foreach (var mesh in Meshes)
+                {
+                    writer.Write(assetManager.GetAsset(mesh).ID);
+                }
+                break;
+            case LodType.COMPRESSED:
+                writer.Write((Byte)Meshes.Count);
+                writer.Write(MinDrawDistance);
+                writer.Write(MaxDrawDistance);
+                foreach (var dist in ModelsDrawDistances)
+                {
+                    writer.Write(dist);
+                }
+                foreach (var mesh in Meshes)
+                {
+                    writer.Write(assetManager.GetAsset(mesh).ID);
+                }
+                break;
         }
 
-        public LodModelData(IAsset asset, ITwinLOD lod) : this(asset)
+        writer.Flush();
+        ms.Position = 0;
+        return factory.GenerateLOD(ms);
+    }
+
+    public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, UInt32 id, Int32? layoutID = null)
+    {
+        var assetManager = AssetManager.Get();
+        var graphicsSection = section.GetParent();
+        var meshesSection = graphicsSection.GetItem<ITwinSection>(Constants.GRAPHICS_MESHES_SECTION);
+        foreach (var mesh in Meshes)
         {
-            SetTwinItem(lod);
+            assetManager.GetAsset(mesh).ResolveChunkResources(factory, meshesSection);
         }
 
-        [JsonProperty(Required = Required.Always)]
-        public LodType Type { get; set; }
-        [JsonProperty(Required = Required.Always)]
-        public Int32 MinDrawDistance { get; set; }
-        [JsonProperty(Required = Required.Always)]
-        public Int32 MaxDrawDistance { get; set; }
-        [JsonProperty(Required = Required.Always)]
-        public Int32[] ModelsDrawDistances { get; set; }
-        [JsonProperty(Required = Required.Always)]
-        public List<LabURI> Meshes { get; set; }
-
-        protected override void Dispose(Boolean disposing)
-        {
-            Meshes.Clear();
-        }
-
-        public override void Import(LabURI package, String? variant, Int32? layoutId)
-        {
-            ITwinLOD lod = GetTwinItem<ITwinLOD>();
-            Type = lod.Type;
-            MinDrawDistance = lod.MinDrawDistance;
-            MaxDrawDistance = lod.MaxDrawDistance;
-            ModelsDrawDistances = CloneUtils.CloneArray(lod.ModelsDrawDistances);
-            Meshes = new List<LabURI>();
-            foreach (var mesh in lod.Meshes)
-            {
-                Meshes.Add(AssetManager.Get().GetUriByTwinId<Mesh>(Owner, mesh));
-            }
-        }
-
-        public override ITwinItem Export(ITwinItemFactory factory)
-        {
-            var assetManager = AssetManager.Get();
-            using var ms = new MemoryStream();
-            using var writer = new BinaryWriter(ms);
-            writer.Write((Int32)Type);
-            switch (Type)
-            {
-                case LodType.FULL:
-                    writer.Write(Meshes.Count & 0xFF);
-                    writer.Write(MinDrawDistance);
-                    writer.Write(MaxDrawDistance);
-                    foreach (var dist in ModelsDrawDistances)
-                    {
-                        writer.Write(dist);
-                    }
-                    writer.Write(0); // Unused value
-                    foreach (var mesh in Meshes)
-                    {
-                        writer.Write(assetManager.GetAsset(mesh).ID);
-                    }
-                    break;
-                case LodType.COMPRESSED:
-                    writer.Write((Byte)Meshes.Count);
-                    writer.Write(MinDrawDistance);
-                    writer.Write(MaxDrawDistance);
-                    foreach (var dist in ModelsDrawDistances)
-                    {
-                        writer.Write(dist);
-                    }
-                    foreach (var mesh in Meshes)
-                    {
-                        writer.Write(assetManager.GetAsset(mesh).ID);
-                    }
-                    break;
-            }
-
-            writer.Flush();
-            ms.Position = 0;
-            return factory.GenerateLOD(ms);
-        }
-
-        public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, UInt32 id, Int32? layoutID = null)
-        {
-            var assetManager = AssetManager.Get();
-            var graphicsSection = section.GetParent();
-            var meshesSection = graphicsSection.GetItem<ITwinSection>(Constants.GRAPHICS_MESHES_SECTION);
-            foreach (var mesh in Meshes)
-            {
-                assetManager.GetAsset(mesh).ResolveChunkResources(factory, meshesSection);
-            }
-
-            return base.ResolveChunkResources(factory, section, id);
-        }
+        return base.ResolveChunkResources(factory, section, id);
     }
 }

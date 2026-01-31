@@ -4,11 +4,10 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:controls="clr-namespace:TT_Lab.Controls"
              xmlns:viewModel="clr-namespace:TT_Lab.ViewModels.Composite"
-             d:DataContext="{Binding Source={d:DesignInstance viewModel:InstanceStateFlagsViewModel}}"
              x:DataType="viewModel:InstanceStateFlagsViewModel"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="TT_Lab.Views.Composite.InstanceStateFlagsView">
-    <Expander VerticalAlignment="Stretch" Header="State flags">
+    <Expander HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Header="State flags">
         <Grid RowDefinitions="40,*">
             <controls:LabeledTextBox LayoutOrientation="Horizontal" x:Name="StateFlagsBox" HorizontalAlignment="Stretch" VerticalAlignment="Center" TextBoxName="HEX input 0x" Text="{Binding StateFlags, StringFormat={}{0:X}}"/>
             <ScrollViewer Grid.Row="1">

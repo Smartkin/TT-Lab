@@ -21,6 +21,7 @@ public abstract class AbstractAssetData(IAsset owner) : IDisposable
         Owner = owner;
     }
 
+    [System.Text.Json.Serialization.JsonIgnore]
     public virtual Boolean Disposed => DisposedValue;
 
     ITwinItem? twinRef = null;

@@ -132,9 +132,7 @@
                 <TabControl x:Name="LogTabs" Grid.Row="2">
                     <TabItem Header="Log">
                         <Grid>
-                            <ScrollViewer VerticalScrollBarVisibility="Auto" x:Name="LogViewer" Margin="0">
-                                <avaloniaEdit:TextEditor x:Name="LogText" ShowLineNumbers="True" Watermark="Logs will be written here..." IsReadOnly="True"/>
-                            </ScrollViewer>
+                            <avaloniaEdit:TextEditor x:Name="LogText" HorizontalScrollBarVisibility="Disabled" WordWrap="True" VerticalScrollBarVisibility="Auto" ShowLineNumbers="True" Watermark="Logs will be written here..." IsReadOnly="True"/>
                             <gif:GifImage Source="{Binding SadEasterEgg, FallbackValue={x:Null}}" Stretch="Uniform" HorizontalAlignment="Right" Margin="10" IsVisible="{Binding SadEasterEggVisibility}"/>
                         </Grid>
                     </TabItem>

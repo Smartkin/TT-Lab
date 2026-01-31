@@ -251,7 +251,7 @@ public abstract class SerializableAsset : IAsset
         {
             return;
         }
-            
+        
         var props = data.GetType().GetProperties();
         foreach (var prop in props)
         {
@@ -278,7 +278,7 @@ public abstract class SerializableAsset : IAsset
                     {
                         continue;
                     }
-                        
+                    
                     list[i] = GetDefaultReference();
                     referenceRemoved = true;
                 }
