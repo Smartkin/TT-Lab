@@ -5,8 +5,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using System.Threading.Tasks;
 using Caliburn.Micro;
+using SharpHash.Checksum;
 using Splat;
 using TT_Lab.AssetData;
 using TT_Lab.Attributes;
@@ -88,6 +90,23 @@ public abstract class SerializableAsset : IAsset
         RegenerateUri();
     }
 
+    public UInt32 GetDataHash()
+    {
+        var hashResult = 0U;
+        var crcHasher = SharpHash.Base.HashFactory.Checksum.CreateCRC(CRCStandard.CRC32);
+        if (IsLoaded && AssetData != null)
+        {
+            hashResult = crcHasher.ComputeString(AssetData.GetJsonFormat(), new UTF8Encoding()).GetUInt32();
+        }
+        else
+        {
+            using var fs = new FileStream(FullDataPath, FileMode.Open, FileAccess.Read);
+            hashResult = crcHasher.ComputeStream(fs).GetUInt32();
+        }
+
+        return hashResult;
+    }
+
     public virtual void Serialize(SerializationFlags serializationFlags = SerializationFlags.None)
     {
         var path = FullPath;
@@ -146,6 +165,7 @@ public abstract class SerializableAsset : IAsset
     {
         DisposeData();
         AssetData = data;
+        InvariantName += $"_{GetDataHash():X}";
     }
 
     public virtual void Import()
@@ -177,10 +197,7 @@ public abstract class SerializableAsset : IAsset
         binaryWriter.Close();
     }
 
-    public virtual void PreResolveResources()
-    {
-
-    }
+    public virtual void PreResolveResources() { }
 
     public virtual void PostResolveResources(Factory.ITwinItemFactory factory, ITwinSection section, ITwinItem? item)
     {

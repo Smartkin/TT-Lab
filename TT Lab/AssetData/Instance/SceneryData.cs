@@ -424,9 +424,14 @@ public class SceneryData : AbstractAssetData
             ITwinScenery.SceneryType.None,
             ITwinScenery.SceneryType.None
         ];
+        initialData.RootData.MeshIDs = [];
+        initialData.RootData.LodIDs = [];
+        initialData.RootData.MeshModelMatrices = [];
+        initialData.RootData.LodModelMatrices = [];
         Sceneries.Add(initialData.RootData);
         var sceneryTree = Sceneries;
         ImportGltfSceneryNodeData(sceneryRoot, (SceneryNodeData)Sceneries[0], ref sceneryTree, model);
+        ImportGltfMeshesAndLods(sceneryRoot, Sceneries[0], model);
     }
 
     private void ImportGltfSceneryNodeData(Node sceneryNode, SceneryNodeData parentNodeData, ref List<SceneryBaseData> sceneryTree, ModelRoot model)
@@ -475,7 +480,7 @@ public class SceneryData : AbstractAssetData
             }
             
             sceneryTypeIndex++;
-            if (sceneryTypeIndex < 8)
+            if (sceneryTypeIndex <= 8)
             {
                 continue;
             }
@@ -506,22 +511,22 @@ public class SceneryData : AbstractAssetData
         var model = new Model
         {
             Package = Owner.Package,
-            InvariantName = $"{meshNode.Name}_MODEL",
-            Alias = $"{meshNode.Name}_MODEL"
+            InvariantName = $"{Owner.Chunk}_{meshNode.Name}_MODEL",
+            Alias = $"{Owner.Chunk}_{meshNode.Name}_MODEL"
         };
-        assetManager.AddAsset(model);
         
         var modelData = new ModelData(model);
         modelData.LoadFromGltfMeshes(meshesGltf);
         model.SetData(modelData);
         
+        assetManager.AddAsset(model);
+        
         var mesh = new Mesh
         {
             Package = Owner.Package,
-            InvariantName = $"{meshNode.Name}_MESH{(isLod ? "_LOD" : "")}",
-            Alias = $"{meshNode.Name}_MESH{(isLod ? "_LOD" : "")}"
+            InvariantName = $"{Owner.Chunk}_{meshNode.Name}_MESH{(isLod ? "_LOD" : "")}",
+            Alias = $"{Owner.Chunk}_{meshNode.Name}_MESH{(isLod ? "_LOD" : "")}"
         };
-        assetManager.AddAsset(mesh);
 
         var materialsGltf = meshesGltf.SelectMany(m => m.Primitives).Select(prim => prim.Material).Distinct().ToList();
         var materials = materialsGltf.Select(_ => LabURI.Empty).ToList();
@@ -547,12 +552,13 @@ public class SceneryData : AbstractAssetData
                     InvariantName = $"{meshesNode.VisualParent.Name}_{materialName}_MATERIAL",
                     Alias = $"{meshesNode.VisualParent.Name}_{materialName}_MATERIAL"
                 };
-                assetManager.TryAddAsset(material);
 
                 var materialData = MaterialData.LoadFromGltf(material, materialDesc,
                     materialsGltf.Where(m => m.Name.Contains($"RIGID{GraphicsHelpers.MaterialTokenDivider}MATERIAL{GraphicsHelpers.MaterialTokenDivider}{materialName}{GraphicsHelpers.MaterialTokenDivider}{modelIndex}{GraphicsHelpers.MaterialTokenDivider}"))
                         .ToList());
                 material.SetData(materialData);
+                
+                assetManager.TryAddAsset(material);
 
                 materials[modelIndex] = material.URI;
                 
@@ -565,6 +571,7 @@ public class SceneryData : AbstractAssetData
         meshData.Materials = materials;
         
         mesh.SetData(meshData);
+        assetManager.AddAsset(mesh);
 
         return mesh;
     }
@@ -617,7 +624,6 @@ public class SceneryData : AbstractAssetData
                 InvariantName = $"{lodNode.Name}_LOD_MODEL",
                 Alias = $"{lodNode.Name}_LOD_MODEL"
             };
-            assetManager.AddAsset(lod);
             
             var lodData = lodNode.Extras.Deserialize<LodModelData>()!;
             lodData.Meshes = [];
@@ -633,6 +639,8 @@ public class SceneryData : AbstractAssetData
             }
             
             lod.SetData(lodData);
+            
+            assetManager.AddAsset(lod);
             
             sceneryData.LodIDs.Add(lod.URI);
         }

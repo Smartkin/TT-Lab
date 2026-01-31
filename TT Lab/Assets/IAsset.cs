@@ -33,7 +33,7 @@ public enum SerializationFlags
 }
     
 /// <summary>
-/// Interface for all the assets TT Lab WPF manages
+/// Interface for all the assets TT Lab manages
 /// </summary>
 [JsonObject(MemberSerialization.OptIn)]
 public interface IAsset
@@ -99,7 +99,10 @@ public interface IAsset
     /// Path to asset's data
     /// </summary>
     String Data { get; }
-        
+    
+    /// <summary>
+    /// Full system path to asset's data
+    /// </summary>
     String FullDataPath { get; }
 
     /// <summary>
@@ -139,6 +142,9 @@ public interface IAsset
     [JsonProperty(Required = Required.AllowNull)]
     Int32? LayoutID { get; set; }
 
+    /// <summary>
+    /// What section of RM2/SM2 file the asset belongs to
+    /// </summary>
     UInt32 Section { get; }
 
     /// <summary>
@@ -236,6 +242,12 @@ public interface IAsset
     /// Regenerates the URI if package, subpackage or variation was changed
     /// </summary>
     void RegenerateLinks();
+
+    /// <summary>
+    /// Gets the asset's data hash as CRC32 checksum
+    /// </summary>
+    /// <returns>The resulting hash value</returns>
+    UInt32 GetDataHash();
 
     /// <summary>
     /// Save the data to disk

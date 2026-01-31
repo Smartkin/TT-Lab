@@ -94,13 +94,14 @@ public class MaterialData : AbstractAssetData
                 var texture = new Texture
                 {
                     Package = owner.Package,
-                    InvariantName = $"Texture_{owner.Name}_{shader.ShaderName}",
-                    Alias = $"Texture_{owner.Name}_{shader.ShaderName}"
+                    InvariantName = $"Texture_{owner.Name}",
+                    Alias = $"Texture_{owner.Name}"
                 };
-                assetManager.AddAsset(texture);
                 
                 var textureData = TextureData.LoadFromGltf(texture, gltfTexture);
                 texture.SetData(textureData);
+                
+                assetManager.TryAddAsset(texture);
 
                 shader.TextureId = texture.URI;
             }

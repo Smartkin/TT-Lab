@@ -53,6 +53,11 @@ public abstract class AbstractAssetData(IAsset owner) : IDisposable
         System.IO.Directory.SetCurrentDirectory(workingDirectory);
     }
 
+    public string GetJsonFormat()
+    {
+        return JsonConvert.SerializeObject(this);
+    }
+
     public void SaveInCurrentDirectory(String dataPath, JsonSerializerSettings? settings = null)
     {
         SaveInternal(dataPath, settings);
