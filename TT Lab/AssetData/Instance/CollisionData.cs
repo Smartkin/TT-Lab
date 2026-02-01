@@ -72,11 +72,16 @@ public class CollisionData : AbstractAssetData
         Triangles.Clear();
 
         var model = ModelRoot.Load(dataPath);
+        LoadFromGltf(model.LogicalMeshes);
+    }
+
+    public void LoadFromGltf(IReadOnlyList<Mesh> meshes)
+    {
         var indexOffset = 0;
         var assetManager = AssetManager.Get();
         var surfaces = assetManager.GetAllAssetsOf<CollisionSurface>();
         var defaultSurface = surfaces.First();
-        foreach (var mesh in model.LogicalMeshes)
+        foreach (var mesh in meshes)
         {
             foreach (var prim in mesh.Primitives)
             {
@@ -104,7 +109,10 @@ public class CollisionData : AbstractAssetData
     public GltfGeometryWrapper GetMesh(SharpGLTF.Scenes.NodeBuilder root)
     {
         var materials = GetMaterials();
-        var builder = new SharpGLTF.Geometry.MeshBuilder<VERTEX>();
+        var builder = new SharpGLTF.Geometry.MeshBuilder<VERTEX>
+        {
+            Name = "STATIC_COLLISION_MESH"
+        };
         foreach (var collisionTriangle in Triangles)
         {
             var v1 = Vectors[collisionTriangle.Face.Indexes![0]];

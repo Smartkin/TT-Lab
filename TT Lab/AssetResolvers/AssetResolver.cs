@@ -10,7 +10,8 @@ public abstract class AssetResolver<TTwinItem> : IAssetResolver where TTwinItem 
 {
     protected readonly Dictionary<string, uint> HashChecker = [];
     protected readonly List<MetaAsset> Assets = [];
-
+    
+    public IAsset CreatedAsset { get; private set; }
     public string? ChunkPathOverride { get; init; }
     public string ChunkPath => (string.IsNullOrEmpty(ChunkPathOverride) ? ResolverManager.ChunkPath[..] : ChunkPathOverride);
     public abstract void CreateAssetsFromChunk(ITwinSection chunk, Package package);
@@ -30,6 +31,7 @@ public abstract class AssetResolver<TTwinItem> : IAssetResolver where TTwinItem 
         var needVariant = twinIdCollisions > 1;
         var labAsset = CreateAsset(chunk, package, twinItem, needVariant, ChunkPath);
         labAsset.RegenerateLinks();
+        CreatedAsset = labAsset;
         Assets.Add(new MetaAsset(labAsset.URI, labAsset));
         return Assets[^1];
     }

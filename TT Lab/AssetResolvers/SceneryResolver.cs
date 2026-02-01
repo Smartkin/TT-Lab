@@ -12,6 +12,8 @@ public class SceneryResolver : AssetResolver<ITwinScenery>
     private readonly SkydomeResolver _skydomeResolver;
     private readonly MeshResolver _meshResolver;
     private readonly LodResolver _lodResolver;
+    private DynamicSceneryResolver _dynamicSceneryResolver;
+    private string _createdInChunk;
 
     public SceneryResolver(SkydomeResolver skydomeResolver)
     {
@@ -19,12 +21,19 @@ public class SceneryResolver : AssetResolver<ITwinScenery>
         _meshResolver = new MeshResolver(new ModelResolver(true), new MaterialResolver(new TextureResolver(true), true));
         _lodResolver = new LodResolver(_meshResolver);
     }
+
+    public void SetDynamicSceneryResolver(DynamicSceneryResolver dynamicSceneryResolver)
+    {
+        _dynamicSceneryResolver = dynamicSceneryResolver;
+    }
     
     public MeshResolver MeshResolver => _meshResolver;
     
     public override void CreateAssetsFromChunk(ITwinSection chunk, Package package)
     {
         CreateAssetFromId(chunk, chunk, package, Constants.SCENERY_SECENERY_ITEM);
+
+        _createdInChunk = ResolverManager.ChunkPath;
     }
 
     protected override IAsset CreateAsset(ITwinSection chunk, Package package, ITwinScenery item, bool needVariant, string variant)
@@ -51,13 +60,19 @@ public class SceneryResolver : AssetResolver<ITwinScenery>
             }
         }
         
-        return new Scenery(package.URI, item.GetID(), item.GetName(), ChunkPath, item);
+        return new Scenery(package.URI, item.GetID(), item.GetName(), ChunkPath, item, _dynamicSceneryResolver.CreatedAsset.URI);
     }
 
     public override void FinalizeResolve()
     {
         _meshResolver.FinalizeResolve();
         _lodResolver.FinalizeResolve();
+        
+        var resourceChunkResolver = ResolverManager.GetChunkResolver<ResourceChunkResolver>(_createdInChunk)!;
+        var collisionResolver = resourceChunkResolver.CollisionResolver;
+        var sceneryAsset = (Scenery)CreatedAsset;
+        var collisionUri = collisionResolver.CreatedAsset.URI;
+        sceneryAsset.LinkCollision(collisionUri);
         
         base.FinalizeResolve();
     }

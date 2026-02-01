@@ -30,9 +30,20 @@ public class Scenery : SerializableInstance
         Parameters = new Dictionary<string, object?>();
     }
 
-    public Scenery(LabURI package, UInt32 id, String name, String chunk, ITwinScenery scenery) : base(package, id, name, chunk, null)
+    public Scenery(LabURI package, UInt32 id, String name, String chunk, ITwinScenery scenery, LabURI dynamicScenery) : base(package, id, name, chunk, null)
     {
-        AssetData = new SceneryData(this, scenery);
+        AssetData = new SceneryData(this, scenery)
+        {
+            DynamicScenery = dynamicScenery
+        };
+    }
+
+    public void LinkCollision(LabURI collision)
+    {
+        if (IsLoaded)
+        {
+            ((SceneryData)AssetData!).Collision = collision;
+        }
     }
 
     public override Type GetEditorType()

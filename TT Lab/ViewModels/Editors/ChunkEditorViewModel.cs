@@ -70,10 +70,10 @@ namespace TT_Lab.ViewModels.Editors
         private readonly List<SceneInstance> _sceneInstances = [];
         private CollisionData? _colData;
         private ViewportViewModel _sceneEditor = Locator.Current.GetService<ViewportViewModel>()!;
-        private Collision _collisionRender;
+        private Collision? _collisionRender;
         private Scenery _sceneryRender;
         private Skydome? _skydomeRender;
-        private DynamicScenery _dynamicSceneryRender;
+        private DynamicScenery? _dynamicSceneryRender;
         private Node _instancesNode;
         private Node _triggersNode;
         private Node _camerasNode;
@@ -622,11 +622,6 @@ namespace TT_Lab.ViewModels.Editors
                 
                 // Currently all stuff is created as is from the data without linking it to view models
                 // TODO: Link all that together so that changes in the editor reflect on the end data
-                var collisionUri = _chunkTree.First(avm => avm.Asset.Type == typeof(Assets.Instance.Collision))!.Asset.URI;
-                _colData = _chunkTree.First(avm => avm.Asset.Type == typeof(Assets.Instance.Collision))!.Asset.GetData<CollisionData>();
-                _collisionRender = (Collision)_renderContext.MeshService.GetMesh(collisionUri).Model!;
-                scene.AddChild(_collisionRender);
-                
                 var instances = _chunkTree.Where(avm => avm is InstanceElementGenericViewModel<ObjectInstance>);
                 _instancesNode = new Node(_renderContext, scene);
                 foreach (var instance in instances)
@@ -637,15 +632,24 @@ namespace TT_Lab.ViewModels.Editors
                     _instancesNode.AddChild(objSceneInstance.GetEditableObject());
                 }
                 
-                var dynamicScenery = _chunkTree.First(avm => avm.Asset.Section == Constants.SCENERY_DYNAMIC_SECENERY_ITEM).Asset.GetData<DynamicSceneryData>();
-                _dynamicSceneryRender = new DynamicScenery(_renderContext, _renderContext.MeshService, dynamicScenery);
-                scene.AddChild(_dynamicSceneryRender);
-                
                 var scenery = _chunkTree.First(avm => avm.Asset.Section == Constants.SCENERY_SECENERY_ITEM).Asset.GetData<SceneryData>();
                 if (scenery.SkydomeID != LabURI.Empty)
                 {
                     _skydomeRender = new Skydome(_renderContext, assetManager.GetAssetData<SkydomeData>(scenery.SkydomeID), _renderContext.MeshService);
                     scene.AddChild(_skydomeRender);
+                }
+
+                if (scenery.DynamicScenery != LabURI.Empty)
+                {
+                    _dynamicSceneryRender = new DynamicScenery(_renderContext, _renderContext.MeshService, assetManager.GetAssetData<DynamicSceneryData>(scenery.DynamicScenery));
+                    scene.AddChild(_dynamicSceneryRender);
+                }
+
+                if (scenery.Collision != LabURI.Empty)
+                {
+                    _colData = assetManager.GetAssetData<CollisionData>(scenery.Collision);
+                    _collisionRender = (Collision)_renderContext.MeshService.GetMesh(scenery.Collision).Model!;
+                    scene.AddChild(_collisionRender);
                 }
 
                 _sceneryRender = new Scenery(_renderContext, _renderContext.MeshService, scenery);
@@ -702,7 +706,7 @@ namespace TT_Lab.ViewModels.Editors
                     aiPositionsNode.AddChild(aiPos);
                 }
                 
-                var cameras = _chunkTree.Where(avm => avm is InstanceElementGenericViewModel<TT_Lab.Assets.Instance.Camera>);;
+                var cameras = _chunkTree.Where(avm => avm is InstanceElementGenericViewModel<TT_Lab.Assets.Instance.Camera>);
                 _camerasNode = new Node(_renderContext, scene);
                 _camerasNode.AddChild(_editingContext.GetCamerasBillboards());
                 foreach (var camera in cameras)
@@ -714,16 +718,21 @@ namespace TT_Lab.ViewModels.Editors
                 renderer.RenderImgui += () =>
                 {
                     ImGui.Begin("Chunk Render Settings");
-                    ImGui.SetWindowPos(new Vector2(renderer.GetFrameBufferSize().x - 300, 5), ImGuiCond.FirstUseEver);
-                    ImGui.SetWindowSize(new Vector2(295, 200),  ImGuiCond.FirstUseEver);
-                    ImguiRenderFilterCheckbox("Render Collision", _collisionRender, DrawFilter.Collision);
-                    ImguiRenderFilterCheckbox("Render Dynamic Scenery", _dynamicSceneryRender, DrawFilter.DynamicScenery);
+                    ImGui.SetWindowPos(new Vector2(renderer.GetFrameBufferSize().x - 300, 5), ImGuiCond.Appearing);
+                    ImGui.SetWindowSize(new Vector2(295, 200),  ImGuiCond.Appearing);
+                    if (_collisionRender != null)
+                    {
+                        ImguiRenderFilterCheckbox("Render Collision", _collisionRender, DrawFilter.Collision);
+                    }
+                    if (_dynamicSceneryRender != null)
+                    {
+                        ImguiRenderFilterCheckbox("Render Dynamic Scenery", _dynamicSceneryRender, DrawFilter.DynamicScenery);
+                    }
                     ImguiRenderFilterCheckbox("Render Scenery", _sceneryRender, DrawFilter.Scenery);
                     if (_skydomeRender != null)
                     {
                         ImguiRenderFilterCheckbox("Render Skydome", _skydomeRender, DrawFilter.Skybox);
                     }
-
                     ImguiRenderFilterCheckbox("Render Positions", _editingContext.GetPositionBillboards(), DrawFilter.Positions);
                     ImguiRenderFilterCheckbox("Render Triggers", _triggersNode, DrawFilter.Triggers);
                     ImguiRenderFilterCheckbox("Render Cameras", _camerasNode, DrawFilter.Cameras);

@@ -19,6 +19,7 @@ public class SceneryChunkResolver : AssetResolver<ITwinSection>
     {
         _sceneryResolver = new SceneryResolver(skydomeResolver);
         _dynamicSceneryResolver = new DynamicSceneryResolver(_sceneryResolver.MeshResolver);
+        _sceneryResolver.SetDynamicSceneryResolver(_dynamicSceneryResolver);
         _chunkLinkResolver = new ChunkLinkResolver();
     }
     
@@ -40,8 +41,8 @@ public class SceneryChunkResolver : AssetResolver<ITwinSection>
             _levelChunk = assetManager.GetAsset<LevelChunk>(chunkAsset.URI);
         }
         
-        _sceneryResolver.CreateAssetsFromChunk(chunk, package);
         _dynamicSceneryResolver.CreateAssetsFromChunk(chunk, package);
+        _sceneryResolver.CreateAssetsFromChunk(chunk, package);
         _chunkLinkResolver.CreateAssetsFromChunk(chunk, package);
     }
 
@@ -57,10 +58,9 @@ public class SceneryChunkResolver : AssetResolver<ITwinSection>
 
     public override void FinalizeResolve()
     {
+        _dynamicSceneryResolver.FinalizeResolve();
         _sceneryResolver.FinalizeResolve();
         _levelChunk.ChunkResources.AddRange(_sceneryResolver.GetAssets().Select(m => m.Uri));
-        _dynamicSceneryResolver.FinalizeResolve();
-        _levelChunk.ChunkResources.AddRange(_dynamicSceneryResolver.GetAssets().Select(m => m.Uri));
         _chunkLinkResolver.FinalizeResolve();
         _levelChunk.ChunkResources.AddRange(_chunkLinkResolver.GetAssets().Select(m => m.Uri));
         

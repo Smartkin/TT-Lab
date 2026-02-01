@@ -43,6 +43,8 @@ public class SceneryData : AbstractAssetData
     public SceneryData(IAsset asset) : base(asset)
     {
         SkydomeID = LabURI.Empty;
+        Collision = LabURI.Empty;
+        DynamicScenery = LabURI.Empty;
         HasLighting = false;
         AmbientLights = new List<AmbientLight>();
         DirectionalLights = new List<DirectionalLight>();
@@ -58,6 +60,10 @@ public class SceneryData : AbstractAssetData
     
     [JsonProperty(Required = Required.Always)]
     public LabURI SkydomeID { get; set; }
+    
+    public LabURI DynamicScenery { get; set; }
+    
+    public LabURI Collision { get; set; }
     
     public UInt32 FogColor { get; set; }
     
@@ -88,6 +94,8 @@ public class SceneryData : AbstractAssetData
     private const string SceneryNodeStartName = "SCENERY_NODE_";
     private const string SceneryLeafStartName = "SCENERY_LEAF_";
     private const string LightingRootNodeName = "LIGHTING_ROOT";
+    private const string DynamicSceneryRootNodeName = "DYNAMIC_SCENERY_ROOT";
+    private const string CollisionRootNodeName = "COLLISION_ROOT";
     private const string AmbientLightsNodeName = "AMBIENT_LIGHTS";
     private const string DirectionalLightsNodeName = "DIRECTIONAL_LIGHTS";
     private const string PointsLightsNodeName = "POINT_LIGHTS";
@@ -98,6 +106,13 @@ public class SceneryData : AbstractAssetData
         var scene = new SharpGLTF.Scenes.SceneBuilder($"TwinsanityScenery_{Owner.Name}");
         var root = new SharpGLTF.Scenes.NodeBuilder(SceneryRootName);
         scene.AddNode(root);
+
+        var dynamicScenery = AssetManager.Get().GetAssetData<DynamicSceneryData>(DynamicScenery).GetInGltfFormat(scene);
+        scene.AddNode(dynamicScenery);
+
+        var collisionNode = new SharpGLTF.Scenes.NodeBuilder(CollisionRootNodeName);
+        var collision = AssetManager.Get().GetAssetData<CollisionData>(Collision).GetMesh(collisionNode);
+        scene.AddRigidMesh(collision.Mesh, collisionNode);
 
         // TODO: Try to use GLTF lights, maybe
         if (HasLighting)
@@ -299,6 +314,8 @@ public class SceneryData : AbstractAssetData
 
     private void ImportGltf(string path)
     {
+        var importErrored = false;
+        
         Sceneries.Clear();
         AmbientLights.Clear();
         PointLights.Clear();
@@ -314,14 +331,66 @@ public class SceneryData : AbstractAssetData
             ImportGltfLights(lightsNode!);
         }
 
-        var sceneryRoot = scene.VisualChildren.FirstOrDefault(n => n is { Name : SceneryRootName });
+        var dynamicSceneryNode = scene.VisualChildren.FirstOrDefault(n => n is { Name: DynamicSceneryRootNodeName });
+        if (dynamicSceneryNode == null)
+        {
+            Log.WriteLine($"Scene {path}.glb does not have {DynamicSceneryRootNodeName} node. No Dynamic Scenery will be loaded.");
+        }
+
+        var sceneryRoot = scene.VisualChildren.FirstOrDefault(n => n is { Name: SceneryRootName });
         if (sceneryRoot == null)
         {
             Log.WriteLine($"Misconfigured scenery {path}.glb! No root found. Make sure you have {SceneryRootName} node in your scene!", Log.LogType.Error);
+            importErrored = true;
+        }
+
+        var collisionRoot = scene.VisualChildren.FirstOrDefault(n => n is { Name: CollisionRootNodeName });
+        if (collisionRoot == null)
+        {
+            Log.WriteLine($"Misconfigured scenery {path}.glb! No collision found. Make sure you have {CollisionRootNodeName} node in your scene!", Log.LogType.Error);
+            importErrored = true;
+        }
+
+        if (importErrored)
+        {
             return;
         }
+
+        if (dynamicSceneryNode != null)
+        {
+            var dynamicScenery = new Assets.Instance.DynamicScenery
+            {
+                Package = Owner.Package,
+                Chunk = Owner.Chunk,
+                InvariantName = $"{Owner.Chunk}_DYNAMIC_SCENERY",
+                Alias = "Dynamic Scenery"
+            };
+
+            var dynamicSceneryData = new DynamicSceneryData(dynamicScenery);
+            dynamicSceneryData.LoadFromGltf(model, dynamicSceneryNode!);
+
+            dynamicScenery.SetData(dynamicSceneryData);
+            AssetManager.Get().AddAsset(dynamicScenery);
+            
+            DynamicScenery = dynamicScenery.URI;
+        }
+
+        var collision = new Assets.Instance.Collision
+        {
+            Package = Owner.Package,
+            Chunk = Owner.Chunk,
+            InvariantName = $"{Owner.Chunk}_COLLISION",
+            Alias = "Collision"
+        };
+        var collisionData = new CollisionData(collision);
+        collisionData.LoadFromGltf(model.LogicalMeshes.Where(m => m is {Name: "STATIC_COLLISION_MESH"}).ToList());
         
-        ImportGltfSceneryRootData(sceneryRoot, model);
+        collision.SetData(collisionData);
+        AssetManager.Get().AddAsset(collision);
+
+        Collision = collision.URI;
+        
+        ImportGltfSceneryRootData(sceneryRoot!, model);
     }
 
     private void ImportGltfLights(Node lightsRoot)
@@ -748,6 +817,17 @@ public class SceneryData : AbstractAssetData
         if (SkydomeID != LabURI.Empty)
         {
             assetManager.GetAsset(SkydomeID).ResolveChunkResources(factory, skydomeSection);
+        }
+
+        if (DynamicScenery != LabURI.Empty)
+        {
+            assetManager.GetAssetData<DynamicSceneryData>(DynamicScenery).ResolveChunkResources(factory, section,
+                Constants.SCENERY_DYNAMIC_SECENERY_ITEM, layoutID);
+        }
+        else
+        {
+            var dummyDynamicScenery = new DynamicSceneryData(null);
+            dummyDynamicScenery.ResolveChunkResources(factory, section, Constants.SCENERY_DYNAMIC_SECENERY_ITEM, layoutID);
         }
 
         foreach (var scenery in Sceneries)

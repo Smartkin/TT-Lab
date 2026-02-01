@@ -7,6 +7,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Data;
+using Avalonia.Threading;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using TT_Lab.AssetData;
@@ -300,10 +301,10 @@ namespace TT_Lab.Project
                 Log.WriteLine("Building project tree...");
                 BuildProjectTree();
 
-                Execute.OnUIThread(() =>
+                Dispatcher.UIThread.Invoke(() =>
                 {
                     AddRecentlyOpened(OpenedProject.ProjectPath);
-                });
+                }, DispatcherPriority.Background);
                 
                 WorkableProject = true;
                 IsCreatingProject = false;

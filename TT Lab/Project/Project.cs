@@ -343,18 +343,20 @@ public class Project : IProject
             Log.WriteLine("No PS2 assets provided, skipped...");
             return;
         }
+        
+        ResolverManager.Start();
 
         Dictionary<LabURI, IAsset> assets = new();
 
-        string[] archivePaths = System.IO.Directory.GetFiles(System.IO.Path.Combine(DiscContentPathPS2, "Crash6"), "*.BD", System.IO.SearchOption.TopDirectoryOnly);
-        PS2BD archive = new PS2BD(archivePaths[0].Replace(".BD", ".BH"), "");
+        var archivePaths = System.IO.Directory.GetFiles(System.IO.Path.Combine(DiscContentPathPS2, "Crash6"), "*.BD", System.IO.SearchOption.TopDirectoryOnly);
+        var archive = new PS2BD(archivePaths[0].Replace(".BD", ".BH"), "");
         Log.WriteLine("Reading game archives...");
         using (System.IO.FileStream fs = new(archivePaths[0], System.IO.FileMode.Open, System.IO.FileAccess.Read))
         using (System.IO.BinaryReader reader = new(fs))
         {
             archive.Read(reader, (int)fs.Length);
         }
-            
+        
         // Maps graph ID to behaviour starter
         var starterMap = new Dictionary<string, TwinBehaviourStarter>();
         Log.WriteLine("Creating behaviour starter map...");
@@ -579,6 +581,8 @@ public class Project : IProject
         gameObjectResolver.FinalizeResolve();
         
         AssetManager.AddAllAssets(assets);
+        
+        ResolverManager.Stop();
     }
 
     public void UnpackAssetsXbox()
@@ -664,7 +668,7 @@ public class Project : IProject
 
         foreach (var asset in chunk.ChunkResources.Select(child => assetManager.GetAsset(child)))
         {
-            if (asset is Scenery or DynamicScenery or ChunkLinks)
+            if (asset is Scenery or ChunkLinks)
             {
                 asset.ResolveChunkResources(factory, sm2);
             }
