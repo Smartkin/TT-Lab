@@ -5,6 +5,8 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia.Controls;
+using Splat;
 using TT_Lab.AssetData;
 using TT_Lab.Assets;
 using TT_Lab.Command;
@@ -41,10 +43,16 @@ namespace TT_Lab.ViewModels
         private readonly ICommand _unsavedChangesCommand;
         private readonly OpenDialogueCommand.DialogueResult _dialogueResult = new();
         private string _tabDisplayName = string.Empty;
+        private UnsavedChangesDialogue _unsavedChangesDialogue;
 
         public ResourceEditorViewModel()
         {
-            _unsavedChangesCommand = new OpenDialogueCommand(() => new UnsavedChangesDialogue(_dialogueResult, AssetManager.Get().GetAsset(EditableResource).GetResourceTreeElement()));
+            _unsavedChangesCommand = new OpenDialogueCommand(() =>
+            {
+                // _unsavedChangesDialogue = new UnsavedChangesDialogue(_dialogueResult,
+                //     AssetManager.Get().GetAsset(EditableResource).GetResourceTreeElement());
+                return _unsavedChangesDialogue;
+            });
             DirtyTracker = new DirtyTracker(this, () =>
             {
                 EditorChangesHappened();
@@ -52,37 +60,40 @@ namespace TT_Lab.ViewModels
             });
         }
         
-        public override Task<Boolean> CanCloseAsync(CancellationToken cancellationToken = new CancellationToken())
+        public override async Task<Boolean> CanCloseAsync(CancellationToken cancellationToken = new CancellationToken())
         {
             if (IsDirty && !IgnoreUnsavedPopup)
             {
                 _usingConfirmClose = true;
-                _unsavedChangesCommand.Execute();
+                // _unsavedChangesCommand.Execute();
             }
-
-            return Task.Factory.StartNew(() =>
+            
+            if (!IsDirty || IgnoreUnsavedPopup)
             {
-                if (!IsDirty || IgnoreUnsavedPopup)
-                {
+                return true;
+            }
+            
+            await _unsavedChangesDialogue.ShowDialog((Window)((ShellViewModel)Locator.Current.GetService<ILabManager>()!)
+                .GetView());
+            
+            _unsavedChangesDialogue = new UnsavedChangesDialogue(_dialogueResult,
+                AssetManager.Get().GetAsset(EditableResource).GetResourceTreeElement());
+        
+            if (_dialogueResult.Result == null)
+            {
+                return false;
+            }
+        
+            var result = MiscUtils.ConvertEnum<UnsavedChangesDialogue.AnswerResult>(_dialogueResult.Result);
+            switch (result)
+            {
+                case UnsavedChangesDialogue.AnswerResult.YES:
+                case UnsavedChangesDialogue.AnswerResult.DISCARD:
                     return true;
-                }
-            
-                if (_dialogueResult.Result == null)
-                {
+                case UnsavedChangesDialogue.AnswerResult.CANCEL:
+                default:
                     return false;
-                }
-            
-                var result = MiscUtils.ConvertEnum<UnsavedChangesDialogue.AnswerResult>(_dialogueResult.Result);
-                switch (result)
-                {
-                    case UnsavedChangesDialogue.AnswerResult.YES:
-                    case UnsavedChangesDialogue.AnswerResult.DISCARD:
-                        return true;
-                    case UnsavedChangesDialogue.AnswerResult.CANCEL:
-                    default:
-                        return false;
-                }
-            }, cancellationToken);
+            }
         }
 
         public void SaveChanges(bool force = false)
@@ -141,6 +152,10 @@ namespace TT_Lab.ViewModels
 
             ResetDirty();
             _startedEditing = true;
+            
+            _unsavedChangesDialogue = new UnsavedChangesDialogue(_dialogueResult,
+                AssetManager.Get().GetAsset(EditableResource).GetResourceTreeElement());
+            
             if (Parent is TabbedEditorViewModel tabbedEditorViewModel)
             {
                 _tabDisplayName = tabbedEditorViewModel.DisplayName;

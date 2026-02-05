@@ -119,15 +119,15 @@ namespace TT_Lab.AssetData.Instance
             using var writer = new BinaryWriter(ms);
             writer.Write((UInt32)CollisionMask);
             writer.Write((UInt16)SurfaceID);
-            writer.Write(StepSoundId1 == LabURI.Empty ? (UInt16)0xFFFF : (UInt16)assetManager.GetAsset(StepSoundId1).ID);
-            writer.Write(StepSoundId2 == LabURI.Empty ? (UInt16)0xFFFF : (UInt16)assetManager.GetAsset(StepSoundId2).ID);
+            writer.Write(StepSoundId1 == LabURI.Empty ? (UInt16)0xFFFF : (UInt16)assetManager.GetAsset(StepSoundId1).ExportTwinID);
+            writer.Write(StepSoundId2 == LabURI.Empty ? (UInt16)0xFFFF : (UInt16)assetManager.GetAsset(StepSoundId2).ExportTwinID);
             writer.Write(WalkOnParticleSystemId1);
             writer.Write(WalkOnParticleSystemId2);
-            writer.Write(LandSoundId1 == LabURI.Empty ? (UInt16)0xFFFF : (UInt16)assetManager.GetAsset(LandSoundId1).ID);
+            writer.Write(LandSoundId1 == LabURI.Empty ? (UInt16)0xFFFF : (UInt16)assetManager.GetAsset(LandSoundId1).ExportTwinID);
             writer.Write(UnkId3);
             writer.Write(LandOnParticleSystemId);
-            writer.Write(LandSoundId2 == LabURI.Empty ? (UInt16)0xFFFF : (UInt16)assetManager.GetAsset(LandSoundId2).ID);
-            writer.Write(UnkSoundId == LabURI.Empty ? (UInt16)0xFFFF : (UInt16)assetManager.GetAsset(UnkSoundId).ID);
+            writer.Write(LandSoundId2 == LabURI.Empty ? (UInt16)0xFFFF : (UInt16)assetManager.GetAsset(LandSoundId2).ExportTwinID);
+            writer.Write(UnkSoundId == LabURI.Empty ? (UInt16)0xFFFF : (UInt16)assetManager.GetAsset(UnkSoundId).ExportTwinID);
             writer.Write((UInt16)0xFFFF); // Unused ID
             foreach (var param in PhysicsParameters)
             {

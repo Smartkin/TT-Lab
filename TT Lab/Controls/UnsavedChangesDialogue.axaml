@@ -6,16 +6,16 @@
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="TT_Lab.Controls.UnsavedChangesDialogue"
         xmlns:viewmodels="clr-namespace:TT_Lab.ViewModels.ResourceTree"
-        d:DataContext="{Binding Source={d:DesignInstance viewmodels:ResourceTreeElementViewModel}}"
+        x:DataType="viewmodels:ResourceTreeElementViewModel"
         Title="Unsaved work!"
         Height="120" SizeToContent="Width" CanResize="False" ShowInTaskbar="False" Topmost="True" WindowStartupLocation="CenterOwner">
     <controls:GroupBox>
         <Grid RowDefinitions="*,*">
             <UniformGrid Grid.Row="1" Rows="1">
                 <Grid ColumnDefinitions="*,*,*">
-                    <Button x:Name="YesButton" Content="Save" Margin="5" Padding="3" VerticalAlignment="Center" IsDefault="True" Click="YesButton_Click"/>
-                    <Button x:Name="DiscardButton" Content="Discard" Padding="3" Grid.Column="1" Margin="5" VerticalAlignment="Center" Click="DiscardButton_Click"/>
-                    <Button x:Name="CancelButton" Content="Cancel" Padding="3" Grid.Column="2" Margin="5" VerticalAlignment="Center" IsCancel="True" Click="CancelButton_Click"/>
+                    <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" x:Name="YesButton" Content="Save" Margin="5" Padding="3" VerticalAlignment="Center" IsDefault="True" Click="YesButton_Click"/>
+                    <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" x:Name="DiscardButton" Content="Discard" Padding="3" Grid.Column="1" Margin="5" VerticalAlignment="Center" Click="DiscardButton_Click"/>
+                    <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" x:Name="CancelButton" Content="Cancel" Padding="3" Grid.Column="2" Margin="5" VerticalAlignment="Center" IsCancel="True" Click="CancelButton_Click"/>
                 </Grid>
             </UniformGrid>
             <Label Grid.Row="0" HorizontalAlignment="Center" Margin="0" VerticalAlignment="Center">

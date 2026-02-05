@@ -84,6 +84,9 @@ public class OGIData : AbstractAssetData
 
     private void ImportGltf(string dataPath)
     {
+        BoundingBoxBuilders.Clear();
+        BoundingBoxBuilderToJointIndex.Clear();
+        ExitPoints.Clear();
         Joints.Clear();
         RigidModelJointIndices.Clear();
         RigidModelIds.Clear();
@@ -99,7 +102,15 @@ public class OGIData : AbstractAssetData
         var blendMaterials = new List<Material>();
         var materialDescs = model.DefaultScene.VisualChildren.First(n => n.Name == "MATERIAL_DESCS");
         ExtractSkinsAndBlendSkins(model, skinMeshes, blendSkinMeshes, blendMaterials, skinMaterials);
-        TraverseNodeTree(model, model.DefaultScene.VisualChildren.FirstOrDefault(), rigidMeshes, rigidMaterials);
+        TraverseNodeTree(model, model.DefaultScene.VisualChildren.FirstOrDefault(n => n.Name == "SKELETON_ROOT"), rigidMeshes, rigidMaterials);
+
+        var ogiJsonData = model.DefaultScene.Extras.Deserialize<OgiGltfData>()!;
+        BoundingBox = [ogiJsonData.BoundingBoxTopRight, ogiJsonData.BoundingBoxBottomLeft];
+        foreach (var boxBuilderToJointLink in ogiJsonData.BoundingBoxBuilders)
+        {
+            BoundingBoxBuilders.Add(boxBuilderToJointLink.BoundingBoxBuilder);
+            BoundingBoxBuilderToJointIndex.Add(boxBuilderToJointLink.JointIndex);
+        }
 
         var assetManager = AssetManager.Get();
         
@@ -109,9 +120,10 @@ public class OGIData : AbstractAssetData
             {
                 Package = Owner.Package,
                 InvariantName = $"BlendSkin_{Owner.Name}",
-                Alias = $"BlendSkin_{Owner.Name}"
+                Alias = $"BlendSkin_{Owner.Name}",
+                IsInternal = true
             };
-            assetManager.AddAsset(labSkin);
+            assetManager.TryAddAsset(labSkin);
             
             var labMaterials = new List<GltfMaterialLabUri>();
             foreach (var material in blendMaterials)
@@ -145,9 +157,10 @@ public class OGIData : AbstractAssetData
                 {
                     Package = labSkin.Package,
                     InvariantName = $"Material_{labSkin.Name}_{materialTokens[2]}",
-                    Alias = $"Material_{labSkin.Name}_{materialTokens[2]}"
+                    Alias = $"Material_{labSkin.Name}_{materialTokens[2]}",
+                    IsInternal = true
                 };
-                assetManager.AddAsset(labMaterial);
+                assetManager.TryAddAsset(labMaterial);
                 
                 labMaterials[materialIndex] = new GltfMaterialLabUri(material.LogicalIndex, labMaterial.URI);
                 
@@ -168,9 +181,10 @@ public class OGIData : AbstractAssetData
             {
                 Package = Owner.Package,
                 InvariantName = $"Skin_{Owner.Name}",
-                Alias = $"Skin_{Owner.Name}"
+                Alias = $"Skin_{Owner.Name}",
+                IsInternal = true
             };
-            assetManager.AddAsset(labSkin);
+            assetManager.TryAddAsset(labSkin);
             
             var labMaterials = new List<LabURI>();
             foreach (var material in skinMaterials)
@@ -204,9 +218,10 @@ public class OGIData : AbstractAssetData
                 {
                     Package = labSkin.Package,
                     InvariantName = $"Material_{labSkin.Name}_{materialTokens[2]}",
-                    Alias = $"Material_{labSkin.Name}_{materialTokens[2]}"
+                    Alias = $"Material_{labSkin.Name}_{materialTokens[2]}",
+                    IsInternal = true
                 };
-                assetManager.AddAsset(labMaterial);
+                assetManager.TryAddAsset(labMaterial);
                 
                 labMaterials[materialIndex] = labMaterial.URI;
                 
@@ -262,9 +277,10 @@ public class OGIData : AbstractAssetData
             {
                 Package = Owner.Package,
                 InvariantName = $"Model_{modelId}_{Owner.Name}",
-                Alias = $"Model_{modelId}_{Owner.Name}"
+                Alias = $"Model_{modelId}_{Owner.Name}",
+                IsInternal = true
             };
-            assetManager.AddAsset(labModel);
+            assetManager.TryAddAsset(labModel);
             
             var modelData = new ModelData(labModel);
             modelData.LoadFromGltfMeshes(rigidMesh);
@@ -274,9 +290,10 @@ public class OGIData : AbstractAssetData
             {
                 Package = Owner.Package,
                 InvariantName = $"RigidModel_{modelId}_{Owner.Name}",
-                Alias = $"RigidModel_{modelId}_{Owner.Name}"
+                Alias = $"RigidModel_{modelId}_{Owner.Name}",
+                IsInternal = true
             };
-            assetManager.AddAsset(labRigidModel);
+            assetManager.TryAddAsset(labRigidModel);
             
             var materials = resultingRigidMaterials[modelId];
             var labMaterials = new List<LabURI>();
@@ -311,9 +328,10 @@ public class OGIData : AbstractAssetData
                 {
                     Package = labRigidModel.Package,
                     InvariantName = $"Material_{labRigidModel.Name}_{materialTokens[2]}",
-                    Alias = $"Material_{labRigidModel.Name}_{materialTokens[2]}"
+                    Alias = $"Material_{labRigidModel.Name}_{materialTokens[2]}",
+                    IsInternal = true
                 };
-                assetManager.AddAsset(labMaterial);
+                assetManager.TryAddAsset(labMaterial);
                 
                 labMaterials[materialIndex] = labMaterial.URI;
                 
@@ -397,9 +415,17 @@ public class OGIData : AbstractAssetData
         {
             twinJoint.ParentIndex = 255;
         }
+
+        var children = node.VisualChildren.ToList();
         var additionalAnimationJson = node.Extras;
-        twinJoint.AdditionalAnimationRotation = additionalAnimationJson != null ? new Vector4((float)additionalAnimationJson["X"]!, (float)additionalAnimationJson["Y"]!, (float)additionalAnimationJson["Z"]!, (float)additionalAnimationJson["W"]!) : new Vector4(0, 0, 0, 1);
-        twinJoint.ChildrenAmt1 = node.VisualChildren.Count();
+        var jointJson = new JointJsonFormat();
+        if (additionalAnimationJson != null)
+        {
+            jointJson = additionalAnimationJson.Deserialize<JointJsonFormat>()!;
+        }
+        twinJoint.AdditionalAnimationRotation = jointJson.AdditionalAnimationRotation;
+        twinJoint.ReactId = jointJson.ReactId;
+        twinJoint.ChildrenAmt1 = children.Count;
         twinJoint.Index = jointIndex;
         twinJoint.LocalTranslation = node.LocalTransform.Translation.ToTwin();
         twinJoint.LocalRotation = node.LocalTransform.Rotation.ToTwin();
@@ -407,8 +433,29 @@ public class OGIData : AbstractAssetData
         Matrix4x4.Invert(node.WorldMatrix, out var invMatrix);
         SkinInverseMatrices.Add(invMatrix.ToTwin());
 
-        foreach (var child in node.VisualChildren)
+        foreach (var child in children)
         {
+            if (child.Name == null || !child.Name.Contains("EXIT_POINT"))
+            {
+                continue;
+            }
+            
+            var exitPoint = new TwinExitPoint
+            {
+                ID = uint.Parse(child.Name.Split('_')[^1]),
+                ParentJointIndex = (uint)twinJoint.Index,
+                Matrix = child.LocalMatrix.ToTwin()
+            };
+            ExitPoints.Add(exitPoint);
+        }
+
+        foreach (var child in children)
+        {
+            if (child.Name != null && child.Name.Contains("EXIT_POINT"))
+            {
+                continue;
+            }
+            
             TraverseNodeTree(model, child, rigidMeshes, rigidMaterials);
         }
     }
@@ -416,13 +463,33 @@ public class OGIData : AbstractAssetData
     private void ExportGltf(string path)
     {
         var assetManager = AssetManager.Get();
-        var scene = new SharpGLTF.Scenes.SceneBuilder($"TwinsanityModel_{Owner.Name}");
+        var scene = new SharpGLTF.Scenes.SceneBuilder($"TwinsanityModel_{Owner.Name}")
+        {
+            Extras = System.Text.Json.JsonSerializer.SerializeToNode(new OgiGltfData(this))
+        };
         var rootJoint = new SharpGLTF.Scenes.NodeBuilder{
-            Extras = System.Text.Json.Nodes.JsonNode.Parse(
-                System.Text.Json.JsonSerializer.Serialize(Joints[0].AdditionalAnimationRotation)),
+            Extras = System.Text.Json.JsonSerializer.SerializeToNode(new JointJsonFormat
+            {
+                AdditionalAnimationRotation = Joints[0].AdditionalAnimationRotation,
+                ReactId = Joints[0].ReactId
+            }),
             Name = "SKELETON_ROOT"
         };
         scene.AddNode(rootJoint);
+
+        foreach (var twinExitPoint in ExitPoints)
+        {
+            if (twinExitPoint.ParentJointIndex != 0)
+            {
+                continue;
+            }
+            
+            var exitPoint = new SharpGLTF.Scenes.NodeBuilder($"EXIT_POINT_{twinExitPoint.ID}")
+            {
+                LocalMatrix = twinExitPoint.Matrix.ToSystem()
+            };
+            rootJoint.AddNode(exitPoint);
+        }
 
         var materialDescs = new SharpGLTF.Scenes.NodeBuilder
         {
@@ -447,8 +514,11 @@ public class OGIData : AbstractAssetData
             var parentJoint = nodeMap[joint.ParentIndex].Node;
             var jointNode = new SharpGLTF.Scenes.NodeBuilder
             {
-                Extras = System.Text.Json.Nodes.JsonNode.Parse(
-                    System.Text.Json.JsonSerializer.Serialize(joint.AdditionalAnimationRotation))
+                Extras = System.Text.Json.JsonSerializer.SerializeToNode(new JointJsonFormat
+                {
+                    AdditionalAnimationRotation = joint.AdditionalAnimationRotation,
+                    ReactId = joint.ReactId
+                })
             };
             jointNode.Name = $"BONE_{joint.Index}";
             jointNode.WithLocalTranslation(new System.Numerics.Vector3(joint.LocalTranslation.X,
@@ -463,6 +533,20 @@ public class OGIData : AbstractAssetData
                 Parent = parentJoint,
                 ParentIndex = joint.ParentIndex
             });
+            
+            foreach (var twinExitPoint in ExitPoints)
+            {
+                if (twinExitPoint.ParentJointIndex != joint.Index)
+                {
+                    continue;
+                }
+            
+                var exitPoint = new SharpGLTF.Scenes.NodeBuilder($"EXIT_POINT_{twinExitPoint.ID}")
+                {
+                    LocalMatrix = twinExitPoint.Matrix.ToSystem()
+                };
+                jointNode.AddNode(exitPoint);
+            }
         }
 
         var nodeList = nodeMap.Values.ToList();
@@ -609,18 +693,14 @@ public class OGIData : AbstractAssetData
     // {
     //     public Dictionary<string, bool> NodeHasIndependentScaling { get; set; } = [];
     // }
-
-    [JsonProperty(Required = Required.Always)]
-    public Vector4[] BoundingBox { get; set; }
-    [JsonProperty(Required = Required.Always)]
-    public List<TwinExitPoint> ExitPoints { get; set; }
-    [JsonProperty(Required = Required.Always)]
-    public List<TwinBoundingBoxBuilder> BoundingBoxBuilders { get; set; }
-    [JsonProperty(Required = Required.Always)]
-    public List<Byte> BoundingBoxBuilderToJointIndex { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
     public List<LabURI> AnimationLinks { get; set; }
-    
+
+    public Vector4[] BoundingBox { get; set; }
+    public List<TwinExitPoint> ExitPoints { get; set; }
+    public List<TwinBoundingBoxBuilder> BoundingBoxBuilders { get; set; }
+    public List<Byte> BoundingBoxBuilderToJointIndex { get; set; }
     public List<TwinJoint> Joints { get; set; }
     public List<Byte> RigidModelJointIndices { get; set; }
     public List<LabURI> RigidModelIds { get; set; }
@@ -628,8 +708,66 @@ public class OGIData : AbstractAssetData
     public LabURI Skin { get; set; }
     public LabURI BlendSkin { get; set; }
 
+    private class OgiGltfData
+    {
+        [System.Text.Json.Serialization.JsonConstructor]
+        private OgiGltfData() { }
+
+        public OgiGltfData(OGIData data)
+        {
+            BoundingBoxTopRight = data.BoundingBox[0];
+            BoundingBoxBottomLeft = data.BoundingBox[1];
+            var bbBuilderIndex = 0;
+            foreach (var twinBoundingBoxBuilder in data.BoundingBoxBuilders)
+            {
+                BoundingBoxBuilders.Add(new BoxBuilderToJointLink
+                {
+                    BoundingBoxBuilder = twinBoundingBoxBuilder,
+                    JointIndex = data.BoundingBoxBuilderToJointIndex[bbBuilderIndex++]
+                });
+            }
+        }
+
+        [System.Text.Json.Serialization.JsonConverter(typeof(JsonVector4Converter))]
+        public Vector4 BoundingBoxTopRight { get; set; } = new(-10, -10, -10, 1);
+        
+        [System.Text.Json.Serialization.JsonConverter(typeof(JsonVector4Converter))]
+        public Vector4 BoundingBoxBottomLeft { get; set; } = new(10, 10, 10, 1);
+
+        [System.Text.Json.Serialization.JsonConverter(typeof(JsonListConverter<BoxBuilderToJointLink>))]
+        public List<BoxBuilderToJointLink> BoundingBoxBuilders { get; set; } = [];
+    }
+
     protected override void Dispose(Boolean disposing)
     {
+        var assetManger = AssetManager.Get();
+        if (Skin != LabURI.Empty)
+        {
+            var skin = assetManger.GetAsset(Skin);
+            if (skin.IsInternal)
+            {
+                skin.Delete();
+            }
+        }
+
+        if (BlendSkin != LabURI.Empty)
+        {
+            var blendSkin = assetManger.GetAsset(BlendSkin);
+            if (blendSkin.IsInternal)
+            {
+                blendSkin.Delete();
+            }
+        }
+
+        foreach (var rigidModelId in RigidModelIds)
+        {
+            var rigidModel = assetManger.GetAsset(rigidModelId);
+            if (rigidModel.IsInternal)
+            {
+                rigidModel.Delete();
+            }
+        }
+        
         Joints.Clear();
         ExitPoints.Clear();
         RigidModelJointIndices.Clear();
@@ -683,7 +821,7 @@ public class OGIData : AbstractAssetData
         writer.Write(RigidModelIds.Count);
         foreach (var rigidModel in RigidModelIds)
         {
-            writer.Write(assetManager.GetAsset(rigidModel).ID);
+            writer.Write(assetManager.GetAsset(rigidModel).ExportTwinID);
         }
 
         writer.Write(ExitPoints.Count);
@@ -710,8 +848,8 @@ public class OGIData : AbstractAssetData
             writer.Write(idx);
         }
 
-        writer.Write(Skin == LabURI.Empty ? 0U : assetManager.GetAsset(Skin).ID);
-        writer.Write(BlendSkin == LabURI.Empty ? 0U : assetManager.GetAsset(BlendSkin).ID);
+        writer.Write(Skin == LabURI.Empty ? 0U : assetManager.GetAsset(Skin).ExportTwinID);
+        writer.Write(BlendSkin == LabURI.Empty ? 0U : assetManager.GetAsset(BlendSkin).ExportTwinID);
 
         writer.Flush();
         ms.Position = 0;
@@ -762,6 +900,14 @@ public class OGIData : AbstractAssetData
             }
             assetManager.GetAsset(BlendSkin).ResolveChunkResources(factory, blendSkinSection);
         }
-        return base.ResolveChunkResources(factory, section, id);
+        return base.ResolveChunkResources(factory, section, id, layoutID);
     }
+}
+
+public class JointJsonFormat
+{
+    [System.Text.Json.Serialization.JsonConverter(typeof(JsonVector4Converter))]
+    public Vector4 AdditionalAnimationRotation { get; set; } = new(0, 0, 0, 1);
+
+    public Int32 ReactId { get; set; } = 255;
 }

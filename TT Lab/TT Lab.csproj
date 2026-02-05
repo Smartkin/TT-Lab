@@ -17,6 +17,24 @@
     <PropertyGroup Condition="'$(IsLinux)'=='true'">
         <DefineConstants>_LINUX</DefineConstants>
     </PropertyGroup>
+    
+    <PropertyGroup>
+        <BuildDependsOn>
+            $(BuildDependsOn);CopyNativeLibs
+        </BuildDependsOn>
+    </PropertyGroup>
+    
+    <Target Name="CopyNativeLibs" AfterTargets="AfterBuild">
+        <ItemGroup Condition="'$(IsWindows)'=='true'">
+            <NativeLibraries Include="$(MSBuildProjectDirectory)\Libraries\Native\Windows\PS2ImageMaker.dll"/>
+        </ItemGroup>
+        <ItemGroup Condition="'$(IsLinux)'=='true'">
+            <NativeLibraries Include="$(MSBuildProjectDirectory)\Libraries\Native\Linux\PS2ImageMaker.so"/>
+        </ItemGroup>
+        
+        <Message Text="Copying PS2 Image Maker library into resulting executable..." Importance="high"/>
+        <Copy SourceFiles="@(NativeLibraries)" DestinationFolder="$(MSBuildProjectDirectory)\$(OutputPath)"/>
+    </Target>
 
     <ItemGroup>
         <PackageReference Include="Avalonia" Version="11.3.10"/>
@@ -83,5 +101,9 @@
       <Content Include="BlenderTools\dist\*">
           <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </Content>  
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="Libraries\Native\Linux\" />
     </ItemGroup>
 </Project>

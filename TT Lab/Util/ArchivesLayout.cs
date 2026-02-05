@@ -1,49 +1,39 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace TT_Lab.Util
+namespace TT_Lab.Util;
+
+public static class ArchivesLayout
 {
-    public static class ArchivesLayout
-    {
-        public static List<String> ExtrasFolders
-        {
-            get => new()
-            {
-                "Bosses",
-                "Concept",
-                "Enemies",
-                "Storyboards",
-                "Test",
-                "Unseen"
-            };
-        }
+    public static List<String> ExtrasFolders =>
+    [
+        "Bosses",
+        "Concept",
+        "Enemies",
+        "Storyboards",
+        "Test",
+        "Unseen"
+    ];
 
-        public static List<String> LanguageFolder
-        {
-            get => new()
-            {
-                "AgentLab",
-                "Code",
-                "Credits",
-                "Gameover",
-                "Legal",
-                "Loading",
-                "Titles"
-            };
-        }
+    public static List<String> LanguageFolder =>
+    [
+        "AgentLab",
+        "Code",
+        "Credits",
+        "Gameover",
+        "Legal",
+        "Loading",
+        "Titles"
+    ];
 
-        public static List<String> StartupItems
-        {
-            get => new()
-            {
-                "Fonts",
-                "Decal",
-                "Default",
-                "Frontend",
-                "Icons",
-                "Crash",
-                "LevelSelect"
-            };
-        }
-    }
+    public static List<String> StartupItems =>
+    [
+        "Fonts",
+        "Decal",
+        "Default",
+        "Frontend",
+        "Icons",
+        "Crash",
+        "LevelSelect"
+    ];
 }

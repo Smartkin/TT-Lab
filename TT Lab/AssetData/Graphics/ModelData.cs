@@ -2,6 +2,7 @@
 using SharpGLTF.Schema2;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text.Json;
 using Caliburn.Micro;
@@ -61,6 +62,33 @@ public class ModelData : AbstractAssetData
         Faces.Clear();
         Meshes.ForEach(m => m.Clear());
         Meshes.Clear();
+    }
+
+    public override String GetStringified()
+    {
+        using var ms = new MemoryStream();
+        using var binaryWriter = new BinaryWriter(ms);
+        var vertexIndex = 0;
+        foreach (var face in Faces)
+        {
+            var vertexes = Vertexes[vertexIndex];
+            foreach (var indexedFace in face)
+            {
+                var v1 = vertexes[indexedFace.Indexes![0]];
+                var v2 = vertexes[indexedFace.Indexes![1]];
+                var v3 = vertexes[indexedFace.Indexes![2]];
+                v1.WriteBinary(binaryWriter);
+                v2.WriteBinary(binaryWriter);
+                v3.WriteBinary(binaryWriter);
+            }
+
+            vertexIndex++;
+        }
+        binaryWriter.Flush();
+
+        ms.Position = 0;
+        using var binaryReader = new BinaryReader(ms);
+        return new String(binaryReader.ReadChars((int)ms.Length));
     }
 
     public List<GltfGeometryWrapper> GetMeshes(SharpGLTF.Scenes.NodeBuilder root, List<MaterialData>? material = null)
@@ -348,6 +376,13 @@ public class ModelData : AbstractAssetData
             Vertexes.Add(submodel);
             Faces.Add(faces);
         }
+        
+        for (var i = 0; i < Vertexes.Count; ++i)
+        {
+            var mesh = MeshProcessor.MeshProcessor.CreateMesh(Vertexes[i], Faces[i]);
+            MeshProcessor.MeshProcessor.ProcessMesh(mesh);
+            Meshes.Add(mesh);
+        }
     }
 
     protected override void LoadInternal(String dataPath, JsonSerializerSettings? settings = null)
@@ -358,13 +393,6 @@ public class ModelData : AbstractAssetData
         var model = ModelRoot.Load(dataPath);
 
         LoadFromGltfMeshes(model.LogicalMeshes);
-
-        for (var i = 0; i < Vertexes.Count; ++i)
-        {
-            var mesh = MeshProcessor.MeshProcessor.CreateMesh(Vertexes[i], Faces[i]);
-            MeshProcessor.MeshProcessor.ProcessMesh(mesh);
-            Meshes.Add(mesh);
-        }
     }
 
     public override void Import(LabURI package, String? variant, Int32? layoutId)

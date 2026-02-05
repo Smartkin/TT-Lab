@@ -252,12 +252,12 @@ public class SceneryBaseData
 
             foreach (var mesh in MeshIDs)
             {
-                writer.Write(assetManager.GetAsset(mesh).ID);
+                writer.Write(assetManager.GetAsset(mesh).ExportTwinID);
             }
 
             foreach (var lod in LodIDs)
             {
-                writer.Write(assetManager.GetAsset(lod).ID);
+                writer.Write(assetManager.GetAsset(lod).ExportTwinID);
             }
 
             foreach (var mat in MeshModelMatrices)

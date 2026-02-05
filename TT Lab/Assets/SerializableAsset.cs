@@ -21,10 +21,13 @@ namespace TT_Lab.Assets;
 
 public abstract class SerializableAsset : IAsset
 {
+    private UInt32 _id;
+    
     public virtual String SavePath => $"{Package.GetPackageName()}/{SavePathInPackage}";
     protected virtual String SavePathInPackage => string.IsNullOrEmpty(AdditionalPath) ? $"{Type.Name}" : $"{AdditionalPath}/{Type.Name}";
     protected virtual String DataExt => ".data";
     protected virtual String TwinDataExt => "bin";
+    protected virtual Boolean SetIdFromDataHash => false;
 
     protected String LoadPath => Path.Combine("assets", Package.GetPackageName(), URI.GetFilePathInPackage().Replace('/', Path.DirectorySeparatorChar));
     protected String DataLoadPath => Path.Combine(LoadPath, Data);
@@ -39,15 +42,17 @@ public abstract class SerializableAsset : IAsset
     public Boolean Raw { get; set; }
     public virtual String IconPath => "Common_Node.png";
     public String Data => $"{Name}{DataExt}";
+    public bool MarkedForDeletion { get; private set; }
     public String? AdditionalPath { get; set; }
     public String FullDataPath => $"{Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath}/{DataLoadPath}";
     public String FullPath => $"{Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath}/{LoadPath}";
     public UInt32 ID { get; set; }
+    public UInt32 ExportTwinID => SetIdFromDataHash ? GetDataHash() : ID;
     public String Alias { get; set; }
     public String Chunk { get; set; }
     public Int32? LayoutID { get; set; }
     public Boolean IsLoaded => AssetData is { Disposed: false };
-    public UInt32 Order { get; set; }
+    public bool IsInternal { get; set; } = false;
     public Boolean SkipExport { get; set; } = false;
 
     public Dictionary<String, Object?> Parameters { get; set; } = new();
@@ -96,7 +101,7 @@ public abstract class SerializableAsset : IAsset
         var crcHasher = SharpHash.Base.HashFactory.Checksum.CreateCRC(CRCStandard.CRC32);
         if (IsLoaded && AssetData != null)
         {
-            hashResult = crcHasher.ComputeString(AssetData.GetJsonFormat(), new UTF8Encoding()).GetUInt32();
+            hashResult = crcHasher.ComputeString(AssetData.GetStringified(), new UTF8Encoding()).GetUInt32();
         }
         else
         {
@@ -122,16 +127,21 @@ public abstract class SerializableAsset : IAsset
                 References.Clear();
                 ExtractReferences(GetData());
             }
-            AssetData.Dispose();
+            DisposeData();
         }
-            
+        
         if (!serializationFlags.HasFlag(SerializationFlags.SaveData) && serializationFlags.HasFlag(SerializationFlags.FixReferences))
         {
             References.Clear();
             ExtractReferences(GetData());
-            AssetData!.Dispose();
+            DisposeData();
         }
-            
+
+        if (MarkedForDeletion)
+        {
+            return;
+        }
+        
         using FileStream fs = new(Path.Combine(path, $"{Name}.json"), FileMode.Create, FileAccess.Write);
         using BinaryWriter writer = new(fs);
         writer.Write(JsonConvert.SerializeObject(this, Formatting.Indented).ToCharArray());
@@ -146,8 +156,16 @@ public abstract class SerializableAsset : IAsset
         
     public void Delete(bool setDirectoryToAssets = false)
     {
+        MarkedForDeletion = true;
+        
+        DisposeData(true);
         AssetManager.Get().RemoveAsset(URI);
-            
+
+        if (IsInternal)
+        {
+            return;
+        }
+        
         if (setDirectoryToAssets)
         {
             Directory.SetCurrentDirectory($"{Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath}/assets");
@@ -161,9 +179,9 @@ public abstract class SerializableAsset : IAsset
     public abstract Type GetEditorType();
     public abstract AbstractAssetData GetData();
         
-    public void SetData(AbstractAssetData data)
+    public virtual void SetData(AbstractAssetData data)
     {
-        DisposeData();
+        DisposeData(true);
         AssetData = data;
         InvariantName += $"_{GetDataHash():X}";
     }
@@ -182,7 +200,7 @@ public abstract class SerializableAsset : IAsset
             AssetData = GetData();
         }
         var item = AssetData!.Export(factory);
-        AssetData.Dispose();
+        DisposeData();
         return item;
     }
 
@@ -201,12 +219,17 @@ public abstract class SerializableAsset : IAsset
 
     public virtual void PostResolveResources(Factory.ITwinItemFactory factory, ITwinSection section, ITwinItem? item)
     {
-        item?.SetID(ID);
+        item?.SetID(SetIdFromDataHash ? GetDataHash() : ID);
         item?.Compile();
     }
 
-    protected void DisposeData()
+    protected void DisposeData(bool force = false)
     {
+        if (IsInternal && !force)
+        {
+            return;
+        }
+        
         if (!IsLoaded)
         {
             AssetData = null;
@@ -224,7 +247,7 @@ public abstract class SerializableAsset : IAsset
         _resolveTraversed = true;
         AssetData = GetData();
         PreResolveResources();
-        var item = AssetData.ResolveChunkResources(factory, section, ID, LayoutID);
+        var item = AssetData.ResolveChunkResources(factory, section, SetIdFromDataHash ? GetDataHash() : ID, LayoutID);
         PostResolveResources(factory, section, item);
 
         DisposeData();

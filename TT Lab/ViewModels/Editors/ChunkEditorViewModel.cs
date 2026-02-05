@@ -6,6 +6,8 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Data;
 using Avalonia.Threading;
 using ImGuiNET;
 using Silk.NET.Input;
@@ -261,7 +263,7 @@ namespace TT_Lab.ViewModels.Editors
                     DeactivateItemAsync(CurrentInstanceEditor, false);
                 }
 
-                CurrentInstanceEditor = (InstanceSectionResourceEditorViewModel)IoC.GetInstance(asset.Asset.GetEditorType(), null);
+                CurrentInstanceEditor = (InstanceSectionResourceEditorViewModel)Locator.Current.GetService(asset.Asset.GetEditorType())!;
                 CurrentInstanceEditor.EditableResource = asset.Asset.URI;
                 CurrentInstanceEditor.ParentEditor = this;
                 ActivateItemAsync(CurrentInstanceEditor);
@@ -280,7 +282,7 @@ namespace TT_Lab.ViewModels.Editors
             }
         }
 
-        public void SelectDifferentInstance(AvaloniaPropertyChangedEventArgs e)
+        public void SelectDifferentInstance(SelectionChangedEventArgs e)
         {
             if (!_isChunkReady)
             {
@@ -288,14 +290,16 @@ namespace TT_Lab.ViewModels.Editors
             }
             
             _editingContext.Deselect();
-            if (e.NewValue == null)
+            if (e.AddedItems.Count == 0)
             {
                 return;
             }
             
+            InstanceEditorChanged(new AvaloniaPropertyChangedEventArgs<Object>(null, null, CurrentInstanceEditor, e.AddedItems[0], BindingPriority.LocalValue));
+            
             foreach (var sceneInstance in _sceneInstances)
             {
-                if (sceneInstance.GetViewModel() != e.NewValue)
+                if (sceneInstance.GetViewModel() != e.AddedItems[0])
                 {
                     continue;
                 }

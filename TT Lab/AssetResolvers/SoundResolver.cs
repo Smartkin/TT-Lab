@@ -12,12 +12,12 @@ public class SoundResolver : AssetResolver<ITwinSound>
 {
     public override void CreateAssetsFromChunk(ITwinSection chunk, Package package)
     {
-        throw new System.NotImplementedException();
+        throw new NotSupportedException();
     }
 
     protected override IAsset CreateAsset(ITwinSection chunk, Package package, ITwinSound item, bool needVariant, string variant)
     {
-        throw new NotImplementedException();
+        throw new NotSupportedException();
     }
 
     public MetaAsset? CreateAssetFromId<T>(ITwinSection itemSection, Package package, uint itemId) where T : SoundEffect

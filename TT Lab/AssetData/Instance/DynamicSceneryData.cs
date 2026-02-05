@@ -22,7 +22,7 @@ public class DynamicSceneryData : AbstractAssetData
 {
     public DynamicSceneryData(IAsset asset) : base(asset)
     {
-        DynamicModels = new List<DynamicSceneryModelData>();
+        DynamicModels = [];
     }
 
     public DynamicSceneryData(IAsset asset, ITwinDynamicScenery dynamicScenery) : this(asset)
@@ -102,7 +102,8 @@ public class DynamicSceneryData : AbstractAssetData
             {
                 Package = Owner.Package,
                 InvariantName = $"{Owner.Chunk}_{dynamicModelNode.Name}_DYNAMIC_MODEL",
-                Alias = $"{dynamicModelNode.Name}_DYNAMIC_MODEL"
+                Alias = $"{dynamicModelNode.Name}_DYNAMIC_MODEL",
+                IsInternal = true
             };
 
             var meshesGltf = gltfModel.LogicalMeshes.Where(m => m.Name.StartsWith($"{dynamicModelNode.Name}_mesh_{dynamicModelIdx}_")).ToList();
@@ -116,7 +117,8 @@ public class DynamicSceneryData : AbstractAssetData
             {
                 Package = Owner.Package,
                 InvariantName = $"{Owner.Chunk}_{dynamicModelNode.Name}_DYNAMIC_MESH",
-                Alias = $"{dynamicModelNode.Name}_DYNAMIC_MESH"
+                Alias = $"{dynamicModelNode.Name}_DYNAMIC_MESH",
+                IsInternal = true
             };
 
             var materialsGltf = meshesGltf.SelectMany(m => m.Primitives).Select(prim => prim.Material).Distinct()
@@ -138,7 +140,8 @@ public class DynamicSceneryData : AbstractAssetData
                     {
                         Package = Owner.Package,
                         InvariantName = $"{dynamicModelNode.VisualParent.Name}_{materialName}_MATERIAL",
-                        Alias = $"{dynamicModelNode.VisualParent.Name}_{materialName}_MATERIAL"
+                        Alias = $"{dynamicModelNode.VisualParent.Name}_{materialName}_MATERIAL",
+                        IsInternal = true
                     };
 
                     var materialData = MaterialData.LoadFromGltf(material, materialDesc,
@@ -176,6 +179,16 @@ public class DynamicSceneryData : AbstractAssetData
 
     protected override void Dispose(Boolean disposing)
     {
+        var assetManager = AssetManager.Get();
+        foreach (var dynamicSceneryModelData in DynamicModels)
+        {
+            var mesh = assetManager.GetAsset(dynamicSceneryModelData.Mesh);
+            if (mesh.IsInternal)
+            {
+                mesh.Delete();
+            }
+        }
+        
         DynamicModels.Clear();
     }
 
@@ -227,7 +240,10 @@ public class DynamicSceneryData : AbstractAssetData
         {
             assetManager.GetAsset(model.Mesh).ResolveChunkResources(factory, meshSection);
         }
+        
+        var item = base.ResolveChunkResources(factory, section, id, layoutID);
+        item?.SetID(id);
 
-        return base.ResolveChunkResources(factory, section, id, layoutID);
+        return item;
     }
 }

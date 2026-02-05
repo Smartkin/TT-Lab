@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Splat;
 using TT_Lab.AssetData;
+using TT_Lab.AssetData.Instance;
 using TT_Lab.AssetResolvers;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
@@ -656,7 +657,7 @@ public class Project : IProject
         }
         System.IO.Directory.CreateDirectory("Levels");
         System.IO.Directory.SetCurrentDirectory("Levels");
-        var chunkLevelPath = chunk.Variation;
+        var chunkLevelPath = chunk.AdditionalPath!;
         foreach (var pathToken in chunkLevelPath.Split(System.IO.Path.DirectorySeparatorChar).Skip(1).SkipLast(1))
         {
             System.IO.Directory.CreateDirectory(pathToken.Replace(System.IO.Path.DirectorySeparatorChar.ToString(), ""));
@@ -670,6 +671,12 @@ public class Project : IProject
         {
             if (asset is Scenery or ChunkLinks)
             {
+                if (asset is Scenery scenery)
+                {
+                    var collision = assetManager.GetAsset(((IAsset)scenery).GetData<SceneryData>().Collision);
+                    collision.ResolveChunkResources(factory, rm2);
+                }
+                
                 asset.ResolveChunkResources(factory, sm2);
             }
             else
@@ -729,27 +736,28 @@ public class Project : IProject
         var chunksFolder = (from dependencyUri in BasePackage.Dependencies
             let dependency = assetManager.GetAsset<Package>(dependencyUri)
             where dependency.Enabled
-            let foldersInPackage = dependency.GetPackageFolder().Children
-            from folderUri in foldersInPackage
-            let folder = assetManager.GetAsset(folderUri)
-            where folder.Name == "Chunks"
-            select folder).ToList();
+            let packageFolder = dependency.GetPackageFolder()
+            let folder = packageFolder.FindChild("levels")
+            where folder != LabURI.Empty
+            select assetManager.GetAsset<Folder>(folder)).ToList();
         UInt32 totalGlobals = 0;
         UInt32 currentGlobalsCount = 0;
         foreach (var folder in chunksFolder)
         {
-            ResolveAndWriteChunks(factory, (Folder)folder, ref totalGlobals, ref currentGlobalsCount);
+            ResolveAndWriteChunks(factory, folder, ref totalGlobals, ref currentGlobalsCount);
         }
 
         Log.WriteLine("Writing Extras...");
         System.IO.Directory.SetCurrentDirectory("../Extras");
 
-        var extrasFolders = (from asset in GlobalPackagePS2.GetPackageFolder().Children
-            where assetManager.GetAsset(asset) is Folder
-            let folder = assetManager.GetAsset<Folder>(asset)
-            where ArchivesLayout.ExtrasFolders.Contains(folder.Name)
-            select asset).ToList();
-        var mcdonaldsAssset = (from assetUri in GlobalPackagePS2.GetPackageFolder().Children
+        var extrasFolders = assetManager.GetAsset<Folder>(GlobalPackagePS2.GetPackageFolder().FindChild<Folder>("Extras")).Children
+            .Where(ass => ArchivesLayout.ExtrasFolders.Contains(assetManager.GetAsset(ass).Name)).ToList();
+            // (from asset in GlobalPackagePS2.GetPackageFolder().Children
+            // where assetManager.GetAsset(asset) is Folder
+            // let folder = assetManager.GetAsset<Folder>(asset)
+            // where ArchivesLayout.ExtrasFolders.Contains(folder.Name)
+            // select asset).ToList();
+        var mcdonaldsAssset = (from assetUri in assetManager.GetAsset<Folder>(GlobalPackagePS2.GetPackageFolder().FindChild<Folder>("Extras")).Children
             let asset = assetManager.GetAsset(assetUri)
             where asset.Name == "McDonalds01"
             select asset).First();
@@ -896,8 +904,15 @@ public class Project : IProject
 
                 foreach (var asset in chunk.ChunkResources.Select(child => assetManager.GetAsset(child)))
                 {
-                    if (asset is Scenery or DynamicScenery or ChunkLinks)
+                    Log.WriteLine($"Writing {asset.Name}...");
+                    if (asset is Scenery or ChunkLinks)
                     {
+                        if (asset is Scenery scenery)
+                        {
+                            var collision = assetManager.GetAsset(((IAsset)scenery).GetData<SceneryData>().Collision);
+                            collision.ResolveChunkResources(factory, rm2);
+                        }
+                        
                         asset.ResolveChunkResources(factory, sm2);
                     }
                     else
@@ -910,25 +925,34 @@ public class Project : IProject
                 ((BaseTwinSection)rm2).ChangeItemPosition(Constants.LEVEL_PARTICLES_ITEM, 2);
 
                 ((BaseTwinSection)sm2).ChangeItemPosition(Constants.SCENERY_SECENERY_ITEM, 1);
-
-                using var rm2File = new System.IO.FileStream($"{folder.Name}.rm2", System.IO.FileMode.Create, System.IO.FileAccess.Write);
+                
+                using var rm2File = new System.IO.FileStream($"..{System.IO.Path.DirectorySeparatorChar}{folder.Name}.rm2", System.IO.FileMode.Create, System.IO.FileAccess.Write);
                 using var rm2Writer = new System.IO.BinaryWriter(rm2File);
                 rm2.Write(rm2Writer);
                 rm2Writer.Flush();
                 rm2Writer.Close();
 
-                using var sm2File = new System.IO.FileStream($"{folder.Name}.sm2", System.IO.FileMode.Create, System.IO.FileAccess.Write);
+                using var sm2File = new System.IO.FileStream($"..{System.IO.Path.DirectorySeparatorChar}{folder.Name}.sm2", System.IO.FileMode.Create, System.IO.FileAccess.Write);
                 using var sm2Writer = new System.IO.BinaryWriter(sm2File);
                 sm2.Write(sm2Writer);
                 sm2Writer.Flush();
                 sm2Writer.Close();
+                
+                // Only one level chunk file can exist per folder
+                break;
             }
-            else if (folder is Folder innerFolder)
+            
+            if (folder is Folder innerFolder)
             {
                 System.IO.Directory.CreateDirectory(folder.Name);
                 System.IO.Directory.SetCurrentDirectory(folder.Name);
                 ResolveAndWriteChunks(factory, innerFolder, ref scenesTotal, ref currentSceneCount);
                 System.IO.Directory.SetCurrentDirectory("..");
+                
+                if (!System.IO.Directory.EnumerateFileSystemEntries(folder.Name).Any())
+                {
+                    System.IO.Directory.Delete(folder.Name);
+                }
             }
         }
     }

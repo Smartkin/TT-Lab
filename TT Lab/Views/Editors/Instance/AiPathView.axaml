@@ -26,7 +26,7 @@
                 <RowDefinition Height="34*"/>
             </Grid.RowDefinitions>
 
-            <controls:LabeledDropList Items="{Binding Source={StaticResource InstanceLayouts}}" SelectedItem="{Binding LayoutID}" VerticalAlignment="Center" DropListName="Instance layout" Grid.ColumnSpan="2" Height="48"/>
+            <controls:LabeledDropList Items="{Binding InstanceLayers}" SelectedItem="{Binding LayoutID}" VerticalAlignment="Center" DropListName="Instance layout" Grid.ColumnSpan="2" Height="48"/>
             <UniformGrid Grid.Row="1" Rows="5">
                 <composite:ResourceBrowserOpener BrowserName="Path Begin" ResourcesToBrowse="{Binding Positions}" LinkedResource="{Binding PathBegin}"/>
                 <composite:ResourceBrowserOpener BrowserName="Path End" ResourcesToBrowse="{Binding Positions}" LinkedResource="{Binding PathEnd}"/>

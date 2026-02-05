@@ -125,7 +125,7 @@ public class TriggerData : AbstractAssetData
         };
         foreach (var instance in Instances)
         {
-            trigger.Instances.Add((UInt16)assetManager.GetAsset(instance).ID);
+            trigger.Instances.Add((UInt16)assetManager.GetAsset(instance).ExportTwinID);
         }
         trigger.Write(writer);
         writer.Write(TriggerMessage1);

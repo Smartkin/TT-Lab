@@ -38,12 +38,25 @@ public class TextureData : AbstractAssetData
         var gltfImage = gltfTexture.PrimaryImage;
         using var imageDataStream = new MemoryStream(gltfImage.Content.Content.ToArray());
         textureData.Bitmap = new Bitmap(imageDataStream);
-        var isHd = textureData.Bitmap.PixelSize.Width >= 256 || textureData.Bitmap.PixelSize.Height >= 256;
+        var isHd = textureData.Bitmap.Size.Width >= 256 || textureData.Bitmap.Size.Height >= 256;
         textureData.TexturePixelFormat = isHd ? ITwinTexture.TexturePixelFormat.PSMCT32 : ITwinTexture.TexturePixelFormat.PSMT8;
         textureData.TextureFunction = ITwinTexture.TextureFunction.MODULATE;
         textureData.GenerateMipmaps = !isHd;
         
         return textureData;
+    }
+
+    public override String GetStringified()
+    {
+        using var ms = new MemoryStream();
+        if (Bitmap == null && IsTwinItemValid())
+        {
+            Import(LabURI.Empty, null, null);
+        }
+        Bitmap!.Save(ms, 100);
+        ms.Position = 0;
+        using var br = new BinaryReader(ms);
+        return new String(br.ReadChars((int)ms.Length));
     }
 
     protected override void Dispose(Boolean disposing)

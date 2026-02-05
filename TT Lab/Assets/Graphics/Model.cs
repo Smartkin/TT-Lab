@@ -5,37 +5,37 @@ using TT_Lab.ViewModels.Editors.Graphics;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items;
 
-namespace TT_Lab.Assets.Graphics
+namespace TT_Lab.Assets.Graphics;
+
+public class Model : SerializableAsset
 {
-    public class Model : SerializableAsset
+    protected override bool SetIdFromDataHash => true;
+    protected override String DataExt => ".glb";
+    public override UInt32 Section => Constants.GRAPHICS_MODELS_SECTION;
+    public override String IconPath => "Model.png";
+
+    public Model(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinModel model) : base(id, name, package, needVariant, variant)
     {
-        protected override String DataExt => ".glb";
-        public override UInt32 Section => Constants.GRAPHICS_MODELS_SECTION;
-        public override String IconPath => "Model.png";
+        AssetData = new ModelData(this, model);
+        Raw = false;
+    }
 
-        public Model(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinModel model) : base(id, name, package, needVariant, variant)
-        {
-            AssetData = new ModelData(this, model);
-            Raw = false;
-        }
+    public Model()
+    {
+    }
 
-        public Model()
-        {
-        }
+    public override Type GetEditorType()
+    {
+        return typeof(ModelViewModel);
+    }
 
-        public override Type GetEditorType()
+    public override AbstractAssetData GetData()
+    {
+        if (!IsLoaded || AssetData.Disposed)
         {
-            return typeof(ModelViewModel);
+            AssetData = new ModelData(this);
+            AssetData.Load(DataLoadPath);
         }
-
-        public override AbstractAssetData GetData()
-        {
-            if (!IsLoaded || AssetData.Disposed)
-            {
-                AssetData = new ModelData(this);
-                AssetData.Load(DataLoadPath);
-            }
-            return AssetData;
-        }
+        return AssetData;
     }
 }

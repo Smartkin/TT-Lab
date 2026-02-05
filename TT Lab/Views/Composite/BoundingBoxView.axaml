@@ -4,11 +4,10 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:local="clr-namespace:TT_Lab.Views.Composite"
              xmlns:viewModels="clr-namespace:TT_Lab.ViewModels.Composite"
-             d:DataContext="{Binding Source={d:DesignInstance viewModels:BoundingBoxViewModel}}"
              x:DataType="viewModels:BoundingBoxViewModel"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="TT_Lab.Views.Composite.BoundingBoxView">
-    <Expander IsExpanded="True" Header="Bounding Box">
+    <Expander HorizontalAlignment="Stretch" IsExpanded="True" Header="Bounding Box">
         <StackPanel Orientation="Vertical">
             <local:Vector4View DataContext="{Binding TopLeft}"/>
             <local:Vector4View DataContext="{Binding BottomRight}"/>

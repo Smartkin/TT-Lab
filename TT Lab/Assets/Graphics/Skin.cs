@@ -5,35 +5,35 @@ using TT_Lab.ViewModels.Editors.Graphics;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items;
 
-namespace TT_Lab.Assets.Graphics
+namespace TT_Lab.Assets.Graphics;
+
+public class Skin : SerializableAsset
 {
-    public class Skin : SerializableAsset
+    protected override bool SetIdFromDataHash => true;
+    protected override String DataExt => ".glb";
+    public override UInt32 Section => Constants.GRAPHICS_SKINS_SECTION;
+    public override String IconPath => "Skin_Mesh.png";
+
+    public Skin() { }
+
+    public Skin(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinSkin skin) : base(id, name, package, needVariant, variant)
     {
-        protected override String DataExt => ".glb";
-        public override UInt32 Section => Constants.GRAPHICS_SKINS_SECTION;
-        public override String IconPath => "Skin_Mesh.png";
+        AssetData = new SkinData(this, skin);
+        Raw = false;
+    }
 
-        public Skin() { }
+    public override Type GetEditorType()
+    {
+        return typeof(SkinModelViewModel);
+    }
 
-        public Skin(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinSkin skin) : base(id, name, package, needVariant, variant)
+    public override AbstractAssetData GetData()
+    {
+        if (!IsLoaded || AssetData.Disposed)
         {
-            AssetData = new SkinData(this, skin);
-            Raw = false;
+            AssetData = new SkinData(this);
+            AssetData.Load(DataLoadPath);
         }
-
-        public override Type GetEditorType()
-        {
-            return typeof(SkinModelViewModel);
-        }
-
-        public override AbstractAssetData GetData()
-        {
-            if (!IsLoaded || AssetData.Disposed)
-            {
-                AssetData = new SkinData(this);
-                AssetData.Load(DataLoadPath);
-            }
-            return AssetData;
-        }
+        return AssetData;
     }
 }

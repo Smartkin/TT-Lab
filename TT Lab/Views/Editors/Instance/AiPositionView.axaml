@@ -18,7 +18,7 @@
     <!-- </UserControl.Resources> -->
     <controls1:GroupBox>
         <Grid RowDefinitions="*,*" ColumnDefinitions="*,*">
-            <controls:LabeledDropList SelectedItem="{Binding LayoutID}" Items="{Binding Source={StaticResource InstanceLayouts}}" x:Name="InstanceLayoutList" HorizontalAlignment="Stretch" Margin="5,0,5,0" VerticalAlignment="Center" DropListName="Instance layout"/>
+            <controls:LabeledDropList SelectedItem="{Binding LayoutID}" Items="{Binding InstanceLayers}" x:Name="InstanceLayoutList" HorizontalAlignment="Stretch" Margin="5,0,5,0" VerticalAlignment="Center" DropListName="Instance layout"/>
             <controls:LabeledTextBox Grid.Column="0" Text="{Binding Argument}" HorizontalAlignment="Stretch" Margin="5,0,5,0" Grid.Row="1" VerticalAlignment="Center" TextBoxName="Argument"/>
             <controls1:GroupBox Grid.Row="0" Grid.Column="1" Header="Position" Grid.RowSpan="2">
                 <composite:Vector4View DataContext="{Binding Position}" VerticalLayout="True"/>

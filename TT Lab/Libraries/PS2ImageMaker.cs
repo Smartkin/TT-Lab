@@ -3,14 +3,13 @@ using System.Runtime.InteropServices;
 
 namespace TT_Lab.Libraries;
 
-public static class Ps2ImageMaker
+public static partial class Ps2ImageMaker
 {
     public static Progress StartPacking(string twinsPath, string imagePathName)
     {
         var ptr = start_packing(twinsPath, imagePathName);
-        ProgressC progress = new ProgressC();
-        progress = (ProgressC)Marshal.PtrToStructure(ptr, typeof(ProgressC));
-        Progress prog = new Progress
+        var progress = (ProgressC)Marshal.PtrToStructure(ptr, typeof(ProgressC))!;
+        var prog = new Progress
         {
             Finished = progress.finished != 0,
             NewFile = progress.new_file != 0,
@@ -25,9 +24,8 @@ public static class Ps2ImageMaker
     public static Progress PollProgress()
     {
         var ptr = poll_progress();
-        ProgressC progress = new ProgressC();
-        progress = (ProgressC)Marshal.PtrToStructure(ptr, typeof(ProgressC));
-        Progress prog = new Progress
+        var progress = (ProgressC)Marshal.PtrToStructure(ptr, typeof(ProgressC))!;
+        var prog = new Progress
         {
             Finished = progress.finished != 0,
             NewFile = progress.new_file != 0,
@@ -71,8 +69,11 @@ public static class Ps2ImageMaker
         public byte new_file;
     }
 
-    [DllImport("PS2ImageMaker", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
-    private static extern unsafe IntPtr start_packing([MarshalAs(UnmanagedType.LPStr)] string game_path, [MarshalAs(UnmanagedType.LPStr)] string dest_path);
-    [DllImport("PS2ImageMaker", CallingConvention = CallingConvention.Cdecl)]
-    private static extern unsafe IntPtr poll_progress();
+    [LibraryImport("PS2ImageMaker", StringMarshalling = StringMarshalling.Custom, StringMarshallingCustomType = typeof(System.Runtime.InteropServices.Marshalling.AnsiStringMarshaller))]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    private static unsafe partial IntPtr start_packing([MarshalAs(UnmanagedType.LPStr)] string game_path, [MarshalAs(UnmanagedType.LPStr)] string dest_path);
+    
+    [LibraryImport("PS2ImageMaker")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    private static unsafe partial IntPtr poll_progress();
 }

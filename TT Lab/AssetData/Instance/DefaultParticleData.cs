@@ -51,16 +51,16 @@ namespace TT_Lab.AssetData.Instance
 
             for (Int32 i = 0; i < 3; i++)
             {
-                writer.Write(assetManager.GetAsset(TextureIDs[i]).ID);
-                writer.Write(assetManager.GetAsset(MaterialIDs[i]).ID);
+                writer.Write(assetManager.GetAsset(TextureIDs[i]).ExportTwinID);
+                writer.Write(assetManager.GetAsset(MaterialIDs[i]).ExportTwinID);
             }
 
             WriteExport(writer);
             writer.Flush();
             ms.Position -= 4;
 
-            writer.Write(assetManager.GetAsset(DecalTextureID).ID);
-            writer.Write(assetManager.GetAsset(DecalMaterialID).ID);
+            writer.Write(assetManager.GetAsset(DecalTextureID).ExportTwinID);
+            writer.Write(assetManager.GetAsset(DecalMaterialID).ExportTwinID);
 
             writer.Write(UnkData);
             writer.Write(UnkBlob);

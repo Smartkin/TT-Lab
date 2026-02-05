@@ -242,7 +242,7 @@ public class LabShader
         UnkVector1.Write(writer);
         UnkVector2.Write(writer);
         UvScrollSpeed.Write(writer);
-        writer.Write(TextureId == LabURI.Empty ? 0U : AssetManager.Get().GetAsset(TextureId).ID);
+        writer.Write(TextureId == LabURI.Empty ? 0U : AssetManager.Get().GetAsset(TextureId).ExportTwinID);
         writer.Write((UInt32)ShaderType);
         Animation?.Write(writer);
     }

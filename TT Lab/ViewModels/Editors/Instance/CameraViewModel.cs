@@ -476,6 +476,8 @@ namespace TT_Lab.ViewModels.Editors.Instance
             get => mainCamera2;
             set => mainCamera2 = value;
         }
+        
+        public BindableCollection<object> CameraTypes => ViewModelUtil.CameraTypes;
 
         public ITwinCamera.CameraType CameraType1
         {

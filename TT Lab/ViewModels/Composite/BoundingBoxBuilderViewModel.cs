@@ -40,6 +40,8 @@ namespace TT_Lab.ViewModels.Composite
                 new(1, 1, 0, 1),
                 new(1, 1, 1, 1),
             });
+            
+            ResetDirty();
         }
 
         public BoundingBoxBuilderViewModel(TwinBoundingBoxBuilder bb)
@@ -93,6 +95,8 @@ namespace TT_Lab.ViewModels.Composite
             {
                 unkBytes2.Add(new PrimitiveWrapperViewModel<Byte>(unkByte));
             }
+            
+            ResetDirty();
         }
 
         public void ResetDirty()

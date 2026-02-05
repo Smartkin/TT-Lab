@@ -64,13 +64,12 @@ public class ResourceChunkResolver : AssetResolver<ITwinSection>
 
     protected override IAsset CreateAsset(ITwinSection chunk, Package package, ITwinSection item, bool needVariant, string variant)
     {
-        throw new System.NotImplementedException();
+        throw new System.NotSupportedException();
     }
 
     public override void FinalizeResolve()
     {
         _collisionResolver.FinalizeResolve();
-        _levelChunk.ChunkResources.AddRange(_collisionResolver.GetAssets().Select(m => m.Uri));
         _particleResolver.FinalizeResolve();
         _levelChunk.ChunkResources.AddRange(_particleResolver.GetAssets().Select(m => m.Uri));
         foreach (var instanceSectionResolver in _instanceSectionResolvers)

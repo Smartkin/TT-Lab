@@ -25,13 +25,15 @@ public class TriggerViewModel : ViewportEditableInstanceViewModel
     private UInt16 _triggerMessage2;
     private UInt16 _triggerMessage3;
     private UInt16 _triggerMessage4;
-        
+    private readonly bool _dataLoadedFromConstructor = false;
+    
     public TriggerViewModel()
     {}
 
     public TriggerViewModel(Enums.Layouts layoutId, TriggerData data)
     {
         ConstructFromData(layoutId, data);
+        _dataLoadedFromConstructor = true;
     }
 
     protected override void Save()
@@ -46,6 +48,11 @@ public class TriggerViewModel : ViewportEditableInstanceViewModel
 
     public override void LoadData()
     {
+        if (_dataLoadedFromConstructor)
+        {
+            return;
+        }
+        
         var asset = AssetManager.Get().GetAsset(EditableResource);
         var data = asset.GetData<TriggerData>();
         ConstructFromData(MiscUtils.ConvertEnum<Enums.Layouts>(asset.LayoutID), data);

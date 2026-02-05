@@ -95,7 +95,8 @@ public class MaterialData : AbstractAssetData
                 {
                     Package = owner.Package,
                     InvariantName = $"Texture_{owner.Name}",
-                    Alias = $"Texture_{owner.Name}"
+                    Alias = $"Texture_{owner.Name}",
+                    IsInternal = true
                 };
                 
                 var textureData = TextureData.LoadFromGltf(texture, gltfTexture);

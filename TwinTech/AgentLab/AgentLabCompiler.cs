@@ -39,7 +39,7 @@ public static class AgentLabCompiler
         /// <summary>
         /// Status of the compiler at the end of compilation
         /// </summary>
-        public CompilerStatus CompilerStatus { get; internal set; } = new();
+        public CompilerStatus CompilerStatus { get; } = new();
 
         public bool Contains<T>()
         {

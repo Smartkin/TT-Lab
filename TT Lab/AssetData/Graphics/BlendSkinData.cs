@@ -3,6 +3,7 @@ using SharpGLTF.Geometry;
 using SharpGLTF.Schema2;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Caliburn.Micro;
 using SharpGLTF.Geometry.VertexTypes;
@@ -241,7 +242,33 @@ public class BlendSkinData : AbstractAssetData
 
         LoadFromGltf(blendSkin.LogicalMaterials, blendSkin.LogicalMeshes, metadata.Materials);
     }
-    
+
+    public override String GetStringified()
+    {
+        using var stream = new MemoryStream();
+        using var binaryWriter = new BinaryWriter(stream);
+        foreach (var blend in Blends)
+        {
+            foreach (var model in blend.Models)
+            {
+                foreach (var indexedFace in model.Faces)
+                {
+                    var v1 = model.Vertexes[indexedFace.Indexes![0]];
+                    var v2 = model.Vertexes[indexedFace.Indexes![1]];
+                    var v3 = model.Vertexes[indexedFace.Indexes![2]];
+                    v1.WriteBinary(binaryWriter);
+                    v2.WriteBinary(binaryWriter);
+                    v3.WriteBinary(binaryWriter);
+                }
+            }
+        }
+        binaryWriter.Flush();
+        
+        stream.Position = 0;
+        using var binaryReader = new BinaryReader(stream);
+        return new String(binaryReader.ReadChars((int)stream.Length));
+    }
+
     public void LoadFromGltf(IReadOnlyList<Material> materials, IReadOnlyList<Mesh> gltfMeshes, List<GltfMaterialLabUri> materialsUri)
     {
         BlendsAmount = gltfMeshes.Max(m => m.Primitives.Max(prim => prim.GetVertexColumns().MorphTargets.Count));

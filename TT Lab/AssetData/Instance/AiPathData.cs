@@ -50,8 +50,8 @@ namespace TT_Lab.AssetData.Instance
             var assetManager = AssetManager.Get();
             using var ms = new MemoryStream();
             using var writer = new BinaryWriter(ms);
-            writer.Write((UInt16)assetManager.GetAsset(PathBegin).ID);
-            writer.Write((UInt16)assetManager.GetAsset(PathEnd).ID);
+            writer.Write((UInt16)assetManager.GetAsset(PathBegin).ExportTwinID);
+            writer.Write((UInt16)assetManager.GetAsset(PathEnd).ExportTwinID);
             foreach (var arg in Args)
             {
                 writer.Write(arg);

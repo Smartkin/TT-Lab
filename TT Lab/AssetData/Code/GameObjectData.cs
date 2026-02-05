@@ -313,7 +313,7 @@ namespace TT_Lab.AssetData.Code
             writer.Write(TriggerBehaviours.Count);
             foreach (var triggerBehaviour in TriggerBehaviours)
             {
-                writer.Write((UInt16)(assetManager.GetAsset(triggerBehaviour.TriggerBehaviour).ID - 1));
+                writer.Write((UInt16)(assetManager.GetAsset(triggerBehaviour.TriggerBehaviour).ExportTwinID - 1));
                 writer.Write(triggerBehaviour.MessageID);
                 writer.Write(triggerBehaviour.BehaviourCallerIndex);
             }
@@ -323,7 +323,7 @@ namespace TT_Lab.AssetData.Code
                 writer.Write(list.Count);
                 foreach (var item in list)
                 {
-                    writer.Write((UInt16)(item == LabURI.Empty ? 65535 : assetManager.GetAsset(item).ID));
+                    writer.Write((UInt16)(item == LabURI.Empty ? 65535 : assetManager.GetAsset(item).ExportTwinID));
                 }
             }
             void writeBehaviourUris(IList<LabURI> uris)
@@ -356,7 +356,7 @@ namespace TT_Lab.AssetData.Code
 
                         if (starterId == -1)
                         {
-                            writer.Write((UInt16)(uri == LabURI.Empty ? 65535 : assetManager.GetAsset(uri).ID));
+                            writer.Write((UInt16)(uri == LabURI.Empty ? 65535 : assetManager.GetAsset(uri).ExportTwinID));
                         }
                         else
                         {
@@ -432,14 +432,14 @@ namespace TT_Lab.AssetData.Code
                         var compiledGraph = assetManager.GetAssetData<BehaviourGraphData>(uri).GetCompiledBehaviour(factory);
                         if (compiledGraph.Contains<TwinBehaviourStarter>())
                         {
-                            var starterId = (int)behaviour.ID - 1;
+                            var starterId = (int)behaviour.ExportTwinID - 1;
                             writer.Write((UInt16)starterId);
                         }
-                        writer.Write((UInt16)behaviour.ID);
+                        writer.Write((UInt16)behaviour.ExportTwinID);
                     }
                     else
                     {
-                        writer.Write((UInt16)(uri == LabURI.Empty ? 65535 : assetManager.GetAsset(uri).ID));
+                        writer.Write((UInt16)(uri == LabURI.Empty ? 65535 : assetManager.GetAsset(uri).ExportTwinID));
                     }
                 }
             }

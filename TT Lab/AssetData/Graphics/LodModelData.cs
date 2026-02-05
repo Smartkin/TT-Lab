@@ -49,6 +49,15 @@ public class LodModelData : AbstractAssetData
 
     protected override void Dispose(Boolean disposing)
     {
+        var assetManager = AssetManager.Get();
+        foreach (var meshUri in Meshes)
+        {
+            var mesh = assetManager.GetAsset(meshUri);
+            if (mesh.IsInternal)
+            {
+                mesh.Delete();
+            }
+        }
         Meshes.Clear();
     }
 
@@ -85,7 +94,7 @@ public class LodModelData : AbstractAssetData
                 writer.Write(0); // Unused value
                 foreach (var mesh in Meshes)
                 {
-                    writer.Write(assetManager.GetAsset(mesh).ID);
+                    writer.Write(assetManager.GetAsset(mesh).ExportTwinID);
                 }
                 break;
             case LodType.COMPRESSED:
@@ -98,7 +107,7 @@ public class LodModelData : AbstractAssetData
                 }
                 foreach (var mesh in Meshes)
                 {
-                    writer.Write(assetManager.GetAsset(mesh).ID);
+                    writer.Write(assetManager.GetAsset(mesh).ExportTwinID);
                 }
                 break;
         }

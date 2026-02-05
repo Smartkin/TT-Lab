@@ -16,8 +16,8 @@ namespace TT_Lab.ViewModels.Composite
 
         public Vector2ViewModel(float x, float y)
         {
-            X = x;
-            Y = y;
+            _x = x;
+            _y = y;
         }
 
         public Vector2ViewModel(Vector2 twinVec) : this(twinVec.X, twinVec.Y)

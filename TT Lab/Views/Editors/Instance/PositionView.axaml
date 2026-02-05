@@ -22,7 +22,7 @@
                 <RowDefinition/>
                 <RowDefinition Height="4*"/>
             </Grid.RowDefinitions>
-            <controls:LabeledDropList SelectedItem="{Binding LayoutID}" Items="{Binding Source={StaticResource InstanceLayouts}}" HorizontalAlignment="Stretch" Margin="0,0,0,0" VerticalAlignment="Center" DropListName="Instance layout"/>
+            <controls:LabeledDropList SelectedItem="{Binding LayoutID}" Items="{Binding InstanceLayers}" HorizontalAlignment="Stretch" Margin="0,0,0,0" VerticalAlignment="Center" DropListName="Instance layout"/>
             <composite:Vector4View VerticalLayout="True" DataContext="{Binding Position}" Grid.Row="1"/>
         </Grid>
     </controls1:GroupBox>

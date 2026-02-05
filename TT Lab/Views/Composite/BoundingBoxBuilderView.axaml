@@ -7,9 +7,8 @@
              xmlns:controls="clr-namespace:TT_Lab.Controls"
              xmlns:valueConverters="clr-namespace:TT_Lab.ValueConverters"
              xmlns:controls1="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
-             d:DataContext="{Binding Source={d:DesignInstance viewModels:BoundingBoxBuilderViewModel}}"
              x:DataType="viewModels:BoundingBoxBuilderViewModel"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="800"
              x:Class="TT_Lab.Views.Composite.BoundingBoxBuilderView">
     <UserControl.Resources>
         <valueConverters:PrimitiveWrapperBackConverterUInt16 x:Key="BackConverterUInt16"/>
@@ -17,39 +16,27 @@
     </UserControl.Resources>
     <controls1:GroupBox>
         <StackPanel Orientation="Vertical">
-            <Expander IsExpanded="True" Header="Bounding Box Points">
+            <Expander HorizontalAlignment="Stretch" IsExpanded="True" Header="Bounding Box Points">
                 <StackPanel Orientation="Vertical">
                     <ListBox x:Name="BoundingBoxPointList" ItemsSource="{Binding BoundingBoxPoints}"/>
-                    <controls1:GroupBox Header="Edited Point">
-                        <local:Vector4View DataContext="{Binding SelectedItem, ElementName=BoundingBoxPointList}"/>
-                    </controls1:GroupBox>
                 </StackPanel>
             </Expander>
-            <Expander Header="Unknown Vectors 1">
+            <Expander HorizontalAlignment="Stretch" Header="Unknown Vectors 1">
                 <StackPanel Orientation="Vertical">
                     <ListBox x:Name="UnkVecs1List" ItemsSource="{Binding UnkVectors1}"/>
-                    <controls1:GroupBox Header="Edited Vector">
-                        <local:Vector4View DataContext="{Binding SelectedItem, ElementName=UnkVecs1List}"/>
-                    </controls1:GroupBox>
                 </StackPanel>
             </Expander>
-            <Expander Header="Unknown Vectors 2">
+            <Expander HorizontalAlignment="Stretch" Header="Unknown Vectors 2">
                 <StackPanel Orientation="Vertical">
                     <ListBox x:Name="UnkVecs2List" ItemsSource="{Binding UnkVectors2}"/>
-                    <controls1:GroupBox Header="Edited Vector">
-                        <local:Vector4View DataContext="{Binding SelectedItem, ElementName=UnkVecs2List}"/>
-                    </controls1:GroupBox>
                 </StackPanel>
             </Expander>
-            <Expander Header="Unknown Vectors 3">
+            <Expander HorizontalAlignment="Stretch" Header="Unknown Vectors 3">
                 <StackPanel Orientation="Vertical">
                     <ListBox x:Name="UnkVecs3List" ItemsSource="{Binding UnkVectors3}"/>
-                    <controls1:GroupBox Header="Edited Vector">
-                        <local:Vector4View DataContext="{Binding SelectedItem, ElementName=UnkVecs3List}"/>
-                    </controls1:GroupBox>
                 </StackPanel>
             </Expander>
-            <Expander Header="Unknown Shorts">
+            <Expander HorizontalAlignment="Stretch" Header="Unknown Shorts">
                 <StackPanel Orientation="Vertical">
                     <ListBox x:Name="UnkShortsList" ItemsSource="{Binding UnkShorts}">
                         <ListBox.ItemTemplate>
@@ -61,7 +48,7 @@
                     <controls:LabeledTextBox TextBoxName="Edited Short" Text="{Binding SelectedItem, ElementName=UnkShortsList, Converter={StaticResource BackConverterUInt16}}"/>
                 </StackPanel>
             </Expander>
-            <Expander Header="Unknown Bytes 1">
+            <Expander HorizontalAlignment="Stretch" Header="Unknown Bytes 1">
                 <StackPanel Orientation="Vertical">
                     <ListBox x:Name="UnkBytes1List" ItemsSource="{Binding UnkBytes1}">
                         <ListBox.ItemTemplate>
@@ -73,7 +60,7 @@
                     <controls:LabeledTextBox TextBoxName="Edited Byte" Text="{Binding SelectedItem, ElementName=UnkBytes1List, Converter={StaticResource BackConverterByte}}"/>
                 </StackPanel>
             </Expander>
-            <Expander Header="Unknown Bytes 2">
+            <Expander HorizontalAlignment="Stretch" Header="Unknown Bytes 2">
                 <StackPanel Orientation="Vertical">
                     <ListBox x:Name="UnkBytes2List" ItemsSource="{Binding UnkBytes2}">
                         <ListBox.ItemTemplate>

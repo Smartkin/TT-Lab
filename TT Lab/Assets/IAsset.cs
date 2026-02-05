@@ -44,6 +44,12 @@ public interface IAsset
     String SavePath { get; }
     
     /// <summary>
+    /// Additional saving path
+    /// </summary>
+    [JsonProperty(Required = Required.AllowNull)]
+    String? AdditionalPath { get; set; }
+    
+    /// <summary>
     /// Asset's string type
     /// </summary>
     [JsonProperty(Required = Required.Always)]
@@ -54,6 +60,11 @@ public interface IAsset
     /// </summary>
     [JsonProperty(Required = Required.Always)]
     UInt32 ID { get; set; }
+    
+    /// <summary>
+    /// In-Game's ID when exporting
+    /// </summary>
+    UInt32 ExportTwinID { get; }
 
     /// <summary>
     /// The main package the asset belongs to
@@ -100,6 +111,8 @@ public interface IAsset
     /// </summary>
     String Data { get; }
     
+    public bool MarkedForDeletion { get; }
+    
     /// <summary>
     /// Full system path to asset's data
     /// </summary>
@@ -130,12 +143,6 @@ public interface IAsset
     Dictionary<String, Object?> Parameters { get; }
 
     /// <summary>
-    /// Order in the Project Tree
-    /// </summary>
-    [JsonProperty(Required = Required.Always)]
-    UInt32 Order { get; set; }
-
-    /// <summary>
     /// For instances their Layout ID
     /// </summary>
     /// <remarks>Ranges from 0 to 7</remarks>
@@ -151,6 +158,11 @@ public interface IAsset
     /// Whether the data for this asset is currently in memory
     /// </summary>
     Boolean IsLoaded { get; }
+    
+    /// <summary>
+    /// Whether the data was loaded internally from other asset, and it holds the ownership of that resource
+    /// </summary>
+    Boolean IsInternal { get; set; }
 
     /// <summary>
     /// If asset shouldn't be exported during game's build stage

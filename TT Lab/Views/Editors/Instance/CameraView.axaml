@@ -12,7 +12,7 @@
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="TT_Lab.Views.Editors.Instance.CameraView">
     <UserControl.Resources>
-        <valueConverters:IsNullConverter x:Key="isNullConverter"/>
+        <valueConverters:IsNullConverter x:Key="IsNullConverter"/>
         <!-- <ObjectDataProvider MethodName="GetValues" ObjectType="{x:Type sys:Enum}" x:Key="CameraTypes"> -->
         <!--     <ObjectDataProvider.MethodParameters> -->
         <!--         <x:Type TypeName="twinTech:ITwinCamera+CameraType"></x:Type> -->
@@ -20,24 +20,15 @@
         <!-- </ObjectDataProvider> -->
     </UserControl.Resources>
     <controls1:GroupBox>
-        <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="64"/>
-                <RowDefinition/>
-            </Grid.RowDefinitions>
-            <UniformGrid Grid.Row="0" Columns="2">
-                <controls:LabeledDropList SelectedItem="{Binding CameraType1}" Items="{Binding Source={StaticResource CameraTypes}}" DropListName="Main Camera 1" Margin="5"/>
-                <controls:LabeledDropList SelectedItem="{Binding CameraType2}" Items="{Binding Source={StaticResource CameraTypes}}" DropListName="Main Camera 2" Margin="5"/>
+        <Grid RowDefinitions="64,*">
+            <UniformGrid Grid.Row="0" Columns="2" Margin="0, -10, 0, -10">
+                <controls:LabeledDropList SelectedItem="{Binding CameraType1}" Items="{Binding CameraTypes}" DropListName="Main Camera 1" Margin="5"/>
+                <controls:LabeledDropList SelectedItem="{Binding CameraType2}" Items="{Binding CameraTypes}" DropListName="Main Camera 2" Margin="5"/>
             </UniformGrid>
             <TabControl Grid.Row="1">
                 <TabItem Header="Parameters">
                     <!-- <ScrollViewer PanningMode="VerticalOnly" PanningRatio="0.9" PanningDeceleration="0.5"> -->
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition/>
-                                <RowDefinition/>
-                                <RowDefinition/>
-                            </Grid.RowDefinitions>
+                        <Grid RowDefinitions="*,*,*">
                             <controls1:GroupBox Grid.Row="0" Header="Unknown Vector 1">
                                 <composite:Vector4View DataContext="{Binding UnkVector1}"/>
                             </controls1:GroupBox>
@@ -72,23 +63,23 @@
                     <instance:TriggerView DataContext="{Binding Trigger}"/>
                 </TabItem>
                 <TabItem Header="Main Camera 1">
-                    <ContentControl x:Name="MainCamera1"/>
+                    <ContentControl Content="{Binding MainCamera1}"/>
                     <Interaction.Behaviors>
-                        <DataTrigger Binding="{Binding MainCamera1, Converter={StaticResource isNullConverter}}" Value="True">
+                        <DataTrigger Binding="{Binding MainCamera1, Converter={StaticResource IsNullConverter}}" Value="True">
                             <ChangePropertyAction PropertyName="IsVisible" Value="False"></ChangePropertyAction>
                         </DataTrigger>
-                        <DataTrigger Binding="{Binding MainCamera1, Converter={StaticResource isNullConverter}}" Value="False">
+                        <DataTrigger Binding="{Binding MainCamera1, Converter={StaticResource IsNullConverter}}" Value="False">
                             <ChangePropertyAction PropertyName="IsVisible" Value="True"></ChangePropertyAction>
                         </DataTrigger>
                     </Interaction.Behaviors>
                 </TabItem>
                 <TabItem Header="Main Camera 2">
-                    <ContentControl x:Name="MainCamera2"/>
+                    <ContentControl Content="{Binding MainCamera2}"/>
                     <Interaction.Behaviors>
-                        <DataTrigger Binding="{Binding MainCamera2, Converter={StaticResource isNullConverter}}" Value="True">
+                        <DataTrigger Binding="{Binding MainCamera2, Converter={StaticResource IsNullConverter}}" Value="True">
                             <ChangePropertyAction PropertyName="IsVisible" Value="False"></ChangePropertyAction>
                         </DataTrigger>
-                        <DataTrigger Binding="{Binding MainCamera2, Converter={StaticResource isNullConverter}}" Value="False">
+                        <DataTrigger Binding="{Binding MainCamera2, Converter={StaticResource IsNullConverter}}" Value="False">
                             <ChangePropertyAction PropertyName="IsVisible" Value="True"></ChangePropertyAction>
                         </DataTrigger>
                     </Interaction.Behaviors>

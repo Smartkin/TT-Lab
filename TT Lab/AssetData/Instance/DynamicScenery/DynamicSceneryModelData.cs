@@ -248,7 +248,7 @@ public class DynamicSceneryModelData
         writer.Write(AnimatedFrames);
         Animation.Write(writer);
         writer.Write(LodFlag);
-        writer.Write(AssetManager.Get().GetAsset(Mesh).ID);
+        writer.Write(AssetManager.Get().GetAsset(Mesh).ExportTwinID);
         foreach (var v in BoundingBox)
         {
             v.Write(writer);

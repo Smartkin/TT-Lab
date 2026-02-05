@@ -1,5 +1,8 @@
 ﻿using System;
 using Avalonia.Controls;
+using Splat;
+using TT_Lab.ViewModels;
+using TT_Lab.ViewModels.Interfaces;
 
 namespace TT_Lab.Command;
 
@@ -26,7 +29,7 @@ public class OpenDialogueCommand : ICommand
 
     public void Execute(Object? parameter = null)
     {
-        _getWindow.Invoke().ShowDialog(null);
+        _getWindow.Invoke().ShowDialog((Window)((ShellViewModel)Locator.Current.GetService<ILabManager>()!).GetView());
     }
 
     public void Unexecute()

@@ -6,52 +6,52 @@ using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items;
 
-namespace TT_Lab.Assets.Graphics
+namespace TT_Lab.Assets.Graphics;
+
+public class BlendSkin : SerializableAsset
 {
-    public class BlendSkin : SerializableAsset
+    protected override bool SetIdFromDataHash => true;
+    protected override String DataExt => ".glb";
+    public override UInt32 Section => Constants.GRAPHICS_BLEND_SKINS_SECTION;
+    public override String IconPath => "Blend_Skin.png";
+
+    public BlendSkin() { }
+
+    public BlendSkin(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinBlendSkin blendSkin) : base(id, name, package, needVariant, variant)
     {
-        protected override String DataExt => ".glb";
-        public override UInt32 Section => Constants.GRAPHICS_BLEND_SKINS_SECTION;
-        public override String IconPath => "Blend_Skin.png";
+        AssetData = new BlendSkinData(this, blendSkin);
+    }
 
-        public BlendSkin() { }
+    public override Type GetEditorType()
+    {
+        return typeof(BlendSkinViewModel);
+    }
 
-        public BlendSkin(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinBlendSkin blendSkin) : base(id, name, package, needVariant, variant)
+    public override void PostResolveResources(Factory.ITwinItemFactory factory, ITwinSection section, ITwinItem? item)
+    {
+        if (item == null)
         {
-            AssetData = new BlendSkinData(this, blendSkin);
+            return;
         }
 
-        public override Type GetEditorType()
+        item.SetID(ExportTwinID);
+        var data = (BlendSkinData)GetData();
+        var blendSkinItem = (ITwinBlendSkin)item;
+        if (data.CompileScale != null)
         {
-            return typeof(BlendSkinViewModel);
+            blendSkinItem.CompileScale = data.CompileScale.Value;
         }
 
-        public override void PostResolveResources(Factory.ITwinItemFactory factory, ITwinSection section, ITwinItem? item)
+        blendSkinItem.Compile();
+    }
+
+    public override AbstractAssetData GetData()
+    {
+        if (!IsLoaded || AssetData.Disposed)
         {
-            if (item == null)
-            {
-                return;
-            }
-
-            item.SetID(ID);
-            var data = (BlendSkinData)GetData();
-            var blendSkinItem = (ITwinBlendSkin)item;
-            if (data.CompileScale != null)
-            {
-                blendSkinItem.CompileScale = data.CompileScale.Value;
-            }
-
-            blendSkinItem.Compile();
+            AssetData = new BlendSkinData(this);
+            AssetData.Load(DataLoadPath);
         }
-
-        public override AbstractAssetData GetData()
-        {
-            if (!IsLoaded || AssetData.Disposed)
-            {
-                AssetData = new BlendSkinData(this);
-                AssetData.Load(DataLoadPath);
-            }
-            return AssetData;
-        }
+        return AssetData;
     }
 }

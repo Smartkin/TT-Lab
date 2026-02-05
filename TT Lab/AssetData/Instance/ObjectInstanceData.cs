@@ -138,7 +138,7 @@ namespace TT_Lab.AssetData.Instance
             writer.Write(InstancesRelated);
             foreach (var inst in Instances)
             {
-                writer.Write((UInt16)assetManager.GetAsset(inst).ID);
+                writer.Write((UInt16)assetManager.GetAsset(inst).ExportTwinID);
             }
 
             writer.Write(Positions.Count);
@@ -146,7 +146,7 @@ namespace TT_Lab.AssetData.Instance
             writer.Write(PositionsRelated);
             foreach (var pos in Positions)
             {
-                writer.Write((UInt16)assetManager.GetAsset(pos).ID);
+                writer.Write((UInt16)assetManager.GetAsset(pos).ExportTwinID);
             }
 
             writer.Write(Paths.Count);
@@ -154,14 +154,14 @@ namespace TT_Lab.AssetData.Instance
             writer.Write(PathsRelated);
             foreach (var path in Paths)
             {
-                writer.Write((UInt16)assetManager.GetAsset(path).ID);
+                writer.Write((UInt16)assetManager.GetAsset(path).ExportTwinID);
             }
 
-            writer.Write((UInt16)assetManager.GetAsset(ObjectId).ID);
+            writer.Write((UInt16)assetManager.GetAsset(ObjectId).ExportTwinID);
 
             writer.Write(RefListIndex);
 
-            writer.Write(OnSpawnScriptId == LabURI.Empty ? UInt16.MaxValue : (UInt16)assetManager.GetAsset(OnSpawnScriptId).ID);
+            writer.Write(OnSpawnScriptId == LabURI.Empty ? UInt16.MaxValue : (UInt16)assetManager.GetAsset(OnSpawnScriptId).ExportTwinID);
             writer.Write((Byte)ParamList1.Count);
             writer.Write((Byte)ParamList2.Count);
             writer.Write((Byte)ParamList3.Count);

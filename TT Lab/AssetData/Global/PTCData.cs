@@ -37,7 +37,7 @@ namespace TT_Lab.AssetData.Global
             var texture = (ITwinTexture)assetManager.GetAssetData<TextureData>(TextureID).Export(factory);
             var material = (ITwinMaterial)assetManager.GetAssetData<MaterialData>(MaterialID).Export(factory);
 
-            return factory.GeneratePTC(assetManager.GetAsset(TextureID).ID, assetManager.GetAsset(MaterialID).ID, texture, material);
+            return factory.GeneratePTC(assetManager.GetAsset(TextureID).ExportTwinID, assetManager.GetAsset(MaterialID).ExportTwinID, texture, material);
         }
 
         public override void Import(LabURI package, String? variant, Int32? layoutId)

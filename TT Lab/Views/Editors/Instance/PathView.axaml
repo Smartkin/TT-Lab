@@ -19,7 +19,7 @@
     <controls1:GroupBox>
         <Grid ColumnDefinitions="*,*" RowDefinitions="64,150,67*">
 
-            <controls:LabeledDropList Items="{Binding Source={StaticResource InstanceLayouts}}" SelectedItem="{Binding LayoutID}" x:Name="InstanceLayoutList" Grid.ColumnSpan="2" DropListName="Instance layout"/>
+            <controls:LabeledDropList Items="{Binding InstanceLayers}" SelectedItem="{Binding LayoutID}" x:Name="InstanceLayoutList" Grid.ColumnSpan="2" DropListName="Instance layout"/>
             <controls1:GroupBox Grid.Column="0" Header="Points" ScrollViewer.VerticalScrollBarVisibility="Disabled" Grid.Row="1">
                 <ListBox x:Name="PointsList" ItemsSource="{Binding Points}" ScrollViewer.VerticalScrollBarVisibility="Visible" VerticalAlignment="Stretch" d:ItemsSource="{d:SampleData ItemCount=5}">
                     <ListBox.ContextMenu>

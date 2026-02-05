@@ -140,7 +140,7 @@ namespace TT_Lab.Assets.Factory
             {
                 var subBlend = new PS2SubBlendSkin(blendsAmount)
                 {
-                    Material = assetManager.GetAsset(blend.Material).ID,
+                    Material = assetManager.GetAsset(blend.Material).ExportTwinID,
                 };
 
                 foreach (var model in blend.Models)
@@ -617,7 +617,7 @@ namespace TT_Lab.Assets.Factory
                     UVW = new(),
                     Colors = new(),
                     SkinJoints = new(),
-                    Material = AssetManager.Get().GetAsset(subskin.Material).ID,
+                    Material = AssetManager.Get().GetAsset(subskin.Material).ExportTwinID,
                     GroupSizes = new()
                 };
 

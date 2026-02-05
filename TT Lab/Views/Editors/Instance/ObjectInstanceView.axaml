@@ -21,16 +21,11 @@
         <!-- </ObjectDataProvider> -->
     </UserControl.Resources>
     <controls1:GroupBox>
-        <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="32*"/>
-                <RowDefinition Height="50*"/>
-                <RowDefinition Height="243*"/>
-            </Grid.RowDefinitions>
+        <Grid RowDefinitions="32*,50*,243*">
             <TabControl Grid.RowSpan="3" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" Background="{x:Null}">
                 <TabItem x:Name="MainPropsTab" Header="Main properties">
                     <Grid RowDefinitions="35*,50*,243*">
-                        <controls:LabeledDropList LayoutOrientation="Horizontal" Margin="5" SelectedItem="{Binding LayoutID}" Items="{Binding Source={StaticResource InstanceLayouts}}" x:Name="InstanceLayoutList" VerticalAlignment="Center" DropListName="Instance layout"/>
+                        <controls:LabeledDropList LayoutOrientation="Horizontal" Margin="5" SelectedItem="{Binding LayoutID}" Items="{Binding InstanceLayers}" x:Name="InstanceLayoutList" VerticalAlignment="Center" DropListName="Instance layout"/>
                         <Grid x:Name="MainPropsGrid" Grid.Row="1" RowDefinitions="*,*,*">
                             <composite:ResourceBrowserOpener BrowserName="Object" LinkedResource="{Binding InstanceObject}" ResourcesToBrowse="{Binding Objects}"/>
                             <Grid Grid.Row="1" Grid.Column="0" ColumnDefinitions="Auto,*">
@@ -40,7 +35,7 @@
                             <controls:LabeledTextBox Grid.Column="0" Text="{Binding RefListIndex}" x:Name="GlobalInstanceRefListIndexBox" HorizontalAlignment="Stretch" Margin="0,0,0,0" Grid.Row="2" VerticalAlignment="Stretch" TextBoxName="Global instance reference index"/>
                         </Grid>
                         <ItemsControl Grid.Row="2">
-                            <Expander x:Name="PosPropsExpander" Header="Positional properties">
+                            <Expander HorizontalAlignment="Stretch" x:Name="PosPropsExpander" Header="Positional properties">
                                 <Grid RowDefinitions="*,*">
                                     <controls1:GroupBox Header="Position">
                                         <composite:Vector4View DataContext="{Binding Position}" VerticalLayout="True" HorizontalAlignment="Stretch" Margin="0,0,0,0"/>
@@ -51,45 +46,36 @@
                                 </Grid>
                             </Expander>
                             <composite:InstanceStateFlagsView DataContext="{Binding StateFlags}"/>
-                            <Expander x:Name="LinkedInstancesExpander" Header="Linked instances" MaxHeight="250">
+                            <Expander HorizontalAlignment="Stretch" x:Name="LinkedInstancesExpander" Header="Linked instances">
                                 <Grid>
-                                    <ListBox ItemsSource="{Binding Instances}" Height="300" d:ItemsSource="{d:SampleData ItemCount=5}">
+                                    <ListBox ItemsSource="{Binding Instances}" Height="300">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate>
                                                 <TextBlock Text="{Binding Value, Converter={StaticResource UriConverter}}"/>
                                             </DataTemplate>
                                         </ListBox.ItemTemplate>
-                                        <ListBox.ContextMenu>
-                                            <ContextMenu x:Name="LinkedInstancesContextMenu"/>
-                                        </ListBox.ContextMenu>
                                     </ListBox>
                                 </Grid>
                             </Expander>
-                            <Expander x:Name="LinkedPositionsExpander" Header="Linked positions" MaxHeight="300">
+                            <Expander HorizontalAlignment="Stretch" x:Name="LinkedPositionsExpander" Header="Linked positions">
                                 <Grid>
-                                    <ListBox x:Name="LinkedPositionsList" ItemsSource="{Binding Positions}" Height="300" d:ItemsSource="{d:SampleData ItemCount=5}">
+                                    <ListBox x:Name="LinkedPositionsList" ItemsSource="{Binding Positions}" Height="300">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate>
                                                 <TextBlock Text="{Binding Value, Converter={StaticResource UriConverter}}"/>
                                             </DataTemplate>
                                         </ListBox.ItemTemplate>
-                                        <ListBox.ContextMenu>
-                                            <ContextMenu x:Name="LinkedPositionsContextMenu"/>
-                                        </ListBox.ContextMenu>
                                     </ListBox>
                                 </Grid>
                             </Expander>
-                            <Expander x:Name="LinkedPathsExpander" Header="Linked paths">
+                            <Expander HorizontalAlignment="Stretch" x:Name="LinkedPathsExpander" Header="Linked paths">
                                 <Grid>
-                                    <ListBox x:Name="LinkedPathsList" ItemsSource="{Binding Paths}" Height="300" d:ItemsSource="{d:SampleData ItemCount=5}">
+                                    <ListBox x:Name="LinkedPathsList" ItemsSource="{Binding Paths}" Height="300">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate>
                                                 <TextBlock Text="{Binding Value, Converter={StaticResource UriConverter}}"/>
                                             </DataTemplate>
                                         </ListBox.ItemTemplate>
-                                        <ListBox.ContextMenu>
-                                            <ContextMenu x:Name="LinkedPathsContextMenu"/>
-                                        </ListBox.ContextMenu>
                                     </ListBox>
                                 </Grid>
                             </Expander>
@@ -99,9 +85,9 @@
                 <TabItem x:Name="ExtraPropsTab" Header="Extra properties">
                     <Grid>
                         <ItemsControl>
-                            <Expander x:Name="IntPropsExpander" Header="Integer properties" IsExpanded="True">
+                            <Expander HorizontalAlignment="Stretch" x:Name="IntPropsExpander" Header="Integer properties" IsExpanded="True">
                                 <Grid RowDefinitions="*,*">
-                                    <ListBox ItemsSource="{Binding IntParams}" SelectedIndex="{Binding IntIndex}" Height="200" d:ItemsSource="{d:SampleData ItemCount=5}">
+                                    <ListBox ItemsSource="{Binding IntParams}" SelectedIndex="{Binding IntIndex}" Height="200">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate>
                                                 <TextBlock Text="{Binding Value}"/>
@@ -114,9 +100,9 @@
                                     <controls:LabeledTextBox LayoutOrientation="Horizontal" Text="{Binding SelectedInt}" Grid.Row="1" TextBoxName="Value" HorizontalAlignment="Stretch"/>
                                 </Grid>
                             </Expander>
-                            <Expander x:Name="FlagPropsExpander" Header="Flag properties">
+                            <Expander HorizontalAlignment="Stretch" x:Name="FlagPropsExpander" Header="Flag properties">
                                 <Grid RowDefinitions="*,*">
-                                    <ListBox ItemsSource="{Binding FlagParams}" SelectedIndex="{Binding FlagIndex}" x:Name="FlagPropsList" Height="200" d:ItemsSource="{d:SampleData ItemCount=5}">
+                                    <ListBox ItemsSource="{Binding FlagParams}" SelectedIndex="{Binding FlagIndex}" x:Name="FlagPropsList" Height="200">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate>
                                                 <TextBlock Text="{Binding Value, StringFormat={}{0:X}}"/>
@@ -129,9 +115,9 @@
                                     <controls:LabeledTextBox LayoutOrientation="Horizontal" Text="{Binding SelectedFlag, StringFormat={}{0:X}}" x:Name="FlagPropBox" TextBoxName="Value" HorizontalAlignment="Stretch" Margin="0,0,0,0" VerticalAlignment="Top" Grid.Row="1"/>
                                 </Grid>
                             </Expander>
-                            <Expander x:Name="FloatPropsExpander" Header="Float properties">
+                            <Expander HorizontalAlignment="Stretch" x:Name="FloatPropsExpander" Header="Float properties">
                                 <Grid RowDefinitions="*,*">
-                                    <ListBox ItemsSource="{Binding FloatParams}" SelectedIndex="{Binding FloatIndex}" Height="200" d:ItemsSource="{d:SampleData ItemCount=5}">
+                                    <ListBox ItemsSource="{Binding FloatParams}" SelectedIndex="{Binding FloatIndex}" Height="200">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate>
                                                 <TextBlock Text="{Binding Value, Converter={StaticResource FloatConverter}}"/>

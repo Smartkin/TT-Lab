@@ -48,7 +48,7 @@ public class SceneryChunkResolver : AssetResolver<ITwinSection>
 
     protected override IAsset CreateAsset(ITwinSection chunk, Package package, ITwinSection item, bool needVariant, string variant)
     {
-        throw new System.NotImplementedException();
+        throw new NotSupportedException();
     }
 
     protected override String GetTwinItemHash(ITwinSection item)

@@ -83,6 +83,46 @@ public class SceneryData : AbstractAssetData
 
     protected override void Dispose(Boolean disposing)
     {
+        var assetManager = AssetManager.Get();
+        if (DynamicScenery != LabURI.Empty)
+        {
+            var dynScenery = assetManager.GetAsset(DynamicScenery);
+            if (dynScenery.IsInternal)
+            {
+                assetManager.GetAsset(DynamicScenery).Delete();
+            }
+        }
+
+        if (Collision != LabURI.Empty)
+        {
+            var collision = assetManager.GetAsset(Collision);
+            if (collision.IsInternal)
+            {
+                assetManager.GetAsset(Collision).Delete();
+            }
+        }
+
+        foreach (var sceneryBaseData in Sceneries)
+        {
+            foreach (var labUri in sceneryBaseData.MeshIDs)
+            {
+                var mesh = assetManager.GetAsset(labUri);
+                if (mesh.IsInternal)
+                {
+                    assetManager.GetAsset(labUri).Delete();
+                }
+            }
+
+            foreach (var labUri in sceneryBaseData.LodIDs)
+            {
+                var lod = assetManager.GetAsset(labUri);
+                if (lod.IsInternal)
+                {
+                    assetManager.GetAsset(labUri).Delete();
+                }
+            }
+        }
+        
         AmbientLights.Clear();
         DirectionalLights.Clear();
         PointLights.Clear();
@@ -90,39 +130,39 @@ public class SceneryData : AbstractAssetData
         Sceneries.Clear();
     }
     
-    private const string SceneryRootName = "SCENERY_ROOT";
-    private const string SceneryNodeStartName = "SCENERY_NODE_";
-    private const string SceneryLeafStartName = "SCENERY_LEAF_";
-    private const string LightingRootNodeName = "LIGHTING_ROOT";
-    private const string DynamicSceneryRootNodeName = "DYNAMIC_SCENERY_ROOT";
-    private const string CollisionRootNodeName = "COLLISION_ROOT";
-    private const string AmbientLightsNodeName = "AMBIENT_LIGHTS";
-    private const string DirectionalLightsNodeName = "DIRECTIONAL_LIGHTS";
-    private const string PointsLightsNodeName = "POINT_LIGHTS";
-    private const string NegativeLightsNodeName = "NEGATIVE_LIGHTS";
+    private const string SCENERY_ROOT_NAME = "SCENERY_ROOT";
+    private const string SCENERY_NODE_START_NAME = "SCENERY_NODE_";
+    private const string SCENERY_LEAF_START_NAME = "SCENERY_LEAF_";
+    private const string LIGHTING_ROOT_NODE_NAME = "LIGHTING_ROOT";
+    private const string DYNAMIC_SCENERY_ROOT_NODE_NAME = "DYNAMIC_SCENERY_ROOT";
+    private const string COLLISION_ROOT_NODE_NAME = "COLLISION_ROOT";
+    private const string AMBIENT_LIGHTS_NODE_NAME = "AMBIENT_LIGHTS";
+    private const string DIRECTIONAL_LIGHTS_NODE_NAME = "DIRECTIONAL_LIGHTS";
+    private const string POINTS_LIGHTS_NODE_NAME = "POINT_LIGHTS";
+    private const string NEGATIVE_LIGHTS_NODE_NAME = "NEGATIVE_LIGHTS";
 
     private void ExportGltf(string path)
     {
         var scene = new SharpGLTF.Scenes.SceneBuilder($"TwinsanityScenery_{Owner.Name}");
-        var root = new SharpGLTF.Scenes.NodeBuilder(SceneryRootName);
+        var root = new SharpGLTF.Scenes.NodeBuilder(SCENERY_ROOT_NAME);
         scene.AddNode(root);
 
         var dynamicScenery = AssetManager.Get().GetAssetData<DynamicSceneryData>(DynamicScenery).GetInGltfFormat(scene);
         scene.AddNode(dynamicScenery);
 
-        var collisionNode = new SharpGLTF.Scenes.NodeBuilder(CollisionRootNodeName);
+        var collisionNode = new SharpGLTF.Scenes.NodeBuilder(COLLISION_ROOT_NODE_NAME);
         var collision = AssetManager.Get().GetAssetData<CollisionData>(Collision).GetMesh(collisionNode);
         scene.AddRigidMesh(collision.Mesh, collisionNode);
 
         // TODO: Try to use GLTF lights, maybe
         if (HasLighting)
         {
-            var lightingRoot = new SharpGLTF.Scenes.NodeBuilder(LightingRootNodeName);
+            var lightingRoot = new SharpGLTF.Scenes.NodeBuilder(LIGHTING_ROOT_NODE_NAME);
             scene.AddNode(lightingRoot);
 
             if (AmbientLights.Count > 0)
             {
-                var ambients = lightingRoot.CreateNode(AmbientLightsNodeName);
+                var ambients = lightingRoot.CreateNode(AMBIENT_LIGHTS_NODE_NAME);
                 var ambientIndex = 0;
                 foreach (var ambientLight in AmbientLights)
                 {
@@ -136,7 +176,7 @@ public class SceneryData : AbstractAssetData
 
             if (DirectionalLights.Count > 0)
             {
-                var directionals = lightingRoot.CreateNode(DirectionalLightsNodeName);
+                var directionals = lightingRoot.CreateNode(DIRECTIONAL_LIGHTS_NODE_NAME);
                 var directionalIndex = 0;
                 foreach (var directionalLight in DirectionalLights)
                 {
@@ -151,7 +191,7 @@ public class SceneryData : AbstractAssetData
 
             if (PointLights.Count > 0)
             {
-                var points = lightingRoot.CreateNode(PointsLightsNodeName);
+                var points = lightingRoot.CreateNode(POINTS_LIGHTS_NODE_NAME);
                 var pointIndex = 0;
                 foreach (var pointLight in PointLights)
                 {
@@ -165,7 +205,7 @@ public class SceneryData : AbstractAssetData
 
             if (NegativeLights.Count > 0)
             {
-                var negatives = lightingRoot.CreateNode(NegativeLightsNodeName);
+                var negatives = lightingRoot.CreateNode(NEGATIVE_LIGHTS_NODE_NAME);
                 var negativeIndex = 0;
                 foreach (var negativeLight in NegativeLights)
                 {
@@ -203,7 +243,7 @@ public class SceneryData : AbstractAssetData
         {
             if (sceneryType == ITwinScenery.SceneryType.Node)
             {
-                var childNode = parentNode.CreateNode($"{SceneryNodeStartName}{sceneryTree.Count}");
+                var childNode = parentNode.CreateNode($"{SCENERY_NODE_START_NAME}{sceneryTree.Count}");
                 var data = (SceneryNodeData)sceneryTree[0];
                 childNode.Extras = System.Text.Json.JsonSerializer.SerializeToNode(data);
                 sceneryTree = sceneryTree.Skip(1).ToList();
@@ -212,7 +252,7 @@ public class SceneryData : AbstractAssetData
             }
             else if (sceneryType == ITwinScenery.SceneryType.Leaf)
             {
-                var childNode = parentNode.CreateNode($"{SceneryLeafStartName}{sceneryTree.Count}");
+                var childNode = parentNode.CreateNode($"{SCENERY_LEAF_START_NAME}{sceneryTree.Count}");
                 var data = sceneryTree[0];
                 childNode.Extras = System.Text.Json.JsonSerializer.SerializeToNode(data);
                 sceneryTree = sceneryTree.Skip(1).ToList();
@@ -324,30 +364,30 @@ public class SceneryData : AbstractAssetData
         var model = ModelRoot.Load(path + ".glb");
         var scene = model.DefaultScene;
 
-        var lightsNode = scene.VisualChildren.FirstOrDefault(n => n is { Name: LightingRootNodeName });
+        var lightsNode = scene.VisualChildren.FirstOrDefault(n => n is { Name: LIGHTING_ROOT_NODE_NAME });
         HasLighting = lightsNode != null;
         if (HasLighting)
         {
             ImportGltfLights(lightsNode!);
         }
 
-        var dynamicSceneryNode = scene.VisualChildren.FirstOrDefault(n => n is { Name: DynamicSceneryRootNodeName });
+        var dynamicSceneryNode = scene.VisualChildren.FirstOrDefault(n => n is { Name: DYNAMIC_SCENERY_ROOT_NODE_NAME });
         if (dynamicSceneryNode == null)
         {
-            Log.WriteLine($"Scene {path}.glb does not have {DynamicSceneryRootNodeName} node. No Dynamic Scenery will be loaded.");
+            Log.WriteLine($"Scene {path}.glb does not have {DYNAMIC_SCENERY_ROOT_NODE_NAME} node. No Dynamic Scenery will be loaded.");
         }
 
-        var sceneryRoot = scene.VisualChildren.FirstOrDefault(n => n is { Name: SceneryRootName });
+        var sceneryRoot = scene.VisualChildren.FirstOrDefault(n => n is { Name: SCENERY_ROOT_NAME });
         if (sceneryRoot == null)
         {
-            Log.WriteLine($"Misconfigured scenery {path}.glb! No root found. Make sure you have {SceneryRootName} node in your scene!", Log.LogType.Error);
+            Log.WriteLine($"Misconfigured scenery {path}.glb! No root found. Make sure you have {SCENERY_ROOT_NAME} node in your scene!", Log.LogType.Error);
             importErrored = true;
         }
 
-        var collisionRoot = scene.VisualChildren.FirstOrDefault(n => n is { Name: CollisionRootNodeName });
+        var collisionRoot = scene.VisualChildren.FirstOrDefault(n => n is { Name: COLLISION_ROOT_NODE_NAME });
         if (collisionRoot == null)
         {
-            Log.WriteLine($"Misconfigured scenery {path}.glb! No collision found. Make sure you have {CollisionRootNodeName} node in your scene!", Log.LogType.Error);
+            Log.WriteLine($"Misconfigured scenery {path}.glb! No collision found. Make sure you have {COLLISION_ROOT_NODE_NAME} node in your scene!", Log.LogType.Error);
             importErrored = true;
         }
 
@@ -363,7 +403,8 @@ public class SceneryData : AbstractAssetData
                 Package = Owner.Package,
                 Chunk = Owner.Chunk,
                 InvariantName = $"{Owner.Chunk}_DYNAMIC_SCENERY",
-                Alias = "Dynamic Scenery"
+                Alias = "Dynamic Scenery",
+                IsInternal = true
             };
 
             var dynamicSceneryData = new DynamicSceneryData(dynamicScenery);
@@ -380,7 +421,8 @@ public class SceneryData : AbstractAssetData
             Package = Owner.Package,
             Chunk = Owner.Chunk,
             InvariantName = $"{Owner.Chunk}_COLLISION",
-            Alias = "Collision"
+            Alias = "Collision",
+            IsInternal = true
         };
         var collisionData = new CollisionData(collision);
         collisionData.LoadFromGltf(model.LogicalMeshes.Where(m => m is {Name: "STATIC_COLLISION_MESH"}).ToList());
@@ -395,7 +437,7 @@ public class SceneryData : AbstractAssetData
 
     private void ImportGltfLights(Node lightsRoot)
     {
-        var ambientLights = lightsRoot.VisualChildren.FirstOrDefault(n => n is { Name : AmbientLightsNodeName });
+        var ambientLights = lightsRoot.VisualChildren.FirstOrDefault(n => n is { Name : AMBIENT_LIGHTS_NODE_NAME });
         if (ambientLights != null)
         {
             foreach (var ambientLightNode in ambientLights.VisualChildren)
@@ -414,7 +456,7 @@ public class SceneryData : AbstractAssetData
             }
         }
 
-        var pointLights = lightsRoot.VisualChildren.FirstOrDefault(n => n is { Name : PointsLightsNodeName });
+        var pointLights = lightsRoot.VisualChildren.FirstOrDefault(n => n is { Name : POINTS_LIGHTS_NODE_NAME });
         if (pointLights != null)
         {
             foreach (var pointLightNode in pointLights.VisualChildren)
@@ -434,7 +476,7 @@ public class SceneryData : AbstractAssetData
             }
         }
         
-        var directionalLights = lightsRoot.VisualChildren.FirstOrDefault(n => n is { Name : DirectionalLightsNodeName });
+        var directionalLights = lightsRoot.VisualChildren.FirstOrDefault(n => n is { Name : DIRECTIONAL_LIGHTS_NODE_NAME });
         if (directionalLights != null)
         {
             foreach (var directionalLightNode in directionalLights.VisualChildren)
@@ -455,7 +497,7 @@ public class SceneryData : AbstractAssetData
             }
         }
         
-        var negativeLights = lightsRoot.VisualChildren.FirstOrDefault(n => n is { Name : NegativeLightsNodeName });
+        var negativeLights = lightsRoot.VisualChildren.FirstOrDefault(n => n is { Name : NEGATIVE_LIGHTS_NODE_NAME });
         if (negativeLights != null)
         {
             foreach (var negativeLightNode in negativeLights.VisualChildren)
@@ -514,7 +556,7 @@ public class SceneryData : AbstractAssetData
                 continue;
             }
             
-            if (sceneryNodeChild.Name.StartsWith(SceneryNodeStartName))
+            if (sceneryNodeChild.Name.StartsWith(SCENERY_NODE_START_NAME))
             {
                 parentNodeData.SceneryTypes[sceneryTypeIndex] = ITwinScenery.SceneryType.Node;
                 var nodeData = sceneryNodeChild.Extras.Deserialize<SceneryNodeData>()!;
@@ -536,7 +578,7 @@ public class SceneryData : AbstractAssetData
                 ImportGltfSceneryNodeData(sceneryNodeChild, nodeData, ref sceneryTree, model);
                 ImportGltfMeshesAndLods(sceneryNodeChild, nodeData, model);
             }
-            else if (sceneryNodeChild.Name.StartsWith(SceneryLeafStartName))
+            else if (sceneryNodeChild.Name.StartsWith(SCENERY_LEAF_START_NAME))
             {
                 parentNodeData.SceneryTypes[sceneryTypeIndex] = ITwinScenery.SceneryType.Leaf;
                 var leafData = sceneryNodeChild.Extras.Deserialize<SceneryLeafData>()!;
@@ -581,7 +623,8 @@ public class SceneryData : AbstractAssetData
         {
             Package = Owner.Package,
             InvariantName = $"{Owner.Chunk}_{meshNode.Name}_MODEL",
-            Alias = $"{Owner.Chunk}_{meshNode.Name}_MODEL"
+            Alias = $"{Owner.Chunk}_{meshNode.Name}_MODEL",
+            IsInternal = true
         };
         
         var modelData = new ModelData(model);
@@ -594,7 +637,8 @@ public class SceneryData : AbstractAssetData
         {
             Package = Owner.Package,
             InvariantName = $"{Owner.Chunk}_{meshNode.Name}_MESH{(isLod ? "_LOD" : "")}",
-            Alias = $"{Owner.Chunk}_{meshNode.Name}_MESH{(isLod ? "_LOD" : "")}"
+            Alias = $"{Owner.Chunk}_{meshNode.Name}_MESH{(isLod ? "_LOD" : "")}",
+            IsInternal = true
         };
 
         var materialsGltf = meshesGltf.SelectMany(m => m.Primitives).Select(prim => prim.Material).Distinct().ToList();
@@ -619,7 +663,8 @@ public class SceneryData : AbstractAssetData
                 {
                     Package = Owner.Package,
                     InvariantName = $"{meshesNode.VisualParent.Name}_{materialName}_MATERIAL",
-                    Alias = $"{meshesNode.VisualParent.Name}_{materialName}_MATERIAL"
+                    Alias = $"{meshesNode.VisualParent.Name}_{materialName}_MATERIAL",
+                    IsInternal = true
                 };
 
                 var materialData = MaterialData.LoadFromGltf(material, materialDesc,
@@ -633,6 +678,8 @@ public class SceneryData : AbstractAssetData
                 
                 modelIndex++;
             }
+            
+            materials = materials[..modelIndex];
         }
         
         var meshData = new MeshData(mesh);
@@ -691,7 +738,8 @@ public class SceneryData : AbstractAssetData
             {
                 Package = Owner.Package,
                 InvariantName = $"{lodNode.Name}_LOD_MODEL",
-                Alias = $"{lodNode.Name}_LOD_MODEL"
+                Alias = $"{lodNode.Name}_LOD_MODEL",
+                IsInternal = true
             };
             
             var lodData = lodNode.Extras.Deserialize<LodModelData>()!;
@@ -766,10 +814,10 @@ public class SceneryData : AbstractAssetData
         var assetManager = AssetManager.Get();
         using var ms = new MemoryStream();
         using var writer = new BinaryWriter(ms);
-        writer.Write(Owner.Chunk);
+        writer.Write("TTLabScenery");
         writer.Write(FogColor);
         writer.Write(UnkByte);
-        writer.Write(SkydomeID == LabURI.Empty ? 0 : assetManager.GetAsset(SkydomeID).ID);
+        writer.Write(SkydomeID == LabURI.Empty ? 0 : assetManager.GetAsset(SkydomeID).ExportTwinID);
         writer.Write(HasLighting);
         if (HasLighting)
         {
@@ -835,7 +883,7 @@ public class SceneryData : AbstractAssetData
             scenery.ResolveChunkResouces(factory, graphicsSection);
         }
 
-        return base.ResolveChunkResources(factory, section, id, layoutID);
+        return base.ResolveChunkResources(factory, section, Constants.SCENERY_SECENERY_ITEM, layoutID);
     }
 }
 

@@ -278,8 +278,37 @@ public class JsonTwinBoundingBoxBuilderConverter : System.Text.Json.Serializatio
     }
 }
 
+public class BoxBuilderToJointLink
+{
+    public TwinBoundingBoxBuilder BoundingBoxBuilder { get; set; }
+    public Byte JointIndex { get; set; }
+}
+
+public class BoxBuilderToJointLinkJsonConverter : System.Text.Json.Serialization.JsonConverter<BoxBuilderToJointLink>
+{
+    private readonly JsonTwinBoundingBoxBuilderConverter bbConverter = new();
+    private readonly JsonByteRefConverter byteRefConverter = new();
+    
+    public override BoxBuilderToJointLink? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        var link = new BoxBuilderToJointLink();
+        link.BoundingBoxBuilder = bbConverter.Read(ref reader, typeToConvert, options)!;
+        link.JointIndex = byteRefConverter.Read(ref reader, typeToConvert, options)!.Value;
+
+        return link;
+    }
+
+    public override void Write(Utf8JsonWriter writer, BoxBuilderToJointLink value, JsonSerializerOptions options)
+    {
+        bbConverter.Write(writer, value.BoundingBoxBuilder, options);
+        byteRefConverter.Write(writer, new ByteRef { Value = value.JointIndex }, options);
+    }
+}
+
 public class JsonListConverter<T> : System.Text.Json.Serialization.JsonConverter<List<T>> where T : class
 {
+    private bool _isConvertingFromString = false;
+    
     private abstract class InternalConverter
     {
         public abstract object? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options);
@@ -312,12 +341,35 @@ public class JsonListConverter<T> : System.Text.Json.Serialization.JsonConverter
         JsonConverters.Add(typeof(UInt16Ref), new InternalConverter<JsonUInt16RefConverter, UInt16Ref>(new JsonUInt16RefConverter()));
         JsonConverters.Add(typeof(ByteRef), new InternalConverter<JsonByteRefConverter, ByteRef>(new JsonByteRefConverter()));
         JsonConverters.Add(typeof(TwinBoundingBoxBuilder), new InternalConverter<JsonTwinBoundingBoxBuilderConverter, TwinBoundingBoxBuilder>(new JsonTwinBoundingBoxBuilderConverter()));
+        JsonConverters.Add(typeof(BoxBuilderToJointLink), new InternalConverter<BoxBuilderToJointLinkJsonConverter, BoxBuilderToJointLink>(new BoxBuilderToJointLinkJsonConverter()));
     }
     
     public override List<T>? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
         var enteringDepth = reader.CurrentDepth;
+        var stringified = string.Empty;
+        if (reader.TokenType == JsonTokenType.String)
+        {
+            stringified = reader.GetString();
+        }
+
+        if (!string.IsNullOrEmpty(stringified))
+        {
+            _isConvertingFromString = true;
+            var stringOptions = new JsonSerializerOptions();
+            stringOptions.Converters.Add(this);
+            var convertedToObjectString = "{ \"internalList\" : " + stringified + "}";
+            var result = JsonSerializer.Deserialize<List<T>>(convertedToObjectString, stringOptions);
+            _isConvertingFromString = false;
+            return result;
+        }
         reader.Read();
+        if (_isConvertingFromString)
+        {
+            // Consume property name and start array since we made our own internal list object
+            reader.Read();
+            reader.Read();
+        }
         var list = new List<T>();
         var converter = JsonConverters.TryGetValue(typeof(T), out var jsonConverter) ? jsonConverter : null;
         Debug.Assert(converter != null, $"Unsupported list item type {typeof(T).FullName}");

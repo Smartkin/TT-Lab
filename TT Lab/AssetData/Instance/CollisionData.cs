@@ -192,7 +192,7 @@ public class CollisionData : AbstractAssetData
                 Vector1Index = tri.Face.Indexes![0],
                 Vector2Index = tri.Face.Indexes[1],
                 Vector3Index = tri.Face.Indexes[2],
-                SurfaceIndex = (int)assetManager.GetAsset(tri.Surface).ID
+                SurfaceIndex = (int)assetManager.GetAsset(tri.Surface).ExportTwinID
             };
             twinTri.Write(writer);
         }

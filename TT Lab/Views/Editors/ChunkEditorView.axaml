@@ -3,10 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:controls="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
-             xmlns:local="clr-namespace:TT_Lab.Views.Editors"
-             xmlns:cal="clr-namespace:Caliburn.Micro;assembly=Caliburn.Micro.Platform"
              xmlns:viewmodels="clr-namespace:TT_Lab.ViewModels.Editors"
-             xmlns:cm="http://caliburnmicro.com"
              x:DataType="viewmodels:ChunkEditorViewModel"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="TT_Lab.Views.Editors.ChunkEditorView">
@@ -16,7 +13,7 @@
                 ItemsSource="{Binding ChunkTree}"
             >
                 <Interaction.Behaviors>
-                    <EventTriggerBehavior EventName="SelectedItemChanged">
+                    <EventTriggerBehavior EventName="SelectionChanged">
                         <InvokeCommandAction Command="{Binding SelectDifferentInstance}" PassEventArgsToCommand="True"/>
                     </EventTriggerBehavior>
                 </Interaction.Behaviors>
@@ -27,25 +24,9 @@
                                 <ContextMenu ItemsSource="{Binding MenuOptions}"/>
                             </StackPanel.ContextMenu>
                             <Interaction.Behaviors>
-                                <!-- <EventTrigger EventName="MouseDown"> -->
-                                <!--     <cm:ActionMessage MethodName="AssetBlockMouseDown"> -->
-                                <!--         <cm:ActionMessage.Parameters> -->
-                                <!--             <cm:Parameter Value="{Binding ElementName=ChunkTreeView, Path=SelectedItem}"/> -->
-                                <!--             <cm:Parameter Value="$eventArgs"/> -->
-                                <!--         </cm:ActionMessage.Parameters> -->
-                                <!--     </cm:ActionMessage> -->
-                                <!-- </EventTrigger> -->
-                                <!-- <EventTrigger EventName="MouseMove"> -->
-                                <!--     <cm:ActionMessage MethodName="AssetBlockMouseMove"> -->
-                                <!--         <cm:ActionMessage.Parameters> -->
-                                <!--             <cm:Parameter Value="{Binding ElementName=ChunkTreeView, Mode=OneWay}"/> -->
-                                <!--             <cm:Parameter Value="$eventArgs"/> -->
-                                <!--         </cm:ActionMessage.Parameters> -->
-                                <!--     </cm:ActionMessage> -->
-                                <!-- </EventTrigger> -->
-                                <!-- <EventTrigger EventName="ContextMenuOpening"> -->
-                                <!--     <cm:ActionMessage MethodName="CreateContextMenuAction"/> -->
-                                <!-- </EventTrigger> -->
+                                <EventTriggerBehavior EventName="ContextRequested">
+                                    <InvokeCommandAction Command="{Binding CreateContextMenuAction}"/>
+                                </EventTriggerBehavior>
                             </Interaction.Behaviors>
                             <Image Source="{Binding IconPath}" VerticalAlignment="Center" HorizontalAlignment="Center" Width="24" Height="24" Margin="0,0,3,0" Stretch="Uniform"/>
                             <TextBlock IsVisible="{Binding IsNotRenaming}" HorizontalAlignment="Center" VerticalAlignment="Center" Text="{Binding Alias}"/>

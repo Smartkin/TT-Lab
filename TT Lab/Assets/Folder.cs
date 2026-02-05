@@ -25,7 +25,7 @@ public class Folder : SerializableAsset
     public override UInt32 Section => uint.MaxValue;
     public FolderMark Mark { get; set; } = FolderMark.Normal;
     public List<LabURI> Children { get; set; } = [];
-    public LabURI? Parent { get; set; }
+    public LabURI Parent { get; set; } = LabURI.Empty;
 
     public override string IconPath => Mark.HasFlag(FolderMark.IsPackage) ? "Package.png" : "Folder.png";
 
@@ -53,7 +53,7 @@ public class Folder : SerializableAsset
     public string GetPath()
     {
         var result = "";
-        if (Parent == null)
+        if (Parent == LabURI.Empty)
         {
             return $"{result}/{Name}";
         }
@@ -62,6 +62,50 @@ public class Folder : SerializableAsset
         result += parentFolder.GetPath();
 
         return $"{result}/{Name}";
+    }
+
+    public LabURI FindChild<T>(string name) where T : IAsset
+    {
+        var result = LabURI.Empty;
+        var assetManager = AssetManager.Get();
+        foreach (var child in Children)
+        {
+            var asset = assetManager.GetAsset(child);
+            if (asset.Name != name || asset is not T)
+            {
+                continue;
+            }
+            
+            result = child;
+            break;
+        }
+
+        if (result != LabURI.Empty)
+        {
+            return result;
+        }
+        
+        foreach (var child in Children)
+        {
+            if (assetManager.GetAsset(child) is not Folder childFolder)
+            {
+                continue;
+            }
+
+            result = childFolder.FindChild<T>(name);
+            if (result != LabURI.Empty)
+            {
+                break;
+            }
+        }
+
+        return result;
+        
+    }
+
+    public LabURI FindChild(string name)
+    {
+        return FindChild<IAsset>(name);
     }
 
     public override void RegenerateUri()

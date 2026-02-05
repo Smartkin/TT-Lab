@@ -98,7 +98,7 @@ namespace TT_Lab.AssetData.Instance
             using var writer = new BinaryWriter(ms);
             writer.Write(TemplateName.Length);
             writer.Write(TemplateName.ToCharArray());
-            writer.Write((UInt16)assetManager.GetAsset(ObjectId).ID);
+            writer.Write((UInt16)assetManager.GetAsset(ObjectId).ExportTwinID);
             writer.Write(UnkByte1);
             writer.Write(UnkByte2);
             writer.Write(UnkBehaviourIds.Count);
@@ -106,7 +106,7 @@ namespace TT_Lab.AssetData.Instance
             writer.Write(Header2);
             foreach (var s in UnkBehaviourIds)
             {
-                writer.Write((UInt16)assetManager.GetAsset(s).ID);
+                writer.Write((UInt16)assetManager.GetAsset(s).ExportTwinID);
             }
             writer.Write(UnkByte3);
             writer.Write(UnkByte4);

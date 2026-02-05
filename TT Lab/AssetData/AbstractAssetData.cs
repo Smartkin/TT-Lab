@@ -47,13 +47,18 @@ public abstract class AbstractAssetData(IAsset owner) : IDisposable
 
     public void Save(String dataPath, JsonSerializerSettings? settings = null)
     {
+        if (DisposedValue)
+        {
+            return;
+        }
+        
         var workingDirectory = System.IO.Directory.GetCurrentDirectory();
         System.IO.Directory.SetCurrentDirectory($"{Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath}/assets");
         SaveInternal(dataPath, settings);
         System.IO.Directory.SetCurrentDirectory(workingDirectory);
     }
 
-    public string GetJsonFormat()
+    public virtual string GetStringified()
     {
         return JsonConvert.SerializeObject(this);
     }
@@ -79,14 +84,19 @@ public abstract class AbstractAssetData(IAsset owner) : IDisposable
         // DO NOT change this code. Put cleanup code in 'Dispose(bool disposing)' method
         if (DisposedValue) return;
 
-        Dispose(disposing: true);
         DisposedValue = true;
+        Dispose(disposing: true);
         GC.SuppressFinalize(this);
     }
 
     protected void SetTwinItem(ITwinItem item)
     {
         twinRef = item;
+    }
+
+    protected bool IsTwinItemValid()
+    {
+        return twinRef != null;
     }
 
     protected T GetTwinItem<T>() where T : ITwinItem

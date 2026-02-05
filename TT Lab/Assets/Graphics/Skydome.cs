@@ -5,35 +5,35 @@ using TT_Lab.ViewModels.Editors.Graphics;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items;
 
-namespace TT_Lab.Assets.Graphics
+namespace TT_Lab.Assets.Graphics;
+
+public class Skydome : SerializableAsset
 {
-    public class Skydome : SerializableAsset
+    protected override bool SetIdFromDataHash => true;
+    public override UInt32 Section => Constants.GRAPHICS_SKYDOMES_SECTION;
+    public override String IconPath => "Skybox.png";
+
+    public Skydome(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinSkydome skydome) : base(id, name, package, needVariant, variant)
     {
-        public override UInt32 Section => Constants.GRAPHICS_SKYDOMES_SECTION;
-        public override String IconPath => "Skybox.png";
+        AssetData = new SkydomeData(this, skydome);
+    }
 
-        public Skydome(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinSkydome skydome) : base(id, name, package, needVariant, variant)
-        {
-            AssetData = new SkydomeData(this, skydome);
-        }
+    public Skydome()
+    {
+    }
 
-        public Skydome()
-        {
-        }
+    public override Type GetEditorType()
+    {
+        return typeof(SkydomeViewModel);
+    }
 
-        public override Type GetEditorType()
+    public override AbstractAssetData GetData()
+    {
+        if (!IsLoaded || AssetData.Disposed)
         {
-            return typeof(SkydomeViewModel);
+            AssetData = new SkydomeData(this);
+            AssetData.Load(DataLoadPath);
         }
-
-        public override AbstractAssetData GetData()
-        {
-            if (!IsLoaded || AssetData.Disposed)
-            {
-                AssetData = new SkydomeData(this);
-                AssetData.Load(DataLoadPath);
-            }
-            return AssetData;
-        }
+        return AssetData;
     }
 }

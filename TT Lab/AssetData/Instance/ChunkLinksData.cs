@@ -48,7 +48,7 @@ public class ChunkLinksData : AbstractAssetData
         foreach (var link in Links)
         {
             writer.Write(link.UnkFlag);
-            writer.Write(assetManager.GetAsset(link.Path).Variation[..^4].ToLowerInvariant());
+            writer.Write(assetManager.GetAsset<LevelChunk>(link.Path).GetChunkPath().ToLowerInvariant());
             writer.Write(link.IsRendered);
             writer.Write(link.UnkNum);
             writer.Write(link.IsLoadWallActive);

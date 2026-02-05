@@ -4,7 +4,6 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:controls="clr-namespace:TT_Lab.Controls"
              xmlns:controls1="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
-             xmlns:cm="http://caliburnmicro.com"
              xmlns:code="clr-namespace:TT_Lab.ViewModels.Editors.Code"
              x:DataType="code:SoundEffectViewModel"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
@@ -33,9 +32,9 @@
                 <TextBlock Text="{Binding TotalTimeLength, FallbackValue='0:00'}" Margin="0, 0, 0, 5" Grid.Column="1" Grid.Row="1" TextAlignment="Right"></TextBlock>
             </Grid>
             <UniformGrid Columns="3">
-                <Button HorizontalAlignment="Stretch" Margin="5" Command="{Binding PlaySound}" Content="Play"></Button>
-                <Button HorizontalAlignment="Stretch" Margin="5" Command="{Binding PauseSound}" Content="Pause"></Button>
-                <Button HorizontalAlignment="Stretch" Margin="5" Command="{Binding ReplaceSound}" Content="Replace"></Button>
+                <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5" Command="{Binding PlaySound}" Content="Play"></Button>
+                <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5" Command="{Binding PauseSound}" Content="Pause"></Button>
+                <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5" Command="{Binding ReplaceSound}" Content="Replace"></Button>
             </UniformGrid>
             <Grid RowDefinitions="*,*">
                 <UniformGrid Grid.Row="0" Columns="2">

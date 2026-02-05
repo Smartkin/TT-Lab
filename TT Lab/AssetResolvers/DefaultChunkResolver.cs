@@ -67,7 +67,7 @@ public class DefaultChunkResolver : AssetResolver<ITwinSection>
 
     protected override IAsset CreateAsset(ITwinSection chunk, Package package, ITwinSection item, bool needVariant, string variant)
     {
-        throw new System.NotImplementedException();
+        throw new System.NotSupportedException();
     }
 
     public override void FinalizeResolve()
