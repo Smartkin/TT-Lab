@@ -32,6 +32,18 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Base
             return Items.Count;
         }
 
+        public void RemoveDuplicates(UInt32 id)
+        {
+            var matchingItems = (from item in Items
+                where item.GetID() == id
+                select item).ToList();
+            if (matchingItems.Count > 1)
+            {
+                Items.RemoveAll(item => item.GetID() == id);
+                Items.Add(matchingItems[0]);
+            }
+        }
+
         public ITwinItem GetItem(Int32 index)
         {
             if (index >= Items.Count || index < 0) return null;

@@ -1,8 +1,10 @@
 using System;
 using System.Threading.Tasks;
+using Avalonia.Media.Imaging;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Assets.Instance;
+using TT_Lab.Util;
 
 namespace TT_Lab.Models;
 
@@ -24,7 +26,7 @@ public class AssetCreationPreviewModel
         DataCreatorAsync = dataCreator;
     }
     
-    public string IconPath => $"/Media/LabIcons/{_asset.IconPath}";
+    public Bitmap IconPath => new(ManifestResourceLoader.GetPathInExe($"Media/LabIcons/{_asset.IconPath}"));
     public string DisplayName { get; }
     public Func<IAsset, AssetCreationStatus>? DataCreator { get; }
     public Func<IAsset, Task<AssetCreationStatus>>? DataCreatorAsync { get; }

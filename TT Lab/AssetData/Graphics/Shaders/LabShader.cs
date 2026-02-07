@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using TT_Lab.Assets;
@@ -173,9 +174,55 @@ public class LabShader
         Animation = CloneUtils.DeepClone(twinShader.Animation);
     }
 
+    public string GetStringified()
+    {
+        var result = new StringBuilder();
+        result.AppendLine(ShaderType.ToString());
+        result.AppendLine(IntParam.ToString());
+        result.AppendLine(FloatParam.ToString());
+        result.AppendLine(ABlending.ToString());
+        result.AppendLine(AlphaRegSettingsIndex.ToString());
+        result.AppendLine(ATest.ToString());
+        result.AppendLine(ATestMethod.ToString());
+        result.AppendLine(AlphaValueToBeComparedTo.ToString());
+        result.AppendLine(ProcessMethodWhenAlphaTestFailed.ToString());
+        result.AppendLine(DAlphaTest.ToString());
+        result.AppendLine(DAlphaTestMode.ToString());
+        result.AppendLine(DepthTest.ToString());
+        result.AppendLine(ShdMethod.ToString());
+        result.AppendLine(TxtMapping.ToString());
+        result.AppendLine(MethodOfSpecifyingTextureCoordinates.ToString());
+        result.AppendLine(Fog.ToString());
+        result.AppendLine(ContextNum.ToString());
+        // TODO: Check if these lines are actually needed because these settings seem to be utterly unused in Twinsanity and only use presets
+        // result.AppendLine(UseCustomAlphaRegSettings.ToString());
+        // result.AppendLine(SpecOfColA.ToString());
+        // result.AppendLine(SpecOfColB.ToString());
+        // result.AppendLine(SpecOfAlphaC.ToString());
+        // result.AppendLine(SpecOfColD.ToString());
+        result.AppendLine(FixedAlphaValue.ToString());
+        result.AppendLine(TextureFilterWhenTextureIsExpanded.ToString());
+        result.AppendLine(AlphaCorrectionValue.ToString());
+        result.AppendLine(ZValueDrawingMask.ToString());
+        result.AppendLine(LodParamK.ToString());
+        result.AppendLine(LodParamL.ToString());
+        result.AppendLine(TextureId == LabURI.Empty ? "EMPTY" : AssetManager.Get().GetAsset(TextureId).GetDataHash().ToString());
+        result.AppendLine(UnkVal1.ToString());
+        result.AppendLine(XScrollSettings.ToString());
+        result.AppendLine(YScrollSettings.ToString());
+        result.AppendLine(UnkFlag1.ToString());
+        result.AppendLine(UnkFlag2.ToString());
+        result.AppendLine(UnkFlag3.ToString());
+        result.AppendLine(UnkVector1.ToString());
+        result.AppendLine(UnkVector2.ToString());
+        result.AppendLine(UvScrollSpeed.ToString());
+
+        return result.ToString();
+    }
+
     public JsonNode GetJsonFormat()  
     {
-        return JsonSerializer.SerializeToNode(this);
+        return JsonSerializer.SerializeToNode(this)!;
     }
 
     public static LabShader? GetShaderFromGltf(SharpGLTF.Schema2.Material gltfMaterial)

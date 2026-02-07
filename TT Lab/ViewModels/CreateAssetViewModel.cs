@@ -13,6 +13,7 @@ using TT_Lab.Models;
 using TT_Lab.Project;
 using TT_Lab.ServiceProviders;
 using TT_Lab.Services;
+using TT_Lab.Util;
 using TT_Lab.ViewModels.ResourceTree;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 
@@ -147,6 +148,8 @@ public class CreateAssetViewModel : Screen, INotifyDataErrorInfo
         _dataValidatorService.ValidateProperty(AssetName, nameof(AssetName));
     }
 
+    public BindableCollection<object> InstanceLayouts => ViewModelUtil.Layers;
+
     public BindableCollection<AssetCreationPreviewModel> CreatableAssets { get; set; } = new();
 
     public string AssetName
@@ -198,7 +201,7 @@ public class CreateAssetViewModel : Screen, INotifyDataErrorInfo
 
     public bool HasErrors => _dataValidatorService.HasErrors;
 
-    public Boolean IsInstance => SelectedCreationModel.IsInstance;
+    public Boolean IsInstance => SelectedCreationModel == null ? false : SelectedCreationModel.IsInstance;
     
     public string LayoutRowHeight => IsInstance ? "2*" : "0";
 

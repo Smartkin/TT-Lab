@@ -103,6 +103,6 @@ public class SkydomeData : AbstractAssetData
         }
 
         section = graphicsSection.GetItem<ITwinSection>(Constants.GRAPHICS_SKYDOMES_SECTION);
-        return base.ResolveChunkResources(factory, section, id);
+        return base.ResolveChunkResources(factory, section, id, layoutID);
     }
 }

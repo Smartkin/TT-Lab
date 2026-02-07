@@ -65,6 +65,11 @@ public interface IAsset
     /// In-Game's ID when exporting
     /// </summary>
     UInt32 ExportTwinID { get; }
+    
+    /// <summary>
+    /// Salts the resource's hash id if needed
+    /// </summary>
+    UInt32 ExportIdSalt { get; set; }
 
     /// <summary>
     /// The main package the asset belongs to

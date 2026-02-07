@@ -187,8 +187,22 @@ namespace Twinsanity_Command_Interface
             // return;
             using var defaultRm2File = new FileStream(args[0], FileMode.Open, FileAccess.Read);
             using var reader = new BinaryReader(defaultRm2File);
-            var defaultRm2 = new PS2AnyTwinsanityRM2();
+            var defaultRm2 = new PS2AnyTwinsanitySM2();
             defaultRm2.Read(reader, (Int32)reader.BaseStream.Length);
+            var models = defaultRm2.GetItem<ITwinSection>(Constants.SCENERY_GRAPHICS_SECTION)
+                .GetItem<ITwinSection>(Constants.GRAPHICS_LODS_SECTION);
+
+            var modelIds = new List<UInt32>();
+            for (var i = 0; i < models.GetItemsAmount(); ++i)
+            {
+                if (modelIds.Contains(models.GetItem(i).GetID()))
+                {
+                    Console.WriteLine($"Found duplicate ID {models.GetItem(i).GetID()}");
+                }
+                modelIds.Add(models.GetItem(i).GetID());
+            }
+
+            return;
             var behaviours = defaultRm2.GetItem<ITwinSection>(Constants.LEVEL_CODE_SECTION).GetItem<ITwinSection>(Constants.CODE_BEHAVIOUR_COMMANDS_SEQUENCES_SECTION);
             var symbols = new AgentLabSymbolTableBuilder();
             symbols.BuildBuiltInTypes().BuildConditions().BuildActions("ActionDefinitionsPs2.lab");

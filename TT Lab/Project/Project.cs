@@ -602,47 +602,25 @@ public class Project : IProject
         var factory = itemFactory ?? new PS2ItemFactory();
         var assetManager = AssetManager.Get();
         var chunk = assetManager.GetAsset<LevelChunk>(chunkUri);
+        factory.ChunkPath = chunk.AdditionalPath!;
+        
         System.IO.Directory.SetCurrentDirectory(ProjectPath);
         System.IO.Directory.CreateDirectory("build");
         System.IO.Directory.SetCurrentDirectory("build");
         System.IO.Directory.CreateDirectory("archives");
         System.IO.Directory.SetCurrentDirectory("archives");
-        if (chunk.Name == "Default")
+        if (chunk.Name == "default")
         {
             Log.WriteLine("Writing Default chunk...");
             System.IO.Directory.CreateDirectory("Startup");
             System.IO.Directory.SetCurrentDirectory("Startup");
             var @default = factory.GenerateDefault();
-            chunk.ResolveChunkResources(factory, @default);
-            // Default is a special case where we need to put in the meshes which are drop shadows
-            var defaultMeshes = (from assetUri in GlobalPackagePS2.GetPackageFolder().Children
-                let asset = assetManager.GetAsset(assetUri)
-                where asset is Folder
-                where asset.Name.Contains("Global Assets")
-                from childUri in ((Folder)asset).Children
-                let child = assetManager.GetAsset(childUri)
-                where child is Folder
-                where child.Name.Contains("Meshes")
-                select child).First();
-            defaultMeshes.ResolveChunkResources(factory, @default.GetItem<ITwinSection>(Constants.LEVEL_GRAPHICS_SECTION).GetItem<ITwinSection>(Constants.GRAPHICS_MESHES_SECTION));
-            var defaultModels = (from assetUri in GlobalPackagePS2.GetPackageFolder().Children
-                let asset = assetManager.GetAsset(assetUri)
-                where asset is Folder
-                where asset.Name.Contains("Global Assets")
-                from childUri in ((Folder)asset).Children
-                let child = assetManager.GetAsset(childUri)
-                where child is Folder
-                where child.Name.Contains("Models")
-                select child).First();
-            var modelsSection = @default.GetItem<ITwinSection>(Constants.LEVEL_GRAPHICS_SECTION)
-                .GetItem<ITwinSection>(Constants.GRAPHICS_MODELS_SECTION);
-            var itemsAmount = modelsSection.GetItemsAmount();
-            for (var i = itemsAmount - 1; i >= 0; --i)
+            
+            foreach (var asset in chunk.ChunkResources.Select(child => assetManager.GetAsset(child)))
             {
-                var item = modelsSection.GetItem(i);
-                modelsSection.RemoveItem<ITwinItem>(item.GetID());
+                Log.WriteLine($"Writing {asset.Name}...");
+                asset.ResolveChunkResources(factory, @default);
             }
-            defaultModels.ResolveChunkResources(factory, modelsSection);
             
             ((BaseTwinSection)@default).ChangeItemPosition(Constants.LEVEL_COLLISION_ITEM, 2);
             ((BaseTwinSection)@default).ChangeItemPosition(Constants.LEVEL_PARTICLES_ITEM, 2);
@@ -669,6 +647,7 @@ public class Project : IProject
 
         foreach (var asset in chunk.ChunkResources.Select(child => assetManager.GetAsset(child)))
         {
+            Log.WriteLine($"Writing {asset.Name}...");
             if (asset is Scenery or ChunkLinks)
             {
                 if (asset is Scenery scenery)
@@ -750,85 +729,21 @@ public class Project : IProject
         Log.WriteLine("Writing Extras...");
         System.IO.Directory.SetCurrentDirectory("../Extras");
 
-        var extrasFolders = assetManager.GetAsset<Folder>(GlobalPackagePS2.GetPackageFolder().FindChild<Folder>("Extras")).Children
-            .Where(ass => ArchivesLayout.ExtrasFolders.Contains(assetManager.GetAsset(ass).Name)).ToList();
-            // (from asset in GlobalPackagePS2.GetPackageFolder().Children
-            // where assetManager.GetAsset(asset) is Folder
-            // let folder = assetManager.GetAsset<Folder>(asset)
-            // where ArchivesLayout.ExtrasFolders.Contains(folder.Name)
-            // select asset).ToList();
-        var mcdonaldsAssset = (from assetUri in assetManager.GetAsset<Folder>(GlobalPackagePS2.GetPackageFolder().FindChild<Folder>("Extras")).Children
-            let asset = assetManager.GetAsset(assetUri)
-            where asset.Name == "McDonalds01"
-            select asset).First();
-
-        Log.WriteLine($"Writing ({++currentGlobalsCount}/{++totalGlobals}) {mcdonaldsAssset.Name}...");
-        mcdonaldsAssset.ExportToFile(factory);
-
-        ResolveGlobalAssets(factory, extrasFolders, ref totalGlobals, ref currentGlobalsCount);
-
+        var extrasFolder = assetManager.GetAsset<Folder>(GlobalPackagePS2.GetPackageFolder().FindChild<Folder>("Extras"));
+        ResolveGlobalAssets(factory, extrasFolder.Children, ref totalGlobals, ref currentGlobalsCount);
+        
         System.IO.Directory.SetCurrentDirectory("../Language");
         Log.WriteLine("Writing Language...");
-        var languageFolders = (from asset in GlobalPackagePS2.GetPackageFolder().Children
-            where assetManager.GetAsset(asset) is Folder
-            let folder = assetManager.GetAsset<Folder>(asset)
-            where ArchivesLayout.LanguageFolder.Contains(folder.Name)
-            select asset).ToList();
-
-        ResolveGlobalAssets(factory, languageFolders, ref totalGlobals, ref currentGlobalsCount);
+        var languageFolder = assetManager.GetAsset<Folder>(GlobalPackagePS2.GetPackageFolder().FindChild<Folder>("Language"));
+        ResolveGlobalAssets(factory, languageFolder.Children, ref totalGlobals, ref currentGlobalsCount);
 
         System.IO.Directory.SetCurrentDirectory("../Startup");
         Log.WriteLine("Writing Startup...");
-        var startupAssets = (from assetUri in GlobalPackagePS2.GetPackageFolder().Children
-            let asset = assetManager.GetAsset(assetUri)
-            where asset is not LevelChunk
-            where ArchivesLayout.StartupItems.Contains(asset.Name)
-            select assetUri).ToList();
-
-        var defaultChunk = (from assetUri in GlobalPackagePS2.GetPackageFolder().Children
-            let asset = assetManager.GetAsset(assetUri)
-            where asset is LevelChunk
-            where ArchivesLayout.StartupItems.Contains(asset.Name)
-            select asset).First();
-        Log.WriteLine($"Writing ({++currentGlobalsCount}/{++totalGlobals}) default...");
-        var @default = factory.GenerateDefault();
-        defaultChunk.ResolveChunkResources(factory, @default);
-        // Default is a special case where we need to put in the meshes which are drop shadows
-        var defaultMeshes = (from assetUri in GlobalPackagePS2.GetPackageFolder().Children
-            let asset = assetManager.GetAsset(assetUri)
-            where asset is Folder
-            where asset.Name.Contains("Global Assets")
-            from childUri in ((Folder)asset).Children
-            let child = assetManager.GetAsset(childUri)
-            where child is Folder
-            where child.Name.Contains("Meshes")
-            select child).First();
-        defaultMeshes.ResolveChunkResources(factory, @default.GetItem<ITwinSection>(Constants.LEVEL_GRAPHICS_SECTION).GetItem<ITwinSection>(Constants.GRAPHICS_MESHES_SECTION));
-        var defaultModels = (from assetUri in GlobalPackagePS2.GetPackageFolder().Children
-            let asset = assetManager.GetAsset(assetUri)
-            where asset is Folder
-            where asset.Name.Contains("Global Assets")
-            from childUri in ((Folder)asset).Children
-            let child = assetManager.GetAsset(childUri)
-            where child is Folder
-            where child.Name.Contains("Models")
-            select child).First();
-        var modelsSection = @default.GetItem<ITwinSection>(Constants.LEVEL_GRAPHICS_SECTION)
-            .GetItem<ITwinSection>(Constants.GRAPHICS_MODELS_SECTION);
-        var itemsAmount = modelsSection.GetItemsAmount();
-        for (var i = itemsAmount - 1; i >= 0; --i)
-        {
-            var item = modelsSection.GetItem(i);
-            modelsSection.RemoveItem<ITwinItem>(item.GetID());
-        }
-        defaultModels.ResolveChunkResources(factory, modelsSection);
-        using var defaultFile = new System.IO.FileStream($"Default.rm2", System.IO.FileMode.Create, System.IO.FileAccess.Write);
-        using var defaultWriter = new System.IO.BinaryWriter(defaultFile);
-        @default.Write(defaultWriter);
-        defaultWriter.Flush();
-        defaultWriter.Close();
-
-        ResolveGlobalAssets(factory, startupAssets, ref totalGlobals, ref currentGlobalsCount);
+        ResolveAndWriteChunks(factory, new Folder("temp") { Children = [GlobalPackagePS2.GetPackageFolder().FindAndGetChild<Folder>("startup")
+            .FindAndGetChild<Folder>("default").FindChild<LevelChunk>("default")] }, ref totalGlobals, ref currentGlobalsCount, true);
+        
+        var startupFolder = assetManager.GetAsset<Folder>(GlobalPackagePS2.GetPackageFolder().FindChild<Folder>("Startup"));
+        ResolveGlobalAssets(factory, startupFolder.Children, ref totalGlobals, ref currentGlobalsCount);
 
         System.IO.Directory.SetCurrentDirectory("../..");
         Log.WriteLine("Finished writing main archive files!");
@@ -838,14 +753,18 @@ public class Project : IProject
     public void CreatePs2ArchivesAndIso()
     {
         Log.WriteLine("Packing into BD/BH archives...");
-        var bd = new PS2BD("", $"{DiscContentPathPS2}/Crash6/Crash.BH");
-        using var bdFile = new System.IO.FileStream($"{DiscContentPathPS2}/Crash6/Crash.BD", System.IO.FileMode.Create, System.IO.FileAccess.Write);
-        using var bdWriter = new System.IO.BinaryWriter(bdFile);
-        bd.BuildRecords($"{ProjectPath}/build/archives");
-        bd.Write(bdWriter);
-        bdWriter.Flush();
-        bdWriter.Close();
-        
+        {
+            var bd = new PS2BD("", $"{DiscContentPathPS2}/Crash6/Crash.BH");
+            using var bdFile = new System.IO.FileStream($"{DiscContentPathPS2}/Crash6/Crash.BD",
+                System.IO.FileMode.Create, System.IO.FileAccess.Write);
+            using var bdWriter = new System.IO.BinaryWriter(bdFile);
+            bd.BuildRecords($"{ProjectPath}/build/archives");
+            bd.Write(bdWriter);
+            bdWriter.Flush();
+            bdWriter.Close();
+        }
+        GC.Collect();
+
         Log.WriteLine("Creating PS2 ISO image...");
         if (!System.IO.Directory.Exists($"{ProjectPath}/build/image"))
         {
@@ -872,23 +791,28 @@ public class Project : IProject
         totalGlobals += (UInt32)assets.Select(assetManager.GetAsset).Count(a => a is not Folder);
         foreach (var item in assets)
         {
-            var folder = assetManager.GetAsset(item);
-            if (folder is not Folder)
+            var asset = assetManager.GetAsset(item);
+            if (asset is not Folder folder)
             {
                 currentGlobalsCount++;
-                Log.WriteLine($"Writing ({currentGlobalsCount}/{totalGlobals}) {folder.Name}...");
-                folder.ExportToFile(factory);
+                Log.WriteLine($"Writing ({currentGlobalsCount}/{totalGlobals}) {asset.Name}...");
+                asset.ExportToFile(factory);
                 continue;
             }
 
-            System.IO.Directory.CreateDirectory(folder.Name);
-            System.IO.Directory.SetCurrentDirectory(folder.Name);
-            ResolveGlobalAssets(factory, ((Folder)folder).Children, ref totalGlobals, ref currentGlobalsCount);
+            if (asset.Name == "PSM" || asset.Name.Contains("ptc") || asset.Name.Contains("Playstation font") || asset.Name.Contains("SoundEffect"))
+            {
+                continue;
+            }
+
+            System.IO.Directory.CreateDirectory(asset.Name);
+            System.IO.Directory.SetCurrentDirectory(asset.Name);
+            ResolveGlobalAssets(factory, folder.Children, ref totalGlobals, ref currentGlobalsCount);
             System.IO.Directory.SetCurrentDirectory("..");
         }
     }
 
-    private void ResolveAndWriteChunks(ITwinItemFactory factory, Folder currentFolder, ref UInt32 scenesTotal, ref UInt32 currentSceneCount)
+    private void ResolveAndWriteChunks(ITwinItemFactory factory, Folder currentFolder, ref UInt32 scenesTotal, ref UInt32 currentSceneCount, bool isDefault = false)
     {
         var assetManager = AssetManager.Get();
         scenesTotal += (UInt32)currentFolder.Children.Select(assetManager.GetAsset).Count(a => a is LevelChunk);
@@ -898,14 +822,15 @@ public class Project : IProject
             if (folder is LevelChunk chunk)
             {
                 currentSceneCount++;
-                Log.WriteLine($"Writing level ({currentSceneCount}/{scenesTotal}) {folder.Name}...");
-                var rm2 = factory.GenerateRM();
+                factory.ChunkPath = chunk.AdditionalPath!;
+                Log.WriteLine($"Writing level ({currentSceneCount}/{scenesTotal}) {chunk.Name}...");
+                var rm2 = isDefault ? factory.GenerateDefault() : factory.GenerateRM();
                 var sm2 = factory.GenerateSM();
 
                 foreach (var asset in chunk.ChunkResources.Select(child => assetManager.GetAsset(child)))
                 {
                     Log.WriteLine($"Writing {asset.Name}...");
-                    if (asset is Scenery or ChunkLinks)
+                    if (!isDefault && asset is Scenery or ChunkLinks)
                     {
                         if (asset is Scenery scenery)
                         {
@@ -920,24 +845,37 @@ public class Project : IProject
                         asset.ResolveChunkResources(factory, rm2);
                     }
                 }
-
+                
                 ((BaseTwinSection)rm2).ChangeItemPosition(Constants.LEVEL_COLLISION_ITEM, 2);
                 ((BaseTwinSection)rm2).ChangeItemPosition(Constants.LEVEL_PARTICLES_ITEM, 2);
 
-                ((BaseTwinSection)sm2).ChangeItemPosition(Constants.SCENERY_SECENERY_ITEM, 1);
-                
-                using var rm2File = new System.IO.FileStream($"..{System.IO.Path.DirectorySeparatorChar}{folder.Name}.rm2", System.IO.FileMode.Create, System.IO.FileAccess.Write);
-                using var rm2Writer = new System.IO.BinaryWriter(rm2File);
-                rm2.Write(rm2Writer);
-                rm2Writer.Flush();
-                rm2Writer.Close();
+                if (!isDefault)
+                {
+                    ((BaseTwinSection)sm2).ChangeItemPosition(Constants.SCENERY_SECENERY_ITEM, 1);
+                    
+                    using var rm2File = new System.IO.FileStream($"..{System.IO.Path.DirectorySeparatorChar}{chunk.Name}.rm2", System.IO.FileMode.Create, System.IO.FileAccess.Write);
+                    using var rm2Writer = new System.IO.BinaryWriter(rm2File);
+                    rm2.Write(rm2Writer);
+                    rm2Writer.Flush();
+                    rm2Writer.Close();
+                    
+                    using var sm2File = new System.IO.FileStream(
+                        $"..{System.IO.Path.DirectorySeparatorChar}{chunk.Name}.sm2", System.IO.FileMode.Create,
+                        System.IO.FileAccess.Write);
+                    using var sm2Writer = new System.IO.BinaryWriter(sm2File);
+                    sm2.Write(sm2Writer);
+                    sm2Writer.Flush();
+                    sm2Writer.Close();
+                }
+                else
+                {
+                    using var rm2File = new System.IO.FileStream($"{chunk.Name}.rm2", System.IO.FileMode.Create, System.IO.FileAccess.Write);
+                    using var rm2Writer = new System.IO.BinaryWriter(rm2File);
+                    rm2.Write(rm2Writer);
+                    rm2Writer.Flush();
+                    rm2Writer.Close();
+                }
 
-                using var sm2File = new System.IO.FileStream($"..{System.IO.Path.DirectorySeparatorChar}{folder.Name}.sm2", System.IO.FileMode.Create, System.IO.FileAccess.Write);
-                using var sm2Writer = new System.IO.BinaryWriter(sm2File);
-                sm2.Write(sm2Writer);
-                sm2Writer.Flush();
-                sm2Writer.Close();
-                
                 // Only one level chunk file can exist per folder
                 break;
             }

@@ -31,7 +31,7 @@ public class TextFile : GlobalAsset
 
     public override void ExportToFile(ITwinItemFactory factory)
     {
-        GetData().SaveInCurrentDirectory($"{Name}.{TwinDataExt}");
+        GetData().SaveInCurrentDirectory($"{InvariantName}.{TwinDataExt}");
     }
 
     public override Type GetEditorType()

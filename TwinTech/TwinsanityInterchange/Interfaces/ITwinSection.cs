@@ -44,5 +44,9 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces
         /// </summary>
         /// <returns></returns>
         Int32 GetItemsAmount();
+        /// <summary>
+        /// Removes duplicated IDs
+        /// </summary>
+        void RemoveDuplicates(UInt32 id);
     }
 }

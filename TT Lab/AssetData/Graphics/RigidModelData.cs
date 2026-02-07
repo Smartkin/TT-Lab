@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Assets.Graphics;
@@ -34,6 +35,19 @@ public class RigidModelData : AbstractAssetData
     protected override void Dispose(Boolean disposing)
     {
         Materials.Clear();
+    }
+
+    public override String GetStringified()
+    {
+        var assetManager = AssetManager.Get();
+        var result = new StringBuilder();
+        result.AppendLine(assetManager.GetAsset(Model).GetDataHash().ToString());
+        foreach (var mat in Materials)
+        {
+            result.AppendLine(assetManager.GetAsset(mat).GetDataHash().ToString());
+        }
+        
+        return result.ToString();
     }
 
     public override void Import(LabURI package, String? variant, Int32? layoutId)

@@ -156,19 +156,18 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
         var newItem = new MenuItem
         {
             Header = settings.Header,
-            // IsCheckable = settings.IsCheckable,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Center
         };
         
         if (settings.Action != null)
         {
-            // newItem.Command = new ActionCommand(settings.Action);
+            newItem.Command = new GenerateCommand(settings.Action);
         }
 
         if (settings is { IsCheckable: true, IsChecked: not null })
         {
-            // newItem.SetBinding(MenuItem.IsCheckedProperty, settings.IsChecked);
+            newItem.Bind(MenuItem.IsCheckedProperty, settings.IsChecked);
         }
         
         _menuOptions.Add(newItem);

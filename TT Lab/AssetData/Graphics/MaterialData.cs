@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization.Metadata;
@@ -112,6 +113,19 @@ public class MaterialData : AbstractAssetData
         }
         
         return materialData;
+    }
+
+    public override String GetStringified()
+    {
+        var result = new StringBuilder();
+        result.AppendLine(ActivatedShaders.ToString());
+        result.AppendLine(DmaChainIndex.ToString());
+        foreach (var shader in Shaders)
+        {
+            result.AppendLine(shader.GetStringified());
+        }
+        
+        return result.ToString();
     }
 
     public override void Import(LabURI package, String? variant, Int32? layoutId)

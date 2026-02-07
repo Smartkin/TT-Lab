@@ -49,6 +49,8 @@ namespace TT_Lab.Assets.Factory
             throw new NotImplementedException();
         }
 
+        public string ChunkPath { get; set; }
+
         public ITwinBlendSkin GenerateBlendSkin(Int32 blendsAmount, List<SubBlendData> blends, UInt32? compileScale)
         {
             throw new NotImplementedException();

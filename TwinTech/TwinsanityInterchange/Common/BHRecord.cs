@@ -31,6 +31,7 @@ namespace Twinsanity.TwinsanityInterchange.Common
         public void Write(BinaryWriter writer)
         {
             writer.Write(Path.Length);
+            Path = Path.Replace('/', '\\');
             writer.Write(Path.ToCharArray());
             writer.Write(Offset);
             writer.Write(Length);

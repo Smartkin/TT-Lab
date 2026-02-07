@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Assets.Graphics;
@@ -47,6 +48,22 @@ public class LodModelData : AbstractAssetData
     [System.Text.Json.Serialization.JsonIgnore]
     public List<LabURI> Meshes { get; set; }
 
+    public override String GetStringified()
+    {
+        var result = new StringBuilder();
+        result.AppendLine(MinDrawDistance.ToString());
+        result.AppendLine(MaxDrawDistance.ToString());
+        foreach (var modelsDrawDistance in ModelsDrawDistances)
+        {
+            result.AppendLine(modelsDrawDistance.ToString());
+        }
+        foreach (var mesh in Meshes)
+        {
+            result.AppendLine(AssetManager.Get().GetAsset(mesh).GetDataHash().ToString());
+        }
+        return result.ToString();
+    }
+
     protected override void Dispose(Boolean disposing)
     {
         var assetManager = AssetManager.Get();
@@ -63,7 +80,7 @@ public class LodModelData : AbstractAssetData
 
     public override void Import(LabURI package, String? variant, Int32? layoutId)
     {
-        ITwinLOD lod = GetTwinItem<ITwinLOD>();
+        var lod = GetTwinItem<ITwinLOD>();
         Type = lod.Type;
         MinDrawDistance = lod.MinDrawDistance;
         MaxDrawDistance = lod.MaxDrawDistance;
@@ -127,6 +144,6 @@ public class LodModelData : AbstractAssetData
             assetManager.GetAsset(mesh).ResolveChunkResources(factory, meshesSection);
         }
 
-        return base.ResolveChunkResources(factory, section, id);
+        return base.ResolveChunkResources(factory, section, id, layoutID);
     }
 }

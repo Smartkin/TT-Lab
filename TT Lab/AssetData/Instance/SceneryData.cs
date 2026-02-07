@@ -814,7 +814,7 @@ public class SceneryData : AbstractAssetData
         var assetManager = AssetManager.Get();
         using var ms = new MemoryStream();
         using var writer = new BinaryWriter(ms);
-        writer.Write("TTLabScenery");
+        writer.Write(factory.ChunkPath.Replace('/', '\\'));
         writer.Write(FogColor);
         writer.Write(UnkByte);
         writer.Write(SkydomeID == LabURI.Empty ? 0 : assetManager.GetAsset(SkydomeID).ExportTwinID);

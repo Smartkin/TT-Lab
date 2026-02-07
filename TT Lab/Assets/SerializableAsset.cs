@@ -16,6 +16,7 @@ using TT_Lab.Project;
 using TT_Lab.ViewModels;
 using TT_Lab.ViewModels.ResourceTree;
 using Twinsanity.TwinsanityInterchange.Interfaces;
+using Twinsanity.TwinsanityInterchange.Interfaces.Items;
 
 namespace TT_Lab.Assets;
 
@@ -48,6 +49,7 @@ public abstract class SerializableAsset : IAsset
     public String FullPath => $"{Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath}/{LoadPath}";
     public UInt32 ID { get; set; }
     public UInt32 ExportTwinID => SetIdFromDataHash ? GetDataHash() : ID;
+    public UInt32 ExportIdSalt { get; set; }
     public String Alias { get; set; }
     public String Chunk { get; set; }
     public Int32? LayoutID { get; set; }
@@ -62,6 +64,8 @@ public abstract class SerializableAsset : IAsset
     public String Variation { get; set; }
 
     private bool _resolveTraversed = false;
+    private bool _hasHashCache = false;
+    private UInt32 _hashCache = 0U;
 
     protected SerializableAsset()
     {
@@ -97,17 +101,25 @@ public abstract class SerializableAsset : IAsset
 
     public UInt32 GetDataHash()
     {
+        if (_hasHashCache)
+        {
+            return _hashCache;
+        }
+        
         var hashResult = 0U;
         var crcHasher = SharpHash.Base.HashFactory.Checksum.CreateCRC(CRCStandard.CRC32);
         if (IsLoaded && AssetData != null)
         {
-            hashResult = crcHasher.ComputeString(AssetData.GetStringified(), new UTF8Encoding()).GetUInt32();
+            hashResult = crcHasher.ComputeString($"{AssetData.GetStringified()}{ExportIdSalt}", new UTF8Encoding()).GetUInt32();
         }
         else
         {
             using var fs = new FileStream(FullDataPath, FileMode.Open, FileAccess.Read);
             hashResult = crcHasher.ComputeStream(fs).GetUInt32();
         }
+
+        _hashCache = hashResult;
+        _hasHashCache = true;
 
         return hashResult;
     }
@@ -208,7 +220,7 @@ public abstract class SerializableAsset : IAsset
     {
         PreResolveResources();
         var item = Export(factory);
-        using var itemFile = new FileStream($"{Name}.{TwinDataExt}", FileMode.Create, FileAccess.Write);
+        using var itemFile = new FileStream($"{InvariantName}.{TwinDataExt}", FileMode.Create, FileAccess.Write);
         using var binaryWriter = new BinaryWriter(itemFile);
         item.Write(binaryWriter);
         binaryWriter.Flush();
@@ -219,7 +231,12 @@ public abstract class SerializableAsset : IAsset
 
     public virtual void PostResolveResources(Factory.ITwinItemFactory factory, ITwinSection section, ITwinItem? item)
     {
-        item?.SetID(SetIdFromDataHash ? GetDataHash() : ID);
+        var exportId = ExportTwinID;
+        if (section.GetParent() == null && item is ITwinMesh)
+        {
+            exportId = ID;
+        }
+        item?.SetID(exportId);
         item?.Compile();
     }
 
@@ -247,8 +264,9 @@ public abstract class SerializableAsset : IAsset
         _resolveTraversed = true;
         AssetData = GetData();
         PreResolveResources();
-        var item = AssetData.ResolveChunkResources(factory, section, SetIdFromDataHash ? GetDataHash() : ID, LayoutID);
+        var item = AssetData.ResolveChunkResources(factory, section, ExportTwinID, LayoutID);
         PostResolveResources(factory, section, item);
+        section.RemoveDuplicates(ExportTwinID);
 
         DisposeData();
         _resolveTraversed = false;

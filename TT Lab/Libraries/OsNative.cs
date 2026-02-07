@@ -6,14 +6,15 @@ using Avalonia.Controls;
 
 namespace TT_Lab.Libraries
 {
-    public static class OsNative
+    public static partial class OsNative
     {
-        [DllImport("User32.dll")]
-        public static extern bool SetCursorPos(int x, int y);
-        
-        [DllImport("user32.dll")]
+        [LibraryImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool GetCursorPos(ref Win32Point pt);
+        public static partial bool SetCursorPos(int x, int y);
+        
+        [LibraryImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static partial bool GetCursorPos(ref Win32Point pt);
 
         [StructLayout(LayoutKind.Sequential)]
         private struct Win32Point
@@ -22,11 +23,11 @@ namespace TT_Lab.Libraries
             public int Y;
         };
         
-        [DllImport("user32.dll")]
-        private static extern void ClipCursor(ref Win32Rect lpRect);
+        [LibraryImport("user32.dll")]
+        private static partial void ClipCursor(ref Win32Rect lpRect);
 
-        [DllImport("user32.dll")]
-        private static extern void ClipCursor(IntPtr lpRect);
+        [LibraryImport("user32.dll")]
+        private static partial void ClipCursor(IntPtr lpRect);
 
         [StructLayout(LayoutKind.Sequential)]
         private struct Win32Rect

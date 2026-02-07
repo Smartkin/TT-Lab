@@ -9,6 +9,9 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
+using Splat;
+using TT_Lab.ViewModels;
+using TT_Lab.ViewModels.Interfaces;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 
 namespace TT_Lab.Util;
@@ -114,6 +117,11 @@ public static class MiscUtils
     {
         state &= ~flags;
         return state;
+    }
+
+    public static Window GetMainWindow()
+    {
+        return (Window)((ShellViewModel)Locator.Current.GetService<ILabManager>()!).GetView();
     }
 
     public static Enums.TriggerActivatorObjects ChangeFlag(this Enums.TriggerActivatorObjects state, Enums.TriggerActivatorObjects flags, Boolean set)

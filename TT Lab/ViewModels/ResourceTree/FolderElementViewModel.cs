@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Threading.Tasks;
+using Avalonia.Controls;
 using Caliburn.Micro;
 using Splat;
 using TT_Lab.AssetData;
@@ -12,6 +13,7 @@ using TT_Lab.Assets.Graphics;
 using TT_Lab.Assets.Instance;
 using TT_Lab.Models;
 using TT_Lab.Util;
+using TT_Lab.Views;
 using Twinsanity.Libraries;
 using Path = TT_Lab.Assets.Instance.Path;
 
@@ -103,12 +105,16 @@ public class FolderElementViewModel : ResourceTreeElementViewModel
         }
     }
 
-    private void CreateItem()
+    private async void CreateItem()
     {
         var assetCreatorDialogue = Locator.Current.GetService<CreateAssetViewModel>()!;
         DefaultCreatableAssets(assetCreatorDialogue);
         ListCreatableAssets(assetCreatorDialogue);
         assetCreatorDialogue.AssignFolder(this);
-        Locator.Current.GetService<IWindowManager>()!.ShowDialogAsync(assetCreatorDialogue);
+        var dialogue = new CreateAssetView
+        {
+            DataContext = assetCreatorDialogue
+        };
+        await dialogue.ShowDialog(MiscUtils.GetMainWindow());
     }
 }

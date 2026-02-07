@@ -49,4 +49,11 @@ public class MeshData : RigidModelData
 
         assetManager.GetAsset(Model).ResolveChunkResources(factory, modelsSection);
     }
+
+    public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, uint id, int? layoutID = null)
+    {
+        return base.ResolveChunkResources(factory, section.GetParent() == null
+            ? section.GetItem<ITwinSection>(Constants.LEVEL_GRAPHICS_SECTION).GetItem<ITwinSection>(Constants.GRAPHICS_MESHES_SECTION)
+            : section, id, layoutID);
+    }
 }

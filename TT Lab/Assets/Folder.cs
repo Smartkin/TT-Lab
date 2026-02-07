@@ -64,6 +64,11 @@ public class Folder : SerializableAsset
         return $"{result}/{Name}";
     }
 
+    public T FindAndGetChild<T>(string name) where T : IAsset
+    {
+        return AssetManager.Get().GetAsset<T>(FindChild<T>(name));
+    }
+
     public LabURI FindChild<T>(string name) where T : IAsset
     {
         var result = LabURI.Empty;

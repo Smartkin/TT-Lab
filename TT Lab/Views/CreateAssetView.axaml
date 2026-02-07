@@ -8,11 +8,11 @@
         xmlns:models="clr-namespace:TT_Lab.Models"
         xmlns:controls1="clr-namespace:TT_Lab.Controls"
         xmlns:viewModels="clr-namespace:TT_Lab.ViewModels"
-        d:DataContext="{Binding Source={d:DesignInstance viewModels:CreateAssetViewModel}}"
         x:DataType="viewModels:CreateAssetViewModel"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="TT_Lab.Views.CreateAssetView"
-        Title="CreateAssetView">
+        Height="550" Width="400" CanMaximize="False" CanMinimize="True" CanResize="False" WindowStartupLocation="CenterOwner"
+        Title="Create Asset...">
     <!-- <Window.Resources> -->
     <!--     <ObjectDataProvider MethodName="GetValues" ObjectType="{x:Type sys:Enum}" x:Key="InstanceLayouts"> -->
     <!--         <ObjectDataProvider.MethodParameters> -->
@@ -28,7 +28,10 @@
                 <RowDefinition/>
                 <RowDefinition/>
             </Grid.RowDefinitions>
-            <controls:GroupBox Margin="5" Grid.Row="0" Header="Pick asset to create">
+            <controls:GroupBox Margin="5" Grid.Row="0">
+                <controls:GroupBox.Header>
+                    <TextBlock Text="Pick asset to create" HorizontalAlignment="Center" FontSize="16" Padding="5"/>
+                </controls:GroupBox.Header>
                 <ListBox SelectedItem="{Binding SelectedCreationModel, Mode=TwoWay}" SelectionChanged="Selector_OnSelectionChanged" ItemsSource="{Binding CreatableAssets}">
                     <ListBox.ItemTemplate>
                         <DataTemplate DataType="{x:Type models:AssetCreationPreviewModel}">
@@ -40,17 +43,17 @@
                     </ListBox.ItemTemplate>
                 </ListBox>
             </controls:GroupBox>
-            <Grid IsVisible="{Binding IsInstance}" Margin="5" Grid.Row="1">
+            <Grid IsVisible="{Binding IsInstance}" Margin="0, 0, 5, 0" Grid.Row="1">
                 <controls1:LabeledDropList
                     LayoutOrientation="Horizontal"
-                    Items="{Binding Source={StaticResource InstanceLayouts}}"
+                    Items="{Binding InstanceLayouts}"
                     SelectedItem="{Binding LayoutID}"
                     DropListName="Instance Layout"/>
             </Grid>
             <Grid Margin="5" Grid.Row="2">
                 <TextBox x:Name="AssetName" Loaded="AssetName_OnLoaded" Watermark="Asset Name..." Text="{Binding AssetName, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}" MaxHeight="25"/>
             </Grid>
-            <Button IsDefault="True" IsEnabled="{Binding CanCreate}" x:Name="CreateAssetButton" Margin="5" Grid.Row="3" Content="Create"/>
+            <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" IsDefault="True" IsEnabled="{Binding CanCreate}" Command="{Binding CreateAssetButton}" Margin="5, 0, 5, 0" Grid.Row="3" Content="Create"/>
         </Grid>
     </controls:GroupBox>
 </Window>

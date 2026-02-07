@@ -34,7 +34,6 @@ public class BlendSkin : SerializableAsset
             return;
         }
 
-        item.SetID(ExportTwinID);
         var data = (BlendSkinData)GetData();
         var blendSkinItem = (ITwinBlendSkin)item;
         if (data.CompileScale != null)
@@ -42,7 +41,7 @@ public class BlendSkin : SerializableAsset
             blendSkinItem.CompileScale = data.CompileScale.Value;
         }
 
-        blendSkinItem.Compile();
+        base.PostResolveResources(factory, section, item);
     }
 
     public override AbstractAssetData GetData()

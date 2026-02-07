@@ -156,7 +156,13 @@
                             <TreeDataTemplate ItemsSource="{Binding Children}">
                                 <StackPanel Background="Transparent" HorizontalAlignment="Stretch" Margin="0,2,0,2" Orientation="Horizontal">
                                     <StackPanel.ContextMenu>
-                                        <ContextMenu ItemsSource="{Binding MenuOptions}"/>
+                                        <ContextMenu ItemsSource="{Binding MenuOptions}">
+                                            <Interaction.Behaviors>
+                                                <EventTriggerBehavior EventName="Opened">
+                                                    <InvokeCommandAction Command="{Binding CreateContextMenuAction}"/>
+                                                </EventTriggerBehavior>
+                                            </Interaction.Behaviors>
+                                        </ContextMenu>
                                     </StackPanel.ContextMenu>
                                     <Interaction.Behaviors>
                                         <EventTriggerBehavior EventName="DoubleTapped">
@@ -170,10 +176,6 @@
                                         <!--         </cal:ActionMessage.Parameters> -->
                                         <!--     </cal:ActionMessage> -->
                                         <!-- </EventTrigger> -->
-                                        <EventTriggerBehavior EventName="ContextRequested">
-                                            <InvokeCommandAction Command="{Binding CreateContextMenuAction}"/>
-                                            <!-- <cal:ActionMessage MethodName="CreateContextMenuAction"/> -->
-                                        </EventTriggerBehavior>
                                     </Interaction.Behaviors>
                                     <Image Source="{Binding IconPath}" VerticalAlignment="Center" HorizontalAlignment="Center" Width="24" Height="24" Margin="0,0,3,0" Stretch="Uniform"/>
                                     <TextBlock x:Name="AssetBlock" IsVisible="{Binding IsNotRenaming}" VerticalAlignment="Center" HorizontalAlignment="Center" Text="{Binding Alias}">

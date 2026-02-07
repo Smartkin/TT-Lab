@@ -15,6 +15,11 @@ public partial class CreateAssetView : BurnBridgeWindow<CreateAssetViewModel>
     
     private void AssetName_OnLoaded(object sender, RoutedEventArgs e)
     {
+        if (Design.IsDesignMode)
+        {
+            return;
+        }
+        
         AssetName.Focus();
         ResetTextSelection();
     }

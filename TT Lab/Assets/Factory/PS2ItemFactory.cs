@@ -124,6 +124,8 @@ namespace TT_Lab.Assets.Factory
             return AgentLabCompiler.Compile(script, compilerOptions).Get<ITwinBehaviourCommandPack>();
         }
 
+        public string ChunkPath { get; set; }
+
         public ITwinBlendSkin GenerateBlendSkin(Int32 blendsAmount, List<SubBlendData> blends, UInt32? compileScale)
         {
             var assetManager = AssetManager.Get();
@@ -771,7 +773,6 @@ namespace TT_Lab.Assets.Factory
         {
             var @default = new PS2Default();
             @default.SetRoot(@default);
-            @default.SetParent(@default);
 
             var graphics = new PS2AnyGraphicsSection();
             graphics.SetID(Constants.LEVEL_GRAPHICS_SECTION);
