@@ -73,12 +73,13 @@ internal static class ImageQuantizer
             var boxToSplit =
                 boxes.OrderByDescending(b => Math.Max(b.RangeR, Math.Max(b.RangeG, Math.Max(b.RangeB, b.RangeA)))).First();
 
-            boxes.Remove(boxToSplit);
             boxToSplit.Split(out var box1, out var box2);
             if (box1.ColorsStored == 0 || box2.ColorsStored == 0)
             {
                 break;
             }
+            
+            boxes.Remove(boxToSplit);
             
             boxes.Add(box1);
             boxes.Add(box2);
