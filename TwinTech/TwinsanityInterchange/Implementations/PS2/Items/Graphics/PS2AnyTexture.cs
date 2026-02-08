@@ -252,24 +252,14 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.Graphics
             }
             else
             {
-                byte[] textureData = new byte[width * height];
-                byte[] paletteData = new byte[256 * 4];
-                List<Color> palette = new List<Color>(256);
-                foreach (var c in image)
-                {
-                    if (!palette.Contains(c))
-                    {
-                        palette.Add(c);
-                    }
-                }
-                while (palette.Count < 256)
-                {
-                    palette.Add(new Color());
-                }
+                var textureData = new byte[width * height];
+                var paletteData = new byte[256 * 4];
+                var palette = ImageQuantizer.Quantize(image);
+                
                 var index = 0;
                 foreach (var c in image)
                 {
-                    textureData[index] = (Byte)palette.IndexOf(c);
+                    textureData[index] = ImageQuantizer.PaletteIndex(c, palette);
                     ++index;
                 }
                 foreach (var c in palette)
@@ -282,9 +272,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.Graphics
                     {
                         var srcIndex = j + i * 32 + 8;
                         var dstIndex = j + i * 32;
-                        Color tmp = palette[srcIndex];
-                        palette[srcIndex] = palette[dstIndex];
-                        palette[dstIndex] = tmp;
+                        (palette[srcIndex], palette[dstIndex]) = (palette[dstIndex], palette[srcIndex]);
                     }
                 }
                 index = 0;
