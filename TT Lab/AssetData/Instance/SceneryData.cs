@@ -268,37 +268,12 @@ public class SceneryData : AbstractAssetData
         {
             var index = 0;
             var meshesNode = parentNode.CreateNode($"{parentNode.Name}_MESHES");
-            var meshMaterialDescs = meshesNode.CreateNode($"{meshesNode.Name}_MATERIAL_DESCS");
             foreach (var meshId in sceneryData.MeshIDs)
             {
                 var meshData = assetManager.GetAssetData<MeshData>(meshId);
-                var model = assetManager.GetAssetData<ModelData>(meshData.Model);
                 var meshMatrix = sceneryData.MeshModelMatrices[index];
-                var meshNode = meshesNode.CreateNode($"{meshesNode.Name}_MESH_{index}");
+                var meshNode = meshData.ExportGltf(scene, meshesNode, index.ToString());
                 meshNode.LocalMatrix = meshMatrix.ToSystem();
-                var meshes = model.GetMeshes(meshNode,
-                    meshData.Materials.Select(matUri => assetManager.GetAssetData<MaterialData>(matUri)).ToList());
-                foreach (var mesh in meshes)
-                {
-                    mesh.Mesh.Name = $"{meshNode.Name}_{mesh.Mesh.Name.Replace("RIGIDIDPLACEHOLDER", index.ToString())}";
-                    scene.AddRigidMesh(mesh.Mesh, meshNode);
-                }
-
-                var subModelId = 0;
-                foreach (var vertex in model.Vertexes)
-                {
-                    var material = assetManager.GetAssetData<MaterialData>(meshData.Materials[subModelId]);
-                    var materialDescNode = new SharpGLTF.Scenes.NodeBuilder
-                    {
-                        Extras = material.GetJsonFormat(),
-                        Name = $"{parentNode.Name}_MATERIAL_DESC_{index}_{subModelId}_{material.Name}"
-                    };
-
-                    meshMaterialDescs.AddNode(materialDescNode);
-
-                    subModelId++;
-                }
-
                 index++;
             }
         }
@@ -307,7 +282,6 @@ public class SceneryData : AbstractAssetData
         {
             var index = 0;
             var lodsNode = parentNode.CreateNode($"{parentNode.Name}_LODS");
-            var lodsMaterialDescs = lodsNode.CreateNode($"{lodsNode.Name}_MATERIAL_DESCS");
             foreach (var lodId in sceneryData.LodIDs)
             {
                 var lodData = assetManager.GetAssetData<LodModelData>(lodId);
@@ -319,31 +293,7 @@ public class SceneryData : AbstractAssetData
                 foreach (var meshId in lodData.Meshes)
                 {
                     var meshData = assetManager.GetAssetData<MeshData>(meshId);
-                    var model = assetManager.GetAssetData<ModelData>(meshData.Model);
-                    var meshNode = lodNode.CreateNode($"{lodNode.Name}_MESH_{meshIdx}");
-                    var meshes = model.GetMeshes(meshNode,
-                        meshData.Materials.Select(matUri => assetManager.GetAssetData<MaterialData>(matUri)).ToList());
-                    foreach (var mesh in meshes)
-                    {
-                        mesh.Mesh.Name = $"{meshNode.Name}_{mesh.Mesh.Name.Replace("RIGIDIDPLACEHOLDER", $"lod_{meshIdx}")}";
-                        scene.AddRigidMesh(mesh.Mesh, meshNode);
-                    }
-
-                    var subModelId = 0;
-                    foreach (var vertex in model.Vertexes)
-                    {
-                        var material = assetManager.GetAssetData<MaterialData>(meshData.Materials[subModelId]);
-                        var materialDescNode = new SharpGLTF.Scenes.NodeBuilder
-                        {
-                            Extras = material.GetJsonFormat(),
-                            Name = $"{meshNode.Name}_MATERIAL_DESC_{meshIdx}_{subModelId}_{material.Name}"
-                        };
-
-                        lodsMaterialDescs.AddNode(materialDescNode);
-
-                        subModelId++;
-                    }
-
+                    meshData.ExportGltf(scene, lodNode, $"lod_{meshIdx}");
                     meshIdx++;
                 }
 
@@ -616,122 +566,22 @@ public class SceneryData : AbstractAssetData
         }
     }
 
-    private Mesh ImportGltfMesh(List<SharpGLTF.Schema2.Mesh> meshesGltf, Node meshesNode, Node meshNode, int meshNodeIndex, bool isLod, Node? materialDescs)
-    {
-        var assetManager = AssetManager.Get();
-        var model = new Model
-        {
-            Package = Owner.Package,
-            InvariantName = $"{Owner.Chunk}_{meshNode.Name}_MODEL",
-            Alias = $"{Owner.Chunk}_{meshNode.Name}_MODEL",
-            IsInternal = true
-        };
-        
-        var modelData = new ModelData(model);
-        modelData.LoadFromGltfMeshes(meshesGltf);
-        model.SetData(modelData);
-        
-        assetManager.AddAsset(model);
-        
-        var mesh = new Mesh
-        {
-            Package = Owner.Package,
-            InvariantName = $"{Owner.Chunk}_{meshNode.Name}_MESH{(isLod ? "_LOD" : "")}",
-            Alias = $"{Owner.Chunk}_{meshNode.Name}_MESH{(isLod ? "_LOD" : "")}",
-            IsInternal = true
-        };
-
-        var materialsGltf = meshesGltf.SelectMany(m => m.Primitives).Select(prim => prim.Material).Distinct().ToList();
-        var materials = materialsGltf.Select(_ => LabURI.Empty).ToList();
-        if (materialDescs != null)
-        {
-            var modelIndex = 0;
-            foreach (var vertex in modelData.Vertexes)
-            {
-                var materialDescNameMask =
-                    $"{meshesNode.VisualParent.Name}_MATERIAL_DESC_{meshNodeIndex}_{modelIndex}_";
-                if (isLod)
-                {
-                    materialDescNameMask = $"{meshNode.Name}_MATERIAL_DESC_{meshNodeIndex}_{modelIndex}_";
-                }
-                var materialDesc =
-                    materialDescs.VisualChildren.FirstOrDefault(n =>
-                        n.Name.Contains(materialDescNameMask))!;
-                var materialName = materialDesc.Name.Replace(materialDescNameMask, "");
-                
-                var material = new Material
-                {
-                    Package = Owner.Package,
-                    InvariantName = $"{meshesNode.VisualParent.Name}_{materialName}_MATERIAL",
-                    Alias = $"{meshesNode.VisualParent.Name}_{materialName}_MATERIAL",
-                    IsInternal = true
-                };
-
-                var materialData = MaterialData.LoadFromGltf(material, materialDesc,
-                    materialsGltf.Where(m => m.Name.Contains($"RIGID{GraphicsHelpers.MaterialTokenDivider}MATERIAL{GraphicsHelpers.MaterialTokenDivider}{materialName}{GraphicsHelpers.MaterialTokenDivider}{modelIndex}{GraphicsHelpers.MaterialTokenDivider}"))
-                        .ToList());
-                material.SetData(materialData);
-                
-                assetManager.TryAddAsset(material);
-
-                materials[modelIndex] = material.URI;
-                
-                modelIndex++;
-            }
-            
-            materials = materials[..modelIndex];
-        }
-        
-        var meshData = new MeshData(mesh);
-        meshData.Model = model.URI;
-        meshData.Materials = materials;
-        
-        mesh.SetData(meshData);
-        assetManager.AddAsset(mesh);
-
-        return mesh;
-    }
-
     private void ImportGltfMeshes(Node meshesNode, SceneryBaseData sceneryData, ModelRoot sceneryModel)
     {
-        var materialDescs = meshesNode.VisualChildren.FirstOrDefault(n => n.Name == $"{meshesNode.Name}_MATERIAL_DESCS");
-        if (materialDescs == null)
-        {
-            Log.WriteLine("No material descs for meshes found! Empty materials will be used!", Log.LogType.Warning);
-        }
-
-        var meshNodeIndex = 0;
         foreach (var meshNode in meshesNode.VisualChildren)
         {
-            if (meshNode == materialDescs)
-            {
-                continue;
-            }
-
             sceneryData.MeshModelMatrices.Add(meshNode.LocalMatrix.ToTwin());
-            var meshesGltf = sceneryModel.LogicalMeshes.Where(m => m.Name.StartsWith($"{meshNode.Name}_mesh_{meshNodeIndex}")).ToList();
-            var mesh = ImportGltfMesh(meshesGltf, meshesNode, meshNode, meshNodeIndex, false, materialDescs);
+            var mesh = RigidModelData.ImportGltf<Mesh>(Owner, sceneryModel, meshNode);
             sceneryData.MeshIDs.Add(mesh.URI);
-            meshNodeIndex++;
         }
     }
 
     private void ImportGltfLods(Node lodsNode, SceneryBaseData sceneryData, ModelRoot model)
     {
         var assetManager = AssetManager.Get();
-        var materialDescs = lodsNode.VisualChildren.FirstOrDefault(n => n.Name == $"{lodsNode.Name}_MATERIAL_DESCS");
-        if (materialDescs == null)
-        {
-            Log.WriteLine("No material descs for LODs found! Empty materials will be used!", Log.LogType.Warning);
-        }
 
         foreach (var lodNode in lodsNode.VisualChildren)
         {
-            if (lodNode == materialDescs)
-            {
-                continue;
-            }
-            
             sceneryData.LodModelMatrices.Add(lodNode.LocalMatrix.ToTwin());
 
             var lod = new LodModel
@@ -746,13 +596,10 @@ public class SceneryData : AbstractAssetData
             lodData.Meshes = [];
             lodData.SetOwner(Owner);
 
-            var lodMeshIndex = 0;
             foreach (var meshNode in lodNode.VisualChildren)
             {
-                var meshesGltf = model.LogicalMeshes.Where(m => m.Name.StartsWith($"{meshNode.Name}_mesh_lod_{lodMeshIndex}_")).ToList();
-                var labMesh = ImportGltfMesh(meshesGltf, lodNode, meshNode, lodMeshIndex, true, materialDescs);
+                var labMesh = RigidModelData.ImportGltf<Mesh>(Owner, model, meshNode);
                 lodData.Meshes.Add(labMesh.URI);
-                lodMeshIndex++;
             }
             
             lod.SetData(lodData);

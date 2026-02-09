@@ -94,15 +94,14 @@ public class OGIData : AbstractAssetData
         Skin = LabURI.Empty;
         BlendSkin = LabURI.Empty;
         var model = ModelRoot.Load($"{dataPath}.glb");
-        var rigidMeshes = new List<List<Mesh>>();
-        var rigidMaterials = new List<List<Material>>();
+        var rigidMeshes = new List<Node>();
         var skinMeshes = new List<Mesh>();
         var skinMaterials = new List<Material>();
         var blendSkinMeshes = new List<Mesh>();
         var blendMaterials = new List<Material>();
         var materialDescs = model.DefaultScene.VisualChildren.First(n => n.Name == "MATERIAL_DESCS");
         ExtractSkinsAndBlendSkins(model, skinMeshes, blendSkinMeshes, blendMaterials, skinMaterials);
-        TraverseNodeTree(model, model.DefaultScene.VisualChildren.FirstOrDefault(n => n.Name == "SKELETON_ROOT"), rigidMeshes, rigidMaterials);
+        TraverseNodeTree(model, model.DefaultScene.VisualChildren.FirstOrDefault(n => n.Name == "SKELETON_ROOT"), rigidMeshes);
 
         var ogiJsonData = model.DefaultScene.Extras.Deserialize<OgiGltfData>()!;
         BoundingBox = [ogiJsonData.BoundingBoxTopRight, ogiJsonData.BoundingBoxBottomLeft];
@@ -236,127 +235,15 @@ public class OGIData : AbstractAssetData
             Skin = labSkin.URI;
         }
 
-        var resultingRigidMeshes = new List<List<Mesh>>();
-        var resultingRigidMaterials = new List<List<Material>>();
         foreach (var rigidMesh in rigidMeshes)
         {
-            foreach (var mesh in rigidMesh)
-            {
-                var meshTokens = mesh.Name.Split(GraphicsHelpers.MeshTokenDivider, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-                if (meshTokens.Length < 3 || meshTokens[0] != "mesh")
-                {
-                    Log.WriteLine($"Misconfigured mesh {mesh.Name}! Empty one will be used instead.", Log.LogType.Error);
-                    continue;
-                }
-                
-                var rigidIndex = int.Parse(meshTokens[1]);
-                while (resultingRigidMeshes.Count <= rigidIndex)
-                {
-                    resultingRigidMeshes.Add([]);
-                    resultingRigidMaterials.Add([]);
-                }
-                
-                var meshesList = resultingRigidMeshes[rigidIndex];
-                var materialsList = resultingRigidMaterials[rigidIndex];
-                var meshIndex = int.Parse(meshTokens[2]);
-                while (meshesList.Count <= meshIndex)
-                {
-                    meshesList.Add(null);
-                    materialsList.Add(null);
-                }
-                
-                meshesList[meshIndex] = mesh;
-                materialsList[meshIndex] = mesh.Primitives.Select(prim => prim.Material).First();
-            }
-        }
-
-        var modelId = 0;
-        foreach (var rigidMesh in resultingRigidMeshes)
-        {
-            var labModel = new Model
-            {
-                Package = Owner.Package,
-                InvariantName = $"Model_{modelId}_{Owner.Name}",
-                Alias = $"Model_{modelId}_{Owner.Name}",
-                IsInternal = true
-            };
-            assetManager.TryAddAsset(labModel);
-            
-            var modelData = new ModelData(labModel);
-            modelData.LoadFromGltfMeshes(rigidMesh);
-            labModel.SetData(modelData);
-
-            var labRigidModel = new RigidModel
-            {
-                Package = Owner.Package,
-                InvariantName = $"RigidModel_{modelId}_{Owner.Name}",
-                Alias = $"RigidModel_{modelId}_{Owner.Name}",
-                IsInternal = true
-            };
-            assetManager.TryAddAsset(labRigidModel);
-            
-            var materials = resultingRigidMaterials[modelId];
-            var labMaterials = new List<LabURI>();
-            foreach (var material in materials)
-            {
-                var materialTokens = material.Name.Split(GraphicsHelpers.MaterialTokenDivider, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-                if (materialTokens.Length < 4 || materialTokens[0] != "RIGID" || materialTokens[1] != "MATERIAL")
-                {
-                    Log.WriteLine($"Misconfigured material {material.Name}! Empty one will be used instead.", Log.LogType.Error);
-                    labMaterials.Add(LabURI.Empty);
-                    continue;
-                }
-
-                if (materialTokens[2] == "NULL")
-                {
-                    labMaterials.Add(LabURI.Empty);
-                    continue;
-                }
-
-                var materialIndex = int.Parse(materialTokens[3]);
-                while (labMaterials.Count <= materialIndex)
-                {
-                    labMaterials.Add(LabURI.Empty);
-                }
-
-                if (labMaterials[materialIndex] != LabURI.Empty)
-                {
-                    continue;
-                }
-                
-                var labMaterial = new TT_Lab.Assets.Graphics.Material
-                {
-                    Package = labRigidModel.Package,
-                    InvariantName = $"Material_{labRigidModel.Name}_{materialTokens[2]}",
-                    Alias = $"Material_{labRigidModel.Name}_{materialTokens[2]}",
-                    IsInternal = true
-                };
-                assetManager.TryAddAsset(labMaterial);
-                
-                labMaterials[materialIndex] = labMaterial.URI;
-                
-                labMaterial.SetData(MaterialData.LoadFromGltf(labMaterial, 
-                    materialDescs.VisualChildren.First(n => n.Name.Contains($"MATERIAL_DESC_FOR_RIGID_{modelId}_{materialIndex}")),
-                    materials.Where(m => m.Name.Contains($"{materialTokens[0]}{GraphicsHelpers.MaterialTokenDivider}{materialTokens[1]}{GraphicsHelpers.MaterialTokenDivider}{materialTokens[2]}{GraphicsHelpers.MaterialTokenDivider}{materialTokens[3]}")).ToList()));
-            }
-            
-            var rigidModelData = new RigidModelData(labRigidModel);
-            rigidModelData.Model = labModel.URI;
-            rigidModelData.Materials = labMaterials;
-            labRigidModel.SetData(rigidModelData);
-
-            var meshParent = rigidMesh[0].VisualParents.First();
-            if (meshParent.Name == null)
-            {
-                meshParent = meshParent.VisualParent;
-            }
+            var labRigidModel = RigidModelData.ImportGltf<RigidModel>(Owner, model, rigidMesh);
+            var meshParent = rigidMesh.VisualParent;
             var jointIndex = meshParent.Name == "SKELETON_ROOT"
                 ? 0
                 : int.Parse(meshParent.Name.Split('_')[^1]);
             RigidModelJointIndices.Add((byte)jointIndex);
             RigidModelIds.Add(labRigidModel.URI);
-
-            modelId++;
         }
     }
 
@@ -372,26 +259,15 @@ public class OGIData : AbstractAssetData
         skinMaterials.AddRange(skinMats);
     }
 
-    private void TraverseNodeTree(ModelRoot model, Node? node, List<List<Mesh>> rigidMeshes, List<List<Material>> rigidMaterials)
+    private void TraverseNodeTree(ModelRoot model, Node? node, List<Node> rigidMeshes)
     {
-        if (node == null)
+        if (node == null || string.IsNullOrEmpty(node.Name))
         {
             return;
-        }
-        
-        var meshes = model.LogicalMeshes.Where(m => m.VisualParents.All(n => n.LogicalIndex == node.LogicalIndex)).ToList();
-        var rigids = meshes.Where(m => m.Extras != null && m.Extras.Deserialize<MeshExtraInfo>()!.Type == MeshExportType.Rigid).ToList();
-        var rigidMats = rigids.SelectMany(m => m.Primitives.Select(prim => prim.Material)).Distinct().ToList();
-        if (rigids.Count > 0)
-        {
-            rigidMeshes.Add(rigids.DistinctBy(m => m.Name).ToList());
-            rigidMaterials.Add(rigidMats);
         }
 
-        if (string.IsNullOrEmpty(node.Name))
-        {
-            return;
-        }
+        var rigidNodes = node.VisualChildren.Where(n => n.Name.Contains($"{node.Name}_RIGID_MODEL_")).ToList();
+        rigidMeshes.AddRange(rigidNodes);
         
         var jointIndex = (byte)0;
         if (node.Name != "SKELETON_ROOT")
@@ -416,7 +292,7 @@ public class OGIData : AbstractAssetData
             twinJoint.ParentIndex = 255;
         }
 
-        var children = node.VisualChildren.ToList();
+        var children = node.VisualChildren.Where(n => !string.IsNullOrEmpty(n.Name) && !n.Name.Contains($"{node.Name}_RIGID_MODEL_")).ToList();
         var additionalAnimationJson = node.Extras;
         var jointJson = new JointJsonFormat();
         if (additionalAnimationJson != null)
@@ -435,7 +311,7 @@ public class OGIData : AbstractAssetData
 
         foreach (var child in children)
         {
-            if (child.Name == null || !child.Name.Contains("EXIT_POINT"))
+            if (!child.Name.Contains("EXIT_POINT"))
             {
                 continue;
             }
@@ -451,12 +327,12 @@ public class OGIData : AbstractAssetData
 
         foreach (var child in children)
         {
-            if (child.Name != null && child.Name.Contains("EXIT_POINT"))
+            if (child.Name.Contains("EXIT_POINT"))
             {
                 continue;
             }
             
-            TraverseNodeTree(model, child, rigidMeshes, rigidMaterials);
+            TraverseNodeTree(model, child, rigidMeshes);
         }
     }
 
@@ -629,28 +505,7 @@ public class OGIData : AbstractAssetData
             }
 
             var rigidModelData = assetManager.GetAssetData<RigidModelData>(rigidModelId);
-            var model = assetManager.GetAssetData<ModelData>(rigidModelData.Model);
-            var meshes = model.GetMeshes(jointNode.Node, rigidModelData.Materials.Select(matUri => assetManager.GetAssetData<MaterialData>(matUri)).ToList());
-            foreach (var mesh in meshes)
-            {
-                mesh.Mesh.Name = mesh.Mesh.Name.Replace("RIGIDIDPLACEHOLDER", rigidModel.ToString());
-                scene.AddRigidMesh(mesh.Mesh, jointNode.Node);
-            }
-            
-            var subModelId = 0;
-            foreach (var vertex in model.Vertexes)
-            {
-                var material = assetManager.GetAssetData<MaterialData>(rigidModelData.Materials[subModelId]);
-                var materialDescNode = new SharpGLTF.Scenes.NodeBuilder
-                {
-                    Extras = material.GetJsonFormat(),
-                    Name = $"MATERIAL_DESC_FOR_RIGID_{rigidModel}_{subModelId}_{material.Name}"
-                };
-        
-                materialDescs.AddNode(materialDescNode);
-
-                subModelId++;
-            }
+            rigidModelData.ExportGltf(scene, jointNode.Node, rigidModel.ToString());
             
             rigidModel++;
         }

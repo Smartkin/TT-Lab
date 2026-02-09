@@ -3,13 +3,15 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
+using SharpGLTF.Schema2;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
-using TT_Lab.Assets.Graphics;
 using TT_Lab.Attributes;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items;
+using Mesh = TT_Lab.Assets.Graphics.Mesh;
 
 namespace TT_Lab.AssetData.Graphics;
 
@@ -18,7 +20,7 @@ public class SkydomeData : AbstractAssetData
 {
     public SkydomeData(IAsset asset) : base(asset)
     {
-        Meshes = new List<LabURI>();
+        Meshes = [];
     }
 
     public SkydomeData(IAsset asset, ITwinSkydome skydome) : this(asset)
@@ -36,37 +38,60 @@ public class SkydomeData : AbstractAssetData
 
     protected override void SaveInternal(string dataPath, JsonSerializerSettings? settings = null)
     {
-        base.SaveInternal(dataPath, settings);
-            
         var scene = new SharpGLTF.Scenes.SceneBuilder($"TwinsanitySkydome_{Owner.Name}");
-        var root = new SharpGLTF.Scenes.NodeBuilder("skydome_root");
+        var root = new SharpGLTF.Scenes.NodeBuilder("SKYDOME_ROOT");
 
-        var meshesRoot = root.CreateNode();
+        var meshesRoot = root.CreateNode("SKYDOME_MESHES");
         var assetManager = AssetManager.Get();
+        var meshIndex = 0;
         foreach (var meshId in Meshes)
         {
             var meshData = assetManager.GetAssetData<MeshData>(meshId);
-            var model = assetManager.GetAssetData<ModelData>(meshData.Model);
-            var meshes = model.GetMeshes(meshesRoot, meshData.Materials.Select(matUri => assetManager.GetAssetData<MaterialData>(matUri)).ToList());
-            foreach (var mesh in meshes)
-            {
-                scene.AddRigidMesh(mesh.Mesh, meshesRoot);
-            }
+            meshData.ExportGltf(scene, meshesRoot, meshIndex.ToString());
+            meshIndex++;
         }
             
         var resultModel = scene.ToGltf2();
-        resultModel.SaveGLB(dataPath + ".glb");
+        resultModel.SaveGLB(dataPath);
+    }
+
+    protected override void LoadInternal(string dataPath, JsonSerializerSettings? settings = null)
+    {
+        var model = ModelRoot.Load(dataPath);
+        Meshes.Clear();
+        var skydomeRoot = model.DefaultScene.VisualChildren.FirstOrDefault(n => n.Name.Contains("SKYDOME_ROOT"));
+        if (skydomeRoot == null)
+        {
+            Log.WriteLine($"Misconfigured Skydome {dataPath}! Make sure it contains SKYDOME_ROOT node!", Log.LogType.Error);
+            return;
+        }
+        var meshesNode = skydomeRoot.VisualChildren.FirstOrDefault(n => n.Name.Contains("SKYDOME_MESHES"));
+        if (meshesNode == null)
+        {
+            Log.WriteLine($"Misconfigured Skydome {dataPath}! Make sure SKYDOME_ROOT contains SKYDOME_MESHES node!");
+            return;
+        }
+
+        foreach (var meshNode in meshesNode.VisualChildren)
+        {
+            var mesh = RigidModelData.ImportGltf<Mesh>(Owner, model, meshNode);
+            Meshes.Add(mesh.URI);
+        }
     }
 
     public override String GetStringified()
     {
-        
-        return base.GetStringified();
+        var result = new StringBuilder();
+        foreach (var labUri in Meshes)
+        {
+            result.AppendLine(AssetManager.Get().GetAssetData<MeshData>(labUri).GetStringified());
+        }
+        return result.ToString();
     }
 
     public override void Import(LabURI package, String? variant, Int32? layoutId)
     {
-        ITwinSkydome skydome = GetTwinItem<ITwinSkydome>();
+        var skydome = GetTwinItem<ITwinSkydome>();
         Meshes = new List<LabURI>();
         foreach (var mesh in skydome.Meshes)
         {
