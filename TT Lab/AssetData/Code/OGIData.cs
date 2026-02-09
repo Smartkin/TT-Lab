@@ -96,11 +96,9 @@ public class OGIData : AbstractAssetData
         var model = ModelRoot.Load($"{dataPath}.glb");
         var rigidMeshes = new List<Node>();
         var skinMeshes = new List<Mesh>();
-        var skinMaterials = new List<Material>();
         var blendSkinMeshes = new List<Mesh>();
-        var blendMaterials = new List<Material>();
         var materialDescs = model.DefaultScene.VisualChildren.First(n => n.Name == "MATERIAL_DESCS");
-        ExtractSkinsAndBlendSkins(model, skinMeshes, blendSkinMeshes, blendMaterials, skinMaterials);
+        ExtractSkinsAndBlendSkins(model, skinMeshes, blendSkinMeshes);
         TraverseNodeTree(model, model.DefaultScene.VisualChildren.FirstOrDefault(n => n.Name == "SKELETON_ROOT"), rigidMeshes);
 
         var ogiJsonData = model.DefaultScene.Extras.Deserialize<OgiGltfData>()!;
@@ -124,52 +122,8 @@ public class OGIData : AbstractAssetData
             };
             assetManager.TryAddAsset(labSkin);
             
-            var labMaterials = new List<GltfMaterialLabUri>();
-            foreach (var material in blendMaterials)
-            {
-                var materialTokens = material.Name.Split(GraphicsHelpers.MaterialTokenDivider, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-                if (materialTokens.Length < 4 || materialTokens[0] != "BLEND_SKIN" || materialTokens[1] != "MATERIAL")
-                {
-                    Log.WriteLine($"Misconfigured material {material.Name}! Empty one will be used instead.", Log.LogType.Error);
-                    labMaterials.Add(new GltfMaterialLabUri(material.LogicalIndex, LabURI.Empty));
-                    continue;
-                }
-
-                if (materialTokens[2] == "NULL")
-                {
-                    labMaterials.Add(new GltfMaterialLabUri(material.LogicalIndex, LabURI.Empty));
-                    continue;
-                }
-
-                var materialIndex = int.Parse(materialTokens[3]);
-                while (labMaterials.Count <= materialIndex)
-                {
-                    labMaterials.Add(new GltfMaterialLabUri(-1, LabURI.Empty));
-                }
-
-                if (labMaterials[materialIndex].MaterialUri != LabURI.Empty)
-                {
-                    continue;
-                }
-                
-                var labMaterial = new TT_Lab.Assets.Graphics.Material
-                {
-                    Package = labSkin.Package,
-                    InvariantName = $"Material_{labSkin.Name}_{materialTokens[2]}",
-                    Alias = $"Material_{labSkin.Name}_{materialTokens[2]}",
-                    IsInternal = true
-                };
-                assetManager.TryAddAsset(labMaterial);
-                
-                labMaterials[materialIndex] = new GltfMaterialLabUri(material.LogicalIndex, labMaterial.URI);
-                
-                labMaterial.SetData(MaterialData.LoadFromGltf(labMaterial, 
-                    materialDescs.VisualChildren.First(n => n.Name.Contains($"MATERIAL_DESC_FOR_BLEND_{materialIndex}")),
-                    blendMaterials.Where(m => m.Name.Contains($"{materialTokens[0]}{GraphicsHelpers.MaterialTokenDivider}{materialTokens[1]}{GraphicsHelpers.MaterialTokenDivider}{materialTokens[2]}{GraphicsHelpers.MaterialTokenDivider}{materialTokens[3]}")).ToList()));
-            }
-            
             var blendSkinData = new BlendSkinData(labSkin);
-            blendSkinData.LoadFromGltf(blendMaterials.Distinct().ToList(), blendSkinMeshes, labMaterials);
+            blendSkinData.LoadFromGltf(materialDescs, blendSkinMeshes);
             labSkin.SetData(blendSkinData);
             BlendSkin = labSkin.URI;
         }
@@ -185,52 +139,8 @@ public class OGIData : AbstractAssetData
             };
             assetManager.TryAddAsset(labSkin);
             
-            var labMaterials = new List<LabURI>();
-            foreach (var material in skinMaterials)
-            {
-                var materialTokens = material.Name.Split(GraphicsHelpers.MaterialTokenDivider, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-                if (materialTokens.Length < 4 || materialTokens[0] != "SKIN" || materialTokens[1] != "MATERIAL")
-                {
-                    Log.WriteLine($"Misconfigured material {material.Name}! Empty one will be used instead.", Log.LogType.Error);
-                    labMaterials.Add(LabURI.Empty);
-                    continue;
-                }
-
-                if (materialTokens[2] == "NULL")
-                {
-                    labMaterials.Add(LabURI.Empty);
-                    continue;
-                }
-
-                var materialIndex = int.Parse(materialTokens[3]);
-                while (labMaterials.Count <= materialIndex)
-                {
-                    labMaterials.Add(LabURI.Empty);
-                }
-
-                if (labMaterials[materialIndex] != LabURI.Empty)
-                {
-                    continue;
-                }
-                
-                var labMaterial = new TT_Lab.Assets.Graphics.Material
-                {
-                    Package = labSkin.Package,
-                    InvariantName = $"Material_{labSkin.Name}_{materialTokens[2]}",
-                    Alias = $"Material_{labSkin.Name}_{materialTokens[2]}",
-                    IsInternal = true
-                };
-                assetManager.TryAddAsset(labMaterial);
-                
-                labMaterials[materialIndex] = labMaterial.URI;
-                
-                labMaterial.SetData(MaterialData.LoadFromGltf(labMaterial, 
-                    materialDescs.VisualChildren.First(n => n.Name.Contains($"MATERIAL_DESC_FOR_SKIN_{materialIndex}")),
-                    skinMaterials.Where(m => m.Name.Contains($"{materialTokens[0]}{GraphicsHelpers.MaterialTokenDivider}{materialTokens[1]}{GraphicsHelpers.MaterialTokenDivider}{materialTokens[2]}{GraphicsHelpers.MaterialTokenDivider}{materialTokens[3]}")).ToList()));
-            }
-            
             var skinData = new SkinData(labSkin);
-            skinData.LoadFromGltf(skinMeshes, labMaterials);
+            skinData.LoadFromGltf(skinMeshes, materialDescs);
             labSkin.SetData(skinData);
             Skin = labSkin.URI;
         }
@@ -247,16 +157,12 @@ public class OGIData : AbstractAssetData
         }
     }
 
-    private void ExtractSkinsAndBlendSkins(ModelRoot model, List<Mesh> skinMeshes, List<Mesh> blendSkinMeshes, List<Material> blendMaterials, List<Material> skinMaterials)
+    private void ExtractSkinsAndBlendSkins(ModelRoot model, List<Mesh> skinMeshes, List<Mesh> blendSkinMeshes)
     {
         var skinned = model.LogicalMeshes.Where(m => m.Extras != null && m.Extras.Deserialize<MeshExtraInfo>()!.Type == MeshExportType.Skinned).ToList();
         var blendSkinned = model.LogicalMeshes.Where(m => m.Extras != null && m.Extras.Deserialize<MeshExtraInfo>()!.Type == MeshExportType.BlendSkinned).ToList();
-        var blendMats = blendSkinned.SelectMany(m => m.Primitives.Select(prim => prim.Material)).Distinct().ToList();
-        var skinMats = skinned.SelectMany(m => m.Primitives.Select(prim => prim.Material)).Distinct().ToList();
         blendSkinMeshes.AddRange(blendSkinned.DistinctBy(m => m.Name));
-        blendMaterials.AddRange(blendMats);
         skinMeshes.AddRange(skinned.DistinctBy(m => m.Name));
-        skinMaterials.AddRange(skinMats);
     }
 
     private void TraverseNodeTree(ModelRoot model, Node? node, List<Node> rigidMeshes)
@@ -367,11 +273,6 @@ public class OGIData : AbstractAssetData
             rootJoint.AddNode(exitPoint);
         }
 
-        var materialDescs = new SharpGLTF.Scenes.NodeBuilder
-        {
-            Name = "MATERIAL_DESCS"
-        };
-
         var nodeMap = new Dictionary<int, GltfBone>
         {
             {
@@ -426,6 +327,10 @@ public class OGIData : AbstractAssetData
         }
 
         var nodeList = nodeMap.Values.ToList();
+        var materialDescs = new SharpGLTF.Scenes.NodeBuilder
+        {
+            Name = "MATERIAL_DESCS"
+        };
 
         if (Skin != LabURI.Empty)
         {

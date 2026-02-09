@@ -19,6 +19,7 @@ using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items;
 using AlphaMode = SharpGLTF.Materials.AlphaMode;
+using Material = TT_Lab.Assets.Graphics.Material;
 using Texture = TT_Lab.Assets.Graphics.Texture;
 
 namespace TT_Lab.AssetData.Graphics;
@@ -135,7 +136,7 @@ public class SkinData : AbstractAssetData
 
                 material.Extras = shader.GetJsonFormat();
 
-                var mesh = new SharpGLTF.Geometry.MeshBuilder<VERTEX, COLOR_UV, JOINT_WEIGHT>($"subskin_{materialIndex}")
+                var mesh = new SharpGLTF.Geometry.MeshBuilder<VERTEX, COLOR_UV, JOINT_WEIGHT>($"SKINNED_MESH_{materialIndex}")
                     {
                         Extras = System.Text.Json.JsonSerializer.SerializeToNode(new MeshExtraInfo { Type = MeshExportType.Skinned })
                     };
@@ -191,6 +192,7 @@ public class SkinData : AbstractAssetData
         var scene = new SharpGLTF.Scenes.SceneBuilder("TwinsanitySkin");
         var root = new SharpGLTF.Scenes.NodeBuilder("skin_root");
         scene.AddNode(root);
+        
         var meshes = GetMeshes(root);
         foreach (var mesh in meshes)
         {
@@ -199,29 +201,17 @@ public class SkinData : AbstractAssetData
 
         var model = scene.ToGltf2();
         model.SaveGLB(dataPath);
-
-        var materialsUri = SubSkins.Select(subSkin => AssetManager.Get().GetAsset(subSkin.Material).URI).ToList();
-        using System.IO.FileStream fs = new(dataPath + ".meta", System.IO.FileMode.Create, System.IO.FileAccess.Write);
-        using System.IO.BinaryWriter writer = new(fs);
-        writer.Write(JsonConvert.SerializeObject(materialsUri, Formatting.Indented, settings).ToCharArray());
     }
 
     protected override void LoadInternal(String dataPath, JsonSerializerSettings? settings = null)
     {
-        var materialsUri = new List<LabURI>();
-        var skin = ModelRoot.Load(dataPath);
-
-        using System.IO.FileStream fs = new(dataPath + ".meta", System.IO.FileMode.Open, System.IO.FileAccess.Read);
-        using System.IO.StreamReader reader = new(fs);
-        JsonConvert.PopulateObject(value: reader.ReadToEnd(), target: materialsUri, settings);
-        
-        LoadFromGltf(skin.LogicalMeshes, materialsUri);
     }
 
-    public void LoadFromGltf(IReadOnlyList<Mesh> meshes, List<LabURI> materialsUri)
+    public void LoadFromGltf(IReadOnlyList<Mesh> meshes, Node materialDescs)
     {
-        var materialIndex = 0;
-        foreach (var mesh in meshes.DistinctBy(m => m.Name))
+        var assetManager = AssetManager.Get();
+        var materialsGltf = meshes.SelectMany(m => m.Primitives).Select(prim => prim.Material).Distinct().ToList();
+        foreach (var mesh in meshes.DistinctBy(m => m.Name).ToList())
         {
             var subskin = new List<Vertex>();
             var faces = new List<IndexedFace>();
@@ -254,9 +244,32 @@ public class SkinData : AbstractAssetData
                     faces.Add(new IndexedFace(idx1, idx2, idx3));
                 }
             }
+            
+            var materialIndexToken = mesh.Name.Split('_')[2];
+            var materialIndex = int.Parse(materialIndexToken);
+            var materialDescNameMask =
+                $"MATERIAL_DESC_FOR_SKIN_{materialIndex}_";
+            var materialDesc =
+                materialDescs.VisualChildren.FirstOrDefault(n =>
+                    n.Name.StartsWith(materialDescNameMask))!;
+            var materialName = materialDesc.Name.Replace(materialDescNameMask, "");
+            
+            var material = new Material
+            {
+                Package = Owner.Package,
+                InvariantName = $"{mesh.Name}_{materialName}_MATERIAL",
+                Alias = $"{mesh.Name}_{materialName}_MATERIAL",
+                IsInternal = true
+            };
 
-            var material = materialIndex >= materialsUri.Count ? LabURI.Empty : materialsUri[materialIndex++];
-            SubSkins.Add(new SubSkinData(material, subskin, faces));
+            var materialData = MaterialData.LoadFromGltf(material, materialDesc,
+                materialsGltf.Where(m => m.Name.Contains($"SKIN{GraphicsHelpers.MaterialTokenDivider}MATERIAL{GraphicsHelpers.MaterialTokenDivider}{materialName}{GraphicsHelpers.MaterialTokenDivider}{materialIndex}{GraphicsHelpers.MaterialTokenDivider}"))
+                    .ToList());
+            material.SetData(materialData);
+            
+            assetManager.TryAddAsset(material);
+            var materialUri = material.URI;
+            SubSkins.Add(new SubSkinData(materialUri, subskin, faces));
         }
     }
 

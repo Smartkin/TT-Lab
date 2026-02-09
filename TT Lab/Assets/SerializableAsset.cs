@@ -49,7 +49,6 @@ public abstract class SerializableAsset : IAsset
     public String FullPath => $"{Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath}/{LoadPath}";
     public UInt32 ID { get; set; }
     public UInt32 ExportTwinID => SetIdFromDataHash ? GetDataHash() : ID;
-    public UInt32 ExportIdSalt { get; set; }
     public String Alias { get; set; }
     public String Chunk { get; set; }
     public Int32? LayoutID { get; set; }
@@ -110,7 +109,7 @@ public abstract class SerializableAsset : IAsset
         var crcHasher = SharpHash.Base.HashFactory.Checksum.CreateCRC(CRCStandard.CRC32);
         if (IsLoaded && AssetData != null)
         {
-            hashResult = crcHasher.ComputeString($"{AssetData.GetStringified()}{ExportIdSalt}", new UTF8Encoding()).GetUInt32();
+            hashResult = crcHasher.ComputeString(AssetData.GetStringified(), new UTF8Encoding()).GetUInt32();
         }
         else
         {
@@ -139,7 +138,11 @@ public abstract class SerializableAsset : IAsset
                 References.Clear();
                 ExtractReferences(GetData());
             }
-            DisposeData();
+
+            if (!serializationFlags.HasFlag(SerializationFlags.PreserveData))
+            {
+                DisposeData();
+            }
         }
         
         if (!serializationFlags.HasFlag(SerializationFlags.SaveData) && serializationFlags.HasFlag(SerializationFlags.FixReferences))
@@ -232,6 +235,7 @@ public abstract class SerializableAsset : IAsset
     public virtual void PostResolveResources(Factory.ITwinItemFactory factory, ITwinSection section, ITwinItem? item)
     {
         var exportId = ExportTwinID;
+        // HACK: Default.rm2 Meshes have hardcoded IDs >:(
         if (section.GetParent() == null && item is ITwinMesh)
         {
             exportId = ID;

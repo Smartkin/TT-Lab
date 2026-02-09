@@ -136,7 +136,7 @@ public class BlendSkinData : AbstractAssetData
                 var index = 0;
                 foreach (var blendModel in blend.Models)
                 {
-                    var mesh = new MeshBuilder<VERTEX, COLOR_UV, JOINT_WEIGHT>($"blend_subskin_{materialIndex}_{index++}")
+                    var mesh = new MeshBuilder<VERTEX, COLOR_UV, JOINT_WEIGHT>($"BLEND_FACE_SKINNED_MESH_{materialIndex}_{index++}")
                     {
                         Extras = System.Text.Json.JsonSerializer.SerializeToNode(new MeshExtraInfo
                         {
@@ -220,27 +220,10 @@ public class BlendSkinData : AbstractAssetData
 
         var model = scene.ToGltf2();
         model.SaveGLB(dataPath);
-
-        var metadata = new Metadata();
-        foreach (var blend in Blends)
-        {
-            metadata.Materials.Add(AssetManager.Get().GetAsset(blend.Material).URI);
-        }
-        using System.IO.FileStream fs = new(dataPath + ".meta", System.IO.FileMode.Create, System.IO.FileAccess.Write);
-        using System.IO.BinaryWriter writer = new(fs);
-        writer.Write(JsonConvert.SerializeObject(metadata, Formatting.Indented, settings).ToCharArray());
     }
 
     protected override void LoadInternal(String dataPath, JsonSerializerSettings? settings = null)
     {
-        var metadata = new Metadata();
-        var blendSkin = ModelRoot.Load(dataPath, SharpGLTF.Validation.ValidationMode.Strict);
-
-        using System.IO.FileStream fs = new(dataPath + ".meta", System.IO.FileMode.Open, System.IO.FileAccess.Read);
-        using System.IO.StreamReader reader = new(fs);
-        JsonConvert.PopulateObject(value: reader.ReadToEnd(), target: metadata, settings);
-
-        LoadFromGltf(blendSkin.LogicalMaterials, blendSkin.LogicalMeshes, metadata.Materials);
     }
 
     public override String GetStringified()
@@ -269,21 +252,46 @@ public class BlendSkinData : AbstractAssetData
         return new String(binaryReader.ReadChars((int)stream.Length));
     }
 
-    public void LoadFromGltf(IReadOnlyList<Material> materials, IReadOnlyList<Mesh> gltfMeshes, List<GltfMaterialLabUri> materialsUri)
+    public void LoadFromGltf(Node materialDescs, IReadOnlyList<Mesh> gltfMeshes)
     {
         BlendsAmount = gltfMeshes.Max(m => m.Primitives.Max(prim => prim.GetVertexColumns().MorphTargets.Count));
 
-        foreach (var material in materials)
+        var assetManager = AssetManager.Get();
+        var materialsGltf = gltfMeshes.SelectMany(m => m.Primitives).Select(prim => prim.Material).Distinct().ToList();
+        var blendIndex = 0;
+        while (true)
         {
-            var labMaterial = materialsUri.FirstOrDefault(m => m.GltfIndex == material.LogicalIndex, new GltfMaterialLabUri(0, LabURI.Empty)).MaterialUri;
-            var meshes = gltfMeshes.Where(m => m.Primitives.All(p => p.Material.LogicalIndex == material.LogicalIndex)).ToList();
-            Blends.Add(new SubBlendData(labMaterial, meshes, BlendsAmount));
-        }
-    }
+            var materialDescNameMask =
+                $"MATERIAL_DESC_FOR_BLEND_{blendIndex}_";
+            var materialDesc =
+                materialDescs.VisualChildren.FirstOrDefault(n =>
+                    n.Name.StartsWith(materialDescNameMask));
+            if (materialDesc == null)
+            {
+                break;
+            }
+            
+            var materialName = materialDesc.Name.Replace(materialDescNameMask, "");
+            var labMaterial = new Assets.Graphics.Material
+            {
+                Package = Owner.Package,
+                InvariantName = $"{Owner.Name}_{materialName}_MATERIAL",
+                Alias = $"{Owner.Name}_{materialName}_MATERIAL",
+                IsInternal = true
+            };
 
-    public void LoadFromGltf(IReadOnlyList<Material> materials, IReadOnlyList<Mesh> gltfMeshes, List<LabURI> materialsUri)
-    {
-        LoadFromGltf(materials, gltfMeshes, materialsUri.Select((uri, index) => new GltfMaterialLabUri(index, uri)).ToList());
+            var blendMaterialsGltf = materialsGltf.Where(m => m.Name.Contains($"BLEND_SKIN{GraphicsHelpers.MaterialTokenDivider}MATERIAL{GraphicsHelpers.MaterialTokenDivider}{materialName}{GraphicsHelpers.MaterialTokenDivider}{blendIndex}{GraphicsHelpers.MaterialTokenDivider}"))
+                .ToList();
+            var materialData = MaterialData.LoadFromGltf(labMaterial, materialDesc, blendMaterialsGltf);
+            labMaterial.SetData(materialData);
+            
+            assetManager.TryAddAsset(labMaterial);
+            
+            var meshes = gltfMeshes.Where(m => m.Primitives.All(p => p.Material.LogicalIndex == blendMaterialsGltf[0].LogicalIndex)).DistinctBy(m => m.Name).ToList();
+            Blends.Add(new SubBlendData(labMaterial.URI, meshes, BlendsAmount));
+
+            blendIndex++;
+        }
     }
 
     public override void Import(LabURI package, String? variant, Int32? layoutId)

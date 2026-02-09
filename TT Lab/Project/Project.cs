@@ -132,7 +132,7 @@ public class Project : IProject
 #endif
                 foreach (var asset in group)
                 {
-                    asset.Serialize(SerializationFlags.SaveData);
+                    asset.Serialize(SerializationFlags.SaveData | SerializationFlags.PreserveData);
                 }
 #if !DEBUG
                     }
@@ -165,7 +165,7 @@ public class Project : IProject
 #endif
             foreach (var asset in group)
             {
-                asset.Serialize(SerializationFlags.SaveData);
+                asset.Serialize(SerializationFlags.SaveData | SerializationFlags.PreserveData);
             }
 #if !DEBUG
                 }
@@ -178,6 +178,15 @@ public class Project : IProject
             Log.WriteLine($"Finished serializing {group.Key.Name} in {span}");
         }
         Log.WriteLine($"Serialized assets in {(DateTime.Now - startAsset)}");
+
+        var startUnload = DateTime.Now;
+        Log.WriteLine($"Unloading all the loaded data...");
+        foreach (var asset in AssetManager.GetAssets())
+        {
+            asset.Serialize(SerializationFlags.FixReferences);
+        }
+        Log.WriteLine($"Finished unloading the data in {(DateTime.Now - startUnload)}");
+        
         System.IO.Directory.SetCurrentDirectory(path);
     }
 

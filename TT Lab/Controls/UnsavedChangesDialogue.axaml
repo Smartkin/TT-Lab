@@ -3,7 +3,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:controls="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="120"
         x:Class="TT_Lab.Controls.UnsavedChangesDialogue"
         xmlns:viewmodels="clr-namespace:TT_Lab.ViewModels.ResourceTree"
         x:DataType="viewmodels:ResourceTreeElementViewModel"
@@ -19,11 +19,12 @@
                 </Grid>
             </UniformGrid>
             <Label Grid.Row="0" HorizontalAlignment="Center" Margin="0" VerticalAlignment="Center">
-                <TextBlock Text="There are unsaved changes in">
-                    <TextBlock Text=" "/>
-                    <TextBlock Text="{Binding Alias, DataType=viewmodels:ResourceTreeElementViewModel}"/>
-                    <TextBlock Text="!"/>
-                </TextBlock>
+                <Grid ColumnDefinitions="Auto, Auto, Auto, Auto">
+                    <TextBlock Grid.Column="0" Text="There are unsaved changes in"/>
+                    <TextBlock Grid.Column="1" Text=" "/>
+                    <TextBlock Grid.Column="2" Text="{Binding Alias, DataType=viewmodels:ResourceTreeElementViewModel}"/>
+                    <TextBlock Grid.Column="3" Text=" !"/>
+                </Grid>
             </Label>
         </Grid>
     </controls:GroupBox>
