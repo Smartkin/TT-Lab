@@ -25,7 +25,6 @@ using Vector4 = Twinsanity.TwinsanityInterchange.Common.Vector4;
 
 namespace TT_Lab.AssetData.Instance;
 
-[ReferencesAssets]
 public class SceneryData : AbstractAssetData
 {
     private static readonly Dictionary<ITwinScenery.SceneryType, Type> ScIndexToType = new();
@@ -58,7 +57,6 @@ public class SceneryData : AbstractAssetData
         SetTwinItem(scenery);
     }
     
-    [JsonProperty(Required = Required.Always)]
     public LabURI SkydomeID { get; set; }
     
     public LabURI DynamicScenery { get; set; }
@@ -83,46 +81,6 @@ public class SceneryData : AbstractAssetData
 
     protected override void Dispose(Boolean disposing)
     {
-        var assetManager = AssetManager.Get();
-        if (DynamicScenery != LabURI.Empty)
-        {
-            var dynScenery = assetManager.GetAsset(DynamicScenery);
-            if (dynScenery.IsInternal)
-            {
-                assetManager.GetAsset(DynamicScenery).Delete();
-            }
-        }
-
-        if (Collision != LabURI.Empty)
-        {
-            var collision = assetManager.GetAsset(Collision);
-            if (collision.IsInternal)
-            {
-                assetManager.GetAsset(Collision).Delete();
-            }
-        }
-
-        foreach (var sceneryBaseData in Sceneries)
-        {
-            foreach (var labUri in sceneryBaseData.MeshIDs)
-            {
-                var mesh = assetManager.GetAsset(labUri);
-                if (mesh.IsInternal)
-                {
-                    assetManager.GetAsset(labUri).Delete();
-                }
-            }
-
-            foreach (var labUri in sceneryBaseData.LodIDs)
-            {
-                var lod = assetManager.GetAsset(labUri);
-                if (lod.IsInternal)
-                {
-                    assetManager.GetAsset(labUri).Delete();
-                }
-            }
-        }
-        
         AmbientLights.Clear();
         DirectionalLights.Clear();
         PointLights.Clear();
@@ -311,7 +269,7 @@ public class SceneryData : AbstractAssetData
         PointLights.Clear();
         DirectionalLights.Clear();
         NegativeLights.Clear();
-        var model = ModelRoot.Load(path + ".glb");
+        var model = ModelRoot.Load(path);
         var scene = model.DefaultScene;
 
         var lightsNode = scene.VisualChildren.FirstOrDefault(n => n is { Name: LIGHTING_ROOT_NODE_NAME });
@@ -324,20 +282,20 @@ public class SceneryData : AbstractAssetData
         var dynamicSceneryNode = scene.VisualChildren.FirstOrDefault(n => n is { Name: DYNAMIC_SCENERY_ROOT_NODE_NAME });
         if (dynamicSceneryNode == null)
         {
-            Log.WriteLine($"Scene {path}.glb does not have {DYNAMIC_SCENERY_ROOT_NODE_NAME} node. No Dynamic Scenery will be loaded.");
+            Log.WriteLine($"Scene {path} does not have {DYNAMIC_SCENERY_ROOT_NODE_NAME} node. No Dynamic Scenery will be loaded.");
         }
 
         var sceneryRoot = scene.VisualChildren.FirstOrDefault(n => n is { Name: SCENERY_ROOT_NAME });
         if (sceneryRoot == null)
         {
-            Log.WriteLine($"Misconfigured scenery {path}.glb! No root found. Make sure you have {SCENERY_ROOT_NAME} node in your scene!", Log.LogType.Error);
+            Log.WriteLine($"Misconfigured scenery {path}! No root found. Make sure you have {SCENERY_ROOT_NAME} node in your scene!", Log.LogType.Error);
             importErrored = true;
         }
 
         var collisionRoot = scene.VisualChildren.FirstOrDefault(n => n is { Name: COLLISION_ROOT_NODE_NAME });
         if (collisionRoot == null)
         {
-            Log.WriteLine($"Misconfigured scenery {path}.glb! No collision found. Make sure you have {COLLISION_ROOT_NODE_NAME} node in your scene!", Log.LogType.Error);
+            Log.WriteLine($"Misconfigured scenery {path}! No collision found. Make sure you have {COLLISION_ROOT_NODE_NAME} node in your scene!", Log.LogType.Error);
             importErrored = true;
         }
 
@@ -612,23 +570,11 @@ public class SceneryData : AbstractAssetData
 
     protected override void SaveInternal(String dataPath, JsonSerializerSettings? settings = null)
     {
-        settings = new JsonSerializerSettings
-        {
-            TypeNameHandling = TypeNameHandling.All
-        };
-        base.SaveInternal(dataPath, settings);
-            
-        ExportGltf(dataPath + ".glb");
+        ExportGltf(dataPath);
     }
 
     protected override void LoadInternal(String dataPath, JsonSerializerSettings? settings = null)
     {
-        settings = new JsonSerializerSettings
-        {
-            TypeNameHandling = TypeNameHandling.All
-        };
-        base.LoadInternal(dataPath, settings);
-        
         ImportGltf(dataPath);
     }
 
@@ -637,10 +583,7 @@ public class SceneryData : AbstractAssetData
         var scenery = GetTwinItem<ITwinScenery>();
         FogColor = scenery.FogColor;
         UnkByte = scenery.UnkByte;
-        if (scenery.SkydomeID != 0)
-        {
-            SkydomeID = AssetManager.Get().GetUriByTwinId<Skydome>(Owner, scenery.SkydomeID);
-        }
+        
         HasLighting = scenery.HasLighting;
         if (HasLighting)
         {
@@ -649,6 +592,7 @@ public class SceneryData : AbstractAssetData
             PointLights = CloneUtils.DeepClone(scenery.PointLights);
             NegativeLights = CloneUtils.DeepClone(scenery.NegativeLights);
         }
+        
         Sceneries = new List<SceneryBaseData>();
         foreach (var sc in scenery.Sceneries)
         {

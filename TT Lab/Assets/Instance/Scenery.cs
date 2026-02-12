@@ -22,6 +22,8 @@ public class Scenery : SerializableInstance
         new( 245,  245, 220,255), // Beige
     ];
     
+    protected override String DataExt => ".glb";
+    
     public override bool IsInScenery => true;
     public override UInt32 Section => Constants.SCENERY_SECENERY_ITEM;
     public override String IconPath => "Collision.png";

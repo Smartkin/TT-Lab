@@ -211,12 +211,12 @@ namespace TT_Lab.ViewModels.Editors
         {
             var chunk = AssetManager.Get().GetAsset<LevelChunk>(EditableResource);
             var newInstance = AssetFactory.CreateAsset(basedOn.Asset.Type, basedOn.Parent != null ? basedOn.Parent.GetAsset<Folder>() : chunk.GetChunkFolder(),
-                $"New {basedOn.Asset.GetType().Name} {(uint)Guid.NewGuid().GetHashCode()}", chunk.Variation,
-                TwinIdGeneratorServiceProvider.GetGeneratorForChunk(basedOn.Asset.Type, chunk.Variation, (Enums.Layouts)basedOn.Asset.LayoutID!),
+                $"New {basedOn.Asset.GetType().Name} {(uint)Guid.NewGuid().GetHashCode()}", chunk.AdditionalPath!,
+                TwinIdGeneratorServiceProvider.GetGeneratorForChunk(basedOn.Asset.Type, chunk.AdditionalPath!, (Enums.Layouts)basedOn.Asset.LayoutID!),
                 (asset) =>
                 {
                     var instanceAsset = (SerializableInstance)asset;
-                    instanceAsset.Chunk = chunk.Variation[..^3] + (instanceAsset.IsInScenery ? "sm2" : "rm2");
+                    instanceAsset.Chunk = chunk.AdditionalPath! + (instanceAsset.IsInScenery ? ".sm2" : ".rm2");
                     var assetData = basedOn.Asset.GetData<AbstractAssetData>();
                     asset.SetData((AbstractAssetData)CloneUtils.DeepClone(assetData, assetData.GetType()));
                     return AssetCreationStatus.Success;
@@ -636,13 +636,14 @@ namespace TT_Lab.ViewModels.Editors
                     _instancesNode.AddChild(objSceneInstance.GetEditableObject());
                 }
                 
-                var scenery = _chunkTree.First(avm => avm.Asset.Section == Constants.SCENERY_SECENERY_ITEM).Asset.GetData<SceneryData>();
-                if (scenery.SkydomeID != LabURI.Empty)
+                
+                if (chunk.Skydome != LabURI.Empty)
                 {
-                    _skydomeRender = new Skydome(_renderContext, assetManager.GetAssetData<SkydomeData>(scenery.SkydomeID), _renderContext.MeshService);
+                    _skydomeRender = new Skydome(_renderContext, assetManager.GetAssetData<SkydomeData>(chunk.Skydome), _renderContext.MeshService);
                     scene.AddChild(_skydomeRender);
                 }
 
+                var scenery = _chunkTree.First(avm => avm.Asset.Section == Constants.SCENERY_SECENERY_ITEM).Asset.GetData<SceneryData>();
                 if (scenery.DynamicScenery != LabURI.Empty)
                 {
                     _dynamicSceneryRender = new DynamicScenery(_renderContext, _renderContext.MeshService, assetManager.GetAssetData<DynamicSceneryData>(scenery.DynamicScenery));
@@ -665,7 +666,7 @@ namespace TT_Lab.ViewModels.Editors
                 _linkedScenery = new Node(_renderContext, scene, "Linked Scenery");
                 foreach (var link in chunkLinks.Links)
                 {
-                    if (!link.IsRendered)
+                    if (link is { IsAlwaysVisible: false, IsVisibleInCameraFrustum: false })
                     {
                         continue;
                     }

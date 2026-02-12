@@ -3,6 +3,7 @@ using System;
 using System.Linq;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Enumerations;
+using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout;
 using static Twinsanity.TwinsanityInterchange.Common.TwinShader;
 
@@ -10,8 +11,16 @@ namespace TT_Lab.Util;
 
 public static class ViewModelUtil
 {
+    // Instances enums
     public static readonly BindableCollection<object> Layers;
+    
+    // Object enums
+    public static readonly BindableCollection<object> ObjectTypes;
+    
+    // Camera enums
     public static readonly BindableCollection<object> CameraTypes;
+    
+    // Shader/Material enums
     public static readonly BindableCollection<object> AlphaTestMethods;
     public static readonly BindableCollection<object> ShaderTypes;
     public static readonly BindableCollection<object> ProcessesAfterTestFailed;
@@ -30,7 +39,11 @@ public static class ViewModelUtil
     static ViewModelUtil()
     {
         Layers = new BindableCollection<object>(Enum.GetValues(typeof(Enums.Layouts)).Cast<object>());
+        
         CameraTypes = new BindableCollection<object>(Enum.GetValues(typeof(ITwinCamera.CameraType)).Cast<object>());
+        
+        ObjectTypes = new BindableCollection<Object>(Enum.GetValues(typeof(ITwinObject.ObjectType)).Cast<object>());
+        
         AlphaTestMethods = new BindableCollection<object>(Enum.GetValues(typeof(AlphaTestMethod)).Cast<object>());
         ShaderTypes = new BindableCollection<object>(Enum.GetValues(typeof(TwinShader.Type)).Cast<object>());
         ProcessesAfterTestFailed = new BindableCollection<object>(Enum.GetValues(typeof(ProcessAfterAlphaTestFailed)).Cast<object>());

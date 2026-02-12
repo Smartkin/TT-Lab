@@ -23,7 +23,7 @@ public class DynamicSceneryResolver(MeshResolver meshResolver) : AssetResolver<I
             meshResolver.CreateAssetFromId(chunk, meshSection, package, twinDynamicModel.MeshID);
         }
         
-        return new DynamicScenery(package.URI, item.GetID(), "Dynamic Scenery", ChunkPath, item);
+        return new DynamicScenery(package.URI, item.GetID(), "Dynamic Scenery", ChunkPath, item) { IsInternal = true };
     }
 
     protected override String GetTwinItemHash(ITwinDynamicScenery item)

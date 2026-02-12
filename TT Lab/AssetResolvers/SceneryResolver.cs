@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using TT_Lab.Assets;
+using TT_Lab.Assets.Graphics;
 using TT_Lab.Assets.Instance;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces;
@@ -14,6 +15,7 @@ public class SceneryResolver : AssetResolver<ITwinScenery>
     private readonly LodResolver _lodResolver;
     private DynamicSceneryResolver _dynamicSceneryResolver;
     private string _createdInChunk;
+    private uint _skydomeId;
 
     public SceneryResolver(SkydomeResolver skydomeResolver)
     {
@@ -43,6 +45,7 @@ public class SceneryResolver : AssetResolver<ITwinScenery>
         {
             var skydomeSection = graphicsSection.GetItem<ITwinSection>(Constants.GRAPHICS_SKYDOMES_SECTION);
             _skydomeResolver.CreateAssetFromId(chunk, skydomeSection, package, item.SkydomeID);
+            _skydomeId = item.SkydomeID;
         }
 
         var meshSection = graphicsSection.GetItem<ITwinSection>(Constants.GRAPHICS_MESHES_SECTION);
@@ -73,6 +76,12 @@ public class SceneryResolver : AssetResolver<ITwinScenery>
         var sceneryAsset = (Scenery)CreatedAsset;
         var collisionUri = collisionResolver.CreatedAsset.URI;
         sceneryAsset.LinkCollision(collisionUri);
+
+        if (sceneryAsset.IsLoaded && _skydomeId != 0)
+        {
+            var sceneryChunkResolver = ResolverManager.GetChunkResolver<SceneryChunkResolver>(_createdInChunk)!;
+            sceneryChunkResolver.LevelChunk.Skydome = AssetManager.Get().GetUriByTwinId<Skydome>(sceneryAsset, _skydomeId);
+        }
         
         base.FinalizeResolve();
     }

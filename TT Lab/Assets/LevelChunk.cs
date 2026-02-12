@@ -20,6 +20,9 @@ public class LevelChunk : SerializableAsset
     [JsonProperty(Required = Required.Always)]
     public List<LabURI> ChunkResources { get; set; } = [];
 
+    [JsonProperty(Required = Required.Always)]
+    public LabURI Skydome { get; set; } = LabURI.Empty;
+
     public LevelChunk()
     {
         SkipExport = false;

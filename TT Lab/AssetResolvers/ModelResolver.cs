@@ -16,7 +16,8 @@ public class ModelResolver(bool isInScenery) : AssetResolver<ITwinModel>
     {
         return new Model(package.URI, needVariant, variant, item.GetID(), item.GetName(), item)
         {
-            AdditionalPath = isInScenery ? ChunkPath : string.Empty
+            AdditionalPath = isInScenery ? ChunkPath : string.Empty,
+            IsInternal = true
         };
     }
 }

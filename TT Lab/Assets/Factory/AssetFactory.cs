@@ -30,11 +30,15 @@ public static class AssetFactory
             return null;
         }
         
-        folder.AddChild(newAsset);
         AssetManager.Get().AddAsset(newAsset);
-        newAsset.Serialize(SerializationFlags.SetDirectoryToAssets | SerializationFlags.SaveData);
-        folder.Serialize(SerializationFlags.SetDirectoryToAssets | SerializationFlags.SaveData | SerializationFlags.FixReferences);
-        
+        folder.AddChild(newAsset);
+        if (type != typeof(Folder))
+        {
+            newAsset.Serialize(SerializationFlags.SetDirectoryToAssets | SerializationFlags.SaveData);
+            folder.Serialize(SerializationFlags.SetDirectoryToAssets | SerializationFlags.SaveData |
+                             SerializationFlags.FixReferences);
+        }
+
         var parent = folder.GetResourceTreeElement();
         parent.AddNewChild(newAsset.GetResourceTreeElement(parent));
         parent.ClearChildren();

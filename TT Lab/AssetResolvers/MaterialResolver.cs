@@ -24,7 +24,8 @@ public class MaterialResolver(TextureResolver textureResolver, bool isInScenery)
 
         return new Material(package.URI, needVariant, variant, item.GetID(), item.GetName(), item)
         {
-            AdditionalPath = isInScenery ? ChunkPath : string.Empty
+            AdditionalPath = isInScenery ? ChunkPath : string.Empty,
+            IsInternal = true
         };
     }
 

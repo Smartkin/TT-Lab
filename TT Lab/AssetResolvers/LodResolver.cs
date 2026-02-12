@@ -23,7 +23,8 @@ public class LodResolver(MeshResolver meshResolver) : AssetResolver<ITwinLOD>
 
         return new LodModel(package.URI, needVariant, variant, item.GetID(), item.GetName(), item)
         {
-            AdditionalPath = ChunkPath
+            AdditionalPath = ChunkPath,
+            IsInternal = true
         };
     }
 }

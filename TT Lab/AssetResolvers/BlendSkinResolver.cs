@@ -20,7 +20,7 @@ public class BlendSkinResolver(MaterialResolver materialResolver) : AssetResolve
         {
             materialResolver.CreateAssetFromId(chunk, materialSection, package, subBlend.Material);
         }
-        
-        return new BlendSkin(package.URI, needVariant, variant, item.GetID(), item.GetName(), item);
+
+        return new BlendSkin(package.URI, needVariant, variant, item.GetID(), item.GetName(), item) { IsInternal = true };
     }
 }

@@ -14,7 +14,6 @@ public class SceneryViewModel : InstanceSectionResourceEditorViewModel
 {
     private UInt32 _unkUInt;
     private Byte _unkByte;
-    private LabURI _skydome = LabURI.Empty;
     private SceneryRootViewModel? _sceneryTree;
 
     protected override void Save()
@@ -23,7 +22,6 @@ public class SceneryViewModel : InstanceSectionResourceEditorViewModel
         var data = asset.GetData<SceneryData>();
         data.FogColor = UnkUInt;
         data.UnkByte = UnkByte;
-        data.SkydomeID = Skydome;
         data.Sceneries.Clear();
         if (SceneryTree != null)
         {
@@ -43,7 +41,6 @@ public class SceneryViewModel : InstanceSectionResourceEditorViewModel
         var data = asset.GetData<SceneryData>();
         _unkUInt = data.FogColor;
         _unkByte = data.UnkByte;
-        _skydome = data.SkydomeID;
         if (data.Sceneries.Count != 0)
         {
             _sceneryTree = new SceneryRootViewModel(data.Sceneries[0], data.Sceneries.Skip(1).ToList());
@@ -67,6 +64,7 @@ public class SceneryViewModel : InstanceSectionResourceEditorViewModel
             }
         }
     }
+    
     [MarkDirty]
     public Byte UnkByte
     {
@@ -80,19 +78,7 @@ public class SceneryViewModel : InstanceSectionResourceEditorViewModel
             }
         }
     }
-    [MarkDirty]
-    public LabURI Skydome
-    {
-        get => _skydome;
-        set
-        {
-            if (value != _skydome)
-            {
-                _skydome = value;
-                NotifyOfPropertyChange();
-            }
-        }
-    }
+
     public SceneryRootViewModel? SceneryTree
     {
         get => _sceneryTree;

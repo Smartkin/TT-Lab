@@ -31,9 +31,7 @@ public class RigidModelData : AbstractAssetData
         SetTwinItem(rigidModel);
     }
 
-    [JsonProperty(Required = Required.Always)]
     public List<LabURI> Materials { get; set; }
-    [JsonProperty(Required = Required.Always)]
     public LabURI Model { get; set; }
 
     protected override void Dispose(Boolean disposing)
@@ -54,6 +52,37 @@ public class RigidModelData : AbstractAssetData
         return result.ToString();
     }
     
+    protected override void SaveInternal(string dataPath, JsonSerializerSettings? settings = null)
+    {
+        var scene = new SharpGLTF.Scenes.SceneBuilder($"TwinsanitySkydome_{Owner.Name}");
+        var root = new SharpGLTF.Scenes.NodeBuilder("RIGID_MODEL_ROOT");
+
+        ExportGltf(scene, root, "_EXTERNAL_FILE");
+        
+        var resultModel = scene.ToGltf2();
+        resultModel.SaveGLB(dataPath);
+    }
+
+    protected override void LoadInternal(string dataPath, JsonSerializerSettings? settings = null)
+    {
+        var model = ModelRoot.Load(dataPath);
+        var rigidModelRoot = model.DefaultScene.VisualChildren.FirstOrDefault(n => n.Name.Contains("RIGID_MODEL_ROOT"));
+        if (rigidModelRoot == null)
+        {
+            Log.WriteLine($"Misconfigured Rigid Model {dataPath}! Make sure it contains RIGID_MODEL_ROOT node!", Log.LogType.Error);
+            return;
+        }
+
+        var rigidModel = ImportGltf<RigidModel>(Owner, model, rigidModelRoot);
+        var data = (RigidModelData)rigidModel.GetData();
+        Model = data.Model;
+        Materials.Clear();
+        foreach (var material in data.Materials)
+        {
+            Materials.Add(material);
+        }
+    }
+    
     /// <summary>
     /// Creates the needed internal Mesh/RigidModel asset, Model asset, Material assets and Texture assets needed for RigidModel or Mesh
     /// </summary>
@@ -65,6 +94,13 @@ public class RigidModelData : AbstractAssetData
     public static T ImportGltf<T>(IAsset requester, ModelRoot gltfModel, Node containerNode) where T : RigidModel, new()
     {
         var meshesNode = containerNode.VisualChildren.FirstOrDefault(n => n.Name.StartsWith($"{containerNode.Name}_MESHES"));
+        var isFromExternalFile = false;
+        if (meshesNode == null)
+        {
+            meshesNode = containerNode.VisualChildren.FirstOrDefault(n =>
+                n.Name.StartsWith($"{containerNode.Name}_RIGID_MODEL__EXTERNAL_FILE"));
+            isFromExternalFile = meshesNode != null;
+        }
         if (meshesNode == null)
         {
             Log.WriteLine($"Imported Rigid Model {containerNode.Name} does not contain any meshes! Returning empty mesh...", Log.LogType.Error);
@@ -96,6 +132,10 @@ public class RigidModelData : AbstractAssetData
         };
 
         var materialDescs = containerNode.VisualChildren.FirstOrDefault(n => n.Name.StartsWith($"{containerNode.Name}_MATERIAL_DESCS"));
+        if (isFromExternalFile)
+        {
+            materialDescs = meshesNode.VisualChildren.FirstOrDefault(n => n.Name.StartsWith($"{containerNode.Name}_RIGID_MODEL__EXTERNAL_FILE_MATERIAL_DESCS"));
+        }
         if (materialDescs == null)
         {
             Log.WriteLine($"No material descriptors found for Rigid Model {containerNode.Name}! Empty ones will be used...", Log.LogType.Warning);
@@ -109,6 +149,10 @@ public class RigidModelData : AbstractAssetData
             {
                 var materialDescNameMask =
                     $"{containerNode.Name}_MATERIAL_DESC_{modelIndex}_";
+                if (isFromExternalFile)
+                {
+                    materialDescNameMask = $"{containerNode.Name}_RIGID_MODEL__EXTERNAL_FILE_MATERIAL_DESC_{modelIndex}_";
+                }
                 var materialDesc =
                     materialDescs.VisualChildren.FirstOrDefault(n =>
                         n.Name.StartsWith(materialDescNameMask))!;
@@ -162,8 +206,8 @@ public class RigidModelData : AbstractAssetData
     private static List<SharpGLTF.Schema2.Mesh> CollectMeshes(ModelRoot model, Node node)
     {
         var result = new List<SharpGLTF.Schema2.Mesh>();
-        result.AddRange(model.LogicalMeshes.Where(m => m.VisualParents.All(n => n.LogicalIndex == node.LogicalIndex)).ToList());
-        foreach (var child in node.VisualChildren)
+        result.AddRange(model.LogicalMeshes.Where(m => m.VisualParents.ToList().All(n => n.LogicalIndex == node.LogicalIndex)).ToList());
+        foreach (var child in node.VisualChildren.ToList())
         {
             result.AddRange(CollectMeshes(model, child));
         }

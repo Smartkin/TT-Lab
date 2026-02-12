@@ -1,8 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using Newtonsoft.Json;
+using Splat;
 using TT_Lab.AssetData;
 using TT_Lab.Assets.Factory;
+using TT_Lab.Project;
 using TT_Lab.ViewModels;
 using TT_Lab.ViewModels.ResourceTree;
 using Twinsanity.TwinsanityInterchange.Interfaces;
@@ -12,12 +15,12 @@ namespace TT_Lab.Assets;
 [Flags]
 public enum FolderMark
 {
-    Normal = 0x0,
-    InChunk = 0x1,
-    Locked = 0x2,
-    ChunksOnly = 0x4,
-    DefaultOnly = 0x8,
-    IsPackage =  0x10,
+    Normal = 0x1,
+    InChunk = 0x2,
+    Locked = 0x4,
+    ChunksOnly = 0x8,
+    DefaultOnly = 0x10,
+    IsPackage =  0x20,
 }
     
 public class Folder : SerializableAsset
@@ -50,18 +53,26 @@ public class Folder : SerializableAsset
         Children.Add(asset.URI);
     }
 
+    public override void Delete(bool setDirectoryToAssets = false, bool deleteAllReferencedData = false)
+    {
+        Directory.SetCurrentDirectory(Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath);
+        Directory.SetCurrentDirectory($".{Path.DirectorySeparatorChar}{GetPath()}");
+        Directory.SetCurrentDirectory("..");
+        Directory.Delete(Alias, true);
+    }
+
     public string GetPath()
     {
         var result = "";
         if (Parent == LabURI.Empty)
         {
-            return $"{result}/{Name}";
+            return $"{result}/{Alias}";
         }
         
         var parentFolder = AssetManager.Get().GetAsset<Folder>(Parent);
         result += parentFolder.GetPath();
 
-        return $"{result}/{Name}";
+        return $"{result}/{Alias}";
     }
 
     public T FindAndGetChild<T>(string name) where T : IAsset

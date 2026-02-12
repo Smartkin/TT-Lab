@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using Caliburn.Micro;
 using SharpGLTF.Geometry.VertexTypes;
+using SharpGLTF.Memory;
 using TT_Lab.AssetData.Code;
 using TT_Lab.AssetData.Graphics.SubModels;
 using TT_Lab.Assets;
@@ -102,18 +103,21 @@ public class BlendSkinData : AbstractAssetData
             var twinMaterial = AssetManager.Get().GetAssetData<MaterialData>(blend.Material);
             foreach (var shader in twinMaterial.Shaders)
             {
-                var texture = shader.TextureId == LabURI.Empty ? null : AssetManager.Get().GetAsset<Texture>(shader.TextureId);
-                var texturePath = texture?.FullDataPath;
                 var material = new SharpGLTF.Materials.MaterialBuilder($"BLEND_SKIN{GraphicsHelpers.MaterialTokenDivider}MATERIAL{GraphicsHelpers.MaterialTokenDivider}{twinMaterial.Name}{GraphicsHelpers.MaterialTokenDivider}{materialIndex}{GraphicsHelpers.MaterialTokenDivider}{shader.ShaderType}")
                     .WithDoubleSide(true);
 
-                if (texturePath == null)
+                if (shader.TextureId == LabURI.Empty)
                 {
                     material.WithBaseColor(new System.Numerics.Vector4(1, 1, 1, 1));
                 }
                 else
                 {
-                    material.WithBaseColor(texturePath);
+                    var textureData = AssetManager.Get().GetAssetData<TextureData>(shader.TextureId);
+                    using var ms = new MemoryStream();
+                    textureData.Bitmap!.Save(ms, 100);
+                    ms.Position = 0;
+                    using var binaryReader = new BinaryReader(ms);
+                    material.WithBaseColor(SharpGLTF.Materials.ImageBuilder.From(new MemoryImage(binaryReader.ReadBytes((int)ms.Length))));
                 }
                 
                 var blendMode = AlphaMode.OPAQUE;

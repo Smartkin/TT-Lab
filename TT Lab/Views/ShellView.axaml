@@ -179,14 +179,14 @@
                                     </Interaction.Behaviors>
                                     <Image Source="{Binding IconPath}" VerticalAlignment="Center" HorizontalAlignment="Center" Width="24" Height="24" Margin="0,0,3,0" Stretch="Uniform"/>
                                     <TextBlock x:Name="AssetBlock" IsVisible="{Binding IsNotRenaming}" VerticalAlignment="Center" HorizontalAlignment="Center" Text="{Binding Alias}">
-                                        <!-- <Interaction.Behaviors> -->
-                                        <!--     <DataTriggerBehavior Binding="{Binding IsEnabled}" Value="False"> -->
-                                        <!--         <ChangePropertyAction PropertyName="Foreground" Value="{StaticResource DisabledForegroundBrush}"></ChangePropertyAction> -->
-                                        <!--     </DataTriggerBehavior> -->
-                                        <!--     <DataTriggerBehavior Binding="{Binding IsEnabled}" Value="True"> -->
-                                        <!--         <ChangePropertyAction PropertyName="Foreground" Value="{StaticResource LightColorBrush}"></ChangePropertyAction> -->
-                                        <!--     </DataTriggerBehavior> -->
-                                        <!-- </Interaction.Behaviors> -->
+                                        <Interaction.Behaviors>
+                                            <DataTriggerBehavior Binding="{Binding IsEnabled}" Value="False">
+                                                <ChangePropertyAction PropertyName="Foreground" Value="Gray"/>
+                                            </DataTriggerBehavior>
+                                            <DataTriggerBehavior Binding="{Binding IsEnabled}" Value="True">
+                                                <ChangePropertyAction PropertyName="Foreground" Value="White"/>
+                                            </DataTriggerBehavior>
+                                        </Interaction.Behaviors>
                                     </TextBlock>
                                     <TextBox x:Name="RenamingTextBox" Text="{Binding NewAlias, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center" HorizontalAlignment="Stretch" IsVisible="{Binding IsRenaming}">
                                         <Interaction.Behaviors>
@@ -195,11 +195,6 @@
                                             </EventTriggerBehavior>
                                             <EventTrigger EventName="KeyDown">
                                                 <InvokeCommandAction Command="{Binding SaveRenaming}" PassEventArgsToCommand="True"/>
-                                                <!-- <cal:ActionMessage MethodName="SaveRenaming"> -->
-                                                <!--     <cal:ActionMessage.Parameters> -->
-                                                <!--         <cal:Parameter Value="$eventArgs"/> -->
-                                                <!--     </cal:ActionMessage.Parameters> -->
-                                                <!-- </cal:ActionMessage> -->
                                             </EventTrigger>
                                         </Interaction.Behaviors>
                                     </TextBox>

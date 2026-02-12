@@ -23,9 +23,13 @@ namespace Twinsanity.TwinsanityInterchange.Common
         /// <summary>
         /// Marks if the linked chunk should be rendered
         /// </summary>
-        public Boolean IsRendered { get; set; }
+        public Boolean IsAlwaysVisible { get; set; }
         /// <summary>
-        /// Purpose currently unknown. Only 6 bits are used
+        /// Marks if the linked chunk should be rendered
+        /// </summary>
+        public Boolean IsVisibleInCameraFrustum { get; set; }
+        /// <summary>
+        /// Purpose currently unknown. Only 5 bits are used
         /// </summary>
         public Byte UnkNum { get; set; }
         /// <summary>
@@ -82,8 +86,9 @@ namespace Twinsanity.TwinsanityInterchange.Common
             Path = new String(reader.ReadChars(pathLen));
             flags = reader.ReadUInt32();
             {
-                IsRendered = (flags & 0x1) != 0;
-                UnkNum = (Byte)((flags >> 0x1) & 0x3F);
+                IsAlwaysVisible = (flags & 0x1) != 0;
+                IsVisibleInCameraFrustum = (flags & 0x2) != 0;
+                UnkNum = (Byte)((flags >> 0x2) & 0x1F);
                 KeepLoaded = (flags & 0x80) != 0;
                 IsLoadWallActive = (flags & 0x100) != 0;
             }
@@ -113,11 +118,15 @@ namespace Twinsanity.TwinsanityInterchange.Common
 
         public void Write(BinaryWriter writer)
         {
-            flags = (UInt32)((UnkNum & 0x3F) << 1);
+            flags = (UInt32)((UnkNum & 0x1F) << 2);
             type = 0;
-            if (IsRendered)
+            if (IsAlwaysVisible)
             {
                 flags |= 0x1;
+            }
+            if (IsVisibleInCameraFrustum)
+            {
+                flags |= 0x2;
             }
             if (KeepLoaded)
             {

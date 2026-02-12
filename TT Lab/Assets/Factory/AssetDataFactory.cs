@@ -3,11 +3,13 @@ using System.Drawing;
 using System.IO;
 using System.Threading.Tasks;
 using Avalonia.Media.Imaging;
+using Splat;
 using TT_Lab.AssetData;
 using TT_Lab.AssetData.Code;
 using TT_Lab.AssetData.Code.Behaviour;
 using TT_Lab.AssetData.Graphics;
 using TT_Lab.AssetData.Instance;
+using TT_Lab.Project;
 using TT_Lab.Util;
 using Twinsanity.Libraries;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items;
@@ -24,6 +26,15 @@ public static class AssetDataFactory
 {
     public static AssetCreationStatus CreateFolderData(IAsset parent, IAsset asset)
     {
+        var projectPath = Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath;
+        Directory.SetCurrentDirectory(projectPath);
+        var parentFolder = (Folder)parent;
+        var folder = (Folder)asset;
+        folder.Parent = parentFolder.URI;
+        
+        Directory.SetCurrentDirectory($".{Path.DirectorySeparatorChar}{parentFolder.GetPath()}");
+        Directory.CreateDirectory(asset.Alias);
+        Directory.SetCurrentDirectory(projectPath);
         return AssetCreationStatus.Success;
     }
     
@@ -64,70 +75,6 @@ public static class AssetDataFactory
         return AssetCreationStatus.Success;
     }
 
-    public static async Task<AssetCreationStatus> CreateTextureData(IAsset asset)
-    {
-        var file = await MiscUtils.GetFileFromDialogueAsync("Choose an image file...", "Image files", ["*.jpg", "*.png", "*.bmp"]);
-        if (string.IsNullOrEmpty(file))
-        {
-            Log.WriteLine("ERROR: No texture file provided.");
-            return AssetCreationStatus.Failed;
-        }
-        
-        Bitmap image = new(file);
-        var creationStatusResult = AssetCreationStatus.Success;
-        if (image.Size.Width > 256)
-        {
-            Log.WriteLine("ERROR: Texture's width can't exceed 256 pixels.");
-            creationStatusResult = AssetCreationStatus.Failed;
-        }
-
-        if (image.Size.Height > 256)
-        {
-            Log.WriteLine("ERROR: Texture's height can't exceed 256 pixels.");
-            creationStatusResult = AssetCreationStatus.Failed;
-        }
-
-        if (!MathExtension.IsPowerOfTwo((long)image.Size.Width))
-        {
-            Log.WriteLine("ERROR: Texture's width must be a power of two.");
-            creationStatusResult = AssetCreationStatus.Failed;
-        }
-
-        if (!MathExtension.IsPowerOfTwo((long)image.Size.Height))
-        {
-            Log.WriteLine("ERROR: Texture's height must be a power of two.");
-            creationStatusResult = AssetCreationStatus.Failed;
-        }
-
-        if (image.Size.Width < 8)
-        {
-            Log.WriteLine("ERROR: Texture's width can't be smaller than 8 pixels.");
-            creationStatusResult = AssetCreationStatus.Failed;
-        }
-
-        if (image.Size.Height < 8)
-        {
-            Log.WriteLine("ERROR: Texture's height can't be smaller than 8 pixels.");
-            creationStatusResult = AssetCreationStatus.Failed;
-        }
-
-        if (creationStatusResult == AssetCreationStatus.Failed)
-        {
-            Log.WriteLine("Please fix the issues above and try again.");
-            image.Dispose();
-
-            return creationStatusResult;
-        }
-
-        var newTexture = new TextureData(asset);
-        newTexture.Bitmap = image;
-        newTexture.TextureFunction = ITwinTexture.TextureFunction.MODULATE;
-        newTexture.TexturePixelFormat = ITwinTexture.TexturePixelFormat.PSMT8;
-        asset.SetData(newTexture);
-
-        return creationStatusResult;
-    }
-
     public static AssetCreationStatus CreateSkydomeData(IAsset asset)
     {
         asset.SetData(new SkydomeData(asset));
@@ -150,18 +97,6 @@ public static class AssetDataFactory
     public static AssetCreationStatus CreateBehaviourData(IAsset asset)
     {
         asset.SetData(new BehaviourGraphData(asset));
-        return AssetCreationStatus.Success;
-    }
-
-    public static AssetCreationStatus CreateLodModelData(IAsset asset)
-    {
-        asset.SetData(new LodModelData(asset));
-        return AssetCreationStatus.Success;
-    }
-
-    public static AssetCreationStatus CreateMaterialData(IAsset asset)
-    {
-        asset.SetData(new MaterialData(asset));
         return AssetCreationStatus.Success;
     }
 

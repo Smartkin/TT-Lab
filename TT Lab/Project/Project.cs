@@ -2,6 +2,7 @@
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -115,13 +116,11 @@ public class Project : IProject
         var query = from asset in AssetManager.GetAssets()
             group asset by asset.Type;
         var assetTypesQuery = query as IGrouping<Type, IAsset>[] ?? query.ToArray();
-        var tasks = new Task[assetTypesQuery.Length - 6];
+        var tasks = new Task[assetTypesQuery.Length];
         var index = 0;
         var startAsset = DateTime.Now;
         foreach (var group in assetTypesQuery)
         {
-            if (group.Key.Name is nameof(BlendSkin) or nameof(Skin) or nameof(OGI) or nameof(Scenery) or nameof(Skydome) or nameof(DynamicScenery))
-                continue;
             tasks[index++] = Task.Factory.StartNew(() =>
             {
                 Log.WriteLine($"Serializing {group.Key.Name}...");
@@ -132,6 +131,11 @@ public class Project : IProject
 #endif
                 foreach (var asset in group)
                 {
+                    if (asset.IsInternal)
+                    {
+                        continue;
+                    }
+                    
                     asset.Serialize(SerializationFlags.SaveData | SerializationFlags.PreserveData);
                 }
 #if !DEBUG
@@ -151,43 +155,51 @@ public class Project : IProject
             task.Dispose();
         }
 
-        // Skins and blend skins are serialized without multithreading because of accessing and changing current directory
-        // and needing all the materials and textures serialized
-        foreach (var group in assetTypesQuery)
-        {
-            if (group.Key.Name != nameof(BlendSkin) && group.Key.Name != nameof(Skin) && group.Key.Name != nameof(OGI) && group.Key.Name != nameof(Scenery) && group.Key.Name != nameof(DynamicScenery) && group.Key.Name != nameof(Skydome))
-                continue;
-            Log.WriteLine($"Serializing {group.Key.Name}...");
-            var now = DateTime.Now;
-#if !DEBUG
-                try
-                {
-#endif
-            foreach (var asset in group)
-            {
-                asset.Serialize(SerializationFlags.SaveData | SerializationFlags.PreserveData);
-            }
-#if !DEBUG
-                }
-                catch (Exception ex)
-                {
-                    Log.WriteLine($"Error serializing: {ex.Message}");
-                }
-#endif
-            var span = DateTime.Now - now;
-            Log.WriteLine($"Finished serializing {group.Key.Name} in {span}");
-        }
         Log.WriteLine($"Serialized assets in {(DateTime.Now - startAsset)}");
-
+        
         var startUnload = DateTime.Now;
         Log.WriteLine($"Unloading all the loaded data...");
         foreach (var asset in AssetManager.GetAssets())
         {
+            if (asset.IsInternal)
+            {
+                continue;
+            }
+            
             asset.Serialize(SerializationFlags.FixReferences);
         }
         Log.WriteLine($"Finished unloading the data in {(DateTime.Now - startUnload)}");
         
+        Log.WriteLine("Deleting empty folders...");
         System.IO.Directory.SetCurrentDirectory(path);
+        System.IO.Directory.SetCurrentDirectory("assets");
+        var dirInfo = new System.IO.DirectoryInfo($"{path}/assets");
+        DeleteEmptyFolders(dirInfo);
+        Log.WriteLine("Finished deleting empty folders...");
+        
+        System.IO.Directory.SetCurrentDirectory(path);
+    }
+
+    private void DeleteEmptyFolders(System.IO.DirectoryInfo root)
+    {
+        var dirsToDelete = new List<System.IO.DirectoryInfo>();
+        foreach (var dir in root.GetDirectories())
+        {
+            if (!dir.GetFileSystemInfos().Any())
+            {
+                dirsToDelete.Add(dir);
+            }
+
+            foreach (var childDir in dir.GetDirectories())
+            {
+                DeleteEmptyFolders(childDir);
+            }
+        }
+
+        foreach (var dirToDelete in dirsToDelete)
+        {
+            dirToDelete.Delete();
+        }
     }
 
     public static void Deserialize(string projectPath)
@@ -580,12 +592,13 @@ public class Project : IProject
         }
 
         Log.WriteLine("Adding unpacked assets into asset manager...");
+        skydomeResolver.FinalizeResolve();
+        
         foreach (var chunkResolver in chunkResolvers)
         {
             chunkResolver.FinalizeResolve();
         }
         
-        skydomeResolver.FinalizeResolve();
         behaviourSequenceResolver.FinalizeResolve();
         behaviourResolver.FinalizeResolve();
         gameObjectResolver.FinalizeResolve();
@@ -661,7 +674,10 @@ public class Project : IProject
             {
                 if (asset is Scenery scenery)
                 {
-                    var collision = assetManager.GetAsset(((IAsset)scenery).GetData<SceneryData>().Collision);
+                    var sceneryData = ((IAsset)scenery).GetData<SceneryData>();
+                    sceneryData.SkydomeID = chunk.Skydome;
+                    
+                    var collision = assetManager.GetAsset(sceneryData.Collision);
                     collision.ResolveChunkResources(factory, rm2);
                 }
                 
@@ -699,7 +715,7 @@ public class Project : IProject
 
         if (!GlobalPackagePS2.Enabled)
         {
-            Log.WriteLine("Error: Global PS2 package MUST be enabled to compile the project");
+            Log.WriteLine("Global PS2 package MUST be enabled to compile the project", Log.LogType.Error);
             return;
         }
 
@@ -843,7 +859,10 @@ public class Project : IProject
                     {
                         if (asset is Scenery scenery)
                         {
-                            var collision = assetManager.GetAsset(((IAsset)scenery).GetData<SceneryData>().Collision);
+                            var sceneryData = ((IAsset)scenery).GetData<SceneryData>();
+                            sceneryData.SkydomeID = chunk.Skydome;
+                            
+                            var collision = assetManager.GetAsset(sceneryData.Collision);
                             collision.ResolveChunkResources(factory, rm2);
                         }
                         

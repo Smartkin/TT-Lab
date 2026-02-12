@@ -50,7 +50,7 @@ namespace TT_Lab.ViewModels.Editors.Instance.ChunkLinks
             
             unkFlag = link.UnkFlag;
             path = new PrimitiveWrapperViewModel<LabURI>(link.Path);
-            isRendered = link.IsRendered;
+            isRendered = link.IsAlwaysVisible;
             unkNum = link.UnkNum;
             isLoadWallActive = link.IsLoadWallActive;
             keepLoaded = link.KeepLoaded;
@@ -94,7 +94,7 @@ namespace TT_Lab.ViewModels.Editors.Instance.ChunkLinks
         {
             link.UnkFlag = UnkFlag;
             link.Path = Path.Value;
-            link.IsRendered = IsRendered;
+            link.IsAlwaysVisible = IsRendered;
             link.UnkNum = UnkNum;
             link.IsLoadWallActive = IsLoadWallActive;
             link.KeepLoaded = KeepLoaded;

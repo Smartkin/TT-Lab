@@ -167,6 +167,7 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
 
         if (settings is { IsCheckable: true, IsChecked: not null })
         {
+            newItem.ToggleType = MenuItemToggleType.CheckBox;
             newItem.Bind(MenuItem.IsCheckedProperty, settings.IsChecked);
         }
         
@@ -197,13 +198,8 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
 
     public async Task CreateContextMenuAction()
     {
-        // TODO: Rework this so menu gets recreated because if you click on many resources the memory consumption is gonna be pretty high
-        if (_contextMenuCreated)
-        {
-            return;
-        }
+        _menuOptions.Clear();
         
-        _contextMenuCreated = true;
         await Dispatcher.UIThread.InvokeAsync(CreateContextMenu, DispatcherPriority.Background);
     }
 
@@ -246,11 +242,11 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
         NotifyOfPropertyChange(nameof(IsNotRenaming));
     }
 
-    private void StartDeletingAsset()
+    private async void StartDeletingAsset()
     {
         var result = new OpenDialogueCommand.DialogueResult();
-        var showCommandDialogue = new OpenDialogueCommand(() => new DeleteAssetDialogue(result, this));
-        showCommandDialogue.Execute();
+        var showCommandDialogue = new DeleteAssetDialogue(result, this);
+        await showCommandDialogue.ShowDialog(MiscUtils.GetMainWindow());
         if (result.Result == null)
         {
             return;

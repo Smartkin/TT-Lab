@@ -463,40 +463,43 @@ namespace TT_Lab.Project
             {
                 Mark = FolderMark.Locked
             };
-            OpenedProject!.AssetManager.AddAsset(root);
-            var assetRoot = $"{OpenedProject!.ProjectPath}/assets";
+            
+            var assetRoot = $"{OpenedProject!.ProjectPath}";
             var dirInfo = new DirectoryInfo(assetRoot);
-            foreach (var assetDirectory in dirInfo.GetDirectories())
-            {
-                var directoryName = assetDirectory.Name;
-                var folder = new Folder(directoryName)
-                {
-                    Parent = root.URI
-                };
-                OpenedProject!.AssetManager.AddAsset(folder);
-                root.AddChild(folder);
-                ExploreFolder(folder, assetDirectory);
-            }
-            ProjectTree = [root.GetResourceTreeElement()];
+            ExploreFolder(root, dirInfo, false);
+            ProjectTree = new BindableCollection<ResourceTreeElementViewModel>(root.Children.Select(uri => OpenedProject!.AssetManager.GetAsset(uri).GetResourceTreeElement()));
             _internalTree.AddRange(ProjectTree);
             _eventAggregator.PublishOnUIThreadAsync(new ProjectManagerMessage(nameof(ProjectTree)));
         }
 
-        private void ExploreFolder(Folder folder, DirectoryInfo directory)
+        private static readonly string[] _reservedLockedDirectories = ["assets", "disc", "build"];
+        private void ExploreFolder(Folder folder, DirectoryInfo directory, bool setFolderAsParent = true)
         {
+            
             var serializer = JsonSerializer.Create();
             foreach (var fileInfo in directory.GetFiles("*.json"))
             {
                 using var reader = new JsonTextReader(new StreamReader(fileInfo.FullName));
                 var deserialized = (JObject)serializer.Deserialize(reader)!;
-                folder.AddChild(deserialized["URI"]!.ToObject<LabURI>()!);
+                var assetType = deserialized["Type"]!.ToObject<Type>();
+                var assetUri = deserialized["URI"]!.ToObject<LabURI>()!;
+                if (assetType == typeof(Package))
+                {
+                    folder.Mark |= FolderMark.IsPackage;
+                    folder.Mark |= FolderMark.Locked;
+                    folder.Mark &= ~FolderMark.Normal;
+                    folder.Package = assetUri;
+                    continue;
+                }
+                folder.AddChild(assetUri);
             }
             foreach (var assetDirectory in directory.GetDirectories())
             {
                 var directoryName = assetDirectory.Name;
                 var newFolder = new Folder(directoryName)
                 {
-                    Parent = folder.URI
+                    Parent = setFolderAsParent ? folder.URI : LabURI.Empty,
+                    Mark = _reservedLockedDirectories.Contains(directoryName) ? FolderMark.Locked : FolderMark.Normal
                 };
                 OpenedProject!.AssetManager.AddAsset(newFolder);
                 folder.AddChild(newFolder);

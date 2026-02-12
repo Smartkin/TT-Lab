@@ -9,7 +9,7 @@
         xmlns:controls1="clr-namespace:TT_Lab.Controls"
         xmlns:viewModels="clr-namespace:TT_Lab.ViewModels"
         x:DataType="viewModels:CreateAssetViewModel"
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="550"
         x:Class="TT_Lab.Views.CreateAssetView"
         Height="550" Width="400" CanMaximize="False" CanMinimize="True" CanResize="False" WindowStartupLocation="CenterOwner"
         Title="Create Asset...">
@@ -51,7 +51,7 @@
                     DropListName="Instance Layout"/>
             </Grid>
             <Grid Margin="5" Grid.Row="2">
-                <TextBox x:Name="AssetName" Loaded="AssetName_OnLoaded" Watermark="Asset Name..." Text="{Binding AssetName, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}" MaxHeight="25"/>
+                <TextBox x:Name="AssetName" Loaded="AssetName_OnLoaded" Watermark="Asset Name..." Text="{Binding AssetName, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"/>
             </Grid>
             <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" IsDefault="True" IsEnabled="{Binding CanCreate}" Command="{Binding CreateAssetButton}" Margin="5, 0, 5, 0" Grid.Row="3" Content="Create"/>
         </Grid>

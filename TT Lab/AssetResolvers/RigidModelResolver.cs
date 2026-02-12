@@ -24,7 +24,7 @@ public class RigidModelResolver(ModelResolver modelResolver, MaterialResolver ma
             materialResolver.CreateAssetFromId(chunk, materialsSection, package, itemMaterial);
         }
 
-        return new RigidModel(package.URI, needVariant, variant, item.GetID(), item.GetName(), item);
+        return new RigidModel(package.URI, needVariant, variant, item.GetID(), item.GetName(), item) { IsInternal = true };
     }
 
     public override void FinalizeResolve()

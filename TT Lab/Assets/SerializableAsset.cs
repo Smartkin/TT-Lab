@@ -169,17 +169,32 @@ public abstract class SerializableAsset : IAsset
 
     public virtual void PostDeserialize() { }
         
-    public void Delete(bool setDirectoryToAssets = false)
+    public virtual void Delete(bool setDirectoryToAssets = false, bool deleteAllReferencedData = false)
     {
-        MarkedForDeletion = true;
-        
-        DisposeData(true);
-        AssetManager.Get().RemoveAsset(URI);
-
-        if (IsInternal)
+        if (MarkedForDeletion)
         {
             return;
         }
+        
+        MarkedForDeletion = true;
+
+        var assetManager = AssetManager.Get();
+        if (deleteAllReferencedData)
+        {
+            var refsCopy = References.ToList();
+            foreach (var reference in refsCopy)
+            {
+                if (reference == LabURI.Empty)
+                {
+                    continue;
+                }
+                
+                assetManager.GetAsset(reference).Delete(setDirectoryToAssets, deleteAllReferencedData);
+            }
+        }
+        
+        DisposeData(true);
+        assetManager.RemoveAsset(this);
         
         if (setDirectoryToAssets)
         {
@@ -187,8 +202,15 @@ public abstract class SerializableAsset : IAsset
         }
 
         var path = SavePath;
-        File.Delete(Path.Combine(path, $"{Name}.json"));
-        File.Delete(Path.Combine(path, Data));
+        if (File.Exists(Path.Combine(path, $"{Name}.json")))
+        {
+            File.Delete(Path.Combine(path, $"{Name}.json"));
+        }
+
+        if (File.Exists(Path.Combine(path, Data)))
+        {
+            File.Delete(Path.Combine(path, Data));
+        }
     }
 
     public abstract Type GetEditorType();
@@ -282,9 +304,15 @@ public abstract class SerializableAsset : IAsset
         {
             return;
         }
-            
-        RemoveReferencesFromData(GetData(), reference);
-        Serialize(SerializationFlags.SetDirectoryToAssets | SerializationFlags.SaveData | SerializationFlags.FixReferences);
+
+        var serializationFlags = SerializationFlags.SetDirectoryToAssets | SerializationFlags.FixReferences;
+        if (!IsInternal)
+        {
+            RemoveReferencesFromData(GetData(), reference);
+            serializationFlags |= SerializationFlags.SaveData;
+        }
+
+        Serialize(serializationFlags);
     }
 
     public ResourceTreeElementViewModel GetResourceTreeElement(ResourceTreeElementViewModel? parent = null)

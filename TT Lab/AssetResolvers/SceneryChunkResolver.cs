@@ -10,8 +10,8 @@ public class SceneryChunkResolver : AssetResolver<ITwinSection>
     private readonly SceneryResolver _sceneryResolver;
     private readonly DynamicSceneryResolver _dynamicSceneryResolver;
     private readonly ChunkLinkResolver _chunkLinkResolver;
-    
-    private LevelChunk _levelChunk;
+
+    public LevelChunk LevelChunk { get; private set; }
     
     private string ChunkName => ChunkPath.Split(System.IO.Path.DirectorySeparatorChar)[^1];
 
@@ -33,12 +33,12 @@ public class SceneryChunkResolver : AssetResolver<ITwinSection>
         var assetManager = AssetManager.Get();
         if (!assetManager.DoesAssetExist(chunkAsset.URI))
         {
-            _levelChunk = chunkAsset;
+            LevelChunk = chunkAsset;
             assetManager.AddAsset(chunkAsset);
         }
         else
         {
-            _levelChunk = assetManager.GetAsset<LevelChunk>(chunkAsset.URI);
+            LevelChunk = assetManager.GetAsset<LevelChunk>(chunkAsset.URI);
         }
         
         _dynamicSceneryResolver.CreateAssetsFromChunk(chunk, package);
@@ -60,9 +60,9 @@ public class SceneryChunkResolver : AssetResolver<ITwinSection>
     {
         _dynamicSceneryResolver.FinalizeResolve();
         _sceneryResolver.FinalizeResolve();
-        _levelChunk.ChunkResources.AddRange(_sceneryResolver.GetAssets().Select(m => m.Uri));
+        LevelChunk.ChunkResources.AddRange(_sceneryResolver.GetAssets().Select(m => m.Uri));
         _chunkLinkResolver.FinalizeResolve();
-        _levelChunk.ChunkResources.AddRange(_chunkLinkResolver.GetAssets().Select(m => m.Uri));
+        LevelChunk.ChunkResources.AddRange(_chunkLinkResolver.GetAssets().Select(m => m.Uri));
         
         base.FinalizeResolve();
     }

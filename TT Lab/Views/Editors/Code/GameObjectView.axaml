@@ -28,26 +28,21 @@
         <!-- </ObjectDataProvider> -->
     </UserControl.Resources>
     <controls1:GroupBox>
-        <Grid>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition/>
-                <ColumnDefinition Width="5"/>
-                <ColumnDefinition/>
-            </Grid.ColumnDefinitions>
-            <ContentControl Grid.Column="0" x:Name="ObjectScene"/>
+        <Grid ColumnDefinitions="*,5,*">
+            <ContentControl Grid.Column="0" Content="{Binding ObjectScene}"/>
             <GridSplitter Grid.Column="1" Margin="0" ResizeDirection="Columns"></GridSplitter>
             <ScrollViewer Grid.Column="2">
                 <TabControl>
                     <TabItem Header="Main Properties">
                         <StackPanel Orientation="Vertical">
                             <controls:LabeledTextBox LayoutOrientation="Horizontal" HorizontalAlignment="Stretch" TextBoxName="Object Name" Text="{Binding Name}"/>
-                            <controls:LabeledDropList LayoutOrientation="Horizontal" DropListName="Type" SelectedItem="{Binding Type}" Items="{Binding Source={StaticResource ObjectTypes}}"/>
+                            <controls:LabeledDropList LayoutOrientation="Horizontal" DropListName="Type" SelectedItem="{Binding Type}" Items="{Binding ObjectTypes}"/>
                             <controls:LabeledTextBox ToolTip.Tip="{Binding UnkTypeHintString}" LayoutOrientation="Horizontal" HorizontalAlignment="Stretch" TextBoxName="Sub Type (Read the hint by hovering over)" Text="{Binding UnkTypeValue}"/>
                             <controls:LabeledTextBox LayoutOrientation="Horizontal" HorizontalAlignment="Stretch" TextBoxName="Camera Controlled Joints Amount" Text="{Binding CameraReactJointAmount}"/>
                             <controls:LabeledTextBox LayoutOrientation="Horizontal" HorizontalAlignment="Stretch" TextBoxName="Exit Points Amount (in OGI/Skeleton)" Text="{Binding ExitPointAmount}"/>
-                            <Expander Header="Slots (used for Behaviours)">
+                            <Expander HorizontalAlignment="Stretch" Header="Slots (used for Behaviours)">
                                 <StackPanel Margin="5, 0, 0, 0" Orientation="Vertical">
-                                    <Expander Header="OGI/Animation slots">
+                                    <Expander HorizontalAlignment="Stretch" Header="OGI/Animation slots">
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition/>
@@ -83,7 +78,7 @@
                                             </StackPanel>
                                         </Grid>
                                     </Expander>
-                                    <Expander Header="Behaviour slots">
+                                    <Expander HorizontalAlignment="Stretch" Header="Behaviour slots">
                                         <controls:EditableListBox HorizontalContentAlignment="Stretch" MaxHeight="500" Items="{Binding BehaviourSlots}" ListBoxName="">
                                             <controls:EditableListBox.ItemTemplate>
                                                 <DataTemplate x:DataType="{x:Type composite1:PrimitiveWrapperViewModel, x:TypeArguments=assets1:LabURI}">
@@ -98,7 +93,7 @@
                                             </controls:EditableListBox.ItemTemplate>
                                         </controls:EditableListBox>
                                     </Expander>
-                                    <Expander Header="Object slots">
+                                    <Expander HorizontalAlignment="Stretch" Header="Object slots">
                                         <controls:EditableListBox HorizontalContentAlignment="Stretch" MaxHeight="500" Items="{Binding ObjectSlots}" ListBoxName="">
                                             <controls:EditableListBox.ItemTemplate>
                                                 <DataTemplate x:DataType="{x:Type composite1:PrimitiveWrapperViewModel, x:TypeArguments=assets1:LabURI}">
@@ -112,7 +107,7 @@
                                             </controls:EditableListBox.ItemTemplate>
                                         </controls:EditableListBox>
                                     </Expander>
-                                    <Expander Header="Sound slots">
+                                    <Expander HorizontalAlignment="Stretch" Header="Sound slots">
                                         <controls:EditableListBox HorizontalContentAlignment="Stretch" MaxHeight="500" Items="{Binding SoundSlots}" ListBoxName="">
                                             <controls:EditableListBox.ItemTemplate>
                                                 <DataTemplate x:DataType="{x:Type composite1:PrimitiveWrapperViewModel, x:TypeArguments=assets1:LabURI}">
@@ -128,9 +123,9 @@
                                     </Expander>
                                 </StackPanel>
                             </Expander>
-                            <Expander Header="References (used when loading the object)">
+                            <Expander HorizontalAlignment="Stretch" Header="References (used when loading the object)">
                                 <StackPanel Margin="5, 0, 0, 0" Orientation="Vertical">
-                                    <Expander Header="Animation refs">
+                                    <Expander HorizontalAlignment="Stretch" Header="Animation refs">
                                         <controls:EditableListBox HorizontalContentAlignment="Stretch" MaxHeight="500" Items="{Binding RefAnimations}" ListBoxName="">
                                             <controls:EditableListBox.ItemTemplate>
                                                 <DataTemplate x:DataType="{x:Type composite1:PrimitiveWrapperViewModel, x:TypeArguments=assets1:LabURI}">
@@ -143,7 +138,7 @@
                                             </controls:EditableListBox.ItemTemplate>
                                         </controls:EditableListBox>
                                     </Expander>
-                                    <Expander Header="OGI refs">
+                                    <Expander HorizontalAlignment="Stretch" Header="OGI refs">
                                         <controls:EditableListBox HorizontalContentAlignment="Stretch" MaxHeight="500" Items="{Binding RefOgis}" ListBoxName="">
                                             <controls:EditableListBox.ItemTemplate>
                                                 <DataTemplate x:DataType="{x:Type composite1:PrimitiveWrapperViewModel, x:TypeArguments=assets1:LabURI}">
@@ -156,7 +151,7 @@
                                             </controls:EditableListBox.ItemTemplate>
                                         </controls:EditableListBox>
                                     </Expander>
-                                    <Expander Header="Behaviour refs">
+                                    <Expander HorizontalAlignment="Stretch" Header="Behaviour refs">
                                         <controls:EditableListBox HorizontalContentAlignment="Stretch" MaxHeight="500" Items="{Binding RefBehaviours}" ListBoxName="">
                                             <controls:EditableListBox.ItemTemplate>
                                                 <DataTemplate x:DataType="{x:Type composite1:PrimitiveWrapperViewModel, x:TypeArguments=assets1:LabURI}">
@@ -169,7 +164,7 @@
                                             </controls:EditableListBox.ItemTemplate>
                                         </controls:EditableListBox>
                                     </Expander>
-                                    <Expander Header="Behaviour sequences refs">
+                                    <Expander HorizontalAlignment="Stretch" Header="Behaviour sequences refs">
                                         <controls:EditableListBox HorizontalContentAlignment="Stretch" MaxHeight="500" Items="{Binding RefBehaviourCommandSequences}" ListBoxName="">
                                             <controls:EditableListBox.ItemTemplate>
                                                 <DataTemplate x:DataType="{x:Type composite1:PrimitiveWrapperViewModel, x:TypeArguments=assets1:LabURI}">
@@ -182,7 +177,7 @@
                                             </controls:EditableListBox.ItemTemplate>
                                         </controls:EditableListBox>
                                     </Expander>
-                                    <Expander Header="Object refs">
+                                    <Expander HorizontalAlignment="Stretch" Header="Object refs">
                                         <controls:EditableListBox HorizontalContentAlignment="Stretch" MaxHeight="500" Items="{Binding RefObjects}" ListBoxName="">
                                             <controls:EditableListBox.ItemTemplate>
                                                 <DataTemplate x:DataType="{x:Type composite1:PrimitiveWrapperViewModel, x:TypeArguments=assets1:LabURI}">
@@ -195,7 +190,7 @@
                                             </controls:EditableListBox.ItemTemplate>
                                         </controls:EditableListBox>
                                     </Expander>
-                                    <Expander Header="Sound refs">
+                                    <Expander HorizontalAlignment="Stretch" Header="Sound refs">
                                         <controls:EditableListBox HorizontalContentAlignment="Stretch" MaxHeight="500" Items="{Binding RefSounds}" ListBoxName="">
                                             <controls:EditableListBox.ItemTemplate>
                                                 <DataTemplate x:DataType="{x:Type composite1:PrimitiveWrapperViewModel, x:TypeArguments=assets1:LabURI}">
@@ -215,7 +210,7 @@
                     <TabItem Header="Default Instance Properties">
                         <StackPanel Orientation="Vertical">
                             <composite:InstanceStateFlagsView MaxHeight="400" DataContext="{Binding StateFlags}"/>
-                            <Expander Header="Instance Flags">
+                            <Expander HorizontalAlignment="Stretch" Header="Instance Flags">
                                 <controls:EditableListBox HorizontalContentAlignment="Stretch" MaxHeight="500" Items="{Binding InstFlags}" ListBoxName="">
                                     <controls:EditableListBox.ItemTemplate>
                                         <DataTemplate x:DataType="{x:Type composite1:PrimitiveWrapperViewModel, x:TypeArguments=x:UInt32}">
@@ -224,7 +219,7 @@
                                     </controls:EditableListBox.ItemTemplate>
                                 </controls:EditableListBox>
                             </Expander>
-                            <Expander Header="Instance Floats">
+                            <Expander HorizontalAlignment="Stretch" Header="Instance Floats">
                                 <controls:EditableListBox HorizontalContentAlignment="Stretch" MaxHeight="500" Items="{Binding InstFloats}" ListBoxName="">
                                     <controls:EditableListBox.ItemTemplate>
                                         <DataTemplate x:DataType="{x:Type composite1:PrimitiveWrapperViewModel, x:TypeArguments=x:Single}">
@@ -233,7 +228,7 @@
                                     </controls:EditableListBox.ItemTemplate>
                                 </controls:EditableListBox>
                             </Expander>
-                            <Expander Header="Instance Integers">
+                            <Expander HorizontalAlignment="Stretch" Header="Instance Integers">
                                 <controls:EditableListBox HorizontalContentAlignment="Stretch" MaxHeight="500" Items="{Binding InstIntegers}" ListBoxName="">
                                     <controls:EditableListBox.ItemTemplate>
                                         <DataTemplate x:DataType="{x:Type composite1:PrimitiveWrapperViewModel, x:TypeArguments=x:UInt32}">

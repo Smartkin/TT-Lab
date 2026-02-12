@@ -113,20 +113,26 @@ public class AssetManager
     /// Removes the asset from the manager
     /// </summary>
     /// <param name="uri">Asset's unique resource identifier</param>
-    public void RemoveAsset(LabURI uri)
+    public void RemoveAsset(IAsset asset)
     {
-        if (!_assets.ContainsKey(uri))
+        if (!_assets.ContainsKey(asset.URI))
         {
-            Log.WriteLine($"Unable to remove unexisting asset {uri}!", Log.LogType.Warning);
+            Log.WriteLine($"Unable to remove unexisting asset {asset.Name} at {asset.URI}!", Log.LogType.Warning);
+            return;
+        }
+
+        if (asset.IsInternal)
+        {
+            _assets.Remove(asset.URI);
             return;
         }
 
         foreach (var pair in _assets)
         {
-            pair.Value.RemoveReference(uri);
+            pair.Value.RemoveReference(asset.URI);
         }
 
-        _assets.Remove(uri);
+        _assets.Remove(asset.URI);
     }
 
     /// <summary>

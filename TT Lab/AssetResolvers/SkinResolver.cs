@@ -21,6 +21,6 @@ public class SkinResolver(MaterialResolver materialResolver) : AssetResolver<ITw
             materialResolver.CreateAssetFromId(chunk, materialSection, package, subSkin.Material);
         }
         
-        return new Skin(package.URI, needVariant, variant, item.GetID(), item.GetName(), item);
+        return new Skin(package.URI, needVariant, variant, item.GetID(), item.GetName(), item) { IsInternal = true };
     }
 }

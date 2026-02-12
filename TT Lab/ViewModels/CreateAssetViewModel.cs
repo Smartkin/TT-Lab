@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Avalonia.Controls;
 using Caliburn.Micro;
 using Splat;
 using TT_Lab.Assets;
@@ -63,7 +64,7 @@ public class CreateAssetViewModel : Screen, INotifyDataErrorInfo
         {
             Debug.Assert(_activeChunkService.CurrentChunkEditor != null, "A chunk must be active for a new instance to be created");
             idGenerator = TwinIdGeneratorServiceProvider.GetGeneratorForChunk(SelectedCreationModel.AssetType,
-                AssetManager.Get().GetAsset(_activeChunkService.CurrentChunkEditor.EditableResource).Variation, LayoutID);
+                AssetManager.Get().GetAsset(_activeChunkService.CurrentChunkEditor.EditableResource).AdditionalPath!, LayoutID);
         }
         else
         {
@@ -86,10 +87,11 @@ public class CreateAssetViewModel : Screen, INotifyDataErrorInfo
         }
         if (newAsset != null)
         {
-            await TryCloseAsync();
+            await this.DeactivateAsync(true);
+            return;
         }
         
-        Log.WriteLine("Error: Failed to create asset");
+        Log.WriteLine("Failed to create asset", Log.LogType.Error);
     }
 
     private Boolean IsAssetNameValid(string name)
@@ -126,8 +128,9 @@ public class CreateAssetViewModel : Screen, INotifyDataErrorInfo
             _dataValidatorService.RemoveError(nameof(AssetName), ASSET_NAME_INVALID_CHARS_ERROR);
         }
         
-        var assetsOfType = AssetManager.Get().GetAllAssetsOf(SelectedCreationModel.AssetType);
-        if (assetsOfType.Any(asset => asset.Name == name))
+        var assetManager = AssetManager.Get();
+        var assetFileNames = _selectedFolder.GetAsset<Folder>().Children.Select(child => assetManager.GetAsset(child).InvariantName);
+        if (assetFileNames.Any(asset => asset == name))
         {
             _dataValidatorService.AddError(nameof(AssetName), ASSET_NAME_ALREADY_EXISTS);
             isValid = false;
@@ -146,6 +149,7 @@ public class CreateAssetViewModel : Screen, INotifyDataErrorInfo
 
         SelectedCreationModel = CreatableAssets[0];
         _dataValidatorService.ValidateProperty(AssetName, nameof(AssetName));
+        NotifyOfPropertyChange(nameof(CanCreate));
     }
 
     public BindableCollection<object> InstanceLayouts => ViewModelUtil.Layers;
@@ -203,7 +207,7 @@ public class CreateAssetViewModel : Screen, INotifyDataErrorInfo
 
     public Boolean IsInstance => SelectedCreationModel == null ? false : SelectedCreationModel.IsInstance;
     
-    public string LayoutRowHeight => IsInstance ? "2*" : "0";
+    public GridLength LayoutRowHeight => IsInstance ? new GridLength(2, GridUnitType.Star) : new GridLength(0);
 
     public event EventHandler<DataErrorsChangedEventArgs>? ErrorsChanged
     {

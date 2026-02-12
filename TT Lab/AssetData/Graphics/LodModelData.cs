@@ -66,15 +66,6 @@ public class LodModelData : AbstractAssetData
 
     protected override void Dispose(Boolean disposing)
     {
-        var assetManager = AssetManager.Get();
-        foreach (var meshUri in Meshes)
-        {
-            var mesh = assetManager.GetAsset(meshUri);
-            if (mesh.IsInternal)
-            {
-                mesh.Delete();
-            }
-        }
         Meshes.Clear();
     }
 

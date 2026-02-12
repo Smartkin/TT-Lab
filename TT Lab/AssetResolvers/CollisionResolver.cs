@@ -16,7 +16,7 @@ public class CollisionResolver : AssetResolver<ITwinCollision>
 
     protected override IAsset CreateAsset(ITwinSection chunk, Package package, ITwinCollision item, bool needVariant, string variant)
     {
-        return new Collision(package.URI, item.GetID(), "Static Collision", ChunkPath, item);
+        return new Collision(package.URI, item.GetID(), "Static Collision", ChunkPath, item) { IsInternal = true };
     }
 
     protected override string GetTwinItemHash(ITwinCollision item)

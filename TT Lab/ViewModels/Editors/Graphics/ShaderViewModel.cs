@@ -3,6 +3,7 @@ using System;
 using System.Drawing;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia.Media.Imaging;
 using Newtonsoft.Json;
 using TT_Lab.AssetData.Graphics;
 using TT_Lab.AssetData.Graphics.Shaders;
@@ -234,7 +235,7 @@ namespace TT_Lab.ViewModels.Editors.Graphics
             }
         }
 
-        public string TexturePath => TexID == LabURI.Empty ? ManifestResourceLoader.GetPathInExe("Media/boat_guy.png") : AssetManager.Get().GetAsset(TexID).FullDataPath;
+        public Bitmap TexturePath => TexID == LabURI.Empty ? new Bitmap(ManifestResourceLoader.GetPathInExe("Media/boat_guy.png")) : new Bitmap(AssetManager.Get().GetAsset(TexID).FullDataPath);
 
         public Boolean HasIntParam => _type is TwinShader.Type.UnlitClothDeformation or TwinShader.Type.UnlitClothDeformation2;
 

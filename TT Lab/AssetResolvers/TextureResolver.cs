@@ -16,7 +16,8 @@ public class TextureResolver(bool isInScenery) : AssetResolver<ITwinTexture>
     {
         return new Texture(package.URI, needVariant, variant, item.GetID(), item.GetName(), item)
         {
-            AdditionalPath = isInScenery ? ChunkPath : string.Empty
+            AdditionalPath = isInScenery ? ChunkPath : string.Empty,
+            IsInternal = true
         };
     }
 }

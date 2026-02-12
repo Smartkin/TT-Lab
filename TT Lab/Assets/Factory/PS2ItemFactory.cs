@@ -270,7 +270,7 @@ namespace TT_Lab.Assets.Factory
                 TwinChunkLink chunkLink = new();
                 chunkLink.UnkFlag = reader.ReadBoolean();
                 chunkLink.Path = reader.ReadString();
-                chunkLink.IsRendered = reader.ReadBoolean();
+                chunkLink.IsAlwaysVisible = reader.ReadBoolean();
                 chunkLink.UnkNum = reader.ReadByte();
                 chunkLink.IsLoadWallActive = reader.ReadBoolean();
                 chunkLink.KeepLoaded = reader.ReadBoolean();

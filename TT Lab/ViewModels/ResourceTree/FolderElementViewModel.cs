@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Data;
 using Caliburn.Micro;
 using Splat;
 using TT_Lab.AssetData;
@@ -34,6 +35,28 @@ public class FolderElementViewModel : ResourceTreeElementViewModel
         BuildChildren((Folder)Asset);
     }
 
+    public override bool IsEnabled => !GetMark().HasFlag(FolderMark.IsPackage) || IsPackageEnabled;
+
+    public bool IsPackageEnabled
+    {
+        get => AssetManager.Get().GetAsset<Package>(Asset.Package).Enabled;
+        set
+        {
+            var package = AssetManager.Get().GetAsset<Package>(Asset.Package);
+            if (value != package.Enabled)
+            {
+                package.Enabled = value;
+                package.Serialize(SerializationFlags.SetDirectoryToAssets);
+                NotifyOfPropertyChange(nameof(IsEnabled));
+            }
+        }
+    }
+
+    private FolderMark GetMark()
+    {
+        return ((Folder)Asset).Mark;
+    }
+    
     protected override void CreateContextMenu()
     {
         RegisterMenuItem(new MenuItemSettings
@@ -43,6 +66,32 @@ public class FolderElementViewModel : ResourceTreeElementViewModel
         });
         
         var mark = ((Folder)Asset).Mark;
+
+        if (mark.HasFlag(FolderMark.IsPackage))
+        {
+            RegisterMenuItem(new MenuItemSettings
+            {
+                Header = "Open Settings"
+            });
+            
+            var binding = new Binding
+            {
+                Mode = BindingMode.TwoWay,
+                Source = this,
+                UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged,
+                Path = nameof(IsPackageEnabled),
+                // NotifyOnSourceUpdated = true,
+                // NotifyOnTargetUpdated = true
+            };
+        
+            RegisterMenuItem(new MenuItemSettings
+            {
+                Header = "Is Enabled",
+                IsCheckable = true,
+                IsChecked = binding
+            });
+        }
+        
         if (!mark.HasFlag(FolderMark.Locked))
         {
             base.CreateContextMenu();
@@ -60,8 +109,6 @@ public class FolderElementViewModel : ResourceTreeElementViewModel
         createAssetViewModel.RegisterAssetToCreate<GameObject>("Game Object", AssetDataFactory.CreateGameObjectData);
         createAssetViewModel.RegisterAssetToCreate<BehaviourGraph>("Behaviour", AssetDataFactory.CreateBehaviourData);
         createAssetViewModel.RegisterAssetToCreate<SoundEffect>("Sound Effect", AssetDataFactory.CreateSoundEffectData);
-        createAssetViewModel.RegisterAssetToCreate<Texture>("Texture", AssetDataFactory.CreateTextureData);
-        createAssetViewModel.RegisterAssetToCreate<Material>("Material", AssetDataFactory.CreateMaterialData);
         createAssetViewModel.RegisterAssetToCreate<Skydome>("Skydome", AssetDataFactory.CreateSkydomeData);
     }
 

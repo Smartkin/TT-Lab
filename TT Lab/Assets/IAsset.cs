@@ -281,7 +281,8 @@ public interface IAsset
     /// Deletes the asset from disk drive and all references to it
     /// </summary>
     /// <param name="setDirectoryToAssets"></param>
-    void Delete(bool setDirectoryToAssets = false);
+    /// <param name="deleteAllReferencedData"></param>
+    void Delete(bool setDirectoryToAssets = false, bool deleteAllReferencedData = false);
 
     /// <summary>
     /// Finishes import on Project Creation stage

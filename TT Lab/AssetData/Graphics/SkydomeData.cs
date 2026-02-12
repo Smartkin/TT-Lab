@@ -28,7 +28,6 @@ public class SkydomeData : AbstractAssetData
         SetTwinItem(skydome);
     }
 
-    [JsonProperty(Required = Required.Always)]
     public List<LabURI> Meshes { get; set; }
 
     protected override void Dispose(Boolean disposing)

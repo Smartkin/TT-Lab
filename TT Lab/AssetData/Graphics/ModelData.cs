@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text.Json;
 using Caliburn.Micro;
 using SharpGLTF.Materials;
+using SharpGLTF.Memory;
 using SharpGLTF.Scenes;
 using TT_Lab.AssetData.Code;
 using TT_Lab.AssetData.Graphics.SubModels;
@@ -348,11 +349,11 @@ public class ModelData : AbstractAssetData
                     {
                         AlphaBlendingBit = false
                     };
-                    ver.Color.StoresColorWithAlphaBlend = false;
-                    // if (alphaBlendingBits != null)
-                    // {
-                    //     ver.AlphaBlendingBit = Math.Abs(alphaBlendingBits[i].X - 1.0f) < 0.00001f;
-                    // }
+                    if (alphaBlendingBits != null)
+                    {
+                        ver.AlphaBlendingBit = Math.Abs(alphaBlendingBits[i].X - 1.0f) < 0.00001f;
+                    }
+                    ver.Color.StoresColorWithAlphaBlend = ver.AlphaBlendingBit;
                     if (vertexes.Normals != null)
                     {
                         ver.Normal = vertexes.Normals[i].ToTwin();
@@ -484,8 +485,12 @@ public class ModelData : AbstractAssetData
                 }
                 else
                 {
-                    var texture = AssetManager.Get().GetAsset<Assets.Graphics.Texture>(textureId);
-                    material.WithBaseColor(texture.FullDataPath);
+                    var textureData = AssetManager.Get().GetAssetData<TextureData>(textureId);
+                    using var ms = new MemoryStream();
+                    textureData.Bitmap!.Save(ms, 100);
+                    ms.Position = 0;
+                    using var binaryReader = new BinaryReader(ms);
+                    material.WithBaseColor(ImageBuilder.From(new MemoryImage(binaryReader.ReadBytes((int)ms.Length))));
                 }
 
                 var blendMode = AlphaMode.OPAQUE;

@@ -500,34 +500,6 @@ public class OGIData : AbstractAssetData
 
     protected override void Dispose(Boolean disposing)
     {
-        var assetManger = AssetManager.Get();
-        if (Skin != LabURI.Empty)
-        {
-            var skin = assetManger.GetAsset(Skin);
-            if (skin.IsInternal)
-            {
-                skin.Delete();
-            }
-        }
-
-        if (BlendSkin != LabURI.Empty)
-        {
-            var blendSkin = assetManger.GetAsset(BlendSkin);
-            if (blendSkin.IsInternal)
-            {
-                blendSkin.Delete();
-            }
-        }
-
-        foreach (var rigidModelId in RigidModelIds)
-        {
-            var rigidModel = assetManger.GetAsset(rigidModelId);
-            if (rigidModel.IsInternal)
-            {
-                rigidModel.Delete();
-            }
-        }
-        
         Joints.Clear();
         ExitPoints.Clear();
         RigidModelJointIndices.Clear();

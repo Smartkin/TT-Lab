@@ -1,9 +1,14 @@
 ﻿using System.IO;
+using System.Linq;
+using Newtonsoft.Json;
+using SharpGLTF.Schema2;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
+using TT_Lab.Assets.Graphics;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items;
+using Mesh = TT_Lab.Assets.Graphics.Mesh;
 
 namespace TT_Lab.AssetData.Graphics;
 
@@ -33,6 +38,26 @@ public class MeshData : RigidModelData
         writer.Flush();
         ms.Position = 0;
         return factory.GenerateMesh(ms);
+    }
+    
+    protected override void LoadInternal(string dataPath, JsonSerializerSettings? settings = null)
+    {
+        var model = ModelRoot.Load(dataPath);
+        var rigidModelRoot = model.DefaultScene.VisualChildren.FirstOrDefault(n => n.Name.Contains("RIGID_MODEL_ROOT"));
+        if (rigidModelRoot == null)
+        {
+            Log.WriteLine($"Misconfigured Mesh {dataPath}! Make sure it contains RIGID_MODEL_ROOT node!", Log.LogType.Error);
+            return;
+        }
+
+        var rigidModel = ImportGltf<Mesh>(Owner, model, rigidModelRoot);
+        var data = (MeshData)rigidModel.GetData();
+        Model = data.Model;
+        Materials.Clear();
+        foreach (var material in data.Materials)
+        {
+            Materials.Add(material);
+        }
     }
 
     protected override void ResolveResources(ITwinItemFactory factory, ITwinSection section)

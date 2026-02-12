@@ -17,7 +17,6 @@ using Twinsanity.TwinsanityInterchange.Interfaces.Items.SM;
 
 namespace TT_Lab.AssetData.Instance;
 
-[ReferencesAssets]
 public class DynamicSceneryData : AbstractAssetData
 {
     public DynamicSceneryData(IAsset asset) : base(asset)
@@ -30,7 +29,6 @@ public class DynamicSceneryData : AbstractAssetData
         SetTwinItem(dynamicScenery);
     }
 
-    [JsonProperty(Required = Required.Always)]
     public List<DynamicSceneryModelData> DynamicModels { get; set; }
 
     public SharpGLTF.Scenes.NodeBuilder GetInGltfFormat(SharpGLTF.Scenes.SceneBuilder scene)
@@ -179,29 +177,17 @@ public class DynamicSceneryData : AbstractAssetData
 
     protected override void Dispose(Boolean disposing)
     {
-        var assetManager = AssetManager.Get();
-        foreach (var dynamicSceneryModelData in DynamicModels)
-        {
-            var mesh = assetManager.GetAsset(dynamicSceneryModelData.Mesh);
-            if (mesh.IsInternal)
-            {
-                mesh.Delete();
-            }
-        }
-        
         DynamicModels.Clear();
     }
 
     protected override void SaveInternal(string dataPath, JsonSerializerSettings? settings = null)
     {
-        base.SaveInternal(dataPath, settings);
-        
         var scene = new SharpGLTF.Scenes.SceneBuilder($"TwinsanityDynamicScenery_{Owner.Name}");
         var root = GetInGltfFormat(scene);
         scene.AddNode(root);
         
         var resultModel = scene.ToGltf2();
-        resultModel.SaveGLB(dataPath + ".glb");
+        resultModel.SaveGLB(dataPath);
     }
 
     public override void Import(LabURI package, String? variant, Int32? layoutId)

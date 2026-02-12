@@ -5,7 +5,6 @@
              xmlns:cm="http://caliburnmicro.com"
              xmlns:viewmodels="clr-namespace:TT_Lab.ViewModels"
              xmlns:controls="clr-namespace:TT_Lab.Controls"
-             d:DataContext="{Binding Source={d:DesignInstance viewmodels:ViewportViewModel}}"
              x:DataType="viewmodels:ViewportViewModel"
              cm:Bind.AtDesignTime="True"
              HorizontalAlignment="Stretch"
@@ -13,7 +12,9 @@
              Loaded="ViewportView_OnLoaded"
              SizeChanged="ViewportView_OnSizeChanged"
              LayoutUpdated="ViewportView_OnSourceUpdated"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="300"
+             MinWidth="300"
+             MinHeight="300"
              x:Class="TT_Lab.Views.ViewportView">
     <!-- <Interaction.Behaviors> -->
     <!--     <EventTrigger EventName="SizeChanged"> -->
@@ -45,7 +46,6 @@
                 </EventTriggerBehavior>
             </Interaction.Behaviors>
         </controls:Viewport>
-        <!-- TODO: Disabled for now because sometimes it causes infinite measuring and thus infinite loop in the UI render -->
-        <!-- <TextBlock Text="{Binding SceneStatus}" FontSize="32" VerticalAlignment="Center" HorizontalAlignment="Center"/> -->
+        <TextBlock Text="{Binding SceneStatus}" FontSize="32" VerticalAlignment="Center" HorizontalAlignment="Center"/>
     </Grid>
 </UserControl>

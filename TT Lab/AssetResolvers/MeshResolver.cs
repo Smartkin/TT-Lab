@@ -32,7 +32,8 @@ public class MeshResolver(ModelResolver modelResolver, MaterialResolver material
 
         return new Mesh(package.URI, needVariant, variant, item.GetID(), item.GetName(), item)
         {
-            AdditionalPath = ChunkPath
+            AdditionalPath = ChunkPath,
+            IsInternal = !isDefault
         };
     }
 

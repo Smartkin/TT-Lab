@@ -21,7 +21,9 @@ public class ChunkLink
     [JsonProperty(Required = Required.Always)]
     public LabURI Path { get; set; }
     [JsonProperty(Required = Required.Always)]
-    public Boolean IsRendered { get; set; }
+    public Boolean IsAlwaysVisible { get; set; }
+    [JsonProperty(Required = Required.Always)]
+    public Boolean IsVisibleInCameraFrustum { get; set; }
     [JsonProperty(Required = Required.Always)]
     public Byte UnkNum { get; set; }
     [JsonProperty(Required = Required.Always)]
@@ -40,7 +42,8 @@ public class ChunkLink
     public ChunkLink()
     {
         Path = LabURI.Empty;
-        IsRendered = true;
+        IsAlwaysVisible = true;
+        IsVisibleInCameraFrustum = false;
         IsLoadWallActive = true;
         ObjectMatrix = mat4.Identity.ToTwin();
         ChunkMatrix = mat4.Identity.ToTwin();
@@ -52,7 +55,8 @@ public class ChunkLink
         var assetManager = AssetManager.Get();
         UnkFlag = link.UnkFlag;
         Path = assetManager.GetAllAssetsOf<LevelChunk>().First(c => c.GetChunkPath().Equals(link.Path.Replace('\\', System.IO.Path.DirectorySeparatorChar), StringComparison.InvariantCultureIgnoreCase)).URI;
-        IsRendered = link.IsRendered;
+        IsAlwaysVisible = link.IsAlwaysVisible;
+        IsVisibleInCameraFrustum = link.IsVisibleInCameraFrustum;
         UnkNum = link.UnkNum;
         IsLoadWallActive = link.IsLoadWallActive;
         KeepLoaded = link.KeepLoaded;
