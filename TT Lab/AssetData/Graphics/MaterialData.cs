@@ -149,8 +149,8 @@ public class MaterialData : AbstractAssetData
         using var writer = new BinaryWriter(ms);
         writer.Write((UInt64)ActivatedShaders);
         writer.Write(DmaChainIndex);
-        writer.Write(Name.Length);
-        writer.Write(Name.ToCharArray());
+        writer.Write(Name.Length + 1);
+        writer.Write((Name + '\0').ToCharArray());
         writer.Write(Shaders.Count);
         foreach (var shader in Shaders)
         {

@@ -92,6 +92,14 @@ namespace Twinsanity.TwinsanityInterchange.Common
             return vec;
         }
 
+        public Color ToPremulAlpha()
+        {
+            R = (byte)((R * A + 127) / 255);
+            G = (byte)((G * A + 127) / 255);
+            B = (byte)((B * A + 127) / 255);
+            return this;
+        }
+
         public UInt32 ToARGB()
         {
             return (UInt32)((A << 24) | (R << 16) | (G << 8) | (B));

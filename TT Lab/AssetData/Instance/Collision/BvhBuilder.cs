@@ -136,9 +136,9 @@ public class BvhBuilder
                 continue;
             }
 
-            const int binAmount = 2000;
+            const int binAmount = 8;
             var bins = new Bin[binAmount];
-            var scale = (boundsMax - boundsMin) / binAmount;
+            var scale = binAmount / (boundsMax - boundsMin);
 
             for (var i = 0; i < node.TriangleCount; ++i)
             {
@@ -254,7 +254,8 @@ public class BvhBuilder
 
     private List<CollisionTrigger> triggers = [];
     private List<GroupInformation> groups = [];
-    private void TraverseBvh(BvhNode node)
+    private List<CollisionTriangle> triangles = [];
+    private void TraverseBvh(CollisionData collision, BvhContext context, BvhNode node)
     {
         var trigger = new CollisionTrigger();
         trigger.V1 = new Vector3(node.BboxMin.x, node.BboxMin.y, node.BboxMin.z);
@@ -271,101 +272,111 @@ public class BvhBuilder
             groups.Add(group);
             trigger.MinTriggerIndex = -groups.Count;
             trigger.MaxTriggerIndex = -groups.Count;
+
+            for (var i = 0; i < node.TriangleCount; i++)
+            {
+                triangles.Add(collision.Triangles[context.TriangleIndices[i + node.FirstTriangleIndex]]);
+            }
         }
         else
         {
-            TraverseBvh(node.LeftNode!);
+            TraverseBvh(collision, context, node.LeftNode!);
             trigger.MaxTriggerIndex = triggers.Count;
-            TraverseBvh(node.RightNode!);
+            TraverseBvh(collision, context, node.RightNode!);
         }
     }
 
     public static void BuildBvh(CollisionData collision)
     {
-        // var builder = new BvhBuilder();
+        var builder = new BvhBuilder();
         var indices = collision.Triangles.SelectMany(t => t.Face.Indexes!).ToArray();
         
-        // var triList = new List<Triangle>();
-        // var triIndices = new List<int>();
-        // var triIdx = 0;
-        var mesh = new DMesh3Builder();
-        mesh.AppendNewMesh(false, false, false, false);
-        foreach (var vec in collision.Vectors)
-        {
-            mesh.AppendVertex(vec.X, vec.Y, vec.Z);
-        }
+        var triList = new List<Triangle>();
+        var triIndices = new List<int>();
+        var triIdx = 0;
+        // var mesh = new DMesh3Builder();
+        // mesh.AppendNewMesh(false, false, false, false);
+        // foreach (var vec in collision.Vectors)
+        // {
+        //     mesh.AppendVertex(vec.X, vec.Y, vec.Z);
+        // }
         for (var i = 0; i < indices.Length; i += 3)
         {
-            // var v1 = collision.Vectors[indices[i]];
-            // var v2 = collision.Vectors[indices[i + 1]];
-            // var v3 = collision.Vectors[indices[i + 2]];
-            mesh.AppendTriangle(indices[i], indices[i + 1], indices[i + 2]);
-            // triList.Add(new Triangle([new vec3(v1.X, v1.Y, v1.Z), new vec3(v2.X, v2.Y, v2.Z), new vec3(v3.X, v3.Y, v3.Z)]));
-            // triIndices.Add(triIdx++);
+            var v1 = collision.Vectors[indices[i]];
+            var v2 = collision.Vectors[indices[i + 1]];
+            var v3 = collision.Vectors[indices[i + 2]];
+            // mesh.AppendTriangle(indices[i], indices[i + 1], indices[i + 2]);
+            triList.Add(new Triangle([new vec3(v1.X, v1.Y, v1.Z), new vec3(v2.X, v2.Y, v2.Z), new vec3(v3.X, v3.Y, v3.Z)]));
+            triIndices.Add(triIdx++);
         }
-        // var bvhContext = new BvhContext(triList.ToArray(), triIndices.ToArray());
-        // var root = new BvhNode
-        // {
-        //     BboxMin = new vec3(float.MaxValue),
-        //     BboxMax = new vec3(float.MinValue),
-        //     FirstTriangleIndex = 0,
-        //     TriangleCount = bvhContext.Triangles.Length
-        // };
-        // UpdateBvhNodeBounds(bvhContext, root);
+        var bvhContext = new BvhContext(triList.ToArray(), triIndices.ToArray());
+        var root = new BvhNode
+        {
+            BboxMin = new vec3(float.MaxValue),
+            BboxMax = new vec3(float.MinValue),
+            FirstTriangleIndex = 0,
+            TriangleCount = bvhContext.Triangles.Length
+        };
+        UpdateBvhNodeBounds(bvhContext, root);
         var watch = new Stopwatch();
         watch.Start();
         Log.WriteLine("Building collision bounding volume hierarchy...");
-        // builder.Subdivide(bvhContext, root);
+        builder.Subdivide(bvhContext, root);
 
-        var meshTree = new DMeshAabbTreeCustom(mesh.Meshes[0], collision.Triangles)
-        {
-            TopDownLeafMaxTriCount = 30,
-            BottomUpClusterLookahead = 30
-        };
-        meshTree.Build(DMeshAABBTree3.BuildStrategy.TopDownMedian);
-        var triggers = new List<CollisionTrigger>();
-        var groups = new List<GroupInformation>();
-        var triangleList = new List<CollisionTriangle>();
-        var groupOffset = 0;
-        var treeTraversal = new DMeshAabbTreeCustom.TreeTraversalCustom
-        {
-            BoxEnter = (boxId, box) =>
-            {
-                var trigger = new CollisionTrigger
-                {
-                    V1 = new Vector3(box.Min.x, box.Min.y, box.Min.z),
-                    V2 = new Vector3(box.Max.x, box.Max.y, box.Max.z),
-                };
-                triggers.Add(trigger);
-                return trigger;
-            },
-            BoxExit = (minTriggerId, maxTriggerId, trigger) =>
-            {
-                trigger.MinTriggerIndex = minTriggerId + 1;
-                trigger.MaxTriggerIndex = maxTriggerId + 1;
-            },
-            GroupEnter = (groupId, triangleAmount, newTriList, trigger) =>
-            {
-                trigger.MinTriggerIndex = -groupId;
-                trigger.MaxTriggerIndex = -groupId;
-                var group = new GroupInformation
-                {
-                    Offset = (uint)groupOffset,
-                    Size = (uint)triangleAmount
-                };
-                triangleList.AddRange(newTriList);
-                groupOffset += triangleAmount;
-                groups.Add(group);
-            }
-        };
-        meshTree.DoTraversal(treeTraversal);
-        collision.Triggers = triggers;
-        collision.Groups = groups;
-        collision.Triangles = triangleList;
+        // var meshTree = new DMeshAabbTreeCustom(mesh.Meshes[0], collision.Triangles)
+        // {
+        //     TopDownLeafMaxTriCount = 60,
+        //     BottomUpClusterLookahead = 60
+        // };
+        // meshTree.Build(DMeshAABBTree3.BuildStrategy.TopDownMedian);
+        // var triggers = new List<CollisionTrigger>();
+        // var groups = new List<GroupInformation>();
+        // var triangleList = new List<CollisionTriangle>();
+        // var groupOffset = 0;
+        // var treeTraversal = new DMeshAabbTreeCustom.TreeTraversalCustom
+        // {
+        //     BoxEnter = (boxId, box) =>
+        //     {
+        //         var trigger = new CollisionTrigger
+        //         {
+        //             V1 = new Vector3(box.Min.x, box.Min.y, box.Min.z),
+        //             V2 = new Vector3(box.Max.x, box.Max.y, box.Max.z),
+        //         };
+        //         triggers.Add(trigger);
+        //         return trigger;
+        //     },
+        //     BoxExit = (minTriggerId, maxTriggerId, trigger) =>
+        //     {
+        //         trigger.MinTriggerIndex = minTriggerId + 1;
+        //         trigger.MaxTriggerIndex = maxTriggerId + 1;
+        //     },
+        //     GroupEnter = (groupId, triangleAmount, newTriList, trigger) =>
+        //     {
+        //         if (triangleAmount == 0)
+        //         {
+        //             Log.WriteLine($"FOUND GROUP WITH 0 TRIANGLES", Log.LogType.Warning);
+        //         }
+        //         trigger.MinTriggerIndex = -groupId;
+        //         trigger.MaxTriggerIndex = -groupId;
+        //         var group = new GroupInformation
+        //         {
+        //             Offset = (uint)groupOffset,
+        //             Size = (uint)triangleAmount
+        //         };
+        //         triangleList.AddRange(newTriList);
+        //         groupOffset += triangleAmount;
+        //         groups.Add(group);
+        //     }
+        // };
+        // meshTree.DoTraversal(treeTraversal);
+        // collision.Triggers = triggers;
+        // collision.Groups = groups;
+        // collision.Triangles = triangleList;
         
-        // builder.TraverseBvh(root);
-        // collision.Triggers = builder.triggers;
-        // collision.Groups = builder.groups;
+        builder.TraverseBvh(collision, bvhContext, root);
+        collision.Triggers = builder.triggers;
+        collision.Groups = builder.groups;
+        collision.Triangles = builder.triangles;
         
         var elapsed = watch.Elapsed;
         Log.WriteLine($"Building collision BVH completed in {elapsed.Hours:00}:{elapsed.Minutes:00}:{elapsed.Seconds:00}.{elapsed.Milliseconds:00}");

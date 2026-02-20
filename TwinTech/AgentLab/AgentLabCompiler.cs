@@ -40,6 +40,8 @@ public static class AgentLabCompiler
         /// Status of the compiler at the end of compilation
         /// </summary>
         public CompilerStatus CompilerStatus { get; } = new();
+        
+        public required CompilerOptions CompilerOptions { get; init; }
 
         public bool Contains<T>()
         {
@@ -105,7 +107,7 @@ public static class AgentLabCompiler
     /// <returns>AgentLab object in bytecode</returns>
     public static CompilerResult Compile(string script, CompilerOptions options)
     {
-        var result = new CompilerResult();
+        var result = new CompilerResult() { CompilerOptions = options };
         try
         {
             var lexer = new AgentLabLexer(script);

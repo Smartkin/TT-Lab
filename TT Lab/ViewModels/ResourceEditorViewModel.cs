@@ -40,19 +40,12 @@ namespace TT_Lab.ViewModels
         protected Boolean IsDataLoaded { get; private set; }
         protected Boolean IgnoreUnsavedPopup { get; set; } = false;
         
-        private readonly ICommand _unsavedChangesCommand;
         private readonly OpenDialogueCommand.DialogueResult _dialogueResult = new();
         private string _tabDisplayName = string.Empty;
         private UnsavedChangesDialogue _unsavedChangesDialogue;
 
         public ResourceEditorViewModel()
         {
-            _unsavedChangesCommand = new OpenDialogueCommand(() =>
-            {
-                // _unsavedChangesDialogue = new UnsavedChangesDialogue(_dialogueResult,
-                //     AssetManager.Get().GetAsset(EditableResource).GetResourceTreeElement());
-                return _unsavedChangesDialogue;
-            });
             DirtyTracker = new DirtyTracker(this, () =>
             {
                 EditorChangesHappened();
@@ -65,7 +58,6 @@ namespace TT_Lab.ViewModels
             if (IsDirty && !IgnoreUnsavedPopup)
             {
                 _usingConfirmClose = true;
-                // _unsavedChangesCommand.Execute();
             }
             
             if (!IsDirty || IgnoreUnsavedPopup)
@@ -73,8 +65,7 @@ namespace TT_Lab.ViewModels
                 return true;
             }
             
-            await _unsavedChangesDialogue.ShowDialog((Window)((ShellViewModel)Locator.Current.GetService<ILabManager>()!)
-                .GetView());
+            await _unsavedChangesDialogue.ShowDialog(MiscUtils.GetMainWindow());
             
             _unsavedChangesDialogue = new UnsavedChangesDialogue(_dialogueResult,
                 AssetManager.Get().GetAsset(EditableResource).GetResourceTreeElement());
@@ -152,10 +143,13 @@ namespace TT_Lab.ViewModels
 
             ResetDirty();
             _startedEditing = true;
-            
-            _unsavedChangesDialogue = new UnsavedChangesDialogue(_dialogueResult,
-                AssetManager.Get().GetAsset(EditableResource).GetResourceTreeElement());
-            
+
+            if (EditableResource != LabURI.Empty)
+            {
+                _unsavedChangesDialogue = new UnsavedChangesDialogue(_dialogueResult,
+                    AssetManager.Get().GetAsset(EditableResource).GetResourceTreeElement());
+            }
+
             if (Parent is TabbedEditorViewModel tabbedEditorViewModel)
             {
                 _tabDisplayName = tabbedEditorViewModel.DisplayName;

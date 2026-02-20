@@ -31,7 +31,7 @@ public class LabUriConverter : IValueConverter
 
         if (resultString != null)
         {
-            return showData && asset != null ? $"{resultString} ({asset.Data})" : resultString;
+            return showData && asset != null ? $"{resultString} ({asset.FullDataPath})" : resultString;
         }
 
         return $"Provided type was {value?.GetType().Name}. Check your bindings!";

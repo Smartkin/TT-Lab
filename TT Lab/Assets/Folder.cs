@@ -21,6 +21,7 @@ public enum FolderMark
     ChunksOnly = 0x8,
     DefaultOnly = 0x10,
     IsPackage =  0x20,
+    IsChunk = 0x40,
 }
     
 public class Folder : SerializableAsset
@@ -30,7 +31,7 @@ public class Folder : SerializableAsset
     public List<LabURI> Children { get; set; } = [];
     public LabURI Parent { get; set; } = LabURI.Empty;
 
-    public override string IconPath => Mark.HasFlag(FolderMark.IsPackage) ? "Package.png" : "Folder.png";
+    public override string IconPath => GetIconPath();
 
     public Folder()
     {
@@ -151,5 +152,20 @@ public class Folder : SerializableAsset
     protected override ResourceTreeElementViewModel CreateResourceTreeElement(ResourceTreeElementViewModel? parent = null)
     {
         return new FolderElementViewModel(URI, parent);
+    }
+
+    private string GetIconPath()
+    {
+        if (Mark.HasFlag(FolderMark.IsChunk))
+        {
+            return "Scene.png";
+        }
+
+        if (Mark.HasFlag(FolderMark.IsPackage))
+        {
+            return "Package.png";
+        }
+
+        return "Folder.png";
     }
 }

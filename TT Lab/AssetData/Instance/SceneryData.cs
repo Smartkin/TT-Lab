@@ -562,7 +562,7 @@ public class SceneryData : AbstractAssetData
             
             lod.SetData(lodData);
             
-            assetManager.AddAsset(lod);
+            assetManager.TryAddAsset(lod);
             
             sceneryData.LodIDs.Add(lod.URI);
         }

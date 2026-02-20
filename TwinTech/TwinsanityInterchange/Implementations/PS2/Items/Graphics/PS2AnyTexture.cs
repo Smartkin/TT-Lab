@@ -157,30 +157,29 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.Graphics
                     }
                     break;
                 case ITwinTexture.TexturePixelFormat.PSMT8:
-                    byte[] gifData = EzSwizzle.TagToBytes(data[1]);
-                    int RRW = (int)((data[0].Data[1].Output >> 0) & 0xFFFFFFFF);
-                    int RRH = (int)((data[0].Data[1].Output >> 32) & 0xFFFFFFFF);
-                    int Width = (int)(Math.Pow(2, ImageWidthPower));
-                    int Height = (int)(Math.Pow(2, ImageHeightPower));
-                    byte[] rawTextureData = EzSwizzle.writeTexPSMCT32(0, 1, 0, 0, RRW, RRH, gifData);
-                    byte[] texData = EzSwizzle.readTexPSMT8(0, TextureBufferWidth, 0, 0, Width, Height, rawTextureData, false);
-                    byte[] paletteData = EzSwizzle.readTexPSMCT32(ClutBufferBasePointer, 1, 0, 0, 16, 16, rawTextureData, false);
-                    List<Color> palette = EzSwizzle.BytesToColors(paletteData);
-                    for (int i = 0; i < 8; i++)
+                    var gifData = EzSwizzle.TagToBytes(data[1]);
+                    var rrw = (int)((data[0].Data[1].Output >> 0) & 0xFFFFFFFF);
+                    var rrh = (int)((data[0].Data[1].Output >> 32) & 0xFFFFFFFF);
+                    var width = (int)(Math.Pow(2, ImageWidthPower));
+                    var height = (int)(Math.Pow(2, ImageHeightPower));
+                    var rawTextureData = EzSwizzle.writeTexPSMCT32(0, 1, 0, 0, rrw, rrh, gifData);
+                    var texData = EzSwizzle.readTexPSMT8(0, TextureBufferWidth, 0, 0, width, height, rawTextureData, false);
+                    var paletteData = EzSwizzle.readTexPSMCT32(ClutBufferBasePointer, 1, 0, 0, 16, 16, rawTextureData, false);
+                    var palette = EzSwizzle.BytesToColors(paletteData);
+                    for (var i = 0; i < 8; i++)
                     {
-                        for (int j = 8; j < 16; j++)
+                        for (var j = 8; j < 16; j++)
                         {
-                            Color tmp = palette[j + i * 32];
-                            palette[j + i * 32] = palette[j + i * 32 + 8];
-                            palette[j + i * 32 + 8] = tmp;
+                            (palette[j + i * 32], palette[j + i * 32 + 8]) = (palette[j + i * 32 + 8], palette[j + i * 32]);
                         }
                     }
                     foreach (var c in palette)
                     {
                         c.ScaleAlphaUp();
                     }
-                    int Pixels = Width * Height;
-                    for (var i = 0; i < Pixels; ++i)
+                    
+                    var pixels = width * height;
+                    for (var i = 0; i < pixels; ++i)
                     {
                         Colors.Add(palette[texData[i]]);
                     }
@@ -254,12 +253,30 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.Graphics
             {
                 var textureData = new byte[width * height];
                 var paletteData = new byte[256 * 4];
-                var palette = ImageQuantizer.Quantize(image);
+                var palette = new List<Color>(256);
+                
+                foreach (var c in image)
+                {
+                    if (!palette.Contains(c))
+                    {
+                        palette.Add(c);
+                    }
+                }
+                while (palette.Count < 256)
+                {
+                    palette.Add(new Color());
+                }
+
+                var useQuantizer = palette.Count > 256;
+                if (useQuantizer)
+                {
+                    palette = ImageQuantizer.Quantize(image);
+                }
                 
                 var index = 0;
                 foreach (var c in image)
                 {
-                    textureData[index] = ImageQuantizer.PaletteIndex(c, palette);
+                    textureData[index] = useQuantizer ? ImageQuantizer.PaletteIndex(c, palette) : (byte)palette.IndexOf(c);
                     ++index;
                 }
                 foreach (var c in palette)

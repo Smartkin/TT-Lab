@@ -7,6 +7,8 @@ namespace TT_Lab.AssetResolvers;
 
 public class TextureResolver(bool isInScenery) : AssetResolver<ITwinTexture>
 {
+    public bool IsWritingInternal { get; set; } = true;
+    
     public override void CreateAssetsFromChunk(ITwinSection chunk, Package package)
     {
         throw new System.NotImplementedException();
@@ -17,7 +19,7 @@ public class TextureResolver(bool isInScenery) : AssetResolver<ITwinTexture>
         return new Texture(package.URI, needVariant, variant, item.GetID(), item.GetName(), item)
         {
             AdditionalPath = isInScenery ? ChunkPath : string.Empty,
-            IsInternal = true
+            IsInternal = IsWritingInternal
         };
     }
 }

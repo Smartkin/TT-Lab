@@ -43,7 +43,7 @@ public static class AssetDataFactory
         var file = await MiscUtils.GetFileFromDialogueAsync("Choose a wave file...", "Sound files", ["*.wav"]);
         if (string.IsNullOrEmpty(file))
         {
-            Log.WriteLine("ERROR: No sound file provided.");
+            Log.WriteLine("No sound file provided.");
             return AssetCreationStatus.Failed;
         }
         
@@ -53,15 +53,21 @@ public static class AssetDataFactory
         short channels = 0;
         uint frequency = 0;
         Riff.LoadRiff(reader, ref pcm, ref channels, ref frequency);
-        if (channels != 1)
+        if (channels > 2)
         {
-            Log.WriteLine("ERROR: Stereo sound effects are not supported. Sound wasn't added.");
+            Log.WriteLine("Buddy what kind of audio are you trying to use here? Either mono or stereo. Sound wasn't created.", Log.LogType.Error);
+            return AssetCreationStatus.Failed;
+        }
+        
+        if (channels == 2 && frequency > 22050)
+        {
+            Log.WriteLine("Stereo sounds can not be over 22050 Hz. Sound wasn't created.", Log.LogType.Error);
             return AssetCreationStatus.Failed;
         }
 
         if (frequency > 48000)
         {
-            Log.WriteLine("ERROR: Sounds over 48000 Hz are not supported. Sound wasn't added.");
+            Log.WriteLine("Sounds over 48000 Hz are not supported. Sound wasn't created.", Log.LogType.Error);
             return AssetCreationStatus.Failed;
         }
         
@@ -97,6 +103,18 @@ public static class AssetDataFactory
     public static AssetCreationStatus CreateBehaviourData(IAsset asset)
     {
         asset.SetData(new BehaviourGraphData(asset));
+        return AssetCreationStatus.Success;
+    }
+
+    public static AssetCreationStatus CreateBehaviourSequenceData(IAsset asset)
+    {
+        asset.SetData(new BehaviourCommandsSequenceData(asset));
+        return AssetCreationStatus.Success;
+    }
+
+    public static AssetCreationStatus CreateOgiData(IAsset asset)
+    {
+        asset.SetData(new OGIData(asset));
         return AssetCreationStatus.Success;
     }
 

@@ -1,7 +1,9 @@
 using System;
 using System.Collections;
+using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Data;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml.Templates;
 using Avalonia.Xaml.Interactions.Core;
@@ -17,32 +19,10 @@ public class SelectedItemChangedEventArgs(object sender, RoutedEvent @event, obj
     }
 }
 
-public class EditableListBoxAddedItemEventArgs : RoutedEventArgs;
-public class EditableListBoxRemovedItemEventArgs : RoutedEventArgs;
-public class EditableListBoxDuplicatedItemEventArgs : RoutedEventArgs;
-
 public delegate void SelectedItemChangedEventHandler(object sender, SelectedItemChangedEventArgs e);
 
 public partial class EditableListBox : UserControl
 {
-    public event EventHandler<EditableListBoxAddedItemEventArgs> AddItem
-    {
-        add => AddHandler(AddItemEvent, value);
-        remove => RemoveHandler(AddItemEvent, value);
-    }
-    
-    public event EventHandler<EditableListBoxRemovedItemEventArgs> DeleteItem
-    {
-        add => AddHandler(DeleteItemEvent, value);
-        remove => RemoveHandler(DeleteItemEvent, value);
-    }
-    
-    public event EventHandler<EditableListBoxDuplicatedItemEventArgs> DuplicateItem
-    {
-        add => AddHandler(DuplicateItemEvent, value);
-        remove => RemoveHandler(DuplicateItemEvent, value);
-    }
-    
     public event SelectedItemChangedEventHandler SelectedItemChanged
     {
         add => AddHandler(SelectedItemChangedEvent, value);
@@ -51,27 +31,8 @@ public partial class EditableListBox : UserControl
     
     public static readonly RoutedEvent SelectedItemChangedEvent =
         RoutedEvent.Register<EditableListBox, SelectedItemChangedEventArgs>(nameof(SelectedItemChanged), RoutingStrategies.Bubble);
-    // EventManager.RegisterRoutedEvent("SelectedItemChanged",
-    // RoutingStrategy.Bubble, typeof(SelectedItemChangedEventHandler), typeof(EditableListBox));
-    
-    public static readonly RoutedEvent AddItemEvent =
-        RoutedEvent.Register<EditableListBox, EditableListBoxAddedItemEventArgs>(nameof(AddItem), RoutingStrategies.Bubble);
-    // // EventManager.RegisterRoutedEvent("AddItem",
-    // // RoutingStrategy.Bubble, typeof(RoutedEventHandler), typeof(EditableListBox));
-    //
-    public static readonly RoutedEvent DeleteItemEvent =
-        RoutedEvent.Register<EditableListBox, EditableListBoxRemovedItemEventArgs>(nameof(DeleteItem), RoutingStrategies.Bubble);
-    // // EventManager.RegisterRoutedEvent("DeleteItem",
-    // // RoutingStrategy.Bubble, typeof(RoutedEventHandler), typeof(EditableListBox));
-    //
-    public static readonly RoutedEvent DuplicateItemEvent =
-        RoutedEvent.Register<EditableListBox, EditableListBoxDuplicatedItemEventArgs>(nameof(DuplicateItem), RoutingStrategies.Bubble);
-    // EventManager.RegisterRoutedEvent("DuplicateItem",
-    // RoutingStrategy.Bubble, typeof(RoutedEventHandler), typeof(EditableListBox));
 
     public static readonly StyledProperty<string> ListBoxNameProperty = AvaloniaProperty.Register<EditableListBox, string>(nameof(ListBoxName), "Editable List");
-    // DependencyProperty.Register(
-    // nameof(ListBoxName), typeof(string), typeof(EditableListBox), new PropertyMetadata("Editable List"));
 
     public string ListBoxName
     {
@@ -80,8 +41,6 @@ public partial class EditableListBox : UserControl
     }
 
     public static readonly StyledProperty<int> SizeLimitProperty = AvaloniaProperty.Register<EditableListBox, int>(nameof(SizeLimit), int.MaxValue);
-    // DependencyProperty.Register(
-    // nameof(SizeLimit), typeof(int), typeof(EditableListBox), new PropertyMetadata(int.MaxValue));
 
     public int SizeLimit
     {
@@ -90,8 +49,6 @@ public partial class EditableListBox : UserControl
     }
     
     public static readonly StyledProperty<IEnumerable?> ItemsProperty = AvaloniaProperty.Register<EditableListBox, IEnumerable?>(nameof(Items));
-    // DependencyProperty.Register(
-    // nameof(Items), typeof(IEnumerable), typeof(EditableListBox), new PropertyMetadata(null));
 
     public IEnumerable? Items
     {
@@ -100,8 +57,6 @@ public partial class EditableListBox : UserControl
     }
 
     public static readonly StyledProperty<DataTemplate> ItemTemplateProperty = AvaloniaProperty.Register<EditableListBox, DataTemplate>(nameof(ItemTemplate));
-    // DependencyProperty.Register(
-    // nameof(ItemTemplate), typeof(DataTemplate), typeof(EditableListBox), new PropertyMetadata(default(DataTemplate)));
 
     public DataTemplate ItemTemplate
     {
@@ -109,68 +64,44 @@ public partial class EditableListBox : UserControl
         set => SetValue(ItemTemplateProperty, value);
     }
 
-    public static readonly AttachedProperty<object> DataTriggerAttachedValueProperty =
-        AvaloniaProperty.RegisterAttached<EditableListBox, object>("DataTriggerAttachedValue", typeof(EditableListBox));
-    // DependencyProperty.RegisterAttached(
-    // "DataTriggerAttachedValue", typeof(object), typeof(EditableListBox), new PropertyMetadata(null, OnDataTriggerValueChanged));
+    public static readonly StyledProperty<object?> SelectedItemProperty =
+        AvaloniaProperty.Register<EditableListBox, object?>(nameof(SelectedItem), null, false, BindingMode.TwoWay);
 
-    public static readonly StyledProperty<object> SelectedItemProperty = AvaloniaProperty.Register<EditableListBox, object>(nameof(SelectedItem));
-    // DependencyProperty.Register(
-    // nameof(SelectedItem), typeof(object), typeof(EditableListBox), new PropertyMetadata(null, OnSelectedItemChanged));
-
-    private void OnSelectedItemChanged()
-    {
-    }
-
-    public object SelectedItem
+    public object? SelectedItem
     {
         get => GetValue(SelectedItemProperty);
         set => SetValue(SelectedItemProperty, value);
     }
+    
+    public static readonly StyledProperty<ICommand> AddItemCommandProperty = AvaloniaProperty.Register<EditableListBox, ICommand>(nameof(AddItemCommand));
 
-    private static void OnDataTriggerValueChanged(DataTrigger d, AvaloniaPropertyChangedEventArgs e)
+    public ICommand AddItemCommand
     {
-        d.Value = e.NewValue;
+        get => GetValue(AddItemCommandProperty);
+        set => SetValue(AddItemCommandProperty, value);
     }
+    
+    public static readonly StyledProperty<ICommand> RemoveItemCommandProperty = AvaloniaProperty.Register<EditableListBox, ICommand>(nameof(RemoveItemCommand));
 
-    public static object GetDataTriggerAttachedValue(AvaloniaObject d)
+    public ICommand RemoveItemCommand
     {
-        return d.GetValue(DataTriggerAttachedValueProperty);
+        get => GetValue(RemoveItemCommandProperty);
+        set => SetValue(RemoveItemCommandProperty, value);
     }
+    
+    public static readonly StyledProperty<ICommand> DuplicateItemCommandProperty = AvaloniaProperty.Register<EditableListBox, ICommand>(nameof(DuplicateItemCommand));
 
-    public static void SetDataTriggerAttachedValue(AvaloniaObject d, object value)
+    public ICommand DuplicateItemCommand
     {
-        d.SetValue(DataTriggerAttachedValueProperty, value);
+        get => GetValue(DuplicateItemCommandProperty);
+        set => SetValue(DuplicateItemCommandProperty, value);
     }
 
     public int Zero => 0;
 
-    static EditableListBox()
-    {
-        DataTriggerAttachedValueProperty.Changed.AddClassHandler<DataTrigger>(OnDataTriggerValueChanged);
-    }
-
     public EditableListBox()
     {
         InitializeComponent();
-    }
-
-    private void OnAddItemClick(object sender, RoutedEventArgs e)
-    {
-        e.Handled = true;
-        RaiseEvent(new EditableListBoxAddedItemEventArgs { RoutedEvent = AddItemEvent });
-    }
-    
-    private void OnDeleteItemClick(object sender, RoutedEventArgs e)
-    {
-        e.Handled = true;
-        RaiseEvent(new EditableListBoxRemovedItemEventArgs { RoutedEvent = DeleteItemEvent });
-    }
-    
-    private void OnDuplicateItemClick(object sender, RoutedEventArgs e)
-    {
-        e.Handled = true;
-        RaiseEvent(new EditableListBoxDuplicatedItemEventArgs { RoutedEvent = DuplicateItemEvent });
     }
 
     private void OnItemsStorageSelectionChanged(object sender, SelectionChangedEventArgs e)

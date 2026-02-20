@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -17,6 +18,7 @@ using TT_Lab.Assets.Factory;
 using TT_Lab.Assets.Global;
 using TT_Lab.Assets.Graphics;
 using TT_Lab.Assets.Instance;
+using TT_Lab.Extensions;
 using TT_Lab.Libraries;
 using TT_Lab.Util;
 using Twinsanity.TwinsanityInterchange.Common.AgentLab;
@@ -465,7 +467,7 @@ public class Project : IProject
                 // Check for text files
                 if (isTxt)
                 {
-                    using System.IO.StreamReader textReader = new(ms);
+                    using System.IO.StreamReader textReader = new(ms, Encoding.Unicode);
                     var text = textReader.ReadToEnd();
                     var textFile = new TextFile(GlobalPackagePS2.URI, true, pathLow, resourceName, text)
                     {
@@ -753,7 +755,7 @@ public class Project : IProject
 
         Log.WriteLine("Writing Extras...");
         System.IO.Directory.SetCurrentDirectory("../Extras");
-
+        
         var extrasFolder = assetManager.GetAsset<Folder>(GlobalPackagePS2.GetPackageFolder().FindChild<Folder>("Extras"));
         ResolveGlobalAssets(factory, extrasFolder.Children, ref totalGlobals, ref currentGlobalsCount);
         
@@ -897,7 +899,7 @@ public class Project : IProject
                 }
                 else
                 {
-                    using var rm2File = new System.IO.FileStream($"{chunk.Name}.rm2", System.IO.FileMode.Create, System.IO.FileAccess.Write);
+                    using var rm2File = new System.IO.FileStream(StringExtensions.CapitalizeFirstChar($"{chunk.Name}.rm2"), System.IO.FileMode.Create, System.IO.FileAccess.Write);
                     using var rm2Writer = new System.IO.BinaryWriter(rm2File);
                     rm2.Write(rm2Writer);
                     rm2Writer.Flush();

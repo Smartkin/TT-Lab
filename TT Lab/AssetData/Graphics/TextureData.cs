@@ -106,7 +106,7 @@ public class TextureData : AbstractAssetData
             }
         }
 
-        Bitmap = new Bitmap(PixelFormat.Bgra8888, AlphaFormat.Unpremul, bitsHandle.AddrOfPinnedObject(),
+        Bitmap = new Bitmap(PixelFormat.Bgra8888, AlphaFormat.Premul, bitsHandle.AddrOfPinnedObject(),
             new PixelSize(width, height), new Vector(96, 96), width * 4);
         bitsHandle.Free();
     }
@@ -122,7 +122,7 @@ public class TextureData : AbstractAssetData
         var fun = TextureFunction;
         var format = TexturePixelFormat;
         var tex = new List<Twinsanity.TwinsanityInterchange.Common.Color>();
-        var bits = new byte[Bitmap.PixelSize.Width * Bitmap.PixelSize.Height * 4];
+        var bits = new byte[(int)Bitmap.Size.Width * (int)Bitmap.Size.Height * 4];
         var bitsHandle = GCHandle.Alloc(bits, GCHandleType.Pinned);
         Bitmap.CopyPixels(new PixelRect(0, 0, Bitmap.PixelSize.Width, Bitmap.PixelSize.Height), bitsHandle.AddrOfPinnedObject(), bits.Length, Bitmap.PixelSize.Width * 4);
         unsafe

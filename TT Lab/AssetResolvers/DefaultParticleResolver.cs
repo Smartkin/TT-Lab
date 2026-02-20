@@ -19,6 +19,9 @@ public class DefaultParticleResolver(MaterialResolver materialResolver, TextureR
         var graphicsSection = chunk.GetItem<ITwinSection>(Constants.LEVEL_GRAPHICS_SECTION);
         var materialSection = graphicsSection.GetItem<ITwinSection>(Constants.GRAPHICS_MATERIALS_SECTION);
         var textureSection = graphicsSection.GetItem<ITwinSection>(Constants.GRAPHICS_TEXTURES_SECTION);
+
+        materialResolver.IsWritingInternal = false;
+        textureResolver.IsWritingInternal = false;
         
         materialResolver.CreateAssetFromId(chunk, materialSection, package, item.DecalMaterialID);
         textureResolver.CreateAssetFromId(chunk, textureSection, package, item.DecalTextureID);
@@ -32,6 +35,9 @@ public class DefaultParticleResolver(MaterialResolver materialResolver, TextureR
         {
             textureResolver.CreateAssetFromId(chunk, textureSection, package, itemTextureId);
         }
+        
+        materialResolver.IsWritingInternal = true;
+        textureResolver.IsWritingInternal = true;
         
         return new DefaultParticles(package.URI, item.GetID(), "Global Particles", ChunkPath, item);
     }

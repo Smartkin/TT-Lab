@@ -161,23 +161,11 @@ namespace TT_Lab.ViewModels.Editors.Instance
             }
         }
 
-        public override Vector4ViewModel Position
-        {
-            get => Trigger.Position;
-            set => Trigger.Position = value;
-        }
+        public override Vector4ViewModel Position => Trigger.Position;
 
-        public override Vector3ViewModel Rotation
-        {
-            get => Trigger.Rotation;
-            set => Trigger.Rotation = value;
-        }
+        public override Vector3ViewModel Rotation => Trigger.Rotation;
 
-        public override Vector3ViewModel Scale
-        {
-            get => Trigger.Scale;
-            set => Trigger.Scale = value;
-        }
+        public override Vector3ViewModel Scale => Trigger.Scale;
 
         public TriggerViewModel Trigger
         {

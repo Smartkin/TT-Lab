@@ -1,6 +1,7 @@
 ﻿using Caliburn.Micro;
 using System;
 using GlmSharp;
+using TT_Lab.AssetData.Code;
 using TT_Lab.AssetData.Instance;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
@@ -11,6 +12,7 @@ using TT_Lab.Util;
 using TT_Lab.ViewModels.Composite;
 using TT_Lab.ViewModels.ResourceTree;
 using Twinsanity.TwinsanityInterchange.Enumerations;
+using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code;
 
 namespace TT_Lab.ViewModels.Editors.Instance;
 
@@ -20,6 +22,8 @@ public sealed class ObjectInstanceViewModel : ViewportEditableInstanceViewModel
     private BindableCollection<PrimitiveWrapperViewModel<LabURI>> instances = [];
     private BindableCollection<PrimitiveWrapperViewModel<LabURI>> paths = [];
     private BindableCollection<PrimitiveWrapperViewModel<LabURI>> positions = [];
+    private Vector4ViewModel _position;
+    private Vector3ViewModel _rotation;
     private Boolean useOnSpawnScript;
     private LabURI objectId = LabURI.Empty;
     private Int16 refListIndex;
@@ -42,18 +46,13 @@ public sealed class ObjectInstanceViewModel : ViewportEditableInstanceViewModel
         DirtyTracker.AddBindableCollection(flagParams);
         DirtyTracker.AddBindableCollection(floatParams);
         DirtyTracker.AddBindableCollection(intParams);
-        DirtyTracker.AddBindableCollection(objects);
-        DirtyTracker.AddBindableCollection(behaviours);
         DirtyTracker.AddChild(Position);
         DirtyTracker.AddChild(Rotation);
         DirtyTracker.AddChild(stateFlags);
-            
-        AddIntParamCommand = new AddItemToListCommand<PrimitiveWrapperViewModel<UInt32>>(IntParams);
-        AddFlagParamCommand = new AddItemToListCommand<PrimitiveWrapperViewModel<UInt32>>(FlagParams);
-        AddFloatParamCommand = new AddItemToListCommand<PrimitiveWrapperViewModel<Single>>(FloatParams);
-        DeleteIntParamCommand = new DeleteItemFromListCommand(IntParams);
-        DeleteFlagParamCommand = new DeleteItemFromListCommand(FlagParams);
-        DeleteFloatParamCommand = new DeleteItemFromListCommand(FloatParams);
+
+        AddLinkedInstanceCommand = new AddItemToListCommand<PrimitiveWrapperViewModel<LabURI>>(Instances, () => new PrimitiveWrapperViewModel<LabURI>(LabURI.Empty), 10);
+        AddLinkedPathCommand = new AddItemToListCommand<PrimitiveWrapperViewModel<LabURI>>(Paths, () => new PrimitiveWrapperViewModel<LabURI>(LabURI.Empty), 10);
+        AddLinkedPositionCommand = new AddItemToListCommand<PrimitiveWrapperViewModel<LabURI>>(Positions, () => new PrimitiveWrapperViewModel<LabURI>(LabURI.Empty), 10);
         DeleteLinkedInstanceCommand = new DeleteItemFromListCommand(Instances);
         DeleteLinkedPathCommand = new DeleteItemFromListCommand(Paths);
         DeleteLinkedPositionCommand = new DeleteItemFromListCommand(Positions);
@@ -114,34 +113,31 @@ public sealed class ObjectInstanceViewModel : ViewportEditableInstanceViewModel
         var asset = AssetManager.Get().GetAsset(EditableResource);
         var data = asset.GetData<ObjectInstanceData>();
         DirtyTracker.RemoveChild(Position);
-        Position = new Vector4ViewModel(data.Position);
+        _position = new Vector4ViewModel(data.Position);
         DirtyTracker.AddChild(Position);
         var rotX = data.RotationX.GetRotation();
         var rotY = data.RotationY.GetRotation();
         var rotZ = data.RotationZ.GetRotation();
         DirtyTracker.RemoveChild(Rotation);
-        Rotation = new Vector3ViewModel(rotX, rotY, rotZ);
+        _rotation = new Vector3ViewModel(rotX, rotY, rotZ);
         DirtyTracker.AddChild(Rotation);
-        instances = [];
+        instances.Clear();
         foreach (var i in data.Instances)
         {
             instances.Add(new PrimitiveWrapperViewModel<LabURI>(i));
         }
 
-        paths = [];
+        paths.Clear();
         foreach (var p in data.Paths)
         {
             paths.Add(new PrimitiveWrapperViewModel<LabURI>(p));
         }
 
-        positions = [];
+        positions.Clear();
         foreach (var p in data.Positions)
         {
             positions.Add(new PrimitiveWrapperViewModel<LabURI>(p));
         }
-        DirtyTracker.AddBindableCollection(instances);
-        DirtyTracker.AddBindableCollection(paths);
-        DirtyTracker.AddBindableCollection(positions);
             
         objectId = data.ObjectId;
         refListIndex = data.RefListIndex;
@@ -151,25 +147,22 @@ public sealed class ObjectInstanceViewModel : ViewportEditableInstanceViewModel
         stateFlags = new InstanceStateFlagsViewModel(MiscUtils.ConvertEnum<Enums.InstanceState>(data.StateFlags));
         DirtyTracker.AddChild(stateFlags);
 
-        flagParams = [];
+        flagParams.Clear();
         foreach (var f in data.ParamList1)
         {
             flagParams.Add(new PrimitiveWrapperViewModel<UInt32>(f));
         }
-        floatParams = [];
+        floatParams.Clear();
         foreach (var s in data.ParamList2)
         {
             floatParams.Add(new PrimitiveWrapperViewModel<Single>(s));
         }
-        intParams = [];
+        intParams.Clear();
         foreach (var i in data.ParamList3)
         {
             intParams.Add(new PrimitiveWrapperViewModel<UInt32>(i));
         }
-        DirtyTracker.AddBindableCollection(flagParams);
-        DirtyTracker.AddBindableCollection(floatParams);
-        DirtyTracker.AddBindableCollection(intParams);
-            
+        
         layoutId = MiscUtils.ConvertEnum<Enums.Layouts>(asset.LayoutID!.Value);
 
         behaviours = [];
@@ -178,7 +171,6 @@ public sealed class ObjectInstanceViewModel : ViewportEditableInstanceViewModel
         {
             behaviours.Add(behaviour.URI);
         }
-        DirtyTracker.AddBindableCollection(behaviours);
 
         objects = [];
         var objectAssets = AssetManager.Get().GetAllAssetsOf<GameObject>();
@@ -186,19 +178,109 @@ public sealed class ObjectInstanceViewModel : ViewportEditableInstanceViewModel
         {
             objects.Add(gameObject.URI);
         }
-        DirtyTracker.AddBindableCollection(objects);
+        
+        DirtyTracker.ResetDirty();
 
         // IoC.Get<IEventAggregator>().PublishOnUIThreadAsync(new ChangeRenderCameraPositionMessage
         //     { NewCameraPosition = new vec3(-Position.X, Position.Y, Position.Z) });
     }
 
+    private void UpdateParamsList()
+    {
+        if (objectId == LabURI.Empty)
+        {
+            return;
+        }
+        
+        var objectData = AssetManager.Get().GetAssetData<GameObjectData>(objectId);
+        var flagsAmount = 0;
+        var floatsAmount = 0;
+        var intsAmount = 0;
+        switch (objectData.Type)
+        {
+            case ITwinObject.ObjectType.Character:
+                flagsAmount = 9;
+                floatsAmount = 56;
+                intsAmount = 3;
+                break;
+            case ITwinObject.ObjectType.Pickup:
+                flagsAmount = 0;
+                floatsAmount = 1;
+                intsAmount = 2;
+                break;
+            case ITwinObject.ObjectType.Crate:
+                flagsAmount = 0;
+                floatsAmount = 3;
+                intsAmount = 2;
+                break;
+            case ITwinObject.ObjectType.Creature:
+                flagsAmount = 1;
+                floatsAmount = 6;
+                intsAmount = 3;
+                break;
+            case ITwinObject.ObjectType.GenericObject:
+                flagsAmount = 0;
+                floatsAmount = 1;
+                intsAmount = 2;
+                break;
+            case ITwinObject.ObjectType.Grabbable:
+                flagsAmount = 1;
+                floatsAmount = 4;
+                intsAmount = 2;
+                break;
+            case ITwinObject.ObjectType.PayGate:
+                flagsAmount = 0;
+                floatsAmount = 1;
+                intsAmount = 3;
+                break;
+            case ITwinObject.ObjectType.Graple:
+                flagsAmount = 0;
+                floatsAmount = 18;
+                intsAmount = 2;
+                break;
+            case ITwinObject.ObjectType.Projectile:
+                flagsAmount = 0;
+                floatsAmount = 1;
+                intsAmount = 2;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
 
-    public AddItemToListCommand<PrimitiveWrapperViewModel<UInt32>> AddIntParamCommand { get; private set; }
-    public DeleteItemFromListCommand DeleteIntParamCommand { get; private set; }
-    public AddItemToListCommand<PrimitiveWrapperViewModel<UInt32>> AddFlagParamCommand { get; private set; }
-    public DeleteItemFromListCommand DeleteFlagParamCommand { get; private set; }
-    public AddItemToListCommand<PrimitiveWrapperViewModel<Single>> AddFloatParamCommand { get; private set; }
-    public DeleteItemFromListCommand DeleteFloatParamCommand { get; private set; }
+        while (FlagParams.Count > flagsAmount)
+        {
+            FlagParams.RemoveAt(FlagParams.Count - 1);
+        }
+
+        while (FlagParams.Count < flagsAmount)
+        {
+            FlagParams.Add(new PrimitiveWrapperViewModel<uint>(0));
+        }
+
+        while (FloatParams.Count > floatsAmount)
+        {
+            FloatParams.RemoveAt(FloatParams.Count - 1);
+        }
+
+        while (FloatParams.Count < floatsAmount)
+        {
+            FloatParams.Add(new PrimitiveWrapperViewModel<float>(0.0f));
+        }
+
+        while (IntParams.Count > intsAmount)
+        {
+            IntParams.RemoveAt(IntParams.Count - 1);
+        }
+
+        while (IntParams.Count < intsAmount)
+        {
+            IntParams.Add(new PrimitiveWrapperViewModel<uint>(0));
+        }
+    }
+    
+    public AddItemToListCommand<PrimitiveWrapperViewModel<LabURI>> AddLinkedInstanceCommand { get; private set; }
+    public AddItemToListCommand<PrimitiveWrapperViewModel<LabURI>> AddLinkedPositionCommand { get; private set; }
+    public AddItemToListCommand<PrimitiveWrapperViewModel<LabURI>> AddLinkedPathCommand { get; private set; }
     public DeleteItemFromListCommand DeleteLinkedInstanceCommand { get; private set; }
     public DeleteItemFromListCommand DeleteLinkedPositionCommand { get; private set; }
     public DeleteItemFromListCommand DeleteLinkedPathCommand { get; private set; }
@@ -215,7 +297,10 @@ public sealed class ObjectInstanceViewModel : ViewportEditableInstanceViewModel
             return $"Instance {asset.ID} - {obj.Alias}";
         }
     }
-        
+
+    public override Vector4ViewModel Position => _position;
+    public override Vector3ViewModel Rotation => _rotation;
+
     [MarkDirty]
     public Enums.Layouts LayoutID
     {
@@ -240,12 +325,12 @@ public sealed class ObjectInstanceViewModel : ViewportEditableInstanceViewModel
             if (value != objectId)
             {
                 objectId = value;
-                    
+                UpdateParamsList();
                 NotifyOfPropertyChange();
             }
         }
     }
-        
+    
     [MarkDirty]
     public LabURI OnSpawnScript
     {
@@ -255,7 +340,7 @@ public sealed class ObjectInstanceViewModel : ViewportEditableInstanceViewModel
             if (value != onSpawnScriptId)
             {
                 onSpawnScriptId = value;
-                    
+                
                 NotifyOfPropertyChange();
             }
         }
@@ -291,7 +376,6 @@ public sealed class ObjectInstanceViewModel : ViewportEditableInstanceViewModel
             {
                 refListIndex = value;
                 NotifyOfPropertyChange();
-                    
             }
         }
     }
@@ -320,8 +404,7 @@ public sealed class ObjectInstanceViewModel : ViewportEditableInstanceViewModel
         {
             if (_flagIndex == -1) return;
             FlagParams[_flagIndex].Value = value;
-                
-            NotifyOfPropertyChange(nameof(FlagParams));
+            
             NotifyOfPropertyChange();
         }
     }
@@ -347,8 +430,7 @@ public sealed class ObjectInstanceViewModel : ViewportEditableInstanceViewModel
         {
             if (_floatIndex == -1) return;
             FloatParams[_floatIndex].Value = value;
-                
-            NotifyOfPropertyChange(nameof(FloatParams));
+            
             NotifyOfPropertyChange();
         }
     }
@@ -370,8 +452,7 @@ public sealed class ObjectInstanceViewModel : ViewportEditableInstanceViewModel
         {
             if (_intIndex == -1) return;
             IntParams[_intIndex].Value = value;
-                
-            NotifyOfPropertyChange(nameof(IntParams));
+            
             NotifyOfPropertyChange();
         }
     }

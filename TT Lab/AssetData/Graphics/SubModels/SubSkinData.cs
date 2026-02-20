@@ -39,11 +39,13 @@ public class SubSkinData : IDisposable
                 {
                     if (i % 2 == 0)
                     {
-                        Faces.Add(new IndexedFace(refIndex, refIndex + 1, refIndex + 2));
+                        int[] triIndices = [refIndex, refIndex + 1, refIndex + 2];
+                        Faces.Add(new IndexedFace(triIndices));
                     }
                     else
                     {
-                        Faces.Add(new IndexedFace(refIndex + 1, refIndex, refIndex + 2));
+                        int[] triIndices = [refIndex + 1, refIndex, refIndex + 2];
+                        Faces.Add(new IndexedFace(triIndices));
                     }
                 }
                 ++refIndex;

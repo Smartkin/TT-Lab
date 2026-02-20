@@ -42,9 +42,10 @@ public class ChunkLink
     public ChunkLink()
     {
         Path = LabURI.Empty;
-        IsAlwaysVisible = true;
-        IsVisibleInCameraFrustum = false;
+        IsAlwaysVisible = false;
+        IsVisibleInCameraFrustum = true;
         IsLoadWallActive = true;
+        LoadingWall = mat4.Identity.ToTwin();
         ObjectMatrix = mat4.Identity.ToTwin();
         ChunkMatrix = mat4.Identity.ToTwin();
         ChunkLinksCollisionData = [];

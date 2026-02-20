@@ -153,7 +153,7 @@ public class MaterialViewModel : ResourceEditorViewModel
         {
             return;
         }
-            
+        
         DeactivateItemAsync(CurrentSelectedShader, false);
         CurrentSelectedShader = args.GetSelectedItem<ShaderViewModel>()!;
         DeleteShaderCommand.Index = Shaders.IndexOf(CurrentSelectedShader);

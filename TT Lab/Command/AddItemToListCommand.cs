@@ -35,7 +35,7 @@ namespace TT_Lab.Command
 
         private void _list_CollectionChanged(Object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
         {
-            CanExecuteChanged?.Invoke(this, new EventArgs());
+            CanExecuteChanged?.Invoke(this, EventArgs.Empty);
         }
 
         public Boolean CanExecute(Object? parameter)

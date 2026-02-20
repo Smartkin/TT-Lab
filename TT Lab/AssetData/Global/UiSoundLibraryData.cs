@@ -30,12 +30,16 @@ namespace TT_Lab.AssetData.Global
         {
             var assetManager = AssetManager.Get();
             var sounds = new List<ITwinSound>();
+
+            var frontend = factory.GenerateFrontend(sounds);
+            
             foreach (var sound in UiSounds)
             {
-                sounds.Add((ITwinSound)(assetManager.GetAssetData<SoundEffectData>(sound).Export(factory)));
+                var soundAsset = assetManager.GetAsset(sound);
+                soundAsset.ResolveChunkResources(factory, frontend);
             }
 
-            return factory.GenerateFrontend(sounds);
+            return frontend;
         }
 
         public override void Import(LabURI package, String? variant, Int32? layoutId)

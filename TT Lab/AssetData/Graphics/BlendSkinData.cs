@@ -324,11 +324,4 @@ public class BlendSkinData : AbstractAssetData
         }
         return base.ResolveChunkResources(factory, section, id, layoutID);
     }
-
-    [JsonObject(MemberSerialization = MemberSerialization.OptIn)]
-    private class Metadata
-    {
-        [JsonProperty(Required = Required.Always)]
-        public List<LabURI> Materials { get; set; } = [];
-    }
 }

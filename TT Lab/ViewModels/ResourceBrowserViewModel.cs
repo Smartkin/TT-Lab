@@ -5,6 +5,7 @@ using Caliburn.Micro;
 using TT_Lab.Assets;
 using TT_Lab.Command;
 using TT_Lab.ViewModels.Interfaces;
+using TT_Lab.ViewModels.ResourceTree;
 
 namespace TT_Lab.ViewModels;
 
@@ -78,7 +79,12 @@ public class ResourceBrowserViewModel : Screen, IHaveResult
         NotifyOfPropertyChange(nameof(ResourcesToBrowseView));
     }
 
+    public string BrowserName { get; set; }
     public LabURI SelectedLink { get; set; }
+
+    public ResourceTreeElementViewModel? SelectedResourceTreeElement => SelectedLink == LabURI.Empty ? null
+        : AssetManager.Get().GetAsset(SelectedLink).GetResourceTreeElement();
+    
     public BindableCollection<LabURI> ResourcesToBrowseView => _resourcesToBrowseView;
 
     public string SearchAsset

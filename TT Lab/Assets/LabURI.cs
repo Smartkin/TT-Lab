@@ -52,7 +52,6 @@ public class LabURI : IEquatable<LabURI>, IComparable
     }
         
     public bool IsBuiltIn() => _isBuiltIn;
-        
     public string GetPackageName() => _package ?? "";
     public string GetFilePathInPackage() => _filePathInPackage ?? "";
 

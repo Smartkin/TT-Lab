@@ -83,21 +83,36 @@ public class ShellViewModel : Conductor<EditorsViewModel>, ILabManager
     {
         try
         {
-            if (asset.Type == typeof(Folder) || asset.Type == typeof(Package)) return;
+            var isFolder = asset.Type == typeof(Folder);
+            if (asset.Type == typeof(Package)) return;
+
+            var openedAsset = asset;
+
+            if (isFolder)
+            {
+                if (((Folder)asset).Mark.HasFlag(FolderMark.IsChunk))
+                {
+                    openedAsset = AssetManager.Get().GetAsset(((Folder)asset).Children[0]);
+                }
+                else
+                {
+                    return;
+                }
+            }
 
             var editorsViewModel = ActiveItem;
-            if (asset.Type == typeof(LevelChunk))
+            if (openedAsset.Type == typeof(LevelChunk))
             {
                 // Automatically switch to Scenes Viewer tab
                 editorsViewModel.ActivateItemAsync(editorsViewModel.Items[0]);
-                _eventAggregator.PublishOnUIThreadAsync(new CreateEditorMessage<ChunkEditorViewModel>(asset.URI, typeof(ChunkEditorViewModel)));
+                _eventAggregator.PublishOnUIThreadAsync(new CreateEditorMessage<ChunkEditorViewModel>(openedAsset.URI, typeof(ChunkEditorViewModel)));
                 return;
             }
             
             // Automatically switch to Resources Editor tab
             editorsViewModel.ActivateItemAsync(editorsViewModel.Items[1]);
-            var editorType = asset.GetEditorType();
-            var message = new CreateEditorMessage<ResourceEditorViewModel>(asset.URI, editorType);
+            var editorType = openedAsset.GetEditorType();
+            var message = new CreateEditorMessage<ResourceEditorViewModel>(openedAsset.URI, editorType);
             _eventAggregator.PublishOnUIThreadAsync(message);
         }
         catch (Exception ex)

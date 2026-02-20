@@ -1,0 +1,15 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:code="clr-namespace:TT_Lab.ViewModels.Editors.Code.Behaviour"
+             xmlns:avaloniaEdit="https://github.com/avaloniaui/avaloniaedit"
+             x:DataType="code:BehaviourCommandPackViewModel"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Views.Editors.Code.Behaviour.BehaviourCommandPackView">
+    <avaloniaEdit:TextEditor Name="Editor"
+                             Document="{Binding Code}"
+                             HorizontalScrollBarVisibility="Auto"
+                             VerticalScrollBarVisibility="Auto"
+                             ShowLineNumbers="True"/>
+</UserControl>

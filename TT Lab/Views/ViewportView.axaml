@@ -16,22 +16,6 @@
              MinWidth="300"
              MinHeight="300"
              x:Class="TT_Lab.Views.ViewportView">
-    <!-- <Interaction.Behaviors> -->
-    <!--     <EventTrigger EventName="SizeChanged"> -->
-    <!--         <cm:ActionMessage MethodName="FrameResized"> -->
-    <!--             <cm:ActionMessage.Parameters> -->
-    <!--                 <cm:Parameter Value="$eventArgs"/> -->
-    <!--             </cm:ActionMessage.Parameters> -->
-    <!--         </cm:ActionMessage> -->
-    <!--     </EventTrigger> -->
-    <!--     <EventTrigger EventName="Loaded"> -->
-    <!--         <cm:ActionMessage MethodName="ViewportLoaded"> -->
-    <!--             <cm:ActionMessage.Parameters> -->
-    <!--                 <cm:Parameter Value="$source"/> -->
-    <!--             </cm:ActionMessage.Parameters> -->
-    <!--         </cm:ActionMessage> -->
-    <!--     </EventTrigger> -->
-    <!-- </Interaction.Behaviors> -->
     <Grid Margin="5">
         <controls:Viewport>
             <Interaction.Behaviors>
@@ -42,7 +26,7 @@
                     <InvokeCommandAction Command="{Binding TerminateRender}"/>
                 </EventTriggerBehavior>
                 <EventTriggerBehavior EventName="SizeChanged">
-                    <InvokeCommandAction Command="{Binding FrameResized}" PassEventArgsToCommand="True"></InvokeCommandAction>
+                    <InvokeCommandAction Command="{Binding FrameResized}" PassEventArgsToCommand="True"/>
                 </EventTriggerBehavior>
             </Interaction.Behaviors>
         </controls:Viewport>

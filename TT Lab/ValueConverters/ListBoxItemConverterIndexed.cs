@@ -10,8 +10,8 @@ public class ListBoxItemConverterIndexed : IValueConverter
     public Object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         var listBoxItem = value as ListBoxItem;
-        var view = ItemsControl.ItemsControlFromItemContainer(listBoxItem) as ListBox;
-        var index = view!.ItemContainerGenerator.IndexFromContainer(listBoxItem!);
+        var view = ItemsControl.ItemsControlFromItemContainer(listBoxItem!);
+        var index = view!.IndexFromContainer(listBoxItem!);
         
         return listBoxItem!.Content + " " + index;
     }

@@ -19,8 +19,25 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Sections.RM2.Code
             var offset = 0;
             foreach (PS2AnySound item in Items.Cast<PS2AnySound>())
             {
-                Array.Copy(extraData, offset, item.Sound, 0, item.Sound.Length);
-                offset += item.Sound.Length;
+                var copyLength = item.Sound.Length;
+                if ((item.Header & 1) == 0)
+                {
+                    copyLength /= 2;
+                }
+                
+                Array.Copy(extraData, offset, item.Sound, 0, copyLength);
+                offset += copyLength;
+            }
+            
+            foreach (PS2AnySound item in Items.Cast<PS2AnySound>())
+            {
+                if ((item.Header & 1) != 0)
+                {
+                    continue;
+                }
+                
+                Array.Copy(extraData, offset, item.Sound, item.Sound.Length / 2, item.Sound.Length / 2);
+                offset += item.Sound.Length / 2;
             }
         }
 
@@ -31,9 +48,29 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Sections.RM2.Code
             var offset = 0;
             foreach (PS2AnySound item in Items.Cast<PS2AnySound>())
             {
-                newExtraData.Write(item.Sound);
+                var writeLength = item.Sound.Length;
+                if ((item.Header & 1) == 0)
+                {
+                    writeLength /= 2;
+                    newExtraData.Write(item.Sound, 0, writeLength);
+                }
+                else
+                {
+                    newExtraData.Write(item.Sound);
+                }
+
                 item.offset = offset;
-                offset += item.Sound.Length;
+                offset += writeLength;
+            }
+
+            foreach (PS2AnySound item in Items.Cast<PS2AnySound>())
+            {
+                if ((item.Header & 1) != 0)
+                {
+                    continue;
+                }
+                
+                newExtraData.Write(item.Sound, item.Sound.Length / 2, item.Sound.Length / 2);
             }
             newExtraData.Flush();
             extraData = newExtraData.ToArray();

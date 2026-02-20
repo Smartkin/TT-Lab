@@ -16,6 +16,9 @@ namespace TT_Lab.ViewModels.Editors.Instance;
 
 public class TriggerViewModel : ViewportEditableInstanceViewModel
 {
+    private Vector4ViewModel _position;
+    private Vector3ViewModel _rotation;
+    private Vector3ViewModel _scale;
     private Enums.TriggerActivatorObjects _objActivatorMask;
     private BindableCollection<PrimitiveWrapperViewModel<LabURI>> _instances = new();
     private UInt32 _header;
@@ -89,10 +92,10 @@ public class TriggerViewModel : ViewportEditableInstanceViewModel
         {
             _instances.Add(new PrimitiveWrapperViewModel<LabURI>(inst));
         }
-        Position = new Vector4ViewModel(data.Position);
-        Rotation = new Vector3ViewModel(data.Rotation.ToEulerAngles());
+        _position = new Vector4ViewModel(data.Position);
+        _rotation = new Vector3ViewModel(data.Rotation.ToEulerAngles());
         var scaleVector = new Vector3(data.Scale.X, data.Scale.Y, data.Scale.Z);
-        Scale = new Vector3ViewModel(scaleVector);
+        _scale = new Vector3ViewModel(scaleVector);
         DirtyTracker.AddChild(Position);
         DirtyTracker.AddChild(Rotation);
         DirtyTracker.AddChild(Scale);
@@ -107,6 +110,10 @@ public class TriggerViewModel : ViewportEditableInstanceViewModel
     }
 
     public DeleteItemFromListCommand DeleteInstanceFromListCommand { get; private set; }
+
+    public override Vector4ViewModel Position => _position;
+    public override Vector3ViewModel Rotation => _rotation;
+    public override Vector3ViewModel Scale => _scale;
 
     [MarkDirty]
     public Enums.Layouts LayoutID

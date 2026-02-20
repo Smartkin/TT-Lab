@@ -13,19 +13,13 @@
         <ContentControl Content="{Binding MaterialViewer}" HorizontalAlignment="Stretch" Margin="0,0,0,0" VerticalAlignment="Stretch"/>
         <controls:EditableListBox Grid.Row="1" Grid.Column="0" ListBoxName="Shaders" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
             Items="{Binding Shaders}"
+            AddItemCommand="{Binding AddShaderCommand}"
+            RemoveItemCommand="{Binding DeleteShaderCommand}"
+            DuplicateItemCommand="{Binding CloneShaderCommand}"
             SizeLimit="5">
             <Interaction.Behaviors>
                 <EventTriggerBehavior EventName="SelectedItemChanged">
                     <InvokeCommandAction Command="{Binding ChangeShaderSettings}" PassEventArgsToCommand="True"/>
-                </EventTriggerBehavior>
-                <EventTriggerBehavior EventName="AddItem">
-                    <InvokeCommandAction Command="{Binding AddShaderCommand}"/>
-                </EventTriggerBehavior>
-                <EventTriggerBehavior EventName="DeleteItem">
-                    <InvokeCommandAction Command="{Binding DeleteShaderCommand}"/>
-                </EventTriggerBehavior>
-                <EventTriggerBehavior EventName="DuplicateItem">
-                    <InvokeCommandAction Command="{Binding CloneShaderCommand}"/>
                 </EventTriggerBehavior>
             </Interaction.Behaviors>
             <controls:EditableListBox.ItemTemplate>

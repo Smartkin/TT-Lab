@@ -80,6 +80,7 @@ namespace TT_Lab.Assets.Code
                 item.Param2 = Param2;
                 item.Param3 = Param3;
                 item.Param4 = Param4;
+                item.SetDataFromPCM(((SoundEffectData)AssetData).GetPcm());
             }
 
             AssetData.Dispose();

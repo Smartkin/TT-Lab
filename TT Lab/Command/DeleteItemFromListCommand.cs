@@ -34,7 +34,7 @@ namespace TT_Lab.Command
 
         public Boolean CanExecute(Object? parameter)
         {
-            return _index != -1;
+            return _index != -1 && _index < _list.Count;
         }
 
         public void Execute(Object? parameter = null)

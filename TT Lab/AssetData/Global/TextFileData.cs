@@ -1,6 +1,7 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.IO;
+using System.Text;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
 using Twinsanity.TwinsanityInterchange.Interfaces;
@@ -33,16 +34,14 @@ namespace TT_Lab.AssetData.Global
 
         protected override void SaveInternal(String dataPath, JsonSerializerSettings? settings = null)
         {
-            using var fs = new FileStream(dataPath, FileMode.Create, FileAccess.Write);
-            using var writer = new BinaryWriter(fs);
-            writer.Write(Text.ToCharArray());
+            using var fs = new StreamWriter(dataPath, Encoding.Unicode, new FileStreamOptions { Access = FileAccess.Write, Mode = FileMode.Create });
+            fs.Write(Text);
         }
 
         protected override void LoadInternal(String dataPath, JsonSerializerSettings? settings = null)
         {
-            using var fs = new FileStream(dataPath, FileMode.Open, FileAccess.Read);
-            using var reader = new StreamReader(fs);
-            Text = reader.ReadToEnd();
+            using var fs = new StreamReader(dataPath, Encoding.Unicode);
+            Text = fs.ReadToEnd();
         }
 
         protected override void Dispose(Boolean disposing)

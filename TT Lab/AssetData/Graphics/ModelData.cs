@@ -13,6 +13,7 @@ using TT_Lab.AssetData.Code;
 using TT_Lab.AssetData.Graphics.SubModels;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
+using TT_Lab.Libraries;
 using TT_Lab.Project;
 using TT_Lab.Util;
 using Twinsanity.TwinsanityInterchange.Common;
@@ -398,7 +399,7 @@ public class ModelData : AbstractAssetData
 
     public override void Import(LabURI package, String? variant, Int32? layoutId)
     {
-        ITwinModel model = GetTwinItem<ITwinModel>();
+        var model = GetTwinItem<ITwinModel>();
         Vertexes = new List<List<Vertex>>();
         Faces = new List<List<IndexedFace>>();
         foreach (var e in model.SubModels)
@@ -445,6 +446,13 @@ public class ModelData : AbstractAssetData
 
             Vertexes.Add(vertList);
             Faces.Add(faceList);
+        }
+        
+        for (var i = 0; i < Vertexes.Count; ++i)
+        {
+            var mesh = MeshProcessor.MeshProcessor.CreateMesh(Vertexes[i], Faces[i]);
+            MeshProcessor.MeshProcessor.ProcessMesh(mesh);
+            Meshes.Add(mesh);
         }
     }
 

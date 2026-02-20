@@ -2,11 +2,11 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:controls="clr-namespace:TT_Lab.Controls"
+             x:Name="Root"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="TT_Lab.Controls.LabeledCheckBox">
-    <StackPanel Orientation="{Binding LayoutOrientation, RelativeSource={RelativeSource AncestorType=controls:LabeledCheckBox}}">
-        <Label Content="{Binding CheckBoxName, RelativeSource={RelativeSource AncestorType=controls:LabeledCheckBox}}" Margin="5" HorizontalAlignment="Right" VerticalAlignment="Center"/>
-        <CheckBox Margin="0, 0, 0, 0" IsChecked="{Binding Checked, RelativeSource={RelativeSource AncestorType=controls:LabeledCheckBox}}" Content="" VerticalAlignment="Center" HorizontalAlignment="Right"/>
+    <StackPanel Orientation="{Binding LayoutOrientation, ElementName=Root}">
+        <Label Content="{Binding CheckBoxName, ElementName=Root}" Margin="5" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+        <CheckBox Margin="0, 0, 0, 0" IsChecked="{Binding Checked, ElementName=Root}" Content="" VerticalAlignment="Center" HorizontalAlignment="Right"/>
     </StackPanel>
 </UserControl>

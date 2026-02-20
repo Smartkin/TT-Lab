@@ -32,6 +32,11 @@ namespace TT_Lab.AssetData.Code
             return _soundEffectStream;
         }
 
+        public Byte[] GetPcm()
+        {
+            return _pcm;
+        }
+
         private Byte[] _wave;
         private MemoryStream? _soundEffectStream;
         private Byte[] _pcm;
@@ -66,16 +71,16 @@ namespace TT_Lab.AssetData.Code
 
         public override void Import(LabURI package, String? variant, Int32? layoutId)
         {
-            ITwinSound sound = GetTwinItem<ITwinSound>();
+            var sound = GetTwinItem<ITwinSound>();
             _frequency = sound.GetFreq();
-            _channels = 1;
+            _channels = (sound.Header & 1) == 0 ? (short)2 : (short)1;
+
             _pcm = sound.ToPCM();
         }
 
         public override ITwinItem Export(ITwinItemFactory factory)
         {
             var sound = factory.GenerateSound();
-            sound.SetDataFromPCM(_pcm);
             sound.SetFreq((UInt16)_frequency);
 
             return sound;

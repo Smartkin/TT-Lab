@@ -33,8 +33,13 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code
             Param2 = reader.ReadUInt16();
             Param3 = reader.ReadUInt16();
             Param4 = reader.ReadUInt16();
-            Sound = new Byte[reader.ReadUInt32()];
-            reader.ReadUInt32(); // Discard offset
+            var soundSize = reader.ReadUInt32();
+            if ((Header & 1) == 0)
+            {
+                soundSize *= 2;
+            }
+            Sound = new Byte[soundSize];
+            offset = (int)reader.ReadUInt32(); // Discard offset
         }
 
         public override void Write(BinaryWriter writer)
@@ -46,7 +51,14 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code
             writer.Write(Param2);
             writer.Write(Param3);
             writer.Write(Param4);
-            writer.Write(Sound.Length);
+            if ((Header & 1) == 0)
+            {
+                writer.Write(Sound.Length / 2);
+            }
+            else
+            {
+                writer.Write(Sound.Length);
+            }
             writer.Write(offset);
         }
 
@@ -96,7 +108,15 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code
             using MemoryStream output = new();
             BinaryReader reader = new(input);
             BinaryWriter writer = new(output);
-            adpcm.ToPCMMono(reader, writer);
+            if ((Header & 1) == 0)
+            {
+                adpcm.ToPCMStereo(reader, writer, Sound.Length / 2);
+            }
+            else
+            {
+                adpcm.ToPCMMono(reader, writer);
+            }
+
             return output.ToArray();
         }
 
@@ -107,7 +127,15 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code
             using MemoryStream output = new();
             BinaryReader reader = new(input);
             BinaryWriter writer = new(output);
-            adpcm.ToADPCMMono(reader, writer);
+            if ((Header & 1) == 0)
+            {
+                adpcm.ToADPCMStereo(reader, writer);
+            }
+            else
+            {
+                adpcm.ToADPCMMono(reader, writer);
+            }
+
             Sound = output.ToArray();
         }
     }

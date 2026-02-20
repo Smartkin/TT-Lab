@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Data;
@@ -7,12 +8,14 @@ using Caliburn.Micro;
 using Splat;
 using TT_Lab.AssetData;
 using TT_Lab.AssetData.Code;
+using TT_Lab.AssetData.Instance;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Assets.Graphics;
 using TT_Lab.Assets.Instance;
 using TT_Lab.Models;
+using TT_Lab.Project;
 using TT_Lab.Util;
 using TT_Lab.Views;
 using Twinsanity.Libraries;
@@ -31,6 +34,11 @@ public class FolderElementViewModel : ResourceTreeElementViewModel
     public override void Init()
     {
         base.Init();
+
+        if (GetMark().HasFlag(FolderMark.IsChunk))
+        {
+            return;
+        }
         
         BuildChildren((Folder)Asset);
     }
@@ -59,13 +67,28 @@ public class FolderElementViewModel : ResourceTreeElementViewModel
     
     protected override void CreateContextMenu()
     {
+        var mark = GetMark();
+
+        if (mark.HasFlag(FolderMark.IsChunk))
+        {
+            RegisterMenuItem(new MenuItemSettings
+            {
+                Header = "Build chunk",
+                Action = RebuildChunk
+            });
+            RegisterMenuItem(new MenuItemSettings
+            {
+                Header = "Build with neighbouring chunks",
+                Action = RebuildChunkAndLinks
+            });
+            return;
+        }
+        
         RegisterMenuItem(new MenuItemSettings
         {
             Header = "Create Asset",
             Action = CreateItem
         });
-        
-        var mark = ((Folder)Asset).Mark;
 
         if (mark.HasFlag(FolderMark.IsPackage))
         {
@@ -107,6 +130,7 @@ public class FolderElementViewModel : ResourceTreeElementViewModel
     {
         createAssetViewModel.RegisterAssetToCreate<LevelChunk>("Chunk", AssetDataFactory.CreateChunkData);
         createAssetViewModel.RegisterAssetToCreate<GameObject>("Game Object", AssetDataFactory.CreateGameObjectData);
+        createAssetViewModel.RegisterAssetToCreate<OGI>("Game Model", AssetDataFactory.CreateOgiData);
         createAssetViewModel.RegisterAssetToCreate<BehaviourGraph>("Behaviour", AssetDataFactory.CreateBehaviourData);
         createAssetViewModel.RegisterAssetToCreate<SoundEffect>("Sound Effect", AssetDataFactory.CreateSoundEffectData);
         createAssetViewModel.RegisterAssetToCreate<Skydome>("Skydome", AssetDataFactory.CreateSkydomeData);
@@ -163,5 +187,63 @@ public class FolderElementViewModel : ResourceTreeElementViewModel
             DataContext = assetCreatorDialogue
         };
         await dialogue.ShowDialog(MiscUtils.GetMainWindow());
+    }
+
+    private IAsset GetFirstChild() => AssetManager.Get().GetAsset(((Folder)Asset).Children[0]);
+    
+    private async void RebuildChunkAndLinks()
+    {
+        try
+        {
+            var projectManager = Locator.Current.GetService<ProjectManager>()!;
+            projectManager.WorkableProject = false;
+            using var buildTask = Task.Factory.StartNew(() =>
+            {
+                Locator.Current.GetService<ProjectManager>()!.OpenedProject!.PackChunk(GetFirstChild().URI);
+            });
+            await buildTask;
+
+            var assetManager = AssetManager.Get();
+            var links = ((LevelChunk)GetFirstChild()).ChunkResources.FirstOrDefault(uri => assetManager.GetAsset(uri) is ChunkLinks, LabURI.Empty);
+            if (links != LabURI.Empty)
+            {
+                var assetLinks = assetManager.GetAsset(links);
+                var linksData = assetLinks.GetData<ChunkLinksData>();
+                foreach (var link in linksData.Links)
+                {
+                    using var linkTask = Task.Factory.StartNew(() =>
+                    {
+                        Locator.Current.GetService<ProjectManager>()!.OpenedProject!.PackChunk(link.Path);
+                    });
+                    await linkTask;
+                }
+            }
+            projectManager.WorkableProject = true;
+        }
+        catch (Exception e)
+        {
+            Locator.Current.GetService<ProjectManager>()!.WorkableProject = true;
+            Log.WriteLine($"Error when building chunk: {e.Message}");
+        }
+    }
+
+    private async void RebuildChunk()
+    {
+        try
+        {
+            var projectManager = Locator.Current.GetService<ProjectManager>()!;
+            projectManager.WorkableProject = false;
+            var buildTask = Task.Factory.StartNew(() =>
+            {
+                Locator.Current.GetService<ProjectManager>()!.OpenedProject!.PackChunk(GetFirstChild().URI);
+            });
+            await buildTask;
+            projectManager.WorkableProject = true;
+        }
+        catch (Exception e)
+        {
+            Locator.Current.GetService<ProjectManager>()!.WorkableProject = true;
+            Log.WriteLine($"Error when building chunk: {e.Message}");
+        }
     }
 }

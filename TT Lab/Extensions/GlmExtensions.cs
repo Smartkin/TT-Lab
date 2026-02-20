@@ -67,6 +67,11 @@ public static class GlmExtensions
         return new vec2(v.X, v.Y);
     }
 
+    public static mat4 CreateRotationMatrix(vec3 rotation)
+    {
+        return mat4.RotateZ(rotation.z) * mat4.RotateY(rotation.y) * mat4.RotateX(rotation.x);
+    }
+
     public static quat Multiply(this quat left, quat right)
     {
         var leftXyz = new vec3(left.x, left.y, left.z);

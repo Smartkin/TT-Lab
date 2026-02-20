@@ -265,12 +265,13 @@ namespace TT_Lab.Assets.Factory
             var link = new PS2AnyLink();
             using var reader = new BinaryReader(stream);
             var linkAmount = reader.ReadInt32();
-            for (Int32 i = 0; i < linkAmount; i++)
+            for (var i = 0; i < linkAmount; i++)
             {
                 TwinChunkLink chunkLink = new();
                 chunkLink.UnkFlag = reader.ReadBoolean();
                 chunkLink.Path = reader.ReadString();
                 chunkLink.IsAlwaysVisible = reader.ReadBoolean();
+                chunkLink.IsVisibleInCameraFrustum = reader.ReadBoolean();
                 chunkLink.UnkNum = reader.ReadByte();
                 chunkLink.IsLoadWallActive = reader.ReadBoolean();
                 chunkLink.KeepLoaded = reader.ReadBoolean();
@@ -282,7 +283,7 @@ namespace TT_Lab.Assets.Factory
                     chunkLink.LoadingWall.Read(reader, Constants.SIZE_MATRIX4);
                 }
                 var buildersAmount = reader.ReadInt32();
-                for (Int32 j = 0; j < buildersAmount; j++)
+                for (var j = 0; j < buildersAmount; j++)
                 {
                     var builder = new TwinChunkLinkBoundingBoxBuilder();
                     builder.Read(reader, (Int32)stream.Length);
@@ -722,11 +723,6 @@ namespace TT_Lab.Assets.Factory
         public ITwinSection GenerateFrontend(List<ITwinSound> sounds)
         {
             var frontend = new PS2Frontend();
-
-            foreach (var sound in sounds)
-            {
-                frontend.AddItem(sound);
-            }
 
             return frontend;
         }

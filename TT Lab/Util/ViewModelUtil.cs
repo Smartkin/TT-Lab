@@ -15,7 +15,7 @@ public static class ViewModelUtil
     public static readonly BindableCollection<object> Layers;
     
     // Object enums
-    public static readonly BindableCollection<object> ObjectTypes;
+    public static readonly BindableCollection<ITwinObject.ObjectType> ObjectTypes;
     
     // Camera enums
     public static readonly BindableCollection<object> CameraTypes;
@@ -42,7 +42,7 @@ public static class ViewModelUtil
         
         CameraTypes = new BindableCollection<object>(Enum.GetValues(typeof(ITwinCamera.CameraType)).Cast<object>());
         
-        ObjectTypes = new BindableCollection<Object>(Enum.GetValues(typeof(ITwinObject.ObjectType)).Cast<object>());
+        ObjectTypes = new BindableCollection<ITwinObject.ObjectType>(Enum.GetValues<ITwinObject.ObjectType>());
         
         AlphaTestMethods = new BindableCollection<object>(Enum.GetValues(typeof(AlphaTestMethod)).Cast<object>());
         ShaderTypes = new BindableCollection<object>(Enum.GetValues(typeof(TwinShader.Type)).Cast<object>());

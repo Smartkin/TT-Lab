@@ -100,6 +100,8 @@ public class OGIData : AbstractAssetData
         var materialDescs = model.DefaultScene.VisualChildren.First(n => n.Name == "MATERIAL_DESCS");
         ExtractSkinsAndBlendSkins(model, skinMeshes, blendSkinMeshes);
         TraverseNodeTree(model, model.DefaultScene.VisualChildren.FirstOrDefault(n => n.Name == "SKELETON_ROOT"), rigidMeshes);
+        
+        ExitPoints.Sort((e1, e2) => (int)e1.ID - (int)e2.ID);
 
         var ogiJsonData = model.DefaultScene.Extras.Deserialize<OgiGltfData>()!;
         BoundingBox = [ogiJsonData.BoundingBoxTopRight, ogiJsonData.BoundingBoxBottomLeft];

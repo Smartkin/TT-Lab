@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using Avalonia.Controls;
 using Avalonia.Data.Converters;
 using Avalonia.Xaml.Interactivity;
 
@@ -16,10 +17,12 @@ public class EditableListBoxButtonEnabledConverter : IMultiValueConverter
             return false;
         }
 
-        if (values[1] is not int itemsCount)
+        if (values[1] is not ItemCollection items)
         {
             return false;
         }
+        
+        var itemsCount = items.Count;
 
         if (values[2] is not int comparingNumber)
         {

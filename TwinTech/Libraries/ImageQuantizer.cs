@@ -16,7 +16,7 @@ internal static class ImageQuantizer
             _colors = colors;
         }
 
-        public int RangeA => _colors.Max(c => c.A) - _colors.Min(c => c.A);
+        public int RangeA => _colors.Max(c => (c.A >> 1)) - _colors.Min(c => (c.A >> 1));
         public int RangeR => _colors.Max(c => c.R) - _colors.Min(c => c.R);
         public int RangeG => _colors.Max(c => c.G) - _colors.Min(c => c.G);
         public int RangeB => _colors.Max(c => c.B) - _colors.Min(c => c.B);

@@ -14,7 +14,7 @@
             >
                 <Interaction.Behaviors>
                     <EventTriggerBehavior EventName="SelectionChanged">
-                        <InvokeCommandAction Command="{Binding SelectDifferentInstance}" PassEventArgsToCommand="True"/>
+                        <InvokeCommandAction Command="{Binding SelectDifferentInstanceFromView}" PassEventArgsToCommand="True"/>
                     </EventTriggerBehavior>
                 </Interaction.Behaviors>
                 <TreeView.ItemTemplate>

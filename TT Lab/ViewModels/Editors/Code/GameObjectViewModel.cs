@@ -35,12 +35,6 @@ public class GameObjectViewModel : ResourceEditorViewModel
     private BindableCollection<PrimitiveWrapperViewModel<uint>> _instFlags;
     private BindableCollection<PrimitiveWrapperViewModel<float>> _instFloats;
     private BindableCollection<PrimitiveWrapperViewModel<uint>> _instIntegers;
-    private BindableCollection<PrimitiveWrapperViewModel<LabURI>> _refObjects;
-    private BindableCollection<PrimitiveWrapperViewModel<LabURI>> _refOgis;
-    private BindableCollection<PrimitiveWrapperViewModel<LabURI>> _refAnimations;
-    private BindableCollection<PrimitiveWrapperViewModel<LabURI>> _refBehaviourCommandSequences;
-    private BindableCollection<PrimitiveWrapperViewModel<LabURI>> _refBehaviours;
-    private BindableCollection<PrimitiveWrapperViewModel<LabURI>> _refSounds;
     private BehaviourCommandPackViewModel _commandPack;
     private int _selectedAnimationOgiPairSlot;
     private ICommand _behaviourFilterCommand;
@@ -155,54 +149,18 @@ public class GameObjectViewModel : ResourceEditorViewModel
         {
             _instIntegers.Add(new PrimitiveWrapperViewModel<uint>(instFlags, true));
         }
-        
-        _refObjects = new BindableCollection<PrimitiveWrapperViewModel<LabURI>>();
-        _refOgis = new BindableCollection<PrimitiveWrapperViewModel<LabURI>>();
-        _refAnimations = new BindableCollection<PrimitiveWrapperViewModel<LabURI>>();
-        _refBehaviourCommandSequences = new BindableCollection<PrimitiveWrapperViewModel<LabURI>>();
-        _refBehaviours = new BindableCollection<PrimitiveWrapperViewModel<LabURI>>();
-        _refSounds = new BindableCollection<PrimitiveWrapperViewModel<LabURI>>();
-        DirtyTracker.AddBindableCollection(_refObjects);
-        DirtyTracker.AddBindableCollection(_refOgis);
-        DirtyTracker.AddBindableCollection(_refAnimations);
-        DirtyTracker.AddBindableCollection(_refBehaviourCommandSequences);
-        DirtyTracker.AddBindableCollection(_refBehaviours);
-        DirtyTracker.AddBindableCollection(_refSounds);
-        foreach (var refObject in data.RefObjects)
-        {
-            _refObjects.Add(new PrimitiveWrapperViewModel<LabURI>(refObject, true));
-        }
-        foreach (var refOgi in data.RefOGIs)
-        {
-            _refOgis.Add(new PrimitiveWrapperViewModel<LabURI>(refOgi, true));
-        }
-        foreach (var refAnimation in data.RefAnimations)
-        {
-            _refAnimations.Add(new PrimitiveWrapperViewModel<LabURI>(refAnimation, true));
-        }
-        foreach (var refCommandSequence in data.RefBehaviourCommandsSequences)
-        {
-            _refBehaviourCommandSequences.Add(new PrimitiveWrapperViewModel<LabURI>(refCommandSequence, true));
-        }
-        foreach (var refBehaviour in data.RefBehaviours)
-        {
-            _refBehaviours.Add(new PrimitiveWrapperViewModel<LabURI>(refBehaviour, true));
-        }
-        foreach (var refSound in data.RefSounds)
-        {
-            _refSounds.Add(new PrimitiveWrapperViewModel<LabURI>(refSound, true));
-        }
     }
 
     protected override void Save()
     {
-        var data = AssetManager.Get().GetAssetData<GameObjectData>(EditableResource);
+        var assetManager = AssetManager.Get();
+        var data = assetManager.GetAssetData<GameObjectData>(EditableResource);
         data.Name = _name;
         data.UnkTypeValue = _unkTypeValue;
         data.CameraReactJointAmount = _cameraReactJointAmount;
         data.ExitPointAmount = _exitPointAmount;
         data.InstanceStateFlags = (Enums.InstanceState)_instanceStateFlags.StateFlags;
-        _commandPack.Save(data.BehaviourPack);
+        data.BehaviourPack = _commandPack.Code.Text;
         
         data.OGISlots.Clear();
         data.AnimationSlots.Clear();
@@ -245,39 +203,6 @@ public class GameObjectViewModel : ResourceEditorViewModel
         {
             data.InstIntegers.Add(instInteger.Value);
         }
-
-        var assetManager = AssetManager.Get();
-        var refObjects = ObjectSlots.Distinct().Select(b => b.Value != LabURI.Empty);
-        var refOgis = OgiSlots.Distinct().Select(b => b.Value != LabURI.Empty);
-        var refAnimations = AnimationSlots.Distinct().Select(b => b.Value != LabURI.Empty);
-        var refSounds = SoundSlots.Distinct().Select(b => b.Value != LabURI.Empty);
-        var refBehaviourSequences = BehaviourSlots.Select(b => assetManager.GetAsset(b.Value) is BehaviourCommandsSequence);
-        
-        data.RefObjects.Clear();
-        data.RefOGIs.Clear();
-        data.RefAnimations.Clear();
-        data.RefBehaviours.Clear();
-        data.RefSounds.Clear();
-        foreach (var refObject in _refObjects)
-        {
-            data.RefObjects.Add(refObject.Value);
-        }
-        foreach (var refObject in _refOgis)
-        {
-            data.RefOGIs.Add(refObject.Value);
-        }
-        foreach (var refObject in _refAnimations)
-        {
-            data.RefAnimations.Add(refObject.Value);
-        }
-        foreach (var refObject in _refBehaviours)
-        {
-            data.RefBehaviours.Add(refObject.Value);
-        }
-        foreach (var refObject in _refSounds)
-        {
-            data.RefSounds.Add(refObject.Value);
-        }
     }
 
     [MarkDirty]
@@ -308,7 +233,7 @@ public class GameObjectViewModel : ResourceEditorViewModel
         }
     }
 
-    public BindableCollection<object> ObjectTypes => ViewModelUtil.ObjectTypes;
+    public IEnumerable<ITwinObject.ObjectType> ObjectTypes { get; } = Enum.GetValues<ITwinObject.ObjectType>();
 
     public ICommand BehaviourFilterCommand => _behaviourFilterCommand;
 
@@ -396,28 +321,15 @@ public class GameObjectViewModel : ResourceEditorViewModel
     public BindableCollection<PrimitiveWrapperViewModel<Single>> InstFloats => _instFloats;
 
     public BindableCollection<PrimitiveWrapperViewModel<UInt32>> InstIntegers => _instIntegers;
+    public BehaviourCommandPackViewModel CommandPack => _commandPack;
 
-    public BindableCollection<PrimitiveWrapperViewModel<LabURI>> RefObjects => _refObjects;
-
-    public BindableCollection<PrimitiveWrapperViewModel<LabURI>> RefOgis => _refOgis;
-
-    public BindableCollection<PrimitiveWrapperViewModel<LabURI>> RefAnimations => _refAnimations;
-
-    public BindableCollection<PrimitiveWrapperViewModel<LabURI>> RefBehaviourCommandSequences => _refBehaviourCommandSequences;
-
-    public BindableCollection<PrimitiveWrapperViewModel<LabURI>> RefBehaviours => _refBehaviours;
-
-    public BindableCollection<PrimitiveWrapperViewModel<LabURI>> RefAllBehaviours
+    public BindableCollection<PrimitiveWrapperViewModel<LabURI>> AllBehaviours
     {
         get
         {
-            var collection = new BindableCollection<PrimitiveWrapperViewModel<LabURI>>(_refBehaviours);
-            collection.AddRange(_refBehaviourCommandSequences);
-            return collection;
+            var allGraphs = AssetManager.Get().GetAllAssetUrisOf<BehaviourGraph>();
+            var allSequences = AssetManager.Get().GetAllAssetUrisOf<BehaviourCommandsSequence>();
+            return new BindableCollection<PrimitiveWrapperViewModel<LabURI>>(allGraphs.Concat(allSequences).Select(graph => new PrimitiveWrapperViewModel<LabURI>(graph)));
         }
     }
-
-    public BindableCollection<PrimitiveWrapperViewModel<LabURI>> RefSounds => _refSounds;
-
-    public BehaviourCommandPackViewModel CommandPack => _commandPack;
 }

@@ -58,6 +58,19 @@ public class SoundEffectViewModel : ResourceEditorViewModel
             soundData = AssetManager.Get().GetAssetData<SoundEffectData>(EditableResource);
         }
         
+        InitAudioPlayer(soundData);
+
+        var sound = AssetManager.Get().GetAsset<SoundEffect>(EditableResource);
+        _header = sound.Header;
+        _unkFlag = sound.UnkFlag;
+        _param1 = sound.Param1;
+        _param2 = sound.Param2;
+        _param3 = sound.Param3;
+        _param4 = sound.Param4;
+    }
+
+    private void InitAudioPlayer(SoundEffectData soundData)
+    {
         _audioStream = soundData.GetSoundEffectStream();
         _audioPlayer = _audioService.CreateSoundPlayer(_audioStream);
         _audioPlayer.PlaybackEnded += (s, e) =>
@@ -71,14 +84,6 @@ public class SoundEffectViewModel : ResourceEditorViewModel
             
             SoundProgress = 0;
         };
-
-        var sound = AssetManager.Get().GetAsset<SoundEffect>(EditableResource);
-        _header = sound.Header;
-        _unkFlag = sound.UnkFlag;
-        _param1 = sound.Param1;
-        _param2 = sound.Param2;
-        _param3 = sound.Param3;
-        _param4 = sound.Param4;
     }
 
     protected override void Save()
@@ -126,15 +131,22 @@ public class SoundEffectViewModel : ResourceEditorViewModel
         short channels = 0;
         uint frequency = 0;
         Riff.LoadRiff(reader, ref pcm, ref channels, ref frequency);
-        if (channels != 1)
+
+        if (channels > 2)
         {
-            Log.WriteLine("ERROR: Stereo sound effects are not supported. Sound wasn't replaced.");
+            Log.WriteLine("Buddy what kind of audio are you trying to use here? Either mono or stereo. Sound wasn't replaced.", Log.LogType.Error);
+            return;
+        }
+        
+        if (channels == 2 && frequency > 22050)
+        {
+            Log.WriteLine("Stereo sounds can not be over 22050 Hz. Sound wasn't replaced", Log.LogType.Error);
             return;
         }
 
         if (frequency > 48000)
         {
-            Log.WriteLine("ERROR: Sounds over 48000 Hz are not supported. Sound wasn't replaced.");
+            Log.WriteLine("Sounds over 48000 Hz are not supported. Sound wasn't replaced.", Log.LogType.Error);
             return;
         }
         
@@ -144,7 +156,7 @@ public class SoundEffectViewModel : ResourceEditorViewModel
         
         var soundData = AssetManager.Get().GetAssetData<SoundEffectData>(EditableResource);
         soundData.Load(file);
-        LoadData();
+        InitAudioPlayer(soundData);
         
         _soundReplaced = true;
         SoundProgress = 0;

@@ -14,12 +14,12 @@ public class DirtyTracker
 {
     private bool _isDirty;
     private readonly Action _onDirtyChanged;
-    private readonly Dictionary<IDirtyMarker, List<string>> _markerToPropMap = new();
-    private readonly List<IDirtyMarker> _children = [];
+    private readonly Dictionary<int, List<string>> _markerToPropMap = new();
+    private readonly Dictionary<int, IDirtyMarker> _children = [];
 
     public bool IsDirty
     {
-        get => _isDirty || _children.Exists(child => child.IsDirty);
+        get => _isDirty || _children.Values.Any(child => child.IsDirty);
         private set
         {
             if (_isDirty != value)
@@ -37,7 +37,7 @@ public class DirtyTracker
             viewModel.NotifyOfPropertyChange(nameof(IsDirty));
         };
 
-        _markerToPropMap.Add(viewModel, new List<string>());
+        _markerToPropMap.Add(viewModel.GetStorageHash(), new List<string>());
         RetrieveDirtyMarkedAttributes(viewModel);
     }
 
@@ -62,25 +62,25 @@ public class DirtyTracker
         _isDirty = false;
         foreach (var child in _children)
         {
-            child.ResetDirty();
+            child.Value.ResetDirty();
         }
         _onDirtyChanged.Invoke();
     }
 
     public void AddChild(IDirtyMarker? child)
     {
-        if (child == null || _children.Contains(child))
+        if (child == null || _children.ContainsKey(child.GetStorageHash()))
         {
             return;
         }
 
-        _children.Add(child);
-        _markerToPropMap.Add(child, new List<string>());
+        _children.Add(child.GetStorageHash(), child);
+        _markerToPropMap.Add(child.GetStorageHash(), []);
         RetrieveDirtyMarkedAttributes(child);
         child.PropertyChanged += ChildPropertyChanged;
     }
 
-    public void AddBindableCollection<T>(BindableCollection<T> collection)
+    public void AddBindableCollection<T>(BindableCollection<T> collection) where T : IDirtyMarker
     {
         collection.CollectionChanged += (s, e) =>
         {
@@ -106,21 +106,21 @@ public class DirtyTracker
 
     public void RemoveChild(IDirtyMarker? child)
     {
-        if (child == null || !_children.Contains(child))
+        if (child == null || !_children.ContainsKey(child.GetStorageHash()))
         {
             return;
         }
         
-        _markerToPropMap.Remove(child);
-        _children.Remove(child);
+        _markerToPropMap.Remove(child.GetStorageHash());
+        _children.Remove(child.GetStorageHash());
         child.PropertyChanged -= ChildPropertyChanged;
     }
     
     private void ChildPropertyChanged(Object? sender, PropertyChangedEventArgs e)
     {
         var marker = (IDirtyMarker)sender!;
-        Debug.Assert(_markerToPropMap.ContainsKey(marker), $"Given marker {marker} was not found.");
-        var propMap = _markerToPropMap[marker];
+        Debug.Assert(_markerToPropMap.ContainsKey(marker.GetStorageHash()), $"Given marker {marker} was not found.");
+        var propMap = _markerToPropMap[marker.GetStorageHash()];
         if (e.PropertyName == null || !propMap.Contains(e.PropertyName))
         {
             return;
@@ -137,7 +137,7 @@ public class DirtyTracker
     private void RetrieveDirtyMarkedAttributes(IDirtyMarker viewModel)
     {
         var properties = viewModel.GetType().GetProperties();
-        var propList = _markerToPropMap[viewModel];
+        var propList = _markerToPropMap[viewModel.GetStorageHash()];
         propList.Add(nameof(IsDirty));
         foreach (var property in properties)
         {

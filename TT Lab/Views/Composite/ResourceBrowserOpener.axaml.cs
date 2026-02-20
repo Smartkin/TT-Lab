@@ -9,6 +9,7 @@ using Caliburn.Micro;
 using Splat;
 using TT_Lab.Assets;
 using TT_Lab.Command;
+using TT_Lab.Util;
 using TT_Lab.ViewModels;
 using TT_Lab.ViewModels.Interfaces;
 
@@ -117,7 +118,7 @@ public partial class ResourceBrowserOpener : UserControl
         {
             DataContext = linkBrowser
         };
-        var result = await linkBrowserDialogue.ShowDialog<bool?>((Window)((ShellViewModel)Locator.Current.GetService<ILabManager>()!).GetView());
+        var result = await linkBrowserDialogue.ShowDialog<bool?>(MiscUtils.GetMainWindow());
         if (result.HasValue && result.Value)
         {
             LinkedResource = linkBrowser.SelectedLink;

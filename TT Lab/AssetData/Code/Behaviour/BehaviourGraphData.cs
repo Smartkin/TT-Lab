@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
+using TT_Lab.Assets.Code.Resolvers.Compiler;
 using TT_Lab.Assets.Code.Resolvers.Decompiler;
 using TT_Lab.Assets.Factory;
 using Twinsanity.AgentLab;
@@ -15,163 +16,174 @@ using Twinsanity.TwinsanityInterchange.Common.AgentLab;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code.AgentLab;
 
-namespace TT_Lab.AssetData.Code.Behaviour
+namespace TT_Lab.AssetData.Code.Behaviour;
+
+public class BehaviourGraphData : AbstractAssetData
 {
-    public class BehaviourGraphData : AbstractAssetData
+    private int _graphId = -1;
+    private TwinBehaviourStarter? _starter;
+        
+    private static string _behaviourTemplate = """
+                                               [StartFrom(StartingState)] // This attribute is optional. You can remove it and the first declared State will be used as the starting one
+                                               [Priority(20)] // Behaviour's priority. Behaviours with higher priority will take over if they're triggered while another behaviour is running. This attribute is optional and the priority will default to 0
+                                               behaviour COM_RENAME_ME { // Behaviour's name can be anything
+                                                    
+                                                    // This allows for the behaviour to be executed when an object receives some sort of event (gets damaged, created, etc.)
+                                                    // otherwise the behaviour can only be executed/referenced from other scripts.
+                                                    // The provided defaults here indicate that the object itself will always initiate the behaviour during any situation.
+                                                    // Multiple assigners can be provided 
+                                                    starter {
+                                                        assigner = {
+                                                            AssignType = ME;
+                                                            AssignLocality = ANYWHERE;
+                                                            AssignStatus = ANYSTATE;
+                                                            AssignPreference = ANYHOW;
+                                                        }
+                                                    }
+
+                                                    state StartingState() { // State name can be anything for clarity's sake
+                                                        if Else(0) >= 0.5 { // The compared to value MUST be above 0
+                                                            interval = 0; // Any interval value <= 0 will check the condition every game frame. Mind this for performance
+                                                            unknown = false; // Purpose unknown but it does change the execution flow in some way
+                                                            // After this provide a list of actions in sequence to execute when the condition is met. They will be executed top to bottom
+                                                            MakeInert();
+                                                            
+                                                            execute NextState; // This is optional and you can stay executing the current state if you wish and do a jump in a different condition
+                                                        }
+                                                    }
+                                                    
+                                                    // Notable attributes for states:
+                                                    // [Unknown(0x3E0)] - 0x3E0 are all the bits that are currently either unused or their purpose is unknown. Experiment around and see what results you get :^)
+                                                    // [SkipsFirstBody] - will skip the first condition check
+                                                    // [NonBlocking] - It is still not quite known what this actually enables but in theory this will allow other states to check for conditions in parallel to the state that has this attribute
+                                                    // [UseObjectSlot(SLOT_NAME)] - The state will execute a script that is referenced by an object's event (created, damaged, etc.)
+                                                    // [ControlPacket(CONTROL_PACKET_NAME)] - The state will execute a continuous movement (rotating, translating, etc.) depending on how you setup the referenced control packet 
+                                                    
+                                                    // States can be empty and what is assumingly signifies that the behaviour finishes execution
+                                                    state NextState() {
+                                                    }
+                                                    
+                                                    // For other stuff like ControlPackets and other attribute usage look at game's original scripts
+                                               }
+                                               """;
+    
+    public BehaviourGraphData(IAsset asset) : base(asset)
     {
-        private int _graphId = -1;
-        private TwinBehaviourStarter? _starter;
-        
-        private static string _behaviourTemplate = """
-                                                   [StartFrom(StartingState)] // This attribute is optional. You can remove it and the first declared State will be used as the starting one
-                                                   [Priority(20)] // Behaviour's priority. Behaviours with higher priority will take over if they're triggered while another behaviour is running. This attribute is optional and the priority will default to 0
-                                                   behaviour COM_RENAME_ME { // Behaviour's name can be anything
-                                                        
-                                                        // This allows for the behaviour to be executed when an object receives some sort of event (gets damaged, created, etc.)
-                                                        // otherwise the behaviour can only be executed/referenced from other scripts.
-                                                        // The provided defaults here indicate that the object itself will always initiate the behaviour during any situation.
-                                                        // Multiple assigners can be provided 
-                                                        starter {
-                                                            assigner = {
-                                                                AssignType = ME;
-                                                                AssignLocality = ANYWHERE;
-                                                                AssignStatus = ANYSTATE;
-                                                                AssignPreference = ANYHOW;
-                                                            }
-                                                        }
-                                                   
-                                                        state StartingState() { // State name can be anything for clarity's sake
-                                                            if Else(0) >= 0.5 { // The compared to value MUST be above 0
-                                                                interval = 0; // Any interval value <= 0 will check the condition every game frame. Mind this for performance
-                                                                unknown = false; // Purpose unknown but it does change the execution flow in some way
-                                                                // After this provide a list of actions in sequence to execute when the condition is met. They will be executed top to bottom
-                                                                MakeInert();
-                                                                
-                                                                execute NextState; // This is optional and you can stay executing the current state if you wish and do a jump in a different condition
-                                                            }
-                                                        }
-                                                        
-                                                        // Notable attributes for states:
-                                                        // [Unknown(0x3E0)] - 0x3E0 are all the bits that are currently either unused or their purpose is unknown. Experiment around and see what results you get :^)
-                                                        // [SkipsFirstBody] - will skip the first condition check
-                                                        // [NonBlocking] - It is still not quite known what this actually enables but in theory this will allow other states to check for conditions in parallel to the state that has this attribute
-                                                        // [UseObjectSlot(SLOT_NAME)] - The state will execute a script that is referenced by an object's event (created, damaged, etc.)
-                                                        // [ControlPacket(CONTROL_PACKET_NAME)] - The state will execute a continuous movement (rotating, translating, etc.) depending on how you setup the referenced control packet 
-                                                        
-                                                        // States can be empty and what is assumingly signifies that the behaviour finishes execution
-                                                        state NextState() {
-                                                        }
-                                                        
-                                                        // For other stuff like ControlPackets and other attribute usage look at game's original scripts
-                                                   }
-                                                   """;
-        
-        public BehaviourGraphData(IAsset asset) : base(asset)
+        Graph = _behaviourTemplate[..];
+    }
+
+    public BehaviourGraphData(IAsset asset, ITwinBehaviourGraph mainScript, TwinBehaviourStarter? starter = null) : this(asset)
+    {
+        SetTwinItem(mainScript);
+        SetStarter(starter);
+    }
+
+    public String Graph { get; set; }
+
+    protected override void Dispose(Boolean disposing)
+    {
+        Graph = "";
+    }
+
+    protected override void SaveInternal(string dataPath, JsonSerializerSettings? settings = null)
+    {
+        using var fs = new FileStream(dataPath, FileMode.Create, FileAccess.Write);
+        using var writer = new BinaryWriter(fs);
+        writer.Write(Graph.ToCharArray());
+    }
+
+    protected override void LoadInternal(String dataPath, JsonSerializerSettings? settings = null)
+    {
+        using var fs = new FileStream(dataPath, FileMode.Open, FileAccess.Read);
+        using var reader = new StreamReader(fs);
+        Graph = reader.ReadToEnd();
+    }
+
+    public override void Import(LabURI package, String? variant, Int32? layoutId)
+    {
+        var graph = GetTwinItem<ITwinBehaviourGraph>();
+        var starter = _starter;
+        IStarterAssignerGlobalObjectIdResolversList? globalObjectIdResolver = null;
+        if (starter != null)
         {
-            Graph = _behaviourTemplate[..];
+            globalObjectIdResolver = new DefaultStarterAssignerGlobalObjectIdResolversList(starter.Assigners.Select(assigner => new LabStarterAssignerGlobalObjectIdResolver(Owner, assigner.GlobalObjectId)).Cast<IStarterAssignerGlobalObjectIdResolver>().ToArray());
         }
-
-        public BehaviourGraphData(IAsset asset, ITwinBehaviourGraph mainScript, TwinBehaviourStarter? starter = null) : this(asset)
-        {
-            SetTwinItem(mainScript);
-            SetStarter(starter);
-        }
-
-        public String Graph { get; set; }
-
-        protected override void Dispose(Boolean disposing)
-        {
-            Graph = "";
-        }
-
-        protected override void SaveInternal(string dataPath, JsonSerializerSettings? settings = null)
-        {
-            using var fs = new FileStream(dataPath, FileMode.Create, FileAccess.Write);
-            using var writer = new BinaryWriter(fs);
-            writer.Write(Graph.ToCharArray());
-        }
-
-        protected override void LoadInternal(String dataPath, JsonSerializerSettings? settings = null)
-        {
-            using var fs = new FileStream(dataPath, FileMode.Open, FileAccess.Read);
-            using var reader = new StreamReader(fs);
-            Graph = reader.ReadToEnd();
-        }
-
-        public override void Import(LabURI package, String? variant, Int32? layoutId)
-        {
-            var graph = GetTwinItem<ITwinBehaviourGraph>();
-            var starter = _starter;
-            IStarterAssignerGlobalObjectIdResolversList? globalObjectIdResolver = null;
-            if (starter != null)
-            {
-                globalObjectIdResolver = new DefaultStarterAssignerGlobalObjectIdResolversList(starter.Assigners.Select(assigner => new LabStarterAssignerGlobalObjectIdResolver(Owner, assigner.GlobalObjectId)).Cast<IStarterAssignerGlobalObjectIdResolver>().ToArray());
-            }
             
-            var stateList = new List<IStateResolver>();
-            foreach (var state in graph.ScriptStates)
+        var stateList = new List<IStateResolver>();
+        foreach (var state in graph.ScriptStates)
+        {
+            string? graphName = null;
+            if (state.BehaviourIndexOrSlot != -1 && !state.UsesObjectSlot)
             {
-                string? graphName = null;
-                if (state.BehaviourIndexOrSlot != -1 && !state.UsesObjectSlot)
-                {
-                    graphName = AssetManager.Get().GetUriByTwinId<BehaviourGraph>(Owner, (uint)state.BehaviourIndexOrSlot);
-                }
-
-                stateList.Add(new DefaultStateResolver(graphName));
+                graphName = AssetManager.Get().GetUriByTwinId<BehaviourGraph>(Owner, (uint)state.BehaviourIndexOrSlot);
             }
-            var stateResolver = new DefaultStateResolversList(stateList.ToArray());
-            var resolver = new DefaultGraphResolver(new DefaultStarterResolver(starter, globalObjectIdResolver), stateResolver);
-            Graph = AgentLabDecompiler.Decompile(graph, resolver);
+
+            stateList.Add(new DefaultStateResolver(graphName));
+        }
+        var stateResolver = new DefaultStateResolversList(stateList.ToArray());
+        var resolver = new DefaultGraphResolver(new DefaultStarterResolver(starter, globalObjectIdResolver), stateResolver);
+        Graph = AgentLabDecompiler.Decompile(graph, resolver);
+    }
+
+    public AgentLabCompiler.CompilerResult GetCompiledBehaviour(ITwinItemFactory factory)
+    {
+        using var ms = new MemoryStream();
+        using var binaryWriter = new BinaryWriter(ms);
+        binaryWriter.Write(_graphId);
+        using var writer = new StreamWriter(ms);
+        writer.Write(Graph);
+        writer.Flush();
+
+        ms.Position = 0;
+        return factory.GenerateBehaviourGraph(ms);
+    }
+
+    public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, uint id, int? layoutID = null)
+    {
+        _graphId = (int)id;
+        var compiledBehaviour = GetCompiledBehaviour(factory);
+
+        var objIdResolver = (LabGlobalObjectIdResolver)compiledBehaviour.CompilerOptions.Resolver.GetObjectIdResolver();
+        if (objIdResolver.ResolvedObjects.Count > 0)
+        {
+            ((BehaviourGraph)Owner).FireResolvedObjects(objIdResolver.ResolvedObjects);
         }
 
-        public AgentLabCompiler.CompilerResult GetCompiledBehaviour(ITwinItemFactory factory)
+        var graphResolver = (LabStateGraphResolver)compiledBehaviour.CompilerOptions.Resolver.GetStateGraphResolver();
+        if (graphResolver.ResolvedGraphs.Count > 0)
         {
-            using var ms = new MemoryStream();
-            using var binaryWriter = new BinaryWriter(ms);
-            binaryWriter.Write(_graphId);
-            using var writer = new StreamWriter(ms);
-            writer.Write(Graph);
-            writer.Flush();
-
-            ms.Position = 0;
-            return factory.GenerateBehaviourGraph(ms);
+            ((BehaviourGraph)Owner).FireResolvedGraphs(graphResolver.ResolvedGraphs);
         }
 
-        public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, uint id, int? layoutID = null)
+        if (compiledBehaviour.Contains<TwinBehaviourStarter>())
         {
-            _graphId = (int)id;
-            var compiledBehaviour = GetCompiledBehaviour(factory);
-
-            if (compiledBehaviour.Contains<TwinBehaviourStarter>())
+            var starterId = id - 1;
+            var starter = compiledBehaviour.Get<TwinBehaviourStarter>();
+            starter.SetID(starterId);
+            if (!section.ContainsItem(starterId))
             {
-                var starterId = id - 1;
-                var starter = compiledBehaviour.Get<TwinBehaviourStarter>();
-                starter.SetID(starterId);
-                if (!section.ContainsItem(starterId))
-                {
-                    section.AddItem(starter);
-                }
+                section.AddItem(starter);
             }
+        }
             
-            if (section.ContainsItem(id))
-            {
-                return null;
-            }
-
-            var item = compiledBehaviour.Get<ITwinBehaviourGraph>();
-            item.SetID(id);
-            section.AddItem(item);
-            return item;
-        }
-
-        public override ITwinItem Export(ITwinItemFactory factory)
+        if (section.ContainsItem(id))
         {
-            return GetCompiledBehaviour(factory).Get<ITwinBehaviourGraph>();
+            return null;
         }
 
-        private void SetStarter(TwinBehaviourStarter? starter)
-        {
-            _starter = starter;
-        }
+        var item = compiledBehaviour.Get<ITwinBehaviourGraph>();
+        item.SetID(id);
+        section.AddItem(item);
+        return item;
+    }
+
+    public override ITwinItem Export(ITwinItemFactory factory)
+    {
+        return GetCompiledBehaviour(factory).Get<ITwinBehaviourGraph>();
+    }
+
+    private void SetStarter(TwinBehaviourStarter? starter)
+    {
+        _starter = starter;
     }
 }

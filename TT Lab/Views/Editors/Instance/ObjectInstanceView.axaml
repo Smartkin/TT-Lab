@@ -6,7 +6,9 @@
              xmlns:controls1="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
              xmlns:valueConverters="clr-namespace:TT_Lab.ValueConverters"
              xmlns:composite="clr-namespace:TT_Lab.Views.Composite"
+             xmlns:compositeViewModels="clr-namespace:TT_Lab.ViewModels.Composite"
              xmlns:viewModels="clr-namespace:TT_Lab.ViewModels.Editors.Instance"
+             xmlns:assets="clr-namespace:TT_Lab.Assets"
              x:DataType="viewModels:ObjectInstanceViewModel"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="TT_Lab.Views.Editors.Instance.ObjectInstanceView">
@@ -48,35 +50,41 @@
                             <composite:InstanceStateFlagsView DataContext="{Binding StateFlags}"/>
                             <Expander HorizontalAlignment="Stretch" x:Name="LinkedInstancesExpander" Header="Linked instances">
                                 <Grid>
-                                    <ListBox ItemsSource="{Binding Instances}" Height="300">
-                                        <ListBox.ItemTemplate>
-                                            <DataTemplate>
+                                    <controls:EditableListBox ListBoxName="" SizeLimit="10" Items="{Binding Instances}" Height="300"
+                                      AddItemCommand="{Binding AddLinkedInstanceCommand}"
+                                      RemoveItemCommand="{Binding DeleteLinkedInstanceCommand}">
+                                        <controls:EditableListBox.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type compositeViewModels:PrimitiveWrapperViewModel, x:TypeArguments=assets:LabURI}">
                                                 <TextBlock Text="{Binding Value, Converter={StaticResource UriConverter}}"/>
                                             </DataTemplate>
-                                        </ListBox.ItemTemplate>
-                                    </ListBox>
+                                        </controls:EditableListBox.ItemTemplate>
+                                    </controls:EditableListBox>
                                 </Grid>
                             </Expander>
                             <Expander HorizontalAlignment="Stretch" x:Name="LinkedPositionsExpander" Header="Linked positions">
                                 <Grid>
-                                    <ListBox x:Name="LinkedPositionsList" ItemsSource="{Binding Positions}" Height="300">
-                                        <ListBox.ItemTemplate>
-                                            <DataTemplate>
+                                    <controls:EditableListBox SizeLimit="10" ListBoxName="" Items="{Binding Positions}" Height="300"
+                                      AddItemCommand="{Binding AddLinkedPositionCommand}"
+                                      RemoveItemCommand="{Binding DeleteLinkedPositionCommand}">
+                                        <controls:EditableListBox.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type compositeViewModels:PrimitiveWrapperViewModel, x:TypeArguments=assets:LabURI}">
                                                 <TextBlock Text="{Binding Value, Converter={StaticResource UriConverter}}"/>
                                             </DataTemplate>
-                                        </ListBox.ItemTemplate>
-                                    </ListBox>
+                                        </controls:EditableListBox.ItemTemplate>
+                                    </controls:EditableListBox>
                                 </Grid>
                             </Expander>
                             <Expander HorizontalAlignment="Stretch" x:Name="LinkedPathsExpander" Header="Linked paths">
                                 <Grid>
-                                    <ListBox x:Name="LinkedPathsList" ItemsSource="{Binding Paths}" Height="300">
-                                        <ListBox.ItemTemplate>
-                                            <DataTemplate>
+                                    <controls:EditableListBox SizeLimit="10" ListBoxName="" Items="{Binding Paths}" Height="300"
+                                      AddItemCommand="{Binding AddLinkedPathCommand}"
+                                      RemoveItemCommand="{Binding DeleteLinkedPathCommand}">
+                                        <controls:EditableListBox.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type compositeViewModels:PrimitiveWrapperViewModel, x:TypeArguments=assets:LabURI}">
                                                 <TextBlock Text="{Binding Value, Converter={StaticResource UriConverter}}"/>
                                             </DataTemplate>
-                                        </ListBox.ItemTemplate>
-                                    </ListBox>
+                                        </controls:EditableListBox.ItemTemplate>
+                                    </controls:EditableListBox>
                                 </Grid>
                             </Expander>
                         </ItemsControl>
@@ -112,7 +120,7 @@
                                             <ContextMenu x:Name="FlagPropsContextMenu"/>
                                         </ListBox.ContextMenu>
                                     </ListBox>
-                                    <controls:LabeledTextBox LayoutOrientation="Horizontal" Text="{Binding SelectedFlag, StringFormat={}{0:X}}" x:Name="FlagPropBox" TextBoxName="Value" HorizontalAlignment="Stretch" Margin="0,0,0,0" VerticalAlignment="Top" Grid.Row="1"/>
+                                    <controls:LabeledTextBox LayoutOrientation="Horizontal" Text="{Binding SelectedFlag}" x:Name="FlagPropBox" TextBoxName="Value" HorizontalAlignment="Stretch" Margin="0,0,0,0" VerticalAlignment="Top" Grid.Row="1"/>
                                 </Grid>
                             </Expander>
                             <Expander HorizontalAlignment="Stretch" x:Name="FloatPropsExpander" Header="Float properties">

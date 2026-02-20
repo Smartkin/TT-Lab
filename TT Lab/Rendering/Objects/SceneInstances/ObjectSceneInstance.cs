@@ -14,7 +14,7 @@ public sealed class ObjectSceneInstance : SceneInstance
     private readonly TwinSkeletonManager _skeletonManager;
     private readonly MeshService _meshService;
 
-    public ObjectSceneInstance(EditingContext editingContext, TwinSkeletonManager skeletonManager, MeshService meshService, ObjectInstanceData instanceData, ResourceTreeElementViewModel viewModel) : base(editingContext, instanceData, viewModel)
+    public ObjectSceneInstance(EditingContext editingContext, TwinSkeletonManager skeletonManager, MeshService meshService, ObjectInstanceData instanceData, IAsset attachedAsset) : base(editingContext, attachedAsset, instanceData)
     {
         _skeletonManager = skeletonManager;
         _meshService = meshService;
@@ -25,8 +25,10 @@ public sealed class ObjectSceneInstance : SceneInstance
         
         var assetManager = AssetManager.Get();
         var objData = assetManager.GetAssetData<GameObjectData>(instanceData.ObjectId);
-        foreach (var ogiData in from uri in objData.OGISlots where uri != LabURI.Empty select assetManager.GetAssetData<OGIData>(uri))
+        var ogiUri = objData.OGISlots.FirstOrDefault(uri => uri != LabURI.Empty, LabURI.Empty);
+        if (ogiUri != LabURI.Empty)
         {
+            var ogiData = assetManager.GetAssetData<OGIData>(ogiUri);
             Size = new vec3
             {
                 x = ogiData.BoundingBox[1].X - ogiData.BoundingBox[0].X,
@@ -34,7 +36,6 @@ public sealed class ObjectSceneInstance : SceneInstance
                 z = ogiData.BoundingBox[1].Z - ogiData.BoundingBox[0].Z
             };
             Offset = new vec3(ogiData.BoundingBox[0].X, ogiData.BoundingBox[0].Y, ogiData.BoundingBox[0].Z);
-            break;
         }
 
         var renderContext = EditingContext.GetRenderContext();
@@ -49,7 +50,8 @@ public sealed class ObjectSceneInstance : SceneInstance
     {
         var renderContext = EditingContext.GetRenderContext();
         var assetManager = AssetManager.Get();
-        var objData = assetManager.GetAssetData<GameObjectData>(((ObjectInstanceData)AssetData).ObjectId);
-        AttachedEditableObject = new ObjectInstance(renderContext, _skeletonManager, _meshService, $"{GetHashCode()} Instance of {objData.Name}", (ObjectInstanceData)AssetData, Size);
+        var instData = GetUserDataAs<ObjectInstanceData>();
+        var objData = assetManager.GetAssetData<GameObjectData>(instData.ObjectId);
+        AttachedEditableObject = new ObjectInstance(renderContext, _skeletonManager, _meshService, $"{GetHashCode()} Instance of {objData.Name}", instData, Size);
     }
 }

@@ -137,8 +137,7 @@ public class EditingContext
         TransformMode = TransformMode.SELECTION;
         TransformAxis = TransformAxis.NONE;
         SelectedInstance?.UnlinkChangesToViewModel((ViewportEditableInstanceViewModel)_editor.CurrentInstanceEditor!);
-        _editor.InstanceEditorChanged(new AvaloniaPropertyChangedEventArgs<Object>(null, null, null, null, BindingPriority.LocalValue));
-        // _renderWindow.SetCameraStyle(CameraStyle.CS_FREELOOK);
+        _editor.ChangeInstanceEditor(null);
         SelectedInstance?.Deselect();
         SelectedInstance = null;
         SelectedRenderable = null;
@@ -151,10 +150,10 @@ public class EditingContext
         SelectedInstance = instance;
         SelectedInstance?.Select();
         SelectedRenderable = SelectedInstance?.GetEditableObject();
-            
+        _editor.ChangeInstanceEditor(SelectedInstance?.GetAttachedAsset());
+        
         if (SelectedInstance != null)
         {
-            _editor.InstanceEditorChanged(new AvaloniaPropertyChangedEventArgs<Object>(null, null, null, SelectedInstance.GetViewModel(), BindingPriority.LocalValue));
             SelectedInstance.LinkChangesToViewModel((ViewportEditableInstanceViewModel)_editor.CurrentInstanceEditor!);
             _gizmo.DetachFromCurrentObject();
             _gizmo.SwitchGizmo((Gizmo.GizmoType)(int)TransformMode);
@@ -213,7 +212,7 @@ public class EditingContext
         }
 
         var cursorPosition = _cursor.GetPosition();
-        var newInstance = _editor.NewSceneInstance(_palette[_currentPaletteIndex]!.GetType(), _palette[_currentPaletteIndex]!.GetViewModel());
+        var newInstance = _editor.NewSceneInstance(_palette[_currentPaletteIndex]!.GetType(), _palette[_currentPaletteIndex]!.GetAttachedAsset());
         Select(newInstance);
         newInstance.SetPositionRotationScale(cursorPosition, _palette[_currentPaletteIndex]!.GetRotation(), _palette[_currentPaletteIndex]!.GetScale());
         TransformMode = TransformMode.SELECTION;

@@ -296,15 +296,44 @@ public class LabShader
 
     private class ShaderBinaryVector4Converter : System.Text.Json.Serialization.JsonConverter<Vector4>
     {
+        private bool _isConvertingFromString = false;
+        
         public override Vector4? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
+            var stringified = string.Empty;
+            if (reader.TokenType == JsonTokenType.String)
+            {
+                stringified = reader.GetString();
+            }
+
+            if (!string.IsNullOrEmpty(stringified))
+            {
+                _isConvertingFromString = true;
+                var stringOptions = new JsonSerializerOptions();
+                stringOptions.Converters.Add(this);
+                var convertedToObjectString = "{ \"internalList\" : " + stringified + "}";
+                var result = JsonSerializer.Deserialize<Vector4>(convertedToObjectString, stringOptions);
+                _isConvertingFromString = false;
+                return result;
+            }
+            
             reader.Read();
+            if (_isConvertingFromString)
+            {
+                reader.Read();
+                reader.Read();
+            }
             
             var newUnkVec = new Vector4();
             newUnkVec.SetBinaryX(reader.GetUInt32()); reader.Read();
             newUnkVec.SetBinaryY(reader.GetUInt32()); reader.Read();
             newUnkVec.SetBinaryZ(reader.GetUInt32()); reader.Read();
             newUnkVec.SetBinaryW(reader.GetUInt32()); reader.Read();
+
+            if (_isConvertingFromString)
+            {
+                reader.Read();
+            }
             
             return newUnkVec;
         }

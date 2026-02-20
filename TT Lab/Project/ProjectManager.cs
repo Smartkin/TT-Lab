@@ -298,6 +298,13 @@ namespace TT_Lab.Project
                 Log.WriteLine("Serializing assets...");
                 OpenedProject.Serialize(); // Call to serialize the asset list and chunk list
 
+                Log.WriteLine("Post processing assets...");
+                var assetsToPostProcess = OpenedProject.AssetManager.GetAssets();
+                foreach (var asset in assetsToPostProcess)
+                {
+                    asset.PostDeserialize();
+                }
+
                 Log.WriteLine("Building project tree...");
                 BuildProjectTree();
 
@@ -477,6 +484,7 @@ namespace TT_Lab.Project
         {
             
             var serializer = JsonSerializer.Create();
+            var hasChunk = false;
             foreach (var fileInfo in directory.GetFiles("*.json"))
             {
                 using var reader = new JsonTextReader(new StreamReader(fileInfo.FullName));
@@ -491,8 +499,20 @@ namespace TT_Lab.Project
                     folder.Package = assetUri;
                     continue;
                 }
+
+                if (assetType == typeof(LevelChunk))
+                {
+                    hasChunk = true;
+                    folder.Mark |= FolderMark.IsChunk;
+                }
                 folder.AddChild(assetUri);
             }
+
+            if (hasChunk)
+            {
+                return;
+            }
+            
             foreach (var assetDirectory in directory.GetDirectories())
             {
                 var directoryName = assetDirectory.Name;

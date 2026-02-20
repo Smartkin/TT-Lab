@@ -11,7 +11,7 @@
         x:Class="TT_Lab.Views.ProjectCreationView"
         Title="Create Project..." Height="400" Width="800" CanMinimize="True" CanMaximize="False" CanResize="False" WindowStartupLocation="CenterOwner">
     <controls:GroupBox>
-        <Grid ColumnDefinitions="205*,506*,89*" RowDefinitions="45*,45*,45*,45*,45*,45">
+        <Grid ColumnDefinitions="205*,506*,89*" RowDefinitions="45*,45*,45*,45*,45">
             <Label Content="Project name:" VerticalAlignment="Center" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" UseLayoutRounding="True" HorizontalAlignment="Right"/>
             <Label Content="Project path:" Grid.Row="1" HorizontalAlignment="Right" VerticalAlignment="Center" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" UseLayoutRounding="True"/>
             <Label Content="PS2 Disc content path:" Grid.Row="2" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTip.Tip="The unpacked files from your PS2 disc" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" UseLayoutRounding="True"/>
@@ -20,12 +20,12 @@
             <TextBox x:Name="ProjectName" Grid.Column="1" Watermark="Project name..." Margin="5" Text="{Binding ProjectName, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center" UseLayoutRounding="True"/>
             <TextBox x:Name="ProjectPath" Grid.Column="1" Watermark="Project path..." Margin="5" TextWrapping="Wrap" VerticalAlignment="Center" Grid.Row="1" Text="{Binding ProjectPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="True"/>
             <TextBox x:Name="PS2DiscContentPath" Grid.Column="1" Watermark="PS2 unpacked ISO contents path..." TextWrapping="Wrap" VerticalAlignment="Center" Grid.Row="2" Text="{Binding PS2DiscContentPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="True"/>
-            <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding Create}" IsEnabled="{Binding CanCreate}" IsDefault="True" Content="Create" Grid.Column="0" Grid.ColumnSpan="3" Grid.Row="5" VerticalAlignment="Center" Margin="7,0,7,0"/>
+            <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding Create}" IsEnabled="{Binding CanCreate}" IsDefault="True" Content="Create" Grid.Column="0" Grid.ColumnSpan="3" Grid.Row="4" VerticalAlignment="Center" Margin="7,0,7,0"/>
             <Label Content="XBox Disc content path:" VerticalAlignment="Center" HorizontalAlignment="Right" Grid.Row="3" ToolTip.Tip="The unpacked files from your XBox disc" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" UseLayoutRounding="True"/>
             <TextBox x:Name="XboxDiscContentPath" Watermark="XBOX unpacked ISO contents path..." IsEnabled="False" Grid.Column="1" TextWrapping="Wrap" VerticalAlignment="Center" Grid.Row="3" Text="{Binding XboxDiscContentPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="True"/>
             <Button x:Name="XboxDiscContentPathButton" Content="..." IsEnabled="False" Grid.Column="2" VerticalAlignment="Center" Grid.Row="3" Height="30" Width="75" HorizontalAlignment="Center" Command="{Binding SetXboxDiscContentPathCommand}" VerticalContentAlignment="Top" UseLayoutRounding="False"/>
-            <Label Grid.Column="0" Grid.Row="4" Content="Copy disc contents" Margin="0, 0, 5, 3" HorizontalAlignment="Right" VerticalAlignment="Center"></Label>
-            <CheckBox IsChecked="{Binding CopyDiscContents}" Grid.Column="1" VerticalAlignment="Center" Grid.Row="4"/>
+            <!-- <Label Grid.Column="0" Grid.Row="4" Content="Copy disc contents" Margin="0, 0, 5, 3" HorizontalAlignment="Right" VerticalAlignment="Center"></Label> -->
+            <!-- <CheckBox IsChecked="{Binding CopyDiscContents}" Grid.Column="1" VerticalAlignment="Center" Grid.Row="4"/> -->
         </Grid>
     </controls:GroupBox>
 </Window>

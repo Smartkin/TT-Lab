@@ -206,7 +206,11 @@ public class RigidModelData : AbstractAssetData
     private static List<SharpGLTF.Schema2.Mesh> CollectMeshes(ModelRoot model, Node node)
     {
         var result = new List<SharpGLTF.Schema2.Mesh>();
-        result.AddRange(model.LogicalMeshes.Where(m => m.VisualParents.ToList().All(n => n.LogicalIndex == node.LogicalIndex)).ToList());
+        if (node.Mesh != null)
+        {
+            result.Add(node.Mesh);
+        }
+
         foreach (var child in node.VisualChildren.ToList())
         {
             result.AddRange(CollectMeshes(model, child));

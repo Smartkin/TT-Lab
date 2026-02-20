@@ -50,6 +50,7 @@ public class ChunkLinksData : AbstractAssetData
             writer.Write(link.UnkFlag);
             writer.Write(assetManager.GetAsset<LevelChunk>(link.Path).GetChunkPath().ToLowerInvariant());
             writer.Write(link.IsAlwaysVisible);
+            writer.Write(link.IsVisibleInCameraFrustum);
             writer.Write(link.UnkNum);
             writer.Write(link.IsLoadWallActive);
             writer.Write(link.KeepLoaded);

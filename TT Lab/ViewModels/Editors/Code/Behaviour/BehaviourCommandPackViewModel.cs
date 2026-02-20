@@ -1,4 +1,5 @@
 using System.IO;
+using AvaloniaEdit.Document;
 using Caliburn.Micro;
 using TT_Lab.AssetData.Code.Behaviour;
 using TT_Lab.Assets;
@@ -17,28 +18,21 @@ public class BehaviourCommandPackViewModel : Screen, IHaveParentEditor<GameObjec
 
     public BehaviourCommandPackViewModel(GameObjectViewModel parent, string code)
     {
-        ParentEditor = parent;
-        this.code = code;
         _dirtyTracker = new DirtyTracker(this);
+        ParentEditor = parent;
+        
+        Code = new TextDocument(code);
+        Code.TextChanged += (sender, args) =>
+        {
+            _dirtyTracker.MarkDirty();
+        };
     }
 
     [MarkDirty]
-    public string Code
-    {
-        get => code;
-        set
-        {
-            if (code != value)
-            {
-                code = value;
-                NotifyOfPropertyChange();
-            }
-        }
-    }
-    
+    public TextDocument Code { get; }
+
     public void Save(string o)
     {
-        o = Code[..];
     }
 
     public void ResetDirty()

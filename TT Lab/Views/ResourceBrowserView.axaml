@@ -9,7 +9,7 @@
         x:DataType="viewmodels:ResourceBrowserViewModel"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="TT_Lab.Views.ResourceBrowserView"
-        Title="ResourceBrowserView">
+        Title="Select Resource To Link...">
     <Window.Resources>
         <valueConverters:LabUriConverter x:Key="UriConverter"/>
         <sys:Boolean x:Key="ShowData">True</sys:Boolean>

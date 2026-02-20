@@ -20,17 +20,10 @@ public partial class LabeledDropList : UserControl
     }
 
     [Description("List of dropdown items."), Category("Common Properties")]
-    public ObservableCollection<object> Items
+    public IEnumerable? Items
     {
-        get => (ObservableCollection<object>)GetValue(ItemsProperty);
+        get => GetValue(ItemsProperty);
         set => SetValue(ItemsProperty, value);
-    }
-
-    [Description("Index of the selected item from the dropdown."), Category("Common Properties")]
-    public int SelectedIndex
-    {
-        get => GetValue(SelectedIndexProperty);
-        set => SetValue(SelectedIndexProperty, value);
     }
 
     [Description("Selected item from the dropdown."), Category("Common Properties")]
@@ -63,13 +56,8 @@ public partial class LabeledDropList : UserControl
     // DependencyProperty.Register(nameof(SelectedItem), typeof(object), typeof(LabeledDropList),
     //     new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault | FrameworkPropertyMetadataOptions.AffectsRender));
 
-    // Using a DependencyProperty as the backing store for SelectedIndex.  This enables animation, styling, binding, etc...
-    public static readonly StyledProperty<int> SelectedIndexProperty = AvaloniaProperty.Register<LabeledDropList, int>(nameof(SelectedIndex), -1, false, BindingMode.TwoWay);
-    // DependencyProperty.Register(nameof(SelectedIndex), typeof(int), typeof(LabeledDropList),
-    //     new FrameworkPropertyMetadata(-1, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault | FrameworkPropertyMetadataOptions.AffectsRender));
-
     // Using a DependencyProperty as the backing store for Items.  This enables animation, styling, binding, etc...
-    public static readonly StyledProperty<IEnumerable> ItemsProperty = AvaloniaProperty.Register<LabeledDropList, IEnumerable>(nameof(Items));
+    public static readonly StyledProperty<IEnumerable?> ItemsProperty = AvaloniaProperty.Register<LabeledDropList, IEnumerable?>(nameof(Items));
     // DependencyProperty.Register(nameof(Items), typeof(IEnumerable), typeof(LabeledDropList),
     //     new PropertyMetadata(null));
 
