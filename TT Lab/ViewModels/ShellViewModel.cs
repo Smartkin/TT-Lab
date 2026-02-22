@@ -105,14 +105,13 @@ public class ShellViewModel : Conductor<EditorsViewModel>, ILabManager
             {
                 // Automatically switch to Scenes Viewer tab
                 editorsViewModel.ActivateItemAsync(editorsViewModel.Items[0]);
-                _eventAggregator.PublishOnUIThreadAsync(new CreateEditorMessage<ChunkEditorViewModel>(openedAsset.URI, typeof(ChunkEditorViewModel)));
+                _eventAggregator.PublishOnUIThreadAsync(new CreateEditorMessage<ChunkEditorViewModel>(openedAsset));
                 return;
             }
             
             // Automatically switch to Resources Editor tab
             editorsViewModel.ActivateItemAsync(editorsViewModel.Items[1]);
-            var editorType = openedAsset.GetEditorType();
-            var message = new CreateEditorMessage<ResourceEditorViewModel>(openedAsset.URI, editorType);
+            var message = new CreateEditorMessage<ResourceEditorViewModel>(openedAsset);
             _eventAggregator.PublishOnUIThreadAsync(message);
         }
         catch (Exception ex)

@@ -253,6 +253,18 @@ public abstract class Renderable
         ChildRemoved?.Invoke(child);
     }
 
+    /// <summary>
+    /// Sometimes God takes mommies and puppies away and sometimes just sometimes I do.
+    /// </summary>
+    public void KillChildren()
+    {
+        var childNames = _children.Keys.ToList();
+        foreach (var child in childNames)
+        {
+            _children.Remove(child);
+        }
+    }
+
     protected virtual void RenderSelf(float delta) {}
 
     protected virtual void UpdateSelf(float delta) {}

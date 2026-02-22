@@ -34,6 +34,7 @@ using TT_Lab.ViewModels.Interfaces;
 using TT_Lab.ViewModels.ResourceTree;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using AiPosition = TT_Lab.Rendering.Objects.AiPosition;
+using ChunkLink = TT_Lab.AssetData.Instance.ChunkLink;
 using Collision = TT_Lab.Rendering.Objects.Collision;
 using DynamicScenery = TT_Lab.Rendering.Objects.DynamicScenery;
 using ICommand = TT_Lab.Command.ICommand;
@@ -67,9 +68,12 @@ public class ChunkEditorViewModel :
     private readonly List<InstanceElementViewModel> _subscribedAssets = [];
     private readonly Dictionary<LabURI, InstanceSectionResourceEditorViewModel> _trackedAssets = new();
 
+    private const string LINK_MARKER = "_link";
+    private const string INSTANCE_MARKER = "_instance";
+
     private string _tabDisplayName = string.Empty;
     private EditingContext _editingContext;
-    private readonly List<SceneInstance> _sceneInstances = [];
+    private readonly Dictionary<string, SceneInstance> _sceneInstances = [];
     private CollisionData? _colData;
     private ViewportViewModel _sceneEditor = Locator.Current.GetService<ViewportViewModel>()!;
     private Collision? _collisionRender;
@@ -126,7 +130,7 @@ public class ChunkEditorViewModel :
         await _unsavedChangesDialogue.ShowDialog(MiscUtils.GetMainWindow());
             
         _unsavedChangesDialogue = new UnsavedChangesDialogue(_dialogueResult,
-            AssetManager.Get().GetAsset(EditableResource).GetResourceTreeElement());
+            AssetManager.Get().GetAsset(EditableResource).Alias);
         
         if (_dialogueResult.Result == null)
         {
@@ -150,7 +154,7 @@ public class ChunkEditorViewModel :
         base.OnViewReady(view);
             
         _unsavedChangesDialogue = new UnsavedChangesDialogue(_dialogueResult,
-            AssetManager.Get().GetAsset(EditableResource).GetResourceTreeElement());
+            AssetManager.Get().GetAsset(EditableResource).Alias);
 
         if (Parent is TabbedEditorViewModel tabbedEditorViewModel)
         {
@@ -199,7 +203,7 @@ public class ChunkEditorViewModel :
             // _sceneryRender?.Dispose();
             // _skydomeRender?.Dispose();
             // _instancesNode?.Dispose();
-            foreach (var sceneInstance in _sceneInstances)
+            foreach (var sceneInstance in _sceneInstances.Values)
             {
                 sceneInstance.Dispose();
             }
@@ -226,7 +230,7 @@ public class ChunkEditorViewModel :
             },
             (Enums.Layouts)basedOn.LayoutID)!;
         var sceneInstance = _renderContext.SceneInstanceFactory.CreateSceneInstance(type, _editingContext, newInstance.GetData<AbstractAssetData>(), newInstance);
-        _sceneInstances.Add(sceneInstance);
+        _sceneInstances.Add(sceneInstance.GetEditableObject().Name, sceneInstance);
         _addedAssets.Add(newInstance.GetResourceTreeElement());
 
         if (type == typeof(ObjectSceneInstance))
@@ -334,7 +338,7 @@ public class ChunkEditorViewModel :
             
         _editingContext.Deselect();
             
-        foreach (var sceneInstance in _sceneInstances)
+        foreach (var sceneInstance in _sceneInstances.Values)
         {
             if (sceneInstance.GetAttachedAsset() != asset)
             {
@@ -361,7 +365,7 @@ public class ChunkEditorViewModel :
 
         var vm = (ResourceTreeElementViewModel)e.AddedItems[0]!;
             
-        foreach (var sceneInstance in _sceneInstances)
+        foreach (var sceneInstance in _sceneInstances.Values)
         {
             if (sceneInstance.GetAttachedAsset() != vm.Asset)
             {
@@ -370,6 +374,26 @@ public class ChunkEditorViewModel :
                 
             _editingContext.Select(sceneInstance);
             break;
+        }
+    }
+
+    public void UpdateLinkedChunks(List<ChunkLink> links)
+    {
+        var chunkLinksAss = _chunkTree.First(avm => avm.Asset.Section == Constants.SCENERY_LINK_ITEM).Asset;
+        _linkedScenery.KillChildren();
+        
+        var keysToRemove = _sceneInstances.Keys.Where(k => k.EndsWith(LINK_MARKER));
+        foreach (var key in keysToRemove)
+        {
+            _sceneInstances.Remove(key);
+        }
+        
+        foreach (var link in links)
+        {
+            var linkInst =
+                _renderContext.SceneInstanceFactory.CreateSceneInstance<ChunkLinkInstance>(_editingContext,
+                    link, chunkLinksAss, _linkedScenery);
+            _sceneInstances.Add($"{linkInst.GetEditableObject().Name}{LINK_MARKER}", linkInst);
         }
     }
 
@@ -535,7 +559,7 @@ public class ChunkEditorViewModel :
         if (!_keyboard.IsKeyPressed(Key.ControlLeft))
         {
             var minDistance = float.MaxValue;
-            foreach (var instance in _sceneInstances)
+            foreach (var instance in _sceneInstances.Values)
             {
                 if (!instance.GetEditableObject().IsVisible || !instance.GetEditableObject().IsSelectable)
                 {
@@ -697,7 +721,7 @@ public class ChunkEditorViewModel :
             {
                 var instData = instance.Asset.GetData<ObjectInstanceData>();
                 var objSceneInstance = _renderContext.SceneInstanceFactory.CreateSceneInstance<ObjectSceneInstance>(_editingContext, instData, instance.Asset);
-                _sceneInstances.Add(objSceneInstance);
+                _sceneInstances.Add(objSceneInstance.GetEditableObject().Name, objSceneInstance);
                 _instancesNode.AddChild(objSceneInstance.GetEditableObject());
             }
                 
@@ -729,21 +753,15 @@ public class ChunkEditorViewModel :
             var chunkLinksAss = _chunkTree.First(avm => avm.Asset.Section == Constants.SCENERY_LINK_ITEM).Asset;
             var chunkLinks = chunkLinksAss.GetData<ChunkLinksData>();
             _linkedScenery = new Node(_renderContext, scene, "Linked Scenery");
-            foreach (var link in chunkLinks.Links)
-            {
-                var linkInst =
-                    _renderContext.SceneInstanceFactory.CreateSceneInstance<ChunkLinkInstance>(_editingContext,
-                        link, chunkLinksAss, _linkedScenery);
-                _sceneInstances.Add(linkInst);
-            }
-                
+            UpdateLinkedChunks(chunkLinks.Links);
+            
             var triggers = _chunkTree.Where(avm => avm is InstanceElementGenericViewModel<TT_Lab.Assets.Instance.Trigger>);
             _triggersNode = new Node(_renderContext, scene);
             _triggersNode.AddChild(_editingContext.GetTriggersBillboards());
             foreach (var trigger in triggers)
             {
                 var trg = _renderContext.SceneInstanceFactory.CreateSceneInstance<TriggerSceneInstance>(_editingContext, trigger.Asset.GetData<AbstractAssetData>(), trigger.Asset, _triggersNode);
-                _sceneInstances.Add(trg);
+                _sceneInstances.Add(trg.GetEditableObject().Name, trg);
             }
                 
             var positions = _chunkTree.Where(avm => avm is InstanceElementGenericViewModel<TT_Lab.Assets.Instance.Position>);
@@ -772,7 +790,7 @@ public class ChunkEditorViewModel :
             foreach (var camera in cameras)
             {
                 var cam = _renderContext.SceneInstanceFactory.CreateSceneInstance<CameraSceneInstance>(_editingContext, camera.Asset.GetData<AbstractAssetData>(), camera.Asset, _camerasNode);
-                _sceneInstances.Add(cam);
+                _sceneInstances.Add(cam.GetEditableObject().Name, cam);
             }
 
             renderer.RenderImgui += () =>
@@ -863,7 +881,7 @@ public class ChunkEditorViewModel :
         {
             return;
         }
-            
+        
         if (IsDirty)
         {
             parent.DisplayName = _tabDisplayName + "*";

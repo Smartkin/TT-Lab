@@ -68,7 +68,7 @@ namespace TT_Lab.ViewModels
             await _unsavedChangesDialogue.ShowDialog(MiscUtils.GetMainWindow());
             
             _unsavedChangesDialogue = new UnsavedChangesDialogue(_dialogueResult,
-                AssetManager.Get().GetAsset(EditableResource).GetResourceTreeElement());
+                AssetManager.Get().GetAsset(EditableResource).Alias);
         
             if (_dialogueResult.Result == null)
             {
@@ -147,7 +147,7 @@ namespace TT_Lab.ViewModels
             if (EditableResource != LabURI.Empty)
             {
                 _unsavedChangesDialogue = new UnsavedChangesDialogue(_dialogueResult,
-                    AssetManager.Get().GetAsset(EditableResource).GetResourceTreeElement());
+                    AssetManager.Get().GetAsset(EditableResource).Alias);
             }
 
             if (Parent is TabbedEditorViewModel tabbedEditorViewModel)

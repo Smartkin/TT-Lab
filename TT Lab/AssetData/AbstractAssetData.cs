@@ -6,12 +6,13 @@ using Splat;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Project;
+using TT_Lab.ViewModels.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 
 namespace TT_Lab.AssetData;
 
 [JsonObject(MemberSerialization = MemberSerialization.OptIn)]
-public abstract class AbstractAssetData(IAsset owner) : IDisposable
+public abstract class AbstractAssetData(IAsset owner) : IDocumentModel
 {
     protected Boolean DisposedValue;
     protected IAsset Owner = owner;
@@ -19,6 +20,11 @@ public abstract class AbstractAssetData(IAsset owner) : IDisposable
     internal void SetOwner(IAsset owner)
     {
         Owner = owner;
+    }
+
+    public IAsset GetOwner()
+    {
+        return Owner;
     }
 
     [System.Text.Json.Serialization.JsonIgnore]
@@ -78,6 +84,10 @@ public abstract class AbstractAssetData(IAsset owner) : IDisposable
     }
 
     protected abstract void Dispose(Boolean disposing);
+
+    public string Name => Owner.Alias;
+
+    public void Save() { }
 
     public void Dispose()
     {

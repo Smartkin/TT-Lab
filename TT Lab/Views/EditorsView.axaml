@@ -4,7 +4,6 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:viewmodels="clr-namespace:TT_Lab.ViewModels"
              xmlns:cm="http://caliburnmicro.com"
-             d:DataContext="{d:DesignInstance Type=viewmodels:EditorsViewModel, IsDesignTimeCreatable=True}"
              x:DataType="viewmodels:EditorsViewModel"
              cm:Bind.AtDesignTime="True"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"

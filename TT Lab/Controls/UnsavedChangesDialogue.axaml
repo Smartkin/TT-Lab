@@ -6,7 +6,7 @@
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="120"
         x:Class="TT_Lab.Controls.UnsavedChangesDialogue"
         xmlns:viewmodels="clr-namespace:TT_Lab.ViewModels.ResourceTree"
-        x:DataType="viewmodels:ResourceTreeElementViewModel"
+        x:DataType="x:String"
         Title="Unsaved work!"
         Height="120" SizeToContent="Width" CanResize="False" ShowInTaskbar="False" Topmost="True" WindowStartupLocation="CenterOwner">
     <controls:GroupBox>
@@ -22,7 +22,7 @@
                 <Grid ColumnDefinitions="Auto, Auto, Auto, Auto">
                     <TextBlock Grid.Column="0" Text="There are unsaved changes in"/>
                     <TextBlock Grid.Column="1" Text=" "/>
-                    <TextBlock Grid.Column="2" Text="{Binding Alias, DataType=viewmodels:ResourceTreeElementViewModel}"/>
+                    <TextBlock Grid.Column="2" Text="{Binding }"/>
                     <TextBlock Grid.Column="3" Text=" !"/>
                 </Grid>
             </Label>

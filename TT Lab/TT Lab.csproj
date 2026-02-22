@@ -43,6 +43,7 @@
     <ItemGroup>
         <PackageReference Include="Avalonia" Version="11.3.12" />
         <PackageReference Include="Avalonia.AvaloniaEdit" Version="11.3.0" />
+        <PackageReference Include="Avalonia.Controls.ItemsRepeater" Version="11.1.5" />
         <PackageReference Include="Avalonia.Desktop" Version="11.3.12" />
         <PackageReference Include="Avalonia.Labs.Gif" Version="11.3.1" />
         <PackageReference Include="Avalonia.Markup.Xaml.Loader" Version="11.3.12" />
@@ -68,6 +69,7 @@
           <PrivateAssets>all</PrivateAssets>
           <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
+        <PackageReference Include="ReactiveUI.Validation" Version="6.0.18" />
         <PackageReference Include="SharpGLTF.Core" Version="1.0.6" />
         <PackageReference Include="SharpGLTF.Toolkit" Version="1.0.6" />
         <PackageReference Include="SharpHash" Version="1.2.0" />

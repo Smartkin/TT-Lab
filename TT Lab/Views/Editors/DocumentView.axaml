@@ -1,0 +1,27 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewmodels="clr-namespace:TT_Lab.ViewModels.Editors"
+             Margin="10"
+             x:DataType="viewmodels:DocumentViewModel"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Views.Editors.DocumentView">
+    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+        <DockPanel LastChildFill="True">
+            <ItemsRepeater DockPanel.Dock="Top" x:Name="EditorsContainer">
+                <ItemsRepeater.Layout>
+                    <StackLayout Spacing="5" Orientation="Vertical"/>
+                </ItemsRepeater.Layout>
+                <ItemsRepeater.ItemTemplate>
+                    <DataTemplate DataType="viewmodels:DocumentPartViewModel">
+                        <DockPanel HorizontalSpacing="15" LastChildFill="True" Background="Transparent" ToolTip.Tip="{Binding Hint}">
+                            <TextBlock DockPanel.Dock="{Binding Orientation}" IsVisible="{Binding UseDefaultCaption}" VerticalAlignment="Center" Text="{Binding Caption}"/>
+                            <ContentControl DockPanel.Dock="{Binding EditorOrientation}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Content="{Binding}"/>
+                        </DockPanel>
+                    </DataTemplate>
+                </ItemsRepeater.ItemTemplate>
+            </ItemsRepeater>
+        </DockPanel>
+    </ScrollViewer>
+</UserControl>

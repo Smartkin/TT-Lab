@@ -17,6 +17,7 @@ public static class DependencyInjection
     public static IServiceCollection RegisterAllViewsAndViewModels(this IServiceCollection services)
     {
         Locator.CurrentMutable.RegisterViewsForViewModels(Assembly.GetCallingAssembly());
+        Locator.CurrentMutable.RegisterViewsForViewModels(Assembly.GetExecutingAssembly());
         
         var assemblies = new [] { Assembly.GetCallingAssembly() };
         foreach (var assembly in assemblies)

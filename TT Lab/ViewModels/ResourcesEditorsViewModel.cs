@@ -2,6 +2,7 @@
 using Caliburn.Micro;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia.Threading;
 using TT_Lab.Project;
 using TT_Lab.Project.Messages;
 using TT_Lab.ViewModels.Composite;
@@ -23,31 +24,33 @@ public sealed class ResourcesEditorsViewModel : EditorsViewerViewModel, IHandle<
 
     public Task HandleAsync(CreateEditorMessage<ResourceEditorViewModel> message, CancellationToken cancellationToken)
     {
-        return Task.Factory.StartNew(() =>
+        Dispatcher.UIThread.Post(() =>
+        {
+            var item = Items.FirstOrDefault(tab => tab!.EditableResource == message.Asset.URI, null);
+            if (item != null)
             {
-                var item = Items.FirstOrDefault(tab => tab!.EditableResource == message.ResourceURI, null);
-                if (item != null)
+                ActivateItemAsync(item, cancellationToken);
+                return;
+            }
+
+            var newEditor = new TabbedEditorViewModel(message.Asset)
+            {
+                DisplayName = message.Asset.Name
+            };
+
+            newEditor.Deactivated += async (sender, args) =>
+            {
+                if (args.WasClosed)
                 {
-                    ActivateItemAsync(item, cancellationToken);
-                    return;
+                    Items.Remove(newEditor);
                 }
+                
+                await Task.CompletedTask;
+            };
 
-                var assetManager = _projectManager.OpenedProject!.AssetManager;
-                var newEditor = new TabbedEditorViewModel(message.ResourceURI, message.EditorType)
-                {
-                    DisplayName = assetManager.GetAsset(message.ResourceURI).Name
-                };
-
-                newEditor.Deactivated += async (sender, args) =>
-                {
-                    if (args.WasClosed)
-                    {
-                        Items.Remove(newEditor);
-                    }
-                };
-
-                ActivateItemAsync(newEditor, cancellationToken);
-            },
-            cancellationToken);
+            ActivateItemAsync(newEditor, cancellationToken);
+        });
+        
+        return Task.CompletedTask;
     }
 }

@@ -14,6 +14,7 @@ using TT_Lab.AssetData;
 using TT_Lab.Attributes;
 using TT_Lab.Project;
 using TT_Lab.ViewModels;
+using TT_Lab.ViewModels.Editors;
 using TT_Lab.ViewModels.ResourceTree;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items;
@@ -40,6 +41,11 @@ public abstract class SerializableAsset : IAsset
     public Type Type { get; set; }
     public String InvariantName { get; set; }
     public String Name => string.IsNullOrEmpty(Variation) ? InvariantName : $"{InvariantName}_{Variation}";
+    public void Save()
+    {
+        Serialize(SerializationFlags.SaveData | SerializationFlags.SetDirectoryToAssets);
+    }
+
     public Boolean Raw { get; set; }
     public virtual String IconPath => "Common_Node.png";
     public String Data => $"{Name}{DataExt}";
@@ -49,7 +55,11 @@ public abstract class SerializableAsset : IAsset
     public String FullPath => $"{Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath}/{LoadPath}";
     public UInt32 ID { get; set; }
     public UInt32 ExportTwinID => SetIdFromDataHash ? GetDataHash() : ID;
+    
+    [Editable]
+    [EditorParam(DocumentViewModel.EditorExplicitOrder, -5)]
     public String Alias { get; set; }
+    
     public String Chunk { get; set; }
     public Int32? LayoutID { get; set; }
     public Boolean IsLoaded => AssetData is { Disposed: false };

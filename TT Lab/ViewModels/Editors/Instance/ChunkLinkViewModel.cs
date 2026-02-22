@@ -1,4 +1,5 @@
-﻿using System.Collections.Specialized;
+﻿using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq;
 using Caliburn.Micro;
@@ -31,7 +32,14 @@ public class ChunkLinkViewModel : ViewportEditableInstanceViewModel
 
     private void LinksOnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        
+        var newLinks = new List<ChunkLink>();
+        foreach (var link in Links)
+        {
+            var newLink = new ChunkLink();
+            link.Save(newLink);
+            newLinks.Add(newLink);
+        }
+        ParentEditor.UpdateLinkedChunks(newLinks);
     }
 
     private void OnTranslated(vec3 translation)
@@ -55,7 +63,7 @@ public class ChunkLinkViewModel : ViewportEditableInstanceViewModel
             link.Save(newLink);
             data.Links.Add(newLink);
         }
-            
+        
         base.Save();
     }
 

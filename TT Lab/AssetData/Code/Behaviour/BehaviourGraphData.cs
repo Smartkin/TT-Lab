@@ -3,11 +3,14 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Avalonia.Controls;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
 using TT_Lab.Assets.Code.Resolvers.Compiler;
 using TT_Lab.Assets.Code.Resolvers.Decompiler;
 using TT_Lab.Assets.Factory;
+using TT_Lab.Attributes;
+using TT_Lab.ViewModels.Editors;
 using Twinsanity.AgentLab;
 using Twinsanity.AgentLab.Resolvers.Decompiler;
 using Twinsanity.AgentLab.Resolvers.Interfaces;
@@ -78,6 +81,7 @@ public class BehaviourGraphData : AbstractAssetData
         SetStarter(starter);
     }
 
+    [Editable(Caption = "Behaviour Graph Editor", EditorOrientation = Dock.Top, EditorType = typeof(CodeEditorViewModel))]
     public String Graph { get; set; }
 
     protected override void Dispose(Boolean disposing)

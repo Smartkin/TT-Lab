@@ -18,20 +18,20 @@ namespace TT_Lab.ViewModels
 
         public virtual void SaveEditorTab(TabbedEditorViewModel editor)
         {
-            editor.ActiveItem.SaveChanges();
+            editor.Document.Save(string.Empty);
         }
 
         public override async Task<Boolean> CanCloseAsync(CancellationToken cancellationToken = new CancellationToken())
         {
             var result = true;
-            foreach (var editor in Items)
-            {
-                result = await editor.ActiveItem.CanCloseAsync(cancellationToken);
-                if (!result)
-                {
-                    break;
-                }
-            }
+            // foreach (var editor in Items)
+            // {
+            //     result = await editor.ActiveItem.CanCloseAsync(cancellationToken);
+            //     if (!result)
+            //     {
+            //         break;
+            //     }
+            // }
             
             return result;
         }
@@ -40,7 +40,7 @@ namespace TT_Lab.ViewModels
         {
             foreach (var item in Items)
             {
-                item.ActiveItem.SaveChanges();
+                item.Document.Save(string.Empty);
             }
         }
 

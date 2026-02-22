@@ -100,22 +100,35 @@ public class Renderer : IView
         });
     }
 
-    public void SubscribeToSceneEvents(Renderable scene)
+    private void SubscribeToRenderableEvents(Renderable renderable)
     {
-        scene.ChildAdded += child =>
-        {
-            RegisterForRendering(child);
-            RegisterForUpdating(child);
-        };
-        scene.ChildRemoved += child =>
-        {
-            UnregisterFromRendering(child);
-            UnregisterForUpdating(child);
-        };
+        renderable.ChildAdded += RenderableOnChildAdded;
+        renderable.ChildRemoved += RenderableOnChildRemoved;
+    }
+
+    private void UnsubscribeFromRenderableEvents(Renderable renderable)
+    {
+        renderable.ChildAdded -= RenderableOnChildAdded;
+        renderable.ChildRemoved -= RenderableOnChildRemoved;
+    }
+
+    private void RenderableOnChildAdded(Renderable child)
+    {
+        RegisterForRendering(child);
+        RegisterForUpdating(child);
+        SubscribeToRenderableEvents(child);
+    }
+    
+    private void RenderableOnChildRemoved(Renderable child)
+    {
+        UnregisterFromRendering(child);
+        UnregisterForUpdating(child);
+        UnsubscribeFromRenderableEvents(child);
     }
 
     public void RegisterForRendering(Renderable renderable, bool initBatchStorage = false)
     {
+        SubscribeToRenderableEvents(renderable);
         if (renderable is Mesh mesh)
         {
             _batchStorage.AddMeshToBatch(mesh);
@@ -131,7 +144,7 @@ public class Renderer : IView
         }
     }
 
-    public void UnregisterFromRendering(Renderable renderable)
+    private void UnregisterFromRendering(Renderable renderable)
     {
         if (renderable is Mesh mesh)
         {
@@ -164,7 +177,7 @@ public class Renderer : IView
         }
     }
 
-    public void UnregisterForUpdating(Renderable renderable)
+    private void UnregisterForUpdating(Renderable renderable)
     {
         if (renderable.DoesUpdates)
         {

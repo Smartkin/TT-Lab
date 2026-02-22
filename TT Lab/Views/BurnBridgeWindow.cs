@@ -37,16 +37,18 @@ public class BurnBridgeWindow<TViewModel> : ReactiveWindow<TViewModel> where TVi
             ViewModel!.AttachView(this);
             ViewModel!.Deactivated += (sender, args) =>
             {
-                if (args.WasClosed)
+                if (!args.WasClosed)
                 {
-                    if (ViewModel is not null && ViewModel is IHaveResult result)
-                    {
-                        Close(result.GetResult());
-                    }
-                    else
-                    {
-                        Close();
-                    }
+                    return Task.CompletedTask;
+                }
+                
+                if (ViewModel is IHaveResult result)
+                {
+                    Close(result.GetResult());
+                }
+                else
+                {
+                    Close();
                 }
 
                 return Task.CompletedTask;

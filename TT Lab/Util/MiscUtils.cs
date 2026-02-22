@@ -23,7 +23,7 @@ public static class MiscUtils
 
     public static object? ConvertEnum(Type t, object? o)
     {
-        return o == null ? null : Enum.Parse(t, o.ToString()!);
+        return Enum.TryParse(t, o?.ToString(), out var result) ? result : null;
     }
 
     public static T? ConvertEnum<T>(object? o)

@@ -9,31 +9,30 @@ using TT_Lab.Attributes;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Common.AgentLab;
 
-namespace TT_Lab.AssetData.Code.Object
+namespace TT_Lab.AssetData.Code.Object;
+
+[ReferencesAssets]
+public class ObjectTriggerBehaviourData
 {
-    [ReferencesAssets]
-    public class ObjectTriggerBehaviourData
+    [JsonProperty(Required = Required.Always)]
+    public LabURI TriggerBehaviour { get; set; }
+    [JsonProperty(Required = Required.Always)]
+    public UInt16 MessageID { get; set; }
+    [JsonProperty(Required = Required.Always)]
+    public Byte BehaviourCallerIndex { get; set; }
+
+    public ObjectTriggerBehaviourData()
     {
-        [JsonProperty(Required = Required.Always)]
-        public LabURI TriggerBehaviour { get; set; }
-        [JsonProperty(Required = Required.Always)]
-        public UInt16 MessageID { get; set; }
-        [JsonProperty(Required = Required.Always)]
-        public Byte BehaviourCallerIndex { get; set; }
+        TriggerBehaviour = LabURI.Empty;
+        MessageID = 0;
+    }
 
-        public ObjectTriggerBehaviourData()
-        {
-            TriggerBehaviour = LabURI.Empty;
-            MessageID = 0;
-        }
-
-        public ObjectTriggerBehaviourData(IAsset owner, TwinObjectTriggerBehaviour triggerBehaviour, Dictionary<string, TwinBehaviourStarter> starterMap)
-        {
-            var starter = starterMap.Values.First(s => s.GetID() == triggerBehaviour.TriggerBehaviour);
-            TriggerBehaviour = AssetManager.Get().GetUriByTwinId<BehaviourGraph>(owner, (uint)(starter.Assigners[0].Behaviour - 1));
-            Debug.Assert(TriggerBehaviour != LabURI.Empty, "Trigger behaviour must not link to an empty behaviour");
-            MessageID = triggerBehaviour.MessageID;
-            BehaviourCallerIndex = triggerBehaviour.BehaviourCallerIndex;
-        }
+    public ObjectTriggerBehaviourData(IAsset owner, TwinObjectTriggerBehaviour triggerBehaviour, Dictionary<string, TwinBehaviourStarter> starterMap)
+    {
+        var starter = starterMap.Values.First(s => s.GetID() == triggerBehaviour.TriggerBehaviour);
+        TriggerBehaviour = AssetManager.Get().GetUriByTwinId<BehaviourGraph>(owner, (uint)(starter.Assigners[0].Behaviour - 1));
+        Debug.Assert(TriggerBehaviour != LabURI.Empty, "Trigger behaviour must not link to an empty behaviour");
+        MessageID = triggerBehaviour.MessageID;
+        BehaviourCallerIndex = triggerBehaviour.BehaviourCallerIndex;
     }
 }

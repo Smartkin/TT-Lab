@@ -2,8 +2,11 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using Avalonia.Controls;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
+using TT_Lab.Attributes;
+using TT_Lab.ViewModels.Editors;
 using Twinsanity.AgentLab;
 using Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.AgentLab;
 using Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.RMX.Code.AgentLab;
@@ -39,6 +42,7 @@ namespace TT_Lab.AssetData.Code.Behaviour
             SetTwinItem(codeModel);
         }
 
+        [Editable(Caption = "Behaviour Commands Sequence Editor", EditorOrientation = Dock.Top, EditorType = typeof(CodeEditorViewModel))]
         public String Code { get; set; }
 
         protected override void SaveInternal(string dataPath, JsonSerializerSettings? settings = null)

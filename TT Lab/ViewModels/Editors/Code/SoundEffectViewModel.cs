@@ -1,10 +1,18 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Reactive.Disposables;
+using System.Reactive.Disposables.Fluent;
+using System.Reactive.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls.Primitives;
+using Avalonia.Threading;
+using ReactiveUI;
+using ReactiveUI.SourceGenerators;
 using SoundFlow.Components;
 using SoundFlow.Interfaces;
+using Splat;
 using TT_Lab.AssetData.Code;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
@@ -15,89 +23,46 @@ using Twinsanity.Libraries;
 
 namespace TT_Lab.ViewModels.Editors.Code;
 
-public class SoundEffectViewModel : ResourceEditorViewModel
+public partial class SoundEffectViewModel : DocumentDataViewModel<SoundEffectData>
 {
     private readonly IAudioService _audioService;
-    private bool _soundReplaced;
-    private UInt32 _header;
-    private Byte _unkFlag;
-    private UInt16 _param1;
-    private UInt16 _param2;
-    private UInt16 _param3;
-    private UInt16 _param4;
     
     private SoundPlayer _audioPlayer;
     private MemoryStream _audioStream;
 
-    public SoundEffectViewModel(IAudioService audioService)
+    public SoundEffectViewModel(DocumentViewModel document, SoundEffectData soundEffectData) : base(document, soundEffectData)
     {
-        _audioService = audioService;
-    }
-
-    protected override Task OnDeactivateAsync(bool close, CancellationToken cancellationToken)
-    {
-        if (close)
-        {
-            _audioPlayer.Dispose();
-        }
-        else
-        {
-            StopPlayback();
-        }
-
-        return base.OnDeactivateAsync(close, cancellationToken);
-    }
-
-    public override void LoadData()
-    {
-        var soundData = AssetManager.Get().GetAssetData<SoundEffectData>(EditableResource);
-        if (_audioPlayer != null)
-        {
-            _audioPlayer.Dispose();
-            soundData.Dispose();
-            soundData = AssetManager.Get().GetAssetData<SoundEffectData>(EditableResource);
-        }
+        _audioService = Locator.Current.GetService<IAudioService>()!;
         
-        InitAudioPlayer(soundData);
-
-        var sound = AssetManager.Get().GetAsset<SoundEffect>(EditableResource);
-        _header = sound.Header;
-        _unkFlag = sound.UnkFlag;
-        _param1 = sound.Param1;
-        _param2 = sound.Param2;
-        _param3 = sound.Param3;
-        _param4 = sound.Param4;
+        InitAudioPlayer(Data);
     }
 
+    protected override void OnClosed(CompositeDisposable disposables)
+    {
+        _audioPlayer.DisposeWith(disposables);
+    }
+
+    public override void Save(string propName)
+    {
+        Data.GetOwner().SetData(Data);
+    }
+
+    [MemberNotNull(nameof(_audioPlayer))]
+    [MemberNotNull(nameof(_audioStream))]
     private void InitAudioPlayer(SoundEffectData soundData)
     {
         _audioStream = soundData.GetSoundEffectStream();
         _audioPlayer = _audioService.CreateSoundPlayer(_audioStream);
+        
         _audioPlayer.PlaybackEnded += (s, e) =>
         {
-            NotifyOfPropertyChange(nameof(SoundProgress));
-            NotifyOfPropertyChange(nameof(CurrentTime));
             if (_audioPlayer.State != SoundFlow.Enums.PlaybackState.Stopped)
             {
                 return;
             }
-            
+        
             SoundProgress = 0;
         };
-    }
-
-    protected override void Save()
-    {
-        var sound = AssetManager.Get().GetAsset<SoundEffect>(EditableResource);
-        sound.Header = _header;
-        sound.UnkFlag = _unkFlag;
-        sound.Param1 = _param1;
-        sound.Param2 = _param2;
-        sound.Param3 = _param3;
-        sound.Param4 = _param4;
-        sound.Serialize(SerializationFlags.SetDirectoryToAssets | SerializationFlags.SaveData);
-
-        base.Save();
     }
 
     public void PlaySound()
@@ -113,8 +78,6 @@ public class SoundEffectViewModel : ResourceEditorViewModel
     public void PauseSound()
     {
         _audioPlayer.Pause();
-        NotifyOfPropertyChange(nameof(SoundProgress));
-        NotifyOfPropertyChange(nameof(CurrentTime));
     }
 
     public async Task ReplaceSound()
@@ -134,7 +97,7 @@ public class SoundEffectViewModel : ResourceEditorViewModel
 
         if (channels > 2)
         {
-            Log.WriteLine("Buddy what kind of audio are you trying to use here? Either mono or stereo. Sound wasn't replaced.", Log.LogType.Error);
+            Log.WriteLine("Buddy, what kind of audio are you trying to use here? Either mono or stereo. Sound wasn't replaced.", Log.LogType.Error);
             return;
         }
         
@@ -154,14 +117,13 @@ public class SoundEffectViewModel : ResourceEditorViewModel
         fs.Close();
         reader.Close();
         
-        var soundData = AssetManager.Get().GetAssetData<SoundEffectData>(EditableResource);
-        soundData.Load(file);
-        InitAudioPlayer(soundData);
+        Data = new SoundEffectData((IAsset)Document.DocumentModel);
+        Data.Load(file);
+        InitAudioPlayer(Data);
         
-        _soundReplaced = true;
         SoundProgress = 0;
-        NotifyOfPropertyChange(nameof(TotalTimeLength));
-        NotifyOfPropertyChange(nameof(ReplacedAudioMark));
+        this.RaisePropertyChanged(nameof(SoundDuration));
+        this.RaisePropertyChanged(nameof(TotalTimeLength));
     }
 
     public void ChangeTrackPosition(RangeBaseValueChangedEventArgs e)
@@ -173,7 +135,9 @@ public class SoundEffectViewModel : ResourceEditorViewModel
         
         _audioPlayer.Pause();
         _audioPlayer.Seek((float)e.NewValue);
-        NotifyOfPropertyChange(nameof(CurrentTime));
+        
+        this.RaisePropertyChanged(nameof(CurrentTime));
+        this.RaisePropertyChanged(nameof(SoundProgress));
     }
 
     public void UpdateTrackUi()
@@ -183,107 +147,24 @@ public class SoundEffectViewModel : ResourceEditorViewModel
             return;
         }
         
-        NotifyOfPropertyChange(nameof(SoundProgress));
-        NotifyOfPropertyChange(nameof(CurrentTime));
+        this.RaisePropertyChanged(nameof(CurrentTime));
+        this.RaisePropertyChanged(nameof(SoundProgress));
     }
 
     public float SoundDuration => _audioPlayer.Duration;
 
+    [Reactive]
     public float SoundProgress
     {
         get => _audioPlayer.Time;
         set
         {
             _audioPlayer.Seek(value);
-            NotifyOfPropertyChange();
-            NotifyOfPropertyChange(nameof(CurrentTime));
-        }
-    }
-
-    [MarkDirty]
-    public bool ReplacedAudioMark => _soundReplaced;
-
-    [MarkDirty]
-    public UInt32 Header
-    {
-        get => _header;
-        set
-        {
-            if (value != _header)
+            Dispatcher.UIThread.Post(() =>
             {
-                _header = value;
-                NotifyOfPropertyChange();
-            }
-        }
-    }
-
-    [MarkDirty]
-    public Byte UnkFlag
-    {
-        get => _unkFlag;
-        set
-        {
-            if (value != _unkFlag)
-            {
-                _unkFlag = value;
-                NotifyOfPropertyChange();
-            }
-        }
-    }
-
-    [MarkDirty]
-    public UInt16 Param1
-    {
-        get => _param1;
-        set
-        {
-            if (value != _param1)
-            {
-                _param1 = value;
-                NotifyOfPropertyChange();
-            }
-        }
-    }
-    
-    [MarkDirty]
-    public UInt16 Param2
-    {
-        get => _param2;
-        set
-        {
-            if (value != _param2)
-            {
-                _param2 = value;
-                NotifyOfPropertyChange();
-            }
-        }
-    }
-    
-    [MarkDirty]
-    public UInt16 Param3
-    {
-        get => _param3;
-        set
-        {
-            if (value != _param3)
-            {
-                _param3 = value;
-                NotifyOfPropertyChange();
-            }
-        }
-    }
-    
-    [MarkDirty]
-    public UInt16 Param4
-    {
-        get => _param4;
-        set
-        {
-            if (value != _param4)
-            {
-                _param4 = value;
-                NotifyOfPropertyChange();
-            }
+                this.RaisePropertyChanged(nameof(CurrentTime));
+                this.RaisePropertyChanged(nameof(SoundProgress));
+            });
         }
     }
 

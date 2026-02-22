@@ -51,7 +51,7 @@
                 <ContentControl Content="{Binding CurrentInstanceEditor}"/>
             </ScrollViewer>
         </controls:GroupBox>
-        <GridSplitter Grid.Row="0" HorizontalAlignment="Center" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" Grid.Column="1" Grid.RowSpan="3" Width="5"/>
-        <GridSplitter Grid.Row="0" HorizontalAlignment="Center" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" Grid.Column="3" Grid.RowSpan="3" Width="5"/>
+        <GridSplitter Background="DarkGray" Grid.Row="0" HorizontalAlignment="Center" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" Grid.Column="1" Grid.RowSpan="3" Width="5"/>
+        <GridSplitter Background="DarkGray" Grid.Row="0" HorizontalAlignment="Center" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" Grid.Column="3" Grid.RowSpan="3" Width="5"/>
     </Grid>
 </UserControl>

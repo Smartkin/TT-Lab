@@ -2,6 +2,8 @@
 using System;
 using TT_Lab.AssetData;
 using TT_Lab.AssetData.Graphics;
+using TT_Lab.Attributes;
+using TT_Lab.ViewModels.Editors;
 using TT_Lab.ViewModels.Editors.Graphics;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items;
@@ -16,10 +18,15 @@ public class Texture : SerializableAsset
     public override String IconPath => "Texture.png";
 
     [JsonProperty(Required = Required.Always)]
+    [Editable(EditorType = typeof(EnumFieldViewModel))]
+    [EditorParam(EnumFieldViewModel.EnumTypeName, typeof(ITwinTexture.TextureFunction))]
     public ITwinTexture.TextureFunction TextureFunction { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
     public ITwinTexture.TexturePixelFormat PixelFormat { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable(EditorType = typeof(BoolFieldViewModel))]
     public Boolean GenerateMipmaps { get; set; }
 
     public Texture(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinTexture texture) : base(id, name, package, needVariant, variant)

@@ -112,8 +112,6 @@ public partial class ResourceBrowserOpener : UserControl
             linkBrowser.Filter(FilterCommand);
         }
         
-        // var windowManager = Locator.Current.GetService<IWindowManager>()!;
-        // var linkBrowserWindow = await windowManager.ShowDialogAsync(linkBrowser);
         var linkBrowserDialogue = new ResourceBrowserView
         {
             DataContext = linkBrowser

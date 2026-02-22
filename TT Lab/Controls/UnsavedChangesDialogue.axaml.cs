@@ -11,7 +11,6 @@ namespace TT_Lab.Controls;
 public partial class UnsavedChangesDialogue : Window
 {
     OpenDialogueCommand.DialogueResult result;
-    private ResourceTreeElementViewModel viewModel;
 
     public enum AnswerResult
     {
@@ -25,10 +24,10 @@ public partial class UnsavedChangesDialogue : Window
         InitializeComponent();
     }
 
-    public UnsavedChangesDialogue(OpenDialogueCommand.DialogueResult result, ResourceTreeElementViewModel viewModel) : this()
+    public UnsavedChangesDialogue(OpenDialogueCommand.DialogueResult result, string unsavedDocumentName) : this()
     {
         this.result = result;
-        DataContext = viewModel;
+        DataContext = unsavedDocumentName;
     }
 
     private void YesButton_Click(Object sender, RoutedEventArgs e)

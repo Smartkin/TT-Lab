@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using TT_Lab.AssetData;
 using TT_Lab.Util;
+using TT_Lab.ViewModels.Interfaces;
 using TT_Lab.ViewModels.ResourceTree;
 
 namespace TT_Lab.Assets;
@@ -37,7 +38,7 @@ public enum SerializationFlags
 /// Interface for all the assets TT Lab manages
 /// </summary>
 [JsonObject(MemberSerialization.OptIn)]
-public interface IAsset
+public interface IAsset : IDocumentModel
 {
     /// <summary>
     /// Where the asset is saved in the assets folder of the project root

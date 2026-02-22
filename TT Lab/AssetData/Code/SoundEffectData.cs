@@ -2,88 +2,87 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using Avalonia.Controls;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
+using TT_Lab.Attributes;
+using TT_Lab.ViewModels.Editors.Code;
 using Twinsanity.Libraries;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code;
 
-namespace TT_Lab.AssetData.Code
+namespace TT_Lab.AssetData.Code;
+
+[Editable(Caption = "SFX Editor", EditorType = typeof(SoundEffectViewModel), EditorOrientation = Dock.Top)]
+public sealed class SoundEffectData : AbstractAssetData
 {
-    public sealed class SoundEffectData : AbstractAssetData
+    public SoundEffectData(IAsset asset) : base(asset)
     {
-        public SoundEffectData(IAsset asset) : base(asset)
-        {
-        }
+    }
 
-        public SoundEffectData(IAsset asset, string filepath) : this(asset)
-        {
-            LoadInternal(filepath);
-        }
+    public SoundEffectData(IAsset asset, string filepath) : this(asset)
+    {
+        LoadInternal(filepath);
+    }
 
-        public SoundEffectData(IAsset asset, ITwinSound sound) : this(asset)
-        {
-            SetTwinItem(sound);
-        }
+    public SoundEffectData(IAsset asset, ITwinSound sound) : this(asset)
+    {
+        SetTwinItem(sound);
+    }
 
-        public MemoryStream GetSoundEffectStream()
-        {
-            Debug.Assert(_soundEffectStream != null, $"Attempting to get disposed sound! {Owner.Name}");
-            return _soundEffectStream;
-        }
+    public MemoryStream GetSoundEffectStream()
+    {
+        return new MemoryStream(_wave);
+    }
 
-        public Byte[] GetPcm()
-        {
-            return _pcm;
-        }
+    public bool IsStereo()
+    {
+        return _channels == 2;
+    }
 
-        private Byte[] _wave;
-        private MemoryStream? _soundEffectStream;
-        private Byte[] _pcm;
-        private UInt32 _frequency;
-        private Int16 _channels;
+    public Byte[] GetPcm()
+    {
+        return _pcm;
+    }
 
-        protected override void Dispose(Boolean disposing)
-        {
-            if (!disposing)
-            {
-                return;
-            }
-            
-            _soundEffectStream?.Dispose();
-        }
+    private Byte[] _wave;
+    private Byte[] _pcm;
+    private UInt32 _frequency;
+    private Int16 _channels;
 
-        protected override void SaveInternal(string dataPath, JsonSerializerSettings? settings = null)
-        {
-            using FileStream fs = new(dataPath, FileMode.Create, FileAccess.Write);
-            using BinaryWriter writer = new(fs);
-            Riff.SaveRiff(writer, _pcm, ref _channels, ref _frequency);
-            fs.Flush(true);
-        }
+    protected override void SaveInternal(string dataPath, JsonSerializerSettings? settings = null)
+    {
+        using FileStream fs = new(dataPath, FileMode.Create, FileAccess.Write);
+        using BinaryWriter writer = new(fs);
+        Riff.SaveRiff(writer, _pcm, ref _channels, ref _frequency);
+        fs.Flush(true);
+    }
 
-        protected override void LoadInternal(String dataPath, JsonSerializerSettings? settings = null)
-        {
-            using FileStream fs = new(dataPath, FileMode.Open, FileAccess.Read);
-            using BinaryReader reader = new(fs);
-            _wave = Riff.LoadRiff(reader, ref _pcm, ref _channels, ref _frequency);
-            _soundEffectStream = new MemoryStream(_wave);
-        }
+    protected override void Dispose(bool disposing)
+    {
+    }
 
-        public override void Import(LabURI package, String? variant, Int32? layoutId)
-        {
-            var sound = GetTwinItem<ITwinSound>();
-            _frequency = sound.GetFreq();
-            _channels = (sound.Header & 1) == 0 ? (short)2 : (short)1;
+    protected override void LoadInternal(String dataPath, JsonSerializerSettings? settings = null)
+    {
+        using FileStream fs = new(dataPath, FileMode.Open, FileAccess.Read);
+        using BinaryReader reader = new(fs);
+        _wave = Riff.LoadRiff(reader, ref _pcm, ref _channels, ref _frequency);
+    }
 
-            _pcm = sound.ToPCM();
-        }
+    public override void Import(LabURI package, String? variant, Int32? layoutId)
+    {
+        var sound = GetTwinItem<ITwinSound>();
+        _frequency = sound.GetFreq();
+        _channels = (sound.Header & 1) == 0 ? (short)2 : (short)1;
 
-        public override ITwinItem Export(ITwinItemFactory factory)
-        {
-            var sound = factory.GenerateSound();
-            sound.SetFreq((UInt16)_frequency);
+        _pcm = sound.ToPCM();
+    }
 
-            return sound;
-        }
+    public override ITwinItem Export(ITwinItemFactory factory)
+    {
+        var sound = factory.GenerateSound();
+        sound.SetFreq((UInt16)_frequency);
+
+        return sound;
     }
 }

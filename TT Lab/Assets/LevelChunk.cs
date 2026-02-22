@@ -58,7 +58,12 @@ public class LevelChunk : SerializableAsset
 
     public override AbstractAssetData GetData()
     {
-        throw new NotSupportedException();
+        if (!IsLoaded)
+        {
+            AssetData = new LevelChunkData(this);
+        }
+        
+        return AssetData!;
     }
 
     public override void Import()

@@ -5,7 +5,6 @@
              xmlns:viewmodels="clr-namespace:TT_Lab.ViewModels"
              xmlns:viewmodelsComposite="clr-namespace:TT_Lab.ViewModels.Composite"
              xmlns:cm="http://caliburnmicro.com"
-             d:DataContext="{Binding Source={d:DesignInstance viewmodels:ScenesEditorsViewModel}}"
              x:DataType="viewmodels:ScenesEditorsViewModel"
              cm:Bind.AtDesignTime="True"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
@@ -13,16 +12,16 @@
     <TabControl SelectedItem="{Binding ActiveItem}" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" ItemsSource="{Binding Items}">
         <TabControl.ItemTemplate>
             <DataTemplate DataType="{x:Type viewmodelsComposite:TabbedEditorViewModel}">
-                <StackPanel Orientation="Horizontal">
-                    <Image Source="{Binding IconPath}" VerticalAlignment="Center" HorizontalAlignment="Center" Width="24" Height="24" Margin="0,0,3,0" Stretch="Uniform"/>
-                    <TextBlock Text="{Binding DisplayName}" Margin="0,0,10,0"/>
-                    <Button Content="X" Command="{Binding CloseTab}"/>
-                </StackPanel>
+                <DockPanel LastChildFill="True">
+                    <Image DockPanel.Dock="Left" Source="{Binding IconPath}" VerticalAlignment="Center" HorizontalAlignment="Center" Width="24" Height="24" Margin="0,0,3,0" Stretch="Uniform"/>
+                    <TextBlock DockPanel.Dock="Left" VerticalAlignment="Center" Text="{Binding DisplayName}" Margin="0,0,10,0"/>
+                    <Button DockPanel.Dock="Right" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Content="x" Command="{Binding CloseTab}"/>
+                </DockPanel>
             </DataTemplate>
         </TabControl.ItemTemplate>
         <TabControl.ContentTemplate>
             <DataTemplate DataType="{x:Type viewmodelsComposite:TabbedEditorViewModel}">
-                <ContentControl Content="{Binding ActiveItem}"/>
+                <ContentControl Content="{Binding Document}"/>
             </DataTemplate>
         </TabControl.ContentTemplate>
     </TabControl>

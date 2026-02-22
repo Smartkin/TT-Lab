@@ -3,6 +3,9 @@ using System;
 using TT_Lab.AssetData;
 using TT_Lab.AssetData.Code;
 using TT_Lab.Assets.Factory;
+using TT_Lab.Attributes;
+using TT_Lab.Util;
+using TT_Lab.ViewModels.Editors;
 using TT_Lab.ViewModels.Editors.Code;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces;
@@ -18,17 +21,34 @@ namespace TT_Lab.Assets.Code
 
         [JsonProperty(Required = Required.Always)]
         public UInt32 Header { get; set; }
+        
         [JsonProperty(Required = Required.Always)]
+        [EditorParam(TextFieldViewModel.TextFieldConverter, typeof(UInt16Converter))]
         public UInt16 SampleRate { get; set; }
+        
         [JsonProperty(Required = Required.Always)]
+        [Editable(Caption = "Unknown Byte", Hint = "Unknown value between 0-255")]
+        [EditorParam(TextFieldViewModel.TextFieldConverter, typeof(ByteConverter))]
         public Byte UnkFlag { get; set; }
+        
         [JsonProperty(Required = Required.Always)]
+        [Editable]
+        [EditorParam(TextFieldViewModel.TextFieldConverter, typeof(UInt16Converter))]
         public UInt16 Param1 { get; set; }
+        
         [JsonProperty(Required = Required.Always)]
+        [Editable]
+        [EditorParam(TextFieldViewModel.TextFieldConverter, typeof(UInt16Converter))]
         public UInt16 Param2 { get; set; }
+        
         [JsonProperty(Required = Required.Always)]
+        [Editable]
+        [EditorParam(TextFieldViewModel.TextFieldConverter, typeof(UInt16Converter))]
         public UInt16 Param3 { get; set; }
+        
         [JsonProperty(Required = Required.Always)]
+        [Editable]
+        [EditorParam(TextFieldViewModel.TextFieldConverter, typeof(UInt16Converter))]
         public UInt16 Param4 { get; set; }
 
         public SoundEffect()
