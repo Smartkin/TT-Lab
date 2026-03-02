@@ -36,32 +36,59 @@ public class CollisionSurfaceData : AbstractAssetData
     }
 
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public SurfaceType SurfaceID { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public SurfaceCollisionFlags CollisionMask { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public LabURI StepSoundId1 { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public LabURI StepSoundId2 { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public UInt16 WalkOnParticleSystemId1 { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public UInt16 WalkOnParticleSystemId2 { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public LabURI LandSoundId1 { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public UInt16 UnkId3 { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public UInt16 LandOnParticleSystemId { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public LabURI LandSoundId2 { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public LabURI UnkSoundId { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public Single[] PhysicsParameters { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public Vector4 UnkVec { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public Vector4[] UnkBoundingBox { get; set; }
 
     protected override void Dispose(Boolean disposing)
@@ -71,7 +98,7 @@ public class CollisionSurfaceData : AbstractAssetData
 
     public override void Import(LabURI package, String? variant, Int32? layoutId)
     {
-        ITwinSurface collisionSurface = GetTwinItem<ITwinSurface>();
+        var collisionSurface = GetTwinItem<ITwinSurface>();
         SurfaceID = collisionSurface.SurfaceId;
         CollisionMask = collisionSurface.CollisionMask;
         StepSoundId1 = LabURI.Empty;

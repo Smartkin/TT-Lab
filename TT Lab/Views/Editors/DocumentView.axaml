@@ -3,25 +3,44 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:viewmodels="clr-namespace:TT_Lab.ViewModels.Editors"
-             Margin="10"
+             Margin="10, 0, 0, 0"
+             x:Name="Document"
              x:DataType="viewmodels:DocumentViewModel"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="TT_Lab.Views.Editors.DocumentView">
-    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-        <DockPanel LastChildFill="True">
-            <ItemsRepeater DockPanel.Dock="Top" x:Name="EditorsContainer">
-                <ItemsRepeater.Layout>
-                    <StackLayout Spacing="5" Orientation="Vertical"/>
-                </ItemsRepeater.Layout>
-                <ItemsRepeater.ItemTemplate>
-                    <DataTemplate DataType="viewmodels:DocumentPartViewModel">
-                        <DockPanel HorizontalSpacing="15" LastChildFill="True" Background="Transparent" ToolTip.Tip="{Binding Hint}">
-                            <TextBlock DockPanel.Dock="{Binding Orientation}" IsVisible="{Binding UseDefaultCaption}" VerticalAlignment="Center" Text="{Binding Caption}"/>
-                            <ContentControl DockPanel.Dock="{Binding EditorOrientation}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Content="{Binding}"/>
+    <Border BorderBrush="DimGray" BorderThickness="1">
+        <ScrollViewer IsScrollChainingEnabled="True" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+            <Expander ContentTransition="{x:Null}" IsExpanded="{Binding IsExpanded}" HorizontalAlignment="Stretch">
+                <Expander.Header>
+                    <Panel>
+                        <Grid IsVisible="{Binding UseUri}" ColumnDefinitions="*, 40, 40">
+                            <TextBox Grid.Column="0" x:Name="UriDisplay" VerticalContentAlignment="Center" IsReadOnly="True"/>
+                            <Button VerticalAlignment="Stretch" VerticalContentAlignment="Center" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" x:Name="ChangeLink" Grid.Column="1" Content="..."/>
+                            <Button VerticalAlignment="Stretch" VerticalContentAlignment="Center" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" x:Name="OpenDocument" Grid.Column="2" Content="->"/>
+                        </Grid>
+                        <DockPanel IsVisible="{Binding UseCaption}">
+                            <TextBlock VerticalAlignment="Center" DockPanel.Dock="Left" Text="{Binding Caption}"/>
+                            <Button x:Name="AddNewItem" DockPanel.Dock="Right" HorizontalAlignment="Right" HorizontalContentAlignment="Center" IsVisible="{Binding IsEditable}" Content="+"/>
                         </DockPanel>
-                    </DataTemplate>
-                </ItemsRepeater.ItemTemplate>
-            </ItemsRepeater>
-        </DockPanel>
-    </ScrollViewer>
+                    </Panel>
+                </Expander.Header>
+                <ItemsControl HorizontalAlignment="Stretch" VerticalAlignment="Stretch" DockPanel.Dock="Top" x:Name="EditorsContainer">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Vertical"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="viewmodels:DocumentPartViewModel">
+                            <DockPanel HorizontalSpacing="15" LastChildFill="True" Background="Transparent" ToolTip.Tip="{Binding Hint}">
+                                <Button Command="{Binding Close}" DockPanel.Dock="Right" IsVisible="{Binding #Document.DataContext.IsEditable}" HorizontalAlignment="Right" VerticalAlignment="Top" VerticalContentAlignment="Center" Content="x"/>
+                                <TextBlock Margin="5, 0, 0, 0" MinWidth="80" DockPanel.Dock="{Binding Orientation}" IsVisible="{Binding UseDefaultCaption}" VerticalAlignment="Center" Text="{Binding Caption}"/>
+                                <ContentControl DockPanel.Dock="{Binding EditorOrientation}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Content="{Binding}"/>
+                            </DockPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Expander>
+        </ScrollViewer>
+    </Border>
 </UserControl>

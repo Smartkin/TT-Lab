@@ -10,21 +10,21 @@ namespace Twinsanity.TwinsanityInterchange.Common.Particles
     {
         public UInt32 Version;
         public Vector3 Position;
-        public Int16 UnkShort1;
-        public Int16 UnkShort2;
-        public Int16 UnkShort3;
-        public Int16 UnkShort4;
+        public Int16 GravityRotX;
+        public Int16 GravityRotY;
+        public Int16 EmitRotX;
+        public Int16 EmitRotY;
         public Int16 UnkShort5;
-        public Int32 UnkInt1;
+        public Int32 Offset;
         public Char[] Name;
-        public Int32 UnkInt2;
-        public Int32 UnkInt3;
-        public Single UnkFloat1;
+        public Int32 SwitchType;
+        public Int32 SwitchId;
+        public Single SwitchValue;
         public Int16 UnkShort6;
         public Int16 UnkShort7;
-        public Single UnkFloat2;
-        public Single UnkFloat3;
-        public Int16 UnkShort8;
+        public Single PlaneOffset;
+        public Single BounceFactor;
+        public Int16 GroupId;
 
         private Dictionary<UInt32, Int32> versionSizeMap = new Dictionary<UInt32, Int32>();
         public TwinParticleEmitter()
@@ -54,17 +54,17 @@ namespace Twinsanity.TwinsanityInterchange.Common.Particles
             Position.Read(reader, Constants.SIZE_VECTOR3);
             if (Version >= 0x7)
             {
-                UnkShort1 = reader.ReadInt16();
-                UnkShort2 = reader.ReadInt16();
-                UnkShort3 = reader.ReadInt16();
-                UnkShort4 = reader.ReadInt16();
+                GravityRotX = reader.ReadInt16();
+                GravityRotY = reader.ReadInt16();
+                EmitRotX = reader.ReadInt16();
+                EmitRotY = reader.ReadInt16();
             }
             else
             {
-                UnkShort1 = 0;
-                UnkShort2 = 0;
-                UnkShort3 = (Int16)reader.ReadInt32();
-                UnkShort4 = (Int16)reader.ReadInt32();
+                GravityRotX = 0;
+                GravityRotY = 0;
+                EmitRotX = (Int16)reader.ReadInt32();
+                EmitRotY = (Int16)reader.ReadInt32();
             }
             if (Version >= 0x16)
             {
@@ -72,29 +72,29 @@ namespace Twinsanity.TwinsanityInterchange.Common.Particles
             }
             if (Version >= 0x8)
             {
-                UnkInt1 = reader.ReadInt32();
+                Offset = reader.ReadInt32();
             }
             Name = reader.ReadChars(16);
             if (Version >= 0x9)
             {
-                UnkInt2 = reader.ReadInt32();
-                UnkInt3 = reader.ReadInt32();
-                UnkFloat1 = reader.ReadSingle();
+                SwitchType = reader.ReadInt32();
+                SwitchId = reader.ReadInt32();
+                SwitchValue = reader.ReadSingle();
             }
             if (Version >= 0xC)
             {
                 UnkShort6 = reader.ReadInt16();
                 UnkShort7 = reader.ReadInt16();
-                UnkFloat2 = reader.ReadSingle();
+                PlaneOffset = reader.ReadSingle();
             }
-            UnkFloat3 = 0.89999998f;
+            BounceFactor = 0.89999998f;
             if (Version >= 0xD)
             {
-                UnkFloat3 = reader.ReadSingle();
+                BounceFactor = reader.ReadSingle();
             }
             if (Version >= 0xF)
             {
-                UnkShort8 = reader.ReadInt16();
+                GroupId = reader.ReadInt16();
             }
             var sizePos = reader.BaseStream.Position;
             versionSizeMap.Add(Version, (Int32)(sizePos - basePos));
@@ -105,15 +105,15 @@ namespace Twinsanity.TwinsanityInterchange.Common.Particles
             Position.Write(writer);
             if (Version >= 0x7)
             {
-                writer.Write(UnkShort1);
-                writer.Write(UnkShort2);
-                writer.Write(UnkShort3);
-                writer.Write(UnkShort4);
+                writer.Write(GravityRotX);
+                writer.Write(GravityRotY);
+                writer.Write(EmitRotX);
+                writer.Write(EmitRotY);
             }
             else
             {
-                writer.Write((Int32)UnkShort3);
-                writer.Write((Int32)UnkShort4);
+                writer.Write((Int32)EmitRotX);
+                writer.Write((Int32)EmitRotY);
             }
             if (Version >= 0x16)
             {
@@ -121,28 +121,28 @@ namespace Twinsanity.TwinsanityInterchange.Common.Particles
             }
             if (Version >= 0x8)
             {
-                writer.Write(UnkInt1);
+                writer.Write(Offset);
             }
             writer.Write(Name, 0, 16);
             if (Version >= 0x9)
             {
-                writer.Write(UnkInt2);
-                writer.Write(UnkInt3);
-                writer.Write(UnkFloat1);
+                writer.Write(SwitchType);
+                writer.Write(SwitchId);
+                writer.Write(SwitchValue);
             }
             if (Version >= 0xC)
             {
                 writer.Write(UnkShort6);
                 writer.Write(UnkShort7);
-                writer.Write(UnkFloat2);
+                writer.Write(PlaneOffset);
             }
             if (Version >= 0xD)
             {
-                writer.Write(UnkFloat3);
+                writer.Write(BounceFactor);
             }
             if (Version >= 0xF)
             {
-                writer.Write(UnkShort8);
+                writer.Write(GroupId);
             }
         }
     }

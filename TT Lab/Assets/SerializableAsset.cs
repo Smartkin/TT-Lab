@@ -41,6 +41,8 @@ public abstract class SerializableAsset : IAsset
     public Type Type { get; set; }
     public String InvariantName { get; set; }
     public String Name => string.IsNullOrEmpty(Variation) ? InvariantName : $"{InvariantName}_{Variation}";
+
+    public string DocumentName => Alias;
     public void Save()
     {
         Serialize(SerializationFlags.SaveData | SerializationFlags.SetDirectoryToAssets);
@@ -225,12 +227,20 @@ public abstract class SerializableAsset : IAsset
 
     public abstract Type GetEditorType();
     public abstract AbstractAssetData GetData();
-        
+    
     public virtual void SetData(AbstractAssetData data)
     {
+        if (data == AssetData)
+        {
+            return;
+        }
+        
         DisposeData(true);
         AssetData = data;
-        InvariantName += $"_{GetDataHash():X}";
+        if (IsInternal)
+        {
+            InvariantName += $"_{GetDataHash():X}";
+        }
     }
 
     public virtual void Import()

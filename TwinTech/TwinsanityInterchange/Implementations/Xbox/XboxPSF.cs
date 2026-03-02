@@ -12,12 +12,12 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox
     public class XboxPSF : BaseTwinItem, ITwinPSF
     {
         public List<ITwinPTC> FontPages { get; set; }
-        public List<Vector4> UnkVecs { get; set; }
-        public Int32 UnkInt { get; set; }
+        public List<VectorCharacterData> CharacterData { get; set; }
+        public Int32 SpaceIdentifier { get; set; }
 
         public override Int32 GetLength()
         {
-            return 4 + FontPages.Sum(f => f.GetLength()) + UnkVecs.Count * Constants.SIZE_VECTOR4;
+            return 4 + FontPages.Sum(f => f.GetLength()) + CharacterData.Count * Constants.SIZE_VECTOR4;
         }
 
         public override void Read(BinaryReader reader, Int32 length)
@@ -30,12 +30,12 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox
                 FontPages.Add(page);
             }
             var vecAmt = reader.ReadInt32();
-            UnkInt = reader.ReadInt32();
+            SpaceIdentifier = reader.ReadInt32();
             for (var i = 0; i < vecAmt; ++i)
             {
-                var vec = new Vector4();
+                var vec = new VectorCharacterData();
                 vec.Read(reader, Constants.SIZE_VECTOR4);
-                UnkVecs.Add(vec);
+                CharacterData.Add(vec);
             }
         }
 
@@ -46,9 +46,9 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox
             {
                 page.Write(writer);
             }
-            writer.Write(UnkVecs.Count);
-            writer.Write(UnkInt);
-            foreach (var v in UnkVecs)
+            writer.Write(CharacterData.Count);
+            writer.Write(SpaceIdentifier);
+            foreach (var v in CharacterData)
             {
                 v.Write(writer);
             }

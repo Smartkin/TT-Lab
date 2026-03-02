@@ -1,3 +1,4 @@
+using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
 using Avalonia;
 using Avalonia.Controls;
@@ -9,17 +10,17 @@ using TT_Lab.ViewModels.Editors;
 
 namespace TT_Lab.Views.Editors;
 
-public partial class TextFieldView : ReactiveUserControl<TextFieldViewModel>
+public partial class TextFieldView : DocumentBaseView<TextFieldViewModel>
 {
     public TextFieldView()
     {
         InitializeComponent();
+    }
 
-        this.WhenActivated(disposables =>
-        {
-            this.Bind(ViewModel, viewModel => viewModel.Text, view => view.TextField.Text).DisposeWith(disposables);
+    protected override void HandleActivation(CompositeDisposable disposables)
+    {
+        this.Bind(ViewModel, viewModel => viewModel.Text, view => view.TextField.Text).DisposeWith(disposables);
 
-            this.BindValidation(ViewModel, viewModel => viewModel.Text, view => view.TextFieldError.Text).DisposeWith(disposables);
-        });
+        this.BindValidation(ViewModel, viewModel => viewModel.Text, view => view.TextFieldError.Text).DisposeWith(disposables);
     }
 }

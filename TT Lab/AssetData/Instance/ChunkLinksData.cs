@@ -5,6 +5,7 @@ using System.IO;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Attributes;
+using TT_Lab.Attributes.EditorParamWrappers;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.SM;
 
@@ -23,6 +24,8 @@ public class ChunkLinksData : AbstractAssetData
     }
 
     [JsonProperty(Required = Required.Always)]
+    [Editable]
+    [EditorCollectionItemPrefix("Chunk Link")]
     public List<ChunkLink> Links { get; set; } = new();
 
     protected override void Dispose(Boolean disposing)

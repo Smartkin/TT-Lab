@@ -1,3 +1,4 @@
+using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
 using Avalonia;
 using Avalonia.Controls;
@@ -8,15 +9,15 @@ using TT_Lab.ViewModels.Editors;
 
 namespace TT_Lab.Views.Editors;
 
-public partial class BoolFieldView : ReactiveUserControl<BoolFieldViewModel>
+public partial class BoolFieldView : DocumentBaseView<BoolFieldViewModel>
 {
     public BoolFieldView()
     {
         InitializeComponent();
+    }
 
-        this.WhenActivated(disposables =>
-        {
-            this.Bind(ViewModel, viewModel => viewModel.IsChecked, view => view.BoolField.IsChecked).DisposeWith(disposables);
-        });
+    protected override void HandleActivation(CompositeDisposable disposables)
+    {
+        this.Bind(ViewModel, viewModel => viewModel.IsChecked, view => view.BoolField.IsChecked).DisposeWith(disposables);
     }
 }

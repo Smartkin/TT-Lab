@@ -4,7 +4,7 @@ using Twinsanity.TwinsanityInterchange.Interfaces;
 
 namespace TT_Lab.AssetData;
 
-public class LevelChunkData(IAsset owner) : AbstractAssetData(owner)
+public class DummyData(IAsset owner) : AbstractAssetData(owner)
 {
     protected override void Dispose(bool disposing)
     {
@@ -16,6 +16,6 @@ public class LevelChunkData(IAsset owner) : AbstractAssetData(owner)
 
     public override ITwinItem Export(ITwinItemFactory factory)
     {
-        return factory.GenerateRM();
+        throw new System.NotSupportedException();
     }
 }

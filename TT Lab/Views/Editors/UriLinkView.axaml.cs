@@ -1,3 +1,4 @@
+using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
 using Avalonia;
 using Avalonia.Controls;
@@ -8,18 +9,19 @@ using TT_Lab.ViewModels.Editors;
 
 namespace TT_Lab.Views.Editors;
 
-public partial class UriLinkView : ReactiveUserControl<UriLinkViewModel>
+public partial class UriLinkView : DocumentBaseView<UriLinkViewModel>
 {
     public UriLinkView()
     {
         InitializeComponent();
+    }
 
-        this.WhenActivated(disposables =>
-        {
-            this.OneWayBind(ViewModel, viewModel => viewModel.LinkText, view => view.UriDisplay.Text).DisposeWith(disposables);
+    protected override void HandleActivation(CompositeDisposable disposables)
+    {
+        this.OneWayBind(ViewModel, viewModel => viewModel.LinkText, view => view.UriDisplay.Text).DisposeWith(disposables);
+        this.OneWayBind(ViewModel, viewModel => viewModel.DocumentPart, view => view.DocumentViewer.Content).DisposeWith(disposables);
 
-            this.BindCommand(ViewModel, viewModel => viewModel.SelectUriFromLinkCommand, view => view.ChangeLink, nameof(ChangeLink.Click)).DisposeWith(disposables);
-            this.BindCommand(ViewModel, viewModel => viewModel.OpenDocumentCommand, view => view.OpenDocument, nameof(OpenDocument.Click)).DisposeWith(disposables);
-        });
+        this.BindCommand(ViewModel, viewModel => viewModel.SelectUriFromLinkCommand, view => view.ChangeLink, nameof(ChangeLink.Click)).DisposeWith(disposables);
+        this.BindCommand(ViewModel, viewModel => viewModel.OpenDocumentCommand, view => view.OpenDocument, nameof(OpenDocument.Click)).DisposeWith(disposables);
     }
 }

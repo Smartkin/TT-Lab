@@ -3,12 +3,13 @@ using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Threading;
 using AvaloniaEdit;
+using TT_Lab.ViewModels;
 
 namespace TT_Lab;
 
 public static class Log
 {
-    private static TextEditor? logBox;
+    private static LogViewModel? logBox;
     private const int MaxLines = 200;
 
     public enum LogType
@@ -20,7 +21,7 @@ public static class Log
         Trace
     }
 
-    public static void SetLogBox(TextEditor log)
+    public static void SetViewModel(LogViewModel log)
     {
         logBox = log;
     }
@@ -32,11 +33,10 @@ public static class Log
         await Dispatcher.UIThread.InvokeAsync(() =>
         {
             logBox.Text += $"[{type}]" + DateTime.Now + ": " + text + Environment.NewLine;
-            if (logBox.LineCount >= MaxLines)
+            if (logBox.LinesAmount >= MaxLines)
             {
                 var lines = logBox.Text.Split(Environment.NewLine);
                 logBox.Text = string.Join(Environment.NewLine, lines.Skip(lines.Length - MaxLines));
-                logBox.CaretOffset = logBox.Text.Length;
             }
         });
     }

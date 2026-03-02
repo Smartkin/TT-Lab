@@ -5,11 +5,10 @@
         xmlns:controls="clr-namespace:TT_Lab.Controls"
         xmlns:viewModels="clr-namespace:TT_Lab.ViewModels"
         xmlns:controls1="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
-        d:DataContext="{Binding Source={d:DesignInstance viewModels:PreferencesViewModel}}"
         x:DataType="viewModels:PreferencesViewModel"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="TT_Lab.Views.PreferencesView"
-        Title="Preferences" Height="500" Width="400" CanResize="False" WindowStartupLocation="CenterScreen">
+        Title="Preferences" Height="500" Width="400" WindowStartupLocation="CenterScreen">
     <controls1:GroupBox>
         <ScrollViewer HorizontalScrollBarVisibility="Disabled">
             <StackPanel>

@@ -42,7 +42,7 @@ public partial class SoundEffectViewModel : DocumentDataViewModel<SoundEffectDat
         _audioPlayer.DisposeWith(disposables);
     }
 
-    public override void Save(string propName)
+    public override void Save()
     {
         Data.GetOwner().SetData(Data);
     }

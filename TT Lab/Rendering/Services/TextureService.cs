@@ -6,6 +6,7 @@ using System.Windows;
 using Avalonia.Media.Imaging;
 using TT_Lab.AssetData.Graphics;
 using TT_Lab.Assets;
+using TT_Lab.Assets.Graphics;
 using TT_Lab.Rendering.Buffers;
 using TT_Lab.Util;
 
@@ -50,6 +51,7 @@ public class TextureService
         }
 
         var assetManager = AssetManager.Get();
+        var textureAsset = assetManager.GetAsset<Texture>(uri);
         var textureData = assetManager.GetAssetData<TextureData>(uri);
         if (textureData.Bitmap == null)
         {
@@ -57,7 +59,7 @@ public class TextureService
         }
         
         texture = RegisterTexture(uri, textureData.Bitmap);
-        if (textureData.GenerateMipmaps)
+        if (textureAsset.GenerateMipmaps)
         {
             texture.GenerateMipmaps();
         }

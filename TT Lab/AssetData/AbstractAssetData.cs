@@ -85,9 +85,7 @@ public abstract class AbstractAssetData(IAsset owner) : IDocumentModel
 
     protected abstract void Dispose(Boolean disposing);
 
-    public string Name => Owner.Alias;
-
-    public void Save() { }
+    public string DocumentName => Owner.Alias;
 
     public void Dispose()
     {

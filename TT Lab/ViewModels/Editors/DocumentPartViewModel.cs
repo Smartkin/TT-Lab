@@ -11,8 +11,10 @@ using ReactiveUI.Validation.Helpers;
 
 namespace TT_Lab.ViewModels.Editors;
 
-public abstract partial class DocumentPartViewModel : ReactiveValidationObject, IActivatableViewModel
+public abstract partial class DocumentPartViewModel : DocumentBaseViewModel, IActivatableViewModel
 {
+    public event Action? Closed;
+    
     [Reactive]
     private string _editorName = string.Empty;
     [Reactive]
@@ -20,11 +22,14 @@ public abstract partial class DocumentPartViewModel : ReactiveValidationObject, 
     [Reactive]
     private string? _hint;
     [Reactive]
-    private Dock _orientation = Dock.Left;
+    private Avalonia.Controls.Dock _orientation = Avalonia.Controls.Dock.Left;
     [Reactive]
     private Dictionary<string, object> _editorParameters = new();
+
+    [ObservableAsProperty]
+    private string _title;
     
-    private Func<int> _idGenerator = GetIdGenerator();
+    private readonly Func<int> _idGenerator = GetIdGenerator();
     private bool _isInitialized;
     private readonly CompositeDisposable _fullDeactivationDisposables = new();
     
@@ -51,6 +56,9 @@ public abstract partial class DocumentPartViewModel : ReactiveValidationObject, 
             
             Disposable.Create(this, viewModel => viewModel.OnDeactivated(disposables)).DisposeWith(disposables);
         });
+
+        _titleHelper = this.WhenAnyValue(x => x.Caption)
+            .ToProperty(this, x => x.Title);
         
         Document = document;
     }
@@ -60,9 +68,24 @@ public abstract partial class DocumentPartViewModel : ReactiveValidationObject, 
         Document = document;
     }
 
-    public virtual void Save(string propName)
+    protected T? GetEditorParameter<T>(string parameter, T? defaultValue = default)
     {
-        Document.DocumentModel.GetType().GetProperty(propName)!.SetValue(Document.DocumentModel, GetData(), null);
+        if (!_editorParameters.TryGetValue(parameter, out var editorParameter))
+        {
+            return defaultValue;
+        }
+        
+        return (T?)editorParameter;
+    }
+
+    public virtual void Save()
+    {
+        if (IsPartOfCollection)
+        {
+            return;
+        }
+        
+        Document.DocumentModel.GetType().GetProperty(SaveLocation)!.SetValue(Document.DocumentModel, GetFinalData(), null);
     }
 
     public int GetNewEditorId()
@@ -72,8 +95,14 @@ public abstract partial class DocumentPartViewModel : ReactiveValidationObject, 
 
     public void Close()
     {
+        Closed?.Invoke();
         OnClosed(_fullDeactivationDisposables);
         _fullDeactivationDisposables.Dispose();
+    }
+
+    public virtual bool CanClose()
+    {
+        return true;
     }
 
     protected virtual void OnInitialized(CompositeDisposable disposables) { }
@@ -85,19 +114,22 @@ public abstract partial class DocumentPartViewModel : ReactiveValidationObject, 
     protected virtual void OnClosed(CompositeDisposable disposables) { }
 
     [ObservableAsProperty]
-    public Dock EditorOrientation => _orientation switch
+    public Avalonia.Controls.Dock EditorOrientation => _orientation switch
     {
-        Dock.Left => Dock.Right,
-        Dock.Right => Dock.Left,
-        Dock.Top => Dock.Bottom,
-        _ => Dock.Top
+        Avalonia.Controls.Dock.Left => Avalonia.Controls.Dock.Right,
+        Avalonia.Controls.Dock.Right => Avalonia.Controls.Dock.Left,
+        Avalonia.Controls.Dock.Top => Avalonia.Controls.Dock.Bottom,
+        _ => Avalonia.Controls.Dock.Top
     };
 
     public virtual bool UseDefaultCaption => true;
     
     public int Id { get; set; }
+    public bool IsPartOfCollection { get; set; }
+    public string SaveLocation { get; set; }
     public MemberInfo Metadata { get; set; }
-    public abstract object? GetData();
+    public Type PropertyType { get; set; }
+    public abstract object? GetFinalData();
     public ViewModelActivator Activator { get; }
     
 }

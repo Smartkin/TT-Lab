@@ -727,7 +727,7 @@ namespace TT_Lab.Assets.Factory
             return frontend;
         }
 
-        public ITwinPSF GenerateFont(List<ITwinPTC> pages, List<Vector4> unkVecs, Int32 unkInt)
+        public ITwinPSF GenerateFont(List<ITwinPTC> pages, List<VectorCharacterData> characterData, Int32 spaceIdentifier)
         {
             var font = new PS2PSF();
 
@@ -736,8 +736,8 @@ namespace TT_Lab.Assets.Factory
                 font.FontPages.Add(page);
             }
 
-            font.UnkVecs = CloneUtils.CloneList(unkVecs);
-            font.UnkInt = unkInt;
+            font.CharacterData = CloneUtils.CloneList(characterData);
+            font.SpaceIdentifier = spaceIdentifier;
 
             return font;
         }

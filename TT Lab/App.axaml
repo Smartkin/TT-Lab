@@ -12,7 +12,7 @@
     <Application.Styles>
         <FluentTheme />
         <SimpleTheme />
-        
+        <DockSimpleTheme CacheDocumentTabContent="True"/>
         <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml"/>
     </Application.Styles>
 </Application>

@@ -8,7 +8,7 @@ public class AboutModel
     public String Version { get; set; } = "0.0.9";
     public String Authors { get; set; } = "Smartkin, Neo_Kesha";
     public String SpecialThanks { get; set; } = "BetaM, SuperMoe, Marko, GPro";
-    public String SourceCodeLink { get; set; } = "https://github.com/NeoKesha/TT-Lab";
+    public String SourceCodeLink { get; set; } = "https://github.com/Smartkin/TT-Lab";
     public String Testers { get; set; } = ""; // TODO: When we gonna do actual testing add people here
     public String Artists { get; set; } = ""; // TODO: Add Tralexium to credits
 }

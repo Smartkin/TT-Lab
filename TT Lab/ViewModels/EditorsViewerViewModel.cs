@@ -1,56 +1,65 @@
 ﻿using Caliburn.Micro;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
+using System.Reactive.Disposables.Fluent;
 using System.Threading;
 using System.Threading.Tasks;
+using Dock.Model.Core;
+using Dock.Model.ReactiveUI.Controls;
+using DynamicData;
+using ReactiveUI;
 using TT_Lab.Assets;
 using TT_Lab.ViewModels.Composite;
+using TT_Lab.ViewModels.Editors;
 
-namespace TT_Lab.ViewModels
+namespace TT_Lab.ViewModels;
+
+public abstract class EditorsViewerViewModel : ReactiveObject, IActivatableViewModel
 {
-    public abstract class EditorsViewerViewModel : Conductor<TabbedEditorViewModel>.Collection.OneActive
+    public IFactory Factory { get; }
+    private readonly SourceCache<TabbedEditorViewModel, string> _documentTabs;
+
+    public ReadOnlyObservableCollection<TabbedEditorViewModel> Tabs;
+
+    protected EditorsViewerViewModel(IFactory factory)
     {
-        public virtual async Task CloseEditorTab(TabbedEditorViewModel editor)
+        Factory = factory;
+        _documentTabs = new SourceCache<TabbedEditorViewModel, String>(x => x.EditableResource);
+        this.WhenActivated(disposables =>
         {
-            await DeactivateItemAsync(editor, true);
-        }
+            _documentTabs.Connect().Bind(out Tabs).Subscribe().DisposeWith(disposables);
+        });
+    }
 
-        public virtual void SaveEditorTab(TabbedEditorViewModel editor)
+    public void Clear()
+    {
+        _documentTabs.Clear();
+    }
+
+    public void OpenTab(TabbedEditorViewModel editor)
+    {
+        _documentTabs.AddOrUpdate(editor);
+    }
+    
+    public virtual async Task CloseEditorTab(TabbedEditorViewModel editor)
+    {
+        await editor.CloseTab();
+    }
+
+    public virtual void SaveEditorTab(TabbedEditorViewModel editor)
+    {
+        editor.Document.Save();
+    }
+
+    public virtual void Save()
+    {
+        foreach (var item in Tabs)
         {
-            editor.Document.Save(string.Empty);
-        }
-
-        public override async Task<Boolean> CanCloseAsync(CancellationToken cancellationToken = new CancellationToken())
-        {
-            var result = true;
-            // foreach (var editor in Items)
-            // {
-            //     result = await editor.ActiveItem.CanCloseAsync(cancellationToken);
-            //     if (!result)
-            //     {
-            //         break;
-            //     }
-            // }
-            
-            return result;
-        }
-
-        public virtual void Save()
-        {
-            foreach (var item in Items)
-            {
-                item.Document.Save(string.Empty);
-            }
-        }
-
-
-        protected override Task OnDeactivateAsync(Boolean close, CancellationToken cancellationToken)
-        {
-            DeactivateItemAsync(ActiveItem, close, cancellationToken);
-
-            GC.Collect();
-            return base.OnDeactivateAsync(close, cancellationToken);
+            item.Document.Save();
         }
     }
+
+    public ViewModelActivator Activator { get; } = new();
 }

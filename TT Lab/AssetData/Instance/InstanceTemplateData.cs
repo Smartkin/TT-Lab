@@ -32,32 +32,59 @@ public class InstanceTemplateData : AbstractAssetData
     }
 
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public String TemplateName { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public LabURI ObjectId { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public Byte UnkByte1 { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public Byte UnkByte2 { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public List<LabURI> UnkBehaviourIds { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public UInt32 Header1 { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public UInt32 Header2 { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public Byte UnkByte3 { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public Byte UnkByte4 { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public UInt32 InstancePropsHeader { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public UInt32 UnkInt1 { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public List<UInt32> Flags { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public List<Single> Floats { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public List<UInt32> Ints { get; set; }
 
     protected override void Dispose(Boolean disposing)

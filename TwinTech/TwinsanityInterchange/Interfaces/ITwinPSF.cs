@@ -11,12 +11,12 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces
         /// </summary>
         public List<ITwinPTC> FontPages { get; set; }
         /// <summary>
-        /// Purpose currently unknown
+        /// ASCII table ordered data for where characters are on the texture
         /// </summary>
-        public List<Vector4> UnkVecs { get; set; }
+        public List<VectorCharacterData> CharacterData { get; set; }
         /// <summary>
-        /// Purpose currently unknown
+        /// Index of space character in ASCII table (generally should be 32 or 0x20)
         /// </summary>
-        public Int32 UnkInt { get; set; }
+        public Int32 SpaceIdentifier { get; set; }
     }
 }

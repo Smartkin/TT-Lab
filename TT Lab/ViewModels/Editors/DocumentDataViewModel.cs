@@ -30,7 +30,7 @@ public partial class DocumentDataViewModel<T> : DocumentPartViewModel
         }).DisposeWith(disposables);
     }
 
-    public override object? GetData()
+    public override object? GetFinalData()
     {
         return Data;
     }

@@ -1,6 +1,8 @@
 using System;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
+using Dock.Model.Core;
+using ReactiveUI;
 
 namespace TT_Lab.Util;
 
@@ -9,8 +11,10 @@ public class ViewLocator : IDataTemplate
     public Control? Build(object? data)
     {
         if (data is null)
+        {
             return null;
-        
+        }
+
         var view = ReactiveUI.ViewLocator.Current.ResolveView(data);
         
         if (view != null)
@@ -42,6 +46,11 @@ public class ViewLocator : IDataTemplate
 
     public Boolean Match(object? data)
     {
-        return data?.GetType().Name.EndsWith("ViewModel") ?? false;
+        return data switch
+        {
+            null => false,
+            IDockable => true,
+            _ => data.GetType().Name.EndsWith("ViewModel")
+        };
     }
 }

@@ -13,6 +13,8 @@ using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Assets.Graphics;
 using TT_Lab.Attributes;
+using TT_Lab.Attributes.EditorParamWrappers;
+using TT_Lab.ViewModels.Editors;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces;
@@ -58,16 +60,25 @@ public class MaterialData : AbstractAssetData
             DmaChainIndex = DmaChainIndex,
         };
         
-        return System.Text.Json.JsonSerializer.SerializeToNode(jsonData);
+        return System.Text.Json.JsonSerializer.SerializeToNode(jsonData)!;
     }
 
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public AppliedShaders ActivatedShaders { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
-    public UInt32 DmaChainIndex { get; set; }
-    [JsonProperty(Required = Required.Always)]
+    [Editable]
+    [EditorParam(DocumentViewModel.EditorExplicitOrder, 0)]
     public String Name { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
+    public UInt32 DmaChainIndex { get; set; }
+    
+    [JsonProperty(Required = Required.Always)]
+    [Editable(Caption = "Shaders")]
+    [EditorParam(DocumentViewModel.ItemCaptionPrefix, "Shader")]
     public List<LabShader> Shaders { get; set; }
 
     protected override void Dispose(Boolean disposing)

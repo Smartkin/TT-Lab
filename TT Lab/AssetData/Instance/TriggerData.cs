@@ -57,28 +57,51 @@ public class TriggerData : AbstractAssetData
     }
 
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public TriggerActivatorObjects ObjectActivatorMask { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public Vector4 Position { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public Vector4 Rotation { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public Vector4 Scale { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public List<LabURI> Instances { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public UInt32 Header { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public Single UnkFloat { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public UInt32 InstanceExtensionValue { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable(Caption = "On Enter Once")]
     public UInt16 TriggerMessage1 { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable(Caption = "On Enter")]
     public UInt16 TriggerMessage2 { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable(Caption = "On Stay")]
     public UInt16 TriggerMessage3 { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable(Caption = "On Exit")]
     public UInt16 TriggerMessage4 { get; set; }
 
     protected override void Dispose(Boolean disposing)

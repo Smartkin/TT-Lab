@@ -9,16 +9,19 @@ using TT_Lab.ViewModels.Editors;
 
 namespace TT_Lab.Views.Editors;
 
-public partial class DocumentView : ReactiveUserControl<DocumentViewModel>
+public partial class DocumentView : DocumentBaseView<DocumentViewModel>
 {
     public DocumentView()
     {
         InitializeComponent();
+    }
 
-        this.WhenActivated(disposables =>
-        {
-            this.OneWayBind(ViewModel, viewModel => viewModel.DocumentEditors, view => view.EditorsContainer.ItemsSource)
-                .DisposeWith(disposables);
-        });
+    protected override void HandleActivation(CompositeDisposable disposables)
+    {
+        this.OneWayBind(ViewModel, viewModel => viewModel.DocumentEditors, view => view.EditorsContainer.ItemsSource)
+            .DisposeWith(disposables);
+            
+        this.BindCommand(ViewModel, viewModel => viewModel.CreateNewItemCommand, view => view.AddNewItem,
+            nameof(AddNewItem.Click));
     }
 }

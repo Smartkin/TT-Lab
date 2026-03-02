@@ -35,6 +35,12 @@ public static class DependencyInjection
                         services.AddSingleton<ILabManager, ShellViewModel>();
                         return;
                     }
+
+                    if (viewModelType == typeof(LogViewModel))
+                    {
+                        services.AddSingleton<LogViewModel>();
+                        return;
+                    }
                         
                     services.AddTransient(viewModelType, viewModelType);
                 });

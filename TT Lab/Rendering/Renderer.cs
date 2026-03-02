@@ -218,7 +218,7 @@ public class Renderer : IView
             return;
         }
         
-        _renderContext.Gl.ClearColor(Color.LightGray);
+        _renderContext.Gl.ClearColor(Color.DimGray);
         _renderContext.Gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit | ClearBufferMask.StencilBufferBit);
         
         // Opaque skydome pass

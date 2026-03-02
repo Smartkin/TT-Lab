@@ -39,6 +39,11 @@ public class LabURI : IEquatable<LabURI>, IComparable
     public static implicit operator String(LabURI labURI) => labURI._uri;
     public static explicit operator LabURI(String uri) => new(uri);
 
+    public LabURI()
+    {
+        _uri = Empty;
+    }
+
     [JsonConstructor]
     public LabURI(String uri, bool isBuiltIn = false)
     {
@@ -50,7 +55,7 @@ public class LabURI : IEquatable<LabURI>, IComparable
             ParseAndVerify();
         }
     }
-        
+    
     public bool IsBuiltIn() => _isBuiltIn;
     public string GetPackageName() => _package ?? "";
     public string GetFilePathInPackage() => _filePathInPackage ?? "";

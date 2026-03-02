@@ -88,7 +88,7 @@ public sealed class ObjectInstanceViewModel : ViewportEditableInstanceViewModel
         {
             data.OnSpawnScriptId = onSpawnScriptId;
         }
-        data.StateFlags = stateFlags.StateFlags;
+        data.StateFlags = (Enums.InstanceState)stateFlags.StateFlags;
         data.ParamList1.Clear();
         foreach (var f in FlagParams)
         {

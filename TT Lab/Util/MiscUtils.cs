@@ -19,7 +19,7 @@ namespace TT_Lab.Util;
 public static class MiscUtils
 {
     private static Bitmap? _boatguy;
-    private static Dictionary<string, Bitmap> _labIconStorage = new();
+    private static readonly Dictionary<string, Bitmap> LabIconStorage = new();
 
     public static object? ConvertEnum(Type t, object? o)
     {
@@ -39,14 +39,14 @@ public static class MiscUtils
 
     public static Bitmap GetLabIcon(string iconName)
     {
-        if (_labIconStorage.TryGetValue(iconName, out Bitmap? value))
+        if (LabIconStorage.TryGetValue(iconName, out Bitmap? value))
         {
             return value;
         }
 
-        _labIconStorage.Add(iconName, new Bitmap(ManifestResourceLoader.GetPathInExe($"Media/LabIcons/{iconName}.png")));
+        LabIconStorage.Add(iconName, new Bitmap(ManifestResourceLoader.GetPathInExe($"Media/LabIcons/{iconName}.png")));
 
-        return _labIconStorage[iconName];
+        return LabIconStorage[iconName];
     }
 
     public static Bitmap CloneBitmap(this Bitmap bitmap)
@@ -132,11 +132,13 @@ public static class MiscUtils
         }
         return state.SetFlag(flags);
     }
+    
     public static Enums.TriggerActivatorObjects SetFlag(this Enums.TriggerActivatorObjects state, Enums.TriggerActivatorObjects flags)
     {
         state |= flags;
         return state;
     }
+    
     public static Enums.TriggerActivatorObjects UnsetFlag(this Enums.TriggerActivatorObjects state, Enums.TriggerActivatorObjects flags)
     {
         state &= ~flags;

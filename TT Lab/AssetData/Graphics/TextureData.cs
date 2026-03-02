@@ -5,15 +5,20 @@ using System.Drawing;
 using System.IO;
 using System.Runtime.InteropServices;
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
+using TT_Lab.Assets.Graphics;
+using TT_Lab.Attributes;
+using TT_Lab.ViewModels.Editors.Graphics;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items;
 
 namespace TT_Lab.AssetData.Graphics;
 
+[Editable(Caption = "Texture Editor", EditorType = typeof(TextureViewModel), EditorOrientation = Avalonia.Controls.Dock.Top)]
 public class TextureData : AbstractAssetData
 {
     public TextureData(IAsset asset) : base(asset)
@@ -27,21 +32,18 @@ public class TextureData : AbstractAssetData
 
     public Bitmap? Bitmap;
 
-    public ITwinTexture.TexturePixelFormat TexturePixelFormat { get; set; }
-    public ITwinTexture.TextureFunction TextureFunction { get; set; }
-    public Boolean GenerateMipmaps { get; set; }
-
     public static TextureData LoadFromGltf(IAsset owner, SharpGLTF.Schema2.Texture gltfTexture)
     {
-        var textureData = new TextureData(owner);
+        var textureOwner = (Texture)owner;
+        var textureData = new TextureData(textureOwner);
 
         var gltfImage = gltfTexture.PrimaryImage;
         using var imageDataStream = new MemoryStream(gltfImage.Content.Content.ToArray());
         textureData.Bitmap = new Bitmap(imageDataStream);
         var isHd = textureData.Bitmap.Size.Width >= 256 || textureData.Bitmap.Size.Height >= 256;
-        textureData.TexturePixelFormat = isHd ? ITwinTexture.TexturePixelFormat.PSMCT32 : ITwinTexture.TexturePixelFormat.PSMT8;
-        textureData.TextureFunction = ITwinTexture.TextureFunction.MODULATE;
-        textureData.GenerateMipmaps = !isHd;
+        textureOwner.PixelFormat = isHd ? ITwinTexture.TexturePixelFormat.PSMCT32 : ITwinTexture.TexturePixelFormat.PSMT8;
+        textureOwner.TextureFunction = ITwinTexture.TextureFunction.MODULATE;
+        textureOwner.GenerateMipmaps = !isHd;
         
         return textureData;
     }
@@ -118,9 +120,10 @@ public class TextureData : AbstractAssetData
         {
             return texture;
         }
-        
-        var fun = TextureFunction;
-        var format = TexturePixelFormat;
+
+        var textureOwner = (Texture)Owner;
+        var fun = textureOwner.TextureFunction;
+        var format = textureOwner.PixelFormat;
         var tex = new List<Twinsanity.TwinsanityInterchange.Common.Color>();
         var bits = new byte[(int)Bitmap.Size.Width * (int)Bitmap.Size.Height * 4];
         var bitsHandle = GCHandle.Alloc(bits, GCHandleType.Pinned);
@@ -144,7 +147,7 @@ public class TextureData : AbstractAssetData
                 }
             }
         }
-        texture.FromBitmap(tex, Bitmap.PixelSize.Width, fun, format, GenerateMipmaps);
+        texture.FromBitmap(tex, Bitmap.PixelSize.Width, fun, format, textureOwner.GenerateMipmaps);
         bitsHandle.Free();
 
         return texture;

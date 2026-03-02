@@ -13,7 +13,7 @@ using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code;
 
 namespace TT_Lab.AssetData.Code;
 
-[Editable(Caption = "SFX Editor", EditorType = typeof(SoundEffectViewModel), EditorOrientation = Dock.Top)]
+[Editable(Caption = "SFX Editor", EditorType = typeof(SoundEffectViewModel), EditorOrientation = Avalonia.Controls.Dock.Top)]
 public sealed class SoundEffectData : AbstractAssetData
 {
     public SoundEffectData(IAsset asset) : base(asset)

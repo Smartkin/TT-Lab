@@ -2,6 +2,9 @@ using System;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Dock.Model;
+using Dock.Model.Core;
+using Dock.Model.ReactiveUI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using ReactiveUI;
@@ -38,6 +41,10 @@ public partial class App : Application
                 resolver.RegisterConstant(new AvaloniaActivationForViewFetcher(), typeof(IActivationForViewFetcher));
                 resolver.RegisterConstant(new AutoDataTemplateBindingHook(), typeof(IPropertyBindingHook));
                 RxApp.MainThreadScheduler = AvaloniaScheduler.Instance;
+
+                services.AddSingleton<IDockState, DockState>();
+                services.AddSingleton<IFactory, DockFactory>();
+                services.AddSingleton<IDockSerializer, Dock.Serializer.DockSerializer>();
 
                 services
                     .AddLabServices()

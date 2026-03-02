@@ -81,7 +81,7 @@ public class BehaviourGraphData : AbstractAssetData
         SetStarter(starter);
     }
 
-    [Editable(Caption = "Behaviour Graph Editor", EditorOrientation = Dock.Top, EditorType = typeof(CodeEditorViewModel))]
+    [Editable(Caption = "Behaviour Graph Editor", EditorOrientation = Avalonia.Controls.Dock.Top, EditorType = typeof(CodeEditorViewModel))]
     public String Graph { get; set; }
 
     protected override void Dispose(Boolean disposing)

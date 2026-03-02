@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Numerics;
 using GlmSharp;
+using Newtonsoft.Json.Linq;
 using SharpGLTF.Schema2;
 using TT_Lab.AssetData.Code;
 using TT_Lab.AssetData.Graphics;
@@ -214,7 +215,11 @@ public class CollisionData : AbstractAssetData
         var surfaces = assetManager.GetAllAssetsOf<CollisionSurface>();
         foreach (var surface in surfaces)
         {
-            var surfColor = (Color)surface.Parameters["editor_surface_color"]!;
+            var surfColor = CollisionSurface.DefaultColor;
+            if (surface.Parameters["editor_surface_color"] is JObject colorJson)
+            {
+                surfColor = colorJson.ToObject<Color>()!;
+            }
             var surfaceMaterial = new SharpGLTF.Materials.MaterialBuilder().WithDoubleSide(true)
                 .WithBaseColor(new System.Numerics.Vector4(surfColor.R / 255.0f, surfColor.G / 255.0f, surfColor.B / 255.0f, surfColor.A / 255.0f));
             surfaceMaterial.Name = surface.Name;

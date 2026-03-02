@@ -19,7 +19,7 @@ public class ResourceBrowserViewModel : Screen, IHaveResult
     {
         _resourcesToBrowse = new BindableCollection<LabURI> { LabURI.Empty };
         SelectedLink = selectedLink == null ? _resourcesToBrowse[0] : selectedLink;
-        _resourcesToBrowse.AddRange(AssetManager.Get().GetAllAssetsOf(browseType).Select(a => a.URI));
+        _resourcesToBrowse.AddRange(AssetManager.Get().GetAllAssetUrisOf(browseType));
         _resourcesToBrowseView = new BindableCollection<LabURI>(_resourcesToBrowse.Distinct().Order());
     }
     

@@ -17,6 +17,7 @@ using TT_Lab.Assets.Instance;
 using TT_Lab.Models;
 using TT_Lab.Project;
 using TT_Lab.Util;
+using TT_Lab.ViewModels.Interfaces;
 using TT_Lab.Views;
 using Twinsanity.Libraries;
 using Path = TT_Lab.Assets.Instance.Path;
@@ -94,7 +95,8 @@ public class FolderElementViewModel : ResourceTreeElementViewModel
         {
             RegisterMenuItem(new MenuItemSettings
             {
-                Header = "Open Settings"
+                Header = "Open Settings",
+                Action = OpenPackageSettings
             });
             
             var binding = new Binding
@@ -119,6 +121,11 @@ public class FolderElementViewModel : ResourceTreeElementViewModel
         {
             base.CreateContextMenu();
         }
+    }
+
+    private void OpenPackageSettings()
+    {
+        Locator.Current.GetService<ILabManager>()!.OpenEditor(AssetManager.Get().GetAsset<Package>(Asset.Package));
     }
 
     private void DefaultCreatableAssets(CreateAssetViewModel createAssetViewModel)

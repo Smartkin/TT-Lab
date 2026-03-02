@@ -18,15 +18,14 @@ public class Texture : SerializableAsset
     public override String IconPath => "Texture.png";
 
     [JsonProperty(Required = Required.Always)]
-    [Editable(EditorType = typeof(EnumFieldViewModel))]
-    [EditorParam(EnumFieldViewModel.EnumTypeName, typeof(ITwinTexture.TextureFunction))]
+    [Editable]
     public ITwinTexture.TextureFunction TextureFunction { get; set; }
     
     [JsonProperty(Required = Required.Always)]
     public ITwinTexture.TexturePixelFormat PixelFormat { get; set; }
     
     [JsonProperty(Required = Required.Always)]
-    [Editable(EditorType = typeof(BoolFieldViewModel))]
+    [Editable]
     public Boolean GenerateMipmaps { get; set; }
 
     public Texture(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinTexture texture) : base(id, name, package, needVariant, variant)
@@ -45,26 +44,6 @@ public class Texture : SerializableAsset
     public override Type GetEditorType()
     {
         return typeof(TextureViewModel);
-    }
-
-    public override void SetData(AbstractAssetData data)
-    {
-        base.SetData(data);
-
-        var textureData = (TextureData)data;
-        TextureFunction = textureData.TextureFunction;
-        PixelFormat = textureData.TexturePixelFormat;
-        GenerateMipmaps = textureData.GenerateMipmaps;
-    }
-
-    public override void PreResolveResources()
-    {
-        base.PreResolveResources();
-            
-        var textureData = (TextureData)GetData();
-        textureData.GenerateMipmaps = GenerateMipmaps;
-        textureData.TextureFunction = TextureFunction;
-        textureData.TexturePixelFormat = PixelFormat;
     }
 
     public override AbstractAssetData GetData()

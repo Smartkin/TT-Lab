@@ -13,6 +13,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Platform;
+using Dock.Model.Core;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
 using SharpGLTF.Schema2;
@@ -39,9 +40,13 @@ public class ShellViewModel : Conductor<EditorsViewModel>, ILabManager
     private readonly Dictionary<String, List<String>> _managerPropsToShellProps = new();
     private Boolean _dontRemind = false;
 
-    public ShellViewModel(IWindowManager windowManager, IEventAggregator eventAggregator, ProjectManager projectManager)
+    public ShellViewModel(IWindowManager windowManager, LogViewModel logViewModel, EditorsViewModel editors,
+        IFactory dockFactory, IEventAggregator eventAggregator, ProjectManager projectManager)
     {
+        Logger = logViewModel;
+        DockFactory = dockFactory;
         _windowManager = windowManager;
+        EditorsViewModel = editors;
         _projectManager = projectManager;
         _eventAggregator = eventAggregator;
         _eventAggregator.SubscribeOnUIThread(this);
@@ -52,7 +57,7 @@ public class ShellViewModel : Conductor<EditorsViewModel>, ILabManager
         _managerPropsToShellProps.Add(nameof(ProjectManager.ProjectTree), [nameof(ProjectTree)]);
         _managerPropsToShellProps.Add(nameof(ProjectManager.HasRecents), [nameof(HasRecents)]);
         _managerPropsToShellProps.Add(nameof(ProjectManager.SearchAsset), [nameof(SearchAsset)]);
-        _managerPropsToShellProps.Add(nameof(ProjectManager.IsCreatingProject), [nameof(IsCreatingProject), nameof(SadEasterEggVisibility)]);
+        _managerPropsToShellProps.Add(nameof(ProjectManager.IsCreatingProject), [nameof(IsCreatingProject)]);
 
         Preferences.Load();
     }
@@ -84,8 +89,6 @@ public class ShellViewModel : Conductor<EditorsViewModel>, ILabManager
         try
         {
             var isFolder = asset.Type == typeof(Folder);
-            if (asset.Type == typeof(Package)) return;
-
             var openedAsset = asset;
 
             if (isFolder)
@@ -100,19 +103,19 @@ public class ShellViewModel : Conductor<EditorsViewModel>, ILabManager
                 }
             }
 
-            var editorsViewModel = ActiveItem;
+            var editorsViewModel = EditorsViewModel;
             if (openedAsset.Type == typeof(LevelChunk))
             {
                 // Automatically switch to Scenes Viewer tab
-                editorsViewModel.ActivateItemAsync(editorsViewModel.Items[0]);
-                _eventAggregator.PublishOnUIThreadAsync(new CreateEditorMessage<ChunkEditorViewModel>(openedAsset));
+                // editorsViewModel.Factory?.SetActiveDockable(editorsViewModel.ScenesEditorsViewModel);
+                DockFactory.SetActiveDockable(DockFactory.VisibleDockableControls.Keys.First(k => k.Id == "ScenesPane"));
+                editorsViewModel.ScenesEditorsViewModel.OpenTab(new TabbedEditorViewModel(DockFactory, openedAsset));
                 return;
             }
             
             // Automatically switch to Resources Editor tab
-            editorsViewModel.ActivateItemAsync(editorsViewModel.Items[1]);
-            var message = new CreateEditorMessage<ResourceEditorViewModel>(openedAsset);
-            _eventAggregator.PublishOnUIThreadAsync(message);
+            DockFactory.SetActiveDockable(DockFactory.VisibleDockableControls.Keys.First(k => k.Id == "ResourcesPane"));
+            editorsViewModel.ResourcesEditorsViewModel.OpenTab(new TabbedEditorViewModel(DockFactory, openedAsset));
         }
         catch (Exception ex)
         {
@@ -145,17 +148,17 @@ public class ShellViewModel : Conductor<EditorsViewModel>, ILabManager
         _projectManager.BuildPs2Iso();
     }
 
-    public async Task CloseProject()
+    public void CloseProject()
     {
-        var canClose = await ActiveItem.CanCloseAsync();
+        var canClose = ActiveItem.CanClose;
         if (!canClose)
         {
             return;
         }
         
-        await DeactivateItemAsync(ActiveItem, true);
+        ActiveItem.ResourcesEditorsViewModel.Clear();
+        ActiveItem.ScenesEditorsViewModel.Clear();
         _projectManager.CloseProject();
-        await ActivateItemAsync(Locator.Current.GetService<EditorsViewModel>()!);
     }
 
     public async Task OpenProject()
@@ -175,7 +178,7 @@ public class ShellViewModel : Conductor<EditorsViewModel>, ILabManager
             return true;
         }
 
-        return await ActiveItem.CanCloseAsync(cancellationToken);
+        return await Task.FromResult(ActiveItem.CanClose);
     }
 
     public Task HandleAsync(ProjectManagerMessage message, CancellationToken cancellationToken)
@@ -193,12 +196,6 @@ public class ShellViewModel : Conductor<EditorsViewModel>, ILabManager
                 }
             },
             cancellationToken);
-    }
-
-    protected override Task OnActivatedAsync(CancellationToken cancellationToken)
-    {
-        ActivateItemAsync(Locator.Current.GetService<EditorsViewModel>()!, cancellationToken);
-        return base.OnActivatedAsync(cancellationToken);
     }
 
     protected override async Task OnDeactivateAsync(Boolean close, CancellationToken cancellationToken)
@@ -231,6 +228,12 @@ public class ShellViewModel : Conductor<EditorsViewModel>, ILabManager
         set => _projectManager.SearchAsset = value;
     }
 
+    public LogViewModel Logger { get; }
+
+    public IFactory DockFactory { get; }
+
+    public EditorsViewModel EditorsViewModel { get; }
+
     public Boolean HasRecents => _projectManager.HasRecents;
 
     public BindableCollection<ResourceTreeElementViewModel> ProjectTree => _projectManager.ProjectTree;
@@ -238,8 +241,4 @@ public class ShellViewModel : Conductor<EditorsViewModel>, ILabManager
     public Boolean ProjectOpened => _projectManager.ProjectOpened;
 
     public Boolean IsCreatingProject => _projectManager.IsCreatingProject;
-
-    public Stream SadEasterEgg => new FileStream(ManifestResourceLoader.GetPathInExe("Images/SadTransparent.gif"), FileMode.Open, FileAccess.Read);
-    
-    public Boolean SadEasterEggVisibility => IsCreatingProject && Preferences.GetPreference<Boolean>(Preferences.SillinessEnabled);
 }

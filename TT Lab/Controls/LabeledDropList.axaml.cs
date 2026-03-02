@@ -92,10 +92,10 @@ public partial class LabeledDropList : UserControl
         switch (orientation)
         {
             case Orientation.Horizontal:
-                DockPanel.SetDock(LblDropBoxName, Dock.Left);
+                DockPanel.SetDock(LblDropBoxName, Avalonia.Controls.Dock.Left);
                 break;
             case Orientation.Vertical:
-                DockPanel.SetDock(LblDropBoxName, Dock.Top);
+                DockPanel.SetDock(LblDropBoxName, Avalonia.Controls.Dock.Top);
                 break;
         }
         ElementContainer.UpdateLayout();

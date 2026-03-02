@@ -7,7 +7,9 @@ using TT_Lab.Assets;
 using TT_Lab.Assets.Graphics;
 using TT_Lab.Attributes;
 using TT_Lab.Util;
+using TT_Lab.ViewModels.Editors;
 using TT_Lab.ViewModels.Editors.Graphics;
+using TT_Lab.ViewModels.Interfaces;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Common.ShaderAnimation;
 using static Twinsanity.TwinsanityInterchange.Common.TwinShader;
@@ -16,7 +18,7 @@ using Type = System.Type;
 namespace TT_Lab.AssetData.Graphics.Shaders;
 
 [ReferencesAssets]
-public class LabShader
+public class LabShader : IDocumentModel
 {
     [System.Text.Json.Serialization.JsonIgnore]
     public string ShaderName => ForcedShaderName ?? (ABlending == AlphaBlending.ON ? $"{ShaderType}Transparent" : ShaderType.ToString());
@@ -25,105 +27,144 @@ public class LabShader
     public string? ForcedShaderName;
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonEnumStringConverter<TwinShader.Type>))]
+    [Editable]
     public TwinShader.Type ShaderType { get; set; } = TwinShader.Type.StandardLit;
     
+    [Editable]
     public UInt32 IntParam { get; set; }
     
+    [Editable]
     public Single[] FloatParam { get; set; } = new Single[4];
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonEnumStringConverter<AlphaBlending>))]
+    [Editable]
     public AlphaBlending ABlending { get; set; } = AlphaBlending.OFF;
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonEnumStringConverter<AlphaBlendPresets>))]
+    [Editable]
     public AlphaBlendPresets AlphaRegSettingsIndex { get; set; }
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonEnumStringConverter<AlphaTest>))]
+    [Editable]
     public AlphaTest ATest { get; set; } = AlphaTest.OFF;
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonEnumStringConverter<AlphaTestMethod>))]
+    [Editable]
     public AlphaTestMethod ATestMethod { get; set; }
     
+    [Editable]
     public Byte AlphaValueToBeComparedTo { get; set; }
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonEnumStringConverter<ProcessAfterAlphaTestFailed>))]
+    [Editable]
     public ProcessAfterAlphaTestFailed ProcessMethodWhenAlphaTestFailed { get; set; }
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonEnumStringConverter<DestinationAlphaTest>))]
+    [Editable]
     public DestinationAlphaTest DAlphaTest { get; set; }
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonEnumStringConverter<DestinationAlphaTestMode>))]
+    [Editable]
     public DestinationAlphaTestMode DAlphaTestMode { get; set; }
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonEnumStringConverter<DepthTestMethod>))]
+    [Editable]
     public DepthTestMethod DepthTest { get; set; } = DepthTestMethod.GEQUAL;
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonEnumStringConverter<ShadingMethod>))]
+    [Editable]
     public ShadingMethod ShdMethod { get; set; } = ShadingMethod.GOURAND;
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonEnumStringConverter<TextureMapping>))]
+    [Editable]
     public TextureMapping TxtMapping { get; set; } = TextureMapping.OFF;
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonEnumStringConverter<TextureCoordinatesSpecification>))]
+    [Editable]
     public TextureCoordinatesSpecification MethodOfSpecifyingTextureCoordinates { get; set; } = TextureCoordinatesSpecification.STQ;
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonEnumStringConverter<Fogging>))]
+    [Editable]
     public Fogging Fog { get; set; } = Fogging.OFF;
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonEnumStringConverter<Context>))]
+    [Editable]
     public Context ContextNum { get; set; }
     
+    [Editable]
     public Boolean UseCustomAlphaRegSettings { get; set; }
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonEnumStringConverter<ColorSpecMethod>))]
+    [Editable]
     public ColorSpecMethod SpecOfColA { get; set; }
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonEnumStringConverter<ColorSpecMethod>))]
+    [Editable]
     public ColorSpecMethod SpecOfColB { get; set; }
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonEnumStringConverter<AlphaSpecMethod>))]
+    [Editable]
     public AlphaSpecMethod SpecOfAlphaC { get; set; }
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonEnumStringConverter<ColorSpecMethod>))]
+    [Editable]
     public ColorSpecMethod SpecOfColD { get; set; }
     
+    [Editable]
     public Byte FixedAlphaValue { get; set; }
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonEnumStringConverter<TextureFilter>))]
+    [Editable]
     public TextureFilter TextureFilterWhenTextureIsExpanded { get; set; } = TextureFilter.LINEAR;
     
+    [Editable]
     public Boolean AlphaCorrectionValue { get; set; }
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonEnumStringConverter<ZValueDrawMask>))]
+    [Editable]
     public ZValueDrawMask ZValueDrawingMask { get; set; } = ZValueDrawMask.UPDATE;
     
+    [Editable]
     public UInt16 LodParamK { get; set; }
     
+    [Editable]
     public UInt16 LodParamL { get; set; }
     
     [System.Text.Json.Serialization.JsonIgnore]
+    [Editable]
+    [EditorParam(UriLinkViewModel.BrowseType, typeof(Texture))]
     public LabURI TextureId { get; set; } = LabURI.Empty;
     
+    [Editable]
     public Byte UnkVal1 { get; set; }
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonEnumStringConverter<XScrollFormula>))]
+    [Editable]
     public XScrollFormula XScrollSettings { get; set; }
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonEnumStringConverter<YScrollFormula>))]
+    [Editable]
     public YScrollFormula YScrollSettings { get; set; }
     
+    [Editable]
     public Boolean UnkFlag1 { get; set; }
     
+    [Editable]
     public Boolean UnkFlag2 { get; set; }
     
+    [Editable]
     public Boolean UnkFlag3 { get; set; }
     
     [System.Text.Json.Serialization.JsonConverter(typeof(ShaderBinaryVector4Converter))]
+    [Editable]
     public Vector4 UnkVector1 { get; set; } = new();
     
     [System.Text.Json.Serialization.JsonConverter(typeof(ShaderBinaryVector4Converter))]
+    [Editable]
     public Vector4 UnkVector2 { get; set; } = new();
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonVector4Converter))]
+    [Editable]
     public Vector4 UvScrollSpeed { get; set; } = new();
     
     [System.Text.Json.Serialization.JsonIgnore]
@@ -348,4 +389,6 @@ public class LabShader
             writer.WriteEndArray();
         }
     }
+
+    public string DocumentName => ShaderName;
 }

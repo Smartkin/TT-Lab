@@ -58,12 +58,19 @@
         <PackageReference Include="Caliburn.Micro.Avalonia" Version="5.0.258-beta" />
         <PackageReference Include="Caliburn.Micro.Platform.Core" Version="5.0.181-beta" />
         <PackageReference Include="Classic.Avalonia.Theme" Version="11.3.0.3" />
+        <PackageReference Include="Dock.Avalonia" Version="11.3.11.16" />
+        <PackageReference Include="Dock.Avalonia.Themes.Simple" Version="11.3.11.16" />
+        <PackageReference Include="Dock.Model.Avalonia" Version="11.3.11.16" />
+        <PackageReference Include="Dock.Model.ReactiveUI" Version="11.3.11.16" />
+        <PackageReference Include="Dock.Model.ReactiveUI.Services" Version="11.3.11.16" />
+        <PackageReference Include="Dock.Serializer.Newtonsoft" Version="11.3.11.16" />
         <PackageReference Include="geometry3Sharp" Version="1.0.324" />
         <PackageReference Include="GlmSharpStd" Version="0.9.8" />
         <PackageReference Include="Meshoptimizer.NET" Version="1.0.7" />
-        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.1" />
-        <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.1" />
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.3" />
+        <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.3" />
         <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+        <PackageReference Include="ProDataGrid" Version="11.3.11-preview.19" />
         <PackageReference Include="ReactiveUI.Avalonia" Version="11.3.8" />
         <PackageReference Include="ReactiveUI.SourceGenerators" Version="2.5.1">
           <PrivateAssets>all</PrivateAssets>

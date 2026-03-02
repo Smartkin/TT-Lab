@@ -137,7 +137,7 @@ public class Folder : SerializableAsset
 
     public override AbstractAssetData GetData()
     {
-        throw new NotSupportedException();
+        return new DummyData(this);
     }
 
     public override void ResolveChunkResources(ITwinItemFactory factory, ITwinSection section)

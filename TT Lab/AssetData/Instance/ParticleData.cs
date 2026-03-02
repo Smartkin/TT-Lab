@@ -2,72 +2,86 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using TT_Lab.AssetData.Instance.Particle;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
+using TT_Lab.Attributes;
 using TT_Lab.Util;
+using TT_Lab.ViewModels.Editors;
 using Twinsanity.TwinsanityInterchange.Common.Particles;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM;
 
-namespace TT_Lab.AssetData.Instance
+namespace TT_Lab.AssetData.Instance;
+
+public class ParticleData : AbstractAssetData
 {
-    public class ParticleData : AbstractAssetData
+    public ParticleData(IAsset asset) : base(asset)
     {
-        public ParticleData(IAsset asset) : base(asset)
+        ParticleSystems = [];
+        ParticleInstances = [];
+    }
+
+    public ParticleData(IAsset asset, ITwinParticle particleData) : this(asset)
+    {
+        SetTwinItem(particleData);
+    }
+
+    [JsonProperty(Required = Required.Always)]
+    [Editable]
+    [EditorParam(DocumentViewModel.EditorExplicitOrder, -10)]
+    public List<ParticleSystem> ParticleSystems { get; set; }
+    
+    [JsonProperty(Required = Required.Always)]
+    [Editable]
+    [EditorParam(DocumentViewModel.EditorExplicitOrder, -10)]
+    public List<ParticleSystemInstance> ParticleInstances { get; set; }
+
+    protected override void Dispose(Boolean disposing)
+    {
+        ParticleSystems.Clear();
+        ParticleInstances.Clear();
+    }
+
+    public override void Import(LabURI package, String? variant, Int32? layoutId)
+    {
+        var particleData = GetTwinItem<ITwinParticle>();
+        foreach (var twinSys in particleData.ParticleSystems)
         {
-            ParticleSystems = new List<TwinParticleSystem>();
-            ParticleEmitters = new List<TwinParticleEmitter>();
+            ParticleSystems.Add(new ParticleSystem(twinSys));
         }
 
-        public ParticleData(IAsset asset, ITwinParticle particleData) : this(asset)
+        foreach (var twinInst in particleData.ParticleEmitters)
         {
-            SetTwinItem(particleData);
+            ParticleInstances.Add(new ParticleSystemInstance(twinInst));
+        }
+    }
+
+    public override ITwinItem Export(ITwinItemFactory factory)
+    {
+        using var ms = new MemoryStream();
+        using var writer = new BinaryWriter(ms);
+
+        WriteExport(writer);
+
+        writer.Flush();
+        ms.Position = 0;
+        return factory.GenerateParticle(ms);
+    }
+
+    protected void WriteExport(BinaryWriter writer)
+    {
+        writer.Write(0x1E);
+        writer.Write(ParticleSystems.Count);
+        foreach (var system in ParticleSystems)
+        {
+            system.Write(writer);
         }
 
-        [JsonProperty(Required = Required.Always)]
-        public List<TwinParticleSystem> ParticleSystems { get; set; }
-        [JsonProperty(Required = Required.Always)]
-        public List<TwinParticleEmitter> ParticleEmitters { get; set; }
-
-        protected override void Dispose(Boolean disposing)
+        writer.Write(ParticleInstances.Count);
+        foreach (var emitter in ParticleInstances)
         {
-            ParticleSystems.Clear();
-            ParticleEmitters.Clear();
-        }
-
-        public override void Import(LabURI package, String? variant, Int32? layoutId)
-        {
-            ITwinParticle particleData = GetTwinItem<ITwinParticle>();
-            ParticleSystems = CloneUtils.DeepClone(particleData.ParticleSystems);
-            ParticleEmitters = CloneUtils.DeepClone(particleData.ParticleEmitters);
-        }
-
-        public override ITwinItem Export(ITwinItemFactory factory)
-        {
-            using var ms = new MemoryStream();
-            using var writer = new BinaryWriter(ms);
-
-            WriteExport(writer);
-
-            writer.Flush();
-            ms.Position = 0;
-            return factory.GenerateParticle(ms);
-        }
-
-        protected void WriteExport(BinaryWriter writer)
-        {
-            writer.Write(0x1E);
-            writer.Write(ParticleSystems.Count);
-            foreach (var system in ParticleSystems)
-            {
-                system.Write(writer);
-            }
-
-            writer.Write(ParticleEmitters.Count);
-            foreach (var emitter in ParticleEmitters)
-            {
-                emitter.Write(writer);
-            }
+            emitter.Write(writer);
         }
     }
 }

@@ -1,12 +1,14 @@
 ﻿using System;
 using TT_Lab.AssetData;
 using TT_Lab.AssetData.Graphics;
+using TT_Lab.Attributes;
 using TT_Lab.ViewModels.Editors.Graphics;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items;
 
 namespace TT_Lab.Assets.Graphics;
 
+[SupportsViewport]
 public class RigidModel : SerializableAsset
 {
     protected override bool SetIdFromDataHash => true;

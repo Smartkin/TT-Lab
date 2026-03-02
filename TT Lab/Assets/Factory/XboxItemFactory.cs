@@ -181,7 +181,7 @@ namespace TT_Lab.Assets.Factory
             throw new NotImplementedException();
         }
 
-        public ITwinPSF GenerateFont(List<ITwinPTC> pages, List<Vector4> unkVecs, Int32 unkInt)
+        public ITwinPSF GenerateFont(List<ITwinPTC> pages, List<VectorCharacterData> characterData, Int32 spaceIdentifier)
         {
             throw new NotImplementedException();
         }

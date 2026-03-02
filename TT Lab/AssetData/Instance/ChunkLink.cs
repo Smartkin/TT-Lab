@@ -6,36 +6,61 @@ using System.Linq;
 using GlmSharp;
 using TT_Lab.Assets;
 using TT_Lab.Attributes;
+using TT_Lab.Attributes.EditorParamWrappers;
 using TT_Lab.Extensions;
 using TT_Lab.Util;
+using TT_Lab.ViewModels.Editors;
+using TT_Lab.ViewModels.Interfaces;
 using Twinsanity.TwinsanityInterchange.Common;
 
 namespace TT_Lab.AssetData.Instance;
 
 [JsonObject]
 [ReferencesAssets]
-public class ChunkLink
+public class ChunkLink : IDocumentModel
 {
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public Boolean UnkFlag { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
+    [EditorParam(DocumentViewModel.EditorExplicitOrder, -1)]
     public LabURI Path { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public Boolean IsAlwaysVisible { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public Boolean IsVisibleInCameraFrustum { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public Byte UnkNum { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public Boolean IsLoadWallActive { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public Boolean KeepLoaded { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
+    [EditorReadOnly]
     public Matrix4 ObjectMatrix { get; set; }
+    
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public Matrix4 ChunkMatrix { get; set; }
+    
     [JsonProperty(Required = Required.AllowNull)]
+    [Editable]
     public Matrix4? LoadingWall { get; set; }
+    
     [JsonProperty(Required = Required.AllowNull)]
     public List<TwinChunkLinkBoundingBoxBuilder> ChunkLinksCollisionData { get; set; }
 
@@ -66,4 +91,6 @@ public class ChunkLink
         LoadingWall = CloneUtils.DeepClone(link.LoadingWall);
         ChunkLinksCollisionData = CloneUtils.DeepClone(link.ChunkLinksCollisionData);
     }
+
+    public string DocumentName => "Chunk Link";
 }

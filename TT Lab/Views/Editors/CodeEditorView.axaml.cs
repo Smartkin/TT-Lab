@@ -1,3 +1,4 @@
+using System.Reactive.Disposables;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
@@ -9,7 +10,7 @@ using TT_Lab.ViewModels.Editors;
 
 namespace TT_Lab.Views.Editors;
 
-public partial class CodeEditorView : ReactiveUserControl<CodeEditorViewModel>
+public partial class CodeEditorView : DocumentBaseView<CodeEditorViewModel>
 {
     public CodeEditorView()
     {
@@ -18,10 +19,10 @@ public partial class CodeEditorView : ReactiveUserControl<CodeEditorViewModel>
         var registryOptions = new RegistryOptions(ThemeName.DarkPlus);
         var textMateInstallation = Editor.InstallTextMate(registryOptions);
         textMateInstallation.SetGrammar(registryOptions.GetScopeByExtension(".cs"));
+    }
 
-        this.WhenActivated(disposables =>
-        {
-            this.Bind(ViewModel, viewModel => viewModel.Code, view => view.Editor.Text);
-        });
+    protected override void HandleActivation(CompositeDisposable disposables)
+    {
+        this.Bind(ViewModel, viewModel => viewModel.Code, view => view.Editor.Text);
     }
 }

@@ -19,11 +19,6 @@
     <!-- </Interaction.Behaviors> -->
     <controls1:GroupBox>
         <Grid RowDefinitions="50,*,30">
-            <Grid Margin="5" ColumnDefinitions="2*,2*,*">
-                <controls:LabeledDropList LayoutOrientation="Horizontal" VerticalAlignment="Center" Items="{Binding TextureFunctions}" SelectedItem="{Binding TextureFunction}" Margin="0" DropListName="Texture function" Padding="1" IsEnabled="False"/>
-                <controls:LabeledDropList LayoutOrientation="Horizontal" VerticalAlignment="Center" Items="{Binding PixelFormats}" SelectedItem="{Binding PixelStorageFormat}" Margin="0" DropListName="Pixel storage format" Grid.Column="1" Padding="1" IsEnabled="False"/>
-                <controls:LabeledCheckBox LayoutOrientation="Horizontal" Checked="{Binding GenerateMipmaps}" Grid.Column="2" HorizontalAlignment="Left" CheckBoxName="Generate Mipmaps" VerticalAlignment="Center" Margin="5,0,0,0"/>
-            </Grid>
             <Image Grid.Row="1" VerticalAlignment="Stretch" Stretch="Uniform" Margin="5" Source="{Binding Texture}"/>
             <Button Command="{Binding ReplaceButton}" Content="Replace" Margin="0" Grid.Row="2"/>
         </Grid>

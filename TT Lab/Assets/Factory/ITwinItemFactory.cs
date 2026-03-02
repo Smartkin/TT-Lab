@@ -51,7 +51,7 @@ namespace TT_Lab.Assets.Factory
         ITwinLink GenerateLink(Stream stream);
         ITwinScenery GenerateScenery(Stream stream);
         ITwinSection GenerateFrontend(List<ITwinSound> sounds);
-        ITwinPSF GenerateFont(List<ITwinPTC> pages, List<Vector4> unkVecs, Int32 unkInt);
+        ITwinPSF GenerateFont(List<ITwinPTC> pages, List<VectorCharacterData> characterData, Int32 spaceIdentifier);
         ITwinPTC GeneratePTC(UInt32 texID, UInt32 matID, ITwinTexture texture, ITwinMaterial material);
         ITwinPSM GeneratePSM(List<ITwinPTC> ptcs);
         ITwinSection GenerateDefault();

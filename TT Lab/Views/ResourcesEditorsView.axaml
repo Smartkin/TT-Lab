@@ -2,31 +2,36 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:viewmodels="clr-namespace:TT_Lab.ViewModels.Composite"
-             xmlns:cm="http://caliburnmicro.com"
+             xmlns:viewmodelsComposite="clr-namespace:TT_Lab.ViewModels.Composite"
              xmlns:viewModels="clr-namespace:TT_Lab.ViewModels"
-             HorizontalAlignment="Stretch"
-             HorizontalContentAlignment="Stretch"
-             VerticalAlignment="Stretch"
-             VerticalContentAlignment="Stretch"
-             cm:Bind.AtDesignTime="True"
+             xmlns:core="clr-namespace:Dock.Model.Core;assembly=Dock.Model"
              x:DataType="viewModels:ResourcesEditorsViewModel"
+             x:CompileBindings="False"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="TT_Lab.Views.ResourcesEditorsView">
-    <TabControl SelectedItem="{Binding ActiveItem}" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" ItemsSource="{Binding Items}">
-        <TabControl.ItemTemplate>
-            <DataTemplate DataType="{x:Type viewmodels:TabbedEditorViewModel}">
-                <DockPanel LastChildFill="True">
-                    <Image DockPanel.Dock="Left" Source="{Binding IconPath}" VerticalAlignment="Center" HorizontalAlignment="Center" Width="24" Height="24" Margin="0,0,3,0" Stretch="Uniform"/>
-                    <TextBlock DockPanel.Dock="Left" VerticalAlignment="Center" Text="{Binding DisplayName, Mode=OneWay}" Margin="0,0,10,0"/>
-                    <Button DockPanel.Dock="Right" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Command="{Binding CloseTab}" Content="x"/>
-                </DockPanel>
-            </DataTemplate>
-        </TabControl.ItemTemplate>
-        <TabControl.ContentTemplate>
-            <DataTemplate DataType="{x:Type viewmodels:TabbedEditorViewModel}">
-                <ContentControl Content="{Binding Document}"/>
-            </DataTemplate>
-        </TabControl.ContentTemplate>
-    </TabControl>
+    <UserControl.Styles>
+        <Style Selector="DocumentControl">
+            <Setter Property="HeaderTemplate">
+                <DataTemplate DataType="core:IDockable">
+                    <StackPanel Orientation="Horizontal">
+                        <Image Source="{Binding Context.IconPath}" VerticalAlignment="Center" HorizontalAlignment="Center" Width="24" Height="24" Margin="0,0,3,0" Stretch="Uniform"/>
+                        <TextBlock VerticalAlignment="Center" Text="{Binding Context.Title, Mode=OneWay}" Margin="0,0,10,0"/>
+                    </StackPanel>
+                </DataTemplate>
+            </Setter>
+        </Style>
+    </UserControl.Styles>
+    <DockControl Factory="{Binding Factory}">
+        <DocumentDock x:Name="ResourcesEditorsDock">
+            <DocumentDock.DocumentTemplate>
+                <DocumentTemplate>
+                    <Grid ColumnDefinitions="1*, 5, Auto">
+                        <ContentControl Grid.Column="0" Content="{Binding Context.Document}"/>
+                        <GridSplitter Grid.Column="1" ShowsPreview="True"/>
+                        <ContentControl Grid.Column="2" Content="{Binding Context.Viewport}"/>
+                    </Grid>
+                </DocumentTemplate>
+            </DocumentDock.DocumentTemplate>
+        </DocumentDock>
+    </DockControl>
 </UserControl>

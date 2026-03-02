@@ -75,10 +75,10 @@ public partial class LabeledTextBox : UserControl
         switch (orientation)
         {
             case Orientation.Horizontal:
-                DockPanel.SetDock(LblTextBoxName, Dock.Left);
+                DockPanel.SetDock(LblTextBoxName, Avalonia.Controls.Dock.Left);
                 break;
             case Orientation.Vertical:
-                DockPanel.SetDock(LblTextBoxName, Dock.Top);
+                DockPanel.SetDock(LblTextBoxName, Avalonia.Controls.Dock.Top);
                 break;
         }
         ElementContainer.UpdateLayout();

@@ -77,7 +77,7 @@ public static class AssetDataFactory
 
         var newSoundData = new SoundEffectData(asset, file);
         asset.SetData(newSoundData);
-            
+        
         return AssetCreationStatus.Success;
     }
 

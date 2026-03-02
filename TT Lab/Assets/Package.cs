@@ -5,6 +5,7 @@ using System.IO;
 using Caliburn.Micro;
 using Splat;
 using TT_Lab.AssetData;
+using TT_Lab.Attributes;
 using TT_Lab.Project;
 using TT_Lab.ViewModels.ResourceTree;
 
@@ -16,8 +17,10 @@ public class Package : SerializableAsset
     protected override string SavePathInPackage => string.Empty;
 
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public Boolean Enabled { get; set; }
     [JsonProperty(Required = Required.Always)]
+    [Editable]
     public List<LabURI> Dependencies { get; private set; } = [];
     [JsonProperty(Required = Required.Always)]
     public String Variant { get; set; } = "";
@@ -69,7 +72,7 @@ public class Package : SerializableAsset
 
     public override AbstractAssetData GetData()
     {
-        throw new NotSupportedException();
+        return new DummyData(this);
     }
 
     public override void RegenerateUri()

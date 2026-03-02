@@ -5,12 +5,14 @@ using Caliburn.Micro;
 using Newtonsoft.Json;
 using Splat;
 using TT_Lab.AssetData;
+using TT_Lab.Attributes;
 using TT_Lab.Project;
 using TT_Lab.ViewModels.Editors;
 using TT_Lab.ViewModels.ResourceTree;
 
 namespace TT_Lab.Assets;
 
+[SupportsViewport]
 public class LevelChunk : SerializableAsset
 {
     protected override String SavePathInPackage => string.IsNullOrEmpty(AdditionalPath) ? "levels" : $"{AdditionalPath}";
@@ -18,9 +20,13 @@ public class LevelChunk : SerializableAsset
     public override string IconPath => "Scene.png";
 
     [JsonProperty(Required = Required.Always)]
+    [Editable]
+    [EditorParam(UriLinkViewModel.BrowseScope, UriLinkViewModel.Scope.Document)]
     public List<LabURI> ChunkResources { get; set; } = [];
 
     [JsonProperty(Required = Required.Always)]
+    [Editable]
+    [EditorParam(DocumentViewModel.EditorExplicitOrder, -4)]
     public LabURI Skydome { get; set; } = LabURI.Empty;
 
     public LevelChunk()
@@ -58,12 +64,7 @@ public class LevelChunk : SerializableAsset
 
     public override AbstractAssetData GetData()
     {
-        if (!IsLoaded)
-        {
-            AssetData = new LevelChunkData(this);
-        }
-        
-        return AssetData!;
+        return new DummyData(this);
     }
 
     public override void Import()

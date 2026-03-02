@@ -158,7 +158,7 @@ public class ChunkEditorViewModel :
 
         if (Parent is TabbedEditorViewModel tabbedEditorViewModel)
         {
-            _tabDisplayName = tabbedEditorViewModel.DisplayName;
+            _tabDisplayName = tabbedEditorViewModel.Title;
         }
         TwinIdGeneratorServiceProvider.RegisterGeneratorServiceForChunk(AssetManager.Get().GetAsset<LevelChunk>(EditableResource));
         ResetDirty();
@@ -874,7 +874,7 @@ public class ChunkEditorViewModel :
             toggleCallback?.Invoke(false);
         }
     }
-        
+    
     private void EditorChangesHappened()
     {
         if (Parent is not TabbedEditorViewModel parent || !_isChunkReady)
@@ -884,11 +884,11 @@ public class ChunkEditorViewModel :
         
         if (IsDirty)
         {
-            parent.DisplayName = _tabDisplayName + "*";
+            parent.Title = _tabDisplayName + "*";
         }
         else
         {
-            parent.DisplayName = _tabDisplayName;
+            parent.Title = _tabDisplayName;
         }
     }
 }

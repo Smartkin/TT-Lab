@@ -10,6 +10,7 @@ using System.Windows;
 using Avalonia;
 using Avalonia.Input;
 using Avalonia.Media.Imaging;
+using ReactiveUI;
 using TT_Lab.AssetData.Graphics;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Graphics;
@@ -21,63 +22,20 @@ using Twinsanity.TwinsanityInterchange.Interfaces.Items;
 
 namespace TT_Lab.ViewModels.Editors.Graphics;
 
-public class TextureViewModel : ResourceEditorViewModel
+public class TextureViewModel(DocumentViewModel document, TextureData data)
+    : DocumentDataViewModel<TextureData>(document, data)
 {
-    private Bitmap? _texture;
-    private ITwinTexture.TextureFunction _texFun;
-    private ITwinTexture.TexturePixelFormat _pixelFormat;
-    private Boolean _generateMipmaps;
-
-    static TextureViewModel()
-    {
-        TextureFunctions = new ObservableCollection<object>(Enum.GetValues(typeof(ITwinTexture.TextureFunction)).Cast<object>());
-        PixelFormats = new ObservableCollection<object>(Enum.GetValues(typeof(ITwinTexture.TexturePixelFormat)).Cast<object>());
-    }
-
-    protected override void Save()
-    {
-        var asset = AssetManager.Get().GetAsset<Assets.Graphics.Texture>(EditableResource);
-        var data = (TextureData)asset.GetData();
-        data.Bitmap = Texture;
-        asset.PixelFormat = PixelStorageFormat;
-        asset.TextureFunction = TextureFunction;
-        asset.GenerateMipmaps = GenerateMipmaps;
-        asset.Serialize(SerializationFlags.SetDirectoryToAssets | SerializationFlags.SaveData);
-            
-        base.Save();
-    }
-
-    public override void LoadData()
-    {
-        var asset = AssetManager.Get().GetAsset<Assets.Graphics.Texture>(EditableResource);
-        _pixelFormat = asset.PixelFormat;
-        _texFun = asset.TextureFunction;
-        _generateMipmaps = asset.GenerateMipmaps;
-            
-        var textureBitmap = ((TextureData)asset.GetData()).Bitmap;
-        if (textureBitmap == null)
-        {
-            return;
-        }
-            
-        _texture = textureBitmap.CloneBitmap();
-    }
-
-    protected override Task OnDeactivateAsync(Boolean close, CancellationToken cancellationToken)
-    {
-        if (close)
-        {
-            _texture?.Dispose();
-            _texture = null;
-        }
-
-        return base.OnDeactivateAsync(close, cancellationToken);
-    }
+    public Bitmap? Texture => Data.Bitmap;
 
     public async Task ReplaceButton()
     {
         var file = await MiscUtils.GetFileFromDialogueAsync("Choose an image file...", "Image files", ["*.jpg","*.png","*.bmp"]);
         TextureViewerFileDrop(new Controls.FileDropEventArgs { File = file });
+    }
+
+    public override void Save()
+    {
+        Data.GetOwner().SetData(Data);
     }
 
     public void TextureViewerDrop(DragEventArgs e)
@@ -115,78 +73,24 @@ public class TextureViewModel : ResourceEditorViewModel
                 image.Dispose();
                 return;
             }
-            Texture = image.CloneBitmap();
-            NotifyOfPropertyChange(nameof(Texture));
+
+            Data = new TextureData((IAsset)Document.DocumentModel);
+            Data.Bitmap = image.CloneBitmap();
+            this.RaisePropertyChanged(nameof(Texture));
         }
         else if (e.Data != null)
         {
             try
             {
                 var texAsset = AssetManager.Get().GetAsset((LabURI)e.Data.Data);
-                Texture = texAsset.GetData<TextureData>().Bitmap?.CloneBitmap();
-                NotifyOfPropertyChange(nameof(Texture));
+                Data = new TextureData((IAsset)Document.DocumentModel);
+                Data.Bitmap = texAsset.GetData<TextureData>().Bitmap?.CloneBitmap();
+                this.RaisePropertyChanged(nameof(Texture));
                 Log.WriteLine($"Replacing with texture: {texAsset.Alias}");
             }
             catch (Exception)
             {
                 Log.WriteLine($"Unsupported texture");
-            }
-        }
-    }
-
-    public static ObservableCollection<object> TextureFunctions { get; }
-
-    public static ObservableCollection<object> PixelFormats { get; }
-
-    [MarkDirty]
-    public Bitmap? Texture
-    {
-        get => _texture;
-        set => _texture = value?.CloneBitmap();
-    }
-
-    [MarkDirty]
-    public ITwinTexture.TextureFunction TextureFunction
-    {
-        get => _texFun;
-        set
-        {
-            if (value != _texFun)
-            {
-                _texFun = value;
-                    
-                NotifyOfPropertyChange();
-            }
-        }
-    }
-
-    [MarkDirty]
-    public ITwinTexture.TexturePixelFormat PixelStorageFormat
-    {
-        get => _pixelFormat;
-        set
-        {
-            if (value != _pixelFormat)
-            {
-                _pixelFormat = value;
-                    
-                NotifyOfPropertyChange();
-            }
-        }
-    }
-
-    [MarkDirty]
-    public Boolean GenerateMipmaps
-    {
-        get => _generateMipmaps;
-
-        set
-        {
-            if (value != _generateMipmaps)
-            {
-                _generateMipmaps = value;
-                    
-                NotifyOfPropertyChange();
             }
         }
     }

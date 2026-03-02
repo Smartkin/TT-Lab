@@ -27,9 +27,14 @@ public partial class EnumFieldViewModel : DocumentDataViewModel<object>
     {
         base.OnInitialized(disposables);
 
+        Debug.Assert(Data.GetType().IsEnum, "Provided data is not an enum!");
         if (EditorParameters.TryGetValue(EnumTypeName, out var enumType))
         {
             _enumType = (Type)enumType;
+        }
+        else
+        {
+            _enumType = Data.GetType();
         }
 
         var enumValues = Enum.GetValues(_enumType).Cast<object>().ToArray();

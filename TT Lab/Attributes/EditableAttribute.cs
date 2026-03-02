@@ -12,6 +12,6 @@ public class EditableAttribute : Attribute
 {
     public string Caption { get; init; } = string.Empty;
     public string? Hint { get; init; }
-    public Type EditorType { get; init; } = typeof(TextFieldViewModel);
-    public Dock EditorOrientation { get; init; } = Dock.Left;
+    public Type? EditorType { get; set; }
+    public Avalonia.Controls.Dock EditorOrientation { get; init; } = Avalonia.Controls.Dock.Left;
 }
