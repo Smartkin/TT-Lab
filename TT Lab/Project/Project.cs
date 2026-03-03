@@ -467,9 +467,9 @@ public class Project : IProject
                 // Check for text files
                 if (isTxt)
                 {
-                    using System.IO.StreamReader textReader = new(ms, Encoding.UTF8);
-                    var text = textReader.ReadToEnd();
-                    var textFile = new TextFile(GlobalPackagePS2.URI, true, pathLow, resourceName, text)
+                    using System.IO.BinaryReader textReader = new(ms, Encoding.Latin1);
+                    var text = textReader.ReadChars((int)ms.Length);
+                    var textFile = new TextFile(GlobalPackagePS2.URI, true, pathLow, resourceName, new String(text))
                     {
                         GlobalPath = resourcePath
                     };

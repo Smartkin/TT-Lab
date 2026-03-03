@@ -21,9 +21,8 @@ public partial class LogView : ReactiveUserControl<LogViewModel>
 
         this.WhenActivated(disposables =>
         {
-            this.Bind(ViewModel, viewModel => viewModel.Text, view => view.LogText.Text).DisposeWith(disposables);
-            this.WhenAnyValue(x => x.LogText.LineCount)
-                .BindTo(this, x => x.ViewModel!.LinesAmount).DisposeWith(disposables);
+            this.Bind(ViewModel, viewModel => viewModel.Text, view => view.LogText.Document).DisposeWith(disposables);
+            this.Bind(ViewModel, viewModel => viewModel.CaretOffset, view => view.LogText.CaretOffset).DisposeWith(disposables);
         });
     }
 

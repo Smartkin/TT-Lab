@@ -10,7 +10,7 @@ namespace TT_Lab;
 public static class Log
 {
     private static LogViewModel? logBox;
-    private const int MaxLines = 200;
+    private const int MaxLines = 100;
 
     public enum LogType
     {
@@ -32,11 +32,12 @@ public static class Log
         
         await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            logBox.Text += $"[{type}]" + DateTime.Now + ": " + text + Environment.NewLine;
-            if (logBox.LinesAmount >= MaxLines)
+            logBox.Text.Text += $"[{type}]" + DateTime.Now + ": " + text + Environment.NewLine;
+            if (logBox.Text.LineCount >= MaxLines)
             {
-                var lines = logBox.Text.Split(Environment.NewLine);
-                logBox.Text = string.Join(Environment.NewLine, lines.Skip(lines.Length - MaxLines));
+                var lines = logBox.Text.Text.Split(Environment.NewLine);
+                logBox.Text.Text = string.Join(Environment.NewLine, lines.Skip(lines.Length - MaxLines));
+                logBox.CaretOffset = logBox.Text.Text.Length;
             }
         });
     }

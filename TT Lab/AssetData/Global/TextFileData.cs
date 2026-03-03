@@ -37,13 +37,13 @@ public class TextFileData : AbstractAssetData
 
     protected override void SaveInternal(String dataPath, JsonSerializerSettings? settings = null)
     {
-        using var fs = new StreamWriter(dataPath, Encoding.UTF8, new FileStreamOptions { Access = FileAccess.Write, Mode = FileMode.Create });
+        using var fs = new StreamWriter(dataPath, Encoding.Latin1, new FileStreamOptions { Access = FileAccess.Write, Mode = FileMode.Create });
         fs.Write(Text);
     }
 
     protected override void LoadInternal(String dataPath, JsonSerializerSettings? settings = null)
     {
-        using var fs = new StreamReader(dataPath, Encoding.UTF8);
+        using var fs = new StreamReader(dataPath, Encoding.Latin1);
         Text = fs.ReadToEnd();
     }
 
