@@ -30,10 +30,12 @@ public class ChunkLink : IDocumentModel
     
     [JsonProperty(Required = Required.Always)]
     [Editable]
+    [EditorLinkedField(typeof(WhenVisibleChanged), nameof(IsVisibleInCameraFrustum))]
     public Boolean IsAlwaysVisible { get; set; }
     
     [JsonProperty(Required = Required.Always)]
     [Editable]
+    [EditorLinkedField(typeof(WhenVisibleChanged), nameof(IsAlwaysVisible))]
     public Boolean IsVisibleInCameraFrustum { get; set; }
     
     [JsonProperty(Required = Required.Always)]
@@ -50,6 +52,7 @@ public class ChunkLink : IDocumentModel
     
     [JsonProperty(Required = Required.Always)]
     [Editable]
+    [EditorLinkedField(typeof(InverseDependentMatrix), nameof(ChunkMatrix))]
     [EditorReadOnly]
     public Matrix4 ObjectMatrix { get; set; }
     
@@ -59,6 +62,7 @@ public class ChunkLink : IDocumentModel
     
     [JsonProperty(Required = Required.AllowNull)]
     [Editable]
+    [EditorLinkedField(typeof(CanEditLoadWall), nameof(IsLoadWallActive))]
     public Matrix4? LoadingWall { get; set; }
     
     [JsonProperty(Required = Required.AllowNull)]
@@ -93,4 +97,35 @@ public class ChunkLink : IDocumentModel
     }
 
     public string DocumentName => "Chunk Link";
+
+    private class WhenVisibleChanged : IGenericFieldChange<BoolFieldViewModel, BoolFieldViewModel>
+    {
+        public void DataChanged(BoolFieldViewModel listener, BoolFieldViewModel linkedViewModel)
+        {
+            if (linkedViewModel.IsChecked && listener.IsChecked)
+            {
+                listener.IsChecked = false;
+            }
+        }
+    }
+
+    private class CanEditLoadWall : IGenericFieldChange<Matrix4FieldViewModel, BoolFieldViewModel>
+    {
+        public void DataChanged(Matrix4FieldViewModel listener, BoolFieldViewModel linkedViewModel)
+        {
+            listener.IsReadOnly = !linkedViewModel.IsChecked;
+            if (listener is { IsReadOnly: false, Data: null })
+            {
+                listener.Data = new Matrix4();
+            }
+        }
+    }
+
+    private class InverseDependentMatrix : IGenericFieldChange<Matrix4FieldViewModel, Matrix4FieldViewModel>
+    {
+        public void DataChanged(Matrix4FieldViewModel listener, Matrix4FieldViewModel linkedViewModel)
+        {
+            listener.Data = linkedViewModel.Data?.ToGlm().Inverse.ToTwin();
+        }
+    }
 }

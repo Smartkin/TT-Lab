@@ -170,7 +170,9 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.Graphics
                     {
                         for (var j = 8; j < 16; j++)
                         {
-                            (palette[j + i * 32], palette[j + i * 32 + 8]) = (palette[j + i * 32 + 8], palette[j + i * 32]);
+                            Color tmp = palette[j + i * 32];
+                            palette[j + i * 32] = palette[j + i * 32 + 8];
+                            palette[j + i * 32 + 8] = tmp;
                         }
                     }
                     foreach (var c in palette)
@@ -289,7 +291,9 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.Graphics
                     {
                         var srcIndex = j + i * 32 + 8;
                         var dstIndex = j + i * 32;
-                        (palette[srcIndex], palette[dstIndex]) = (palette[dstIndex], palette[srcIndex]);
+                        Color tmp = palette[srcIndex];
+                        palette[srcIndex] = palette[dstIndex];
+                        palette[dstIndex] = tmp;
                     }
                 }
                 index = 0;

@@ -495,10 +495,11 @@ public class ModelData : AbstractAssetData
                 {
                     var textureData = AssetManager.Get().GetAssetData<TextureData>(textureId);
                     using var ms = new MemoryStream();
-                    textureData.Bitmap!.Save(ms, 100);
-                    ms.Position = 0;
-                    using var binaryReader = new BinaryReader(ms);
-                    material.WithBaseColor(ImageBuilder.From(new MemoryImage(binaryReader.ReadBytes((int)ms.Length))));
+                    textureData.Bitmap!.Save(ms);
+                    ms.Flush();
+                    
+                    var image = ImageBuilder.From(new MemoryImage(ms.ToArray()));
+                    material.WithBaseColor(image);
                 }
 
                 var blendMode = AlphaMode.OPAQUE;

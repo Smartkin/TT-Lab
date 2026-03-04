@@ -193,6 +193,7 @@ public partial class DocumentViewModel : DocumentPartViewModel
         };
         editor.Caption = string.IsNullOrEmpty(editorAttribute.Caption) ? editorName : editorAttribute.Caption;
         editor.Hint = editorAttribute.Hint;
+        editor.FieldLinks = GetFieldReactors(forMember);
         editor.Orientation = editorAttribute.EditorOrientation;
         editor.EditorParameters = editorParams;
         ApplyAttributeWrappers(editor, forMember);
@@ -205,6 +206,23 @@ public partial class DocumentViewModel : DocumentPartViewModel
         };
 
         return editor;
+    }
+
+    private Dictionary<string, List<IFieldChange>> GetFieldReactors(MemberInfo provider)
+    {
+        var links = provider.GetCustomAttributes<EditorLinkedFieldAttribute>();
+        var result = new Dictionary<string, List<IFieldChange>>();
+        foreach (var link in links)
+        {
+            if (!result.TryGetValue(link.LinkedField, out var linkList))
+            {
+                result[link.LinkedField] = [];
+                linkList = result[link.LinkedField];
+            }
+            
+            linkList.Add((IFieldChange)System.Activator.CreateInstance(link.ActionChange)!);
+        }
+        return result;
     }
 
     private Dictionary<string, object> GetEditorParams(MemberInfo provider)
@@ -254,7 +272,9 @@ public partial class DocumentViewModel : DocumentPartViewModel
                 collectionDocument.SaveLocation = SaveLocation;
                 collectionDocument.IsPartOfCollection = true;
                 collectionDocument.EditorParameters = EditorParameters;
+                collectionDocument.FieldLinks = FieldLinks;
                 collectionDocument.Metadata = Metadata;
+                ApplyAttributeWrappers(collectionDocument, Metadata);
                 _documentEditors.AddOrUpdate(collectionDocument);
                 continue;
             }
@@ -317,6 +337,7 @@ public partial class DocumentViewModel : DocumentPartViewModel
                 var collectionDocument = new DocumentViewModel(this, prop.Name, resultItemEditorType, elemType, propData);
                 collectionDocument.EditorParameters = editorParams;
                 collectionDocument.SaveLocation = prop.Name;
+                collectionDocument.FieldLinks = GetFieldReactors(prop);
                 collectionDocument.Metadata = prop;
                 collectionDocument.Caption = string.IsNullOrEmpty(editableAttribute.Caption) ? prop.Name : editableAttribute.Caption;
                 _documentEditors.AddOrUpdate(collectionDocument);
@@ -368,6 +389,20 @@ public partial class DocumentViewModel : DocumentPartViewModel
                 .Skip(itemsAmount)
                 .Subscribe(x =>
                 {
+                    var list = x.ToList();
+                    var newIdx = 0;
+                    foreach (var item in list)
+                    {
+                        if (item.Reason == ChangeReason.Remove)
+                        {
+                            continue;
+                        }
+
+                        item.Current.Caption =
+                            $"{item.Current.GetEditorParameter(ItemCaptionPrefix, "")!} {newIdx}";
+                        newIdx++;
+                    }
+                    
                     IsDirty = true;
                 }).DisposeWith(disposables);
         }
@@ -474,7 +509,7 @@ public partial class DocumentViewModel : DocumentPartViewModel
         _documentEditors.Remove(item);
     }
 
-    private Type DetermineEditorType(Type itemType)
+    private static Type DetermineEditorType(Type itemType)
     {
         if (itemType == typeof(Boolean))
         {

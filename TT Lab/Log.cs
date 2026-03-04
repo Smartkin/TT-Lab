@@ -10,7 +10,7 @@ namespace TT_Lab;
 public static class Log
 {
     private static LogViewModel? logBox;
-    private const int MaxLines = 100;
+    private const int MaxLines = 500;
 
     public enum LogType
     {

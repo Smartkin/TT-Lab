@@ -9,7 +9,7 @@ namespace TT_Lab.ViewModels.Editors;
 
 public partial class DocumentDataViewModel<T> : DocumentPartViewModel
 {
-    [Reactive(SetModifier = AccessModifier.Protected)]
+    [Reactive]
     private T _data;
 
     protected T InitialData;
@@ -22,11 +22,33 @@ public partial class DocumentDataViewModel<T> : DocumentPartViewModel
 
     protected override void OnInitialized(CompositeDisposable disposables)
     {
+        if (FieldLinks != null)
+        {
+            foreach (var (field, links) in FieldLinks)
+            {
+                var viewModel = Document.GetViewModel(field);
+                if (!viewModel.HasValue)
+                {
+                    continue;
+                }
+                
+                var unwrappedVm = viewModel.Value;
+                unwrappedVm.WhenAnyValue(x => x.DataVersion).Subscribe(x =>
+                {
+                    foreach (var link in links)
+                    {
+                        link.DataChanged(this, unwrappedVm);
+                    }
+                }).DisposeWith(disposables);
+            }
+        }
+        
         this.WhenAnyValue(x => x.Data)
             .Skip(1)
             .Subscribe(_ =>
         {
             Document.IsDirty = true;
+            DataVersion++;
         }).DisposeWith(disposables);
     }
 

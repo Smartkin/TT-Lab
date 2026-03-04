@@ -26,7 +26,6 @@ public class UiSoundLibraryData : AbstractAssetData
 
     [JsonProperty(Required = Required.Always)]
     [Editable]
-    [EditorReadOnly]
     public List<LabURI> UiSounds { get; set; } = new();
 
     public override ITwinItem Export(ITwinItemFactory factory)

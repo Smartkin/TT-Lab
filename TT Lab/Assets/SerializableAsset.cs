@@ -56,6 +56,7 @@ public abstract class SerializableAsset : IAsset
     public String FullDataPath => $"{Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath}/{DataLoadPath}";
     public String FullPath => $"{Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath}/{LoadPath}";
     public UInt32 ID { get; set; }
+    public string HashSalt { get; set; } = string.Empty;
     public UInt32 ExportTwinID => SetIdFromDataHash ? GetDataHash() : ID;
     
     [Editable]
@@ -121,7 +122,7 @@ public abstract class SerializableAsset : IAsset
         var crcHasher = SharpHash.Base.HashFactory.Checksum.CreateCRC(CRCStandard.CRC32);
         if (IsLoaded && AssetData != null)
         {
-            hashResult = crcHasher.ComputeString(AssetData.GetStringified(), new UTF8Encoding()).GetUInt32();
+            hashResult = crcHasher.ComputeString(AssetData.GetStringified() + HashSalt, new UTF8Encoding()).GetUInt32();
         }
         else
         {

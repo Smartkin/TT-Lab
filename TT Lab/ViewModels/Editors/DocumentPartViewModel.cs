@@ -8,6 +8,7 @@ using Avalonia.Layout;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
 using ReactiveUI.Validation.Helpers;
+using TT_Lab.Attributes;
 
 namespace TT_Lab.ViewModels.Editors;
 
@@ -25,6 +26,8 @@ public abstract partial class DocumentPartViewModel : DocumentBaseViewModel, IAc
     private Avalonia.Controls.Dock _orientation = Avalonia.Controls.Dock.Left;
     [Reactive]
     private Dictionary<string, object> _editorParameters = new();
+    [Reactive]
+    private int _dataVersion;
 
     [ObservableAsProperty]
     private string _title;
@@ -34,6 +37,7 @@ public abstract partial class DocumentPartViewModel : DocumentBaseViewModel, IAc
     private readonly CompositeDisposable _fullDeactivationDisposables = new();
     
     protected DocumentViewModel Document;
+    public Dictionary<string, List<IFieldChange>>? FieldLinks;
 
     private static Func<int> GetIdGenerator()
     {
@@ -68,7 +72,7 @@ public abstract partial class DocumentPartViewModel : DocumentBaseViewModel, IAc
         Document = document;
     }
 
-    protected T? GetEditorParameter<T>(string parameter, T? defaultValue = default)
+    public T? GetEditorParameter<T>(string parameter, T? defaultValue = default)
     {
         if (!_editorParameters.TryGetValue(parameter, out var editorParameter))
         {

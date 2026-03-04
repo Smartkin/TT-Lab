@@ -63,6 +63,8 @@ public interface IAsset : IDocumentModel
     [JsonProperty(Required = Required.Always)]
     UInt32 ID { get; set; }
     
+    String HashSalt { get; set; }
+    
     /// <summary>
     /// In-Game's ID when exporting
     /// </summary>

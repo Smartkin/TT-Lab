@@ -738,31 +738,31 @@ public class Project : IProject
         System.IO.Directory.CreateDirectory("Startup");
 
         System.IO.Directory.SetCurrentDirectory("Levels");
-        Log.WriteLine("Writing Levels...");
-        var chunksFolder = (from dependencyUri in BasePackage.Dependencies
-            let dependency = assetManager.GetAsset<Package>(dependencyUri)
-            where dependency.Enabled
-            let packageFolder = dependency.GetPackageFolder()
-            let folder = packageFolder.FindChild("levels")
-            where folder != LabURI.Empty
-            select assetManager.GetAsset<Folder>(folder)).ToList();
+        // Log.WriteLine("Writing Levels...");
+        // var chunksFolder = (from dependencyUri in BasePackage.Dependencies
+        //     let dependency = assetManager.GetAsset<Package>(dependencyUri)
+        //     where dependency.Enabled
+        //     let packageFolder = dependency.GetPackageFolder()
+        //     let folder = packageFolder.FindChild("levels")
+        //     where folder != LabURI.Empty
+        //     select assetManager.GetAsset<Folder>(folder)).ToList();
         UInt32 totalGlobals = 0;
         UInt32 currentGlobalsCount = 0;
-        foreach (var folder in chunksFolder)
-        {
-            ResolveAndWriteChunks(factory, folder, ref totalGlobals, ref currentGlobalsCount);
-        }
-
-        Log.WriteLine("Writing Extras...");
-        System.IO.Directory.SetCurrentDirectory("../Extras");
-        
-        var extrasFolder = assetManager.GetAsset<Folder>(GlobalPackagePS2.GetPackageFolder().FindChild<Folder>("Extras"));
-        ResolveGlobalAssets(factory, extrasFolder.Children, ref totalGlobals, ref currentGlobalsCount);
-        
-        System.IO.Directory.SetCurrentDirectory("../Language");
-        Log.WriteLine("Writing Language...");
-        var languageFolder = assetManager.GetAsset<Folder>(GlobalPackagePS2.GetPackageFolder().FindChild<Folder>("Language"));
-        ResolveGlobalAssets(factory, languageFolder.Children, ref totalGlobals, ref currentGlobalsCount);
+        // foreach (var folder in chunksFolder)
+        // {
+        //     ResolveAndWriteChunks(factory, folder, ref totalGlobals, ref currentGlobalsCount);
+        // }
+        //
+        // Log.WriteLine("Writing Extras...");
+        // System.IO.Directory.SetCurrentDirectory("../Extras");
+        //
+        // var extrasFolder = assetManager.GetAsset<Folder>(GlobalPackagePS2.GetPackageFolder().FindChild<Folder>("Extras"));
+        // ResolveGlobalAssets(factory, extrasFolder.Children, ref totalGlobals, ref currentGlobalsCount);
+        //
+        // System.IO.Directory.SetCurrentDirectory("../Language");
+        // Log.WriteLine("Writing Language...");
+        // var languageFolder = assetManager.GetAsset<Folder>(GlobalPackagePS2.GetPackageFolder().FindChild<Folder>("Language"));
+        // ResolveGlobalAssets(factory, languageFolder.Children, ref totalGlobals, ref currentGlobalsCount);
 
         System.IO.Directory.SetCurrentDirectory("../Startup");
         Log.WriteLine("Writing Startup...");

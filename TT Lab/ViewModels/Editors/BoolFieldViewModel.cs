@@ -11,9 +11,9 @@ public partial class BoolFieldViewModel(DocumentViewModel document, bool data) :
     [Reactive]
     private bool _isChecked = data;
 
-    protected override void OnActivated(CompositeDisposable disposables)
+    protected override void OnInitialized(CompositeDisposable disposables)
     {
-        base.OnActivated(disposables);
+        base.OnInitialized(disposables);
 
         this.WhenAnyValue(x => x.IsChecked)
             .Subscribe(b =>

@@ -6,14 +6,9 @@
              x:DataType="viewmodels:UriLinkViewModel"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="250"
              x:Class="TT_Lab.Views.Editors.UriLinkView">
-    <Expander ContentTransition="{x:Null}" x:Name="DocumentViewer" VerticalAlignment="Center">
-        <Expander.Header>
-            <Grid ColumnDefinitions="*, 40, 40">
-                <TextBox Grid.Column="0" x:Name="UriDisplay" VerticalContentAlignment="Center" IsReadOnly="True"/>
-                <Button VerticalAlignment="Stretch" VerticalContentAlignment="Center" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" x:Name="ChangeLink" Grid.Column="1" Content="..."/>
-                <Button VerticalAlignment="Stretch" VerticalContentAlignment="Center" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" x:Name="OpenDocument" Grid.Column="2" Content="->"/>
-            </Grid>
-        </Expander.Header>
-        <ContentControl x:Name="DocumentContent"/>
-    </Expander>
+    <Grid ColumnDefinitions="*, 40, 40">
+        <TextBox Grid.Column="0" x:Name="UriDisplay" VerticalContentAlignment="Center" IsReadOnly="True"/>
+        <Button VerticalAlignment="Stretch" VerticalContentAlignment="Center" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" x:Name="ChangeLink" Grid.Column="1" Content="..."/>
+        <Button VerticalAlignment="Stretch" VerticalContentAlignment="Center" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" x:Name="OpenDocument" Grid.Column="2" Content="->"/>
+    </Grid>
 </UserControl>

@@ -116,10 +116,11 @@ public class SkinData : AbstractAssetData
                 {
                     var textureData = AssetManager.Get().GetAssetData<TextureData>(shader.TextureId);
                     using var ms = new MemoryStream();
-                    textureData.Bitmap!.Save(ms, 100);
-                    ms.Position = 0;
-                    using var binaryReader = new BinaryReader(ms);
-                    material.WithBaseColor(SharpGLTF.Materials.ImageBuilder.From(new MemoryImage(binaryReader.ReadBytes((int)ms.Length))));
+                    textureData.Bitmap!.Save(ms);
+                    ms.Flush();
+                    
+                    var image = SharpGLTF.Materials.ImageBuilder.From(new MemoryImage(ms.ToArray()));
+                    material.WithBaseColor(image);
                 }
 
                 var blendMode = AlphaMode.OPAQUE;

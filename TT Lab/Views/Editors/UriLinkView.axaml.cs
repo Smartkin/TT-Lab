@@ -19,8 +19,6 @@ public partial class UriLinkView : DocumentBaseView<UriLinkViewModel>
     protected override void HandleActivation(CompositeDisposable disposables)
     {
         this.OneWayBind(ViewModel, viewModel => viewModel.LinkText, view => view.UriDisplay.Text).DisposeWith(disposables);
-        this.OneWayBind(ViewModel, viewModel => viewModel.DocumentPart, view => view.DocumentViewer.Content).DisposeWith(disposables);
-
         this.BindCommand(ViewModel, viewModel => viewModel.SelectUriFromLinkCommand, view => view.ChangeLink, nameof(ChangeLink.Click)).DisposeWith(disposables);
         this.BindCommand(ViewModel, viewModel => viewModel.OpenDocumentCommand, view => view.OpenDocument, nameof(OpenDocument.Click)).DisposeWith(disposables);
     }

@@ -65,6 +65,7 @@ public class MaterialData : AbstractAssetData
 
     [JsonProperty(Required = Required.Always)]
     [Editable]
+    [EditorReadOnly]
     public AppliedShaders ActivatedShaders { get; set; }
     
     [JsonProperty(Required = Required.Always)]

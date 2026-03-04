@@ -8,6 +8,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using SkiaSharp;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Assets.Graphics;
@@ -40,6 +41,27 @@ public class TextureData : AbstractAssetData
         var gltfImage = gltfTexture.PrimaryImage;
         using var imageDataStream = new MemoryStream(gltfImage.Content.Content.ToArray());
         textureData.Bitmap = new Bitmap(imageDataStream);
+        imageDataStream.Position = 0;
+        
+        var imageInfo = new SKImageInfo(textureData.Bitmap.PixelSize.Width, textureData.Bitmap.PixelSize.Height, SKColorType.Bgra8888, SKAlphaType.Unpremul);
+        var skBitmap = SKBitmap.Decode(imageDataStream, imageInfo);
+        var bits = new UInt32[imageInfo.Width * imageInfo.Height];
+        var bitsHandle = GCHandle.Alloc(bits, GCHandleType.Pinned);
+        for (var x = 0; x < imageInfo.Width; ++x)
+        {
+            for (var y = 0; y < imageInfo.Height; ++y)
+            {
+                var dstx = x;
+                var dsty = y;
+                var pixel = skBitmap.GetPixel(x, y);
+                bits[dstx + dsty * imageInfo.Width] = (uint)((pixel.Alpha << 24) | (pixel.Red << 16) | (pixel.Green << 8) | (pixel.Blue));
+            }
+        }
+        
+        textureData.Bitmap = new Bitmap(PixelFormat.Bgra8888, AlphaFormat.Unpremul, bitsHandle.AddrOfPinnedObject(),
+            new PixelSize(imageInfo.Width, imageInfo.Height), new Vector(96, 96), imageInfo.Width * 4);
+        bitsHandle.Free();
+        
         var isHd = textureData.Bitmap.Size.Width >= 256 || textureData.Bitmap.Size.Height >= 256;
         textureOwner.PixelFormat = isHd ? ITwinTexture.TexturePixelFormat.PSMCT32 : ITwinTexture.TexturePixelFormat.PSMT8;
         textureOwner.TextureFunction = ITwinTexture.TextureFunction.MODULATE;
@@ -108,7 +130,7 @@ public class TextureData : AbstractAssetData
             }
         }
 
-        Bitmap = new Bitmap(PixelFormat.Bgra8888, AlphaFormat.Premul, bitsHandle.AddrOfPinnedObject(),
+        Bitmap = new Bitmap(PixelFormat.Bgra8888, AlphaFormat.Unpremul, bitsHandle.AddrOfPinnedObject(),
             new PixelSize(width, height), new Vector(96, 96), width * 4);
         bitsHandle.Free();
     }

@@ -19,7 +19,6 @@ public partial class UriLinkViewModel : DocumentDataViewModel<LabURI>
 {
     private readonly ObservableAsPropertyHelper<string> _linkText;
     private readonly ObservableAsPropertyHelper<bool> _hasDocument;
-    private readonly ObservableAsPropertyHelper<DocumentPartViewModel?> _documentPart;
     private ObservableAsPropertyHelper<LabURI?> _uri;
     private LabURI? Uri => _uri?.Value;
 
@@ -31,7 +30,6 @@ public partial class UriLinkViewModel : DocumentDataViewModel<LabURI>
     
     public string LinkText => _linkText.Value;
     public bool HasDocument => _hasDocument.Value;
-    public DocumentPartViewModel? DocumentPart => _documentPart.Value;
     
     public UriLinkViewModel(DocumentViewModel document, LabURI data) : base(document, data)
     {
@@ -46,43 +44,6 @@ public partial class UriLinkViewModel : DocumentDataViewModel<LabURI>
             .Select(uri => uri ?? InitialData)
             .Select(uri => uri != LabURI.Empty)
             .ToProperty(this, x => x.HasDocument);
-
-        _documentPart = this.WhenAnyValue(x => x.HasDocument, x => x.Uri)
-            .ObserveOn(ReactiveUI.Avalonia.AvaloniaScheduler.Instance)
-            .Select(x =>
-            {
-                var uri = x.Item2 ?? InitialData;
-                if (!x.Item1 || uri == LabURI.Empty)
-                {
-                    return null;
-                }
-                
-                var asset = assetManager.GetAsset(uri);
-                var doc = new DocumentViewModel(document, asset)
-                {
-                    Caption = asset.Alias,
-                    Depth = Depth + 1
-                };
-                var assetData = asset.GetData<AbstractAssetData>();
-                if (assetData is not DummyData)
-                {
-                    var dataDoc = new DocumentViewModel(doc, assetData)
-                    {
-                        Caption = "Data"
-                    };
-                    doc.AddDocument(dataDoc);
-                }
-
-                return doc;
-            })
-            .ToProperty(this, x => x.DocumentPart, scheduler: ReactiveUI.Avalonia.AvaloniaScheduler.Instance);
-    }
-
-    public override void Save()
-    {
-        DocumentPart?.Save();
-        
-        base.Save();
     }
 
     protected override void OnInitialized(CompositeDisposable disposables)
@@ -94,7 +55,6 @@ public partial class UriLinkViewModel : DocumentDataViewModel<LabURI>
         _uri.DisposeWith(disposables);
         _linkText.DisposeWith(disposables);
         _hasDocument.DisposeWith(disposables);
-        _documentPart.DisposeWith(disposables);
 
         _browseType = GetEditorParameter(BrowseType, typeof(IAsset))!;
         _browseScope = GetEditorParameter(BrowseScope, Scope.Project);
