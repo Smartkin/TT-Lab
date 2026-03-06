@@ -17,6 +17,7 @@ using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Common.AgentLab;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Implementations.PS2;
+using Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.Graphics;
 using Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.AgentLab;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code;
@@ -98,76 +99,75 @@ class Program
         // return;
         using var defaultRm2File = new FileStream(args[0], FileMode.Open, FileAccess.Read);
         using var reader = new BinaryReader(defaultRm2File);
-        var frontend = new PS2Frontend();
-        frontend.Read(reader, (Int32)reader.BaseStream.Length);
+        var moddedModel = new PS2AnyModel();
+        moddedModel.Read(reader, (Int32)reader.BaseStream.Length);
+        foreach (var subModel in moddedModel.SubModels)
+        {
+            subModel.CalculateData();
+        }
         
-        var modelIds = new List<UInt32>();
-        for (var i = 0; i < frontend.GetItemsAmount(); ++i)
+        using var defaultRm2File2 = new FileStream(args[1], FileMode.Open, FileAccess.Read);
+        using var reader2 = new BinaryReader(defaultRm2File2);
+        var vanillaModel = new PS2AnyModel();
+        vanillaModel.Read(reader2, (Int32)reader2.BaseStream.Length);
+        foreach (var subModel in vanillaModel.SubModels)
         {
-            var sound = (ITwinSound)frontend.GetItem(i);
-            using var fs = new FileStream($"{sound.GetName()}.wav", FileMode.Create, FileAccess.Write);
-            using var writer = new BinaryWriter(fs);
-            var channels = (sound.Header & 1) == 0 ? (short)2 : (short)1;
-            uint samplerate = sound.GetFreq();
-            Riff.SaveRiff(writer, sound.ToPCM(), ref channels, ref samplerate);
-            fs.Flush(true);
-            fs.Close();
+            subModel.CalculateData();
         }
-
         return;
-        var behaviours = frontend.GetItem<ITwinSection>(Constants.LEVEL_CODE_SECTION).GetItem<ITwinSection>(Constants.CODE_BEHAVIOUR_COMMANDS_SEQUENCES_SECTION);
-        var symbols = new AgentLabSymbolTableBuilder();
-        symbols.BuildBuiltInTypes().BuildConditions().BuildActions("ActionDefinitionsPs2.lab");
-        var compilerGraphResolver = new Twinsanity.AgentLab.Resolvers.Compiler.DefaultGraphResolver();
-        for (var i = 0; i < behaviours.GetItemsAmount(); ++i)
-        {
-            if (behaviours.GetItem(i) is not ITwinAgentLab behaviour)
-            {
-                continue;
-            }
-
-            IResolver resolver = null;
-            if (behaviour is ITwinBehaviourGraph graph && (behaviours.GetItem(i - 1) is TwinBehaviourStarter))
-            {
-                compilerGraphResolver.AddNewGraphRef(graph.Name, (short)graph.GetID());
-                var starter = (TwinBehaviourStarter)behaviours.GetItem(i - 1);
-                var globalObjectIdResolver = new DefaultStarterAssignerGlobalObjectIdResolversList(starter.Assigners.Select(assigner => new DefaultStarterAssignerGlobalObjectIdResolver(assigner.GlobalObjectId)).Cast<IStarterAssignerGlobalObjectIdResolver>().ToArray());
-                var stateList = new List<IStateResolver>();
-                for (var j = 0; j < graph.ScriptStates.Count; j++)
-                {
-                    stateList.Add(new DefaultStateResolver(graph.GetName()));
-                }
-                var stateResolver = new DefaultStateResolversList(stateList.ToArray());
-                resolver = new DefaultGraphResolver(new DefaultStarterResolver(starter, globalObjectIdResolver), stateResolver);
-            }
-            var script = AgentLabDecompiler.Decompile(behaviour, resolver);
-            using var scriptFs = new FileStream(((ITwinItem)behaviour).GetName() + ".lab", FileMode.Create, FileAccess.Write);
-            using var writer = new StreamWriter(scriptFs);
-            writer.Write(script);
-            if (behaviour is not TwinBehaviourStarter)
-            {
-                var compilerOptions = new AgentLabCompiler.CompilerOptions
-                {
-                    Command = new PS2CommandDesc(),
-                    State = new PS2StateDesc(),
-                    StateBody = new PS2StateBodyDesc(),
-                    ActionDefinitionsFile = "ActionDefinitionsPs2.lab",
-                    Graph = new PS2GraphDesc(),
-                    CommandPack = new PS2CommandPackDesc(),
-                    CommandsSequence = new PS2CommandsSequenceDesc(),
-                    Resolver = new DefaultCompilerResolver(compilerGraphResolver, new DefaultGlobalObjectIdResolver())
-                };
-                var recompiledBehaviour = AgentLabCompiler.Compile(script, compilerOptions);
-                if (recompiledBehaviour.CompilerStatus.IsError)
-                {
-                    Console.WriteLine($"Compilation error: {recompiledBehaviour.CompilerStatus.Message}");
-                }
-                else
-                {
-                    Console.WriteLine("Behaviour recompiled successfully!");
-                }
-            }
-        }
+        // var behaviours = frontend.GetItem<ITwinSection>(Constants.LEVEL_CODE_SECTION).GetItem<ITwinSection>(Constants.CODE_BEHAVIOUR_COMMANDS_SEQUENCES_SECTION);
+        // var symbols = new AgentLabSymbolTableBuilder();
+        // symbols.BuildBuiltInTypes().BuildConditions().BuildActions("ActionDefinitionsPs2.lab");
+        // var compilerGraphResolver = new Twinsanity.AgentLab.Resolvers.Compiler.DefaultGraphResolver();
+        // for (var i = 0; i < behaviours.GetItemsAmount(); ++i)
+        // {
+        //     if (behaviours.GetItem(i) is not ITwinAgentLab behaviour)
+        //     {
+        //         continue;
+        //     }
+        //
+        //     IResolver resolver = null;
+        //     if (behaviour is ITwinBehaviourGraph graph && (behaviours.GetItem(i - 1) is TwinBehaviourStarter))
+        //     {
+        //         compilerGraphResolver.AddNewGraphRef(graph.Name, (short)graph.GetID());
+        //         var starter = (TwinBehaviourStarter)behaviours.GetItem(i - 1);
+        //         var globalObjectIdResolver = new DefaultStarterAssignerGlobalObjectIdResolversList(starter.Assigners.Select(assigner => new DefaultStarterAssignerGlobalObjectIdResolver(assigner.GlobalObjectId)).Cast<IStarterAssignerGlobalObjectIdResolver>().ToArray());
+        //         var stateList = new List<IStateResolver>();
+        //         for (var j = 0; j < graph.ScriptStates.Count; j++)
+        //         {
+        //             stateList.Add(new DefaultStateResolver(graph.GetName()));
+        //         }
+        //         var stateResolver = new DefaultStateResolversList(stateList.ToArray());
+        //         resolver = new DefaultGraphResolver(new DefaultStarterResolver(starter, globalObjectIdResolver), stateResolver);
+        //     }
+        //     var script = AgentLabDecompiler.Decompile(behaviour, resolver);
+        //     using var scriptFs = new FileStream(((ITwinItem)behaviour).GetName() + ".lab", FileMode.Create, FileAccess.Write);
+        //     using var writer = new StreamWriter(scriptFs);
+        //     writer.Write(script);
+        //     if (behaviour is not TwinBehaviourStarter)
+        //     {
+        //         var compilerOptions = new AgentLabCompiler.CompilerOptions
+        //         {
+        //             Command = new PS2CommandDesc(),
+        //             State = new PS2StateDesc(),
+        //             StateBody = new PS2StateBodyDesc(),
+        //             ActionDefinitionsFile = "ActionDefinitionsPs2.lab",
+        //             Graph = new PS2GraphDesc(),
+        //             CommandPack = new PS2CommandPackDesc(),
+        //             CommandsSequence = new PS2CommandsSequenceDesc(),
+        //             Resolver = new DefaultCompilerResolver(compilerGraphResolver, new DefaultGlobalObjectIdResolver())
+        //         };
+        //         var recompiledBehaviour = AgentLabCompiler.Compile(script, compilerOptions);
+        //         if (recompiledBehaviour.CompilerStatus.IsError)
+        //         {
+        //             Console.WriteLine($"Compilation error: {recompiledBehaviour.CompilerStatus.Message}");
+        //         }
+        //         else
+        //         {
+        //             Console.WriteLine("Behaviour recompiled successfully!");
+        //         }
+        //     }
+        // }
 
         return;
         /*if (args.Length != 2)

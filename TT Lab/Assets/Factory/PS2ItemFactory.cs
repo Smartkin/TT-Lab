@@ -162,13 +162,13 @@ namespace TT_Lab.Assets.Factory
 
                         var j = 0;
                         var groupCount = 0;
-                        foreach (Int32 idx in meshlet.Strip.Select(v => (Int32)v))
+                        var prevIdx = -1;
+                        foreach (var idx in meshlet.Strip.Select(v => (Int32)v))
                         {
-                            // Reset index encountered. Reset the strip
-                            if (idx == 0xFFFF)
+                            // Degenerate encountered. Reset the strip
+                            if (idx == prevIdx)
                             {
                                 j = 0;
-                                continue;
                             }
 
                             submodel.Vertexes.Add(new Vector4(meshlet.Vertexes[idx].Position));
@@ -188,10 +188,10 @@ namespace TT_Lab.Assets.Factory
                             submodel.SkinJoints.Add(jointInfo);
 
                             groupCount++;
+                            prevIdx = idx;
                             j++;
                         }
 
-                        var faces = new List<PS2BlendSkinFace>();
                         foreach (var blendFace in meshlet.BlendFaces!)
                         {
                             var ps2BlendFace = new PS2BlendSkinFace(submodel.BlendShape)
@@ -202,11 +202,6 @@ namespace TT_Lab.Assets.Factory
 
                             foreach (Int32 idx in meshlet.Strip.Select(v => (Int32)v))
                             {
-                                if (idx == 0xFFFF)
-                                {
-                                    continue;
-                                }
-
                                 var blendShape = blendFace.BlendShapes[idx];
                                 ps2BlendFace.Vertices.Add(new VertexBlendShape
                                 {
@@ -349,15 +344,15 @@ namespace TT_Lab.Assets.Factory
                 foreach (var group in groups)
                 {
                     var j = 0;
+                    var prevIdx = -1;
                     var groupCount = 0;
                     var rawModel = mesh.Meshlets[groupIndex];
                     foreach (var idx in group)
                     {
-                        // Reset index encountered. Reset the strip
-                        if (idx == 0xFFFF)
+                        // Degenerate encountered. Reset the strip
+                        if (idx == prevIdx)
                         {
                             j = 0;
-                            continue;
                         }
 
                         submodel.Vertexes.Add(new Vector4(rawModel.Vertexes[idx].Position));
@@ -373,6 +368,7 @@ namespace TT_Lab.Assets.Factory
                         }
                         submodel.Connection.Add(j > 1);
                         j++;
+                        prevIdx = idx;
                         groupCount++;
                     }
 
@@ -639,15 +635,15 @@ namespace TT_Lab.Assets.Factory
                 foreach (var group in groups)
                 {
                     var j = 0;
+                    var prevIdx = -1;
                     var groupCount = 0;
                     var rawModel = mesh.Meshlets[groupIndex];
                     foreach (var idx in group)
                     {
-                        // Reset index encountered. Reset the strip
-                        if (idx == 0xFFFF)
+                        // Degenerate encountered. Reset the strip
+                        if (idx == prevIdx)
                         {
                             j = 0;
-                            continue;
                         }
 
                         submodel.Vertexes.Add(new Vector4(rawModel.Vertexes[idx].Position));
@@ -667,6 +663,7 @@ namespace TT_Lab.Assets.Factory
                         submodel.SkinJoints.Add(jointInfo);
                         groupCount++;
                         j++;
+                        prevIdx = idx;
                     }
 
                     submodel.GroupSizes.Add(groupCount);

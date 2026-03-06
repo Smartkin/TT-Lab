@@ -736,7 +736,9 @@ public class Project : IProject
         System.IO.Directory.CreateDirectory("Language");
         System.IO.Directory.CreateDirectory("Levels");
         System.IO.Directory.CreateDirectory("Startup");
-
+        
+        UInt32 totalGlobals = 0;
+        UInt32 currentGlobalsCount = 0;
         System.IO.Directory.SetCurrentDirectory("Levels");
         // Log.WriteLine("Writing Levels...");
         // var chunksFolder = (from dependencyUri in BasePackage.Dependencies
@@ -746,8 +748,7 @@ public class Project : IProject
         //     let folder = packageFolder.FindChild("levels")
         //     where folder != LabURI.Empty
         //     select assetManager.GetAsset<Folder>(folder)).ToList();
-        UInt32 totalGlobals = 0;
-        UInt32 currentGlobalsCount = 0;
+        //
         // foreach (var folder in chunksFolder)
         // {
         //     ResolveAndWriteChunks(factory, folder, ref totalGlobals, ref currentGlobalsCount);

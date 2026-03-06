@@ -352,7 +352,7 @@ public class ModelData : AbstractAssetData
                     };
                     if (alphaBlendingBits != null)
                     {
-                        ver.AlphaBlendingBit = Math.Abs(alphaBlendingBits[i].X - 1.0f) < 0.00001f;
+                        ver.AlphaBlendingBit = Math.Abs(alphaBlendingBits[i].X - 1.0f) > 0.00001f;
                     }
                     ver.Color.StoresColorWithAlphaBlend = ver.AlphaBlendingBit;
                     if (vertexes.Normals != null)

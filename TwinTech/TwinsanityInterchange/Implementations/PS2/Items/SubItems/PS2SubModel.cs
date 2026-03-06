@@ -159,7 +159,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SubItems
         {
             VertexesCount = (UInt32)Vertexes.Count;
             TrimList(UVW, (Int32)VertexesCount);
-            TrimList(Colors, (Int32)VertexesCount, new Vector4());
+            TrimList(Colors, (Int32)VertexesCount, Vector4.FromColor(new Color()));
             var data = new List<List<Vector4>>
             {
                 GroupSizes.Select(i => new Vector4(i, 0, 0, 0)).ToList(),

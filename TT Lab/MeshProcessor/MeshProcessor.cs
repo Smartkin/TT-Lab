@@ -1,7 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
 using TT_Lab.AssetData.Graphics.SubModels;
 using TT_Lab.Libraries;
+using Twinsanity.PS2Hardware;
 
 namespace TT_Lab.MeshProcessor;
 
@@ -13,41 +16,13 @@ public static class MeshProcessor
     }
 
     /// <summary>
-    /// Builds meshlets of the mesh that would fit in a VIF packet and stripifies them
+    /// Stripifies the entire mesh then splits it into substrips
     /// </summary>
     /// <param name="mesh">Mesh to process</param>
     public static void ProcessMesh(Mesh mesh)
     {
-        BuildMeshlets(mesh);
-        StripifyMeshlets(mesh);
-    }
-
-    /// <summary>
-    /// Creates meshlets of the mesh and stores them in it
-    /// </summary>
-    /// <param name="mesh"></param>
-    /// <returns></returns>
-    public static void BuildMeshlets(Mesh mesh)
-    {
-        var meshlets = MeshOptimizer.BuildMeshlets(GetMeshIndices(mesh), mesh.GetVertices(), mesh.GetBlendFaces());
-        foreach (var meshlet in meshlets)
-        {
-            mesh.AddMeshlet(meshlet);
-        }
-    }
-
-    /// <summary>
-    /// Stripifies all the meshlets
-    /// </summary>
-    /// <param name="mesh"></param>
-    /// <param name="meshlets"></param>
-    public static void StripifyMeshlets(Mesh mesh)
-    {
-        foreach (var meshlet in mesh.Meshlets)
-        {
-            var strip = MeshOptimizer.Stripify(meshlet.Indices, (UInt32)meshlet.Vertexes.Count);
-            meshlet.Strip = strip;
-        }
+        StripifyMesh(mesh);
+        BuildMeshletsForStrip(mesh);
     }
 
     /// <summary>
@@ -66,6 +41,52 @@ public static class MeshProcessor
             Indices = GetMeshIndices(mesh)
         };
         mesh.AddMeshlet(meshlet);
+    }
+
+    private static void BuildMeshletsForStrip(Mesh mesh)
+    {
+        var strip = mesh.Meshlets[0].Strip;
+        var resultingMeshlets = new List<Meshlet>();
+        var currentIdxs = new List<UInt32>();
+        var meshIndices = GetMeshIndices(mesh);
+        var finalIdx = strip.Count - 1;
+        for (var i = 0; i < strip.Count; ++i)
+        {
+            var idx = strip[i];
+            currentIdxs.Add(idx);
+
+            if (i < finalIdx && currentIdxs.Count < TwinVIFCompiler.VertexStripCache)
+            {
+                continue;
+            }
+            
+            var meshlet = new Meshlet
+            {
+                Strip = currentIdxs.ToList(),
+                Vertexes = mesh.GetVertices(),
+                BlendFaces = mesh.GetBlendFaces(),
+                Indices = meshIndices.ToList()
+            };
+            resultingMeshlets.Add(meshlet);
+
+            var v1 = currentIdxs[^2];
+            var v2 = currentIdxs[^1];
+            
+            var winding = ((currentIdxs.Count - 2) % 2) == 1;
+            currentIdxs.Clear();
+            if (!winding)
+            {
+                currentIdxs.Add(v1);
+                currentIdxs.Add(v2);
+            }
+            else
+            {
+                currentIdxs.Add(v2);
+                currentIdxs.Add(v1);
+            }
+        }
+        
+        mesh.Meshlets = resultingMeshlets;
     }
 
     private static List<UInt32> GetMeshIndices(Mesh mesh)
