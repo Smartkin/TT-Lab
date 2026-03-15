@@ -31,7 +31,6 @@ namespace TT_Lab.ViewModels.Editors.Instance
             var asset = AssetManager.Get().GetAsset(EditableResource);
             asset.LayoutID = (int)LayoutID;
             var data = asset.GetData<AiPositionData>();
-            Position.Save(data.Coords);
             data.Arg = Argument;
             
             base.Save();
@@ -49,7 +48,6 @@ namespace TT_Lab.ViewModels.Editors.Instance
             var asset = AssetManager.Get().GetAsset(EditableResource);
             var posData = asset.GetData<AiPositionData>();
             DirtyTracker.RemoveChild(_position);
-            _position = new Vector4ViewModel(posData.Coords);
             DirtyTracker.AddChild(_position);
             // TODO: Receive notifications from vector editor to change the position in the scene/chunk renderer
             ActivateItemAsync(_position);

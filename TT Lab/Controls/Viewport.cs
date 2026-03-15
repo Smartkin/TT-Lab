@@ -1,23 +1,21 @@
 using System;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
-using Avalonia.Input;
+using System.Threading;
+using Avalonia.Controls;
 using Avalonia.Interactivity;
-using Avalonia.OpenGL;
-using Avalonia.OpenGL.Controls;
 using Avalonia.Platform;
 using Avalonia.Rendering;
 using Avalonia.Threading;
 using GlmSharp;
-using Silk.NET.Core.Native;
+using Silk.NET.Core.Contexts;
+using Silk.NET.Maths;
 using Silk.NET.OpenGL;
-using Splat;
+using Silk.NET.Windowing;
 using TT_Lab.Rendering;
-using TT_Lab.Rendering.Factories;
-using TT_Lab.Rendering.Services;
-using TT_Lab.Rendering.Shaders;
+using TT_Lab.Util;
 using Point = Avalonia.Point;
+using Window = Silk.NET.Windowing.Window;
 
 namespace TT_Lab.Controls;
 
@@ -27,8 +25,12 @@ public class RenderRoutedEventArgs : RoutedEventArgs
     public RenderContext RenderContext { get; init; }
 }
 
-public class Viewport : OpenGlControlBase, ICustomHitTest
+public class Viewport : NativeControlHost, ICustomHitTest
 {
+    private ManualResetEventSlim _windowCreation = new(false);
+    private bool _renderStarted = false;
+    private Thread? _renderThread;
+    private IView? _window;
     private RenderContext _context;
     private readonly Stopwatch _stopwatch;
     
@@ -52,27 +54,104 @@ public class Viewport : OpenGlControlBase, ICustomHitTest
 
     public Viewport()
     {
+        if (Design.IsDesignMode)
+        {
+            return;
+        }
+        
         _stopwatch = new Stopwatch();
+        SizeChanged += OnSizeChanged;
         Focusable = true;
+        
+        _renderThread = new Thread(RenderThread)
+        {
+            IsBackground = true
+        };
+        _renderThread!.Start();
     }
 
-    protected override void OnOpenGlInit(GlInterface gl)
+    private void OnSizeChanged(object? sender, SizeChangedEventArgs e)
     {
-        base.OnOpenGlInit(gl);
+        if (_window == null)
+        {
+            return;
+        }
+        
+        // _window.Size = new Vector2D<int>((int)e.NewSize.Width, (int)e.NewSize.Height);
+    }
 
-        _context = new RenderContext(GL.GetApi(gl.GetProcAddress))
+    protected override IPlatformHandle CreateNativeControlCore(IPlatformHandle parent)
+    {
+        unsafe
+        {
+            _window = Silk.NET.Windowing.Sdl.SdlWindowing.CreateFrom((void*)(MiscUtils.GetMainWindow().TryGetPlatformHandle()!.Handle));
+        }
+        
+        var windowHandle = IntPtr.Zero;
+        string? descriptorKind = null;
+        if (_window is not { IsInitialized: true })
+        {
+            return new PlatformHandle(windowHandle, descriptorKind);
+        }
+        
+        if (_window.Native!.Kind.HasFlag(NativeWindowFlags.Wayland))
+        {
+            windowHandle = _window.Native.Wayland!.Value.Surface;
+            descriptorKind = "X11 Window";
+        }
+        
+        _windowCreation.Set();
+        
+        return new PlatformHandle(windowHandle, descriptorKind);
+    }
+
+    private void RenderThread()
+    {
+        _windowCreation.Wait();
+        
+        // var options = WindowOptions.Default;
+        // options.Size = new Vector2D<int>(800, 600);
+        // options.IsEventDriven = true;
+        // options.API = new GraphicsAPI(ContextAPI.OpenGL, ContextProfile.Core, ContextFlags.Default, new APIVersion(4, 6));
+        // options.WindowBorder = WindowBorder.Hidden;
+        // options.ShouldSwapAutomatically = true;
+        // _window = Window.Create(options);
+
+        _window.Load += OnOpenGlInit;
+        _window.Render += OnOpenGlRender;
+        _window.Closing += OnOpenGlDeinit;
+        
+        _window!.Initialize();
+
+        _window.MakeCurrent();
+        while (true)
+        {
+            _window.DoRender();
+            _window.DoUpdate();
+        }
+    }
+
+    private void OnOpenGlInit()
+    {
+        _context = new RenderContext(_window.CreateOpenGL())
         {
             ViewportSize = new vec2((float)Bounds.Width, (float)Bounds.Height)
         };
-        RaiseEvent(new RenderRoutedEventArgs
+        _context.Gl.ClearColor(Color.DimGray);
+        _context.Gl.Clear(ClearBufferMask.ColorBufferBit);
+        
+        Dispatcher.UIThread.Post(() =>
         {
-            RenderArea = this,
-            RenderContext = _context,
-            RoutedEvent = RenderInitializedEvent
+            RaiseEvent(new RenderRoutedEventArgs
+            {
+                RenderArea = this,
+                RenderContext = _context,
+                RoutedEvent = RenderInitializedEvent
+            });
         });
     }
 
-    protected override void OnOpenGlDeinit(GlInterface gl)
+    private void OnOpenGlDeinit()
     {
         _context.SetGlAccessibility(true);
         RaiseEvent(new RenderRoutedEventArgs
@@ -82,26 +161,16 @@ public class Viewport : OpenGlControlBase, ICustomHitTest
             RoutedEvent = RenderTerminatedEvent
         });
         _context.Dispose();
-        
-        base.OnOpenGlDeinit(gl);
     }
 
-    protected override void OnOpenGlRender(GlInterface gl, int fb)
+    private void OnOpenGlRender(double delta)
     {
         _context.SetGlAccessibility(true);
-        _context.SetOutputBuffer(fb);
         _context.ViewportSize = new vec2((float)Bounds.Width, (float)Bounds.Height);
-        var delta = _stopwatch.ElapsedMilliseconds / 1000.0f;
-        _stopwatch.Restart();
-        if (Math.Abs(delta) < 0.000001f)
-        {
-            delta = 0.016f;
-        }
-        _context.Gl.Viewport(0,0, (uint)Bounds.Width, (uint)Bounds.Height);
+        _context.Gl.Viewport(0, 0, (uint)Bounds.Width, (uint)Bounds.Height);
         _context.Gl.Scissor(0, 0, (uint)Bounds.Width, (uint)Bounds.Height);
-        _context.PerformRender(delta);
+        _context.PerformRender((float)delta);
         _context.SetGlAccessibility(false);
-        RequestNextFrameRendering();
     }
 
     public Boolean HitTest(Point point)

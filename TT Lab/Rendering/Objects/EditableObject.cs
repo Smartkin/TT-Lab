@@ -1,6 +1,7 @@
 using System;
 using GlmSharp;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
 using ImGuiNET;
@@ -14,19 +15,20 @@ using TT_Lab.Rendering.Buffers;
 
 namespace TT_Lab.Rendering.Objects;
 
-public abstract class EditableObject : Renderable
+public class EditableObject : Renderable
 {
-    public virtual bool IsSelectable => true;
+    public virtual bool IsSelectable { get; init; } = true;
     
     protected vec3 Pos = new();
     protected vec3 Rot = new();
     protected vec3 Scl;
     protected vec3 Size;
+    protected vec3 Offset;
     protected bool Selected;
     protected vec4 SelectedColor = new(0.3f, 0.3f, 0.3f, 1.0f);
     protected vec4 UnselectedColor = new(1.0f, 1.0f, 1.0f, 1.0f);
 
-    protected EditableObject(RenderContext context, string name, vec3 size = new()) : base(context, name)
+    public EditableObject(RenderContext context, Renderable visual, string name, vec3 offset = new(), vec3 size = new()) : base(context, name)
     {
         if (size == vec3.Zero)
         {
@@ -34,19 +36,10 @@ public abstract class EditableObject : Renderable
         }
         Selected = false;
         Size = size;
+        Offset = offset;
         Scl = vec3.Ones;
-    }
-
-    protected EditableObject(RenderContext context, Renderable parentNode, string name, vec3 size = new()) : base(context, name)
-    {
-        if (size == vec3.Zero)
-        {
-            size = vec3.Ones;
-        }
-        parentNode.AddChild(this);
-        Selected = false;
-        Scl = vec3.Ones;
-        Size = size;
+        
+        AddChild(visual);
     }
 
     public void Init()
@@ -58,7 +51,9 @@ public abstract class EditableObject : Renderable
         UpdateSceneTransform();
     }
 
-    protected abstract void InitSceneTransform();
+    protected virtual void InitSceneTransform()
+    {
+    }
 
     protected virtual void UpdateSceneTransform()
     {
@@ -98,25 +93,59 @@ public abstract class EditableObject : Renderable
         UpdateSceneTransform();
     }
 
-    public override vec3 GetPosition()
+    public vec3 GetSize()
+    {
+        return Size * Scl;
+    }
+
+    public vec3 GetOffset()
+    {
+        return Offset;
+    }
+
+    public vec3 GetEditorPosition()
     {
         return Pos;
     }
 
-    public override vec3 GetRotation()
+    public vec3 GetEditorRotation()
     {
         return Rot;
     }
 
-    public override vec3 GetScale()
+    public vec3 GetEditorScale()
     {
         return Scl;
+    }
+
+    public override void Translate(vec3 translation, bool inLocalSpace = false)
+    {
+        if (inLocalSpace)
+        {
+            Pos += (new quat(Rot)) * translation;
+        }
+        else
+        {
+            Pos += translation;
+        }
+
+        base.Translate(translation, inLocalSpace);
+    }
+
+    public override void Rotate(quat rotation, bool inLocalSpace = false)
+    {
+        var eulerAngles = rotation.EulerAngles;
+        Rot += new vec3((float)eulerAngles.x, (float)eulerAngles.y, (float)eulerAngles.z);
+        Rot = vec3.Degrees(Rot);
+        Rot = vec3.Radians(Rot);
+        
+        base.Rotate(rotation, inLocalSpace);
     }
 
     public override void Scale(vec3 scale, bool inLocalSpace = false)
     {
         Scl *= scale;
-            
+        
         base.Scale(scale, inLocalSpace);
     }
 

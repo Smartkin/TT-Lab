@@ -13,13 +13,14 @@ using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Assets.Graphics;
 using TT_Lab.Attributes;
+using TT_Lab.ViewModels.Editors.Descs;
 using TT_Lab.ViewModels.Editors.Graphics;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items;
 
 namespace TT_Lab.AssetData.Graphics;
 
-[Editable(Caption = "Texture Editor", EditorType = typeof(TextureViewModel), EditorOrientation = Avalonia.Controls.Dock.Top)]
+[Editable(Caption = "Texture Editor", EditorDescType = typeof(TextureEditorDesc), EditorOrientation = Avalonia.Controls.Dock.Top)]
 public class TextureData : AbstractAssetData
 {
     public TextureData(IAsset asset) : base(asset)

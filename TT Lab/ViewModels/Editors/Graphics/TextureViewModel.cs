@@ -18,24 +18,20 @@ using TT_Lab.Attributes;
 using TT_Lab.Rendering;
 using TT_Lab.Rendering.Objects;
 using TT_Lab.Util;
+using TT_Lab.ViewModels.Editors.PropertyGraph;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items;
 
 namespace TT_Lab.ViewModels.Editors.Graphics;
 
-public class TextureViewModel(DocumentViewModel document, TextureData data)
-    : DocumentDataViewModel<TextureData>(document, data)
+public class TextureViewModel(DocumentViewModel document, PropertyNode data, params DocumentNodeViewModel[] dependencies)
+    : DocumentDataViewModel<TextureData>(document, data, dependencies)
 {
-    public Bitmap? Texture => Data.Bitmap;
+    public Bitmap? Texture => CurrentValue?.Bitmap;
 
     public async Task ReplaceButton()
     {
         var file = await MiscUtils.GetFileFromDialogueAsync("Choose an image file...", "Image files", ["*.jpg","*.png","*.bmp"]);
         TextureViewerFileDrop(new Controls.FileDropEventArgs { File = file });
-    }
-
-    public override void Save()
-    {
-        Data.GetOwner().SetData(Data);
     }
 
     public void TextureViewerDrop(DragEventArgs e)
@@ -74,8 +70,8 @@ public class TextureViewModel(DocumentViewModel document, TextureData data)
                 return;
             }
 
-            Data = new TextureData((IAsset)Document.DocumentModel);
-            Data.Bitmap = image.CloneBitmap();
+            SetValueCommand.Execute(new TextureData((IAsset)Document.DocumentModel));
+            CurrentValue!.Bitmap = image.CloneBitmap();
             this.RaisePropertyChanged(nameof(Texture));
         }
         else if (e.Data != null)
@@ -83,8 +79,8 @@ public class TextureViewModel(DocumentViewModel document, TextureData data)
             try
             {
                 var texAsset = AssetManager.Get().GetAsset((LabURI)e.Data.Data);
-                Data = new TextureData((IAsset)Document.DocumentModel);
-                Data.Bitmap = texAsset.GetData<TextureData>().Bitmap?.CloneBitmap();
+                SetValueCommand.Execute(new TextureData((IAsset)Document.DocumentModel));
+                CurrentValue!.Bitmap = texAsset.GetData<TextureData>().Bitmap?.CloneBitmap();
                 this.RaisePropertyChanged(nameof(Texture));
                 Log.WriteLine($"Replacing with texture: {texAsset.Alias}");
             }

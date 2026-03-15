@@ -2,12 +2,16 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using GlmSharp;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Assets.Instance;
 using TT_Lab.Attributes;
+using TT_Lab.Attributes.EditorParamWrappers;
+using TT_Lab.Extensions;
 using TT_Lab.Util;
 using TT_Lab.ViewModels.Editors;
+using TT_Lab.ViewModels.Editors.PropertyGraph;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout;
@@ -25,9 +29,9 @@ public class TriggerData : AbstractAssetData
 
     public TriggerData(IAsset asset) : base(asset)
     {
-        Position = new Vector4(0, 0, 0, 1);
-        Rotation = new Vector4(0, 0, 0, 1);
-        Scale = new Vector4(1, 1, 1, 1);
+        Position = new Vector3(0, 0, 0);
+        Rotation = new Vector3(0, 0, 0);
+        Scale = new Vector3(1, 1, 1);
         Instances = new List<LabURI>();
         InstanceExtensionValue = 10;
     }
@@ -40,9 +44,9 @@ public class TriggerData : AbstractAssetData
     public TriggerData(IAsset asset, LabURI package, String? variant, TwinTrigger trigger, Int32? layoutId) : this(asset)
     {
         ObjectActivatorMask = trigger.ObjectActivatorMask;
-        Position = CloneUtils.Clone(trigger.Position);
-        Rotation = CloneUtils.Clone(trigger.Rotation);
-        Scale = CloneUtils.Clone(trigger.Scale);
+        Position = new Vector3(trigger.Position.X, trigger.Position.Y, trigger.Position.Z);
+        Rotation = trigger.Rotation.ToEulerAngles();
+        Scale = new Vector3(trigger.Scale.X, trigger.Scale.Y, trigger.Scale.Z);
         Instances = new(trigger.Instances.Count);
         foreach (var inst in trigger.Instances)
         {
@@ -62,16 +66,16 @@ public class TriggerData : AbstractAssetData
     public TriggerActivatorObjects ObjectActivatorMask { get; set; }
     
     [JsonProperty(Required = Required.Always)]
-    [Editable]
-    public Vector4 Position { get; set; }
+    [Editable(IncludeAllProperties = true)]
+    public Vector3 Position { get; set; }
     
     [JsonProperty(Required = Required.Always)]
-    [Editable]
-    public Vector4 Rotation { get; set; }
+    [Editable(IncludeAllProperties = true)]
+    public Vector3 Rotation { get; set; }
     
     [JsonProperty(Required = Required.Always)]
-    [Editable]
-    public Vector4 Scale { get; set; }
+    [Editable(IncludeAllProperties = true)]
+    public Vector3 Scale { get; set; }
     
     [JsonProperty(Required = Required.Always)]
     [Editable]
@@ -95,38 +99,46 @@ public class TriggerData : AbstractAssetData
     
     [Editable(Caption = "On Enter Once Enabled")]
     [EditorLinkedField(typeof(HeaderTrigger1Controller), nameof(Header))]
+    [EditorHiddenIn("Camera")]
     public Boolean TriggerArgument1Enabled { get; set; }
     
     [JsonProperty(Required = Required.Always)]
     [Editable(Caption = "On Enter Once")]
     [EditorLinkedField(typeof(TriggerArgumentEnabler), nameof(TriggerArgument1Enabled))]
+    [EditorHiddenIn("Camera")]
     public UInt16 TriggerMessage1 { get; set; }
     
     [Editable(Caption = "On Enter Enabled")]
     [EditorLinkedField(typeof(HeaderTrigger2Controller), nameof(Header))]
+    [EditorHiddenIn("Camera")]
     public Boolean TriggerArgument2Enabled { get; set; }
     
     [JsonProperty(Required = Required.Always)]
     [Editable(Caption = "On Enter")]
     [EditorLinkedField(typeof(TriggerArgumentEnabler), nameof(TriggerArgument2Enabled))]
+    [EditorHiddenIn("Camera")]
     public UInt16 TriggerMessage2 { get; set; }
     
     [Editable(Caption = "On Stay Enabled")]
     [EditorLinkedField(typeof(HeaderTrigger3Controller), nameof(Header))]
+    [EditorHiddenIn("Camera")]
     public Boolean TriggerArgument3Enabled { get; set; }
     
     [JsonProperty(Required = Required.Always)]
     [Editable(Caption = "On Stay")]
     [EditorLinkedField(typeof(TriggerArgumentEnabler), nameof(TriggerArgument3Enabled))]
+    [EditorHiddenIn("Camera")]
     public UInt16 TriggerMessage3 { get; set; }
     
     [Editable(Caption = "On Exit Enabled")]
     [EditorLinkedField(typeof(HeaderTrigger4Controller), nameof(Header))]
+    [EditorHiddenIn("Camera")]
     public Boolean TriggerArgument4Enabled { get; set; }
     
     [JsonProperty(Required = Required.Always)]
     [Editable(Caption = "On Exit")]
     [EditorLinkedField(typeof(TriggerArgumentEnabler), nameof(TriggerArgument4Enabled))]
+    [EditorHiddenIn("Camera")]
     public UInt16 TriggerMessage4 { get; set; }
     
     protected override void LoadInternal(string dataPath, JsonSerializerSettings? settings = null)
@@ -146,11 +158,11 @@ public class TriggerData : AbstractAssetData
 
     public override void Import(LabURI package, String? variant, Int32? layoutId)
     {
-        ITwinTrigger trigger = GetTwinItem<ITwinTrigger>();
+        var trigger = GetTwinItem<ITwinTrigger>();
         ObjectActivatorMask = trigger.Trigger.ObjectActivatorMask;
-        Position = CloneUtils.Clone(trigger.Trigger.Position);
-        Rotation = CloneUtils.Clone(trigger.Trigger.Rotation);
-        Scale = CloneUtils.Clone(trigger.Trigger.Scale);
+        Position = new Vector3(trigger.Trigger.Position.X, trigger.Trigger.Position.Y, trigger.Trigger.Position.Z);
+        Rotation = trigger.Trigger.Rotation.ToEulerAngles();
+        Scale = new Vector3(trigger.Trigger.Scale.X, trigger.Trigger.Scale.Y, trigger.Trigger.Scale.Z);
         Instances = new List<LabURI>(trigger.Trigger.Instances.Count);
         foreach (var inst in trigger.Trigger.Instances)
         {
@@ -171,14 +183,15 @@ public class TriggerData : AbstractAssetData
         using var ms = new MemoryStream();
         using var writer = new BinaryWriter(ms);
 
+        var quat = new quat(new vec3(Rotation.X, Rotation.Y, Rotation.Z));
         var trigger = new TwinTrigger
         {
             Header = Header,
             ObjectActivatorMask = ObjectActivatorMask,
             UnkFloat = UnkFloat,
-            Position = Position,
-            Rotation = Rotation,
-            Scale = Scale,
+            Position = new Vector4(Position.X, Position.Y, Position.Z, 1.0f),
+            Rotation = new Vector4(quat.x, quat.y, quat.z, quat.w),
+            Scale = new Vector4(Scale.X, Scale.Y, Scale.Z, 1.0f),
             InstanceExtensionValue = InstanceExtensionValue
         };
         foreach (var instance in Instances)
@@ -196,20 +209,20 @@ public class TriggerData : AbstractAssetData
         return factory.GenerateTrigger(ms);
     }
 
-    private class TriggerArgumentEnabler : IGenericFieldChange<TextFieldViewModel, BoolFieldViewModel>
+    private class TriggerArgumentEnabler : IFieldChange
     {
-        public void DataChanged(TextFieldViewModel listener, BoolFieldViewModel linkedViewModel)
+        public void DataChanged(PropertyNode listener, PropertyNode linkedViewModel)
         {
-            listener.IsReadOnly = !linkedViewModel.IsChecked;
+            listener.IsReadOnly = !linkedViewModel.GetValue<bool>();
         }
     }
 
-    private class Trigger1HeaderController : IGenericFieldChange<TextFieldViewModel, BoolFieldViewModel>
+    private class Trigger1HeaderController : IFieldChange
     {
-        public void DataChanged(TextFieldViewModel listener, BoolFieldViewModel linkedViewModel)
+        public void DataChanged(PropertyNode listener, PropertyNode linkedViewModel)
         {
-            var data = (UInt32)listener.Data;
-            if (linkedViewModel.IsChecked)
+            var data = listener.GetValue<UInt32>();
+            if (linkedViewModel.GetValue<bool>())
             {
                 data |= 1 << 0xB;
             }
@@ -219,25 +232,25 @@ public class TriggerData : AbstractAssetData
                 data &= (UInt32)mask;
             }
             
-            listener.Text = data.ToString();
+            listener.SetValue(data);
         }
     }
 
-    private class HeaderTrigger1Controller : IGenericFieldChange<BoolFieldViewModel, TextFieldViewModel>
+    private class HeaderTrigger1Controller : IFieldChange
     {
-        public void DataChanged(BoolFieldViewModel listener, TextFieldViewModel linkedViewModel)
+        public void DataChanged(PropertyNode listener, PropertyNode linkedViewModel)
         {
-            var data = (UInt32)linkedViewModel.Data;
-            listener.IsChecked = (data >> 0xB & 0x1) != 0;;
+            var data = linkedViewModel.GetValue<UInt32>();
+            listener.SetValue((data >> 0xB & 0x1) != 0);
         }
     }
     
-    private class Trigger2HeaderController : IGenericFieldChange<TextFieldViewModel, BoolFieldViewModel>
+    private class Trigger2HeaderController : IFieldChange
     {
-        public void DataChanged(TextFieldViewModel listener, BoolFieldViewModel linkedViewModel)
+        public void DataChanged(PropertyNode listener, PropertyNode linkedViewModel)
         {
-            var data = (UInt32)listener.Data;
-            if (linkedViewModel.IsChecked)
+            var data = listener.GetValue<UInt32>();
+            if (linkedViewModel.GetValue<bool>())
             {
                 data |= 1 << 0x8;
             }
@@ -247,25 +260,25 @@ public class TriggerData : AbstractAssetData
                 data &= (UInt32)mask;
             }
             
-            listener.Text = data.ToString();
+            listener.SetValue(data);
         }
     }
     
-    private class HeaderTrigger2Controller : IGenericFieldChange<BoolFieldViewModel, TextFieldViewModel>
+    private class HeaderTrigger2Controller : IFieldChange
     {
-        public void DataChanged(BoolFieldViewModel listener, TextFieldViewModel linkedViewModel)
+        public void DataChanged(PropertyNode listener, PropertyNode linkedViewModel)
         {
-            var data = (UInt32)linkedViewModel.Data;
-            listener.IsChecked = (data >> 0x8 & 0x1) != 0;;
+            var data = linkedViewModel.GetValue<UInt32>();
+            listener.SetValue((data >> 0x8 & 0x1) != 0);
         }
     }
     
-    private class Trigger3HeaderController : IGenericFieldChange<TextFieldViewModel, BoolFieldViewModel>
+    private class Trigger3HeaderController : IFieldChange
     {
-        public void DataChanged(TextFieldViewModel listener, BoolFieldViewModel linkedViewModel)
+        public void DataChanged(PropertyNode listener, PropertyNode linkedViewModel)
         {
-            var data = (UInt32)listener.Data;
-            if (linkedViewModel.IsChecked)
+            var data = listener.GetValue<UInt32>();
+            if (linkedViewModel.GetValue<bool>())
             {
                 data |= 1 << 0x9;
             }
@@ -275,25 +288,25 @@ public class TriggerData : AbstractAssetData
                 data &= (UInt32)mask;
             }
             
-            listener.Text = data.ToString();
+            listener.SetValue(data);
         }
     }
     
-    private class HeaderTrigger3Controller : IGenericFieldChange<BoolFieldViewModel, TextFieldViewModel>
+    private class HeaderTrigger3Controller : IFieldChange
     {
-        public void DataChanged(BoolFieldViewModel listener, TextFieldViewModel linkedViewModel)
+        public void DataChanged(PropertyNode listener, PropertyNode linkedViewModel)
         {
-            var data = (UInt32)linkedViewModel.Data;
-            listener.IsChecked = (data >> 0x9 & 0x1) != 0;;
+            var data = linkedViewModel.GetValue<UInt32>();
+            listener.SetValue((data >> 0x9 & 0x1) != 0);
         }
     }
     
-    private class Trigger4HeaderController : IGenericFieldChange<TextFieldViewModel, BoolFieldViewModel>
+    private class Trigger4HeaderController : IFieldChange
     {
-        public void DataChanged(TextFieldViewModel listener, BoolFieldViewModel linkedViewModel)
+        public void DataChanged(PropertyNode listener, PropertyNode linkedViewModel)
         {
-            var data = (UInt32)listener.Data;
-            if (linkedViewModel.IsChecked)
+            var data = listener.GetValue<UInt32>();
+            if (linkedViewModel.GetValue<bool>())
             {
                 data |= 1 << 0xA;
             }
@@ -303,16 +316,16 @@ public class TriggerData : AbstractAssetData
                 data &= (UInt32)mask;
             }
             
-            listener.Text = data.ToString();
+            listener.SetValue(data);
         }
     }
     
-    private class HeaderTrigger4Controller : IGenericFieldChange<BoolFieldViewModel, TextFieldViewModel>
+    private class HeaderTrigger4Controller : IFieldChange
     {
-        public void DataChanged(BoolFieldViewModel listener, TextFieldViewModel linkedViewModel)
+        public void DataChanged(PropertyNode listener, PropertyNode linkedViewModel)
         {
-            var data = (UInt32)linkedViewModel.Data;
-            listener.IsChecked = (data >> 0xA & 0x1) != 0;;
+            var data = linkedViewModel.GetValue<UInt32>();
+            listener.SetValue((data >> 0xA & 0x1) != 0);
         }
     }
 }

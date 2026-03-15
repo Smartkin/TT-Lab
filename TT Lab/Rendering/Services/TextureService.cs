@@ -21,21 +21,18 @@ public class TextureService
     {
         _renderContext = renderContext;
 
-        renderContext.QueueRenderAction(() =>
-        {
-            var boatGuy = ManifestResourceLoader.GetPathInExe("Media/boat_guy.png");
-            var bitmap = new Bitmap(boatGuy);
-            RegisterTexture(LabURI.BoatGuy, bitmap);
+        var boatGuy = ManifestResourceLoader.GetPathInExe("Media/boat_guy.png");
+        var bitmap = new Bitmap(boatGuy);
+        RegisterTexture(LabURI.BoatGuy, bitmap);
 
-            var labIcons = ManifestResourceLoader.GetFiledInExeDirectory("Media/LabIcons");
-            foreach (var labIcon in labIcons)
-            {
-                var iconName = labIcon[(labIcon.LastIndexOf(Path.DirectorySeparatorChar) + 1)..^4];
-                var iconBitmap = new Bitmap(labIcon);
-                LabURI.RegisterLabIcon(iconName);
-                RegisterTexture(LabURI.GetLabIcon(iconName), iconBitmap);
-            }
-        });
+        var labIcons = ManifestResourceLoader.GetFiledInExeDirectory("Media/LabIcons");
+        foreach (var labIcon in labIcons)
+        {
+            var iconName = labIcon[(labIcon.LastIndexOf(Path.DirectorySeparatorChar) + 1)..^4];
+            var iconBitmap = new Bitmap(labIcon);
+            LabURI.RegisterLabIcon(iconName);
+            RegisterTexture(LabURI.GetLabIcon(iconName), iconBitmap);
+        }
     }
 
     public TextureBuffer? GetTexture(LabURI uri)

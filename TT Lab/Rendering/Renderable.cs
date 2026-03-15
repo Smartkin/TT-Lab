@@ -205,19 +205,19 @@ public abstract class Renderable
         return WorldTransform.Column2.xyz;
     }
 
-    public void Translate(vec3 translation)
+    public virtual void Translate(vec3 translation, bool inLocalSpace = false)
     {
-        Transform(mat4.Translate(translation));
+        Transform(mat4.Translate(translation), inLocalSpace);
     }
 
-    public void Rotate(quat rotation, bool inLocalSpace = false)
+    public virtual void Rotate(quat rotation, bool inLocalSpace = false)
     {
         Transform(rotation.ToMat4, inLocalSpace);
     }
 
     public void Rotate(vec3 rotation, bool inLocalSpace = false)
     {
-        Transform(mat4.RotateZ(rotation.z) * mat4.RotateY(rotation.y) * mat4.RotateX(rotation.x), inLocalSpace);
+        Rotate(new quat(rotation), inLocalSpace);
     }
 
     public virtual void Scale(vec3 scale, bool inLocalSpace = false)

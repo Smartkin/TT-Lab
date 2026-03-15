@@ -15,7 +15,7 @@ using Twinsanity.TwinsanityInterchange.Common.AgentLab;
 namespace TT_Lab.AssetData.Code.Object;
 
 [ReferencesAssets]
-[EditorParam(DocumentViewModel.EditorExplicitOrder, 0)]
+[EditorParam(DocumentModelViewModel.EditorExplicitOrder, 0)]
 public class ObjectTriggerBehaviourData : IDocumentModel
 {
     [JsonProperty(Required = Required.Always)]

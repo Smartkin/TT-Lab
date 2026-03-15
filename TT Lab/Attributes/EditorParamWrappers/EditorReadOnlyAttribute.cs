@@ -4,7 +4,7 @@ namespace TT_Lab.Attributes.EditorParamWrappers;
 
 public class EditorReadOnlyAttribute : EditorParamWrapperBaseAttribute
 {
-    public override void ApplyTo(DocumentPartViewModel viewModel)
+    public override void ApplyTo(DocumentNodeViewModel viewModel)
     {
         viewModel.IsReadOnly = true;
     }

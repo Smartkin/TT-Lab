@@ -1,25 +1,25 @@
+using TT_Lab.ViewModels.Editors.PropertyGraph;
 using Twinsanity.TwinsanityInterchange.Common;
 
 namespace TT_Lab.ViewModels.Editors;
 
-public class VectorCharacterDataViewModel(DocumentViewModel document, VectorCharacterData data)
-    : DocumentDataViewModel<VectorCharacterData>(document, data)
+public class VectorCharacterDataViewModel : DocumentDataViewModel<VectorCharacterData>
 {
-    public Vector2FieldViewModel Uv { get; } = new(document, data.PageUv) { Caption = "Page UV" };
-    public Vector2FieldViewModel Size { get; } = new(document, data.Size) { Caption = "Size" };
-    public TextFieldViewModel PageNum { get;  } = new(document, data.FontPageSpecifier) { Caption = "Font Page Number",
-        EditorParameters =
-        {
-            { TextFieldViewModel.TextFieldNumberRange, new uint[] { 0, 3 } }
-        }
-    };
+    public Vector2FieldViewModel Uv { get; }
+    public Vector2FieldViewModel Size { get; }
+    public TextFieldViewModel PageNum { get; }
 
-    public override void Save()
+    public VectorCharacterDataViewModel(DocumentViewModel document, PropertyNode data,
+        params DocumentNodeViewModel[] dependencies)
+        : base(document, data, dependencies)
     {
-        Data.PageUv = (Vector2)Uv.GetFinalData()!;
-        Data.Size = (Vector2)Size.GetFinalData()!;
-        Data.FontPageSpecifier = (byte)PageNum.GetFinalData()!;
-        
-        base.Save();
+        Uv = new Vector2FieldViewModel(document, Property.Find("PageUv")!, this) { Caption = "Page UV" };
+        Size = new Vector2FieldViewModel(document, Property.Find("Size")!, this) { Caption = "Size" };
+        PageNum = new TextFieldViewModel(document, Property.Find("FontPageSpecifier")!, this) { Caption = "Font Page Number",
+            EditorParameters =
+            {
+                { TextFieldViewModel.TextFieldNumberRange, new uint[] { 0, 3 } }
+            }
+        };
     }
 }

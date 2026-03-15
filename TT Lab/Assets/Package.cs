@@ -44,6 +44,11 @@ public class Package : SerializableAsset
         return AssetManager.Get().GetAsset<Folder>(new LabURI($"res://__GLOBAL_FOLDER__/assets/{Name}"));
     }
 
+    public string GetFolderUri()
+    {
+        return $"res://__GLOBAL_FOLDER__/assets/{Name}";
+    }
+
     public void AddDependency(LabURI uri)
     {
         Dependencies.Add(uri);

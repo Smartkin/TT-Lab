@@ -75,102 +75,17 @@ public abstract class SceneInstance : IDisposable
     {
         AttachedEditableObject.Translate(translation);
         Position += translation;
-        _editedDirectly = true;
-        GetEditor()?.Translate(translation);
-        _editedDirectly = false;
     }
 
     public void Rotate(vec3 rotation)
     {
         var rotQuat = new quat(rotation);
         AttachedEditableObject.Rotate(rotQuat, true);
-        _editedDirectly = true;
-        GetEditor()?.Rotate(rotQuat);
-        _editedDirectly = false;
     }
 
     public void Scale(vec3 scale)
     {
         AttachedEditableObject.Scale(scale);
-        _editedDirectly = true;
-        GetEditor()?.ScaleBy(scale);
-        _editedDirectly = false;
-    }
-
-    public virtual void SetPositionRotationScale(vec3 position, vec3 rotation, vec3 scale = default)
-    {
-        var editor = GetEditor();
-        if (editor == null)
-        {
-            return;
-        }
-
-        _editedDirectly = true;
-        editor.Position.X = position.x;
-        editor.Position.Y = position.y;
-        editor.Position.Z = position.z;
-        editor.Rotation.X = glm.Degrees(rotation.x);
-        editor.Rotation.Y = glm.Degrees(rotation.y);
-        editor.Rotation.Z = glm.Degrees(rotation.z);
-        if (scale != vec3.Zero)
-        {
-            editor.Scale.X = scale.x;
-            editor.Scale.Y = scale.y;
-            editor.Scale.Z = scale.z;
-            AttachedEditableObject.SetScale(scale);
-        }
-        _editedDirectly = false;
-        AttachedEditableObject.SetRotation(new quat(rotation));
-        AttachedEditableObject.SetPosition(position);
-    }
-
-    public virtual void LinkChangesToViewModel(ViewportEditableInstanceViewModel viewModel)
-    {
-        viewModel.Position.PropertyChanged += PositionOnPropertyChanged;
-        viewModel.Rotation.PropertyChanged += RotationOnPropertyChanged;
-        viewModel.Scale.PropertyChanged += ScaleOnPropertyChanged;
-    }
-
-    private void ScaleOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName == "IsDirty" || _editedDirectly)
-        {
-            return;
-        }
-
-        var viewModel = (Vector3ViewModel)sender!;
-        AttachedEditableObject.SetScale(new vec3(viewModel.X, viewModel.Y, viewModel.Z));
-    }
-
-    private void RotationOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName == "IsDirty" || _editedDirectly)
-        {
-            return;
-        }
-            
-        var viewModel = (Vector3ViewModel)sender!;
-        Rotation = new vec3(glm.Radians(viewModel.X), glm.Radians(viewModel.Y), glm.Radians(viewModel.Z));
-        AttachedEditableObject.SetRotation(new quat(Rotation));
-    }
-
-    private void PositionOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName == "IsDirty" || _editedDirectly)
-        {
-            return;
-        }
-
-        var viewModel = (Vector4ViewModel)sender!;
-        Position = new vec3(viewModel.X, viewModel.Y, viewModel.Z);
-        AttachedEditableObject.SetPosition(Position);
-    }
-
-    public virtual void UnlinkChangesToViewModel(ViewportEditableInstanceViewModel viewModel)
-    {
-        viewModel.Position.PropertyChanged -= PositionOnPropertyChanged;
-        viewModel.Rotation.PropertyChanged -= RotationOnPropertyChanged;
-        viewModel.Scale.PropertyChanged -= ScaleOnPropertyChanged;
     }
 
     public void Select()
@@ -227,15 +142,5 @@ public abstract class SceneInstance : IDisposable
 
     public void Dispose()
     {
-    }
-
-    private ViewportEditableInstanceViewModel? GetEditor()
-    {
-        if (!IsSelected)
-        {
-            return null;
-        }
-        
-        return (ViewportEditableInstanceViewModel?)EditingContext.GetCurrentEditor();
     }
 }

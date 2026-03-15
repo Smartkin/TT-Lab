@@ -10,6 +10,7 @@ namespace TT_Lab.Assets;
 /// </summary>
 public class AssetStorage : IEnumerable<KeyValuePair<string, IAsset>>
 {
+    private readonly object _dictLock = new();
     private readonly Dictionary<string, IAsset> _storage = new();
     private readonly Dictionary<Type, Dictionary<string, IAsset>> _typeStorage = new();
 
@@ -17,28 +18,34 @@ public class AssetStorage : IEnumerable<KeyValuePair<string, IAsset>>
 
     public void Add(LabURI key, IAsset asset)
     {
-        if (!_storage.TryAdd(key, asset))
+        lock (_dictLock)
         {
-            throw new InvalidOperationException($"Tried to add existing URI {key} for asset {asset.Name}");
-        }
+            if (!_storage.TryAdd(key, asset))
+            {
+                throw new InvalidOperationException($"Tried to add existing URI {key} for asset {asset.Name}");
+            }
 
-        if (!_typeStorage.TryGetValue(asset.Type, out var typedStorage))
-        {
-            typedStorage = [];
-            _typeStorage.Add(asset.Type, typedStorage);
-        }
+            if (!_typeStorage.TryGetValue(asset.Type, out var typedStorage))
+            {
+                typedStorage = [];
+                _typeStorage.Add(asset.Type, typedStorage);
+            }
 
-        typedStorage.Add(key, asset);
+            typedStorage.Add(key, asset);
+        }
     }
 
     public Boolean Remove(LabURI key)
     {
-        foreach (var typeStorage in _typeStorage)
+        lock (_dictLock)
         {
-            typeStorage.Value.Remove(key);
+            foreach (var typeStorage in _typeStorage)
+            {
+                typeStorage.Value.Remove(key);
+            }
+
+            return _storage.Remove(key);
         }
-        
-        return _storage.Remove(key);
     }
 
     public bool ContainsKey(LabURI key)

@@ -10,7 +10,7 @@
         <ItemsControl x:Name="FlagsContainer">
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
-                    <WrapPanel Orientation="Horizontal" MaxWidth="1200" ItemWidth="400" ItemsAlignment="Start"/>
+                    <StackPanel Orientation="Vertical"/>
                 </ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>

@@ -1,11 +1,16 @@
 ﻿using Caliburn.Micro;
 using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using Splat;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Project;
+using TT_Lab.Rendering;
+using TT_Lab.ViewModels;
+using TT_Lab.ViewModels.Editors;
+using TT_Lab.ViewModels.Editors.PropertyGraph;
 using TT_Lab.ViewModels.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 
@@ -39,6 +44,8 @@ public abstract class AbstractAssetData(IAsset owner) : IDocumentModel
         LoadInternal(dataPath, settings);
         System.IO.Directory.SetCurrentDirectory(workingDirectory);
     }
+
+    public virtual List<ViewportObject> GetViewportObjects(ViewportContext viewportContext, PropertyNode property) => [];
 
     protected virtual void LoadInternal(String dataPath, JsonSerializerSettings? settings = null)
     {

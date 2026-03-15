@@ -56,9 +56,15 @@ public class RenderContext : IDisposable
         }
         
         var majorVersion = Gl.GetInteger(GLEnum.MajorVersion);
-        if (majorVersion < 3)
+        if (majorVersion < 4)
         {
-            throw new Exception("OpenGL version 4 or above is required for TT Lab");
+            throw new Exception("OpenGL version 4.6 or above is required for TT Lab");
+        }
+
+        var minorVersion = Gl.GetInteger(GLEnum.MinorVersion);
+        if (minorVersion < 6)
+        {
+            throw new Exception("OpenGL version 4.6 or above is required for TT Lab");
         }
         
         Console.WriteLine($@"OpenGL version loaded: {version}");
@@ -147,7 +153,7 @@ public class RenderContext : IDisposable
     }
 
     public void SetOutputBuffer(int fb) => _outputBuffer = fb;
-    public uint GetOutputBuffer() => (uint)_outputBuffer;
+    public uint GetOutputBuffer() => 0U;
 
     public void QueueRenderAction(Action action)
     {
@@ -156,12 +162,12 @@ public class RenderContext : IDisposable
 
     public void PerformRender(float delta)
     {
-        Render?.Invoke(delta);
-
         while (_renderQueue.TryDequeue(out var renderAction))
         {
             renderAction.Invoke();
         }
+        
+        Render?.Invoke(delta);
     }
 
     public ShaderProgram GetProgram(string shaderName)

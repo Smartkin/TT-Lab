@@ -1,3 +1,4 @@
+using System;
 using Dock.Model.Core;
 using Dock.Model.ReactiveUI;
 using TT_Lab.ViewModels.Composite;
@@ -18,6 +19,11 @@ public class DockFactory : Factory
         if (canClose)
         {
             base.CloseDockable(dockable);
+            
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.WaitForFullGCComplete();
+            GC.Collect();
         }
     }
 }

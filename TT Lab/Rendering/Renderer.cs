@@ -9,6 +9,7 @@ using Avalonia;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using GlmSharp;
+using ImGuiNET;
 using Silk.NET.Core.Contexts;
 using Silk.NET.Input;
 using Silk.NET.Maths;
@@ -273,7 +274,7 @@ public class Renderer : IView
             lock (_imguiLock)
             {
                 _imgui.StartFrame((float)delta);
-                
+
                 RenderImgui?.Invoke();
         
                 _imgui.Render();
@@ -284,7 +285,7 @@ public class Renderer : IView
         // Swap buffers
         // SaveFramebuffer();
         // (_readBuffer, _writeBuffer) = (_writeBuffer, _readBuffer);
-        // _renderContext.Gl.BindFramebuffer(FramebufferTarget.Framebuffer, (uint)_renderContext.GetOutputBuffer());
+        // _renderContext.Gl.BindFramebuffer(FramebufferTarget.Framebuffer, _renderContext.GetOutputBuffer());
         FinishRender?.Invoke();
     }
 
@@ -499,7 +500,7 @@ public class Renderer : IView
         Closing?.Invoke();
         _renderContext.Render -= DoRender;
         _imgui?.Dispose();
-        _emptyVao.Dispose();
+        _emptyVao?.Dispose();
         DeleteRenderBuffer();
         
         IsDisposed = true;

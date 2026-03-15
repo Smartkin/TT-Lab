@@ -25,7 +25,7 @@
         <DocumentDock x:Name="ResourcesEditorsDock">
             <DocumentDock.DocumentTemplate>
                 <DocumentTemplate>
-                    <Grid ColumnDefinitions="1*, 5, Auto">
+                    <Grid ColumnDefinitions="2*, 5, 5*">
                         <ContentControl Grid.Column="0" Content="{Binding Context.Document}"/>
                         <GridSplitter Grid.Column="1" ShowsPreview="True"/>
                         <ContentControl Grid.Column="2" Content="{Binding Context.Viewport}"/>

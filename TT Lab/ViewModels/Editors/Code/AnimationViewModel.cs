@@ -63,14 +63,14 @@ public class AnimationViewModel : ResourceEditorViewModel
 
     protected override async Task OnActivatedAsync(CancellationToken cancellationToken)
     {
-        await ActivateItemAsync(AnimationScene, cancellationToken);
+        // await ActivateItemAsync(AnimationScene, cancellationToken);
         
         await base.OnActivatedAsync(cancellationToken);
     }
 
     protected override async Task OnDeactivateAsync(bool close, CancellationToken cancellationToken)
     {
-        await DeactivateItemAsync(AnimationScene, close, cancellationToken);
+        // await DeactivateItemAsync(AnimationScene, close, cancellationToken);
         PauseAnimation();
         
         await base.OnDeactivateAsync(close, cancellationToken);

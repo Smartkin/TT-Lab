@@ -13,8 +13,12 @@ using Splat;
 using TT_Lab.AssetData;
 using TT_Lab.Attributes;
 using TT_Lab.Project;
+using TT_Lab.Rendering;
+using TT_Lab.Rendering.Objects;
 using TT_Lab.ViewModels;
 using TT_Lab.ViewModels.Editors;
+using TT_Lab.ViewModels.Editors.PropertyGraph;
+using TT_Lab.ViewModels.Interfaces;
 using TT_Lab.ViewModels.ResourceTree;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items;
@@ -24,6 +28,7 @@ namespace TT_Lab.Assets;
 public abstract class SerializableAsset : IAsset
 {
     private UInt32 _id;
+    private AbstractAssetData? _assetData;
     
     public virtual String SavePath => $"{Package.GetPackageName()}/{SavePathInPackage}";
     protected virtual String SavePathInPackage => string.IsNullOrEmpty(AdditionalPath) ? $"{Type.Name}" : $"{AdditionalPath}/{Type.Name}";
@@ -33,7 +38,6 @@ public abstract class SerializableAsset : IAsset
 
     protected String LoadPath => Path.Combine("assets", Package.GetPackageName(), URI.GetFilePathInPackage().Replace('/', Path.DirectorySeparatorChar));
     protected String DataLoadPath => Path.Combine(LoadPath, Data);
-    protected AbstractAssetData? AssetData;
     protected ResourceTreeElementViewModel? ViewModel;
     
     public abstract UInt32 Section { get; }
@@ -60,8 +64,16 @@ public abstract class SerializableAsset : IAsset
     public UInt32 ExportTwinID => SetIdFromDataHash ? GetDataHash() : ID;
     
     [Editable]
-    [EditorParam(DocumentViewModel.EditorExplicitOrder, -5)]
+    [EditorParam(DocumentCompositeViewModel.EditorExplicitOrder, -5)]
     public String Alias { get; set; }
+    
+    [Editable]
+    [EditorParam(DocumentCompositeViewModel.EditorExplicitOrder, Int32.MaxValue)]
+    public AbstractAssetData? AssetData
+    {
+        get => _assetData;
+        set => SetData(value);
+    }
     
     public String Chunk { get; set; }
     public Int32? LayoutID { get; set; }
@@ -226,18 +238,21 @@ public abstract class SerializableAsset : IAsset
         }
     }
 
+    public virtual List<ViewportObject> GetViewportObjects(ViewportContext viewportContext,
+        PropertyNode property) => [];
+
     public abstract Type GetEditorType();
     public abstract AbstractAssetData GetData();
-    
+
     public virtual void SetData(AbstractAssetData data)
     {
-        if (data == AssetData)
+        if (data == _assetData)
         {
             return;
         }
         
         DisposeData(true);
-        AssetData = data;
+        _assetData = data;
         if (IsInternal)
         {
             InvariantName += $"_{GetDataHash():X}";

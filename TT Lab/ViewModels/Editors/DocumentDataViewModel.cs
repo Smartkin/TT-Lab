@@ -1,59 +1,48 @@
 using System;
+using System.Reactive;
 using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
+using SharpGLTF.Schema2;
+using TT_Lab.ViewModels.Editors.PropertyGraph;
 
 namespace TT_Lab.ViewModels.Editors;
 
-public partial class DocumentDataViewModel<T> : DocumentPartViewModel
+public partial class DocumentDataViewModel<T> : DocumentNodeViewModel
 {
-    [Reactive]
-    private T _data;
+    [ObservableAsProperty]
+    private T? _currentValue;
+    
+    public ReactiveCommand<T?, Unit> SetValueCommand { get; }
 
-    protected T InitialData;
-
-    protected DocumentDataViewModel(DocumentViewModel document, T data) : base(document)
+    protected DocumentDataViewModel(DocumentViewModel document, PropertyNode node, params DocumentNodeViewModel[] dependencies) : base(document, node, dependencies)
     {
-        _data = data;
-        InitialData = data;
+        _currentValueHelper = this.WhenAnyValue(x => x.Property)
+            .Select(GetCurrentValue).ToProperty(this, x => x.CurrentValue);
+
+        SetValueCommand = ReactiveCommand.CreateFromObservable<T?, Unit>(value =>
+        {
+            SetCurrentValue(value);
+            return Observable.Empty<Unit>();
+        });
     }
 
-    protected override void OnInitialized(CompositeDisposable disposables)
+    protected override void PropertyOnChanged()
     {
-        if (FieldLinks != null)
-        {
-            foreach (var (field, links) in FieldLinks)
-            {
-                var viewModel = Document.GetViewModel(field);
-                if (!viewModel.HasValue)
-                {
-                    continue;
-                }
-                
-                var unwrappedVm = viewModel.Value;
-                unwrappedVm.WhenAnyValue(x => x.DataVersion).Subscribe(x =>
-                {
-                    foreach (var link in links)
-                    {
-                        link.DataChanged(this, unwrappedVm);
-                    }
-                }).DisposeWith(disposables);
-            }
-        }
+        base.PropertyOnChanged();
         
-        this.WhenAnyValue(x => x.Data)
-            .Skip(1)
-            .Subscribe(_ =>
-        {
-            Document.IsDirty = true;
-            DataVersion++;
-        }).DisposeWith(disposables);
+        this.RaisePropertyChanged(nameof(CurrentValue));
     }
 
-    public override object? GetFinalData()
+    protected virtual T? GetCurrentValue(PropertyNode node)
     {
-        return Data;
+        return node.GetValue<T>();
+    }
+
+    protected virtual void SetCurrentValue(T? value)
+    {
+        Property.SetValue(value);
     }
 }

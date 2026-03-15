@@ -1,10 +1,18 @@
 ﻿using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
 using System.IO;
+using GlmSharp;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Attributes;
+using TT_Lab.Extensions;
+using TT_Lab.Rendering.Objects;
 using TT_Lab.Util;
+using TT_Lab.ViewModels;
+using TT_Lab.ViewModels.Editors;
+using TT_Lab.ViewModels.Editors.PropertyGraph;
+using TT_Lab.ViewModels.Interfaces;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Common.CameraSubtypes;
 using Twinsanity.TwinsanityInterchange.Interfaces;
@@ -57,11 +65,11 @@ public class CameraData : AbstractAssetData
     public Single UnkFloat1 { get; set; }
     
     [JsonProperty(Required = Required.Always)]
-    [Editable]
+    [Editable(IncludeAllProperties = true)]
     public Vector4 UnkVector1 { get; set; }
     
     [JsonProperty(Required = Required.Always)]
-    [Editable]
+    [Editable(IncludeAllProperties = true)]
     public Vector4 UnkVector2 { get; set; }
     
     [JsonProperty(Required = Required.Always)]
@@ -133,9 +141,11 @@ public class CameraData : AbstractAssetData
     public Byte UnkByte { get; set; }
     
     [JsonProperty(Required = Required.AllowNull)]
+    [Editable(IncludeAllProperties = true)]
     public CameraSubBase? MainCamera1 { get; set; }
     
     [JsonProperty(Required = Required.AllowNull)]
+    [Editable(IncludeAllProperties = true)]
     public CameraSubBase? MainCamera2 { get; set; }
 
     protected override void LoadInternal(String dataPath, JsonSerializerSettings? settings = null)
@@ -227,5 +237,28 @@ public class CameraData : AbstractAssetData
         writer.Flush();
         ms.Position = 0;
         return factory.GenerateCamera(ms);
+    }
+
+    public override List<ViewportObject> GetViewportObjects(ViewportContext viewportContext,
+        PropertyNode property)
+    {
+        var visual = BufferGeneration.GetCubeBuffer(viewportContext.RenderContext).Model!;
+        var color = System.Drawing.Color.FromKnownColor(System.Drawing.KnownColor.Blue);
+        visual.Diffuse = new vec4(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f,  color.A / 255.0f * 0.5f);
+        
+        var size = vec3.Ones;
+        var offset = -vec3.Ones * Trigger.Scale.ToGlm() * 0.5f;
+        var editableObject = new EditableObject(viewportContext.RenderContext, visual, Owner.FullDataPath, offset, size);
+        editableObject.SetPosition(Trigger.Position.ToGlm());
+        editableObject.SetRotation(new quat(Trigger.Rotation.ToRadiansGlm()));
+        editableObject.SetScale(Trigger.Scale.ToGlm());
+        editableObject.AddChild(viewportContext.EditingContext.CreateCameraBillboard());
+        
+        return [new ViewportObject(editableObject, property.Path, property)
+        {
+            Position = property.Find(nameof(Trigger.Position)),
+            Rotation = property.Find(nameof(Trigger.Rotation)),
+            Scale = property.Find(nameof(Trigger.Scale)),
+        }];
     }
 }

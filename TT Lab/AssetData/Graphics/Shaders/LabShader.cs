@@ -34,6 +34,7 @@ public class LabShader : IDocumentModel
     public UInt32 IntParam { get; set; }
     
     [Editable]
+    [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
     public Single[] FloatParam { get; set; } = new Single[4];
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonEnumStringConverter<AlphaBlending>))]

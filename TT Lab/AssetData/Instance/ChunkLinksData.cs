@@ -2,10 +2,12 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using GlmSharp;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Attributes;
 using TT_Lab.Attributes.EditorParamWrappers;
+using TT_Lab.Extensions;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.SM;
 
@@ -59,8 +61,14 @@ public class ChunkLinksData : AbstractAssetData
             writer.Write(link.KeepLoaded);
             link.ObjectMatrix.Write(writer);
             link.ChunkMatrix.Write(writer);
-            writer.Write(link.LoadingWall != null);
-            link.LoadingWall?.Write(writer);
+            
+            var hasValidLoadWall = link.LoadingWall.ToGlm() != mat4.Zero;
+            writer.Write(hasValidLoadWall);
+            if (hasValidLoadWall)
+            {
+                link.LoadingWall.Write(writer);
+            }
+
             writer.Write(link.ChunkLinksCollisionData.Count);
             foreach (var collisionData in link.ChunkLinksCollisionData)
             {

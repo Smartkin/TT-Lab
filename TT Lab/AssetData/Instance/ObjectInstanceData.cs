@@ -2,17 +2,29 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using GlmSharp;
+using TT_Lab.AssetData.Code;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
 using TT_Lab.Assets.Factory;
-using TT_Lab.Assets.Instance;
 using TT_Lab.Attributes;
+using TT_Lab.Extensions;
+using TT_Lab.Rendering;
+using TT_Lab.Rendering.Objects;
 using TT_Lab.Util;
+using TT_Lab.ViewModels;
+using TT_Lab.ViewModels.Editors;
+using TT_Lab.ViewModels.Editors.PropertyGraph;
+using TT_Lab.ViewModels.Interfaces;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout;
+using ObjectInstance = TT_Lab.Assets.Instance.ObjectInstance;
+using OGI = TT_Lab.Rendering.Objects.OGI;
 using Path = TT_Lab.Assets.Instance.Path;
+using Position = TT_Lab.Assets.Instance.Position;
 
 namespace TT_Lab.AssetData.Instance;
 
@@ -24,10 +36,8 @@ public class ObjectInstanceData : AbstractAssetData
         InstancesRelated = 10;
         PathsRelated = 10;
         PositionsRelated = 10;
-        Position = new Vector4(0, 0, 0, 1);
-        RotationX = new TwinIntegerRotation();
-        RotationY = new TwinIntegerRotation();
-        RotationZ = new TwinIntegerRotation();
+        Position = new Vector3(0, 0, 0);
+        Rotation = new Vector3();
         Instances = new List<LabURI>();
         Positions = new List<LabURI>();
         Paths = new List<LabURI>();
@@ -44,17 +54,12 @@ public class ObjectInstanceData : AbstractAssetData
     }
 
     [JsonProperty(Required = Required.Always)]
-    [Editable]
-    public Vector4 Position { get; set; }
+    [Editable(IncludeAllProperties = true)]
+    public Vector3 Position { get; set; }
     
     [JsonProperty(Required = Required.Always)]
-    public TwinIntegerRotation RotationX { get; set; }
-    
-    [JsonProperty(Required = Required.Always)]
-    public TwinIntegerRotation RotationY { get; set; }
-    
-    [JsonProperty(Required = Required.Always)]
-    public TwinIntegerRotation RotationZ { get; set; }
+    [Editable(IncludeAllProperties = true)]
+    public Vector3 Rotation { get; set; }
     
     [JsonProperty(Required = Required.Always)]
     public UInt32 InstancesRelated { get; set; }
@@ -94,15 +99,18 @@ public class ObjectInstanceData : AbstractAssetData
     public Enums.InstanceState StateFlags { get; set; }
     
     [JsonProperty(Required = Required.Always)]
-    [Editable]
+    [Editable(Caption = "Flags")]
+    [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
     public List<UInt32> ParamList1 { get; set; }
     
     [JsonProperty(Required = Required.Always)]
-    [Editable]
+    [Editable(Caption = "Floats")]
+    [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
     public List<Single> ParamList2 { get; set; }
     
     [JsonProperty(Required = Required.Always)]
-    [Editable]
+    [Editable(Caption = "Integers")]
+    [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
     public List<UInt32> ParamList3 { get; set; }
 
     protected override void Dispose(Boolean disposing)
@@ -119,10 +127,9 @@ public class ObjectInstanceData : AbstractAssetData
     {
         var assetManager = AssetManager.Get();
         var instance = GetTwinItem<ITwinInstance>();
-        Position = CloneUtils.Clone(instance.Position);
-        RotationX = CloneUtils.Clone(instance.RotationX);
-        RotationY = CloneUtils.Clone(instance.RotationY);
-        RotationZ = CloneUtils.Clone(instance.RotationZ);
+        Position = new Vector3(instance.Position.X, instance.Position.Y, instance.Position.Z);
+        Rotation = new Vector3(instance.RotationX.GetRotation(), instance.RotationY.GetRotation(),
+            instance.RotationZ.GetRotation());
         InstancesRelated = instance.InstancesRelated;
         Instances = new(instance.Instances.Count);
         foreach (var inst in instance.Instances)
@@ -156,9 +163,13 @@ public class ObjectInstanceData : AbstractAssetData
         using var ms = new MemoryStream();
         using var writer = new BinaryWriter(ms);
         Position.Write(writer);
-        RotationX.Write(writer);
-        RotationY.Write(writer);
-        RotationZ.Write(writer);
+        var twinRotation = new TwinIntegerRotation();
+        twinRotation.SetRotation(Rotation.X);
+        twinRotation.Write(writer);
+        twinRotation.SetRotation(Rotation.Y);
+        twinRotation.Write(writer);
+        twinRotation.SetRotation(Rotation.Z);
+        twinRotation.Write(writer);
 
         writer.Write(Instances.Count);
         writer.Write(Instances.Count);
@@ -239,6 +250,44 @@ public class ObjectInstanceData : AbstractAssetData
 
         // Positions, paths and instances don't need to be resolved because they are gonna be resolved by themselves anyway
 
-        return base.ResolveChunkResources(factory, section, id);
+        return base.ResolveChunkResources(factory, section, id, layoutID);
+    }
+
+    public override List<ViewportObject> GetViewportObjects(ViewportContext viewportContext,
+        PropertyNode property)
+    {
+        var assetManager = AssetManager.Get();
+        var objData = assetManager.GetAssetData<GameObjectData>(ObjectId);
+        Renderable visual;
+        var size = vec3.Ones * 0.5f;
+        var offset = -vec3.Ones * 0.25f;
+        if (objData.OGISlots.All(ogiUri => ogiUri == LabURI.Empty))
+        {
+            visual = viewportContext.RenderContext.MeshService.GetMesh(LabURI.Box).Model!;
+            visual.Scale(vec3.Ones * 0.5f);
+        }
+        else
+        {
+            var ogiUri = objData.OGISlots.First(ogiUri => ogiUri != LabURI.Empty);
+            var ogiData = assetManager.GetAssetData<OGIData>(ogiUri);
+            visual = new OGI(viewportContext.RenderContext, viewportContext.RenderContext.SkeletonManager, viewportContext.RenderContext.MeshService, ogiData);
+            size = new vec3
+            {
+                x = ogiData.BoundingBox[1].X - ogiData.BoundingBox[0].X,
+                y = ogiData.BoundingBox[1].Y - ogiData.BoundingBox[0].Y,
+                z = ogiData.BoundingBox[1].Z - ogiData.BoundingBox[0].Z
+            };
+            offset = new vec3(ogiData.BoundingBox[0].X, ogiData.BoundingBox[0].Y, ogiData.BoundingBox[0].Z);
+        }
+
+        var editableObject = new EditableObject(viewportContext.RenderContext, visual, Owner.FullDataPath, offset, size);
+        editableObject.Init();
+        editableObject.SetPosition(Position.ToGlm());
+        editableObject.SetRotation(new quat(Rotation.ToRadiansGlm()));
+        return [new ViewportObject(editableObject, property.Path, property)
+        {
+            Position = property.Find(nameof(Position)),
+            Rotation = property.Find(nameof(Rotation)),
+        }];
     }
 }

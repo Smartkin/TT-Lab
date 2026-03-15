@@ -20,14 +20,7 @@ public class MaterialService
         _renderContext = renderContext;
         _materialFactory = materialFactory;
         
-        _renderContext.QueueRenderAction(() =>
-        {
-            var material = new MaterialData(null);
-            material.Shaders[0].TxtMapping = TwinShader.TextureMapping.ON;
-            material.Shaders[0].ShaderType = TwinShader.Type.StandardLit;
-            material.Shaders[0].TextureId = LabURI.BoatGuy;
-            RegisterMaterial(LabURI.EmptyMaterial, material);
-        });
+        RegisterMaterial(LabURI.EmptyMaterial, MaterialData.GetEmptyMaterial());
     }
 
     public Dictionary<LabShader, TwinMaterial>? GetMaterial(LabURI material)

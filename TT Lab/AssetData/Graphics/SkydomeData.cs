@@ -4,10 +4,17 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using GlmSharp;
 using SharpGLTF.Schema2;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Attributes;
+using TT_Lab.Rendering;
+using TT_Lab.Rendering.Objects;
+using TT_Lab.ViewModels;
+using TT_Lab.ViewModels.Editors;
+using TT_Lab.ViewModels.Editors.PropertyGraph;
+using TT_Lab.ViewModels.Interfaces;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items;
@@ -128,5 +135,16 @@ public class SkydomeData : AbstractAssetData
 
         section = graphicsSection.GetItem<ITwinSection>(Constants.GRAPHICS_SKYDOMES_SECTION);
         return base.ResolveChunkResources(factory, section, id, layoutID);
+    }
+
+    public override List<ViewportObject> GetViewportObjects(ViewportContext viewportContext,
+        PropertyNode property)
+    {
+        var visual = new Skydome(viewportContext.RenderContext, this, viewportContext.RenderContext.MeshService);
+        var editableObject = new EditableObject(viewportContext.RenderContext, visual, "SKYDOME_EDITABLE")
+        {
+            IsSelectable = false
+        };
+        return [new ViewportObject(editableObject, property.Path, property)];
     }
 }

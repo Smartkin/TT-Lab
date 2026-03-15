@@ -298,6 +298,16 @@ public class AssetManager
     }
 
     /// <summary>
+    /// Get generic asset data by its URI
+    /// </summary>
+    /// <param name="labUri"></param>
+    /// <returns></returns>
+    public AbstractAssetData GetAssetData(LabURI labUri)
+    {
+        return GetAsset(labUri).GetData<AbstractAssetData>();
+    }
+
+    /// <summary>
     /// Gets all assets of a particular type
     /// </summary>
     /// <typeparam name="T">Asset type deriving from <see cref="IAsset"/> </typeparam>

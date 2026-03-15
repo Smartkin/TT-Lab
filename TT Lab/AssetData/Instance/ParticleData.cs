@@ -29,12 +29,12 @@ public class ParticleData : AbstractAssetData
 
     [JsonProperty(Required = Required.Always)]
     [Editable]
-    [EditorParam(DocumentViewModel.EditorExplicitOrder, -10)]
+    [EditorParam(DocumentModelViewModel.EditorExplicitOrder, -10)]
     public List<ParticleSystem> ParticleSystems { get; set; }
     
     [JsonProperty(Required = Required.Always)]
     [Editable]
-    [EditorParam(DocumentViewModel.EditorExplicitOrder, -10)]
+    [EditorParam(DocumentModelViewModel.EditorExplicitOrder, -10)]
     public List<ParticleSystemInstance> ParticleInstances { get; set; }
 
     protected override void Dispose(Boolean disposing)

@@ -13,7 +13,13 @@ using TT_Lab.Assets.Factory;
 using TT_Lab.Assets.Graphics;
 using TT_Lab.Attributes;
 using TT_Lab.Extensions;
+using TT_Lab.Rendering;
+using TT_Lab.Rendering.Objects;
 using TT_Lab.Util;
+using TT_Lab.ViewModels;
+using TT_Lab.ViewModels.Editors;
+using TT_Lab.ViewModels.Editors.PropertyGraph;
+using TT_Lab.ViewModels.Interfaces;
 using Twinsanity.TwinsanityInterchange.Common.Lights;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces;
@@ -675,6 +681,43 @@ public class SceneryData : AbstractAssetData
         }
 
         return base.ResolveChunkResources(factory, section, Constants.SCENERY_SECENERY_ITEM, layoutID);
+    }
+
+    public override List<ViewportObject> GetViewportObjects(ViewportContext viewportContext,
+        PropertyNode property)
+    {
+        var result = new List<ViewportObject>();
+        var sceneryVisual = new Rendering.Objects.Scenery(viewportContext.RenderContext, viewportContext.RenderContext.MeshService, this);
+        var editingObject = new EditableObject(viewportContext.RenderContext, sceneryVisual, $"SCENERY_{Owner.FullDataPath}")
+        {
+            IsSelectable = false
+        };
+        result.Add(new ViewportObject(editingObject, property.Path, property));
+        
+        if (DynamicScenery != LabURI.Empty)
+        {
+            var dynamicSceneryVisual = new Rendering.Objects.DynamicScenery(viewportContext.RenderContext, viewportContext.RenderContext.MeshService, AssetManager.Get().GetAssetData<DynamicSceneryData>(DynamicScenery));
+            var dynamicSceneryEditingObject = new EditableObject(viewportContext.RenderContext, dynamicSceneryVisual,
+                $"DYNAMIC_SCENERY_{Owner.FullDataPath}")
+            {
+                IsSelectable = false
+            };
+            result.Add(new ViewportObject(dynamicSceneryEditingObject, $"DYNAMIC_SCENERY_{property.Path}", property));
+        }
+
+        if (Collision != LabURI.Empty)
+        {
+            var collisionVisual = (Rendering.Objects.Collision)viewportContext.RenderContext.MeshService.GetMesh(Collision).Model!;
+            var collisionEditing =
+                new EditableObject(viewportContext.RenderContext, collisionVisual, $"COLLISION_{Owner.FullDataPath}")
+                {
+                    IsSelectable = false
+                };
+            result.Add(new ViewportObject(collisionEditing, $"COLLISION_{property.Path}", property));
+            collisionEditing.IsVisible = false;
+        }
+        
+        return result;
     }
 }
 

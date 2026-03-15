@@ -7,13 +7,14 @@ using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Attributes;
 using TT_Lab.ViewModels.Editors.Code;
+using TT_Lab.ViewModels.Editors.Descs;
 using Twinsanity.Libraries;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code;
 
 namespace TT_Lab.AssetData.Code;
 
-[Editable(Caption = "SFX Editor", EditorType = typeof(SoundEffectViewModel), EditorOrientation = Avalonia.Controls.Dock.Top)]
+[Editable(Caption = "SFX Editor", EditorDescType = typeof(SoundEffectEditorDesc), EditorOrientation = Avalonia.Controls.Dock.Top)]
 public sealed class SoundEffectData : AbstractAssetData
 {
     public SoundEffectData(IAsset asset) : base(asset)

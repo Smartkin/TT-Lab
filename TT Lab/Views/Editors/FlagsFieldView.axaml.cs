@@ -17,6 +17,6 @@ public partial class FlagsFieldView : DocumentBaseView<FlagsFieldViewModel>
 
     protected override void HandleActivation(CompositeDisposable disposables)
     {
-        this.OneWayBind(ViewModel, viewModel => viewModel.BoolFields, view => view.FlagsContainer.ItemsSource).DisposeWith(disposables);
+        this.OneWayBind(ViewModel, viewModel => viewModel.Nodes, view => view.FlagsContainer.ItemsSource).DisposeWith(disposables);
     }
 }

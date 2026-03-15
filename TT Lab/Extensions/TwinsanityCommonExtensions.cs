@@ -48,6 +48,11 @@ namespace TT_Lab.Extensions
             return new GlmSharp.vec3(twinVec.X, twinVec.Y, twinVec.Z);
         }
 
+        public static GlmSharp.vec3 ToRadiansGlm(this Twinsanity.TwinsanityInterchange.Common.Vector3 twinVec)
+        {
+            return new GlmSharp.vec3(glm.Radians(twinVec.X), glm.Radians(twinVec.Y), glm.Radians(twinVec.Z));
+        }
+
         public static GlmSharp.mat4 ToGlm(this Twinsanity.TwinsanityInterchange.Common.Matrix4 twinMat)
         {
             return new mat4(twinMat.Column1.ToGlm(), twinMat.Column2.ToGlm(), twinMat.Column3.ToGlm(), twinMat.Column4.ToGlm());

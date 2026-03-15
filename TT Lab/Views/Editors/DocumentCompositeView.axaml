@@ -1,0 +1,43 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewmodels="clr-namespace:TT_Lab.ViewModels.Editors"
+             Margin="10, 0, 0, 0"
+             x:Name="Document"
+             x:DataType="viewmodels:DocumentCompositeViewModel"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Views.Editors.DocumentCompositeView">
+    <Border BorderBrush="DimGray" BorderThickness="1">
+        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+            <Expander ContentTransition="{x:Null}" IsExpanded="{Binding IsExpanded}" HorizontalAlignment="Stretch">
+                <Expander.Header>
+                    <Panel>
+                        <DockPanel>
+                            <TextBlock VerticalAlignment="Center" DockPanel.Dock="Left" Text="{Binding Caption}"/>
+                            <Button x:Name="AddNewItem" DockPanel.Dock="Right" HorizontalAlignment="Right" HorizontalContentAlignment="Center" IsVisible="{Binding IsCollection}" Content="+"/>
+                        </DockPanel>
+                    </Panel>
+                </Expander.Header>
+                <ItemsControl HorizontalAlignment="Stretch" VerticalAlignment="Stretch" DockPanel.Dock="Top" x:Name="EditorsContainer">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Vertical"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="viewmodels:DocumentNodeViewModel">
+                            <DockPanel IsVisible="{Binding IsVisible}" HorizontalSpacing="15" LastChildFill="True" Background="Transparent" ToolTip.Tip="{Binding Hint}">
+                                <Button Command="{Binding Close}" DockPanel.Dock="Right" IsVisible="{Binding #Document.DataContext.IsCollection}" HorizontalAlignment="Right" VerticalAlignment="Top" VerticalContentAlignment="Center" Content="x"/>
+                                <TextBlock IsVisible="{Binding IsCaptionVisible}" Margin="5, 0, 0, 0" MinWidth="80" DockPanel.Dock="{Binding Orientation}" VerticalAlignment="Center" Text="{Binding Caption}"/>
+                                <ScrollViewer DockPanel.Dock="{Binding EditorOrientation}" MaxHeight="800" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+                                    <ContentControl HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Content="{Binding}"/>
+                                </ScrollViewer>
+                            </DockPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Expander>
+        </ScrollViewer>
+    </Border>
+</UserControl>

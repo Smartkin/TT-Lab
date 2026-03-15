@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 using System.Windows;
 using Avalonia;
 using Avalonia.Data;
@@ -10,66 +12,84 @@ using TT_Lab.Assets;
 using TT_Lab.Extensions;
 using TT_Lab.Rendering.Factories;
 using TT_Lab.Rendering.Objects;
+using TT_Lab.Rendering.Objects.Gizmo;
 using TT_Lab.Rendering.Objects.SceneInstances;
 using TT_Lab.Rendering.Scene;
 using TT_Lab.Util;
 using TT_Lab.ViewModels.Editors;
 using TT_Lab.ViewModels.Editors.Instance;
+using TT_Lab.ViewModels.Interfaces;
+using Twinsanity.TwinsanityInterchange.Common;
+using Color = System.Drawing.Color;
 using Math = System.Math;
 
 namespace TT_Lab.Rendering;
 
 public class EditingContext
 {
-    public SceneInstance? SelectedInstance;
+    public ViewportObject? SelectedInstance;
     public EditableObject? SelectedRenderable;
     public TransformMode TransformMode = TransformMode.SELECTION;
     public TransformAxis TransformAxis = TransformAxis.NONE;
         
     private readonly EditorCursor _cursor;
-    private readonly SceneInstance?[] _palette = new SceneInstance[9];
+    private readonly ViewportObject?[] _palette = new ViewportObject[9];
     private readonly BillboardSet _positionsBillboards;
     private readonly BillboardSet _triggersBillboards;
     private readonly BillboardSet _camerasBillboards;
     private readonly BillboardSet _instancesBillboards;
     private readonly BillboardSet _aiPositionsBillboards;
     private int _currentPaletteIndex = 0;
-    private readonly ChunkEditorViewModel _editor;
     private readonly Node _editCtxNode;
-    private readonly Gizmo _gizmo;
+    private IGizmo? _currentGizmo;
+    private readonly List<IGizmo> _gizmos = [];
     private vec3 _gridStep;
     private mat4 _gridRotation;
     private readonly RenderContext _renderContext;
 
-    public EditingContext(RenderContext context, Scene.Scene scene, ChunkEditorViewModel editor)
+    public EditingContext(RenderContext context, Scene.Scene scene)
     {
-        _editor = editor;
         _renderContext = context;
         _editCtxNode = new Node(context, scene);
         _cursor = new EditorCursor(this);
-        _gizmo = new Gizmo(context, this);
         var color = Color.FromKnownColor(KnownColor.Green);
         _positionsBillboards = CreateBillboardSet(context, "PositionsBillboards", "Position");
         _positionsBillboards.Diffuse = new vec4(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f,  1.0f);
+        _editCtxNode.AddChild(_positionsBillboards);
             
         _triggersBillboards = CreateBillboardSet(context, "TriggersBillboards", "Trigger");
         color = Color.FromKnownColor(KnownColor.DarkOrange);
         _triggersBillboards.Diffuse = new vec4(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f,  1.0f);
+        _editCtxNode.AddChild(_triggersBillboards);
             
         _camerasBillboards = CreateBillboardSet(context, "CamerasBillboards", "Camera");
         color = Color.FromKnownColor(KnownColor.Blue);
         _camerasBillboards.Diffuse = new vec4(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, 1.0f);
+        _editCtxNode.AddChild(_camerasBillboards);
             
         _instancesBillboards = CreateBillboardSet(context, "InstancesBillboards", "Instance");
+        _editCtxNode.AddChild(_instancesBillboards);
             
         _aiPositionsBillboards = CreateBillboardSet(context, "AiPositionsBillboards", "AI_Position");
         color = Color.FromKnownColor(KnownColor.Yellow);
         _aiPositionsBillboards.Diffuse = new vec4(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, 1.0f);
+        _editCtxNode.AddChild(_aiPositionsBillboards);
+        
+        RegisterGizmo(new SelectionGizmo(context, this));
+        RegisterGizmo(new TranslationGizmo(context, this));
+        RegisterGizmo(new RotationGizmo(context, this));
+        RegisterGizmo(new ScaleGizmo(context, this));
     }
 
     public Node GetEditorNode()
     {
         return _editCtxNode;
+    }
+
+    public void RegisterGizmo(IGizmo gizmo)
+    {
+        _gizmos.Add(gizmo);
+        gizmo.RenderNode.IsVisible = false;
     }
 
     // public Entity CreateEntity(MeshPtr mesh)
@@ -101,7 +121,7 @@ public class EditingContext
     {
         return _aiPositionsBillboards;
     }
-        
+    
     public Billboard CreatePositionBillboard()
     {
         return _positionsBillboards.CreateBillboard(0, 0, 0);
@@ -116,7 +136,7 @@ public class EditingContext
     {
         return _instancesBillboards.CreateBillboard(0, 0, 0);
     }
-        
+    
     public Billboard CreateCameraBillboard()
     {
         return _camerasBillboards.CreateBillboard(0, 0, 0);
@@ -136,35 +156,43 @@ public class EditingContext
     {
         TransformMode = TransformMode.SELECTION;
         TransformAxis = TransformAxis.NONE;
-        SelectedInstance?.UnlinkChangesToViewModel((ViewportEditableInstanceViewModel)_editor.CurrentInstanceEditor!);
-        _editor.ChangeInstanceEditor(null);
-        SelectedInstance?.Deselect();
+        SelectedInstance?.Render.Deselect();
         SelectedInstance = null;
         SelectedRenderable = null;
-        _gizmo.HideGizmo();
+        SwitchGizmo(GizmoType.Selection);
+        _currentGizmo?.Hide();
     }
 
-    public void Select(SceneInstance instance)
+    public void Select(ViewportObject instance)
     {
         Deselect();
         SelectedInstance = instance;
-        SelectedInstance?.Select();
-        SelectedRenderable = SelectedInstance?.GetEditableObject();
-        _editor.ChangeInstanceEditor(SelectedInstance?.GetAttachedAsset());
+        SelectedInstance?.Render.Select();
+        SelectedRenderable = SelectedInstance?.Render;
         
         if (SelectedInstance != null)
         {
-            SelectedInstance.LinkChangesToViewModel((ViewportEditableInstanceViewModel)_editor.CurrentInstanceEditor!);
-            _gizmo.DetachFromCurrentObject();
-            _gizmo.SwitchGizmo((Gizmo.GizmoType)(int)TransformMode);
-            _gizmo.AttachToObject(SelectedInstance.GetEditableObject());
-            _gizmo.ShowGizmo();
+            SwitchGizmo((GizmoType)(int)TransformMode);
         }
     }
 
-    public InstanceSectionResourceEditorViewModel? GetCurrentEditor()
+    public void SwitchGizmo(GizmoType type, string? customGizmoName = null)
     {
-        return _editor.CurrentInstanceEditor;
+        _currentGizmo?.HighlightAxis(TransformAxis.NONE);
+        _currentGizmo?.DetachGizmo();
+        _currentGizmo?.Hide();
+        var availableGizmos = _gizmos.Where(g => g.GetGizmoType() == type);
+        if (type == GizmoType.Custom && !string.IsNullOrEmpty(customGizmoName))
+        {
+            availableGizmos = availableGizmos.Where(g => g.GetGizmoName() == customGizmoName);
+        }
+
+        _currentGizmo = availableGizmos.FirstOrDefault();
+        if (SelectedInstance != null)
+        {
+            _currentGizmo?.AttachGizmo(SelectedInstance.Render);
+        }
+        _currentGizmo?.Show();
     }
 
     public void SetGrid()
@@ -174,12 +202,11 @@ public class EditingContext
             return;
         }
             
-        _gridStep.x = SelectedInstance.GetSize().x;
-        _gridStep.y = SelectedInstance.GetSize().y;
-        _gridStep.z = SelectedInstance.GetSize().z;
-        var gridRot = SelectedInstance.GetRotation();
-        _gridRotation = (new quat(vec3.Radians(SelectedInstance.GetRotation()))).ToMat4;
-        SetCursorCoordinates(SelectedInstance.GetPosition());
+        _gridStep.x = SelectedInstance.Render.GetSize().x;
+        _gridStep.y = SelectedInstance.Render.GetSize().y;
+        _gridStep.z = SelectedInstance.Render.GetSize().z;
+        _gridRotation = (new quat(SelectedInstance.Render.GetRotation())).ToMat4;
+        SetCursorCoordinates(SelectedInstance.Render.GetPosition());
     }
 
     public void MoveCursorGrid(vec3 offset)
@@ -199,7 +226,7 @@ public class EditingContext
         _cursor.SetPosition(pos);
     }
 
-    public void SetPalette(SceneInstance instance)
+    public void SetPalette(ViewportObject instance)
     {
         _palette[_currentPaletteIndex] = instance;
     }
@@ -212,9 +239,10 @@ public class EditingContext
         }
 
         var cursorPosition = _cursor.GetPosition();
-        var newInstance = _editor.NewSceneInstance(_palette[_currentPaletteIndex]!.GetType(), _palette[_currentPaletteIndex]!.GetAttachedAsset());
-        Select(newInstance);
-        newInstance.SetPositionRotationScale(cursorPosition, _palette[_currentPaletteIndex]!.GetRotation(), _palette[_currentPaletteIndex]!.GetScale());
+        // TODO: Request instance creation
+        // var newInstance = _editor.NewSceneInstance(_palette[_currentPaletteIndex]!.GetType(), _palette[_currentPaletteIndex]!.GetAttachedAsset());
+        // Select(newInstance);
+        // newInstance.SetPositionRotationScale(cursorPosition, _palette[_currentPaletteIndex]!.GetRotation(), _palette[_currentPaletteIndex]!.GetScale());
         TransformMode = TransformMode.SELECTION;
         TransformAxis = TransformAxis.NONE;
     }
@@ -267,7 +295,7 @@ public class EditingContext
         {
             return;
         }
-            
+        
         endPos = new vec2(x, y);
         var delta = (endPos.x - startPos.x) + (startPos.y - endPos.y);
         startPos = endPos;
@@ -310,19 +338,15 @@ public class EditingContext
         }
         if (TransformMode == TransformMode.ROTATE)
         {
-            var k = 0.2f;
-            if (TransformAxis == TransformAxis.X)
+            var k = glm.Radians(0.2f);
+            var axis = TransformAxis switch
             {
-                RotateX(k * delta);
-            }
-            else if (TransformAxis == TransformAxis.Y)
-            {
-                RotateY(k * delta);
-            }
-            else if (TransformAxis == TransformAxis.Z)
-            {
-                RotateZ(k * delta);
-            }
+                TransformAxis.X => vec3.UnitX,
+                TransformAxis.Y => vec3.UnitY,
+                TransformAxis.Z => vec3.UnitZ,
+                _ => vec3.UnitX
+            };
+            Rotate(axis * k * delta);
         }
     }
 
@@ -342,7 +366,7 @@ public class EditingContext
             TransformMode = TransformMode.SELECTION;
         }
         TransformAxis = TransformAxis.NONE;
-        _gizmo.SwitchGizmo((Gizmo.GizmoType)(int)TransformMode);
+        SwitchGizmo((GizmoType)(int)TransformMode);
     }
 
     public void ToggleScale()
@@ -351,6 +375,7 @@ public class EditingContext
         {
             return;
         }
+        
         SwitchEditMode(TransformMode.SCALE);
     }
 
@@ -360,6 +385,7 @@ public class EditingContext
         {
             return;
         }
+        
         SwitchEditMode(TransformMode.TRANSLATE);
     }
 
@@ -369,6 +395,7 @@ public class EditingContext
         {
             return;
         }
+        
         SwitchEditMode(TransformMode.ROTATE);
     }
 
@@ -382,7 +409,7 @@ public class EditingContext
         {
             TransformAxis = axis;
         }
-        _gizmo.HighlightAxis(TransformAxis);
+        _currentGizmo?.HighlightAxis(TransformAxis);
         if (transforming)
         {
             UpdateTransform(endPos.x, endPos.y);
@@ -396,27 +423,50 @@ public class EditingContext
 
     private void Scale(vec3 offset)
     {
-        SelectedInstance.Scale(offset + vec3.Ones);
+        SelectedInstance?.Render.Scale(offset + vec3.Ones);
+        if (SelectedInstance is { Scale: not null })
+        {
+            var editorScale = SelectedInstance.Render.GetEditorScale();
+            SelectedInstance.Scale.SetValue(new Vector3(editorScale.x, editorScale.y, editorScale.z));
+        }
+
+        if (SelectedInstance is { Transform: not null })
+        {
+            var renderTransform = SelectedInstance.Render.LocalTransform;
+            SelectedInstance.Transform.SetValue(renderTransform.ToTwin());
+        }
     }
 
     private void Translate(vec3 offset)
     {
-        SelectedInstance.Translate(offset);
+        SelectedInstance?.Render.Translate(offset, true);
+        if (SelectedInstance is { Position: not null })
+        {
+            var editorPos = SelectedInstance.Render.GetEditorPosition();
+            SelectedInstance.Position.SetValue(new Vector3(editorPos.x, editorPos.y, editorPos.z));
+        }
+        
+        if (SelectedInstance is { Transform: not null })
+        {
+            var renderTransform = SelectedInstance.Render.LocalTransform;
+            SelectedInstance.Transform.SetValue(renderTransform.ToTwin());
+        }
     }
 
-    private void RotateX(float value)
+    private void Rotate(vec3 offset)
     {
-        SelectedInstance.Rotate(vec3.UnitX * value);
-    }
-
-    private void RotateY(float value)
-    {
-        SelectedInstance.Rotate(vec3.UnitY * value);
-    }
-
-    private void RotateZ(float value)
-    {
-        SelectedInstance.Rotate(vec3.UnitZ * value);
+        SelectedInstance?.Render.Rotate(offset, true);
+        if (SelectedInstance is { Rotation: not null })
+        {
+            var editorRot = vec3.Degrees(SelectedInstance.Render.GetEditorRotation());
+            SelectedInstance.Rotation.SetValue(new Vector3(editorRot.x, editorRot.y, editorRot.z));
+        }
+        
+        if (SelectedInstance is { Transform: not null })
+        {
+            var renderTransform = SelectedInstance.Render.LocalTransform;
+            SelectedInstance.Transform.SetValue(renderTransform.ToTwin());
+        }
     }
 
     private BillboardSet CreateBillboardSet(RenderContext renderContext, string billboardName, string billboardIconName)

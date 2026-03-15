@@ -5,6 +5,7 @@ using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Assets.Instance;
 using TT_Lab.Attributes;
+using TT_Lab.ViewModels.Editors;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout;
 
@@ -35,6 +36,7 @@ public class AiPathData : AbstractAssetData
         
     [JsonProperty(Required = Required.Always)]
     [Editable]
+    [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
     public UInt16[] Args { get; set; }
 
     protected override void Dispose(Boolean disposing)

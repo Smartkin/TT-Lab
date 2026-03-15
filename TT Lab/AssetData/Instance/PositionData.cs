@@ -15,7 +15,7 @@ public class PositionData : AbstractAssetData
 {
     public PositionData(IAsset asset) : base(asset)
     {
-        Coords = new Vector4(0, 0, 0, 1);
+        Coords = new Vector3(0, 0, 0);
     }
 
     public PositionData(IAsset asset, ITwinPosition position) : base(asset)
@@ -24,8 +24,8 @@ public class PositionData : AbstractAssetData
     }
 
     [JsonProperty(Required = Required.Always)]
-    [Editable]
-    public Vector4 Coords { get; set; }
+    [Editable(IncludeAllProperties = true)]
+    public Vector3 Coords { get; set; }
 
     protected override void Dispose(Boolean disposing)
     {
@@ -35,14 +35,15 @@ public class PositionData : AbstractAssetData
     public override void Import(LabURI package, String? variant, Int32? layoutId)
     {
         var position = GetTwinItem<ITwinPosition>();
-        Coords = CloneUtils.Clone(position.Position);
+        Coords = new Vector3(position.Position.X, position.Position.Y, position.Position.Z);
     }
 
     public override ITwinItem Export(ITwinItemFactory factory)
     {
         using var ms = new MemoryStream();
         using var writer = new BinaryWriter(ms);
-        Coords.Write(writer);
+        var coordsVec = new Vector4(Coords.X, Coords.Y, Coords.Z, 1.0f);
+        coordsVec.Write(writer);
 
         writer.Flush();
         ms.Position = 0;

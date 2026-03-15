@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using TT_Lab.AssetData;
+using TT_Lab.Rendering.Objects;
 using TT_Lab.Util;
 using TT_Lab.ViewModels.Interfaces;
 using TT_Lab.ViewModels.ResourceTree;

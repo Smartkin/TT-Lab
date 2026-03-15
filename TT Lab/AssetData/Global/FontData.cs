@@ -32,8 +32,8 @@ public class FontData : AbstractAssetData
     
     [JsonProperty(Required = Required.Always)]
     [Editable(Caption = "ASCII Characters Data")]
-    [EditorParam(DocumentViewModel.ItemIndexAsChars, true)]
-    [EditorParam(DocumentViewModel.ItemCaptionPrefix, "Character")]
+    [EditorParam(DocumentCollectionViewModel.ItemIndexAsChars, true)]
+    [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Character")]
     public List<VectorCharacterData> CharacterData { get; set; }
     
     [JsonProperty(Required = Required.Always)]

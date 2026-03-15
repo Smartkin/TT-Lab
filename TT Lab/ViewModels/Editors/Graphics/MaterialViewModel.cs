@@ -44,14 +44,14 @@ public class MaterialViewModel : ResourceEditorViewModel
 
     protected override async Task OnActivatedAsync(CancellationToken cancellationToken)
     {
-        await ActivateItemAsync(MaterialViewer, cancellationToken);
+        // await ActivateItemAsync(MaterialViewer, cancellationToken);
         
         await base.OnActivatedAsync(cancellationToken);
     }
 
     protected override Task OnDeactivateAsync(bool close, CancellationToken cancellationToken)
     {
-        DeactivateItemAsync(MaterialViewer, close, cancellationToken);
+        // DeactivateItemAsync(MaterialViewer, close, cancellationToken);
         foreach (var shaderViewModel in _shaders)
         {
             DeactivateItemAsync(shaderViewModel, close, cancellationToken);

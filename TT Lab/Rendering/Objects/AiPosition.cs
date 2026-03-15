@@ -10,7 +10,7 @@ public class AiPosition : EditableObject
     private AiPositionData _data;
     private Billboard _billboard;
 
-    public AiPosition(RenderContext context, string name, Billboard billboard, int layId, AiPositionData data) : base(context, name)
+    public AiPosition(RenderContext context, string name, Billboard billboard, int layId, AiPositionData data) : base(context, null, name)
     {
         _layId = layId;
         _billboard = billboard;

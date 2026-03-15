@@ -3,11 +3,13 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using ReactiveUI;
+using ReactiveUI.Avalonia;
 using TT_Lab.ViewModels;
 
 namespace TT_Lab.Views;
 
-public partial class ViewportView : BurnBridgeControl<ViewportViewModel>
+public partial class ViewportView : ReactiveUserControl<ViewportViewModel>
 {
     public ViewportView()
     {

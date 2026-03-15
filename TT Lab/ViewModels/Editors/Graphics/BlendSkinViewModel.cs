@@ -42,14 +42,14 @@ public class BlendSkinViewModel : ResourceEditorViewModel
 
     protected override async Task OnActivatedAsync(CancellationToken cancellationToken)
     {
-        await ActivateItemAsync(SceneRenderer, cancellationToken);
+        // await ActivateItemAsync(SceneRenderer, cancellationToken);
             
         await base.OnActivatedAsync(cancellationToken);
     }
 
     protected override async Task OnDeactivateAsync(bool close, CancellationToken cancellationToken)
     {
-        await DeactivateItemAsync(SceneRenderer, close, cancellationToken);
+        // await DeactivateItemAsync(SceneRenderer, close, cancellationToken);
             
         await base.OnDeactivateAsync(close, cancellationToken);
     }

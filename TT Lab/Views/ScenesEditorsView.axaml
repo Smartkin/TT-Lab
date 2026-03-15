@@ -22,11 +22,15 @@
         </Style>
     </UserControl.Styles>
     <DockControl Factory="{Binding Factory}">
-        <DocumentDock x:Name="ScenesEditorsDock">
+        <DocumentDock CanPin="True" x:Name="ScenesEditorsDock">
             <DocumentDock.DocumentTemplate>
                 <DocumentTemplate>
-                    <Grid ColumnDefinitions="1*, 5, Auto">
-                        <ContentControl Grid.Column="0" Content="{Binding Context.Document}"/>
+                    <Grid IsEnabled="{Binding Context.IsLoaded}" ColumnDefinitions="2*, 5, 5*">
+                        <Grid Grid.Column="0" RowDefinitions="*, 5, *">
+                            <ContentControl Grid.Row="0" Content="{Binding Context.Document}"/>
+                            <GridSplitter Grid.Row="1"/>
+                            <HeaderedContentControl Header="Inspector" Grid.Row="2" Content="{Binding Context.Document.Inspector}"/>
+                        </Grid>
                         <GridSplitter Grid.Column="1" ShowsPreview="True"/>
                         <ContentControl Grid.Column="2" Content="{Binding Context.Viewport}"/>
                     </Grid>

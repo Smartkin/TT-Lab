@@ -22,7 +22,7 @@ public sealed class ObjectInstance : EditableObject
     private readonly MeshService _meshService;
     private readonly ObjectInstanceData _instanceData;
 
-    public ObjectInstance(RenderContext context, TwinSkeletonManager skeletonManager, MeshService meshService, string name, ObjectInstanceData instance, vec3 size) : base(context, name, size)
+    public ObjectInstance(RenderContext context, TwinSkeletonManager skeletonManager, MeshService meshService, string name, ObjectInstanceData instance, vec3 size) : base(context, null, name, size)
     {
         _skeletonManager = skeletonManager;
         _meshService = meshService;
@@ -34,7 +34,7 @@ public sealed class ObjectInstance : EditableObject
     protected override void InitSceneTransform()
     {
         Pos = new vec3(_instanceData.Position.X, _instanceData.Position.Y, _instanceData.Position.Z);
-        Rot = new vec3(glm.Radians(_instanceData.RotationX.GetRotation()), glm.Radians(_instanceData.RotationY.GetRotation()), glm.Radians(_instanceData.RotationZ.GetRotation()));
+        Rot = new vec3(glm.Radians(_instanceData.Rotation.X), glm.Radians(_instanceData.Rotation.Y), glm.Radians(_instanceData.Rotation.Z));
     }
 
     [MemberNotNull(nameof(_skeleton))]

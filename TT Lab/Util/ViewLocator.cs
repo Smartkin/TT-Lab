@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Dock.Model.Core;
 using ReactiveUI;
+using Splat;
 
 namespace TT_Lab.Util;
 
@@ -27,9 +28,9 @@ public class ViewLocator : IDataTemplate
 
         while (baseType != null)
         {
-            var baseView = ReactiveUI.ViewLocator.Current.ResolveView(data);
+            var viewType = typeof(IViewFor<>).MakeGenericType(baseType);
 
-            if (baseView != null)
+            if (Locator.Current.GetService(viewType) is IViewFor baseView)
             {
                 baseView.ViewModel = data;
                 return (Control)baseView;

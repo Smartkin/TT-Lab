@@ -70,16 +70,18 @@ public class MaterialData : AbstractAssetData
     
     [JsonProperty(Required = Required.Always)]
     [Editable]
-    [EditorParam(DocumentViewModel.EditorExplicitOrder, 0)]
+    [EditorParam(DocumentModelViewModel.EditorExplicitOrder, -2)]
     public String Name { get; set; }
     
     [JsonProperty(Required = Required.Always)]
     [Editable]
+    [EditorParam(DocumentModelViewModel.EditorExplicitOrder, -1)]
     public UInt32 DmaChainIndex { get; set; }
     
     [JsonProperty(Required = Required.Always)]
     [Editable(Caption = "Shaders")]
-    [EditorParam(DocumentViewModel.ItemCaptionPrefix, "Shader")]
+    [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Shader")]
+    [EditorParam(DocumentModelViewModel.EditorExplicitOrder, 1)]
     public List<LabShader> Shaders { get; set; }
 
     protected override void Dispose(Boolean disposing)

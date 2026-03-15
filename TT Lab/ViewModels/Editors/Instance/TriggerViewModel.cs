@@ -66,12 +66,9 @@ public class TriggerViewModel : ViewportEditableInstanceViewModel
         data.ObjectActivatorMask = ObjectActivatorMask;
         data.Header = Header;
         data.UnkFloat = UnkFloat;
-        Position.Save(data.Position);
         var newScale = new Vector3();
         Scale.Save(newScale);
-        data.Scale = new Vector4(newScale.X, newScale.Y, newScale.Z, 1);
         var quat = Quaternion.CreateFromYawPitchRoll(Rotation.X, Rotation.Y, Rotation.Z);
-        data.Rotation = new Vector4(quat.X, quat.Y, quat.Z, quat.W);
         data.Instances.Clear();
         foreach (var inst in Instances)
         {
@@ -92,8 +89,6 @@ public class TriggerViewModel : ViewportEditableInstanceViewModel
         {
             _instances.Add(new PrimitiveWrapperViewModel<LabURI>(inst));
         }
-        _position = new Vector4ViewModel(data.Position);
-        _rotation = new Vector3ViewModel(data.Rotation.ToEulerAngles());
         var scaleVector = new Vector3(data.Scale.X, data.Scale.Y, data.Scale.Z);
         _scale = new Vector3ViewModel(scaleVector);
         DirtyTracker.AddChild(Position);

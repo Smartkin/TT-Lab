@@ -1,7 +1,6 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using GlmSharp;
 using TT_Lab.Assets;
@@ -10,6 +9,7 @@ using TT_Lab.Attributes.EditorParamWrappers;
 using TT_Lab.Extensions;
 using TT_Lab.Util;
 using TT_Lab.ViewModels.Editors;
+using TT_Lab.ViewModels.Editors.PropertyGraph;
 using TT_Lab.ViewModels.Interfaces;
 using Twinsanity.TwinsanityInterchange.Common;
 
@@ -24,8 +24,8 @@ public class ChunkLink : IDocumentModel
     public Boolean UnkFlag { get; set; }
     
     [JsonProperty(Required = Required.Always)]
-    [Editable]
-    [EditorParam(DocumentViewModel.EditorExplicitOrder, -1)]
+    [Editable(IsExcludedFromPropertyGraph = true)]
+    [EditorParam(DocumentModelViewModel.EditorExplicitOrder, -1)]
     public LabURI Path { get; set; }
     
     [JsonProperty(Required = Required.Always)]
@@ -51,21 +51,22 @@ public class ChunkLink : IDocumentModel
     public Boolean KeepLoaded { get; set; }
     
     [JsonProperty(Required = Required.Always)]
-    [Editable]
+    [Editable(IncludeAllProperties = true)]
     [EditorLinkedField(typeof(InverseDependentMatrix), nameof(ChunkMatrix))]
     [EditorReadOnly]
     public Matrix4 ObjectMatrix { get; set; }
     
     [JsonProperty(Required = Required.Always)]
-    [Editable]
+    [Editable(IncludeAllProperties = true)]
     public Matrix4 ChunkMatrix { get; set; }
     
-    [JsonProperty(Required = Required.AllowNull)]
-    [Editable]
+    [JsonProperty(Required = Required.AllowNull, NullValueHandling = NullValueHandling.Ignore)]
+    [Editable(IncludeAllProperties = true)]
     [EditorLinkedField(typeof(CanEditLoadWall), nameof(IsLoadWallActive))]
-    public Matrix4? LoadingWall { get; set; }
+    public Matrix4 LoadingWall { get; set; }
     
     [JsonProperty(Required = Required.AllowNull)]
+    [Editable(IncludeAllProperties = true)]
     public List<TwinChunkLinkBoundingBoxBuilder> ChunkLinksCollisionData { get; set; }
 
     public ChunkLink()
@@ -74,7 +75,7 @@ public class ChunkLink : IDocumentModel
         IsAlwaysVisible = false;
         IsVisibleInCameraFrustum = true;
         IsLoadWallActive = true;
-        LoadingWall = mat4.Identity.ToTwin();
+        LoadingWall = mat4.Zero.ToTwin();
         ObjectMatrix = mat4.Identity.ToTwin();
         ChunkMatrix = mat4.Identity.ToTwin();
         ChunkLinksCollisionData = [];
@@ -98,34 +99,30 @@ public class ChunkLink : IDocumentModel
 
     public string DocumentName => "Chunk Link";
 
-    private class WhenVisibleChanged : IGenericFieldChange<BoolFieldViewModel, BoolFieldViewModel>
+    private class WhenVisibleChanged : IFieldChange
     {
-        public void DataChanged(BoolFieldViewModel listener, BoolFieldViewModel linkedViewModel)
+        public void DataChanged(PropertyNode listener, PropertyNode linkedViewModel)
         {
-            if (linkedViewModel.IsChecked && listener.IsChecked)
+            if (linkedViewModel.GetValue<bool>() && listener.GetValue<bool>())
             {
-                listener.IsChecked = false;
+                listener.SetValue(false);
             }
         }
     }
 
-    private class CanEditLoadWall : IGenericFieldChange<Matrix4FieldViewModel, BoolFieldViewModel>
+    private class CanEditLoadWall : IFieldChange
     {
-        public void DataChanged(Matrix4FieldViewModel listener, BoolFieldViewModel linkedViewModel)
+        public void DataChanged(PropertyNode listener, PropertyNode linkedViewModel)
         {
-            listener.IsReadOnly = !linkedViewModel.IsChecked;
-            if (listener is { IsReadOnly: false, Data: null })
-            {
-                listener.Data = new Matrix4();
-            }
+            listener.IsReadOnly = !linkedViewModel.GetValue<bool>();
         }
     }
 
-    private class InverseDependentMatrix : IGenericFieldChange<Matrix4FieldViewModel, Matrix4FieldViewModel>
+    private class InverseDependentMatrix : IFieldChange
     {
-        public void DataChanged(Matrix4FieldViewModel listener, Matrix4FieldViewModel linkedViewModel)
+        public void DataChanged(PropertyNode listener, PropertyNode linkedViewModel)
         {
-            listener.Data = linkedViewModel.Data?.ToGlm().Inverse.ToTwin();
+            listener.SetValue(linkedViewModel.GetValue<Matrix4>()?.ToGlm().Inverse.ToTwin());
         }
     }
 }

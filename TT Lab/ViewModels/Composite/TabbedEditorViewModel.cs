@@ -1,9 +1,12 @@
 ﻿using System;
+using System.Reactive.Disposables;
+using System.Reactive.Disposables.Fluent;
 using System.Reflection;
 using System.Threading.Tasks;
 using Avalonia.Media.Imaging;
 using Dock.Model.Core;
 using ReactiveUI;
+using ReactiveUI.SourceGenerators;
 using Splat;
 using TT_Lab.AssetData;
 using TT_Lab.Assets;
@@ -13,53 +16,76 @@ using TT_Lab.ViewModels.Editors;
 
 namespace TT_Lab.ViewModels.Composite;
 
-public class TabbedEditorViewModel : ReactiveObject
+public partial class TabbedEditorViewModel : ReactiveObject
 {
+    [Reactive]
+    private string _title = "NO NAME TAB";
+
+    [Reactive]
+    private bool _isLoaded;
+    
+    [Reactive(SetModifier = AccessModifier.Private)]
+    private DocumentViewModel? _document;
+
+    [Reactive(SetModifier = AccessModifier.Private)]
+    private ViewportViewModel? _viewport;
+    
     private readonly IFactory _factory;
-    private IAsset _asset;
+    private readonly IAsset _asset;
+    private readonly IDisposable _creationTask;
 
     public TabbedEditorViewModel(IFactory factory, IAsset asset)
     {
         _factory = factory;
         _asset = asset;
+        Title = $"{_asset.Name} (Loading)";
+
+        _creationTask = RxSchedulers.TaskpoolScheduler.Schedule(this, (_, state) =>
+        {
+            _asset.GetData<AbstractAssetData>(); // Load in the asset data
+            Document = new DocumentViewModel(_asset);
         
-        Document = new DocumentViewModel(null, _asset)
-        {
-            Caption = _asset.Alias,
-            IsExpanded = true
-        };
-        var assetData = _asset.GetData<AbstractAssetData>();
-        if (assetData is not DummyData)
-        {
-            var dataDocument = new DocumentViewModel(Document, assetData)
+            Document.Initialize();
+            
+            if (_asset.GetType().GetCustomAttribute<SupportsViewportAttribute>() != null)
             {
-                Caption = "Data",
-                IsExpanded = true
-            };
-            Document.AddDocument(dataDocument);
-        }
+                Viewport = new ViewportViewModel();
+                Viewport.Init(Document);
+            }
 
-        if (_asset.GetType().GetCustomAttribute<SupportsViewportAttribute>() != null)
-        {
-            Viewport = Locator.Current.GetService<ViewportViewModel>();
-        }
+            Title = _asset.Name;
+            this.WhenAnyValue(x => x.Document!.IsDirty).Subscribe(x => ChangeDisplayName());
 
-        this.WhenAnyValue(x => x.Document.IsDirty).Subscribe(x => ChangeDisplayName());
+            IsLoaded = true;
+            
+            return Disposable.Empty;
+        });
     }
 
     private void ChangeDisplayName()
     {
+        if (Document == null)
+        {
+            return;
+        }
+        
         Title = Document.IsDirty ? $"{_asset.Name}*" : _asset.Name;
-        this.RaisePropertyChanged(nameof(Title));
     }
 
     public void SaveTab()
     {
-        Document.Save();
+        Document?.Save();
     }
 
     public async Task<Boolean> CloseTab()
     {
+        if (!IsLoaded || Document == null)
+        {
+            Viewport?.Close();
+            _creationTask.Dispose();
+            return true;
+        }
+        
         var canClose = await Document.CanCloseDocument();
         if (canClose is DocumentViewModel.DocumentClosing.CloseAndNotSave or DocumentViewModel.DocumentClosing.CloseAndSave)
         {
@@ -68,6 +94,8 @@ public class TabbedEditorViewModel : ReactiveObject
                 SaveTab();
             }
 
+            Viewport?.Close();
+            _creationTask.Dispose();
             return true;
         }
 
@@ -78,13 +106,7 @@ public class TabbedEditorViewModel : ReactiveObject
 
     public bool CanPin => true;
 
-    public string Title { get; set; } = "NO NAME TAB";
-
     public LabURI EditableResource => _asset.URI;
 
     public Bitmap IconPath => new(ManifestResourceLoader.GetPathInExe($"Media/LabIcons/{_asset.IconPath}"));
-    
-    public DocumentViewModel Document { get; }
-    
-    public ViewportViewModel? Viewport { get; private set; }
 }

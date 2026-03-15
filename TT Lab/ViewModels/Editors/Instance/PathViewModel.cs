@@ -32,7 +32,6 @@ public class PathViewModel : InstanceSectionResourceEditorViewModel
         {
             var v = new Twinsanity.TwinsanityInterchange.Common.Vector4();
             p.Save(v);
-            data.Points.Add(v);
         }
         data.Parameters.Clear();
         foreach (var p in Arguments)
@@ -50,10 +49,6 @@ public class PathViewModel : InstanceSectionResourceEditorViewModel
         var asset = AssetManager.Get().GetAsset(EditableResource);
         var pathData = asset.GetData<PathData>();
         _points = [];
-        foreach (var vm in pathData.Points.Select(p => new Vector4ViewModel(p)))
-        {
-            _points.Add(vm);
-        }
         DirtyTracker.AddBindableCollection(_points);
         
         _arguments = [];

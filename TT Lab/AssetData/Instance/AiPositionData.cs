@@ -15,7 +15,7 @@ public class AiPositionData : AbstractAssetData
 {
     public AiPositionData(IAsset asset) : base(asset)
     {
-        Coords = new Vector4(0, 0, 0, 1);
+        Coords = new Vector3(0, 0, 0);
     }
 
     public AiPositionData(IAsset asset, ITwinAIPosition aiPosition) : this(asset)
@@ -25,7 +25,11 @@ public class AiPositionData : AbstractAssetData
 
     [JsonProperty(Required = Required.Always)]
     [Editable]
-    public Vector4 Coords { get; set; }
+    public Vector3 Coords { get; set; }
+    
+    [JsonProperty(Required = Required.Always)]
+    [Editable]
+    public float FloatArg { get; set; }
         
     [JsonProperty(Required = Required.Always)]
     [Editable]
@@ -38,8 +42,9 @@ public class AiPositionData : AbstractAssetData
 
     public override void Import(LabURI package, String? variant, Int32? layoutId)
     {
-        ITwinAIPosition aiPosition = GetTwinItem<ITwinAIPosition>();
-        Coords = CloneUtils.Clone(aiPosition.Position);
+        var aiPosition = GetTwinItem<ITwinAIPosition>();
+        Coords = new Vector3(aiPosition.Position.X, aiPosition.Position.Y, aiPosition.Position.Z);
+        FloatArg = aiPosition.Position.W;
         Arg = aiPosition.UnkShort;
     }
 
@@ -48,6 +53,7 @@ public class AiPositionData : AbstractAssetData
         using var ms = new MemoryStream();
         using var writer = new BinaryWriter(ms);
         Coords.Write(writer);
+        writer.Write(FloatArg);
         writer.Write(Arg);
 
         writer.Flush();

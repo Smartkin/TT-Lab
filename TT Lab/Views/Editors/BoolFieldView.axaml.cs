@@ -1,5 +1,6 @@
 using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
+using System.Reactive.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
@@ -18,6 +19,12 @@ public partial class BoolFieldView : DocumentBaseView<BoolFieldViewModel>
 
     protected override void HandleActivation(CompositeDisposable disposables)
     {
-        this.Bind(ViewModel, viewModel => viewModel.IsChecked, view => view.BoolField.IsChecked).DisposeWith(disposables);
+        this.OneWayBind(ViewModel, viewModel => viewModel.CurrentValue, view => view.BoolField.IsChecked).DisposeWith(disposables);
+        
+        this.WhenAnyValue(view => view.BoolField.IsChecked)
+            .Where(x => x.HasValue)
+            .Select(x => x!.Value)
+            .InvokeCommand(ViewModel?.SetValueCommand)
+            .DisposeWith(disposables);
     }
 }

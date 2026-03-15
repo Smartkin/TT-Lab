@@ -8,6 +8,7 @@ using System.Reactive.Linq;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
 using TT_Lab.Util;
+using TT_Lab.ViewModels.Editors.PropertyGraph;
 
 namespace TT_Lab.ViewModels.Editors;
 
@@ -18,7 +19,7 @@ public partial class EnumFieldViewModel : DocumentDataViewModel<object>
 
     public ReadOnlyObservableCollection<object> EnumValues;
 
-    public EnumFieldViewModel(DocumentViewModel document, object data) : base(document, data)
+    public EnumFieldViewModel(DocumentViewModel document, PropertyNode data, params DocumentNodeViewModel[] dependencies) : base(document, data, dependencies)
     {
         _selectedValue = data;
     }
@@ -27,33 +28,15 @@ public partial class EnumFieldViewModel : DocumentDataViewModel<object>
     {
         base.OnInitialized(disposables);
 
-        Debug.Assert(Data.GetType().IsEnum, "Provided data is not an enum!");
-        if (EditorParameters.TryGetValue(EnumTypeName, out var enumType))
-        {
-            _enumType = (Type)enumType;
-        }
-        else
-        {
-            _enumType = Data.GetType();
-        }
-
-        var enumValues = Enum.GetValues(_enumType).Cast<object>().ToArray();
+        var enumValues = Enum.GetValues(Property.PropertyType).Cast<object>().ToArray();
         EnumValues = new ReadOnlyObservableCollection<Object>(new ObservableCollection<Object>(enumValues));
-
-        this.WhenAnyValue(x => x.SelectedValue)
-            .Where(value => value is not null && MiscUtils.ConvertEnum(_enumType, value) != null)
-            .Subscribe(selection =>
-            {
-                Data = MiscUtils.ConvertEnum(_enumType, selection)!;
-            }).DisposeWith(disposables);
     }
-    
-    public const string EnumTypeName = "ENUM_FIELD_ENUM_TYPE_NAME";
 
-    private Type _enumType = typeof(DummyEnum);
-
-    private enum DummyEnum
+    protected override void SetCurrentValue(Object? value)
     {
-        DEVELOPER_FORGOR_TO_PROVIDE_ENUM_TYPE_IN_EDITOR_PARAMETERS
+        if (value is not null && MiscUtils.ConvertEnum(Property.PropertyType, value) != null)
+        {
+            base.SetCurrentValue(value);
+        }
     }
 }

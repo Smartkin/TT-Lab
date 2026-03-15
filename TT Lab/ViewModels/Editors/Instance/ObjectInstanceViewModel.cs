@@ -62,10 +62,7 @@ public sealed class ObjectInstanceViewModel : ViewportEditableInstanceViewModel
     {
         var asset = AssetManager.Get().GetAsset(EditableResource);
         var data = asset.GetData<ObjectInstanceData>();
-        Position.Save(data.Position);
-        data.RotationX.SetRotation(Rotation.X);
-        data.RotationY.SetRotation(Rotation.Y);
-        data.RotationZ.SetRotation(Rotation.Z);
+        Rotation.Save(data.Rotation);
         data.Instances.Clear();
         foreach (var i in Instances)
         {
@@ -113,13 +110,9 @@ public sealed class ObjectInstanceViewModel : ViewportEditableInstanceViewModel
         var asset = AssetManager.Get().GetAsset(EditableResource);
         var data = asset.GetData<ObjectInstanceData>();
         DirtyTracker.RemoveChild(Position);
-        _position = new Vector4ViewModel(data.Position);
         DirtyTracker.AddChild(Position);
-        var rotX = data.RotationX.GetRotation();
-        var rotY = data.RotationY.GetRotation();
-        var rotZ = data.RotationZ.GetRotation();
         DirtyTracker.RemoveChild(Rotation);
-        _rotation = new Vector3ViewModel(rotX, rotY, rotZ);
+        _rotation = new Vector3ViewModel(data.Rotation.X, data.Rotation.Y, data.Rotation.Z);
         DirtyTracker.AddChild(Rotation);
         instances.Clear();
         foreach (var i in data.Instances)

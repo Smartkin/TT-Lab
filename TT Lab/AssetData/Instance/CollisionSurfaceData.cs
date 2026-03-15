@@ -6,6 +6,7 @@ using TT_Lab.Assets.Code;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Attributes;
 using TT_Lab.Util;
+using TT_Lab.ViewModels.Editors;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces;
@@ -81,6 +82,7 @@ public class CollisionSurfaceData : AbstractAssetData
     
     [JsonProperty(Required = Required.Always)]
     [Editable]
+    [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
     public Single[] PhysicsParameters { get; set; }
     
     [JsonProperty(Required = Required.Always)]
@@ -89,6 +91,7 @@ public class CollisionSurfaceData : AbstractAssetData
     
     [JsonProperty(Required = Required.Always)]
     [Editable]
+    [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
     public Vector4[] UnkBoundingBox { get; set; }
 
     protected override void Dispose(Boolean disposing)

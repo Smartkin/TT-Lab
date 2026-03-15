@@ -1,13 +1,21 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Caliburn.Micro;
 using Newtonsoft.Json;
 using Splat;
 using TT_Lab.AssetData;
+using TT_Lab.Assets.Graphics;
 using TT_Lab.Attributes;
+using TT_Lab.Attributes.EditorParamWrappers;
+using TT_Lab.Attributes.Viewport;
 using TT_Lab.Project;
+using TT_Lab.Rendering;
+using TT_Lab.ViewModels;
 using TT_Lab.ViewModels.Editors;
+using TT_Lab.ViewModels.Editors.PropertyGraph;
+using TT_Lab.ViewModels.Interfaces;
 using TT_Lab.ViewModels.ResourceTree;
 
 namespace TT_Lab.Assets;
@@ -22,11 +30,15 @@ public class LevelChunk : SerializableAsset
     [JsonProperty(Required = Required.Always)]
     [Editable]
     [EditorParam(UriLinkViewModel.BrowseScope, UriLinkViewModel.Scope.Document)]
+    [EditorParam(UriLinkViewModel.OpenInInspector, true)]
+    [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
     public List<LabURI> ChunkResources { get; set; } = [];
 
     [JsonProperty(Required = Required.Always)]
     [Editable]
-    [EditorParam(DocumentViewModel.EditorExplicitOrder, -4)]
+    [EditorParam(DocumentModelViewModel.EditorExplicitOrder, -4)]
+    [EditorParam(UriLinkViewModel.BrowseType, typeof(Skydome))]
+    [EditorHiddenIn("default", false)]
     public LabURI Skydome { get; set; } = LabURI.Empty;
 
     public LevelChunk()
@@ -59,7 +71,37 @@ public class LevelChunk : SerializableAsset
 
     public Folder GetChunkFolder()
     {
-        throw new NotImplementedException();
+        var assetManager = AssetManager.Get();
+        var packageFolderUri = assetManager.GetAsset<Package>(Package).GetFolderUri();
+        return AssetManager.Get().GetAsset<Folder>(new LabURI($"{packageFolderUri}/{GetChunkPath()}"));
+    }
+
+    public override List<ViewportObject> GetViewportObjects(ViewportContext viewportContext,
+        PropertyNode property)
+    {
+        var assetManager = AssetManager.Get();
+        var result = new List<ViewportObject>();
+        if (Skydome != LabURI.Empty)
+        {
+            var skydomeData = assetManager.GetAssetData(Skydome);
+            var skydomeProp = property.Find(nameof(Skydome))!;
+            result.AddRange(skydomeData.GetViewportObjects(viewportContext, skydomeProp));
+        }
+
+        var chunkResourceList = property.Find(nameof(ChunkResources))!;
+        var idx = 0;
+        foreach (var data in ChunkResources.Select(resource => assetManager.GetAssetData(resource)))
+        {
+            var dataDoc = chunkResourceList.Find($"[{idx}]");
+            if (dataDoc is not null)
+            {
+                result.AddRange(data.GetViewportObjects(viewportContext, dataDoc));
+            }
+
+            idx++;
+        }
+        
+        return result;
     }
 
     public override AbstractAssetData GetData()

@@ -22,7 +22,7 @@ public class TextFileData : AbstractAssetData
         Text = $"{text}";
     }
 
-    [Editable(EditorType = typeof(CodeEditorViewModel))]
+    [Editable(EditorDescType = typeof(CodeEditorViewModel))]
     public String Text { get; set; }
 
     public override ITwinItem Export(ITwinItemFactory factory)

@@ -184,7 +184,8 @@ public class ParticleSystem : IDocumentModel
 
     [Editable] [EditorReadOnly] public UInt32 Version { get; set; } = 0x1E;
     
-    [Editable] [EditorParam(TextFieldViewModel.TextFieldStringLength, 16U)] public String Name { get; set; } = "Particle System";
+    [Editable] [EditorParam(TextFieldViewModel.TextFieldStringLength, 16U)]
+    public String Name { get; set; } = "Particle System";
 
     [Editable] public Byte UnkByte1 { get; set; }
 
@@ -272,9 +273,11 @@ public class ParticleSystem : IDocumentModel
 
     [Editable] public Single JibberYAmp { get; set; }
 
-    [Editable] public Vector4[] ColorGradients { get; set; } = new Vector4[8];
+    [Editable] [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
+    public Vector4[] ColorGradients { get; set; } = new Vector4[8];
 
-    [Editable] public Vector2[] AlphaGradient { get; set; } = new Vector2[8];
+    [Editable] [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
+    public Vector2[] AlphaGradient { get; set; } = new Vector2[8];
 
     [Editable] public Vector2 Distortion { get; set; } = new()
     {
@@ -286,25 +289,31 @@ public class ParticleSystem : IDocumentModel
 
     [Editable] public Single MaxSize { get; set; }
 
-    [Editable] public Vector2[] SizeWidth { get; set; } = new Vector2[8];
+    [Editable] [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
+    public Vector2[] SizeWidth { get; set; } = new Vector2[8];
 
-    [Editable] public Vector2[] SizeHeight { get; set; } = new Vector2[8];
+    [Editable] [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
+    public Vector2[] SizeHeight { get; set; } = new Vector2[8];
 
     [Editable] public Single MinRotation { get; set; }
 
     [Editable] public Single MaxRotation { get; set; }
 
-    [Editable] public Vector2[] Rotation { get; set; } = new Vector2[8];
+    [Editable] [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
+    public Vector2[] Rotation { get; set; } = new Vector2[8];
 
-    [Editable] public Vector2[] UnkGradient1 { get; set; } = new Vector2[8];
+    [Editable] [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
+    public Vector2[] UnkGradient1 { get; set; } = new Vector2[8];
 
-    [Editable] public Vector2[] UnkGradient2 { get; set; } = new Vector2[8];
+    [Editable] [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
+    public Vector2[] UnkGradient2 { get; set; } = new Vector2[8];
 
     [Editable] public Vector2 TextureStart { get; set; } = new();
 
     [Editable] public Vector2 TextureEnd { get; set; } = new();
 
-    [Editable] public Vector2[] Collision { get; set; } = new Vector2[8];
+    [Editable] [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
+    public Vector2[] Collision { get; set; } = new Vector2[8];
 
     [Editable] public Byte CollisionNumSpheres { get; set; }
 
@@ -322,7 +331,8 @@ public class ParticleSystem : IDocumentModel
 
     [Editable] public Single RampTime { get; set; }
 
-    [Editable] public Int32 TexturePage { get; set; }
+    [Editable] [EditorParam(TextFieldViewModel.TextFieldNumberRange, new[] { 0, 2 })]
+    public Int32 TexturePage { get; set; }
 
     [Editable] public Vector4 UnkVec3 { get; set; } = new();
 

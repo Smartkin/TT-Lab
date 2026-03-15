@@ -137,7 +137,8 @@ public class LabURI : IEquatable<LabURI>, IComparable
         {
             if (this == Empty) return "Empty";
             if (Locator.Current.GetService<ProjectManager>()!.OpenedProject == null) return _uri;
-            return Locator.Current.GetService<ProjectManager>()!.OpenedProject == null ? _uri : AssetManager.Get().GetAsset(this).Name;
+            if (AssetManager.Get().DoesAssetExist(this)) return AssetManager.Get().GetAsset(this).Name;
+            return _uri;
         }
     }
 }

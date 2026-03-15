@@ -167,7 +167,7 @@ public class ChunkEditorViewModel :
     protected override Task OnActivatedAsync(CancellationToken cancellationToken)
     {
         _activeChunkService.SetCurrentChunkEditor(this);
-        ActivateItemAsync(SceneEditor, cancellationToken);
+        // ActivateItemAsync(SceneEditor, cancellationToken);
             
         return base.OnActivatedAsync(cancellationToken);
     }
@@ -208,7 +208,7 @@ public class ChunkEditorViewModel :
                 sceneInstance.Dispose();
             }
 
-            DeactivateItemAsync(SceneEditor, close, cancellationToken);
+            // DeactivateItemAsync(SceneEditor, close, cancellationToken);
         }
 
         return base.OnDeactivateAsync(close, cancellationToken);
@@ -345,7 +345,7 @@ public class ChunkEditorViewModel :
                 continue;
             }
                 
-            _editingContext.Select(sceneInstance);
+            // _editingContext.Select(sceneInstance);
             break;
         }
     }
@@ -372,7 +372,7 @@ public class ChunkEditorViewModel :
                 continue;
             }
                 
-            _editingContext.Select(sceneInstance);
+            // _editingContext.Select(sceneInstance);
             break;
         }
     }
@@ -411,7 +411,7 @@ public class ChunkEditorViewModel :
 
     protected override Task OnInitializedAsync(CancellationToken cancellationToken)
     {
-        ActivateItemAsync(_sceneEditor, cancellationToken);
+        // ActivateItemAsync(_sceneEditor, cancellationToken);
 
         return base.OnInitializedAsync(cancellationToken);
     }
@@ -486,7 +486,7 @@ public class ChunkEditorViewModel :
         {
             _editingContext.ToggleRotate();
         }
-        else if (key == Key.S)
+        else if (key == Key.E)
         {
             _editingContext.ToggleScale();
         }
@@ -528,7 +528,7 @@ public class ChunkEditorViewModel :
         }
         else if (key == Key.K && _editingContext.SelectedInstance != null)
         {
-            _editingContext.SetPalette(_editingContext.SelectedInstance);
+            // _editingContext.SetPalette(_editingContext.SelectedInstance);
         }
         else if (key == Key.P)
         {
@@ -586,7 +586,7 @@ public class ChunkEditorViewModel :
             
             if (result != null)
             {
-                _editingContext.Select(result);
+                // _editingContext.Select(result);
             }
         }
             
@@ -711,7 +711,7 @@ public class ChunkEditorViewModel :
                 inputContext.Mice[0].MouseMove += MouseMove;
             });
 
-            _editingContext = new EditingContext(_renderContext, scene, this);
+            _editingContext = new EditingContext(_renderContext, scene);
                 
             // Currently all stuff is created as is from the data without linking it to view models
             // TODO: Link all that together so that changes in the editor reflect on the end data
@@ -848,7 +848,7 @@ public class ChunkEditorViewModel :
         ImGui.Text("U - Unselect");
         ImGui.Text("T - Toggle translate");
         ImGui.Text("R - Toggle rotate");
-        ImGui.Text("S - Toggle scale");
+        ImGui.Text("E - Toggle scale");
         ImGui.Text("X - Edit on X axis");
         ImGui.Text("Y - Edit on Y axis");
         ImGui.Text("Z - Edit on Z axis");

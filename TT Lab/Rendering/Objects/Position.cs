@@ -14,7 +14,7 @@ public class Position : EditableObject
     private PositionData _data;
     private Billboard _billboard;
 
-    public Position(RenderContext context, string name, Billboard billboard, int layId, PositionData data) : base(context, name)
+    public Position(RenderContext context, string name, Billboard billboard, int layId, PositionData data) : base(context, null, name)
     {
         _layId = layId;
         _billboard = billboard;

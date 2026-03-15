@@ -7,8 +7,11 @@
              x:DataType="viewmodels:CodeEditorViewModel"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="TT_Lab.Views.Editors.CodeEditorView">
-    <avaloniaEdit:TextEditor Name="Editor"
-                             HorizontalScrollBarVisibility="Auto"
-                             VerticalScrollBarVisibility="Auto"
-                             ShowLineNumbers="True"/>
+    <StackPanel Orientation="Vertical">
+        <avaloniaEdit:TextEditor Name="Editor"
+                                 HorizontalScrollBarVisibility="Auto"
+                                 VerticalScrollBarVisibility="Auto"
+                                 ShowLineNumbers="True"/>
+        <TextBlock x:Name="CodeParsingError" Foreground="Red" FontSize="14"/>
+    </StackPanel>
 </UserControl>

@@ -44,14 +44,14 @@ public class OGIViewModel : ResourceEditorViewModel
 
     protected override async Task OnActivatedAsync(CancellationToken cancellationToken)
     {
-        await ActivateItemAsync(OGIScene, cancellationToken);
+        // await ActivateItemAsync(OGIScene, cancellationToken);
         
         await base.OnActivatedAsync(cancellationToken);
     }
 
     protected override async Task OnDeactivateAsync(bool close, CancellationToken cancellationToken)
     {
-        await DeactivateItemAsync(OGIScene, close, cancellationToken);
+        // await DeactivateItemAsync(OGIScene, close, cancellationToken);
         
         await base.OnDeactivateAsync(close, cancellationToken);
     }

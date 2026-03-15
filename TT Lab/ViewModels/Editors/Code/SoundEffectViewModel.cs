@@ -19,6 +19,7 @@ using TT_Lab.Assets.Code;
 using TT_Lab.Attributes;
 using TT_Lab.Services;
 using TT_Lab.Util;
+using TT_Lab.ViewModels.Editors.PropertyGraph;
 using Twinsanity.Libraries;
 
 namespace TT_Lab.ViewModels.Editors.Code;
@@ -30,21 +31,16 @@ public partial class SoundEffectViewModel : DocumentDataViewModel<SoundEffectDat
     private SoundPlayer _audioPlayer;
     private MemoryStream _audioStream;
 
-    public SoundEffectViewModel(DocumentViewModel document, SoundEffectData soundEffectData) : base(document, soundEffectData)
+    public SoundEffectViewModel(DocumentViewModel document, PropertyNode soundEffectData, params DocumentNodeViewModel[] dependencies) : base(document, soundEffectData, dependencies)
     {
         _audioService = Locator.Current.GetService<IAudioService>()!;
         
-        InitAudioPlayer(Data);
+        InitAudioPlayer(CurrentValue!);
     }
 
     protected override void OnClosed(CompositeDisposable disposables)
     {
         _audioPlayer.DisposeWith(disposables);
-    }
-
-    public override void Save()
-    {
-        Data.GetOwner().SetData(Data);
     }
 
     [MemberNotNull(nameof(_audioPlayer))]
@@ -117,9 +113,9 @@ public partial class SoundEffectViewModel : DocumentDataViewModel<SoundEffectDat
         fs.Close();
         reader.Close();
         
-        Data = new SoundEffectData((IAsset)Document.DocumentModel);
-        Data.Load(file);
-        InitAudioPlayer(Data);
+        SetValueCommand.Execute(new SoundEffectData((IAsset)Document.DocumentModel));
+        CurrentValue!.Load(file);
+        InitAudioPlayer(CurrentValue!);
         
         SoundProgress = 0;
         this.RaisePropertyChanged(nameof(SoundDuration));

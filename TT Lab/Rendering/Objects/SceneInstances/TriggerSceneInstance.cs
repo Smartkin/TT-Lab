@@ -13,7 +13,7 @@ public sealed class TriggerSceneInstance : SceneInstance
     public TriggerSceneInstance(EditingContext editingContext, TriggerData data, IAsset attachedAsset) : base(editingContext, attachedAsset, data)
     {
         Position = new vec3(data.Position.X, data.Position.Y, data.Position.Z);
-        var rotEuler = data.Rotation.ToEulerAngles();
+        var rotEuler = data.Rotation;
         Rotation = new vec3(rotEuler.X, rotEuler.Y, rotEuler.Z);
         var scale = new vec3(Math.Abs(data.Scale.X), Math.Abs(data.Scale.Y), Math.Abs(data.Scale.Z));
         var bbox = new Box3D<float>(new Vector3D<Single>(-scale.x / 2, -scale.y / 2, -scale.z / 2),

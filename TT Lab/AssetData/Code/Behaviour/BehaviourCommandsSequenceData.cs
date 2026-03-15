@@ -42,7 +42,8 @@ namespace TT_Lab.AssetData.Code.Behaviour
             SetTwinItem(codeModel);
         }
 
-        [Editable(Caption = "Behaviour Commands Sequence Editor", EditorOrientation = Avalonia.Controls.Dock.Top, EditorType = typeof(CodeEditorViewModel))]
+        [Editable(Caption = "Behaviour Commands Sequence Editor", EditorOrientation = Avalonia.Controls.Dock.Top, EditorDescType = typeof(CodeEditorViewModel))]
+        [EditorParam(CodeEditorViewModel.ValidateAgentLabCode, true)]
         public String Code { get; set; }
 
         protected override void SaveInternal(string dataPath, JsonSerializerSettings? settings = null)

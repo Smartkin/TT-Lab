@@ -25,13 +25,6 @@ public class PositionViewModel : InstanceSectionResourceEditorViewModel
         var asset = AssetManager.Get().GetAsset(EditableResource);
         asset.LayoutID = (int)LayoutID;
         var data = asset.GetData<PositionData>();
-        data.Coords = new Twinsanity.TwinsanityInterchange.Common.Vector4
-        {
-            X = Position.X,
-            Y = Position.Y,
-            Z = Position.Z,
-            W = Position.W
-        };
             
         base.Save();
     }
@@ -41,7 +34,6 @@ public class PositionViewModel : InstanceSectionResourceEditorViewModel
         var asset = AssetManager.Get().GetAsset(EditableResource);
         var posData = asset.GetData<PositionData>();
         DirtyTracker.RemoveChild(position);
-        position = new Vector4ViewModel(posData.Coords);
         DirtyTracker.AddChild(position);
         layId = MiscUtils.ConvertEnum<Enums.Layouts>(asset.LayoutID!.Value);
     }

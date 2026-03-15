@@ -4,8 +4,8 @@ namespace TT_Lab.Attributes.EditorParamWrappers;
 
 public class EditorCollectionItemPrefixAttribute(string caption) : EditorParamWrapperBaseAttribute
 {
-    public override void ApplyTo(DocumentPartViewModel viewModel)
+    public override void ApplyTo(DocumentNodeViewModel viewModel)
     {
-        viewModel.EditorParameters[DocumentViewModel.ItemCaptionPrefix] = caption;
+        viewModel.EditorParameters[DocumentCollectionViewModel.ItemCaptionPrefix] = caption;
     }
 }

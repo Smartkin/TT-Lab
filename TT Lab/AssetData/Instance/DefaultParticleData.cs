@@ -7,6 +7,7 @@ using TT_Lab.Assets.Factory;
 using TT_Lab.Assets.Graphics;
 using TT_Lab.Attributes;
 using TT_Lab.Util;
+using TT_Lab.ViewModels.Editors;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM;
@@ -28,10 +29,12 @@ public class DefaultParticleData : ParticleData
 
     [JsonProperty(Required = Required.Always)]
     [Editable]
+    [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
     public List<LabURI> TextureIDs { get; set; } = new();
     
     [JsonProperty(Required = Required.Always)]
     [Editable]
+    [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
     public List<LabURI> MaterialIDs { get; set; } = new();
     
     [JsonProperty(Required = Required.Always)]

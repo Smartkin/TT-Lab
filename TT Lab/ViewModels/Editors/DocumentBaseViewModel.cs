@@ -15,6 +15,9 @@ public abstract partial class DocumentBaseViewModel : ReactiveValidationObject
 
     [ObservableAsProperty]
     private IBrush _depthDependentBrush;
+    
+    [Reactive]
+    private bool _isVisible = true;
 
     [Reactive]
     private int _depth;
@@ -22,11 +25,11 @@ public abstract partial class DocumentBaseViewModel : ReactiveValidationObject
     [Reactive]
     private bool _isReadOnly;
     
-    private static IBrush[] _documentBrushes;
+    private static readonly IBrush[] DocumentBrushes;
 
     static DocumentBaseViewModel()
     {
-        _documentBrushes =
+        DocumentBrushes =
         [
             new ImmutableSolidColorBrush(Color.FromRgb(0, 0, 0)),
             new ImmutableSolidColorBrush(Color.FromRgb(25, 25, 25)),
@@ -44,7 +47,7 @@ public abstract partial class DocumentBaseViewModel : ReactiveValidationObject
             .ToProperty(this, x => x.CanWrite);
 
         _depthDependentBrushHelper = this.WhenAnyValue(x => x.Depth)
-            .Select(x => _documentBrushes[x % _documentBrushes.Length])
+            .Select(x => DocumentBrushes[x % DocumentBrushes.Length])
             .ToProperty(this, x => x.DepthDependentBrush);
     }
 }

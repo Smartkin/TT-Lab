@@ -19,7 +19,7 @@ public sealed class ObjectSceneInstance : SceneInstance
         _skeletonManager = skeletonManager;
         _meshService = meshService;
         Position = new vec3(instanceData.Position.X, instanceData.Position.Y, instanceData.Position.Z);
-        Rotation = new vec3(instanceData.RotationX.GetRotation(), instanceData.RotationY.GetRotation(), instanceData.RotationZ.GetRotation());
+        Rotation = new vec3(instanceData.Rotation.X, instanceData.Rotation.Y, instanceData.Rotation.Z);
         Size = vec3.Ones * 0.5f;
         Offset = -vec3.Ones * 0.25f;
         

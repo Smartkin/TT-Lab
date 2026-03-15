@@ -24,14 +24,16 @@ class Program
             .With(new X11PlatformOptions
             {
                 GlProfiles = [new GlVersion(GlProfileType.OpenGL, 4, 6)],
-                RenderingMode = [X11RenderingMode.Glx]
+                RenderingMode = [X11RenderingMode.Glx],
+                ShouldRenderOnUIThread = false
             })
             #endif
             #if _WINDOWS
             .With(new Win32PlatformOptions
             {
                 WglProfiles = [new GlVersion(GlProfileType.OpenGL, 4, 6)],
-                RenderingMode = [Win32RenderingMode.Wgl]
+                RenderingMode = [Win32RenderingMode.Wgl],
+                ShouldRenderOnUIThread = false
             })
             #endif
             #if DEBUG

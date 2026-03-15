@@ -12,6 +12,7 @@ public abstract class DocumentBaseView<T> : ReactiveUserControl<T> where T : Doc
     {
         this.WhenActivated(disposables =>
         {
+            this.OneWayBind(ViewModel, x => x.IsVisible, view => view.IsVisible);
             this.OneWayBind(ViewModel, x => x.CanWrite, view => view.IsEnabled);
             this.OneWayBind(ViewModel, x => x.DepthDependentBrush, view => view.Background);
             

@@ -81,36 +81,36 @@ namespace TT_Lab.AssetData.Code
         
         [JsonProperty(Required = Required.Always)]
         [Editable(Caption = "Trigger Messages", EditorOrientation = Avalonia.Controls.Dock.Top)]
-        [EditorParam(DocumentViewModel.ItemCaptionPrefix, "Message")]
+        [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Message")]
         public List<ObjectTriggerBehaviourData> TriggerBehaviours { get; set; }
         
         [JsonProperty(Required = Required.Always)]
         [Editable(Caption = "OGI Slots", EditorOrientation = Avalonia.Controls.Dock.Top)]
-        [EditorParam(DocumentViewModel.ItemCaptionPrefix, "OGI Slot")]
+        [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "OGI Slot")]
         [EditorParam(UriLinkViewModel.BrowseType, typeof(OGI))]
         public List<LabURI> OGISlots { get; set; }
         
         [JsonProperty(Required = Required.Always)]
         [Editable(Caption = "Animation Slots", EditorOrientation = Avalonia.Controls.Dock.Top)]
-        [EditorParam(DocumentViewModel.ItemCaptionPrefix, "Animation Slot")]
+        [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Animation Slot")]
         [EditorParam(UriLinkViewModel.BrowseType, typeof(Animation))]
         public List<LabURI> AnimationSlots { get; set; }
         
         [JsonProperty(Required = Required.Always)]
         [Editable(Caption = "Behaviour Slots", EditorOrientation = Avalonia.Controls.Dock.Top)]
-        [EditorParam(DocumentViewModel.ItemCaptionPrefix, "Behaviour Slot")]
+        [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Behaviour Slot")]
         [EditorParam(UriLinkViewModel.BrowseType, typeof(BehaviourGraph))]
         public List<LabURI> BehaviourSlots { get; set; }
         
         [JsonProperty(Required = Required.Always)]
         [Editable(Caption = "Object Slots", EditorOrientation = Avalonia.Controls.Dock.Top)]
-        [EditorParam(DocumentViewModel.ItemCaptionPrefix, "Object Slot")]
+        [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Object Slot")]
         [EditorParam(UriLinkViewModel.BrowseType, typeof(GameObject))]
         public List<LabURI> ObjectSlots { get; set; }
         
         [JsonProperty(Required = Required.Always)]
         [Editable(Caption = "Sound Slots", EditorOrientation = Avalonia.Controls.Dock.Top)]
-        [EditorParam(DocumentViewModel.ItemCaptionPrefix, "Sound Slot")]
+        [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Sound Slot")]
         [EditorParam(UriLinkViewModel.BrowseType, typeof(SoundEffect))]
         public List<LabURI> SoundSlots { get; set; }
         
@@ -119,22 +119,26 @@ namespace TT_Lab.AssetData.Code
         
         [JsonProperty(Required = Required.Always)]
         [Editable(Caption = "Template Instance Flags", EditorOrientation = Avalonia.Controls.Dock.Top)]
-        [EditorParam(DocumentViewModel.ItemCaptionPrefix, "Flag")]
+        [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Flag")]
+        [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
         public List<UInt32> InstFlags { get; set; }
         
         [JsonProperty(Required = Required.Always)]
         [Editable(Caption = "Template Instance Floats", EditorOrientation = Avalonia.Controls.Dock.Top)]
-        [EditorParam(DocumentViewModel.ItemCaptionPrefix, "Float")]
+        [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Float")]
+        [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
         public List<Single> InstFloats { get; set; }
         
         [JsonProperty(Required = Required.Always)]
         [Editable(Caption = "Template Instance Integers", EditorOrientation = Avalonia.Controls.Dock.Top)]
-        [EditorParam(DocumentViewModel.ItemCaptionPrefix, "Integer")]
+        [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Integer")]
+        [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
         public List<UInt32> InstIntegers { get; set; }
         
         [JsonProperty(Required = Required.Always)]
-        [Editable(Caption = "Object's AgentLab Commands", EditorOrientation = Avalonia.Controls.Dock.Top, EditorType = typeof(CodeEditorViewModel))]
-        [EditorParam(DocumentViewModel.EditorExplicitOrder, Int32.MaxValue)]
+        [Editable(Caption = "Object's AgentLab Commands", EditorOrientation = Avalonia.Controls.Dock.Top, EditorDescType = typeof(CodeEditorViewModel))]
+        [EditorParam(DocumentModelViewModel.EditorExplicitOrder, Int32.MaxValue)]
+        [EditorParam(CodeEditorViewModel.ValidateAgentLabCode, true)]
         public string BehaviourPack { get; set; }
         
         public List<LabURI> RefObjects { get; set; }

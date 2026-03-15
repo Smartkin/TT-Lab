@@ -8,13 +8,14 @@ using ReactiveUI;
 using ReactiveUI.SourceGenerators;
 using ReactiveUI.Validation.Extensions;
 using TT_Lab.Util;
+using TT_Lab.ViewModels.Editors.PropertyGraph;
 
 namespace TT_Lab.ViewModels.Editors;
 
-public partial class TextFieldViewModel(DocumentViewModel document, object data) : DocumentDataViewModel<object>(document, data)
+public partial class TextFieldViewModel(DocumentViewModel document, PropertyNode data, params DocumentNodeViewModel[] dependencies) : DocumentDataViewModel<object>(document, data, dependencies)
 {
     [Reactive]
-    private string? _text = data.ToString();
+    private string? _text = data.GetValue()?.ToString();
 
     private static readonly Dictionary<Type, IStringConverter> DefaultStringConverters = new();
 
@@ -37,17 +38,17 @@ public partial class TextFieldViewModel(DocumentViewModel document, object data)
         DefaultStringConverters[typeof(Decimal)] = new DecimalConverter();
     }
 
-    protected override void OnInitialized(CompositeDisposable disposables)
+    protected override void ApplyEditorAttributes()
     {
-        base.OnInitialized(disposables);
-
+        base.ApplyEditorAttributes();
+        
         if (EditorParameters.TryGetValue(TextFieldConverter, out var value))
         {
             _converter = (IStringConverter)System.Activator.CreateInstance((Type)value)!;
         }
         else
         {
-            _converter = DetermineConverter(Data.GetType());
+            _converter = DetermineConverter(Property.PropertyType);
         }
 
         _stringLength = GetEditorParameter(TextFieldStringLength, UInt32.MaxValue);
@@ -61,7 +62,12 @@ public partial class TextFieldViewModel(DocumentViewModel document, object data)
                 _numberRange[idx++] = Convert.ToDouble(num);
             }
         }
+    }
 
+    protected override void ApplyValidationRules(CompositeDisposable disposables)
+    {
+        base.ApplyValidationRules(disposables);
+        
         this.ValidationRule(viewModel => viewModel.Text, text => !string.IsNullOrWhiteSpace(text),
             $"{Caption} must not be empty!").DisposeWith(disposables);
         this.ValidationRule(viewModel => viewModel.Text, text => _converter == null || _converter.IsConvertible(text ?? string.Empty),
@@ -70,24 +76,25 @@ public partial class TextFieldViewModel(DocumentViewModel document, object data)
             $"{Caption} must be in the range {_numberRange[0]}-{_numberRange[1]}!").DisposeWith(disposables);
         this.ValidationRule(viewModel => viewModel.Text, text => (text?.Length ?? 0) <= _stringLength,
             $"{Caption} must be less than {_stringLength} long!").DisposeWith(disposables);
+    }
+
+    protected override void OnInitialized(CompositeDisposable disposables)
+    {
+        base.OnInitialized(disposables);
 
         this.IsValid().Subscribe(x =>
         {
             _canClose = x;
         }).DisposeWith(disposables);
-        
-        this.WhenAnyValue(x => x.Text)
-            .Where(s => !string.IsNullOrEmpty(s) && (_converter == null || _converter.IsConvertible(s)))
-            .Subscribe(s =>
-            {
-                if (_converter != null)
-                {
-                    Data = _converter.ConvertFromString(s!);
-                    return;
-                }
-                
-                Data = s!;
-            }).DisposeWith(disposables);
+    }
+
+    protected override void SetCurrentValue(object? value)
+    {
+        var s = value as string;
+        if (!string.IsNullOrEmpty(s) && (_converter == null || _converter.IsConvertible(s)))
+        {
+            base.SetCurrentValue(value);
+        }
     }
 
     public override Boolean CanClose()

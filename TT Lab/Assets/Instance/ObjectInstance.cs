@@ -6,40 +6,39 @@ using TT_Lab.ViewModels.ResourceTree;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout;
 
-namespace TT_Lab.Assets.Instance
+namespace TT_Lab.Assets.Instance;
+
+public class ObjectInstance : SerializableInstance
 {
-    public class ObjectInstance : SerializableInstance
+    public override UInt32 Section => Constants.LAYOUT_INSTANCES_SECTION;
+    public override String IconPath => "Instance.png";
+
+    public ObjectInstance(LabURI package, UInt32 id, String name, String chunk, Int32 layId, ITwinInstance instance) : base(package, id, name, chunk, layId)
     {
-        public override UInt32 Section => Constants.LAYOUT_INSTANCES_SECTION;
-        public override String IconPath => "Instance.png";
+        AssetData = new ObjectInstanceData(this, instance);
+    }
 
-        public ObjectInstance(LabURI package, UInt32 id, String name, String chunk, Int32 layId, ITwinInstance instance) : base(package, id, name, chunk, layId)
-        {
-            AssetData = new ObjectInstanceData(this, instance);
-        }
+    public ObjectInstance()
+    {
+    }
 
-        public ObjectInstance()
-        {
-        }
+    public override Type GetEditorType()
+    {
+        return typeof(ObjectInstanceViewModel);
+    }
 
-        public override Type GetEditorType()
+    public override AbstractAssetData GetData()
+    {
+        if (!IsLoaded || AssetData.Disposed)
         {
-            return typeof(ObjectInstanceViewModel);
+            AssetData = new ObjectInstanceData(this);
+            AssetData.Load(DataLoadPath);
         }
+        return AssetData;
+    }
 
-        public override AbstractAssetData GetData()
-        {
-            if (!IsLoaded || AssetData.Disposed)
-            {
-                AssetData = new ObjectInstanceData(this);
-                AssetData.Load(DataLoadPath);
-            }
-            return AssetData;
-        }
-
-        protected override ResourceTreeElementViewModel CreateResourceTreeElement(ResourceTreeElementViewModel? parent = null)
-        {
-            return new InstanceElementGenericViewModel<ObjectInstance>(URI, parent);
-        }
+    protected override ResourceTreeElementViewModel CreateResourceTreeElement(ResourceTreeElementViewModel? parent = null)
+    {
+        return new InstanceElementGenericViewModel<ObjectInstance>(URI, parent);
     }
 }
