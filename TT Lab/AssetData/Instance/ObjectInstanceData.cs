@@ -286,8 +286,8 @@ public class ObjectInstanceData : AbstractAssetData
         editableObject.SetRotation(new quat(Rotation.ToRadiansGlm()));
         return [new ViewportObject(editableObject, property.Path, property)
         {
-            Position = property.Find(nameof(Position)),
-            Rotation = property.Find(nameof(Rotation)),
+            Position = property.Find($"[data].AssetData.{nameof(Position)}"),
+            Rotation = property.Find($"[data].AssetData.{nameof(Rotation)}"),
         }];
     }
 }

@@ -17,7 +17,7 @@ public class PropertyNode
     public string Path { get; internal set; }
     public bool IsReadOnly { get; set; }
     public PropertyGraph? Graph { get; private set; }
-    public object Target { get; }
+    public object Target { get; private set; }
     public PropertyMetadata? Metadata { get; }
     public int? Index { get; internal set; }
     public Type PropertyType { get; }
@@ -171,6 +171,7 @@ public class PropertyNode
         if (SetValueDelegate != null)
         {
             SetValueDelegate(this, value);
+            UpdateChildrenTarget(value);
             RaiseGraphChange(oldValue, GetValue());
             return;
         }
@@ -188,7 +189,21 @@ public class PropertyNode
         }
         
         Metadata.PropertyInfo.SetValue(Target, value);
+        UpdateChildrenTarget(value);
         RaiseGraphChange(oldValue, value);
+    }
+
+    private void UpdateChildrenTarget(object? newTarget)
+    {
+        if (newTarget == null)
+        {
+            return;
+        }
+
+        foreach (var childNode in Children)
+        {
+            childNode.Target = newTarget;
+        }
     }
 
     private readonly Dictionary<PropertyNode, Action> _fieldReactorHandlers = [];

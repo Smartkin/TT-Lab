@@ -242,6 +242,8 @@ public class CameraData : AbstractAssetData
     public override List<ViewportObject> GetViewportObjects(ViewportContext viewportContext,
         PropertyNode property)
     {
+        return [];
+        
         var visual = BufferGeneration.GetCubeBuffer(viewportContext.RenderContext).Model!;
         var color = System.Drawing.Color.FromKnownColor(System.Drawing.KnownColor.Blue);
         visual.Diffuse = new vec4(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f,  color.A / 255.0f * 0.5f);

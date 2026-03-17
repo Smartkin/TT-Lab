@@ -25,8 +25,27 @@ public partial class DocumentDataViewModel<T> : DocumentNodeViewModel
         SetValueCommand = ReactiveCommand.CreateFromObservable<T?, Unit>(value =>
         {
             SetCurrentValue(value);
+            OnCurrentValueChanged();
             return Observable.Empty<Unit>();
         });
+    }
+
+    protected override void OnActivated(CompositeDisposable disposables)
+    {
+        base.OnActivated(disposables);
+        
+        Property.Changed += NodeOnChanged;
+        Disposable.Create(Property, (n) => n.Changed -= NodeOnChanged).DisposeWith(FullDeactivationDisposables);
+    }
+
+    protected virtual void OnCurrentValueChanged()
+    {
+        this.RaisePropertyChanged(nameof(CurrentValue));
+    }
+
+    protected virtual void NodeOnChanged()
+    {
+        this.RaisePropertyChanged(nameof(CurrentValue));
     }
 
     protected override void PropertyOnChanged()

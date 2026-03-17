@@ -216,9 +216,11 @@ public class Viewport : Control, ICustomHitTest
 
     private void OnOpenGlRender(double delta)
     {
-        _context!.ViewportSize = new vec2((float)Bounds.Width, (float)Bounds.Height);
-        _context.Gl.Viewport(0, 0, (uint)Bounds.Width, (uint)Bounds.Height);
-        _context.Gl.Scissor(0, 0, (uint)Bounds.Width, (uint)Bounds.Height);
+        var sdlWindowWidth = _sdlWindow.Width;
+        var sdlWindowHeight = _sdlWindow.Height;
+        _context!.ViewportSize = new vec2(sdlWindowWidth, sdlWindowHeight);
+        _context.Gl.Viewport(0, 0, (uint)sdlWindowWidth, (uint)sdlWindowHeight);
+        _context.Gl.Scissor(0, 0, (uint)sdlWindowWidth, (uint)sdlWindowHeight);
         _context.PerformRender((float)delta);
     }
 

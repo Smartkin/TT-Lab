@@ -16,6 +16,8 @@ public partial class TextFieldViewModel(DocumentViewModel document, PropertyNode
 {
     [Reactive]
     private string? _text = data.GetValue()?.ToString();
+    
+    private bool IsDirectEditing { get; set; }
 
     private static readonly Dictionary<Type, IStringConverter> DefaultStringConverters = new();
 
@@ -78,6 +80,14 @@ public partial class TextFieldViewModel(DocumentViewModel document, PropertyNode
             $"{Caption} must be less than {_stringLength} long!").DisposeWith(disposables);
     }
 
+    protected override void OnCurrentValueChanged()
+    {
+        IsDirectEditing = true;
+        base.OnCurrentValueChanged();
+        Text = Property.GetValue()?.ToString();
+        IsDirectEditing = false;
+    }
+
     protected override void OnInitialized(CompositeDisposable disposables)
     {
         base.OnInitialized(disposables);
@@ -97,6 +107,11 @@ public partial class TextFieldViewModel(DocumentViewModel document, PropertyNode
             .Where(s => !string.IsNullOrEmpty(s) && (_converter == null || _converter.IsConvertible(s)))
             .Subscribe(s =>
             {
+                if (IsDirectEditing)
+                {
+                    return;
+                }
+                
                 if (_converter != null)
                 {
                     SetCurrentValue(_converter.ConvertFromString(s!));
