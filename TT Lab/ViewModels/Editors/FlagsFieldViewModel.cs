@@ -24,7 +24,7 @@ public class FlagsFieldViewModel : DocumentCompositeViewModel
     {
         var enumValues = Property.Children.Select(x => new BoolFieldViewModel(Document, x, this)
         {
-            Caption = Enum.GetName(Property.PropertyType, x.GetValue()!)!,
+            Caption = x.Name,
         });
 
         foreach (var enumValue in enumValues)

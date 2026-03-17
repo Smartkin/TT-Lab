@@ -122,6 +122,11 @@ public interface IAsset : IDocumentModel
     /// Full system path to asset's data
     /// </summary>
     String FullDataPath { get; }
+    
+    /// <summary>
+    /// Full system path to asset
+    /// </summary>
+    String FullPath { get; }
 
     /// <summary>
     /// Name for the asset to display in project tree

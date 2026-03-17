@@ -46,9 +46,7 @@ public partial class ViewportViewModel : ReactiveObject
     private ViewportObject? _selectedObject;
     
     private readonly SourceCache<ViewportObject, string> _editableObjects;
-    private WriteableBitmap? _renderOutput;
     private Renderer? _renderer;
-    private Image? _display;
     
     private IInputContext? _inputContext;
     private IKeyboard? _keyboard;
@@ -61,7 +59,7 @@ public partial class ViewportViewModel : ReactiveObject
     private EditingContext? _editingContext;
     private DocumentViewModel? _document;
     private ivec2 ViewportSize => _renderContext == null ? ivec2.Ones : new ivec2((int)_renderContext.ViewportSize.x, (int)_renderContext.ViewportSize.y);
-    private CompositeDisposable _closeDisposables = new();
+    private readonly CompositeDisposable _closeDisposables = new();
 
     public ViewportViewModel()
     {
@@ -131,11 +129,14 @@ public partial class ViewportViewModel : ReactiveObject
         CanRender = false;
         this.RaisePropertyChanged(nameof(CanRender));
         this.RaisePropertyChanged(nameof(SceneStatus));
-        Dispatcher.UIThread.Post(() =>
+        _renderContext?.QueueRenderAction(() =>
         {
             _renderer?.SetFrameBufferSize(ViewportSize);
             _scene?.UpdateResolution(ViewportSize);
-
+        });
+        
+        Dispatcher.UIThread.Post(() =>
+        {
             if (!_renderInit)
             {
                 return;
@@ -275,7 +276,14 @@ public partial class ViewportViewModel : ReactiveObject
             {
                 _editingContext.Select(result);
                 SelectedObject = result;
-                _document?.OpenInspector(SelectedObject.Property);
+                if (SelectedObject.Property.PropertyType == typeof(LabURI))
+                {
+                    _document?.OpenInspector(SelectedObject.Property["[data]"]);
+                }
+                else
+                {
+                    _document?.OpenInspector(SelectedObject.Property);
+                }
             }
         }
         
@@ -353,8 +361,6 @@ public partial class ViewportViewModel : ReactiveObject
 
     public void TerminateRender()
     {
-        _renderer?.Dispose();
-        
         CanRender = false;
         this.RaisePropertyChanged(nameof(CanRender));
         this.RaisePropertyChanged(nameof(SceneStatus));

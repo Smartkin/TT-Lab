@@ -85,8 +85,8 @@ namespace TT_Lab.ViewModels.Editors.Instance.Cameras
             bossCam.UnkByte1 = UnkByte1;
             bossCam.UnkByte2 = UnkByte2;
             bossCam.UnkFloat3 = UnkFloat3;
-            bossCam.UnkFloat5 = UnkFloat4;
-            bossCam.UnkFloat6 = UnkFloat5;
+            bossCam.UnkFloat4 = UnkFloat4;
+            bossCam.UnkFloat5 = UnkFloat5;
             bossCam.UnkFloat6 = UnkFloat6;
             base.Save(cam);
         }

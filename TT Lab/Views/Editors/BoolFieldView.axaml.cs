@@ -22,6 +22,7 @@ public partial class BoolFieldView : DocumentBaseView<BoolFieldViewModel>
         this.OneWayBind(ViewModel, viewModel => viewModel.CurrentValue, view => view.BoolField.IsChecked).DisposeWith(disposables);
         
         this.WhenAnyValue(view => view.BoolField.IsChecked)
+            .Skip(1)
             .Where(x => x.HasValue)
             .Select(x => x!.Value)
             .InvokeCommand(ViewModel?.SetValueCommand)

@@ -111,7 +111,7 @@ public abstract partial class DocumentNodeViewModel : DocumentBaseViewModel, IAc
         {
             state.ApplyValidationRules(disposables);
             return Disposable.Empty;
-        }).DisposeWith(FullDeactivationDisposables);
+        }).DisposeWith(disposables);
     }
 
     protected virtual void PropertyOnChanged()
@@ -125,7 +125,7 @@ public abstract partial class DocumentNodeViewModel : DocumentBaseViewModel, IAc
         {
             state.ClearValidationRules();
             return Disposable.Empty;
-        }).DisposeWith(FullDeactivationDisposables);
+        }).DisposeWith(disposables);
     }
 
     protected virtual void OnClosed(CompositeDisposable disposables) { }

@@ -93,6 +93,14 @@ public partial class TabbedEditorViewModel : ReactiveObject
             {
                 SaveTab();
             }
+            else
+            {
+                await using System.IO.FileStream fs = new($"{_asset.FullPath}{System.IO.Path.DirectorySeparatorChar}{_asset.Name}.json", System.IO.FileMode.Open, System.IO.FileAccess.Read);
+                using System.IO.StreamReader reader = new(fs);
+                var json = await reader.ReadToEndAsync();
+                _asset.Deserialize(json);
+                _asset.Dispose();
+            }
 
             Viewport?.Close();
             _creationTask.Dispose();

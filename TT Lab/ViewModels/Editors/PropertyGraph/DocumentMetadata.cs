@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
@@ -19,6 +20,12 @@ public record DocumentMetadata : EditorMetadata
         EditorParams = type.GetCustomAttributes<EditorParamAttribute>().ToDictionary(x => x.Param, x => x.Value);
         EditorParamWrappers = type.GetCustomAttributes<EditorParamWrapperBaseAttribute>().ToArray();
         FieldReactors = GetFieldReactors(type);
+
+        if (type.IsAssignableTo(typeof(IList)))
+        {
+            Properties = [];
+            return;
+        }
         
         var editableProps = new List<PropertyMetadata>();
 
@@ -26,6 +33,12 @@ public record DocumentMetadata : EditorMetadata
         {
             var editableAttribute = property.GetCustomAttribute<EditableAttribute>();
             if (editableAttribute == null && !searchAllAttributes)
+            {
+                continue;
+            }
+            
+            // Skip this[index] or this[string] properties
+            if (property.Name == "Item" && searchAllAttributes)
             {
                 continue;
             }
@@ -37,10 +50,17 @@ public record DocumentMetadata : EditorMetadata
                 if (containedType != null)
                 {
                     containedTypeConstructor = GetTypeFactory(containedType);
+                    // Build metadata for contained type if not yet
+                    DocumentMetadataCache.Get(containedType);
+                }
+
+                if (property.PropertyType.IsAssignableTo(typeof(IList)) && searchAllAttributes)
+                {
+                    continue;
                 }
             }
 
-            if (Editable?.IncludeAllProperties == true)
+            if (searchAllAttributes)
             {
                 // Circular dependency handling
                 if (type == property.PropertyType)
@@ -101,7 +121,7 @@ public record DocumentMetadata : EditorMetadata
                 linkList = result[link.LinkedField];
             }
             
-            linkList.Add((IFieldChange)Activator.CreateInstance(link.ActionChange)!);
+            linkList.Add((IFieldChange)GetTypeFactory(link.ActionChange)());
         }
         return result;
     }

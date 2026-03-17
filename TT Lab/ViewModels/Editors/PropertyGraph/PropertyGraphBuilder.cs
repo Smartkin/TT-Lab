@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Linq;
 using System.Reflection;
 using TT_Lab.AssetData;
 using TT_Lab.Assets;
@@ -17,8 +18,7 @@ public static class PropertyGraphBuilder
 
     public static void RebuildCollection(PropertyNode node)
     {
-        node.Children.Clear();
-        BuildCollection(node, node.Target, node.Path);
+        BuildCollection(node, node.GetValue()!, node.Path);
     }
 
     private static void RebuildLink(PropertyNode node)
@@ -27,7 +27,7 @@ public static class PropertyGraphBuilder
         BuildLink(node, node.Path);
     }
 
-    private static PropertyNode BuildNode(object target, PropertyMetadata? property, string path, Type? innerType = null, int? index = null)
+    public static PropertyNode BuildNode(object target, PropertyMetadata? property, string path, Type? innerType = null, int? index = null)
     {
         var name = innerType?.Name ?? property?.PropertyInfo.Name ?? target.GetType().Name;
         var node = new PropertyNode(name, path, target, property, specifiedType: innerType, index: index);
@@ -71,8 +71,8 @@ public static class PropertyGraphBuilder
             {
                 SetValueDelegate = (property, value) =>
                 {
-                    var currentValue = (UInt32)property.Target;
-                    var shiftValue = (UInt32)(1U << (property.Index!));
+                    var currentValue = Convert.ToUInt64(property.Target);
+                    var shiftValue = (UInt64)(1UL << (property.Index!));
                     var setOrUnset = (bool)value!;
                     if (setOrUnset)
                     {
@@ -82,13 +82,15 @@ public static class PropertyGraphBuilder
                     {
                         currentValue &= ~shiftValue;
                     }
-                    
-                    property.Parent?.SetValue(currentValue);
+
+                    var converted = Convert.ChangeType(currentValue,
+                        Enum.GetUnderlyingType(property.Parent!.PropertyType));
+                    property.Parent?.SetValue(converted);
                 },
                 GetValueDelegate = (property) =>
                 {
-                    var currentValue = (UInt32)property.Target;
-                    var shiftValue = (UInt32)(1U << (property.Index!));
+                    var currentValue = Convert.ToUInt64(property.Target);
+                    var shiftValue = (UInt64)(1UL << (property.Index!));
                     return (currentValue & shiftValue) != 0;
                 }
             };
@@ -130,6 +132,13 @@ public static class PropertyGraphBuilder
 
         for (var i = 0; i < list.Count; ++i)
         {
+            if (node.Children.Count > i)
+            {
+                node.Children[i].Path = $"{path}[{i}]";
+                node.Children[i].Index = i;
+                continue;
+            }
+            
             var item = list[i];
             if (item == null)
             {
@@ -142,6 +151,7 @@ public static class PropertyGraphBuilder
             {
                 nodeMetadata = nodeMetadata with { ContainedTypeConstructor = null };
             }
+            
             var child = BuildNode(collection, nodeMetadata, childPath, innerType: item.GetType(), index: i);
             node.AddChild(child);
         }

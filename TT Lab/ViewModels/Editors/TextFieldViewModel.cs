@@ -88,13 +88,23 @@ public partial class TextFieldViewModel(DocumentViewModel document, PropertyNode
         }).DisposeWith(disposables);
     }
 
-    protected override void SetCurrentValue(object? value)
+    protected override void OnActivated(CompositeDisposable disposables)
     {
-        var s = value as string;
-        if (!string.IsNullOrEmpty(s) && (_converter == null || _converter.IsConvertible(s)))
-        {
-            base.SetCurrentValue(value);
-        }
+        base.OnActivated(disposables);
+
+        this.WhenAnyValue(x => x.Text)
+            .Skip(1)
+            .Where(s => !string.IsNullOrEmpty(s) && (_converter == null || _converter.IsConvertible(s)))
+            .Subscribe(s =>
+            {
+                if (_converter != null)
+                {
+                    SetCurrentValue(_converter.ConvertFromString(s!));
+                    return;
+                }
+                
+                SetCurrentValue(s);
+            }).DisposeWith(disposables);
     }
 
     public override Boolean CanClose()

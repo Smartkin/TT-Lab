@@ -65,11 +65,11 @@ public class CameraData : AbstractAssetData
     public Single UnkFloat1 { get; set; }
     
     [JsonProperty(Required = Required.Always)]
-    [Editable(IncludeAllProperties = true)]
+    [Editable]
     public Vector4 UnkVector1 { get; set; }
     
     [JsonProperty(Required = Required.Always)]
-    [Editable(IncludeAllProperties = true)]
+    [Editable]
     public Vector4 UnkVector2 { get; set; }
     
     [JsonProperty(Required = Required.Always)]
@@ -141,11 +141,11 @@ public class CameraData : AbstractAssetData
     public Byte UnkByte { get; set; }
     
     [JsonProperty(Required = Required.AllowNull)]
-    [Editable(IncludeAllProperties = true)]
+    [Editable]
     public CameraSubBase? MainCamera1 { get; set; }
     
     [JsonProperty(Required = Required.AllowNull)]
-    [Editable(IncludeAllProperties = true)]
+    [Editable]
     public CameraSubBase? MainCamera2 { get; set; }
 
     protected override void LoadInternal(String dataPath, JsonSerializerSettings? settings = null)

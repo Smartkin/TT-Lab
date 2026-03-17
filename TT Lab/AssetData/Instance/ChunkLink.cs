@@ -51,22 +51,22 @@ public class ChunkLink : IDocumentModel
     public Boolean KeepLoaded { get; set; }
     
     [JsonProperty(Required = Required.Always)]
-    [Editable(IncludeAllProperties = true)]
+    [Editable]
     [EditorLinkedField(typeof(InverseDependentMatrix), nameof(ChunkMatrix))]
     [EditorReadOnly]
     public Matrix4 ObjectMatrix { get; set; }
     
     [JsonProperty(Required = Required.Always)]
-    [Editable(IncludeAllProperties = true)]
+    [Editable]
     public Matrix4 ChunkMatrix { get; set; }
     
     [JsonProperty(Required = Required.AllowNull, NullValueHandling = NullValueHandling.Ignore)]
-    [Editable(IncludeAllProperties = true)]
+    [Editable]
     [EditorLinkedField(typeof(CanEditLoadWall), nameof(IsLoadWallActive))]
     public Matrix4 LoadingWall { get; set; }
     
     [JsonProperty(Required = Required.AllowNull)]
-    [Editable(IncludeAllProperties = true)]
+    [Editable]
     public List<TwinChunkLinkBoundingBoxBuilder> ChunkLinksCollisionData { get; set; }
 
     public ChunkLink()

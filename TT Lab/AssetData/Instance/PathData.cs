@@ -27,11 +27,11 @@ public class PathData : AbstractAssetData
     }
 
     [JsonProperty(Required = Required.Always)]
-    [Editable(IncludeAllProperties = true)]
+    [Editable]
     public List<Vector3> Points { get; set; }
     
     [JsonProperty(Required = Required.Always)]
-    [Editable(IncludeAllProperties = true)]
+    [Editable]
     public List<Vector2> Parameters { get; set; }
 
     protected override void Dispose(Boolean disposing)

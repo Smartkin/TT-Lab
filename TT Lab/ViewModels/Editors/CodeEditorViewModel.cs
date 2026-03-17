@@ -55,14 +55,15 @@ public partial class CodeEditorViewModel(DocumentViewModel document, PropertyNod
         }).DisposeWith(FullDeactivationDisposables);
     }
 
-    protected override void OnInitialized(CompositeDisposable disposables)
+    protected override void OnActivated(CompositeDisposable disposables)
     {
-        base.OnInitialized(disposables);
+        base.OnActivated(disposables);
 
         RxSchedulers.MainThreadScheduler.Schedule(this, (_, viewModel) =>
         {
             Code = new TextDocument(CurrentValue);
             return viewModel.WhenAnyValue(x => x.Code.Text).ObserveOn(RxSchedulers.MainThreadScheduler)
+                .Skip(1)
                 .Subscribe(code =>
                 {
                     SetValueCommand.Execute(code);

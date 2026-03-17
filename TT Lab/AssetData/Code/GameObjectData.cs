@@ -14,6 +14,7 @@ using TT_Lab.Assets.Factory;
 using TT_Lab.Attributes;
 using TT_Lab.Util;
 using TT_Lab.ViewModels.Editors;
+using TT_Lab.ViewModels.Editors.Descs;
 using Twinsanity.AgentLab;
 using Twinsanity.TwinsanityInterchange.Common.AgentLab;
 using Twinsanity.TwinsanityInterchange.Enumerations;
@@ -136,7 +137,7 @@ namespace TT_Lab.AssetData.Code
         public List<UInt32> InstIntegers { get; set; }
         
         [JsonProperty(Required = Required.Always)]
-        [Editable(Caption = "Object's AgentLab Commands", EditorOrientation = Avalonia.Controls.Dock.Top, EditorDescType = typeof(CodeEditorViewModel))]
+        [Editable(Caption = "Object's AgentLab Commands", EditorOrientation = Avalonia.Controls.Dock.Top, EditorDescType = typeof(CodeEditorDesc))]
         [EditorParam(DocumentModelViewModel.EditorExplicitOrder, Int32.MaxValue)]
         [EditorParam(CodeEditorViewModel.ValidateAgentLabCode, true)]
         public string BehaviourPack { get; set; }

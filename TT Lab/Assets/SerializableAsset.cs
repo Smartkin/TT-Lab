@@ -246,7 +246,7 @@ public abstract class SerializableAsset : IAsset
 
     public virtual void SetData(AbstractAssetData data)
     {
-        if (data == _assetData)
+        if (data == _assetData || data is null)
         {
             return;
         }
@@ -300,6 +300,12 @@ public abstract class SerializableAsset : IAsset
         }
         item?.SetID(exportId);
         item?.Compile();
+    }
+
+    public void Dispose()
+    {
+        DisposeData();
+        GC.SuppressFinalize(this);
     }
 
     protected void DisposeData(bool force = false)

@@ -29,6 +29,7 @@ public class RenderContext : IDisposable
     }
 
     public event Action<double>? Render;
+    public event Action? Destroy;
 
     private bool _isInit = false;
     
@@ -222,6 +223,7 @@ public class RenderContext : IDisposable
 
     public void Dispose()
     {
+        Destroy?.Invoke();
         Gl.Dispose();
         SetGlAccessibility(false);
         GC.SuppressFinalize(this);

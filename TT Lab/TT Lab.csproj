@@ -82,6 +82,7 @@
         <PackageReference Include="SharpHash" Version="1.2.0" />
         <PackageReference Include="Silk.NET.OpenGL" Version="2.22.0" />
         <PackageReference Include="Silk.NET.OpenGL.Extensions.ImGui" Version="2.22.0" />
+        <PackageReference Include="Silk.NET.Windowing.Glfw" Version="2.23.0" />
         <PackageReference Include="Silk.NET.Windowing.Sdl" Version="2.23.0" />
         <PackageReference Include="SoundFlow" Version="1.4.0">
             <ExcludeAssets>content; contentFiles; STATEMENT.md</ExcludeAssets>
@@ -95,6 +96,8 @@
         </PackageReference>
         <PackageReference Include="Splat.Logging" Version="18.1.1" />
         <PackageReference Include="Splat.Microsoft.Extensions.DependencyInjection" Version="18.1.1" />
+        <PackageReference Include="Veldrid" Version="4.9.0" />
+        <PackageReference Include="Veldrid.SDL2" Version="4.9.0" />
         <PackageReference Include="Xaml.Behaviors.Avalonia" Version="11.3.9" />
         <PackageReference Include="Xaml.Behaviors.Interactivity" Version="11.3.9" />
     </ItemGroup>

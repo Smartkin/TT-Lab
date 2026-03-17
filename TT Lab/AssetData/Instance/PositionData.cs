@@ -24,7 +24,7 @@ public class PositionData : AbstractAssetData
     }
 
     [JsonProperty(Required = Required.Always)]
-    [Editable(IncludeAllProperties = true)]
+    [Editable]
     public Vector3 Coords { get; set; }
 
     protected override void Dispose(Boolean disposing)

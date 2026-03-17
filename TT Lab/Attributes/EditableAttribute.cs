@@ -15,12 +15,5 @@ public class EditableAttribute : Attribute
     public Type? EditorDescType { get; set; }
     public bool IsExcludedFromPropertyGraph { get; init; }
     
-    /// <summary>
-    /// Use with care as this will traverse the entire property tree from the selected type
-    /// Only recommended usage is for types from 3rd party libraries
-    /// </summary>
-    /// <remarks>ADVANCED</remarks>
-    public bool IncludeAllProperties { get; init; }
-    
     public Avalonia.Controls.Dock EditorOrientation { get; init; } = Avalonia.Controls.Dock.Left;
 }

@@ -11,6 +11,7 @@ using TT_Lab.Assets.Code.Resolvers.Decompiler;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Attributes;
 using TT_Lab.ViewModels.Editors;
+using TT_Lab.ViewModels.Editors.Descs;
 using Twinsanity.AgentLab;
 using Twinsanity.AgentLab.Resolvers.Decompiler;
 using Twinsanity.AgentLab.Resolvers.Interfaces;
@@ -81,7 +82,7 @@ public class BehaviourGraphData : AbstractAssetData
         SetStarter(starter);
     }
 
-    [Editable(Caption = "Behaviour Graph Editor", EditorOrientation = Avalonia.Controls.Dock.Top, EditorDescType = typeof(CodeEditorViewModel))]
+    [Editable(Caption = "Behaviour Graph Editor", EditorOrientation = Avalonia.Controls.Dock.Top, EditorDescType = typeof(CodeEditorDesc))]
     [EditorParam(CodeEditorViewModel.ValidateAgentLabCode, true)]
     public String Graph { get; set; }
 

@@ -30,16 +30,7 @@ public partial class DocumentCollectionViewModel : DocumentCompositeViewModel
     private void CreateNewItem()
     {
         var itemIndex = Nodes.Count;
-        var itemCaption = $"{itemIndex}";
-        if (_indexItemsAsChars)
-        {
-            itemCaption = ((char)(itemIndex + 32)).ToString();
-        }
-        
-        if (!string.IsNullOrEmpty(_itemPrefix))
-        {
-            itemCaption = $"{_itemPrefix} {itemIndex}";
-        }
+        var itemCaption = GetItemCaption(itemIndex);
 
         var data = Property.AddElement();
         if (data == null)
@@ -49,6 +40,7 @@ public partial class DocumentCollectionViewModel : DocumentCompositeViewModel
         
         var editor = EditorDescRegistry.GetDesc(Document, data).Construct();
         editor.Caption = itemCaption;
+        editor.Orientation = Avalonia.Controls.Dock.Left;
         editor.Closed += () => ItemClosed(editor);
         
         AddNode(editor);
@@ -72,29 +64,61 @@ public partial class DocumentCollectionViewModel : DocumentCompositeViewModel
         var itemIndex = 0;
         foreach (var item in Nodes)
         {
-            var itemCaption = $"{itemIndex}";
-            if (_indexItemsAsChars)
-            {
-                itemCaption = ((char)(itemIndex + 32)).ToString();
-            }
-        
-            if (!string.IsNullOrEmpty(_itemPrefix))
-            {
-                itemCaption = $"{_itemPrefix} {itemIndex}";
-            }
-
-            itemIndex++;
-            
-            item.Caption = itemCaption;
+            item.Orientation = Avalonia.Controls.Dock.Left;
+            item.Caption = GetItemCaption(itemIndex++);
             item.Closed += () => ItemClosed(item);
         }
+
+        _actuallyRemoved = true;
     }
 
+    protected override void OnCollapsed(CompositeDisposable disposables)
+    {
+        _actuallyRemoved = false;
+        
+        base.OnCollapsed(disposables);
+    }
+
+    private bool _actuallyRemoved = false;
     private bool _indexItemsAsChars;
     private string? _itemPrefix;
+
+    protected override void ReindexNodes(int fromIdx)
+    {
+        base.ReindexNodes(fromIdx);
+        
+        for (var i = fromIdx; i < Nodes.Count; i++)
+        {
+            var item = Nodes[i];
+            item.Caption = GetItemCaption(i);
+        }
+    }
     
     private void ItemClosed(DocumentNodeViewModel item)
     {
+        var property = item.Property;
         RemoveNode(item);
+
+        if (_actuallyRemoved)
+        {
+            Property.RemoveElement(property);
+            ReindexNodes(property.Index!.Value);
+        }
+    }
+
+    private string GetItemCaption(int i)
+    {
+        var itemCaption = $"{i}";
+        if (_indexItemsAsChars)
+        {
+            itemCaption = ((char)(i + 32)).ToString();
+        }
+        
+        if (!string.IsNullOrEmpty(_itemPrefix))
+        {
+            itemCaption = $"{_itemPrefix} {i}";
+        }
+
+        return itemCaption;
     }
 }

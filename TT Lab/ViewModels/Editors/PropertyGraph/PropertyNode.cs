@@ -14,12 +14,12 @@ public class PropertyNode
     public event Action? Changed;
     
     public string Name { get; }
-    public string Path { get; }
+    public string Path { get; internal set; }
     public bool IsReadOnly { get; set; }
     public PropertyGraph? Graph { get; private set; }
     public object Target { get; }
     public PropertyMetadata? Metadata { get; }
-    public int? Index { get; }
+    public int? Index { get; internal set; }
     public Type PropertyType { get; }
     public PropertyNode? Parent { get; private set; }
     public List<PropertyNode> Children { get; } = [];
@@ -87,39 +87,49 @@ public class PropertyNode
 
     public PropertyNode? AddElement()
     {
-        if (Target is not IList list || Metadata?.ContainedTypeConstructor == null)
+        if (GetValue() is not IList list || Metadata?.ContainedTypeConstructor == null)
         {
             return null;
         }
 
         var addedValue = Metadata.ContainedTypeConstructor();
         list.Add(addedValue);
-        PropertyGraphBuilder.RebuildCollection(this);
+        
+        var childPath = $"{Path}[{Children.Count}]";
+        var nodeMetadata = Metadata;
+        if (nodeMetadata != null)
+        {
+            nodeMetadata = nodeMetadata with { ContainedTypeConstructor = null };
+        }
+        var node = PropertyGraphBuilder.BuildNode(list, nodeMetadata, childPath, innerType: addedValue.GetType(), index: Children.Count);
+        AddChild(node);
         RaiseGraphChange(null, addedValue);
-        return Children[^1];
+        return node;
     }
 
-    public void RemoveElement(object value)
+    public void RemoveElement(PropertyNode value)
     {
-        if (Target is not IList list)
+        if (GetValue() is not IList list)
         {
             return;
         }
         
-        list.Remove(value);
+        list.Remove(value.GetValue());
+        Children.Remove(value);
         PropertyGraphBuilder.RebuildCollection(this);
         RaiseGraphChange(value, null);
     }
 
     public void RemoveElement(int index)
     {
-        if (Target is not IList list)
+        if (GetValue() is not IList list)
         {
             return;
         }
         
         var oldValue = list[index];
         list.RemoveAt(index);
+        Children.RemoveAt(index);
         PropertyGraphBuilder.RebuildCollection(this);
         RaiseGraphChange(oldValue, null);
     }

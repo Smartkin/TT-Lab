@@ -57,6 +57,7 @@ public class Renderer : IView
         _batchStorage.NewBatchCreated += BatchStorageOnNewBatchCreated;
         _passService = renderContext.PassService;
         renderContext.Render += DoRender;
+        renderContext.Destroy += Dispose;
         _updateWatch.Start();
     }
 
@@ -274,7 +275,7 @@ public class Renderer : IView
             lock (_imguiLock)
             {
                 _imgui.StartFrame((float)delta);
-
+                ImGui.ShowDemoWindow();
                 RenderImgui?.Invoke();
         
                 _imgui.Render();
@@ -500,7 +501,6 @@ public class Renderer : IView
         Closing?.Invoke();
         _renderContext.Render -= DoRender;
         _imgui?.Dispose();
-        _emptyVao?.Dispose();
         DeleteRenderBuffer();
         
         IsDisposed = true;

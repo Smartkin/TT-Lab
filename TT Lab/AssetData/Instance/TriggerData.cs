@@ -66,15 +66,15 @@ public class TriggerData : AbstractAssetData
     public TriggerActivatorObjects ObjectActivatorMask { get; set; }
     
     [JsonProperty(Required = Required.Always)]
-    [Editable(IncludeAllProperties = true)]
+    [Editable]
     public Vector3 Position { get; set; }
     
     [JsonProperty(Required = Required.Always)]
-    [Editable(IncludeAllProperties = true)]
+    [Editable]
     public Vector3 Rotation { get; set; }
     
     [JsonProperty(Required = Required.Always)]
-    [Editable(IncludeAllProperties = true)]
+    [Editable]
     public Vector3 Scale { get; set; }
     
     [JsonProperty(Required = Required.Always)]

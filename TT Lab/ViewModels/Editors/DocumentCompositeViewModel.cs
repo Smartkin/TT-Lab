@@ -55,7 +55,19 @@ public abstract partial class DocumentCompositeViewModel : DocumentNodeViewModel
 
     protected void RemoveNode(DocumentNodeViewModel node)
     {
+        _nodes.RemoveKey(node.Property.Path);
         _nodes.Remove(node);
+    }
+    
+    protected virtual void ReindexNodes(int fromIdx)
+    {
+        var currentNodes = Nodes.ToArray();
+        _nodes.Clear();
+
+        foreach (var node in currentNodes)
+        {
+            AddNode(node);
+        }
     }
 
     protected override void OnActivated(CompositeDisposable disposables)
@@ -104,6 +116,11 @@ public abstract partial class DocumentCompositeViewModel : DocumentNodeViewModel
             if (x == null || y == null)
             {
                 return 0;
+            }
+
+            if (x.Property.Index != null && y.Property.Index != null)
+            {
+                return x.Property.Index.Value.CompareTo(y.Property.Index.Value);
             }
             
             return string.Compare(x.Property.Path, y.Property.Path, StringComparison.Ordinal);

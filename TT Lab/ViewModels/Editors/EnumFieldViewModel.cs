@@ -17,19 +17,24 @@ public partial class EnumFieldViewModel : DocumentDataViewModel<object>
     [Reactive]
     private object? _selectedValue;
 
-    public ReadOnlyObservableCollection<object> EnumValues;
+    public readonly ReadOnlyObservableCollection<object> EnumValues;
 
     public EnumFieldViewModel(DocumentViewModel document, PropertyNode data, params DocumentNodeViewModel[] dependencies) : base(document, data, dependencies)
     {
-        _selectedValue = data;
-    }
-
-    protected override void OnInitialized(CompositeDisposable disposables)
-    {
-        base.OnInitialized(disposables);
-
+        _selectedValue = data.GetValue();
+        
         var enumValues = Enum.GetValues(Property.PropertyType).Cast<object>().ToArray();
         EnumValues = new ReadOnlyObservableCollection<Object>(new ObservableCollection<Object>(enumValues));
+    }
+
+    protected override void OnActivated(CompositeDisposable disposables)
+    {
+        base.OnActivated(disposables);
+
+        this.WhenAnyValue(x => x.SelectedValue)
+            .Skip(1)
+            .WhereNotNull()
+            .Subscribe(SetCurrentValue).DisposeWith(disposables);
     }
 
     protected override void SetCurrentValue(Object? value)

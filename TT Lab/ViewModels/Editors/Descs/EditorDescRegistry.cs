@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Reflection;
 using TT_Lab.Assets;
 using TT_Lab.ViewModels.Editors.PropertyGraph;
 using Twinsanity.TwinsanityInterchange.Common;
@@ -36,8 +37,20 @@ public static class EditorDescRegistry
 
         if (node.Metadata?.ContainedTypeConstructor != null)
         {
-            var collectionDescFactory = DescFactories[typeof(IList)];
+            var collectionDescFactory = DescFactories[typeof(CollectionMarker)];
             return collectionDescFactory(document, node);
+        }
+
+        if (node.PropertyType.IsEnum && node.PropertyType.GetCustomAttribute<FlagsAttribute>() != null)
+        {
+            var flagsDescFactory = DescFactories[typeof(FlagsMarker)];
+            return flagsDescFactory(document, node);
+        }
+
+        if (node.PropertyType.IsEnum)
+        {
+            var enumsDescFactory = DescFactories[typeof(EnumMarker)];
+            return enumsDescFactory(document, node);
         }
 
         if (DescFactories.TryGetValue(node.PropertyType, out var descFactory))
@@ -53,8 +66,8 @@ public static class EditorDescRegistry
     {
         Register<bool>((document, node) => new BoolEditorDesc { Document = document, Node = node });
         Register<CodeEditorDesc>((document, node) => new CodeEditorDesc { Document = document, Node = node });
-        Register<Enum>((document, node) => new EnumEditorDesc { Document = document, Node = node });
-        Register<FlagsEditorDesc>((document, node) => new FlagsEditorDesc { Document = document, Node = node });
+        Register<EnumMarker>((document, node) => new EnumEditorDesc { Document = document, Node = node });
+        Register<FlagsMarker>((document, node) => new FlagsEditorDesc { Document = document, Node = node });
         Register<Matrix4>((document, node) => new Matrix4EditorDesc { Document = document, Node = node });
         EDITOR_DESC_FACTORY textFieldFactory = (document, node) => new TextEditorDesc { Document = document, Node = node };
         Register<string>(textFieldFactory);
@@ -76,6 +89,10 @@ public static class EditorDescRegistry
         Register<Vector3>((document, node) => new Vector3EditorDesc { Document = document, Node = node });
         Register<Vector4>((document, node) => new Vector4EditorDesc { Document = document, Node = node });
         Register<VectorCharacterData>((document, node) => new VectorCharacterDataEditorDesc { Document = document, Node = node });
-        Register<IList>((document, node) => new CollectionEditorDesc { Document = document, Node = node });
+        Register<CollectionMarker>((document, node) => new CollectionEditorDesc { Document = document, Node = node });
     }
+
+    private class CollectionMarker;
+    private class EnumMarker;
+    private class FlagsMarker;
 }
