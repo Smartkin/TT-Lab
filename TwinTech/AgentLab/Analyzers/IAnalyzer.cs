@@ -2,7 +2,7 @@ using Twinsanity.AgentLab.AbstractSyntaxTree;
 
 namespace Twinsanity.AgentLab.Analyzers;
 
-internal interface IAnalyzer
+public interface IAnalyzer
 {
     void Analyze(IAgentLabTreeNode tree);
 }

@@ -2,8 +2,8 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows.Forms;
 using Caliburn.Micro;
+using Splat;
 using TT_Lab.AssetData.Code;
 using TT_Lab.Assets;
 using TT_Lab.Attributes;
@@ -30,27 +30,28 @@ public class OGIViewModel : ResourceEditorViewModel
     private Rendering.Objects.OGI? _ogiRender;
     private OGIData _ogiData;
 
-    public OGIViewModel(RenderContext context, TwinSkeletonManager skeletonManager, MeshService meshService)
+    public OGIViewModel()
     {
-        OGIScene = IoC.Get<ViewportViewModel>();
+        OGIScene = Locator.Current.GetService<ViewportViewModel>()!;
         OGIScene.SceneInitializer = (renderer, scene) =>
         {
             _ogiData = AssetManager.Get().GetAssetData<OGIData>(EditableResource);
-            _ogiRender = new Rendering.Objects.OGI(context, skeletonManager, meshService, _ogiData);
+            var renderContext = renderer.GetRenderContext();
+            _ogiRender = new Rendering.Objects.OGI(renderContext, renderContext.SkeletonManager, renderContext.MeshService, _ogiData);
             scene.AddChild(_ogiRender);
         };
     }
 
-    protected override async Task OnActivateAsync(CancellationToken cancellationToken)
+    protected override async Task OnActivatedAsync(CancellationToken cancellationToken)
     {
-        await ActivateItemAsync(OGIScene, cancellationToken);
+        // await ActivateItemAsync(OGIScene, cancellationToken);
         
-        await base.OnActivateAsync(cancellationToken);
+        await base.OnActivatedAsync(cancellationToken);
     }
 
     protected override async Task OnDeactivateAsync(bool close, CancellationToken cancellationToken)
     {
-        await DeactivateItemAsync(OGIScene, close, cancellationToken);
+        // await DeactivateItemAsync(OGIScene, close, cancellationToken);
         
         await base.OnDeactivateAsync(close, cancellationToken);
     }
@@ -107,28 +108,34 @@ public class OGIViewModel : ResourceEditorViewModel
         var data = AssetManager.Get().GetAssetData<OGIData>(EditableResource);
         _boundingBox = new BoundingBoxViewModel(data.BoundingBox);
         DirtyTracker.AddChild(_boundingBox);
-        
+
+        _joints = [];
         foreach (var joint in data.Joints)
         {
             _joints.Add(new JointViewModel(this, joint));
         }
-        
-        DirtyTracker.AddBindableCollection(_exitPoints);
+        DirtyTracker.AddBindableCollection(_joints);
+
+        _exitPoints = [];
         foreach (var exitPoint in data.ExitPoints)
         {
             _exitPoints.Add(new ExitPointViewModel(this, exitPoint));
         }
-        
-        foreach (var jointIndex in data.JointIndices)
+        DirtyTracker.AddBindableCollection(_exitPoints);
+
+        _jointIndices = [];
+        foreach (var jointIndex in data.RigidModelJointIndices)
         {
             _jointIndices.Add(new PrimitiveWrapperViewModel<Byte>(jointIndex));
         }
-        
-        DirtyTracker.AddBindableCollection(_rigidModelIds);
+        DirtyTracker.AddBindableCollection(_jointIndices);
+
+        _rigidModelIds = [];
         foreach (var rigidModel in data.RigidModelIds)
         {
             _rigidModelIds.Add(new PrimitiveWrapperViewModel<LabURI>(rigidModel));
         }
+        DirtyTracker.AddBindableCollection(_rigidModelIds);
         
         foreach (var skinMatrix in data.SkinInverseMatrices)
         {
@@ -138,33 +145,19 @@ public class OGIViewModel : ResourceEditorViewModel
         _skin = data.Skin;
         _blendSkin = data.BlendSkin;
         
-        DirtyTracker.AddBindableCollection(_boundingBoxBuilders);
         foreach (var bbBuilder in data.BoundingBoxBuilders)
         {
             _boundingBoxBuilders.Add(new BoundingBoxBuilderViewModel(bbBuilder));
         }
+        DirtyTracker.AddBindableCollection(_boundingBoxBuilders);
         
-        DirtyTracker.AddBindableCollection(_boundingBoxBuilderToJoint);
         foreach (var bbBuilderToJoint in data.BoundingBoxBuilderToJointIndex)
         {
             _boundingBoxBuilderToJoint.Add(new PrimitiveWrapperViewModel<Byte>(bbBuilderToJoint));
         }
+        DirtyTracker.AddBindableCollection(_boundingBoxBuilderToJoint);
         
         ResetDirty();
-    }
-
-    public void ExportOgi()
-    {
-        using var sfd = new SaveFileDialog();
-        sfd.Title = "Export Skeleton";
-        sfd.Filter = "GLB file (*.glb)|*.glb";
-        var result = sfd.ShowDialog();
-        if (result == DialogResult.OK)
-        {
-            var path = sfd.FileName;
-            var ogiData = AssetManager.Get().GetAssetData<OGIData>(EditableResource);
-            ogiData.ExportGltf(path);
-        }
     }
 
     public ViewportViewModel OGIScene { get; }

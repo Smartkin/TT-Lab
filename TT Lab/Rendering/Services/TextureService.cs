@@ -3,8 +3,10 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Windows;
+using Avalonia.Media.Imaging;
 using TT_Lab.AssetData.Graphics;
 using TT_Lab.Assets;
+using TT_Lab.Assets.Graphics;
 using TT_Lab.Rendering.Buffers;
 using TT_Lab.Util;
 
@@ -19,21 +21,18 @@ public class TextureService
     {
         _renderContext = renderContext;
 
-        renderContext.QueueRenderAction(() =>
-        {
-            var boatGuy = ManifestResourceLoader.GetPathInExe("Media/boat_guy.png");
-            var bitmap = new Bitmap(boatGuy);
-            RegisterTexture(LabURI.BoatGuy, bitmap);
+        var boatGuy = ManifestResourceLoader.GetPathInExe("Media/boat_guy.png");
+        var bitmap = new Bitmap(boatGuy);
+        RegisterTexture(LabURI.BoatGuy, bitmap);
 
-            var labIcons = ManifestResourceLoader.GetFiledInExeDirectory("Media/LabIcons");
-            foreach (var labIcon in labIcons)
-            {
-                var iconName = labIcon[(labIcon.LastIndexOf('\\') + 1)..^4];
-                var iconBitmap = new Bitmap(labIcon);
-                LabURI.RegisterLabIcon(iconName);
-                RegisterTexture(LabURI.GetLabIcon(iconName), iconBitmap);
-            }
-        });
+        var labIcons = ManifestResourceLoader.GetFiledInExeDirectory("Media/LabIcons");
+        foreach (var labIcon in labIcons)
+        {
+            var iconName = labIcon[(labIcon.LastIndexOf(Path.DirectorySeparatorChar) + 1)..^4];
+            var iconBitmap = new Bitmap(labIcon);
+            LabURI.RegisterLabIcon(iconName);
+            RegisterTexture(LabURI.GetLabIcon(iconName), iconBitmap);
+        }
     }
 
     public TextureBuffer? GetTexture(LabURI uri)
@@ -49,6 +48,7 @@ public class TextureService
         }
 
         var assetManager = AssetManager.Get();
+        var textureAsset = assetManager.GetAsset<Texture>(uri);
         var textureData = assetManager.GetAssetData<TextureData>(uri);
         if (textureData.Bitmap == null)
         {
@@ -56,7 +56,7 @@ public class TextureService
         }
         
         texture = RegisterTexture(uri, textureData.Bitmap);
-        if (textureData.GenerateMipmaps)
+        if (textureAsset.GenerateMipmaps)
         {
             texture.GenerateMipmaps();
         }

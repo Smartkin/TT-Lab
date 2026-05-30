@@ -1,0 +1,20 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:local="clr-namespace:TT_Lab.Views.Composite"
+             xmlns:viewModels="clr-namespace:TT_Lab.ViewModels.Composite"
+             xmlns:controls="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+             d:DataContext="{Binding Source={d:DesignInstance viewModels:Matrix4ViewModel}}"
+             x:DataType="viewModels:Matrix4ViewModel"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Views.Composite.Matrix4View">
+    <controls:GroupBox>
+        <UniformGrid Columns="1">
+            <local:Vector4View DataContext="{Binding V1}"/>
+            <local:Vector4View DataContext="{Binding V2}"/>
+            <local:Vector4View DataContext="{Binding V3}"/>
+            <local:Vector4View DataContext="{Binding V4}"/>
+        </UniformGrid>
+    </controls:GroupBox>
+</UserControl>

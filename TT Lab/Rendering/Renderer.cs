@@ -5,8 +5,11 @@ using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using System.Numerics;
 using System.Windows;
-using System.Windows.Media.Imaging;
+using Avalonia;
+using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 using GlmSharp;
+using ImGuiNET;
 using Silk.NET.Core.Contexts;
 using Silk.NET.Input;
 using Silk.NET.Maths;
@@ -33,7 +36,7 @@ public class Renderer : IView
     private IInputContext? _inputContext;
     private FrameBuffer[] _pongBuffers;
     private FrameBuffer _screenBuffer;
-    private ivec2 _frameBufferSize = ivec2.Ones;
+    private ivec2 _frameBufferSize => new((int)_renderContext.ViewportSize.x, (int)_renderContext.ViewportSize.y);
     private ImGuiController? _imgui;
     private readonly Stopwatch _renderTime = new();
     private readonly Stopwatch _updateWatch = new();
@@ -45,15 +48,34 @@ public class Renderer : IView
     private int _readBuffer = 0;
     private int _writeBuffer = 1;
 
-    public Renderer(RenderContext renderContext, PassService passService, BatchService batchService)
+    public Renderer(RenderContext renderContext)
     {
         _renderContext = renderContext;
-        _primitiveRenderer = _renderContext.GetPrimitiveRenderer();
+        _primitiveRenderer = _renderContext.PrimitiveRenderer;
         _renderContext.QueueRenderAction(SetupRenderBuffer);
-        _batchStorage = batchService.GenerateBatchStorage();
-        _passService = passService;
+        _batchStorage = renderContext.BatchService.GenerateBatchStorage();
+        _batchStorage.NewBatchCreated += BatchStorageOnNewBatchCreated;
+        _passService = renderContext.PassService;
         renderContext.Render += DoRender;
+        renderContext.ResizeFramebuffer += RenderContextOnResizeFramebuffer;
+        renderContext.Destroy += Dispose;
         _updateWatch.Start();
+    }
+
+    private void RenderContextOnResizeFramebuffer()
+    {
+        DeleteRenderBuffer();
+        SetupRenderBuffer();
+    }
+
+    private void BatchStorageOnNewBatchCreated(RenderBatch renderBatch)
+    {
+        _passService.RegisterRenderableInPasses(renderBatch, renderBatch.GetPriorityPasses());
+        renderBatch.RequestPassSwitch += () =>
+        {
+            _passService.UnregisterRenderableInPasses(renderBatch);
+            _passService.RegisterRenderableInPasses(renderBatch, renderBatch.GetPriorityPasses());
+        };
     }
 
     public void InitInput(IInputContext inputContext, bool useImgui = true)
@@ -77,26 +99,45 @@ public class Renderer : IView
 
     public void SetFrameBufferSize(ivec2 frameBufferSize)
     {
-        lock (_framebufferWriteLock)
-        {
-            _framebufferData = new byte[frameBufferSize.x * frameBufferSize.y * 4];
-            _frameBufferSize = frameBufferSize;
-        }
-
         _renderContext.QueueRenderAction(() =>
         {
             DeleteRenderBuffer();
             SetupRenderBuffer();
-            _renderContext.Gl.Viewport(0, 0, (uint)_frameBufferSize.x, (uint)_frameBufferSize.y);
-            _renderContext.Gl.Scissor(0, 0, (uint)_frameBufferSize.x, (uint)_frameBufferSize.y);
             
             Resize?.Invoke(new Vector2D<Int32>(_frameBufferSize.x, _frameBufferSize.y));
             FramebufferResize?.Invoke(new Vector2D<Int32>(_frameBufferSize.x, _frameBufferSize.y));
         });
     }
 
+    private void SubscribeToRenderableEvents(Renderable renderable)
+    {
+        renderable.ChildAdded += RenderableOnChildAdded;
+        renderable.ChildRemoved += RenderableOnChildRemoved;
+    }
+
+    private void UnsubscribeFromRenderableEvents(Renderable renderable)
+    {
+        renderable.ChildAdded -= RenderableOnChildAdded;
+        renderable.ChildRemoved -= RenderableOnChildRemoved;
+    }
+
+    private void RenderableOnChildAdded(Renderable child)
+    {
+        RegisterForRendering(child);
+        RegisterForUpdating(child);
+        SubscribeToRenderableEvents(child);
+    }
+    
+    private void RenderableOnChildRemoved(Renderable child)
+    {
+        UnregisterFromRendering(child);
+        UnregisterForUpdating(child);
+        UnsubscribeFromRenderableEvents(child);
+    }
+
     public void RegisterForRendering(Renderable renderable, bool initBatchStorage = false)
     {
+        SubscribeToRenderableEvents(renderable);
         if (renderable is Mesh mesh)
         {
             _batchStorage.AddMeshToBatch(mesh);
@@ -110,20 +151,22 @@ public class Renderer : IView
         {
             RegisterForRendering(renderChild);
         }
+    }
 
-        if (!initBatchStorage)
+    private void UnregisterFromRendering(Renderable renderable)
+    {
+        if (renderable is Mesh mesh)
         {
-            return;
+            _batchStorage.RemoveMeshFromBatch(mesh);
+        }
+        else
+        {
+            _passService.UnregisterRenderableInPasses(renderable);
         }
 
-        foreach (var renderBatch in _batchStorage.GetRenderBatches())
+        foreach (var renderChild in renderable.Children)
         {
-            _passService.RegisterRenderableInPasses(renderBatch, renderBatch.GetPriorityPasses());
-            renderBatch.RequestPassSwitch += () =>
-            {
-                _passService.UnregisterRenderableInPasses(renderBatch);
-                _passService.RegisterRenderableInPasses(renderBatch, renderBatch.GetPriorityPasses());
-            };
+            UnregisterFromRendering(renderChild);
         }
     }
 
@@ -140,6 +183,25 @@ public class Renderer : IView
         foreach (var child in renderable.Children)
         {
             RegisterForUpdating(child);
+        }
+    }
+
+    private void UnregisterForUpdating(Renderable renderable)
+    {
+        if (renderable.DoesUpdates)
+        {
+            lock (_updatersLock)
+            {
+                if (_updaters.Contains(renderable))
+                {
+                    _updaters.Remove(renderable);
+                }
+            }
+        }
+
+        foreach (var child in renderable.Children)
+        {
+            UnregisterForUpdating(child);
         }
     }
 
@@ -165,9 +227,7 @@ public class Renderer : IView
             return;
         }
         
-        _renderContext.Gl.BindFramebuffer(FramebufferTarget.Framebuffer, _pongBuffers[_writeBuffer].Handler);
-        
-        _renderContext.Gl.ClearColor(Color.Gray);
+        _renderContext.Gl.ClearColor(Color.DimGray);
         _renderContext.Gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit | ClearBufferMask.StencilBufferBit);
         
         // Opaque skydome pass
@@ -204,9 +264,9 @@ public class Renderer : IView
         }
         
         _renderContext.Gl.BindFramebuffer(FramebufferTarget.DrawFramebuffer, _screenBuffer.Handler);
-        _renderContext.Gl.BindFramebuffer(FramebufferTarget.ReadFramebuffer, _pongBuffers[_writeBuffer].Handler);
+        _renderContext.Gl.BindFramebuffer(FramebufferTarget.ReadFramebuffer, _renderContext.GetOutputBuffer());
         _renderContext.Gl.BlitFramebuffer(0, 0, _frameBufferSize.x, _frameBufferSize.y, 0, 0, _frameBufferSize.x, _frameBufferSize.y, ClearBufferMask.ColorBufferBit, BlitFramebufferFilter.Linear);
-        _renderContext.Gl.BindFramebuffer(FramebufferTarget.DrawFramebuffer, _pongBuffers[_writeBuffer].Handler);
+        _renderContext.Gl.BindFramebuffer(FramebufferTarget.DrawFramebuffer, _renderContext.GetOutputBuffer());
         
         _renderContext.Gl.Disable(EnableCap.Blend);
         var screenFlipProgram = _renderContext.GetProgram("ScreenFlipX");
@@ -222,18 +282,14 @@ public class Renderer : IView
             lock (_imguiLock)
             {
                 _imgui.StartFrame((float)delta);
-                
+                ImGui.ShowMetricsWindow();
                 RenderImgui?.Invoke();
-
+        
                 _imgui.Render();
             }
         }
         
         _renderContext.Invalidate();
-        // Swap buffers
-        SaveFramebuffer();
-        (_readBuffer, _writeBuffer) = (_writeBuffer, _readBuffer);
-        _renderContext.Gl.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
         FinishRender?.Invoke();
     }
 
@@ -272,23 +328,6 @@ public class Renderer : IView
         pass.EndPass();
     }
 
-    private unsafe void SaveFramebuffer()
-    {
-        _renderContext.Gl.Flush();
-        _renderContext.Gl.BindFramebuffer(FramebufferTarget.ReadFramebuffer, _pongBuffers[_readBuffer].Handler);
-        lock (_framebufferWriteLock)
-        {
-            fixed (byte* p = _framebufferData)
-            {
-                _renderContext.Gl.PixelStore(GLEnum.PackAlignment, 1);
-                _renderContext.Gl.ReadPixels(0, 0, (uint)_frameBufferSize.x, (uint)_frameBufferSize.y, GLEnum.Bgra,
-                    GLEnum.UnsignedByte, p);
-            }
-
-            FlipY(_framebufferData, _frameBufferSize.x, _frameBufferSize.y);
-        }
-    }
-
     public void DoUpdate()
     {
         var delta = _updateWatch.ElapsedMilliseconds / 1000.0;
@@ -318,6 +357,11 @@ public class Renderer : IView
 
     public void ContinueEvents()
     {
+    }
+
+    public RenderContext GetRenderContext()
+    {
+        return _renderContext;
     }
 
     public IInputContext? GetInputContext()
@@ -369,7 +413,7 @@ public class Renderer : IView
 
     public void FireSceneInitialized()
     {
-        Application.Current.Dispatcher.BeginInvoke(() =>
+        Dispatcher.UIThread.Post(() =>
         {
             SceneInitialized?.Invoke();
         });
@@ -381,38 +425,11 @@ public class Renderer : IView
     public Vector2D<Int32> FramebufferSize => new(_frameBufferSize.x, _frameBufferSize.y);
     public bool IsInitialized => true;
 
-    public void GetRenderImage(WriteableBitmap bitmap)
-    {
-        lock (_framebufferWriteLock)
-        {
-            bitmap.Lock();
-            bitmap.WritePixels(new Int32Rect(0, 0, _frameBufferSize.x, _frameBufferSize.y), _framebufferData,
-                bitmap.BackBufferStride, 0);
-            bitmap.Unlock();
-        }
-    }
-    
-    private static void FlipY(byte[] pixels, int width, int height)
-    {
-        var rowSize = width * 4;
-        var tempRow = new byte[rowSize];
-
-        for (var y = 0; y < height / 2; y++)
-        {
-            var topOffset = y * rowSize;
-            var bottomOffset = (height - 1 - y) * rowSize;
-
-            // Swap rows
-            Buffer.BlockCopy(pixels, topOffset, tempRow, 0, rowSize);
-            Buffer.BlockCopy(pixels, bottomOffset, pixels, topOffset, rowSize);
-            Buffer.BlockCopy(tempRow, 0, pixels, bottomOffset, rowSize);
-        }
-    }
-
     [MemberNotNull(nameof(_screenBuffer))]
+    [MemberNotNull(nameof(_screenBuffer))]
+    [MemberNotNull(nameof(_emptyVao))]
     private void SetupRenderBuffer()
     {
-        _renderContext.MakeCurrent();
         _pongBuffers = [new FrameBuffer(_renderContext, _frameBufferSize, true), new FrameBuffer(_renderContext, _frameBufferSize, true)];
         _screenBuffer = new FrameBuffer(_renderContext, _frameBufferSize);
         _emptyVao = new VertexArrayObject<float, float>(_renderContext, null, null);
@@ -420,7 +437,6 @@ public class Renderer : IView
 
     private void DeleteRenderBuffer()
     {
-        _renderContext.MakeCurrent();
         _emptyVao.Dispose();
         foreach (var pongBuffer in _pongBuffers)
         {
@@ -437,22 +453,15 @@ public class Renderer : IView
         {
             return;
         }
+        IsDisposed = true;
         
         Closing?.Invoke();
-        var manualResetEventSlim = new System.Threading.ManualResetEventSlim(false);
         _renderContext.Render -= DoRender;
-        _renderContext.QueueRenderAction(() =>
-        {
-            _imgui?.Dispose();
-            _emptyVao.Dispose();
-            DeleteRenderBuffer();
-            // ReSharper disable once AccessToDisposedClosure
-            manualResetEventSlim.Set();
-        });
+        _renderContext.ResizeFramebuffer -= RenderContextOnResizeFramebuffer;
+        _renderContext.Destroy -= Dispose;
+        _imgui?.Dispose();
+        DeleteRenderBuffer();
         
-        IsDisposed = true;
-        manualResetEventSlim.Wait();
-        manualResetEventSlim.Dispose();
         GC.SuppressFinalize(this);
     }
 

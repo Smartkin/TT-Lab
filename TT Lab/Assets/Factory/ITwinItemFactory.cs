@@ -17,6 +17,10 @@ namespace TT_Lab.Assets.Factory
 {
     public interface ITwinItemFactory
     {
+        public Package GlobalPackage { get; set; }
+        public bool IsDefaultResolution { get; set; }
+        public string ChunkPath { get; set; }
+        
         ITwinBlendSkin GenerateBlendSkin(Int32 blendsAmount, List<SubBlendData> blends, UInt32? compileScale);
         ITwinLOD GenerateLOD(Stream stream);
         ITwinMaterial GenerateMaterial(Stream stream);
@@ -49,7 +53,7 @@ namespace TT_Lab.Assets.Factory
         ITwinLink GenerateLink(Stream stream);
         ITwinScenery GenerateScenery(Stream stream);
         ITwinSection GenerateFrontend(List<ITwinSound> sounds);
-        ITwinPSF GenerateFont(List<ITwinPTC> pages, List<Vector4> unkVecs, Int32 unkInt);
+        ITwinPSF GenerateFont(List<ITwinPTC> pages, List<VectorCharacterData> characterData, Int32 spaceIdentifier);
         ITwinPTC GeneratePTC(UInt32 texID, UInt32 matID, ITwinTexture texture, ITwinMaterial material);
         ITwinPSM GeneratePSM(List<ITwinPTC> ptcs);
         ITwinSection GenerateDefault();

@@ -1,0 +1,31 @@
+using System;
+using System.Globalization;
+using System.Reactive.Disposables;
+using System.Reactive.Disposables.Fluent;
+using System.Reactive.Linq;
+using ReactiveUI;
+using TT_Lab.ViewModels.Editors.PropertyGraph;
+using Twinsanity.TwinsanityInterchange.Common;
+
+namespace TT_Lab.ViewModels.Editors;
+
+public class Vector2FieldViewModel : DocumentDataViewModel<Vector2>
+{
+    public TextFieldViewModel X { get; }
+    public TextFieldViewModel Y { get; }
+
+    public Vector2FieldViewModel(DocumentViewModel document, PropertyNode data, params DocumentNodeViewModel[] dependencies)
+        : base(document, data, dependencies)
+    {
+        X = new TextFieldViewModel(document, Property.Find("X")!, this) { Caption = "X" };
+        Y = new TextFieldViewModel(document, Property.Find("Y")!, this) { Caption = "Y" };
+    }
+
+    protected override void OnCurrentValueChanged()
+    {
+        X.SetValueCommand.Execute(Property.Find("X")!.GetValue());
+        Y.SetValueCommand.Execute(Property.Find("Y")!.GetValue());
+        
+        base.OnCurrentValueChanged();
+    }
+}

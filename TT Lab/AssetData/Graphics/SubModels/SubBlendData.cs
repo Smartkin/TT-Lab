@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using TT_Lab.Assets;
 using TT_Lab.Attributes;
@@ -18,9 +19,9 @@ namespace TT_Lab.AssetData.Graphics.SubModels
         public LabURI Material { get; set; }
         public List<SubBlendModelData> Models { get; set; } = [];
 
-        public SubBlendData(LabURI package, String? variant, ITwinSubBlendSkin blend)
+        public SubBlendData(IAsset owner, ITwinSubBlendSkin blend)
         {
-            Material = AssetManager.Get().GetUri(package, nameof(Assets.Graphics.Material), variant, blend.Material);
+            Material = AssetManager.Get().GetUriByTwinId<Assets.Graphics.Material>(owner, blend.Material);
             if (Material == LabURI.Empty)
             {
                 var allMaterials = AssetManager.Get().GetAssets().FindAll(a => a is Assets.Graphics.Material).ConvertAll(a => a.URI);
@@ -42,18 +43,10 @@ namespace TT_Lab.AssetData.Graphics.SubModels
             {
                 var allVertexes = new List<Vertex>();
                 var allIndices = new List<IndexedFace>();
-                var indiceAccessor = 0;
-                var blendShapeJson = mesh.Extras;
-                var blendShape = new Vector3((float)blendShapeJson["X"]!, (float)blendShapeJson["Y"]!, (float)blendShapeJson["Z"]!);
+                var blendShape = mesh.Extras.Deserialize<MeshExtraInfo>()!.BlendShape;
                 var primitive = mesh.Primitives[0];
                 var vertexes = primitive.GetVertexColumns();
                 var indices = primitive.GetTriangleIndices();
-                var amountOfSubmodels = (indices.Count() * 3) / TwinVIFCompiler.VertexStripCache;
-                var leftovers = (indices.Count() * 3) % TwinVIFCompiler.VertexStripCache;
-                if (leftovers > 0)
-                {
-                    amountOfSubmodels++;
-                }
 
                 for (var i = 0; i < vertexes.Positions.Count; i++)
                 {

@@ -1,11 +1,9 @@
 using System;
-using System.Drawing;
-using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
-using System.Threading;
+using Avalonia;
+using Avalonia.Media.Imaging;
 using GlmSharp;
 using Silk.NET.OpenGL;
-using PixelFormat = System.Drawing.Imaging.PixelFormat;
 
 namespace TT_Lab.Rendering.Buffers;
 
@@ -15,7 +13,7 @@ public unsafe class TextureBuffer : IDisposable
     private uint _textureBuffer;
     private byte[] _data;
     private readonly InternalFormat _internalFormat = InternalFormat.Rgba8;
-    private readonly Silk.NET.OpenGL.PixelFormat _pixelFormat = Silk.NET.OpenGL.PixelFormat.Bgra;
+    private readonly PixelFormat _pixelFormat = PixelFormat.Bgra;
     private readonly PixelType _pixelType = PixelType.UnsignedByte;
 
     private TextureBuffer(RenderContext renderContext)
@@ -35,7 +33,7 @@ public unsafe class TextureBuffer : IDisposable
     /// <param name="internalFormat"></param>
     /// <param name="pixelFormat"></param>
     /// <param name="pixelType"></param>
-    public TextureBuffer(RenderContext renderContext, Span<byte> data, uint width, uint height, InternalFormat internalFormat = InternalFormat.Rgba8, Silk.NET.OpenGL.PixelFormat pixelFormat = Silk.NET.OpenGL.PixelFormat.Bgra, PixelType pixelType = PixelType.UnsignedByte) : this(renderContext)
+    public TextureBuffer(RenderContext renderContext, Span<byte> data, uint width, uint height, InternalFormat internalFormat = InternalFormat.Rgba8, PixelFormat pixelFormat = PixelFormat.Bgra, PixelType pixelType = PixelType.UnsignedByte) : this(renderContext)
     {
         _data = data.ToArray();
 
@@ -52,10 +50,10 @@ public unsafe class TextureBuffer : IDisposable
     /// <param name="bitmap"></param>
     public TextureBuffer(RenderContext renderContext, Bitmap bitmap) : this(renderContext)
     {
-        _data = new byte[bitmap.Width * bitmap.Height * 4];
+        _data = new byte[(int)bitmap.Size.Width * (int)bitmap.Size.Height * 4];
         CopyImageData(bitmap);
         
-        InitDefaultParams((uint)bitmap.Width, (uint)bitmap.Height);
+        InitDefaultParams((uint)bitmap.Size.Width, (uint)bitmap.Size.Height);
     }
     
     /// <summary>
@@ -81,9 +79,9 @@ public unsafe class TextureBuffer : IDisposable
 
     public void InvalidateWithData(Bitmap bitmap)
     {
-        _data = new byte[bitmap.Width * bitmap.Height * 4];
+        _data = new byte[(int)bitmap.Size.Width * (int)bitmap.Size.Height * 4];
         CopyImageData(bitmap);
-        UploadTextureData((uint)bitmap.Width, (uint)bitmap.Height);
+        UploadTextureData((uint)bitmap.Size.Width, (uint)bitmap.Size.Height);
     }
 
     public void Resize(ivec2 newSize)
@@ -139,10 +137,9 @@ public unsafe class TextureBuffer : IDisposable
 
     private void CopyImageData(Bitmap bitmap)
     {
-        var imageData = bitmap.LockBits(new Rectangle(0, 0, bitmap.Width, bitmap.Height), ImageLockMode.ReadOnly,
-            PixelFormat.Format32bppArgb);
-        Marshal.Copy(imageData.Scan0, _data, 0, _data.Length);
-        bitmap.UnlockBits(imageData);
+        var dataHandle = GCHandle.Alloc(_data, GCHandleType.Pinned);
+        bitmap.CopyPixels(new PixelRect(0, 0, bitmap.PixelSize.Width, bitmap.PixelSize.Height), dataHandle.AddrOfPinnedObject(), _data.Length, bitmap.PixelSize.Width * 4);
+        dataHandle.Free();
     }
     
     public uint Handler => _textureBuffer;

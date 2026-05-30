@@ -1,0 +1,148 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:TT_Lab.Views"
+        xmlns:viewmodels="clr-namespace:TT_Lab.ViewModels"
+        xmlns:Project="clr-namespace:TT_Lab.Project"
+        xmlns:Triggers="clr-namespace:TT_Lab.Triggers"
+        xmlns:controls="clr-namespace:TT_Lab.Controls"
+        xmlns:gif="clr-namespace:Avalonia.Labs.Gif;assembly=Avalonia.Labs.Gif"
+        xmlns:avaloniaEdit="https://github.com/avaloniaui/avaloniaedit"
+        xmlns:model="using:Dock.Model.Avalonia.Controls"
+        xmlns:reactiveUi="clr-namespace:Dock.Model.ReactiveUI;assembly=Dock.Model.ReactiveUI"
+        x:Name="MainApplication"
+        mc:Ignorable="d"
+        x:Class="TT_Lab.Views.ShellView"
+        x:DataType="viewmodels:ShellViewModel"
+        Title="{Binding WindowTitle}" Height="720" Width="1280" MinWidth="854" MinHeight="480">
+    <Window.Styles>
+        <Style Selector="TextBlock">
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+    </Window.Styles>
+    <Grid x:Name="MainWindowGrid" RowDefinitions="Auto,*">
+        <Menu Template="{DynamicResource MainWindowMenuTemplate}" x:Name="MainMenu" UseLayoutRounding="True" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+            <MenuItem x:Name="ProjectSubMenu" Header="Project">
+                <MenuItem Click="CreateProject_OnClick" Header="Create Project..."/>
+                <MenuItem x:Name="OpenProjectItem" Command="{Binding OpenProject}" Header="Open Project..." InputGesture="Ctrl+O"/>
+                <!-- <MenuItem x:Name="OpenRecentSubMenu" Header="Open Recent" ItemsSource="{Binding RecentlyOpened}" IsEnabled="{Binding HasRecents}"/> -->
+                <MenuItem x:Name="SaveProjectItem" Command="{Binding SaveProject}" Header="Save all" InputGesture="Ctrl+Shift+S" IsEnabled="{Binding ProjectOpened}"/>
+                <MenuItem Command="{Binding CloseProject}" Header="Close Project" IsEnabled="{Binding ProjectOpened}"/>
+            </MenuItem>
+            <MenuItem x:Name="BuildSubMenu" Header="Build" IsEnabled="{Binding ProjectOpened}">
+                <MenuItem Command="{Binding BuildPs2}" Header="Full Build PS2 ISO" ToolTip.Tip="Packs all assets and chunks then creates PS2 archives then creates the ISO"/>
+                <MenuItem Command="{Binding BuildPs2Iso}" Header="Build Only PS2 ISO" ToolTip.Tip="Creates PS2 archives then creates the ISO"/>
+                <MenuItem x:Name="BuildXbox" Header="Build XBox ISO" IsEnabled="False"/>
+            </MenuItem>
+            <!-- <MenuItem x:Name="ToolsSubMenu" Header="Tools" IsEnabled="False"> -->
+            <!--     <MenuItem/> -->
+            <!-- </MenuItem> -->
+            <MenuItem Click="Preferences_OnClick" Header="Preferences"/>
+            <MenuItem Click="About_OnClick" Header="About"/>
+        </Menu>
+        <DockControl x:Name="ShellDock" Grid.Row="1" InitializeLayout="True" InitializeFactory="True" Factory="{Binding DockFactory}">
+            <model:RootDock Id="Root" IsCollapsable="False" DefaultDockable="{Binding #MainLayout}">
+                <model:ProportionalDock x:Name="MainLayout" Id="MainLayout" Orientation="Horizontal">
+                    <model:ProportionalDock x:Name="DocumentsAreaPane" Id="DocumentsAreaPane" Orientation="Vertical">
+                        <model:DocumentDock x:Name="DocumentsPane" Id="DocumentsPane">
+                            <Document Title="Scenes" x:Name="ScenesEditorsDocs" Id="ScenesPane" CanClose="False">
+                                <Document.Content>
+                                    <local:ScenesEditorsView DataContext="{Binding #MainApplication.DataContext.EditorsViewModel.ScenesEditorsViewModel}"/>
+                                </Document.Content>
+                            </Document>
+                            
+                            <Document Title="Resources" x:Name="ResourcesEditorsDocs" Id="ResourcesPane" CanClose="False">
+                                <Document.Content>
+                                    <local:ResourcesEditorsView DataContext="{Binding #MainApplication.DataContext.EditorsViewModel.ResourcesEditorsViewModel}"/>
+                                </Document.Content>
+                            </Document>
+                        </model:DocumentDock>
+                        
+                        <model:ProportionalDockSplitter x:Name="BottomSplitter" Id="BottomSplitter"/>
+                        
+                        <model:DocumentDock Proportion="0.15" x:Name="LogPane" Id="LogPane">
+                            <Document Id="Logger" Title="Log" CanClose="False" CanPin="True">
+                                <Document.Content>
+                                    <local:LogView DataContext="{Binding #MainApplication.DataContext.Logger}"/>
+                                </Document.Content>
+                            </Document>
+                        </model:DocumentDock>
+                        
+                    </model:ProportionalDock>
+                    
+                    <model:ProportionalDockSplitter x:Name="LeftSplitter" Id="LeftSplitter"/>
+                    
+                    <model:DocumentDock x:Name="ProjectTreePane" Proportion="0.20" Id="ProjectTreePane">
+                        <Document Id="ProjectTree" Title="Project Tree" CanClose="False">
+                            <Grid RowDefinitions="54,470*">
+                                <TextBox
+                                    ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                    ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                    Watermark="Search"
+                                    x:Name="SearchBar" 
+                                    TextWrapping="NoWrap" 
+                                    Text="{Binding #MainApplication.DataContext.SearchAsset, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" MaxLines="1" Margin="0,14,0,15" Height="25"/>
+                                <TreeView 
+                                Grid.Row="1"
+                                x:Name="ProjectTree" 
+                                ItemsSource="{Binding #MainApplication.DataContext.ProjectTree, Mode=OneWay}" 
+                                HorizontalAlignment="Stretch">
+                                    <TreeView.ItemTemplate>
+                                        <TreeDataTemplate ItemsSource="{Binding Children}">
+                                            <StackPanel Background="Transparent" HorizontalAlignment="Stretch" Margin="0,2,0,2" Orientation="Horizontal">
+                                                <StackPanel.ContextMenu>
+                                                    <ContextMenu ItemsSource="{Binding MenuOptions}">
+                                                        <Interaction.Behaviors>
+                                                            <EventTriggerBehavior EventName="Opened">
+                                                                <InvokeCommandAction Command="{Binding CreateContextMenuAction}"/>
+                                                            </EventTriggerBehavior>
+                                                        </Interaction.Behaviors>
+                                                    </ContextMenu>
+                                                </StackPanel.ContextMenu>
+                                                <Interaction.Behaviors>
+                                                    <EventTriggerBehavior EventName="DoubleTapped">
+                                                        <InvokeCommandAction Command="{Binding CreateEditor}"/>
+                                                    </EventTriggerBehavior>
+                                                    <!-- <EventTrigger EventName="MouseMove"> -->
+                                                    <!--     <cal:ActionMessage MethodName="AssetBlockMouseMove"> -->
+                                                    <!--         <cal:ActionMessage.Parameters> -->
+                                                    <!--             <cal:Parameter Value="{Binding ElementName=ProjectTree, Mode=OneWay}"/> -->
+                                                    <!--             <cal:Parameter Value="$eventArgs"/> -->
+                                                    <!--         </cal:ActionMessage.Parameters> -->
+                                                    <!--     </cal:ActionMessage> -->
+                                                    <!-- </EventTrigger> -->
+                                                </Interaction.Behaviors>
+                                                <Image Source="{Binding IconPath}" VerticalAlignment="Center" HorizontalAlignment="Center" Width="24" Height="24" Margin="0,0,3,0" Stretch="Uniform"/>
+                                                <TextBlock x:Name="AssetBlock" IsVisible="{Binding IsNotRenaming}" VerticalAlignment="Center" HorizontalAlignment="Center" Text="{Binding Alias}">
+                                                    <Interaction.Behaviors>
+                                                        <DataTriggerBehavior Binding="{Binding IsEnabled}" Value="False">
+                                                            <ChangePropertyAction PropertyName="Foreground" Value="Gray"/>
+                                                        </DataTriggerBehavior>
+                                                        <DataTriggerBehavior Binding="{Binding IsEnabled}" Value="True">
+                                                            <ChangePropertyAction PropertyName="Foreground" Value="White"/>
+                                                        </DataTriggerBehavior>
+                                                    </Interaction.Behaviors>
+                                                </TextBlock>
+                                                <TextBox x:Name="RenamingTextBox" Text="{Binding NewAlias, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center" HorizontalAlignment="Stretch" IsVisible="{Binding IsRenaming}">
+                                                    <Interaction.Behaviors>
+                                                        <EventTriggerBehavior EventName="LostFocus">
+                                                            <InvokeCommandAction Command="{Binding StopRenaming}"/>
+                                                        </EventTriggerBehavior>
+                                                        <EventTrigger EventName="KeyDown">
+                                                            <InvokeCommandAction Command="{Binding SaveRenaming}" PassEventArgsToCommand="True"/>
+                                                        </EventTrigger>
+                                                    </Interaction.Behaviors>
+                                                </TextBox>
+                                            </StackPanel>
+                                        </TreeDataTemplate>
+                                    </TreeView.ItemTemplate>
+                                </TreeView>
+                            </Grid>
+                        </Document>
+                    </model:DocumentDock>
+                </model:ProportionalDock>
+            </model:RootDock>
+        </DockControl>
+    </Grid>
+</Window>

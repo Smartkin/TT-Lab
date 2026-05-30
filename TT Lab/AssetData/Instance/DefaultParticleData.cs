@@ -7,138 +7,152 @@ using TT_Lab.Assets.Factory;
 using TT_Lab.Assets.Graphics;
 using TT_Lab.Attributes;
 using TT_Lab.Util;
+using TT_Lab.ViewModels.Editors;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM;
 
-namespace TT_Lab.AssetData.Instance
+namespace TT_Lab.AssetData.Instance;
+
+[ReferencesAssets]
+public class DefaultParticleData : ParticleData
 {
-    [ReferencesAssets]
-    public class DefaultParticleData : ParticleData
+
+    public DefaultParticleData(IAsset asset) : base(asset)
     {
+        UnkData = new Byte[4];
+        UnkBlob = new Byte[0x420];
+        UnkInts = new Int32[10];
+    }
 
-        public DefaultParticleData()
+    public DefaultParticleData(IAsset asset, ITwinDefaultParticle particle) : base(asset, particle) { }
+
+    [JsonProperty(Required = Required.Always)]
+    [Editable]
+    [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
+    public List<LabURI> TextureIDs { get; set; } = new();
+    
+    [JsonProperty(Required = Required.Always)]
+    [Editable]
+    [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
+    public List<LabURI> MaterialIDs { get; set; } = new();
+    
+    [JsonProperty(Required = Required.Always)]
+    [Editable]
+    public LabURI DecalTextureID { get; set; } = LabURI.Empty;
+    
+    [JsonProperty(Required = Required.Always)]
+    [Editable]
+    public LabURI DecalMaterialID { get; set; } = LabURI.Empty;
+    
+    [JsonProperty(Required = Required.Always)]
+    public Byte[] UnkData { get; private set; }
+    
+    [JsonProperty(Required = Required.Always)]
+    public Byte[] UnkBlob { get; private set; }
+    
+    [JsonProperty(Required = Required.Always)]
+    public Int32[] UnkInts { get; private set; }
+    
+    [JsonProperty(Required = Required.Always)]
+    public List<Byte[]> UnkBlobs { get; private set; } = new();
+
+    public override ITwinItem Export(ITwinItemFactory factory)
+    {
+        var assetManager = AssetManager.Get();
+        using var ms = new MemoryStream();
+        using var writer = new BinaryWriter(ms);
+
+        for (Int32 i = 0; i < 3; i++)
         {
-            UnkData = new Byte[4];
-            UnkBlob = new Byte[0x420];
-            UnkInts = new Int32[10];
+            writer.Write(assetManager.GetAsset(TextureIDs[i]).ExportTwinID);
+            writer.Write(assetManager.GetAsset(MaterialIDs[i]).ExportTwinID);
         }
 
-        public DefaultParticleData(ITwinDefaultParticle particle) : base(particle) { }
+        WriteExport(writer);
+        writer.Flush();
+        ms.Position -= 4;
 
-        [JsonProperty(Required = Required.Always)]
-        public List<LabURI> TextureIDs { get; set; } = new();
-        [JsonProperty(Required = Required.Always)]
-        public List<LabURI> MaterialIDs { get; set; } = new();
-        [JsonProperty(Required = Required.Always)]
-        public LabURI DecalTextureID { get; set; } = LabURI.Empty;
-        [JsonProperty(Required = Required.Always)]
-        public LabURI DecalMaterialID { get; set; } = LabURI.Empty;
-        [JsonProperty(Required = Required.Always)]
-        public Byte[] UnkData { get; private set; }
-        [JsonProperty(Required = Required.Always)]
-        public Byte[] UnkBlob { get; private set; }
-        [JsonProperty(Required = Required.Always)]
-        public Int32[] UnkInts { get; private set; }
-        [JsonProperty(Required = Required.Always)]
-        public List<Byte[]> UnkBlobs { get; private set; } = new();
+        writer.Write(assetManager.GetAsset(DecalTextureID).ExportTwinID);
+        writer.Write(assetManager.GetAsset(DecalMaterialID).ExportTwinID);
 
-        public override ITwinItem Export(ITwinItemFactory factory)
+        writer.Write(UnkData);
+        writer.Write(UnkBlob);
+        foreach (var @int in UnkInts)
         {
-            var assetManager = AssetManager.Get();
-            using var ms = new MemoryStream();
-            using var writer = new BinaryWriter(ms);
-
-            for (Int32 i = 0; i < 3; i++)
-            {
-                writer.Write(assetManager.GetAsset(TextureIDs[i]).ID);
-                writer.Write(assetManager.GetAsset(MaterialIDs[i]).ID);
-            }
-
-            WriteExport(writer);
-            writer.Flush();
-            ms.Position -= 4;
-
-            writer.Write(assetManager.GetAsset(DecalTextureID).ID);
-            writer.Write(assetManager.GetAsset(DecalMaterialID).ID);
-
-            writer.Write(UnkData);
-            writer.Write(UnkBlob);
-            foreach (var @int in UnkInts)
-            {
-                writer.Write(@int);
-            }
-
-            foreach (var blob in UnkBlobs)
-            {
-                writer.Write(blob);
-            }
-            writer.Flush();
-
-            ms.Position = 0;
-            return factory.GenerateDefaultParticle(ms);
+            writer.Write(@int);
         }
 
-        public override void Import(LabURI package, String? variant, Int32? layoutId)
+        foreach (var blob in UnkBlobs)
         {
-            base.Import(package, variant, layoutId);
+            writer.Write(blob);
+        }
+        writer.Flush();
 
-            var assetManager = AssetManager.Get();
-            ITwinDefaultParticle particle = GetTwinItem<ITwinDefaultParticle>();
+        ms.Position = 0;
+        return factory.GenerateDefaultParticle(ms);
+    }
 
-            foreach (var texture in particle.TextureIDs)
-            {
-                TextureIDs.Add(assetManager.GetUri(package, typeof(Texture).Name, variant, texture));
-            }
+    public override void Import(LabURI package, String? variant, Int32? layoutId)
+    {
+        base.Import(package, variant, layoutId);
 
-            foreach (var material in particle.MaterialIDs)
-            {
-                MaterialIDs.Add(assetManager.GetUri(package, typeof(Material).Name, variant, material));
-            }
+        var assetManager = AssetManager.Get();
+        ITwinDefaultParticle particle = GetTwinItem<ITwinDefaultParticle>();
 
-            DecalTextureID = assetManager.GetUri(package, typeof(Texture).Name, variant, particle.DecalTextureID);
-            DecalMaterialID = assetManager.GetUri(package, typeof(Material).Name, variant, particle.DecalMaterialID);
-
-            UnkData = CloneUtils.CloneArray(particle.UnkData);
-            UnkBlob = CloneUtils.CloneArray(particle.UnkBlob);
-            UnkInts = CloneUtils.CloneArray(particle.UnkInts);
-
-            foreach (var blob in particle.UnkBlobs)
-            {
-                UnkBlobs.Add(CloneUtils.CloneArray(blob));
-            }
+        foreach (var texture in particle.TextureIDs)
+        {
+            TextureIDs.Add(assetManager.GetUriByTwinId<Texture>(Owner, texture));
         }
 
-        public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, UInt32 id, Int32? layoutID = null)
+        foreach (var material in particle.MaterialIDs)
         {
-            var assetManager = AssetManager.Get();
-            var graphicsSection = section.GetItem<ITwinSection>(Constants.LEVEL_GRAPHICS_SECTION);
-            var texturesSection = graphicsSection.GetItem<ITwinSection>(Constants.GRAPHICS_TEXTURES_SECTION);
-            var materialsSection = graphicsSection.GetItem<ITwinSection>(Constants.GRAPHICS_MATERIALS_SECTION);
-
-            foreach (var texture in TextureIDs)
-            {
-                assetManager.GetAsset(texture).ResolveChunkResources(factory, texturesSection);
-            }
-
-            foreach (var material in MaterialIDs)
-            {
-                assetManager.GetAsset(material).ResolveChunkResources(factory, materialsSection);
-            }
-
-            assetManager.GetAsset(DecalTextureID).ResolveChunkResources(factory, texturesSection);
-            assetManager.GetAsset(DecalMaterialID).ResolveChunkResources(factory, materialsSection);
-
-            return base.ResolveChunkResources(factory, section, id);
+            MaterialIDs.Add(assetManager.GetUriByTwinId<Material>(Owner, material));
         }
 
-        protected override void Dispose(Boolean disposing)
-        {
-            TextureIDs.Clear();
-            MaterialIDs.Clear();
-            UnkBlobs.Clear();
+        DecalTextureID = assetManager.GetUriByTwinId<Texture>(Owner, particle.DecalTextureID);
+        DecalMaterialID = assetManager.GetUriByTwinId<Material>(Owner, particle.DecalMaterialID);
 
-            base.Dispose(disposing);
+        UnkData = CloneUtils.CloneArray(particle.UnkData);
+        UnkBlob = CloneUtils.CloneArray(particle.UnkBlob);
+        UnkInts = CloneUtils.CloneArray(particle.UnkInts);
+
+        foreach (var blob in particle.UnkBlobs)
+        {
+            UnkBlobs.Add(CloneUtils.CloneArray(blob));
         }
+    }
+
+    public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, uint id,
+        int? layoutId = null)
+    {
+        var assetManager = AssetManager.Get();
+        var graphicsSection = section.GetItem<ITwinSection>(Constants.LEVEL_GRAPHICS_SECTION);
+        var texturesSection = graphicsSection.GetItem<ITwinSection>(Constants.GRAPHICS_TEXTURES_SECTION);
+        var materialsSection = graphicsSection.GetItem<ITwinSection>(Constants.GRAPHICS_MATERIALS_SECTION);
+
+        foreach (var texture in TextureIDs)
+        {
+            assetManager.GetAsset(texture).ResolveChunkResources(factory, texturesSection);
+        }
+
+        foreach (var material in MaterialIDs)
+        {
+            assetManager.GetAsset(material).ResolveChunkResources(factory, materialsSection);
+        }
+
+        assetManager.GetAsset(DecalTextureID).ResolveChunkResources(factory, texturesSection);
+        assetManager.GetAsset(DecalMaterialID).ResolveChunkResources(factory, materialsSection);
+
+        return base.ResolveChunkResources(factory, section, id);
+    }
+
+    protected override void Dispose(Boolean disposing)
+    {
+        TextureIDs.Clear();
+        MaterialIDs.Clear();
+        UnkBlobs.Clear();
+
+        base.Dispose(disposing);
     }
 }

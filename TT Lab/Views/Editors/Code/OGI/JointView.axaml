@@ -1,0 +1,32 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:TT_Lab.Controls"
+             xmlns:controls1="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+             xmlns:composite="clr-namespace:TT_Lab.Views.Composite"
+             xmlns:viewModels="clr-namespace:TT_Lab.ViewModels.Editors.Code.OGI"
+             x:DataType="viewModels:JointViewModel"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Views.Editors.Code.OGI.JointView">
+    <controls1:GroupBox>
+        <StackPanel Orientation="Vertical">
+            <controls:LabeledTextBox LayoutOrientation="Horizontal" Margin="0, 0, 0, 10" Text="{Binding ReactId}" HorizontalAlignment="Stretch" TextBoxName="Reaction ID"/>
+            <controls1:GroupBox Header="Additional Animation Rotation">
+                <composite:Vector4View IsEnabled="False" DataContext="{Binding AdditionalAnimationRotation}"/>
+            </controls1:GroupBox>
+            <controls1:GroupBox Header="Local Translation">
+                <composite:Vector4View IsEnabled="False" DataContext="{Binding LocalTranslation}"/>
+            </controls1:GroupBox>
+            <controls1:GroupBox Header="Local Rotation">
+                <composite:Vector4View IsEnabled="False" DataContext="{Binding LocalRotation}"/>
+            </controls1:GroupBox>
+            <controls1:GroupBox Header="World Translation">
+                <composite:Vector4View IsEnabled="False" DataContext="{Binding WorldTranslation}"/>
+            </controls1:GroupBox>
+            <controls1:GroupBox Header="World Rotation (unused)">
+                <composite:Vector4View IsEnabled="False" DataContext="{Binding WorldRotation}"/>
+            </controls1:GroupBox>
+        </StackPanel>
+    </controls1:GroupBox>
+</UserControl>

@@ -1,0 +1,90 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:TT_Lab.Controls"
+             xmlns:controls1="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+             xmlns:valueConverters="clr-namespace:TT_Lab.ValueConverters"
+             xmlns:composite="clr-namespace:TT_Lab.Views.Composite"
+             xmlns:instance="clr-namespace:TT_Lab.Views.Editors.Instance"
+             xmlns:viewModels="clr-namespace:TT_Lab.ViewModels.Editors.Instance"
+             x:DataType="viewModels:CameraViewModel"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Views.Editors.Instance.CameraView">
+    <UserControl.Resources>
+        <valueConverters:IsNullConverter x:Key="IsNullConverter"/>
+        <!-- <ObjectDataProvider MethodName="GetValues" ObjectType="{x:Type sys:Enum}" x:Key="CameraTypes"> -->
+        <!--     <ObjectDataProvider.MethodParameters> -->
+        <!--         <x:Type TypeName="twinTech:ITwinCamera+CameraType"></x:Type> -->
+        <!--     </ObjectDataProvider.MethodParameters> -->
+        <!-- </ObjectDataProvider> -->
+    </UserControl.Resources>
+    <controls1:GroupBox>
+        <Grid RowDefinitions="64,*">
+            <UniformGrid Grid.Row="0" Columns="2" Margin="0, -10, 0, -10">
+                <controls:LabeledDropList SelectedItem="{Binding CameraType1}" Items="{Binding CameraTypes}" DropListName="Main Camera 1" Margin="5"/>
+                <controls:LabeledDropList SelectedItem="{Binding CameraType2}" Items="{Binding CameraTypes}" DropListName="Main Camera 2" Margin="5"/>
+            </UniformGrid>
+            <TabControl Grid.Row="1">
+                <TabItem Header="Parameters">
+                    <!-- <ScrollViewer PanningMode="VerticalOnly" PanningRatio="0.9" PanningDeceleration="0.5"> -->
+                        <Grid RowDefinitions="*,*,*">
+                            <controls1:GroupBox Grid.Row="0" Header="Unknown Vector 1">
+                                <composite:Vector4View DataContext="{Binding UnkVector1}"/>
+                            </controls1:GroupBox>
+                            <controls1:GroupBox Grid.Row="1" Header="Unknown Vector 2">
+                                <composite:Vector4View DataContext="{Binding UnkVector2}"/>
+                            </controls1:GroupBox>
+                            <UniformGrid Grid.Row="2" Columns="1">
+                                <controls:LabeledTextBox Text="{Binding CameraHeader, StringFormat={}{0:X}}" HorizontalAlignment="Stretch" TextBoxName="Camera Header"></controls:LabeledTextBox>
+                                <controls:LabeledTextBox Text="{Binding UnkShort}" HorizontalAlignment="Stretch" TextBoxName="Unknown Short"></controls:LabeledTextBox>
+                                <controls:LabeledTextBox Text="{Binding UnkFloat1}" HorizontalAlignment="Stretch" TextBoxName="Unknown Float 1"></controls:LabeledTextBox>
+                                <controls:LabeledTextBox Text="{Binding UnkFloat2}" HorizontalAlignment="Stretch" TextBoxName="Unknown Float 2"></controls:LabeledTextBox>
+                                <controls:LabeledTextBox Text="{Binding UnkFloat3}" HorizontalAlignment="Stretch" TextBoxName="Unknown Float 3"></controls:LabeledTextBox>
+                                <controls:LabeledTextBox Text="{Binding UnkFloat4}" HorizontalAlignment="Stretch" TextBoxName="Unknown Float 4"></controls:LabeledTextBox>
+                                <controls:LabeledTextBox Text="{Binding UnkFloat5}" HorizontalAlignment="Stretch" TextBoxName="Unknown Float 5"></controls:LabeledTextBox>
+                                <controls:LabeledTextBox Text="{Binding UnkFloat6}" HorizontalAlignment="Stretch" TextBoxName="Unknown Float 6"></controls:LabeledTextBox>
+                                <controls:LabeledTextBox Text="{Binding UnkFloat7}" HorizontalAlignment="Stretch" TextBoxName="Unknown Float 7"></controls:LabeledTextBox>
+                                <controls:LabeledTextBox Text="{Binding UnkFloat8}" HorizontalAlignment="Stretch" TextBoxName="Unknown Float 8"></controls:LabeledTextBox>
+                                <controls:LabeledTextBox Text="{Binding UnkInt1}" HorizontalAlignment="Stretch" TextBoxName="Unknown Integer 1"></controls:LabeledTextBox>
+                                <controls:LabeledTextBox Text="{Binding UnkInt2}" HorizontalAlignment="Stretch" TextBoxName="Unknown Integer 2"></controls:LabeledTextBox>
+                                <controls:LabeledTextBox Text="{Binding UnkInt3}" HorizontalAlignment="Stretch" TextBoxName="Unknown Integer 3"></controls:LabeledTextBox>
+                                <controls:LabeledTextBox Text="{Binding UnkInt4}" HorizontalAlignment="Stretch" TextBoxName="Unknown Integer 4"></controls:LabeledTextBox>
+                                <controls:LabeledTextBox Text="{Binding UnkInt5}" HorizontalAlignment="Stretch" TextBoxName="Unknown Integer 5"></controls:LabeledTextBox>
+                                <controls:LabeledTextBox Text="{Binding UnkInt6}" HorizontalAlignment="Stretch" TextBoxName="Unknown Integer 6"></controls:LabeledTextBox>
+                                <controls:LabeledTextBox Text="{Binding UnkInt7}" HorizontalAlignment="Stretch" TextBoxName="Unknown Integer 7"></controls:LabeledTextBox>
+                                <controls:LabeledTextBox Text="{Binding UnkInt8}" HorizontalAlignment="Stretch" TextBoxName="Unknown Integer 8"></controls:LabeledTextBox>
+                                <controls:LabeledTextBox Text="{Binding UnkByte}" HorizontalAlignment="Stretch" TextBoxName="Unknown Byte"></controls:LabeledTextBox>
+                            </UniformGrid>
+                        </Grid>
+                    <!-- </ScrollViewer> -->
+                </TabItem>
+                <TabItem Header="Trigger">
+                    <instance:TriggerView DataContext="{Binding Trigger}"/>
+                </TabItem>
+                <TabItem Header="Main Camera 1">
+                    <ContentControl Content="{Binding MainCamera1}"/>
+                    <Interaction.Behaviors>
+                        <DataTrigger Binding="{Binding MainCamera1, Converter={StaticResource IsNullConverter}}" Value="True">
+                            <ChangePropertyAction PropertyName="IsVisible" Value="False"></ChangePropertyAction>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding MainCamera1, Converter={StaticResource IsNullConverter}}" Value="False">
+                            <ChangePropertyAction PropertyName="IsVisible" Value="True"></ChangePropertyAction>
+                        </DataTrigger>
+                    </Interaction.Behaviors>
+                </TabItem>
+                <TabItem Header="Main Camera 2">
+                    <ContentControl Content="{Binding MainCamera2}"/>
+                    <Interaction.Behaviors>
+                        <DataTrigger Binding="{Binding MainCamera2, Converter={StaticResource IsNullConverter}}" Value="True">
+                            <ChangePropertyAction PropertyName="IsVisible" Value="False"></ChangePropertyAction>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding MainCamera2, Converter={StaticResource IsNullConverter}}" Value="False">
+                            <ChangePropertyAction PropertyName="IsVisible" Value="True"></ChangePropertyAction>
+                        </DataTrigger>
+                    </Interaction.Behaviors>
+                </TabItem>
+            </TabControl>
+        </Grid>
+    </controls1:GroupBox>
+</UserControl>

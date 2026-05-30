@@ -24,7 +24,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
             if (AgentLabDefs == null)
             {
                 string codeBase = Assembly.GetExecutingAssembly().Location;
-                UriBuilder uri = new(codeBase);
+                UriBuilder uri = new($"file://{codeBase}");
                 string path = Uri.UnescapeDataString(uri.Path);
                 using FileStream stream = new(Path.Combine(Path.GetDirectoryName(path), @"AgentLabDefsPS2.json"), FileMode.Open, FileAccess.Read);
                 using StreamReader reader = new(stream);

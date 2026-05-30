@@ -1,0 +1,47 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewModels="clr-namespace:TT_Lab.ViewModels.Editors.Instance.ChunkLinks"
+             xmlns:controls="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+             xmlns:composite="clr-namespace:TT_Lab.Views.Composite"
+             xmlns:controls1="clr-namespace:TT_Lab.Controls"
+             xmlns:assets="clr-namespace:TT_Lab.Assets"
+             xmlns:chunkLinks="clr-namespace:TT_Lab.Views.Editors.Instance.ChunkLinks"
+             x:DataType="viewModels:LinkViewModel"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Views.Editors.Instance.ChunkLinks.LinkView">
+    <ScrollViewer>
+        <StackPanel>
+            <composite:ResourceBrowserOpener IncludeEmptyResourceInBrowse="False" BrowserName="Linked Chunk" LinkedResource="{Binding Path}" BrowseType="{x:Type assets:LevelChunk}"/>
+            <UniformGrid Columns="3">
+                <controls1:LabeledCheckBox LayoutOrientation="Horizontal" CheckBoxName="Unknown Flag" Checked="{Binding UnkFlag}"/>
+                <controls1:LabeledCheckBox LayoutOrientation="Horizontal" CheckBoxName="Is Always Visible" Checked="{Binding IsAlwaysVisible}"/>
+                <controls1:LabeledCheckBox LayoutOrientation="Horizontal" CheckBoxName="Is Visible In Camera Frustum" Checked="{Binding IsVisibleInCameraFrustum}"/>
+                <controls1:LabeledCheckBox LayoutOrientation="Horizontal" CheckBoxName="Is Load Wall Active" Checked="{Binding IsLoadWallActive}"/>
+                <controls1:LabeledCheckBox LayoutOrientation="Horizontal" CheckBoxName="Keep Loaded" Checked="{Binding KeepLoaded}"/>
+            </UniformGrid>
+            <controls1:LabeledTextBox LayoutOrientation="Horizontal" Text="{Binding UnkNum}" TextBoxName="Unknown Number"/>
+            <controls:GroupBox Header="Chunk Matrix">
+                <composite:Matrix4View DataContext="{Binding ChunkMatrix}"/>
+            </controls:GroupBox>
+            <controls:GroupBox Header="Object Matrix">
+                <composite:Matrix4View IsEnabled="False" DataContext="{Binding ObjectMatrix}"/>
+            </controls:GroupBox>
+            <controls:GroupBox Header="Loading Wall">
+                <composite:Matrix4View DataContext="{Binding LoadingWall}"/>
+            </controls:GroupBox>
+            <controls1:EditableListBox ListBoxName="Bounding Box Builders" Items="{Binding BoundingBoxBuilders}"
+              AddItemCommand="{Binding AddBoxBuilderCommand}"
+              RemoveItemCommand="{Binding DeleteBoxBuilderCommand}">
+                <controls1:EditableListBox.ItemTemplate>
+                    <DataTemplate DataType="{x:Type viewModels:ChunkLinkBoundingBoxBuilderViewModel}">
+                        <Expander IsExpanded="False">
+                            <chunkLinks:ChunkLinkBoundingBoxBuilderView DataContext="{Binding}"/>
+                        </Expander>
+                    </DataTemplate>
+                </controls1:EditableListBox.ItemTemplate>
+            </controls1:EditableListBox>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

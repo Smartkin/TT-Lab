@@ -4,36 +4,35 @@ using TT_Lab.AssetData.Graphics;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items;
 
-namespace TT_Lab.Assets.Graphics
+namespace TT_Lab.Assets.Graphics;
+
+public class LodModel : SerializableAsset
 {
-    public class LodModel : SerializableAsset
+    protected override bool SetIdFromDataHash => true;
+    public override UInt32 Section => Constants.GRAPHICS_LODS_SECTION;
+    public override String IconPath => "LOD.png";
+
+    public LodModel(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinLOD lod) : base(id, name, package, needVariant, variant)
     {
-        public override UInt32 Section => Constants.GRAPHICS_LODS_SECTION;
-        public override String IconPath => "LOD.png";
+        AssetData = new LodModelData(this, lod);
+    }
 
-        public LodModel(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinLOD lod) : base(id, name, package, needVariant, variant)
-        {
-            assetData = new LodModelData(lod);
-        }
+    public LodModel()
+    {
+    }
 
-        public LodModel()
-        {
-        }
+    public override Type GetEditorType()
+    {
+        throw new NotImplementedException();
+    }
 
-        public override Type GetEditorType()
+    public override AbstractAssetData GetData()
+    {
+        if (!IsLoaded || AssetData.Disposed)
         {
-            throw new NotImplementedException();
+            AssetData = new LodModelData(this);
+            AssetData.Load(DataLoadPath);
         }
-
-        public override AbstractAssetData GetData()
-        {
-            if (!IsLoaded || assetData.Disposed)
-            {
-                assetData = new LodModelData();
-                assetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
-                IsLoaded = true;
-            }
-            return assetData;
-        }
+        return AssetData;
     }
 }

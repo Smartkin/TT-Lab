@@ -1,0 +1,34 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:controls="clr-namespace:TT_Lab.Controls"
+        xmlns:viewModels="clr-namespace:TT_Lab.ViewModels"
+        xmlns:controls1="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+        x:DataType="viewModels:PreferencesViewModel"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        x:Class="TT_Lab.Views.PreferencesView"
+        Title="Preferences" Height="500" Width="400" WindowStartupLocation="CenterScreen">
+    <controls1:GroupBox>
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+            <StackPanel>
+                <controls:LabeledCheckBox Checked="{Binding AreEasterEggsEnabled}" LayoutOrientation="Horizontal" VerticalAlignment="Top" CheckBoxName="Enable Easter Eggs"/>
+                <Grid Margin="5" ColumnDefinitions="Auto,2*,30">
+                    <Label VerticalAlignment="Center" Grid.Column="0" Content="Projects path"/>
+                    <TextBox Grid.Column="1" Margin="5, 0, 0, 0" HorizontalAlignment="Stretch" Watermark="Projects path..." Height="30" TextWrapping="NoWrap" VerticalAlignment="Center" Text="{Binding ProjectsPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="True"/>
+                    <Button Command="{Binding SetProjectsPathCommand}" Grid.Column="2" Content="..."/>
+                </Grid>
+                <Grid Margin="5" ColumnDefinitions="Auto,2*,30">
+                    <Label VerticalAlignment="Center" Grid.Column="0" Content="PS2 Disc Content path"/>
+                    <TextBox Grid.Column="1" Margin="5, 0, 0, 0" HorizontalAlignment="Stretch" Watermark="PS2 unpacked ISO contents path..." Height="30" TextWrapping="NoWrap" VerticalAlignment="Center" Text="{Binding Ps2ContentPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="True"/>
+                    <Button Command="{Binding SetPs2DiscContentPathCommand}" Grid.Column="2" Content="..."/>
+                </Grid>
+                <Grid Margin="5" ColumnDefinitions="Auto,2*,30">
+                    <Label VerticalAlignment="Center" Grid.Column="0" Content="Xbox Disc Content path"/>
+                    <TextBox Grid.Column="1" Margin="5, 0, 0, 0" HorizontalAlignment="Stretch" Watermark="Xbox unpacked ISO contents path..." Height="30" TextWrapping="NoWrap" VerticalAlignment="Center" Text="{Binding XboxContentPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="True"/>
+                    <Button Command="{Binding SetXboxDiscContentPathCommand}" Grid.Column="2" Content="..."/>
+                </Grid>
+            </StackPanel>
+        </ScrollViewer>
+    </controls1:GroupBox>
+</Window>

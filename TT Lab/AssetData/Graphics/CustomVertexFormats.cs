@@ -15,7 +15,7 @@ public struct VertexColor2Texture1WithAlpha : SharpGLTF.Geometry.VertexTypes.IVe
         _base = new SharpGLTF.Geometry.VertexTypes.VertexColor2Texture1(color0, color1, texcoord);
         AlphaBlendingBit = alphaBlendingBit;
     }
-        
+    
     public VertexColor2Texture1WithAlpha(SharpGLTF.Geometry.VertexTypes.IVertexMaterial src, bool alphaBlendingBit = true)
     {
         _base = new SharpGLTF.Geometry.VertexTypes.VertexColor2Texture1(src);

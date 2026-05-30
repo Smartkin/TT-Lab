@@ -1,0 +1,59 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+             xmlns:cameras="clr-namespace:TT_Lab.Views.Editors.Instance.Cameras"
+             xmlns:composite="clr-namespace:TT_Lab.Views.Composite"
+             xmlns:vm="clr-namespace:TT_Lab.ViewModels.Editors.Instance.Cameras"
+             x:DataType="vm:CameraZoneViewModel"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Views.Editors.Instance.Cameras.CameraZoneView">
+    <controls:GroupBox>
+        <StackPanel Orientation="Vertical">
+            <cameras:BaseCameraView DataContext="{Binding}"/>
+            <controls:GroupBox Header="Unknown Vectors 1">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition/>
+                        <RowDefinition/>
+                    </Grid.RowDefinitions>
+                    <controls:GroupBox Grid.Row="0">
+                        <ListBox x:Name="UnkVecs1List"
+                                 ItemsSource="{Binding UnkVecs1}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding DisplayString}"></TextBlock>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </controls:GroupBox>
+                    <controls:GroupBox Grid.Row="1" Header="Edited Vector">
+                        <composite:Vector4View DataContext="{Binding SelectedItem, ElementName=UnkVecs1List}"/>
+                    </controls:GroupBox>
+                </Grid>
+            </controls:GroupBox>
+            <controls:GroupBox Header="Unknown Vectors 2">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition/>
+                        <RowDefinition/>
+                    </Grid.RowDefinitions>
+                    <controls:GroupBox Grid.Row="0">
+                        <ListBox x:Name="UnkVecs2List"
+                                 ItemsSource="{Binding UnkVecs2}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding DisplayString}"></TextBlock>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </controls:GroupBox>
+                    <controls:GroupBox Grid.Row="1" Header="Edited Vector">
+                        <composite:Vector4View DataContext="{Binding SelectedItem, ElementName=UnkVecs2List}"/>
+                    </controls:GroupBox>
+                </Grid>
+            </controls:GroupBox>
+        </StackPanel>
+    </controls:GroupBox>
+</UserControl>

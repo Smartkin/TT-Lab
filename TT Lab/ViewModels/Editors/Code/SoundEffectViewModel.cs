@@ -1,110 +1,69 @@
 using System;
-using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
-using System.IO.Packaging;
-using System.Media;
+using System.Reactive.Disposables;
+using System.Reactive.Disposables.Fluent;
+using System.Reactive.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Media;
-using System.Windows.Threading;
-using Caliburn.Micro;
-using NAudio.Wave;
+using Avalonia.Controls.Primitives;
+using Avalonia.Threading;
+using ReactiveUI;
+using ReactiveUI.SourceGenerators;
+using SoundFlow.Components;
+using SoundFlow.Interfaces;
+using Splat;
 using TT_Lab.AssetData.Code;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
 using TT_Lab.Attributes;
-using TT_Lab.Audio;
+using TT_Lab.Services;
 using TT_Lab.Util;
+using TT_Lab.ViewModels.Editors.PropertyGraph;
 using Twinsanity.Libraries;
-using Action = System.Action;
-using Package = System.IO.Packaging.Package;
-using Timer = System.Timers.Timer;
 
 namespace TT_Lab.ViewModels.Editors.Code;
 
-public class SoundEffectViewModel : ResourceEditorViewModel
+public partial class SoundEffectViewModel : DocumentDataViewModel<SoundEffectData>
 {
-    private bool _soundReplaced;
-    private UInt32 _header;
-    private Byte _unkFlag;
-    private UInt16 _param1;
-    private UInt16 _param2;
-    private UInt16 _param3;
-    private UInt16 _param4;
+    private readonly IAudioService _audioService;
     
-    private AudioPlayer _audioPlayer;
-    private MemoryStream _soundStream;
+    private SoundPlayer _audioPlayer;
+    private MemoryStream _audioStream;
 
-    public SoundEffectViewModel()
+    public SoundEffectViewModel(DocumentViewModel document, PropertyNode soundEffectData, params DocumentNodeViewModel[] dependencies) : base(document, soundEffectData, dependencies)
     {
-        Application.Current.Dispatcher.BeginInvoke(() =>
-        {
-            CompositionTarget.Rendering += UpdateTrackUi;
-        });
-    }
-
-    protected override Task OnDeactivateAsync(bool close, CancellationToken cancellationToken)
-    {
-        if (close)
-        {
-            _audioPlayer.Dispose();
-            CompositionTarget.Rendering -= UpdateTrackUi;
-        }
-        else
-        {
-            StopPlayback();
-        }
-
-        return base.OnDeactivateAsync(close, cancellationToken);
-    }
-
-    public override void LoadData()
-    {
-        if (_audioPlayer != null)
-        {
-            _audioPlayer.Dispose();
-        }
+        _audioService = Locator.Current.GetService<IAudioService>()!;
         
-        var soundData = AssetManager.Get().GetAssetData<SoundEffectData>(EditableResource);
-        _soundStream = soundData.GetSoundEffectStream();
-        _audioPlayer = new AudioPlayer(_soundStream);
-        _audioPlayer.OnPlaybackStopped += () =>
+        InitAudioPlayer(CurrentValue!);
+    }
+
+    protected override void OnClosed(CompositeDisposable disposables)
+    {
+        _audioPlayer.DisposeWith(disposables);
+    }
+
+    [MemberNotNull(nameof(_audioPlayer))]
+    [MemberNotNull(nameof(_audioStream))]
+    private void InitAudioPlayer(SoundEffectData soundData)
+    {
+        _audioStream = soundData.GetSoundEffectStream();
+        _audioPlayer = _audioService.CreateSoundPlayer(_audioStream);
+        
+        _audioPlayer.PlaybackEnded += (s, e) =>
         {
-            if (_audioPlayer.GetPlaybackState() != PlaybackState.Stopped)
+            if (_audioPlayer.State != SoundFlow.Enums.PlaybackState.Stopped)
             {
                 return;
             }
-            
+        
             SoundProgress = 0;
         };
-
-        var sound = AssetManager.Get().GetAsset<SoundEffect>(EditableResource);
-        _header = sound.Header;
-        _unkFlag = sound.UnkFlag;
-        _param1 = sound.Param1;
-        _param2 = sound.Param2;
-        _param3 = sound.Param3;
-        _param4 = sound.Param4;
-    }
-
-    protected override void Save()
-    {
-        var sound = AssetManager.Get().GetAsset<SoundEffect>(EditableResource);
-        sound.Header = _header;
-        sound.UnkFlag = _unkFlag;
-        sound.Param1 = _param1;
-        sound.Param2 = _param2;
-        sound.Param3 = _param3;
-        sound.Param4 = _param4;
-        sound.Serialize(SerializationFlags.SetDirectoryToAssets | SerializationFlags.SaveData);
-
-        base.Save();
     }
 
     public void PlaySound()
     {
-        if (_audioPlayer.IsPlaying)
+        if (_audioPlayer.State is SoundFlow.Enums.PlaybackState.Playing or SoundFlow.Enums.PlaybackState.Stopped)
         {
             StopPlayback();
         }
@@ -115,33 +74,38 @@ public class SoundEffectViewModel : ResourceEditorViewModel
     public void PauseSound()
     {
         _audioPlayer.Pause();
-        NotifyOfPropertyChange(nameof(SoundProgress));
-        NotifyOfPropertyChange(nameof(CurrentTime));
     }
 
-    public void ReplaceSound()
+    public async Task ReplaceSound()
     {
-        var file = MiscUtils.GetFileFromDialogue("Wave File|*.wav");
+        var file = await MiscUtils.GetFileFromDialogueAsync("Choose a wave file...", "Sound files", ["*.wav"]);
         if (string.IsNullOrEmpty(file))
         {
             return;
         }
         
-        using FileStream fs = new(file, FileMode.Open, FileAccess.Read);
+        await using FileStream fs = new(file, FileMode.Open, FileAccess.Read);
         using BinaryReader reader = new(fs);
-        Byte[] pcm = Array.Empty<byte>();
+        var pcm = Array.Empty<byte>();
         short channels = 0;
         uint frequency = 0;
-        RIFF.LoadRiff(reader, ref pcm, ref channels, ref frequency);
-        if (channels != 1)
+        Riff.LoadRiff(reader, ref pcm, ref channels, ref frequency);
+
+        if (channels > 2)
         {
-            Log.WriteLine("ERROR: Stereo sound effects are not supported. Sound wasn't replaced.");
+            Log.WriteLine("Buddy, what kind of audio are you trying to use here? Either mono or stereo. Sound wasn't replaced.", Log.LogType.Error);
+            return;
+        }
+        
+        if (channels == 2 && frequency > 22050)
+        {
+            Log.WriteLine("Stereo sounds can not be over 22050 Hz. Sound wasn't replaced", Log.LogType.Error);
             return;
         }
 
         if (frequency > 48000)
         {
-            Log.WriteLine("ERROR: Sounds over 48000 Hz are not supported. Sound wasn't replaced.");
+            Log.WriteLine("Sounds over 48000 Hz are not supported. Sound wasn't replaced.", Log.LogType.Error);
             return;
         }
         
@@ -149,139 +113,59 @@ public class SoundEffectViewModel : ResourceEditorViewModel
         fs.Close();
         reader.Close();
         
-        var soundData = AssetManager.Get().GetAssetData<SoundEffectData>(EditableResource);
-        soundData.Load(file);
-        LoadData();
+        SetValueCommand.Execute(new SoundEffectData((IAsset)Document.DocumentModel));
+        CurrentValue!.Load(file);
+        InitAudioPlayer(CurrentValue!);
         
-        _soundReplaced = true;
         SoundProgress = 0;
-        NotifyOfPropertyChange(nameof(TotalTimeLength));
-        NotifyOfPropertyChange(nameof(ReplacedAudioMark));
+        this.RaisePropertyChanged(nameof(SoundDuration));
+        this.RaisePropertyChanged(nameof(TotalTimeLength));
     }
 
-    public void ChangeTrackPosition(RoutedPropertyChangedEventArgs<double> e)
+    public void ChangeTrackPosition(RangeBaseValueChangedEventArgs e)
     {
-        if (_audioPlayer.GetPlaybackState() == PlaybackState.Playing)
+        if (_audioPlayer.State == SoundFlow.Enums.PlaybackState.Playing)
         {
             return;
         }
         
         _audioPlayer.Pause();
-        _audioPlayer.SetPosition(e.NewValue);
-        NotifyOfPropertyChange(nameof(CurrentTime));
+        _audioPlayer.Seek((float)e.NewValue);
+        
+        this.RaisePropertyChanged(nameof(CurrentTime));
+        this.RaisePropertyChanged(nameof(SoundProgress));
     }
 
-    private void UpdateTrackUi(object? sender, EventArgs e)
+    public void UpdateTrackUi()
     {
-        if (!_audioPlayer.IsPlaying)
+        if (_audioPlayer.State != SoundFlow.Enums.PlaybackState.Playing)
         {
             return;
         }
         
-        NotifyOfPropertyChange(nameof(SoundProgress));
-        NotifyOfPropertyChange(nameof(CurrentTime));
+        this.RaisePropertyChanged(nameof(CurrentTime));
+        this.RaisePropertyChanged(nameof(SoundProgress));
     }
 
-    public double SoundProgress
+    public float SoundDuration => _audioPlayer.Duration;
+
+    [Reactive]
+    public float SoundProgress
     {
-        get => _audioPlayer.GetProgress;
+        get => _audioPlayer.Time;
         set
         {
-            _audioPlayer.SetPosition(value);
-            NotifyOfPropertyChange();
-            NotifyOfPropertyChange(nameof(CurrentTime));
-        }
-    }
-
-    [MarkDirty]
-    public bool ReplacedAudioMark => _soundReplaced;
-
-    [MarkDirty]
-    public UInt32 Header
-    {
-        get => _header;
-        set
-        {
-            if (value != _header)
+            _audioPlayer.Seek(value);
+            Dispatcher.UIThread.Post(() =>
             {
-                _header = value;
-                NotifyOfPropertyChange();
-            }
+                this.RaisePropertyChanged(nameof(CurrentTime));
+                this.RaisePropertyChanged(nameof(SoundProgress));
+            });
         }
     }
 
-    [MarkDirty]
-    public Byte UnkFlag
-    {
-        get => _unkFlag;
-        set
-        {
-            if (value != _unkFlag)
-            {
-                _unkFlag = value;
-                NotifyOfPropertyChange();
-            }
-        }
-    }
-
-    [MarkDirty]
-    public UInt16 Param1
-    {
-        get => _param1;
-        set
-        {
-            if (value != _param1)
-            {
-                _param1 = value;
-                NotifyOfPropertyChange();
-            }
-        }
-    }
-    
-    [MarkDirty]
-    public UInt16 Param2
-    {
-        get => _param2;
-        set
-        {
-            if (value != _param2)
-            {
-                _param2 = value;
-                NotifyOfPropertyChange();
-            }
-        }
-    }
-    
-    [MarkDirty]
-    public UInt16 Param3
-    {
-        get => _param3;
-        set
-        {
-            if (value != _param3)
-            {
-                _param3 = value;
-                NotifyOfPropertyChange();
-            }
-        }
-    }
-    
-    [MarkDirty]
-    public UInt16 Param4
-    {
-        get => _param4;
-        set
-        {
-            if (value != _param4)
-            {
-                _param4 = value;
-                NotifyOfPropertyChange();
-            }
-        }
-    }
-
-    public string CurrentTime => _audioPlayer.GetPosition.ToString(@"mm\:ss\.ff");
-    public string TotalTimeLength => _audioPlayer.GetDuration.ToString(@"mm\:ss\.ff");
+    public string CurrentTime => TimeSpan.FromSeconds(_audioPlayer.Time).ToString(@"mm\:ss\.ff");
+    public string TotalTimeLength => TimeSpan.FromSeconds(_audioPlayer.Duration).ToString(@"mm\:ss\.ff");
 
     private void StopPlayback()
     {

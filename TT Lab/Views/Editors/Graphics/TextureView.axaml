@@ -1,0 +1,26 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:TT_Lab.Controls"
+             xmlns:controls1="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+             xmlns:viewModels="clr-namespace:TT_Lab.ViewModels.Editors.Graphics"
+             x:DataType="viewModels:TextureViewModel"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Views.Editors.Graphics.TextureView">
+    <!-- <Interaction.Behaviors> -->
+    <!--     <EventTrigger EventName="Drop"> -->
+    <!--         <cm:ActionMessage MethodName="TextureViewerDrop"> -->
+    <!--             <cm:ActionMessage.Parameters> -->
+    <!--                 <cm:Parameter Value="$eventArgs"/> -->
+    <!--             </cm:ActionMessage.Parameters> -->
+    <!--         </cm:ActionMessage> -->
+    <!--     </EventTrigger> -->
+    <!-- </Interaction.Behaviors> -->
+    <controls1:GroupBox>
+        <Grid RowDefinitions="50,*,30">
+            <Image Grid.Row="1" VerticalAlignment="Stretch" Stretch="Uniform" Margin="5" Source="{Binding Texture}"/>
+            <Button Command="{Binding ReplaceButton}" Content="Replace" Margin="0" Grid.Row="2"/>
+        </Grid>
+    </controls1:GroupBox>
+</UserControl>

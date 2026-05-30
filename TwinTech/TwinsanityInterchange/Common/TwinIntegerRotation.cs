@@ -33,15 +33,15 @@ namespace Twinsanity.TwinsanityInterchange.Common
 
         public Single GetRotation()
         {
-            var result = (Single)Math.Floor(Angle / (Single)UInt16.MaxValue * 360);
-            result += (Fract / (Single)UInt16.MaxValue);
+            var result = Angle / (Single)UInt16.MaxValue * 360.0f;
             return result;
         }
 
         public void SetRotation(Single angle)
         {
-            Angle = (UInt16)(Math.Floor(angle) / 360 * UInt16.MaxValue);
-            Fract = (UInt16)((angle - Math.Truncate(angle)) * UInt16.MaxValue);
+            var writeAngle = angle;
+            Angle = (UInt16)(Math.Abs(writeAngle) / 360.0f * UInt16.MaxValue);
+            Fract = writeAngle > 180.0f ? UInt16.MaxValue : (ushort)0;
         }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using TT_Lab.AssetData.Graphics.SubModels;
@@ -40,6 +41,9 @@ namespace TT_Lab.Assets.Factory
 {
     public class PS2ItemFactory : ITwinItemFactory
     {
+        public Package GlobalPackage { get; set; }
+        public bool IsDefaultResolution { get; set; }
+        
         public ITwinAIPath GenerateAIPath(Stream stream)
         {
             var aiPath = new PS2AnyAIPath();
@@ -124,6 +128,8 @@ namespace TT_Lab.Assets.Factory
             return AgentLabCompiler.Compile(script, compilerOptions).Get<ITwinBehaviourCommandPack>();
         }
 
+        public string ChunkPath { get; set; }
+
         public ITwinBlendSkin GenerateBlendSkin(Int32 blendsAmount, List<SubBlendData> blends, UInt32? compileScale)
         {
             var assetManager = AssetManager.Get();
@@ -140,7 +146,7 @@ namespace TT_Lab.Assets.Factory
             {
                 var subBlend = new PS2SubBlendSkin(blendsAmount)
                 {
-                    Material = assetManager.GetAsset(blend.Material).ID,
+                    Material = assetManager.GetAsset(blend.Material).ExportTwinID,
                 };
 
                 foreach (var model in blend.Models)
@@ -160,13 +166,21 @@ namespace TT_Lab.Assets.Factory
 
                         var j = 0;
                         var groupCount = 0;
-                        foreach (Int32 idx in meshlet.Strip.Select(v => (Int32)v))
+                        var prevIdx2 = -1;
+                        var prevIdx = -1;
+                        foreach (var idx in meshlet.Strip.Select(v => (Int32)v))
                         {
-                            // Reset index encountered. Reset the strip
+                            // Strip reset encountered
                             if (idx == 0xFFFF)
                             {
                                 j = 0;
                                 continue;
+                            }
+
+                            // Triangle fan encountered
+                            if (idx == prevIdx2)
+                            {
+                                j = 1;
                             }
 
                             submodel.Vertexes.Add(new Vector4(meshlet.Vertexes[idx].Position));
@@ -186,10 +200,11 @@ namespace TT_Lab.Assets.Factory
                             submodel.SkinJoints.Add(jointInfo);
 
                             groupCount++;
+                            prevIdx2 = prevIdx;
+                            prevIdx = idx;
                             j++;
                         }
 
-                        var faces = new List<PS2BlendSkinFace>();
                         foreach (var blendFace in meshlet.BlendFaces!)
                         {
                             var ps2BlendFace = new PS2BlendSkinFace(submodel.BlendShape)
@@ -204,7 +219,7 @@ namespace TT_Lab.Assets.Factory
                                 {
                                     continue;
                                 }
-
+                                
                                 var blendShape = blendFace.BlendShapes[idx];
                                 ps2BlendFace.Vertices.Add(new VertexBlendShape
                                 {
@@ -263,12 +278,13 @@ namespace TT_Lab.Assets.Factory
             var link = new PS2AnyLink();
             using var reader = new BinaryReader(stream);
             var linkAmount = reader.ReadInt32();
-            for (Int32 i = 0; i < linkAmount; i++)
+            for (var i = 0; i < linkAmount; i++)
             {
                 TwinChunkLink chunkLink = new();
                 chunkLink.UnkFlag = reader.ReadBoolean();
                 chunkLink.Path = reader.ReadString();
-                chunkLink.IsRendered = reader.ReadBoolean();
+                chunkLink.IsAlwaysVisible = reader.ReadBoolean();
+                chunkLink.IsVisibleInCameraFrustum = reader.ReadBoolean();
                 chunkLink.UnkNum = reader.ReadByte();
                 chunkLink.IsLoadWallActive = reader.ReadBoolean();
                 chunkLink.KeepLoaded = reader.ReadBoolean();
@@ -280,7 +296,7 @@ namespace TT_Lab.Assets.Factory
                     chunkLink.LoadingWall.Read(reader, Constants.SIZE_MATRIX4);
                 }
                 var buildersAmount = reader.ReadInt32();
-                for (Int32 j = 0; j < buildersAmount; j++)
+                for (var j = 0; j < buildersAmount; j++)
                 {
                     var builder = new TwinChunkLinkBoundingBoxBuilder();
                     builder.Read(reader, (Int32)stream.Length);
@@ -346,15 +362,23 @@ namespace TT_Lab.Assets.Factory
                 foreach (var group in groups)
                 {
                     var j = 0;
+                    var prevIdx = -1;
+                    var prevIdx2 = -1;
                     var groupCount = 0;
                     var rawModel = mesh.Meshlets[groupIndex];
                     foreach (var idx in group)
                     {
-                        // Reset index encountered. Reset the strip
+                        // Strip reset encountered
                         if (idx == 0xFFFF)
                         {
                             j = 0;
                             continue;
+                        }
+
+                        // Triangle fan encountered
+                        if (idx == prevIdx2)
+                        {
+                            j = 1;
                         }
 
                         submodel.Vertexes.Add(new Vector4(rawModel.Vertexes[idx].Position));
@@ -366,10 +390,12 @@ namespace TT_Lab.Assets.Factory
                         }
                         if (rawModel.Vertexes[idx].HasNormals)
                         {
-                            submodel.Normals.Add(rawModel.Vertexes[idx].Normal);
+                            submodel.Normals.Add(new Vector4(rawModel.Normals[idx]));
                         }
                         submodel.Connection.Add(j > 1);
                         j++;
+                        prevIdx2 = prevIdx;
+                        prevIdx = idx;
                         groupCount++;
                     }
 
@@ -617,7 +643,7 @@ namespace TT_Lab.Assets.Factory
                     UVW = new(),
                     Colors = new(),
                     SkinJoints = new(),
-                    Material = AssetManager.Get().GetAsset(subskin.Material).ID,
+                    Material = AssetManager.Get().GetAsset(subskin.Material).ExportTwinID,
                     GroupSizes = new()
                 };
 
@@ -636,15 +662,23 @@ namespace TT_Lab.Assets.Factory
                 foreach (var group in groups)
                 {
                     var j = 0;
+                    var prevIdx2 = -1;
+                    var prevIdx = -1;
                     var groupCount = 0;
                     var rawModel = mesh.Meshlets[groupIndex];
                     foreach (var idx in group)
                     {
-                        // Reset index encountered. Reset the strip
+                        // Strip reset encountered
                         if (idx == 0xFFFF)
                         {
                             j = 0;
                             continue;
+                        }
+
+                        // Triangle fan encountered
+                        if (idx == prevIdx2)
+                        {
+                            j = 1;
                         }
 
                         submodel.Vertexes.Add(new Vector4(rawModel.Vertexes[idx].Position));
@@ -664,6 +698,8 @@ namespace TT_Lab.Assets.Factory
                         submodel.SkinJoints.Add(jointInfo);
                         groupCount++;
                         j++;
+                        prevIdx2 = prevIdx;
+                        prevIdx = idx;
                     }
 
                     submodel.GroupSizes.Add(groupCount);
@@ -721,15 +757,10 @@ namespace TT_Lab.Assets.Factory
         {
             var frontend = new PS2Frontend();
 
-            foreach (var sound in sounds)
-            {
-                frontend.AddItem(sound);
-            }
-
             return frontend;
         }
 
-        public ITwinPSF GenerateFont(List<ITwinPTC> pages, List<Vector4> unkVecs, Int32 unkInt)
+        public ITwinPSF GenerateFont(List<ITwinPTC> pages, List<VectorCharacterData> characterData, Int32 spaceIdentifier)
         {
             var font = new PS2PSF();
 
@@ -738,8 +769,8 @@ namespace TT_Lab.Assets.Factory
                 font.FontPages.Add(page);
             }
 
-            font.UnkVecs = CloneUtils.CloneList(unkVecs);
-            font.UnkInt = unkInt;
+            font.CharacterData = CloneUtils.CloneList(characterData);
+            font.SpaceIdentifier = spaceIdentifier;
 
             return font;
         }
@@ -771,7 +802,6 @@ namespace TT_Lab.Assets.Factory
         {
             var @default = new PS2Default();
             @default.SetRoot(@default);
-            @default.SetParent(@default);
 
             var graphics = new PS2AnyGraphicsSection();
             graphics.SetID(Constants.LEVEL_GRAPHICS_SECTION);

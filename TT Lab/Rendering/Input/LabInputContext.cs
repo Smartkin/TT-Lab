@@ -1,18 +1,19 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Windows.Controls;
+using Avalonia.Controls;
 using Silk.NET.Input;
 using Silk.NET.Windowing;
+using TT_Lab.Controls;
 
 namespace TT_Lab.Rendering.Input;
 
 public class LabInputContext : IInputContext
 {
     private readonly IView _view;
-    private readonly Image _renderArea;
+    private readonly Viewport _renderArea;
 
-    public LabInputContext(IView view, Image renderArea)
+    public LabInputContext(IView view, Viewport renderArea)
     {
         _view = view;
         _renderArea = renderArea;

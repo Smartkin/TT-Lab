@@ -1,0 +1,164 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:system="clr-namespace:System;assembly=System.Runtime"
+             xmlns:controls="clr-namespace:TT_Lab.Controls"
+             xmlns:controls1="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+             xmlns:composite="clr-namespace:TT_Lab.Views.Composite"
+             xmlns:valueConverters="clr-namespace:TT_Lab.ValueConverters"
+             xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+             xmlns:twinTech="clr-namespace:Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code;assembly=TwinTech"
+             xmlns:code="clr-namespace:TT_Lab.ViewModels.Editors.Code"
+             xmlns:behaviour="clr-namespace:TT_Lab.Views.Editors.Code.Behaviour"
+             xmlns:local="clr-namespace:TT_Lab.Views.Editors.Code"
+             xmlns:assets="clr-namespace:TT_Lab.Assets.Code"
+             xmlns:composite1="clr-namespace:TT_Lab.ViewModels.Composite"
+             xmlns:assets1="clr-namespace:TT_Lab.Assets"
+             x:DataType="code:GameObjectViewModel"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Views.Editors.Code.GameObjectView">
+    <UserControl.Resources>
+        <valueConverters:LabUriConverter x:Key="UriConverter"/>
+        <valueConverters:PrimitiveWrapperBackConverterLabUri x:Key="WrapperConverterLabUri"/>
+        <valueConverters:ObservableCollectionWrapperBackLabUriConverter x:Key="CollectionLabUriBackConverter"/>
+        <!-- <ObjectDataProvider MethodName="GetValues" ObjectType="{x:Type sys:Enum}" x:Key="ObjectTypes"> -->
+        <!--     <ObjectDataProvider.MethodParameters> -->
+        <!--         <x:Type TypeName="twinTech:ITwinObject+ObjectType"></x:Type> -->
+        <!--     </ObjectDataProvider.MethodParameters> -->
+        <!-- </ObjectDataProvider> -->
+    </UserControl.Resources>
+    <controls1:GroupBox>
+        <Grid ColumnDefinitions="*,5,*">
+            <ContentControl Grid.Column="0" Content="{Binding ObjectScene}"/>
+            <GridSplitter Grid.Column="1" Margin="0" ResizeDirection="Columns"></GridSplitter>
+            <ScrollViewer Grid.Column="2">
+                <TabControl>
+                    <TabItem Header="Main Properties">
+                        <StackPanel Orientation="Vertical">
+                            <controls:LabeledTextBox LayoutOrientation="Horizontal" HorizontalAlignment="Stretch" TextBoxName="Object Name" Text="{Binding Name}"/>
+                            <controls:LabeledDropList LayoutOrientation="Horizontal" DropListName="Type" SelectedItem="{Binding Type}" Items="{Binding ObjectTypes}"/>
+                            <controls:LabeledTextBox ToolTip.Tip="{Binding UnkTypeHintString}" LayoutOrientation="Horizontal" HorizontalAlignment="Stretch" TextBoxName="Sub Type (Read the hint by hovering over)" Text="{Binding UnkTypeValue}"/>
+                            <controls:LabeledTextBox LayoutOrientation="Horizontal" HorizontalAlignment="Stretch" TextBoxName="Camera Controlled Joints Amount" Text="{Binding CameraReactJointAmount}"/>
+                            <controls:LabeledTextBox LayoutOrientation="Horizontal" HorizontalAlignment="Stretch" TextBoxName="Exit Points Amount (in OGI/Skeleton)" Text="{Binding ExitPointAmount}"/>
+                            <Expander IsExpanded="True" HorizontalAlignment="Stretch" Header="Slots (used for Behaviours)">
+                                <StackPanel Margin="5, 0, 0, 0" Orientation="Vertical">
+                                    <Expander HorizontalAlignment="Stretch" Header="OGI/Animation slots">
+                                        <Grid ColumnDefinitions="*,*">
+                                            <StackPanel Grid.Column="0" Orientation="Vertical">
+                                                <controls:EditableListBox HorizontalContentAlignment="Stretch" MaxHeight="500" Items="{Binding OgiSlots}" ListBoxName="OGI/Skeleton Slots">
+                                                    <controls:EditableListBox.ItemTemplate>
+                                                        <DataTemplate x:DataType="{x:Type composite1:PrimitiveWrapperViewModel, x:TypeArguments=assets1:LabURI}">
+                                                            <composite:ResourceBrowserOpener
+                                                                HorizontalAlignment="Stretch"
+                                                                BrowserName=""
+                                                                LinkedResource="{Binding Value}"
+                                                                BrowseType="{x:Type assets:OGI}"
+                                                                IncludeEmptyResourceInBrowse="True"/>
+                                                        </DataTemplate>
+                                                    </controls:EditableListBox.ItemTemplate>
+                                                </controls:EditableListBox>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" Orientation="Vertical">
+                                                <controls:EditableListBox HorizontalContentAlignment="Stretch" MaxHeight="500" Items="{Binding AnimationSlots}" ListBoxName="Animation Slots">
+                                                    <controls:EditableListBox.ItemTemplate>
+                                                        <DataTemplate x:DataType="{x:Type composite1:PrimitiveWrapperViewModel, x:TypeArguments=assets1:LabURI}">
+                                                            <composite:ResourceBrowserOpener
+                                                                HorizontalAlignment="Stretch"
+                                                                BrowserName=""
+                                                                LinkedResource="{Binding Value}"
+                                                                BrowseType="{x:Type assets:Animation}"
+                                                                IncludeEmptyResourceInBrowse="True"/>
+                                                        </DataTemplate>
+                                                    </controls:EditableListBox.ItemTemplate>
+                                                </controls:EditableListBox>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Expander>
+                                    <Expander HorizontalAlignment="Stretch" Header="Behaviour slots">
+                                        <controls:EditableListBox HorizontalContentAlignment="Stretch" MaxHeight="500" Items="{Binding BehaviourSlots}" ListBoxName="">
+                                            <controls:EditableListBox.ItemTemplate>
+                                                <DataTemplate x:DataType="{x:Type composite1:PrimitiveWrapperViewModel, x:TypeArguments=assets1:LabURI}">
+                                                    <composite:ResourceBrowserOpener
+                                                        HorizontalAlignment="Stretch"
+                                                        BrowserName=""
+                                                        LinkedResource="{Binding Value}"
+                                                        FilterCommand="{Binding ((code:GameObjectViewModel)DataContext).BehaviourFilterCommand, Mode=OneWay, RelativeSource={RelativeSource AncestorType={x:Type local:GameObjectView}}}"
+                                                        ResourcesToBrowse="{Binding ((code:GameObjectViewModel)DataContext).AllBehaviours, Mode=OneWay, RelativeSource={RelativeSource AncestorType={x:Type local:GameObjectView}}, Converter={StaticResource CollectionLabUriBackConverter}}"
+                                                        IncludeEmptyResourceInBrowse="True"/>
+                                                </DataTemplate>
+                                            </controls:EditableListBox.ItemTemplate>
+                                        </controls:EditableListBox>
+                                    </Expander>
+                                    <Expander HorizontalAlignment="Stretch" Header="Object slots">
+                                        <controls:EditableListBox HorizontalContentAlignment="Stretch" MaxHeight="500" Items="{Binding ObjectSlots}" ListBoxName="">
+                                            <controls:EditableListBox.ItemTemplate>
+                                                <DataTemplate x:DataType="{x:Type composite1:PrimitiveWrapperViewModel, x:TypeArguments=assets1:LabURI}">
+                                                    <composite:ResourceBrowserOpener
+                                                        HorizontalAlignment="Stretch"
+                                                        BrowserName=""
+                                                        LinkedResource="{Binding Value}"
+                                                        BrowseType="{x:Type assets:GameObject}"
+                                                        IncludeEmptyResourceInBrowse="True"/>
+                                                </DataTemplate>
+                                            </controls:EditableListBox.ItemTemplate>
+                                        </controls:EditableListBox>
+                                    </Expander>
+                                    <Expander HorizontalAlignment="Stretch" Header="Sound slots">
+                                        <controls:EditableListBox HorizontalContentAlignment="Stretch" MaxHeight="500" Items="{Binding SoundSlots}" ListBoxName="">
+                                            <controls:EditableListBox.ItemTemplate>
+                                                <DataTemplate x:DataType="{x:Type composite1:PrimitiveWrapperViewModel, x:TypeArguments=assets1:LabURI}">
+                                                    <composite:ResourceBrowserOpener
+                                                        HorizontalAlignment="Stretch"
+                                                        BrowserName=""
+                                                        LinkedResource="{Binding Value}"
+                                                        BrowseType="{x:Type assets:SoundEffect}"
+                                                        IncludeEmptyResourceInBrowse="True"/>
+                                                </DataTemplate>
+                                            </controls:EditableListBox.ItemTemplate>
+                                        </controls:EditableListBox>
+                                    </Expander>
+                                </StackPanel>
+                            </Expander>
+                        </StackPanel>
+                    </TabItem>
+                    <TabItem Header="Default Instance Properties">
+                        <StackPanel Orientation="Vertical">
+                            <composite:InstanceStateFlagsView MaxHeight="400" DataContext="{Binding StateFlags}"/>
+                            <Expander HorizontalAlignment="Stretch" Header="Instance Flags">
+                                <controls:EditableListBox HorizontalContentAlignment="Stretch" MaxHeight="500" Items="{Binding InstFlags}" ListBoxName="">
+                                    <controls:EditableListBox.ItemTemplate>
+                                        <DataTemplate x:DataType="{x:Type composite1:PrimitiveWrapperViewModel, x:TypeArguments=x:UInt32}">
+                                            <controls:LabeledTextBox LayoutOrientation="Horizontal" HorizontalAlignment="Stretch" TextBoxName="" Text="{Binding Value, StringFormat={}{0:X}}"/>
+                                        </DataTemplate>
+                                    </controls:EditableListBox.ItemTemplate>
+                                </controls:EditableListBox>
+                            </Expander>
+                            <Expander HorizontalAlignment="Stretch" Header="Instance Floats">
+                                <controls:EditableListBox HorizontalContentAlignment="Stretch" MaxHeight="500" Items="{Binding InstFloats}" ListBoxName="">
+                                    <controls:EditableListBox.ItemTemplate>
+                                        <DataTemplate x:DataType="{x:Type composite1:PrimitiveWrapperViewModel, x:TypeArguments=x:Single}">
+                                            <controls:LabeledTextBox LayoutOrientation="Horizontal" HorizontalAlignment="Stretch" TextBoxName="" Text="{Binding Value}"/>
+                                        </DataTemplate>
+                                    </controls:EditableListBox.ItemTemplate>
+                                </controls:EditableListBox>
+                            </Expander>
+                            <Expander HorizontalAlignment="Stretch" Header="Instance Integers">
+                                <controls:EditableListBox HorizontalContentAlignment="Stretch" MaxHeight="500" Items="{Binding InstIntegers}" ListBoxName="">
+                                    <controls:EditableListBox.ItemTemplate>
+                                        <DataTemplate x:DataType="{x:Type composite1:PrimitiveWrapperViewModel, x:TypeArguments=x:UInt32}">
+                                            <controls:LabeledTextBox LayoutOrientation="Horizontal" HorizontalAlignment="Stretch" TextBoxName="" Text="{Binding Value}"/>
+                                        </DataTemplate>
+                                    </controls:EditableListBox.ItemTemplate>
+                                </controls:EditableListBox>
+                            </Expander>
+                        </StackPanel>
+                    </TabItem>
+                    <TabItem Header="Command Pack">
+                        <behaviour:BehaviourCommandPackView DataContext="{Binding CommandPack}"/>
+                    </TabItem>
+                </TabControl>
+            </ScrollViewer>
+        </Grid>
+    </controls1:GroupBox>
+</UserControl>

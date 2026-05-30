@@ -38,7 +38,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.DynamicScenery
             flags = reader.ReadUInt16();
             {
                 UnknownValue = (UInt16)(flags & 0xFF);
-                UnusedRotationRelatedParameter = (UInt16)((flags >> 0x8) & 0xf);
+                UnusedRotationRelatedParameter = (UInt16)((flags >> 0x8) & 0xF);
             }
             transformationChoice = reader.ReadUInt16();
             {
@@ -57,7 +57,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.DynamicScenery
         public void Write(BinaryWriter writer)
         {
             flags = UnknownValue;
-            flags |= (UInt16)((UnusedRotationRelatedParameter & 0xf) << 0x8);
+            flags |= (UInt16)((UnusedRotationRelatedParameter & 0xF) << 0x8);
             writer.Write(flags);
 
             UInt16 newTransformationChoice = (UInt16)TranslateX;

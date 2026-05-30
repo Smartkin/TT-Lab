@@ -1,0 +1,28 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:TT_Lab.Controls"
+             xmlns:controls1="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+             xmlns:composite="clr-namespace:TT_Lab.Views.Composite"
+             xmlns:viewModels="clr-namespace:TT_Lab.ViewModels.Editors.Instance"
+             x:DataType="viewModels:AiPositionViewModel"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Views.Editors.Instance.AiPositionView">
+    <!-- <UserControl.Resources> -->
+    <!--     <ObjectDataProvider MethodName="GetValues" ObjectType="{x:Type sys:Enum}" x:Key="InstanceLayouts"> -->
+    <!--         <ObjectDataProvider.MethodParameters> -->
+    <!--             <x:Type TypeName="twinTech:Enums+Layouts"></x:Type> -->
+    <!--         </ObjectDataProvider.MethodParameters> -->
+    <!--     </ObjectDataProvider> -->
+    <!-- </UserControl.Resources> -->
+    <controls1:GroupBox>
+        <Grid RowDefinitions="*,*" ColumnDefinitions="*,*">
+            <controls:LabeledDropList SelectedItem="{Binding LayoutID}" Items="{Binding InstanceLayers}" x:Name="InstanceLayoutList" HorizontalAlignment="Stretch" Margin="5,0,5,0" VerticalAlignment="Center" DropListName="Instance layout"/>
+            <controls:LabeledTextBox Grid.Column="0" Text="{Binding Argument}" HorizontalAlignment="Stretch" Margin="5,0,5,0" Grid.Row="1" VerticalAlignment="Center" TextBoxName="Argument"/>
+            <controls1:GroupBox Grid.Row="0" Grid.Column="1" Header="Position" Grid.RowSpan="2">
+                <composite:Vector4View DataContext="{Binding Position}" VerticalLayout="True"/>
+            </controls1:GroupBox>
+        </Grid>
+    </controls1:GroupBox>
+</UserControl>

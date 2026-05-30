@@ -1,90 +1,192 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
+using System.Linq;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.Json.Serialization.Metadata;
 using TT_Lab.AssetData.Graphics.Shaders;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
+using TT_Lab.Assets.Graphics;
 using TT_Lab.Attributes;
+using TT_Lab.Attributes.EditorParamWrappers;
+using TT_Lab.ViewModels.Editors;
+using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items;
 using static Twinsanity.TwinsanityInterchange.Enumerations.Enums;
 
-namespace TT_Lab.AssetData.Graphics
+namespace TT_Lab.AssetData.Graphics;
+
+[ReferencesAssets]
+public class MaterialData : AbstractAssetData
 {
-    [ReferencesAssets]
-    public class MaterialData : AbstractAssetData
+    public MaterialData(IAsset asset) : base(asset)
     {
-        public MaterialData()
-        {
-            Shaders = [new LabShader()];
-            Name = "NewMaterial";
-        }
+        Shaders = [new LabShader()];
+        Name = "NewMaterial";
+    }
 
-        public MaterialData(ITwinMaterial material) : this()
-        {
-            SetTwinItem(material);
-        }
+    public MaterialData(IAsset asset, ITwinMaterial material) : this(asset)
+    {
+        SetTwinItem(material);
+    }
 
-        [JsonProperty(Required = Required.Always)]
-        public AppliedShaders ActivatedShaders { get; set; }
-        [JsonProperty(Required = Required.Always)]
+    public static MaterialData GetEmptyMaterial()
+    {
+        var material = new MaterialData(null);
+        material.Shaders[0].TxtMapping = TwinShader.TextureMapping.ON;
+        material.Shaders[0].ShaderType = TwinShader.Type.StandardLit;
+        material.Shaders[0].TextureId = LabURI.BoatGuy;
+        return material;
+    }
+
+    private class MaterialJsonData
+    {
         public UInt32 DmaChainIndex { get; set; }
-        [JsonProperty(Required = Required.Always)]
-        public String Name { get; set; }
-        [JsonProperty(Required = Required.Always)]
-        public List<LabShader> Shaders { get; set; }
+        public string Name { get; set; }
+    }
 
-        protected override void Dispose(Boolean disposing)
+    public JsonNode GetJsonFormat()
+    {
+        var jsonData = new MaterialJsonData
         {
-            Shaders.Clear();
-        }
+            Name = Name,
+            DmaChainIndex = DmaChainIndex,
+        };
+        
+        return System.Text.Json.JsonSerializer.SerializeToNode(jsonData)!;
+    }
 
-        public override void Import(LabURI package, String? variant, Int32? layoutId)
+    [JsonProperty(Required = Required.Always)]
+    [Editable]
+    [EditorReadOnly]
+    public AppliedShaders ActivatedShaders { get; set; }
+    
+    [JsonProperty(Required = Required.Always)]
+    [Editable]
+    [EditorParam(DocumentModelViewModel.EditorExplicitOrder, -2)]
+    public String Name { get; set; }
+    
+    [JsonProperty(Required = Required.Always)]
+    [Editable]
+    [EditorParam(DocumentModelViewModel.EditorExplicitOrder, -1)]
+    public UInt32 DmaChainIndex { get; set; }
+    
+    [JsonProperty(Required = Required.Always)]
+    [Editable(Caption = "Shaders")]
+    [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Shader")]
+    [EditorParam(DocumentModelViewModel.EditorExplicitOrder, 1)]
+    public List<LabShader> Shaders { get; set; }
+
+    protected override void Dispose(Boolean disposing)
+    {
+        Shaders.Clear();
+    }
+
+    public static MaterialData LoadFromGltf(IAsset owner, SharpGLTF.Schema2.Node materialNode, List<SharpGLTF.Schema2.Material> gltfMaterials)
+    {
+        var materialData = new MaterialData(owner);
+        var materialInfo = materialNode.Extras.Deserialize<MaterialJsonData>();
+        materialData.DmaChainIndex = materialInfo!.DmaChainIndex;
+        materialData.Name = materialInfo.Name;
+
+        var assetManager = AssetManager.Get();
+        materialData.Shaders = [];
+        materialData.ActivatedShaders = 0;
+        foreach (var gltfMaterial in gltfMaterials)
         {
-            var material = GetTwinItem<ITwinMaterial>();
-            ActivatedShaders = material.ActivatedShaders;
-            DmaChainIndex = material.DmaChainIndex;
-            Name = new string(material.Name.ToCharArray());
-            Shaders = [];
-            foreach (var shader in material.Shaders)
+            var shader = LabShader.GetShaderFromGltf(gltfMaterial);
+            Debug.Assert(shader != null, "Shader must not be null!");
+            var gltfTexture = gltfMaterial.FindChannel(nameof(SharpGLTF.Materials.KnownChannel.BaseColor))?.Texture;
+            if (gltfTexture != null)
             {
-                Shaders.Add(new LabShader(package, variant, shader));
-            }
-        }
+                var texture = new Texture
+                {
+                    Package = owner.Package,
+                    InvariantName = $"Texture_{owner.Name}",
+                    Alias = $"Texture_{owner.Name}",
+                    IsInternal = true
+                };
+                
+                var textureData = TextureData.LoadFromGltf(texture, gltfTexture);
+                texture.SetData(textureData);
+                
+                assetManager.TryAddAsset(texture);
 
-        public override ITwinItem Export(ITwinItemFactory factory)
+                shader.TextureId = texture.URI;
+            }
+            
+            materialData.ActivatedShaders |= Enum.Parse<AppliedShaders>(shader.ShaderType.ToString());
+            materialData.Shaders.Add(shader);
+        }
+        
+        return materialData;
+    }
+
+    public override String GetStringified()
+    {
+        var result = new StringBuilder();
+        result.AppendLine(ActivatedShaders.ToString());
+        result.AppendLine(DmaChainIndex.ToString());
+        foreach (var shader in Shaders)
         {
-            using var ms = new MemoryStream();
-            using var writer = new BinaryWriter(ms);
-            writer.Write((UInt64)ActivatedShaders);
-            writer.Write(DmaChainIndex);
-            writer.Write(Name.Length);
-            writer.Write(Name.ToCharArray());
-            writer.Write(Shaders.Count);
-            foreach (var shader in Shaders)
-            {
-                shader.Write(writer);
-            }
-
-            writer.Flush();
-            ms.Position = 0;
-            return factory.GenerateMaterial(ms);
+            result.AppendLine(shader.GetStringified());
         }
+        
+        return result.ToString();
+    }
+    
+    
 
-        public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, UInt32 id, Int32? layoutID = null)
+    public override void Import(LabURI package, String? variant, Int32? layoutId)
+    {
+        var material = GetTwinItem<ITwinMaterial>();
+        ActivatedShaders = material.ActivatedShaders;
+        DmaChainIndex = material.DmaChainIndex;
+        Name = new string(material.Name.ToCharArray());
+        Shaders = [];
+        foreach (var shader in material.Shaders)
         {
-            var assetManager = AssetManager.Get();
-            var graphicsSection = section.GetParent();
-            var texturesSection = graphicsSection.GetItem<ITwinSection>(Constants.GRAPHICS_TEXTURES_SECTION);
-            foreach (var shader in Shaders)
-            {
-                if (shader.TextureId == LabURI.Empty) continue;
-
-                assetManager.GetAsset(shader.TextureId).ResolveChunkResources(factory, texturesSection);
-            }
-            return base.ResolveChunkResources(factory, section, id, layoutID);
+            Shaders.Add(new LabShader(Owner, shader));
         }
+    }
+
+    public override ITwinItem Export(ITwinItemFactory factory)
+    {
+        using var ms = new MemoryStream();
+        using var writer = new BinaryWriter(ms);
+        writer.Write((UInt64)ActivatedShaders);
+        writer.Write(DmaChainIndex);
+        writer.Write(Name.Length + 1);
+        writer.Write((Name + '\0').ToCharArray());
+        writer.Write(Shaders.Count);
+        foreach (var shader in Shaders)
+        {
+            shader.Write(writer);
+        }
+
+        writer.Flush();
+        ms.Position = 0;
+        return factory.GenerateMaterial(ms);
+    }
+
+    public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, uint id,
+        int? layoutId = null)
+    {
+        var assetManager = AssetManager.Get();
+        var graphicsSection = section.GetParent();
+        var texturesSection = graphicsSection.GetItem<ITwinSection>(Constants.GRAPHICS_TEXTURES_SECTION);
+        foreach (var shader in Shaders.Where(shader => shader.TextureId != LabURI.Empty))
+        {
+            assetManager.GetAsset(shader.TextureId).ResolveChunkResources(factory, texturesSection);
+        }
+        
+        return base.ResolveChunkResources(factory, section, id, layoutId);
     }
 }

@@ -3,34 +3,33 @@ using TT_Lab.AssetData;
 using TT_Lab.AssetData.Global;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 
-namespace TT_Lab.Assets.Global
+namespace TT_Lab.Assets.Global;
+
+public class UiSoundLibrary : GlobalAsset
 {
-    public class UiSoundLibrary : SerializableAsset
+    public override UInt32 Section => throw new NotImplementedException();
+    public override String IconPath => "UI_Sound_Library.png";
+
+    public UiSoundLibrary() { }
+
+    public UiSoundLibrary(LabURI package, Boolean needVariant, String variant, String name, ITwinSection frontend) : base((UInt32)Guid.NewGuid().GetHashCode(), name, package, needVariant, variant)
     {
-        public override UInt32 Section => throw new NotImplementedException();
-        public override String IconPath => "UI_Sound_Library.png";
+        AssetData = new UiSoundLibraryData(this, frontend);
+    }
 
-        public UiSoundLibrary() { }
-
-        public UiSoundLibrary(LabURI package, Boolean needVariant, String variant, String name, ITwinSection frontend) : base((UInt32)Guid.NewGuid().GetHashCode(), name, package, needVariant, variant)
+    public override AbstractAssetData GetData()
+    {
+        if (!IsLoaded)
         {
-            assetData = new UiSoundLibraryData(frontend);
+            AssetData = new UiSoundLibraryData(this);
+            AssetData.Load(DataLoadPath);
         }
+            
+        return AssetData;
+    }
 
-        public override AbstractAssetData GetData()
-        {
-            if (!IsLoaded || assetData.Disposed)
-            {
-                assetData = new UiSoundLibraryData();
-                assetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
-                IsLoaded = true;
-            }
-            return assetData;
-        }
-
-        public override Type GetEditorType()
-        {
-            throw new NotImplementedException();
-        }
+    public override Type GetEditorType()
+    {
+        throw new NotImplementedException();
     }
 }

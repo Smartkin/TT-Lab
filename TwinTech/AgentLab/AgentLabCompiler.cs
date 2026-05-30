@@ -39,7 +39,9 @@ public static class AgentLabCompiler
         /// <summary>
         /// Status of the compiler at the end of compilation
         /// </summary>
-        public CompilerStatus CompilerStatus { get; internal set; } = new();
+        public CompilerStatus CompilerStatus { get; } = new();
+        
+        public required CompilerOptions CompilerOptions { get; init; }
 
         public bool Contains<T>()
         {
@@ -105,9 +107,9 @@ public static class AgentLabCompiler
     /// <returns>AgentLab object in bytecode</returns>
     public static CompilerResult Compile(string script, CompilerOptions options)
     {
-        var result = new CompilerResult();
-        // try
-        // {
+        var result = new CompilerResult() { CompilerOptions = options };
+        try
+        {
             var lexer = new AgentLabLexer(script);
             var parser = new AgentLabParser(lexer);
             // Lexical analysis
@@ -117,16 +119,12 @@ public static class AgentLabCompiler
             symbolTable.BuildBuiltInTypes().BuildActions(options.ActionDefinitionsFile).BuildConditions().BuildFromAst(tree);
             var visitor = new AgentLabCompilerNodeVisitor(result, options, symbolTable.GetSymbolTable());
             visitor.Visit(tree);
-        // }
-        // catch (Exception ex)
-        // {
-        //     result.CompilerStatus.IsError = true;
-        //     result.CompilerStatus.Message = ex.Message;
-        //     if (ex.StackTrace != null)
-        //     {
-        //         result.CompilerStatus.Message += "\n" + ex.StackTrace;
-        //     }
-        // }
+        }
+        catch (Exception ex)
+        {
+            result.CompilerStatus.IsError = true;
+            result.CompilerStatus.Message = ex.Message;
+        }
 
         return result;
     }

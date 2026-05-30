@@ -1,0 +1,41 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewmodels="clr-namespace:TT_Lab.ViewModels"
+             xmlns:viewmodelsComposite="clr-namespace:TT_Lab.ViewModels.Composite"
+             xmlns:core="clr-namespace:Dock.Model.Core;assembly=Dock.Model"
+             x:DataType="viewmodels:ScenesEditorsViewModel"
+             x:CompileBindings="False"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Views.ScenesEditorsView">
+    <UserControl.Styles>
+        <Style Selector="DocumentControl">
+            <Setter Property="HeaderTemplate">
+                <DataTemplate DataType="core:IDockable">
+                    <StackPanel DataContext="{Binding Context}" Orientation="Horizontal">
+                        <Image Source="{Binding IconPath}" x:DataType="viewmodelsComposite:TabbedEditorViewModel" VerticalAlignment="Center" HorizontalAlignment="Center" Width="24" Height="24" Margin="0,0,3,0" Stretch="Uniform"/>
+                        <TextBlock VerticalAlignment="Center" Text="{Binding Title, Mode=OneWay}" x:DataType="viewmodelsComposite:TabbedEditorViewModel" Margin="0,0,10,0"/>
+                    </StackPanel>
+                </DataTemplate>
+            </Setter>
+        </Style>
+    </UserControl.Styles>
+    <DockControl Factory="{Binding Factory}">
+        <DocumentDock CanPin="True" x:Name="ScenesEditorsDock">
+            <DocumentDock.DocumentTemplate>
+                <DocumentTemplate>
+                    <Grid IsEnabled="{Binding Context.IsLoaded}" ColumnDefinitions="2*, 5, 5*">
+                        <Grid Grid.Column="0" RowDefinitions="*, 5, *">
+                            <ContentControl Grid.Row="0" Content="{Binding Context.Document}"/>
+                            <GridSplitter Grid.Row="1"/>
+                            <HeaderedContentControl Header="Inspector" Grid.Row="2" Content="{Binding Context.Document.Inspector}"/>
+                        </Grid>
+                        <GridSplitter Grid.Column="1" ShowsPreview="True"/>
+                        <ContentControl Grid.Column="2" Content="{Binding Context.Viewport}"/>
+                    </Grid>
+                </DocumentTemplate>
+            </DocumentDock.DocumentTemplate>
+        </DocumentDock>
+    </DockControl>
+</UserControl>

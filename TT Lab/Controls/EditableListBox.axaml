@@ -1,0 +1,42 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+             xmlns:valueConverters="clr-namespace:TT_Lab.ValueConverters"
+             xmlns:controls1="clr-namespace:TT_Lab.Controls"
+             x:Name="Root"
+             x:DataType="controls1:EditableListBox"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Controls.EditableListBox">
+    <UserControl.Resources>
+        <valueConverters:EditableListBoxButtonEnabledConverter x:Key="ButtonEnabledConverter"/>
+        <valueConverters:EditableListBoxSizeLimitConverter x:Key="ButtonSizeLimitConverter"/>
+    </UserControl.Resources>
+    <controls:GroupBox>
+        <controls:GroupBox.Header>
+            <DockPanel LastChildFill="False">
+                <TextBlock VerticalAlignment="Center" DockPanel.Dock="Left" Text="{Binding ListBoxName, ElementName=Root}"/>
+                <UniformGrid DockPanel.Dock="Right" Columns="3">
+                    <Button Command="{Binding AddItemCommand, ElementName=Root}" ToolTip.Tip="Add Item" Margin="1" Content="+"/>
+                    <Button Command="{Binding RemoveItemCommand, ElementName=Root}" ToolTip.Tip="Delete Item" Margin="1" Content="-"/>
+                    <Button Command="{Binding DuplicateItemCommand, ElementName=Root}" ToolTip.Tip="Duplicate Item" Margin="1" Content="*"/>
+                </UniformGrid>
+            </DockPanel>
+        </controls:GroupBox.Header>
+        <!-- VirtualizingStackPanel.IsVirtualizing="True" -->
+        <!-- VirtualizingStackPanel.VirtualizationMode="Recycling" -->
+        <ListBox
+            HorizontalAlignment="Stretch"
+            x:Name="ItemsStorage"
+            SelectionChanged="OnItemsStorageSelectionChanged"
+            ItemsSource="{Binding Items, ElementName=Root}"
+            ItemTemplate="{Binding ItemTemplate, ElementName=Root}">
+            <ListBox.Styles>
+                <Style Selector="ListBoxItem">
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                </Style>
+            </ListBox.Styles>
+        </ListBox>
+    </controls:GroupBox>
+</UserControl>

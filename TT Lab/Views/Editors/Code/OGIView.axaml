@@ -1,0 +1,96 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+             xmlns:composite="clr-namespace:TT_Lab.Views.Composite"
+             xmlns:valueConverters="clr-namespace:TT_Lab.ValueConverters"
+             xmlns:graphics="clr-namespace:TT_Lab.Assets.Graphics"
+             xmlns:code="clr-namespace:TT_Lab.ViewModels.Editors.Code"
+             xmlns:ogi="clr-namespace:TT_Lab.Views.Editors.Code.OGI"
+             x:DataType="code:OGIViewModel"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Views.Editors.Code.OGIView">
+    <UserControl.Resources>
+        <valueConverters:LabUriConverter x:Key="UriConverter"/>
+        <valueConverters:ListBoxItemConverterIndexed x:Key="ListBoxItemConverterIndexed"/>
+    </UserControl.Resources>
+    <controls:GroupBox>
+        <Grid ColumnDefinitions="*,5,400">
+            <ContentControl Grid.Column="0" Content="{Binding OGIScene}"/>
+            <GridSplitter ResizeDirection="Columns" Margin="0" Grid.Column="1"/>
+            <ScrollViewer Grid.Column="2">
+                <StackPanel Orientation="Vertical">
+                    <composite:ResourceBrowserOpener LinkedResource="{Binding BlendSkin, Mode=TwoWay}" BrowserName="Blend Skin" BrowseType="{x:Type graphics:BlendSkin}"/>
+                    <composite:ResourceBrowserOpener LinkedResource="{Binding Skin, Mode=TwoWay}" BrowserName="Skin" BrowseType="{x:Type graphics:Skin}" Margin="0, 0, 0, 5"/>
+                    <composite:BoundingBoxView DataContext="{Binding BoundingBox}"/>
+                    <Expander HorizontalAlignment="Stretch" Header="Joints">
+                        <StackPanel Orientation="Vertical">
+                            <ListBox x:Name="JointsList" MaxHeight="200" ItemsSource="{Binding Joints}"/>
+                        </StackPanel>
+                    </Expander>
+                    <Expander HorizontalAlignment="Stretch" Header="Exit Points">
+                        <StackPanel Orientation="Vertical">
+                            <ListBox x:Name="ExitPointsList" MaxHeight="200" ItemsSource="{Binding ExitPoints}"/>
+                        </StackPanel>
+                    </Expander>
+                    <Expander HorizontalAlignment="Stretch" Header="Joint Indices">
+                        <ListBox MaxHeight="200" ItemsSource="{Binding JointIndices}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Value}"/>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Expander>
+                    <Expander HorizontalAlignment="Stretch" Header="Attached Rigid Models">
+                        <ListBox MaxHeight="200" ItemsSource="{Binding RigidModels}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Value, Converter={StaticResource UriConverter}}"/>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Expander>
+                    <Expander HorizontalAlignment="Stretch" Header="Skin Inverse Matrices">
+                        <StackPanel Orientation="Vertical">
+                            <ListBox x:Name="SkinMatricesList" MaxHeight="200" ItemsSource="{Binding SkinInverseMatrices}">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType=ListBoxItem}, Converter={StaticResource ListBoxItemConverterIndexed}}"/>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                            <controls:GroupBox Header="Matrix View">
+                                <composite:Matrix4View IsEnabled="False" DataContext="{Binding SelectedItem, ElementName=SkinMatricesList}"/>
+                            </controls:GroupBox>
+                        </StackPanel>
+                    </Expander>
+                    <Expander HorizontalAlignment="Stretch" Header="Bounding Box Builders">
+                        <StackPanel Orientation="Vertical">
+                            <ListBox x:Name="BoundingBoxBuildersList" MaxHeight="200" ItemsSource="{Binding BoundingBoxBuilders}">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType=ListBoxItem}, Converter={StaticResource ListBoxItemConverterIndexed}}"/>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                            <controls:GroupBox Header="Edited Bounding Box Builder">
+                                <composite:BoundingBoxBuilderView DataContext="{Binding SelectedItem, ElementName=BoundingBoxBuildersList}"/>
+                            </controls:GroupBox>
+                        </StackPanel>
+                    </Expander>
+                    <Expander HorizontalAlignment="Stretch" Header="Bounding Box Builder To Joints">
+                        <ListBox MaxHeight="200" ItemsSource="{Binding BoundingBoxBuilderToJoints}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Value}"/>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Expander>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+    </controls:GroupBox>
+</UserControl>

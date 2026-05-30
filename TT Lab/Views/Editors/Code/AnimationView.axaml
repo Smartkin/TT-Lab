@@ -1,0 +1,53 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:TT_Lab.Controls"
+             xmlns:controls1="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+             xmlns:composite="clr-namespace:TT_Lab.Views.Composite"
+             xmlns:valueConverters="clr-namespace:TT_Lab.ValueConverters"
+             xmlns:code="clr-namespace:TT_Lab.ViewModels.Editors.Code"
+             x:DataType="code:AnimationViewModel"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Views.Editors.Code.AnimationView">
+    <UserControl.Resources>
+        <valueConverters:LabUriConverter x:Key="UriConverter"/>
+    </UserControl.Resources>
+    <Interaction.Behaviors>
+        <EventTriggerBehavior EventName="Rendered">
+            <InvokeCommandAction Command="{Binding UpdateAnimationPlayback}"/>
+        </EventTriggerBehavior>
+    </Interaction.Behaviors>
+    <controls1:GroupBox>
+        <Grid>
+            <StackPanel Margin="5" Orientation="Vertical">
+                <composite:ResourceBrowserOpener LinkedResource="{Binding SelectedOgi}" ResourcesToBrowse="{Binding SuitableModels}" Margin="5" BrowserName="Model Picker"/>
+                <Grid Margin="5" RowDefinitions="*,*" ColumnDefinitions="*,*">
+                    <Slider x:Name="AnimationTrack"
+                            Margin="0, 0, 0, 0"
+                            TickFrequency="1"
+                            SmallChange="1"
+                            IsSnapToTickEnabled="True"
+                            Minimum="0"
+                            TickPlacement="Outside"
+                            Grid.Column="0" Grid.ColumnSpan="2" Grid.Row="0">
+                        <Interaction.Behaviors>
+                            <EventTriggerBehavior EventName="ValueChanged">
+                                <InvokeCommandAction Command="{Binding ChangeTrackPosition}" PassEventArgsToCommand="True"/>
+                            </EventTriggerBehavior>
+                        </Interaction.Behaviors>
+                    </Slider>
+                    <TextBlock x:Name="CurrentFrame" Margin="0, 0, 0, 5" Grid.Column="0" Grid.Row="1"/>
+                    <TextBlock x:Name="TotalFrames" Margin="0, 0, 0, 5" Grid.Column="1" Grid.Row="1" TextAlignment="Right"/>
+                </Grid>
+                <UniformGrid Columns="4">
+                    <controls:LabeledTextBox LayoutOrientation="Horizontal" Text="{Binding PlaybackFps}" TextBoxName="Playback FPS" Margin="5" HorizontalAlignment="Stretch"/>
+                    <controls:LabeledCheckBox Checked="{Binding Loop}" HorizontalAlignment="Left" CheckBoxName="Loop" LayoutOrientation="Horizontal"/>
+                    <Button HorizontalContentAlignment="Center" HorizontalAlignment="Stretch" Margin="5" Command="{Binding PlayAnimation}" Content="Play"/>
+                    <Button HorizontalContentAlignment="Center" HorizontalAlignment="Stretch" Margin="5" Command="{Binding PauseAnimation}" Content="Pause"/>
+                    <!-- <Button HorizontalContentAlignment="Center" HorizontalAlignment="Stretch" Margin="5" Command="{Binding ExportAnimation}" Content="Export"/> -->
+                </UniformGrid>
+            </StackPanel>
+        </Grid>
+    </controls1:GroupBox>
+</UserControl>

@@ -19,6 +19,9 @@ namespace TT_Lab.Assets.Factory
 {
     public class XboxItemFactory : ITwinItemFactory
     {
+        public Package GlobalPackage { get; set; }
+        public bool IsDefaultResolution { get; set; }
+        
         public ITwinAIPath GenerateAIPath(Stream stream)
         {
             throw new NotImplementedException();
@@ -48,6 +51,8 @@ namespace TT_Lab.Assets.Factory
         {
             throw new NotImplementedException();
         }
+
+        public string ChunkPath { get; set; }
 
         public ITwinBlendSkin GenerateBlendSkin(Int32 blendsAmount, List<SubBlendData> blends, UInt32? compileScale)
         {
@@ -179,7 +184,7 @@ namespace TT_Lab.Assets.Factory
             throw new NotImplementedException();
         }
 
-        public ITwinPSF GenerateFont(List<ITwinPTC> pages, List<Vector4> unkVecs, Int32 unkInt)
+        public ITwinPSF GenerateFont(List<ITwinPTC> pages, List<VectorCharacterData> characterData, Int32 spaceIdentifier)
         {
             throw new NotImplementedException();
         }

@@ -2,7 +2,7 @@ using System;
 
 namespace Twinsanity.AgentLab.SymbolTable;
 
-internal abstract class AgentLabSymbol
+public abstract class AgentLabSymbol
 {
     public string Name { get; }
     public AgentLabSymbol Type { get; internal set; } // Can be null

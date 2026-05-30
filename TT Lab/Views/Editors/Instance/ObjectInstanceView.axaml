@@ -1,0 +1,147 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:TT_Lab.Controls"
+             xmlns:controls1="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+             xmlns:valueConverters="clr-namespace:TT_Lab.ValueConverters"
+             xmlns:composite="clr-namespace:TT_Lab.Views.Composite"
+             xmlns:compositeViewModels="clr-namespace:TT_Lab.ViewModels.Composite"
+             xmlns:viewModels="clr-namespace:TT_Lab.ViewModels.Editors.Instance"
+             xmlns:assets="clr-namespace:TT_Lab.Assets"
+             x:DataType="viewModels:ObjectInstanceViewModel"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Views.Editors.Instance.ObjectInstanceView">
+    <UserControl.Resources>
+        <valueConverters:PrimitiveWrapperConverterLabUri x:Key="WrapperUriConverter"/>
+        <valueConverters:LabUriConverter x:Key="UriConverter"/>
+        <valueConverters:FloatConverter x:Key="FloatConverter"/>
+        <!-- <ObjectDataProvider MethodName="GetValues" ObjectType="{x:Type sys:Enum}" x:Key="InstanceLayouts"> -->
+        <!--     <ObjectDataProvider.MethodParameters> -->
+        <!--         <x:Type TypeName="twinTech:Enums+Layouts"></x:Type> -->
+        <!--     </ObjectDataProvider.MethodParameters> -->
+        <!-- </ObjectDataProvider> -->
+    </UserControl.Resources>
+    <controls1:GroupBox>
+        <Grid RowDefinitions="32*,50*,243*">
+            <TabControl Grid.RowSpan="3" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" Background="{x:Null}">
+                <TabItem x:Name="MainPropsTab" Header="Main properties">
+                    <Grid RowDefinitions="35*,50*,243*">
+                        <controls:LabeledDropList LayoutOrientation="Horizontal" Margin="5" SelectedItem="{Binding LayoutID}" Items="{Binding InstanceLayers}" x:Name="InstanceLayoutList" VerticalAlignment="Center" DropListName="Instance layout"/>
+                        <Grid x:Name="MainPropsGrid" Grid.Row="1" RowDefinitions="*,*,*">
+                            <composite:ResourceBrowserOpener BrowserName="Object" LinkedResource="{Binding InstanceObject}" ResourcesToBrowse="{Binding Objects}"/>
+                            <Grid Grid.Row="1" Grid.Column="0" ColumnDefinitions="Auto,*">
+                                <controls:LabeledCheckBox Grid.Row="0" x:Name="UseOnSpawnScriptBox" HorizontalAlignment="Left" VerticalAlignment="Center" CheckBoxName="" LayoutOrientation="Horizontal" Checked="{Binding UseOnSpawnScript}"/>
+                                <composite:ResourceBrowserOpener IsEnabled="{Binding Checked, ElementName=UseOnSpawnScriptBox}" Grid.Column="1" BrowserName="On Spawn Behaviour" ResourcesToBrowse="{Binding Behaviours}" LinkedResource="{Binding OnSpawnScript}"/>
+                            </Grid>
+                            <controls:LabeledTextBox Grid.Column="0" Text="{Binding RefListIndex}" x:Name="GlobalInstanceRefListIndexBox" HorizontalAlignment="Stretch" Margin="0,0,0,0" Grid.Row="2" VerticalAlignment="Stretch" TextBoxName="Global instance reference index"/>
+                        </Grid>
+                        <ItemsControl Grid.Row="2">
+                            <Expander HorizontalAlignment="Stretch" x:Name="PosPropsExpander" Header="Positional properties">
+                                <Grid RowDefinitions="*,*">
+                                    <controls1:GroupBox Header="Position">
+                                        <composite:Vector4View DataContext="{Binding Position}" VerticalLayout="True" HorizontalAlignment="Stretch" Margin="0,0,0,0"/>
+                                    </controls1:GroupBox>
+                                    <controls1:GroupBox Header="Rotation" Grid.Row="1">
+                                        <composite:Vector3View DataContext="{Binding Rotation}" VerticalLayout="True" HorizontalAlignment="Stretch" Margin="0,0,0,0"/>
+                                    </controls1:GroupBox>
+                                </Grid>
+                            </Expander>
+                            <composite:InstanceStateFlagsView DataContext="{Binding StateFlags}"/>
+                            <Expander HorizontalAlignment="Stretch" x:Name="LinkedInstancesExpander" Header="Linked instances">
+                                <Grid>
+                                    <controls:EditableListBox ListBoxName="" SizeLimit="10" Items="{Binding Instances}" Height="300"
+                                      AddItemCommand="{Binding AddLinkedInstanceCommand}"
+                                      RemoveItemCommand="{Binding DeleteLinkedInstanceCommand}">
+                                        <controls:EditableListBox.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type compositeViewModels:PrimitiveWrapperViewModel, x:TypeArguments=assets:LabURI}">
+                                                <TextBlock Text="{Binding Value, Converter={StaticResource UriConverter}}"/>
+                                            </DataTemplate>
+                                        </controls:EditableListBox.ItemTemplate>
+                                    </controls:EditableListBox>
+                                </Grid>
+                            </Expander>
+                            <Expander HorizontalAlignment="Stretch" x:Name="LinkedPositionsExpander" Header="Linked positions">
+                                <Grid>
+                                    <controls:EditableListBox SizeLimit="10" ListBoxName="" Items="{Binding Positions}" Height="300"
+                                      AddItemCommand="{Binding AddLinkedPositionCommand}"
+                                      RemoveItemCommand="{Binding DeleteLinkedPositionCommand}">
+                                        <controls:EditableListBox.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type compositeViewModels:PrimitiveWrapperViewModel, x:TypeArguments=assets:LabURI}">
+                                                <TextBlock Text="{Binding Value, Converter={StaticResource UriConverter}}"/>
+                                            </DataTemplate>
+                                        </controls:EditableListBox.ItemTemplate>
+                                    </controls:EditableListBox>
+                                </Grid>
+                            </Expander>
+                            <Expander HorizontalAlignment="Stretch" x:Name="LinkedPathsExpander" Header="Linked paths">
+                                <Grid>
+                                    <controls:EditableListBox SizeLimit="10" ListBoxName="" Items="{Binding Paths}" Height="300"
+                                      AddItemCommand="{Binding AddLinkedPathCommand}"
+                                      RemoveItemCommand="{Binding DeleteLinkedPathCommand}">
+                                        <controls:EditableListBox.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type compositeViewModels:PrimitiveWrapperViewModel, x:TypeArguments=assets:LabURI}">
+                                                <TextBlock Text="{Binding Value, Converter={StaticResource UriConverter}}"/>
+                                            </DataTemplate>
+                                        </controls:EditableListBox.ItemTemplate>
+                                    </controls:EditableListBox>
+                                </Grid>
+                            </Expander>
+                        </ItemsControl>
+                    </Grid>
+                </TabItem>
+                <TabItem x:Name="ExtraPropsTab" Header="Extra properties">
+                    <Grid>
+                        <ItemsControl>
+                            <Expander HorizontalAlignment="Stretch" x:Name="IntPropsExpander" Header="Integer properties" IsExpanded="True">
+                                <Grid RowDefinitions="*,*">
+                                    <ListBox ItemsSource="{Binding IntParams}" SelectedIndex="{Binding IntIndex}" Height="200">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding Value}"/>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                        <ListBox.ContextMenu>
+                                            <ContextMenu x:Name="IntPropsContextMenu"/>
+                                        </ListBox.ContextMenu>
+                                    </ListBox>
+                                    <controls:LabeledTextBox LayoutOrientation="Horizontal" Text="{Binding SelectedInt}" Grid.Row="1" TextBoxName="Value" HorizontalAlignment="Stretch"/>
+                                </Grid>
+                            </Expander>
+                            <Expander HorizontalAlignment="Stretch" x:Name="FlagPropsExpander" Header="Flag properties">
+                                <Grid RowDefinitions="*,*">
+                                    <ListBox ItemsSource="{Binding FlagParams}" SelectedIndex="{Binding FlagIndex}" x:Name="FlagPropsList" Height="200">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding Value, StringFormat={}{0:X}}"/>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                        <ListBox.ContextMenu>
+                                            <ContextMenu x:Name="FlagPropsContextMenu"/>
+                                        </ListBox.ContextMenu>
+                                    </ListBox>
+                                    <controls:LabeledTextBox LayoutOrientation="Horizontal" Text="{Binding SelectedFlag}" x:Name="FlagPropBox" TextBoxName="Value" HorizontalAlignment="Stretch" Margin="0,0,0,0" VerticalAlignment="Top" Grid.Row="1"/>
+                                </Grid>
+                            </Expander>
+                            <Expander HorizontalAlignment="Stretch" x:Name="FloatPropsExpander" Header="Float properties">
+                                <Grid RowDefinitions="*,*">
+                                    <ListBox ItemsSource="{Binding FloatParams}" SelectedIndex="{Binding FloatIndex}" Height="200">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding Value, Converter={StaticResource FloatConverter}}"/>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                        <ListBox.ContextMenu>
+                                            <ContextMenu x:Name="FloatPropsContextMenu"/>
+                                        </ListBox.ContextMenu>
+                                    </ListBox>
+                                    <controls:LabeledTextBox LayoutOrientation="Horizontal" Text="{Binding SelectedFloat, Converter={StaticResource FloatConverter}}" Grid.Row="1" TextBoxName="Value" HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+                                </Grid>
+                            </Expander>
+                        </ItemsControl>
+                    </Grid>
+                </TabItem>
+            </TabControl>
+        </Grid>
+    </controls1:GroupBox>
+</UserControl>

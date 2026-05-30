@@ -27,9 +27,9 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Archives
         {
             var files = Directory.GetFiles(folderSource, "*.*", SearchOption.AllDirectories);
             var offset = 0;
-            if (!folderSource.EndsWith("\\"))
+            if (!folderSource.EndsWith(Path.DirectorySeparatorChar))
             {
-                folderSource += "\\";
+                folderSource += Path.DirectorySeparatorChar;
             }
             
             foreach (var file in files)

@@ -1,11 +1,12 @@
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
+using Avalonia.Controls;
+using Avalonia.Data;
+using Avalonia.Data.Core;
 using TT_Lab.Assets;
 
 namespace TT_Lab.ViewModels.ResourceTree;
 
-public class PackageElementViewModel : FolderElementViewModel
+public class PackageElementViewModel : ResourceTreeElementViewModel
 {
     private bool _isEnabled;
     private MenuItem _isEnabledItem;
@@ -16,7 +17,7 @@ public class PackageElementViewModel : FolderElementViewModel
 
     protected override void Deleted()
     {
-        BindingOperations.ClearBinding(_isEnabledItem, MenuItem.IsCheckedProperty);
+        // BindingOperations.ClearBinding(_isEnabledItem, MenuItem.IsCheckedProperty);
         
         base.Deleted();
     }
@@ -30,9 +31,9 @@ public class PackageElementViewModel : FolderElementViewModel
             Mode = BindingMode.TwoWay,
             Source = this,
             UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged,
-            Path = new PropertyPath(nameof(IsPackageEnabled)),
-            NotifyOnSourceUpdated = true,
-            NotifyOnTargetUpdated = true
+            Path = nameof(IsPackageEnabled),
+            // NotifyOnSourceUpdated = true,
+            // NotifyOnTargetUpdated = true
         };
         
         _isEnabledItem = RegisterMenuItem(new MenuItemSettings
@@ -41,11 +42,6 @@ public class PackageElementViewModel : FolderElementViewModel
             IsCheckable = true,
             IsChecked = binding
         });
-    }
-
-    protected override void ListCreatableAssets(CreateAssetViewModel createAssetViewModel)
-    {
-        // Only allow creating folders in packages
     }
 
     public override bool IsEnabled => IsPackageEnabled;

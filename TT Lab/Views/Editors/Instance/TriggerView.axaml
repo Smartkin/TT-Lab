@@ -1,0 +1,101 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:TT_Lab.Controls"
+             xmlns:controls1="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+             xmlns:composite="clr-namespace:TT_Lab.Views.Composite"
+             xmlns:valueConverters="clr-namespace:TT_Lab.ValueConverters"
+             xmlns:vm="clr-namespace:TT_Lab.ViewModels.Editors.Instance"
+             x:DataType="vm:TriggerViewModel"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Views.Editors.Instance.TriggerView">
+    <UserControl.Resources>
+        <valueConverters:LabUriConverter x:Key="UriConverter"/>
+        <valueConverters:FloatConverter x:Key="FloatConverter"/>
+        <!-- <ObjectDataProvider MethodName="GetValues" ObjectType="{x:Type sys:Enum}" x:Key="InstanceLayouts"> -->
+        <!--     <ObjectDataProvider.MethodParameters> -->
+        <!--         <x:Type TypeName="twinTech:Enums+Layouts"></x:Type> -->
+        <!--     </ObjectDataProvider.MethodParameters> -->
+        <!-- </ObjectDataProvider> -->
+    </UserControl.Resources>
+    <controls1:GroupBox>
+        <Grid>
+            <TabControl>
+                <TabItem x:Name="MainPropertiesTab" Header="Properties">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition/>
+                            <RowDefinition Height="4*"/>
+                        </Grid.RowDefinitions>
+                        <Grid Margin="0,0,0,0">
+                            <Grid>
+                                <UniformGrid Rows="1" Margin="0,0,0,0">
+                                    <controls:LabeledDropList Margin="0, 5, 0, 0" x:Name="InstanceLayoutList" SelectedItem="{Binding LayoutID}" Items="{Binding InstanceLayers}" DropListName="Instance layout"/>
+                                    <controls:LabeledTextBox x:Name="HeaderBox" Text="{Binding Header, StringFormat={}{0:X}}" IsReadOnly="True" TextBoxName="Header" Margin="5,5,5,5" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                                    <controls:LabeledTextBox x:Name="UnkFloatBox" Text="{Binding UnkFloat, Converter={StaticResource FloatConverter}}" TextBoxName="Unknown float" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="5,5,5,5"/>
+                                </UniformGrid>
+                            </Grid>
+                        </Grid>
+                        <Grid Margin="0,0,0,0" Grid.Row="1">
+                            <Grid RowDefinitions="*,*,*">
+                                <controls1:GroupBox Header="Position" Margin="0,0,0,0">
+                                    <composite:Vector4View DataContext="{Binding Position}"/>
+                                </controls1:GroupBox>
+                                <controls1:GroupBox Header="Rotation" Margin="0,0,0,0" Grid.Row="1">
+                                    <composite:Vector3View DataContext="{Binding Rotation}"/>
+                                </controls1:GroupBox>
+                                <controls1:GroupBox Header="Scale" Margin="0,0,0,0" Grid.Row="2">
+                                    <composite:Vector3View DataContext="{Binding Scale}"/>
+                                </controls1:GroupBox>
+                            </Grid>
+                        </Grid>
+                    </Grid>
+                </TabItem>
+                <TabItem x:Name="ArgumentsTab" Header="Messages">
+                    <Grid ColumnDefinitions="*,2*">
+                        <controls1:GroupBox Header="Instances" Margin="0,0,0,0">
+                            <ListBox x:Name="InstancesList" ItemsSource="{Binding Instances}">
+                                <ListBox.ContextMenu>
+                                    <ContextMenu x:Name="InstancesListContextMenu"/>
+                                </ListBox.ContextMenu>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Value, Converter={StaticResource UriConverter}}"/>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </controls1:GroupBox>
+                        <controls1:GroupBox Grid.Column="1" Header="Messages">
+                            <Grid RowDefinitions="*,*,*,*" ColumnDefinitions="2*,1*">
+                                <controls:LabeledTextBox Grid.Column="0" x:Name="Arg1Box" Text="{Binding TriggerMessage1}" TextBoxName="On Enter Once" IsEnabled="{Binding Checked, ElementName=Arg1EnabledBox}" Margin="0,0,0,11" VerticalAlignment="Center" HorizontalAlignment="Stretch"/>
+                                <controls:LabeledTextBox Grid.Column="0" x:Name="Arg2Box" Text="{Binding TriggerMessage2}" Grid.Row="1" TextBoxName="On Enter" IsEnabled="{Binding Checked, ElementName=Arg2EnabledBox}" Margin="0,0,0,11" VerticalAlignment="Center" HorizontalAlignment="Stretch"/>
+                                <controls:LabeledTextBox Grid.Column="0" x:Name="Arg3Box" Text="{Binding TriggerMessage3}" Grid.Row="2" TextBoxName="On Stay" IsEnabled="{Binding Checked, ElementName=Arg3EnabledBox}" VerticalAlignment="Center" HorizontalAlignment="Stretch"/>
+                                <controls:LabeledTextBox Grid.Column="0" x:Name="Arg4Box" Text="{Binding TriggerMessage4}" Grid.Row="3" TextBoxName="On Exit" IsEnabled="{Binding Checked, ElementName=Arg4EnabledBox}" Margin="0,11,0,0" VerticalAlignment="Center" HorizontalAlignment="Stretch"/>
+                                <controls:LabeledCheckBox Grid.Row="0" x:Name="Arg1EnabledBox" Checked="{Binding TriggerArgument1Enabled}" Grid.Column="1" Margin="3,0,-1,11" LayoutOrientation="Vertical" CheckBoxName="Enabled" HorizontalContentAlignment="Left"/>
+                                <controls:LabeledCheckBox Grid.Row="1" x:Name="Arg2EnabledBox" Checked="{Binding TriggerArgument2Enabled}" Grid.Column="1" LayoutOrientation="Vertical" CheckBoxName="Enabled" Margin="3,0,0,11" HorizontalContentAlignment="Left"/>
+                                <controls:LabeledCheckBox Grid.Row="2" x:Name="Arg3EnabledBox" Checked="{Binding TriggerArgument3Enabled}" Grid.Column="1" LayoutOrientation="Vertical" CheckBoxName="Enabled" Margin="3,0,0,0" HorizontalContentAlignment="Left"/>
+                                <controls:LabeledCheckBox Grid.Row="3" x:Name="Arg4EnabledBox" Checked="{Binding TriggerArgument4Enabled}" Grid.Column="1" LayoutOrientation="Vertical" CheckBoxName="Enabled" Margin="3,11,0,0" HorizontalContentAlignment="Left"/>
+                            </Grid>
+                        </controls1:GroupBox>
+                    </Grid>
+                </TabItem>
+                <TabItem x:Name="ActivatorsTab" Header="Activators">
+                    <Grid Margin="0,0,0,0">
+                        <UniformGrid HorizontalAlignment="Right" Columns="3">
+                            <controls:LabeledCheckBox Margin="-5" x:Name="ActByPlayCharBox" CheckBoxName="Playable Character" Checked="{Binding ActivateByPlayableCharacter}"/>
+                            <controls:LabeledCheckBox Margin="-5" x:Name="ActByCollectBox" CheckBoxName="Pickups" Checked="{Binding ActivateByPickups}"/>
+                            <controls:LabeledCheckBox Margin="-5" x:Name="ActByCratesBox" CheckBoxName="Crates" Checked="{Binding ActivateByCrates}"/>
+                            <controls:LabeledCheckBox Margin="-5" x:Name="ActByType3" CheckBoxName="Creatures" Checked="{Binding ActivateByCreatures}"/>
+                            <controls:LabeledCheckBox Margin="-5" x:Name="ActByType4" CheckBoxName="Generic objects" Checked="{Binding ActivateByGenericObjects}"/>
+                            <controls:LabeledCheckBox Margin="-5" x:Name="ActByType5" CheckBoxName="Grabables" Checked="{Binding ActivateByGrabbables}"/>
+                            <controls:LabeledCheckBox Margin="-5" x:Name="ActByType6" CheckBoxName="Pay Gates" Checked="{Binding ActivateByPayGates}"/>
+                            <controls:LabeledCheckBox Margin="-5" x:Name="ActByType7" CheckBoxName="Graples" Checked="{Binding ActivateByGraples}"/>
+                            <controls:LabeledCheckBox Margin="-5" x:Name="ActByPlayProj" CheckBoxName="Projectiles" Checked="{Binding ActivateByProjectiles}"/>
+                        </UniformGrid>
+                    </Grid>
+                </TabItem>
+            </TabControl>
+        </Grid>
+    </controls1:GroupBox>
+</UserControl>

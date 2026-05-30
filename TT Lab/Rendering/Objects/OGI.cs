@@ -23,11 +23,23 @@ public class OGI : Renderable
 
     public void ApplyTransformToJoint(int jointIndex, vec3 position, vec3 scale, quat rotation)
     {
-        var jointNode = defaultSkeleton.Bones[jointIndex];
-        var transform = mat4.Translate(position) * glm.ToMat4(rotation) * mat4.Scale(scale);
+        if (!defaultSkeleton.Bones.TryGetValue(jointIndex, out var jointNode))
+        {
+            return;
+        }
+
+        var transform = mat4.Translate(position) * rotation.ToMat4 * mat4.Scale(scale);
         jointNode.SetLocalTransform(transform);
         skinBuffer?.SetBoneMatrix(jointIndex, defaultSkeleton.Bones[jointIndex].GetBoneMatrix());
         blendSkinBuffer?.SetBoneMatrix(jointIndex, defaultSkeleton.Bones[jointIndex].GetBoneMatrix());
+    }
+
+    public void SetInheritScaleForJoint(int jointIndex, bool inherit)
+    {
+        if (defaultSkeleton.Bones.TryGetValue(jointIndex, out var value))
+        {
+            value.SetInheritScale(inherit);
+        }
     }
 
     public void ApplyWeightsToBlendSkin(float[] weights)
@@ -50,7 +62,7 @@ public class OGI : Renderable
         var jointIndex = 0;
         foreach (var rigidModelUri in ogiData.RigidModelIds)
         {
-            var node = defaultSkeleton.Bones[ogiData.JointIndices[jointIndex++]];
+            var node = defaultSkeleton.Bones[ogiData.RigidModelJointIndices[jointIndex++]];
             if (rigidModelUri == LabURI.Empty)
             {
                 continue;

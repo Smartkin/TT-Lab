@@ -1,0 +1,34 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewmodels="clr-namespace:TT_Lab.ViewModels"
+             xmlns:controls="clr-namespace:TT_Lab.Controls"
+             x:DataType="viewmodels:ViewportViewModel"
+             HorizontalAlignment="Stretch"
+             VerticalAlignment="Stretch"
+             Loaded="ViewportView_OnLoaded"
+             SizeChanged="ViewportView_OnSizeChanged"
+             LayoutUpdated="ViewportView_OnSourceUpdated"
+             
+             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="300"
+             MinWidth="300"
+             MinHeight="300"
+             x:Class="TT_Lab.Views.ViewportView">
+    <Grid Margin="5">
+        <controls:Viewport>
+            <Interaction.Behaviors>
+                <EventTriggerBehavior EventName="RenderInitialized">
+                    <InvokeCommandAction Command="{Binding PrepareRender}" PassEventArgsToCommand="True" />
+                </EventTriggerBehavior>
+                <EventTriggerBehavior EventName="RenderTerminated">
+                    <InvokeCommandAction Command="{Binding TerminateRender}"/>
+                </EventTriggerBehavior>
+                <EventTriggerBehavior EventName="SizeChanged">
+                    <InvokeCommandAction Command="{Binding FrameResized}" PassEventArgsToCommand="True"/>
+                </EventTriggerBehavior>
+            </Interaction.Behaviors>
+        </controls:Viewport>
+        <TextBlock Text="{Binding SceneStatus}" FontSize="32" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+    </Grid>
+</UserControl>

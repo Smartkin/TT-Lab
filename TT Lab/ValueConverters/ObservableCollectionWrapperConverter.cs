@@ -1,7 +1,7 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Globalization;
-using System.Windows.Data;
+using Avalonia.Data.Converters;
 using Caliburn.Micro;
 using TT_Lab.Assets;
 using TT_Lab.ViewModels.Composite;

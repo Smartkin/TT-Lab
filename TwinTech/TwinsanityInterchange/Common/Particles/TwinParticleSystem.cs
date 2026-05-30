@@ -11,26 +11,26 @@ namespace Twinsanity.TwinsanityInterchange.Common.Particles
         public UInt32 Version;
         public Char[] Name;
         public Byte UnkByte1;
-        public UInt16 UnkUShort1;
-        public UInt16 UnkUShort2;
+        public UInt16 GenRate;
+        public UInt16 MaxParticleCount;
         public UInt16 UnkUShort3;
-        public UInt16 UnkUShort4;
-        public UInt16 UnkUShort5;
-        public UInt16 UnkUShort6;
-        public UInt16 UnkUShort7;
-        public Byte UnkByte2;
+        public UInt16 EmitterOverTime;
+        public UInt16 EmitterOverTimeRandom;
+        public UInt16 EmitterOffTime;
+        public UInt16 EmitterOffTimeRandom;
+        public Byte GenSort;
         public Byte UnkByte3;
-        public Byte UnkByte4;
+        public Byte TextureFilter;
         public Byte UnkByte5;
         public Single UnkFloat1;
-        public Single UnkFloat2;
-        public Single UnkFloat3;
-        public Single UnkFloat4;
+        public Single CutOnRadius;
+        public Single CutOffRadius;
+        public Single DrawCutOff;
         public Single UnkFloat5;
         public Single UnkFloat6;
-        public Single UnkFloat7;
-        public Vector3 UnkVec1;
-        public Vector3 UnkVec2;
+        public Single Velocity;
+        public Vector3 RandomEmit;
+        public Vector3 RandomStart;
         public Single UnkFloat8;
         public Single UnkFloat9;
         public Single UnkFloat10;
@@ -43,60 +43,57 @@ namespace Twinsanity.TwinsanityInterchange.Common.Particles
         public Single UnkFloat17;
         public Single UnkFloat18;
         public Single UnkFloat19;
-        public Single UnkFloat20;
-        public Single UnkFloat21;
+        public Single Gravity;
+        public Single ParticleLifeTime;
         public UInt16 UnkUShort8;
         public Byte UnkByte6;
         public Byte UnkByte7;
         public Single UnkFloat22;
-        public Single UnkFloat23;
-        public Single UnkFloat24;
-        public Single UnkFloat25;
-        public Single UnkFloat26;
-        public Vector4[] UnkVecs;
-        public Int64[] UnkLongs1;
-        public Single UnkFloat27;
-        public Single UnkFloat28;
-        public Single UnkFloat29;
-        public Single UnkFloat30;
-        public Int64[] UnkLongs2;
-        public Int64[] UnkLongs3;
-        public Single UnkFloat31;
-        public Single UnkFloat32;
-        public Int64[] UnkLongs4;
-        public Int64[] UnkLongs5;
-        public Int64[] UnkLongs6;
-        public Single UnkFloat33;
-        public Single UnkFloat34;
-        public Single UnkFloat35;
-        public Single UnkFloat36;
-        public Int64[] UnkLongs7;
-        public Byte UnkByte8;
-        public Byte UnkByte9;
+        public Single JibberXFreq;
+        public Single JibberXAmp;
+        public Single JibberYFreq;
+        public Single JibberYAmp;
+        public Vector4[] ColorGradients;
+        public Vector2[] AlphaGradient;
+        public Vector2 Distortion;
+        public Single MinSize;
+        public Single MaxSize;
+        public Vector2[] SizeWidth;
+        public Vector2[] SizeHeight;
+        public Single MinRotation;
+        public Single MaxRotation;
+        public Vector2[] Rotation;
+        public Vector2[] UnkGradient1;
+        public Vector2[] UnkGradient2;
+        public Vector2 TextureStart;
+        public Vector2 TextureEnd;
+        public Vector2[] Collision;
+        public Byte CollisionNumSpheres;
+        public Byte DrawFlag;
         private Int32 padAmount;
-        public Single UnkFloat37;
-        public Int16[] UnkShorts;
-        public Single UnkFloat38;
-        public Single UnkFloat39;
-        public Single UnkFloat40;
-        public Int32 UnkInt;
+        public Single ScaleFactor;
+        public Int16 ParticleGhostsNum;
+        public Single GhostSeparation;
+        public Int16 StarRadialPoints;
+        public Single StarRadiusRatio;
+        public Single RampTime;
+        public Int32 TexturePage;
         public Vector4 UnkVec3;
 
         private readonly Dictionary<UInt32, Int32> versionSizeMap = new();
         public TwinParticleSystem()
         {
             Name = new Char[16];
-            UnkVec1 = new Vector3();
-            UnkVec2 = new Vector3();
-            UnkVecs = new Vector4[8];
-            UnkLongs1 = new Int64[8];
-            UnkLongs2 = new Int64[8];
-            UnkLongs3 = new Int64[8];
-            UnkLongs4 = new Int64[8];
-            UnkLongs5 = new Int64[8];
-            UnkLongs6 = new Int64[8];
-            UnkLongs7 = new Int64[8];
-            UnkShorts = new Int16[4];
+            RandomEmit = new Vector3();
+            RandomStart = new Vector3();
+            ColorGradients = new Vector4[8];
+            AlphaGradient = new Vector2[8];
+            SizeWidth = new Vector2[8];
+            SizeHeight = new Vector2[8];
+            Rotation = new Vector2[8];
+            UnkGradient1 = new Vector2[8];
+            UnkGradient2 = new Vector2[8];
+            Collision = new Vector2[8];
             UnkVec3 = new Vector4();
             Version = 0x1E;
         }
@@ -125,36 +122,36 @@ namespace Twinsanity.TwinsanityInterchange.Common.Particles
                 reader.ReadByte();
                 UnkByte1 = reader.ReadByte();
             }
-            UnkUShort1 = reader.ReadUInt16();
-            UnkUShort2 = reader.ReadUInt16();
+            GenRate = reader.ReadUInt16();
+            MaxParticleCount = reader.ReadUInt16();
             UnkUShort3 = reader.ReadUInt16();
-            UnkUShort4 = reader.ReadUInt16();
-            UnkUShort5 = reader.ReadUInt16();
-            UnkUShort6 = reader.ReadUInt16();
-            UnkUShort7 = reader.ReadUInt16();
-            UnkByte2 = reader.ReadByte();
+            EmitterOverTime = reader.ReadUInt16();
+            EmitterOverTimeRandom = reader.ReadUInt16();
+            EmitterOffTime = reader.ReadUInt16();
+            EmitterOffTimeRandom = reader.ReadUInt16();
+            GenSort = reader.ReadByte();
             UnkByte3 = reader.ReadByte();
-            UnkByte4 = reader.ReadByte();
+            TextureFilter = reader.ReadByte();
             UnkByte5 = reader.ReadByte();
             UnkFloat1 = reader.ReadSingle();
             if (Version == 0x20)
             {
                 UnkFloat1 = 25;
             }
-            UnkFloat2 = 0;
-            UnkFloat3 = 25;
+            CutOnRadius = 0;
+            CutOffRadius = 25;
             if (Version >= 0x6)
             {
-                UnkFloat2 = reader.ReadSingle();
-                UnkFloat3 = reader.ReadSingle();
+                CutOnRadius = reader.ReadSingle();
+                CutOffRadius = reader.ReadSingle();
             }
-            UnkFloat4 = 0;
+            DrawCutOff = 0;
             if (Version >= 0xA)
             {
-                UnkFloat4 = reader.ReadSingle();
-                if (UnkFloat4 <= 2)
+                DrawCutOff = reader.ReadSingle();
+                if (DrawCutOff <= 2)
                 {
-                    UnkFloat4 = 999999.875f;
+                    DrawCutOff = 999999.875f;
                 }
             }
             if (Version <= 0x16 || Version == 0x20)
@@ -177,13 +174,13 @@ namespace Twinsanity.TwinsanityInterchange.Common.Particles
             {
                 reader.ReadBytes(8);
             }
-            UnkFloat7 = reader.ReadSingle();
-            UnkVec1.Read(reader, Constants.SIZE_VECTOR3);
+            Velocity = reader.ReadSingle();
+            RandomEmit.Read(reader, Constants.SIZE_VECTOR3);
             if (Version < 0x12)
             {
                 reader.ReadBytes(0xC);
             }
-            UnkVec2.Read(reader, Constants.SIZE_VECTOR3);
+            RandomStart.Read(reader, Constants.SIZE_VECTOR3);
             if (Version < 0x12)
             {
                 reader.ReadBytes(0xC);
@@ -200,60 +197,68 @@ namespace Twinsanity.TwinsanityInterchange.Common.Particles
             UnkFloat17 = reader.ReadSingle();
             UnkFloat18 = reader.ReadSingle();
             UnkFloat19 = reader.ReadSingle();
-            UnkFloat20 = reader.ReadSingle();
-            UnkFloat21 = reader.ReadSingle();
+            Gravity = reader.ReadSingle();
+            ParticleLifeTime = reader.ReadSingle();
             UnkUShort8 = reader.ReadUInt16();
             UnkByte6 = reader.ReadByte();
             UnkByte7 = reader.ReadByte();
             UnkFloat22 = reader.ReadSingle();
-            UnkFloat23 = reader.ReadSingle();
-            UnkFloat24 = reader.ReadSingle();
-            UnkFloat25 = reader.ReadSingle();
-            UnkFloat26 = reader.ReadSingle();
+            JibberXFreq = reader.ReadSingle();
+            JibberXAmp = reader.ReadSingle();
+            JibberYFreq = reader.ReadSingle();
+            JibberYAmp = reader.ReadSingle();
             for (var i = 0; i < 8; ++i)
             {
-                UnkVecs[i] = new Vector4();
-                UnkVecs[i].Read(reader, Constants.SIZE_VECTOR4);
+                ColorGradients[i] = new Vector4();
+                ColorGradients[i].Read(reader, Constants.SIZE_VECTOR4);
             }
             for (var i = 0; i < 8; ++i)
             {
-                UnkLongs1[i] = reader.ReadInt64();
+                AlphaGradient[i] = new Vector2();
+                AlphaGradient[i].Read(reader, Constants.SIZE_VECTOR2);
             }
-            UnkFloat27 = 0.125f;
-            UnkFloat28 = 0.125f;
+            Distortion = new Vector2
+            {
+                X = 0.125f,
+                Y = 0.125f
+            };
             if (Version > 0x15)
             {
-                UnkFloat27 = reader.ReadSingle();
-                UnkFloat28 = reader.ReadSingle();
+                Distortion.Read(reader, Constants.SIZE_VECTOR2);
             }
-            UnkFloat29 = reader.ReadSingle();
-            UnkFloat30 = reader.ReadSingle();
+            MinSize = reader.ReadSingle();
+            MaxSize = reader.ReadSingle();
             for (var i = 0; i < 8; ++i)
             {
-                UnkLongs2[i] = reader.ReadInt64();
-            }
-            for (var i = 0; i < 8; ++i)
-            {
-                UnkLongs3[i] = reader.ReadInt64();
-            }
-            UnkFloat31 = reader.ReadSingle();
-            UnkFloat32 = reader.ReadSingle();
-            for (var i = 0; i < 8; ++i)
-            {
-                UnkLongs4[i] = reader.ReadInt64();
+                SizeWidth[i] = new Vector2();
+                SizeWidth[i].Read(reader, Constants.SIZE_VECTOR2);
             }
             for (var i = 0; i < 8; ++i)
             {
-                UnkLongs5[i] = reader.ReadInt64();
+                SizeHeight[i] = new Vector2();
+                SizeHeight[i].Read(reader, Constants.SIZE_VECTOR2);
+            }
+            MinRotation = reader.ReadSingle();
+            MaxRotation = reader.ReadSingle();
+            for (var i = 0; i < 8; ++i)
+            {
+                Rotation[i] = new Vector2();
+                Rotation[i].Read(reader, Constants.SIZE_VECTOR2);
             }
             for (var i = 0; i < 8; ++i)
             {
-                UnkLongs6[i] = reader.ReadInt64();
+                UnkGradient1[i] = new Vector2();
+                UnkGradient1[i].Read(reader, Constants.SIZE_VECTOR2);
             }
-            UnkFloat33 = reader.ReadSingle();
-            UnkFloat34 = reader.ReadSingle();
-            UnkFloat35 = reader.ReadSingle();
-            UnkFloat36 = reader.ReadSingle();
+            for (var i = 0; i < 8; ++i)
+            {
+                UnkGradient2[i] = new Vector2();
+                UnkGradient2[i].Read(reader, Constants.SIZE_VECTOR2);
+            }
+            TextureStart = new Vector2();
+            TextureStart.Read(reader, Constants.SIZE_VECTOR2);
+            TextureEnd = new Vector2();
+            TextureEnd.Read(reader, Constants.SIZE_VECTOR2);
             if (Version == 0x20)
             {
                 reader.ReadBytes(4);
@@ -262,17 +267,18 @@ namespace Twinsanity.TwinsanityInterchange.Common.Particles
             {
                 for (var i = 0; i < 8; ++i)
                 {
-                    UnkLongs7[i] = reader.ReadInt64();
+                    Collision[i] = new Vector2();
+                    Collision[i].Read(reader, Constants.SIZE_VECTOR2);
                 }
-                UnkByte8 = reader.ReadByte();
+                CollisionNumSpheres = reader.ReadByte();
             }
             if (Version >= 0x11)
             {
-                UnkByte9 = reader.ReadByte();
+                DrawFlag = reader.ReadByte();
             }
-            if (UnkByte4 == 0x7)
+            if (TextureFilter == 0x7)
             {
-                UnkByte9 = 2;
+                DrawFlag = 2;
             }
             if (Version == 0x20)
             {
@@ -287,46 +293,46 @@ namespace Twinsanity.TwinsanityInterchange.Common.Particles
             {
                 if (Version == 0x20)
                 {
-                    UnkFloat37 = reader.ReadSingle();
+                    ScaleFactor = reader.ReadSingle();
                     reader.ReadBytes(56);
                 }
             }
-            UnkShorts[1] = 0;
-            UnkFloat38 = 0;
+            ParticleGhostsNum = 0;
+            GhostSeparation = 0;
             if (Version >= 0x10)
             {
                 if (Version == 0x20)
                 {
-                    UnkShorts[1] = reader.ReadInt16();
+                    ParticleGhostsNum = reader.ReadInt16();
                     reader.ReadBytes(2);
                 }
                 else
                 {
-                    UnkShorts[1] = (Int16)reader.ReadInt32();
+                    ParticleGhostsNum = (Int16)reader.ReadInt32();
                 }
-                UnkFloat38 = reader.ReadSingle();
+                GhostSeparation = reader.ReadSingle();
             }
-            UnkShorts[2] = 5;
-            UnkFloat39 = 0.5f;
+            StarRadialPoints = 5;
+            StarRadiusRatio = 0.5f;
             if (Version >= 0x19 && Version != 0x20)
             {
-                UnkShorts[2] = (Int16)reader.ReadInt32();
-                UnkFloat39 = reader.ReadSingle();
+                StarRadialPoints = (Int16)reader.ReadInt32();
+                StarRadiusRatio = reader.ReadSingle();
             }
-            UnkFloat40 = 0;
+            RampTime = 0;
             if (Version >= 0x1A && Version != 0x20)
             {
-                UnkFloat40 = reader.ReadSingle();
+                RampTime = reader.ReadSingle();
             }
             if (Version != 0x20)
             {
                 if (Version > 0x1A)
                 {
-                    UnkInt = reader.ReadInt32();
+                    TexturePage = reader.ReadInt32();
                 }
                 if (Version > 0x1B)
                 {
-                    UnkFloat37 = reader.ReadSingle();
+                    ScaleFactor = reader.ReadSingle();
                 }
             }
             if (Version >= 0x1E)
@@ -339,12 +345,12 @@ namespace Twinsanity.TwinsanityInterchange.Common.Particles
                 UnkVec3.Y = 10;
                 UnkVec3.Z = 10;
                 UnkVec3.W = 0;
-                if (UnkByte2 == 0)
+                if (GenSort == 0)
                 {
-                    var f1 = UnkFloat30 * 0.0001f;
-                    UnkVec3.X = ((UnkFloat7 + UnkVec1.X) * UnkFloat21 + UnkVec2.X + f1) * 0.75f;
-                    UnkVec3.Y = ((UnkFloat7 + UnkVec1.Y) * UnkFloat21 + UnkVec2.Y + f1) * 0.75f;
-                    UnkVec3.Z = ((UnkFloat7 + UnkVec1.Z) * UnkFloat21 + UnkVec2.Z + f1) * 0.75f;
+                    var f1 = MaxSize * 0.0001f;
+                    UnkVec3.X = ((Velocity + RandomEmit.X) * ParticleLifeTime + RandomStart.X + f1) * 0.75f;
+                    UnkVec3.Y = ((Velocity + RandomEmit.Y) * ParticleLifeTime + RandomStart.Y + f1) * 0.75f;
+                    UnkVec3.Z = ((Velocity + RandomEmit.Z) * ParticleLifeTime + RandomStart.Z + f1) * 0.75f;
                 }
             }
             var sizePos = reader.BaseStream.Position;
@@ -359,26 +365,26 @@ namespace Twinsanity.TwinsanityInterchange.Common.Particles
                 writer.Write((Byte)0);
                 writer.Write(UnkByte1);
             }
-            writer.Write(UnkUShort1);
-            writer.Write(UnkUShort2);
+            writer.Write(GenRate);
+            writer.Write(MaxParticleCount);
             writer.Write(UnkUShort3);
-            writer.Write(UnkUShort4);
-            writer.Write(UnkUShort5);
-            writer.Write(UnkUShort6);
-            writer.Write(UnkUShort7);
-            writer.Write(UnkByte2);
+            writer.Write(EmitterOverTime);
+            writer.Write(EmitterOverTimeRandom);
+            writer.Write(EmitterOffTime);
+            writer.Write(EmitterOffTimeRandom);
+            writer.Write(GenSort);
             writer.Write(UnkByte3);
-            writer.Write(UnkByte4);
+            writer.Write(TextureFilter);
             writer.Write(UnkByte5);
             writer.Write(UnkFloat1);
             if (Version >= 0x6)
             {
-                writer.Write(UnkFloat2);
-                writer.Write(UnkFloat3);
+                writer.Write(CutOnRadius);
+                writer.Write(CutOffRadius);
             }
             if (Version >= 0xA)
             {
-                writer.Write(UnkFloat4);
+                writer.Write(DrawCutOff);
             }
             if (!(Version <= 0x16 || Version == 0x20))
             {
@@ -393,15 +399,15 @@ namespace Twinsanity.TwinsanityInterchange.Common.Particles
                 writer.Write(0);
                 writer.Write(0);
             }
-            writer.Write(UnkFloat7);
-            UnkVec1.Write(writer);
+            writer.Write(Velocity);
+            RandomEmit.Write(writer);
             if (Version < 0x12)
             {
                 writer.Write(0);
                 writer.Write(0);
                 writer.Write(0);
             }
-            UnkVec2.Write(writer);
+            RandomStart.Write(writer);
             if (Version < 0x12)
             {
                 writer.Write(0);
@@ -420,57 +426,54 @@ namespace Twinsanity.TwinsanityInterchange.Common.Particles
             writer.Write(UnkFloat17);
             writer.Write(UnkFloat18);
             writer.Write(UnkFloat19);
-            writer.Write(UnkFloat20);
-            writer.Write(UnkFloat21);
+            writer.Write(Gravity);
+            writer.Write(ParticleLifeTime);
             writer.Write(UnkUShort8);
             writer.Write(UnkByte6);
             writer.Write(UnkByte7);
             writer.Write(UnkFloat22);
-            writer.Write(UnkFloat23);
-            writer.Write(UnkFloat24);
-            writer.Write(UnkFloat25);
-            writer.Write(UnkFloat26);
+            writer.Write(JibberXFreq);
+            writer.Write(JibberXAmp);
+            writer.Write(JibberYFreq);
+            writer.Write(JibberYAmp);
             for (var i = 0; i < 8; ++i)
             {
-                UnkVecs[i].Write(writer);
+                ColorGradients[i].Write(writer);
             }
             for (var i = 0; i < 8; ++i)
             {
-                writer.Write(UnkLongs1[i]);
+                AlphaGradient[i].Write(writer);
             }
             if (Version > 0x15)
             {
-                writer.Write(UnkFloat27);
-                writer.Write(UnkFloat28);
+                Distortion.Write(writer);
             }
-            writer.Write(UnkFloat29);
-            writer.Write(UnkFloat30);
+            writer.Write(MinSize);
+            writer.Write(MaxSize);
             for (var i = 0; i < 8; ++i)
             {
-                writer.Write(UnkLongs2[i]);
-            }
-            for (var i = 0; i < 8; ++i)
-            {
-                writer.Write(UnkLongs3[i]);
-            }
-            writer.Write(UnkFloat31);
-            writer.Write(UnkFloat32);
-            for (var i = 0; i < 8; ++i)
-            {
-                writer.Write(UnkLongs4[i]);
+                SizeWidth[i].Write(writer);
             }
             for (var i = 0; i < 8; ++i)
             {
-                writer.Write(UnkLongs5[i]);
+                SizeHeight[i].Write(writer);
+            }
+            writer.Write(MinRotation);
+            writer.Write(MaxRotation);
+            for (var i = 0; i < 8; ++i)
+            {
+                Rotation[i].Write(writer);
             }
             for (var i = 0; i < 8; ++i)
             {
-                writer.Write(UnkLongs6[i]);
+                UnkGradient1[i].Write(writer);
             }
-            writer.Write(UnkFloat33);
-            writer.Write(UnkFloat34);
-            writer.Write(UnkFloat35);
-            writer.Write(UnkFloat36);
+            for (var i = 0; i < 8; ++i)
+            {
+                UnkGradient2[i].Write(writer);
+            }
+            TextureStart.Write(writer);
+            TextureEnd.Write(writer);
             if (Version == 0x20)
             {
                 writer.Write(0);
@@ -479,13 +482,13 @@ namespace Twinsanity.TwinsanityInterchange.Common.Particles
             {
                 for (var i = 0; i < 8; ++i)
                 {
-                    writer.Write(UnkLongs7[i]);
+                    Collision[i].Write(writer);
                 }
-                writer.Write(UnkByte8);
+                writer.Write(CollisionNumSpheres);
             }
             if (Version >= 0x11)
             {
-                writer.Write(UnkByte9);
+                writer.Write(DrawFlag);
             }
             if (Version == 0x20)
             {
@@ -505,7 +508,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.Particles
             {
                 if (Version == 0x20)
                 {
-                    writer.Write(UnkFloat37);
+                    writer.Write(ScaleFactor);
                     for (var i = 0; i < 14; ++i)
                     {
                         writer.Write(0);
@@ -516,34 +519,34 @@ namespace Twinsanity.TwinsanityInterchange.Common.Particles
             {
                 if (Version == 0x20)
                 {
-                    writer.Write(UnkShorts[1]);
+                    writer.Write(ParticleGhostsNum);
                     writer.Write((Byte)0);
                     writer.Write((Byte)0);
                 }
                 else
                 {
-                    writer.Write((Int32)UnkShorts[1]);
+                    writer.Write((Int32)ParticleGhostsNum);
                 }
-                writer.Write(UnkFloat38);
+                writer.Write(GhostSeparation);
             }
             if (Version >= 0x19 && Version != 0x20)
             {
-                writer.Write((Int32)UnkShorts[2]);
-                writer.Write(UnkFloat39);
+                writer.Write((Int32)StarRadialPoints);
+                writer.Write(StarRadiusRatio);
             }
             if (Version >= 0x1A && Version != 0x20)
             {
-                writer.Write(UnkFloat40);
+                writer.Write(RampTime);
             }
             if (Version != 0x20)
             {
                 if (Version > 0x1A)
                 {
-                    writer.Write(UnkInt);
+                    writer.Write(TexturePage);
                 }
                 if (Version > 0x1B)
                 {
-                    writer.Write(UnkFloat37);
+                    writer.Write(ScaleFactor);
                 }
             }
             if (Version >= 0x1E)

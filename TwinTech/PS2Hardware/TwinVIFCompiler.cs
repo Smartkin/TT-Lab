@@ -95,15 +95,15 @@ namespace Twinsanity.PS2Hardware
                     var binX = vec.GetBinaryX();
                     var binY = vec.GetBinaryY();
                     var binZ = vec.GetBinaryZ();
-                    if (binX < this.minSkinCoord && binX > 0)
+                    if (binX < this.minSkinCoord && binX > 0 && Math.Abs(vec.X) > 0.000001f)
                     {
                         this.minSkinCoord = binX;
                     }
-                    if (binY < this.minSkinCoord && binY > 0)
+                    if (binY < this.minSkinCoord && binY > 0 && Math.Abs(vec.Y) > 0.000001f)
                     {
                         this.minSkinCoord = binY;
                     }
-                    if (binZ < this.minSkinCoord && binZ > 0)
+                    if (binZ < this.minSkinCoord && binZ > 0 && Math.Abs(vec.Z) > 0.000001f)
                     {
                         this.minSkinCoord = binZ;
                     }

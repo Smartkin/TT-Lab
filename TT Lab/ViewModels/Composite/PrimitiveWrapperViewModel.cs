@@ -87,6 +87,11 @@ public class PrimitiveWrapperViewModel<T> : PropertyChangedBase, IDirtyMarker, I
         return Equals((PrimitiveWrapperViewModel<T>)obj);
     }
 
+    public Int32 GetStorageHash()
+    {
+        return base.GetHashCode();
+    }
+
     public override int GetHashCode()
     {
         return useRefComparator ? base.GetHashCode() : EqualityComparer<T>.Default.GetHashCode(_value);

@@ -1,0 +1,51 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:TT_Lab.Controls"
+             xmlns:controls1="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+             xmlns:cm="http://caliburnmicro.com"
+             xmlns:viewModels="clr-namespace:TT_Lab.ViewModels.Editors.Graphics"
+             x:DataType="viewModels:MaterialViewModel"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Views.Editors.Graphics.MaterialView">
+    <Grid RowDefinitions="62*,163*" ColumnDefinitions="123*,677*">
+        <ContentControl Content="{Binding MaterialViewer}" HorizontalAlignment="Stretch" Margin="0,0,0,0" VerticalAlignment="Stretch"/>
+        <controls:EditableListBox Grid.Row="1" Grid.Column="0" ListBoxName="Shaders" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+            Items="{Binding Shaders}"
+            AddItemCommand="{Binding AddShaderCommand}"
+            RemoveItemCommand="{Binding DeleteShaderCommand}"
+            DuplicateItemCommand="{Binding CloneShaderCommand}"
+            SizeLimit="5">
+            <Interaction.Behaviors>
+                <EventTriggerBehavior EventName="SelectedItemChanged">
+                    <InvokeCommandAction Command="{Binding ChangeShaderSettings}" PassEventArgsToCommand="True"/>
+                </EventTriggerBehavior>
+            </Interaction.Behaviors>
+            <controls:EditableListBox.ItemTemplate>
+                <DataTemplate DataType="{x:Type viewModels:ShaderViewModel}">
+                    <TextBlock Text="{Binding Name}"/>
+                </DataTemplate>
+            </controls:EditableListBox.ItemTemplate>
+            <controls:EditableListBox.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Header="Add Shader" Command="{Binding AddShaderCommand}"></MenuItem>
+                    <MenuItem Header="Remove Shader" Command="{Binding DeleteShaderCommand}"></MenuItem>
+                    <MenuItem Header="Clone Shader" Command="{Binding CloneShaderCommand}"></MenuItem>
+                </ContextMenu>
+            </controls:EditableListBox.ContextMenu>
+        </controls:EditableListBox>
+        <Grid Grid.Column="1" Grid.Row="0" Grid.RowSpan="2" RowDefinitions="*,5*">
+            <controls1:GroupBox Header="Material settings" Margin="0,0,0,0">
+                <Grid ColumnDefinitions="164*,315*,186*">
+                    <controls:LabeledTextBox Text="{Binding ActivatedShaders, Mode=OneWay}" HorizontalAlignment="Stretch" Margin="2,2,2,2" VerticalAlignment="Stretch" TextBoxName="Activated shaders" Padding="2,0,0,0" IsReadOnly="True"/>
+                    <controls:LabeledTextBox Text="{Binding Name}" Grid.Column="1" HorizontalAlignment="Stretch" Margin="2,2,2,2" VerticalAlignment="Stretch" TextBoxName="Name"/>
+                    <controls:LabeledTextBox Text="{Binding DmaChainIndex}" Grid.Column="2" HorizontalAlignment="Stretch" Margin="2,2,2,2" VerticalAlignment="Stretch" TextBoxName="DMA Chain index"/>
+                </Grid>
+            </controls1:GroupBox>
+            <controls1:GroupBox x:Name="ShaderSettingsBox" Header="Shader settings" Grid.Row="1" Margin="0,0,0,0">
+                <ContentControl Content="{Binding CurrentSelectedShader}"/>
+            </controls1:GroupBox>
+        </Grid>
+    </Grid>
+</UserControl>

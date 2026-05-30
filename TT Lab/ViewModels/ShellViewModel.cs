@@ -3,13 +3,21 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Threading;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Platform;
+using Dock.Model.Core;
+using ReactiveUI;
+using ReactiveUI.SourceGenerators;
+using SharpGLTF.Schema2;
+using Splat;
 using TT_Lab.Assets;
 using TT_Lab.Command;
 using TT_Lab.Controls;
@@ -22,300 +30,215 @@ using TT_Lab.ViewModels.Editors;
 using TT_Lab.ViewModels.Interfaces;
 using TT_Lab.ViewModels.ResourceTree;
 
-namespace TT_Lab.ViewModels
+namespace TT_Lab.ViewModels;
+
+public class ShellViewModel : Conductor<EditorsViewModel>, ILabManager
 {
-    public class ShellViewModel : Conductor<EditorsViewModel>, ILabManager
+    private readonly IWindowManager _windowManager;
+    private readonly IEventAggregator _eventAggregator;
+    private readonly ProjectManager _projectManager;
+    private readonly Dictionary<String, List<String>> _managerPropsToShellProps = new();
+    private Boolean _dontRemind = false;
+
+    public ShellViewModel(IWindowManager windowManager, LogViewModel logViewModel, EditorsViewModel editors,
+        IFactory dockFactory, IEventAggregator eventAggregator, ProjectManager projectManager)
     {
-        private readonly IWindowManager _windowManager;
-        private readonly IEventAggregator _eventAggregator;
-        private readonly ProjectManager _projectManager;
-        private readonly Dictionary<String, List<String>> _managerPropsToShellProps = new();
-        private readonly DispatcherTimer _renderTimer = new();
-        private Boolean _dontRemind = false;
-        private Boolean _deadgeRender = false;
-        private Thread _mainThread;
-        private RenderContext _renderContext;
+        Logger = logViewModel;
+        DockFactory = dockFactory;
+        _windowManager = windowManager;
+        EditorsViewModel = editors;
+        _projectManager = projectManager;
+        _eventAggregator = eventAggregator;
+        _eventAggregator.SubscribeOnUIThread(this);
 
-        public ShellViewModel(IWindowManager windowManager, IEventAggregator eventAggregator, ProjectManager projectManager, RenderContext renderContext)
+        _managerPropsToShellProps.Add(nameof(ProjectManager.ProjectTitle), [nameof(WindowTitle)]);
+        _managerPropsToShellProps.Add(nameof(ProjectManager.ProjectOpened), [nameof(ProjectOpened), nameof(TreeOptionsVisibility)]);
+        _managerPropsToShellProps.Add(nameof(ProjectManager.RecentlyOpened), [nameof(RecentlyOpened)]);
+        _managerPropsToShellProps.Add(nameof(ProjectManager.ProjectTree), [nameof(ProjectTree)]);
+        _managerPropsToShellProps.Add(nameof(ProjectManager.HasRecents), [nameof(HasRecents)]);
+        _managerPropsToShellProps.Add(nameof(ProjectManager.SearchAsset), [nameof(SearchAsset)]);
+        _managerPropsToShellProps.Add(nameof(ProjectManager.IsCreatingProject), [nameof(IsCreatingProject)]);
+
+        Preferences.Load();
+    }
+
+    public void SaveProject()
+    {
+        if (!_projectManager.ProjectOpened) return;
+
+        _projectManager.WorkableProject = false;
+        try
         {
-            _mainThread = Thread.CurrentThread;
-            _windowManager = windowManager;
-            _projectManager = projectManager;
-            _eventAggregator = eventAggregator;
-            _renderContext = renderContext;
-            _eventAggregator.SubscribeOnUIThread(this);
-
-            _managerPropsToShellProps.Add(nameof(ProjectManager.ProjectTitle), new List<String> { nameof(WindowTitle) });
-            _managerPropsToShellProps.Add(nameof(ProjectManager.ProjectOpened), new List<String> { nameof(ProjectOpened), nameof(TreeOptionsVisibility) });
-            _managerPropsToShellProps.Add(nameof(ProjectManager.RecentlyOpened), new List<String> { nameof(RecentlyOpened) });
-            _managerPropsToShellProps.Add(nameof(ProjectManager.ProjectTree), new List<String> { nameof(ProjectTree) });
-            _managerPropsToShellProps.Add(nameof(ProjectManager.HasRecents), new List<String> { nameof(HasRecents) });
-            _managerPropsToShellProps.Add(nameof(ProjectManager.SearchAsset), new List<String> { nameof(SearchAsset) });
-            _managerPropsToShellProps.Add(nameof(ProjectManager.IsCreatingProject), new List<String>{ nameof(IsCreatingProject), nameof(SadEasterEggVisibility) });
-
-            Preferences.Load();
+            Log.WriteLine($"Saving {_projectManager.OpenedProject!.Name}...");
+            var now = DateTime.Now;
+            ActiveItem.Save();
+            Log.WriteLine($"Saved project in {DateTime.Now - now}");
         }
-
-        public Task About()
+        catch (Exception ex)
         {
-            return _windowManager.ShowDialogAsync(IoC.Get<AboutViewModel>());
+            Log.WriteLine($"Error saving project: {ex.Message}");
         }
-
-        public Task CreateProject()
+        finally
         {
-            return _windowManager.ShowDialogAsync(IoC.Get<ProjectCreationViewModel>());
+            _projectManager.WorkableProject = true;
         }
+    }
 
-        public Task OpenPreferences()
+    public void OpenEditor(IAsset asset)
+    {
+        try
         {
-            return _windowManager.ShowDialogAsync(IoC.Get<PreferencesViewModel>());
-        }
+            var isFolder = asset.Type == typeof(Folder);
+            var openedAsset = asset;
 
-        public void SaveProject()
-        {
-            if (!_projectManager.ProjectOpened) return;
-
-            _projectManager.WorkableProject = false;
-            try
+            if (isFolder)
             {
-                Log.WriteLine($"Saving {_projectManager.OpenedProject!.Name}...");
-                var now = DateTime.Now;
-                ActiveItem.Save();
-                Log.WriteLine($"Saved project in {DateTime.Now - now}");
+                if (((Folder)asset).Mark.HasFlag(FolderMark.IsChunk))
+                {
+                    openedAsset = AssetManager.Get().GetAsset(((Folder)asset).Children[0]);
+                }
+                else
+                {
+                    return;
+                }
             }
-            catch (Exception ex)
-            {
-                Log.WriteLine($"Error saving project: {ex.Message}");
-            }
-            finally
-            {
-                _projectManager.WorkableProject = true;
-            }
-        }
 
-        public void AssetBlockMouseDown(object selectedItem, MouseButtonEventArgs e)
-        {
-            if (e.ClickCount != 2)
+            var editorsViewModel = EditorsViewModel;
+            if (openedAsset.Type == typeof(LevelChunk))
             {
+                // Automatically switch to Scenes Viewer tab
+                // editorsViewModel.Factory?.SetActiveDockable(editorsViewModel.ScenesEditorsViewModel);
+                DockFactory.SetActiveDockable(DockFactory.VisibleDockableControls.Keys.First(k => k.Id == "ScenesPane"));
+                editorsViewModel.ScenesEditorsViewModel.OpenTab(new TabbedEditorViewModel(DockFactory, openedAsset));
                 return;
             }
+            
+            // Automatically switch to Resources Editor tab
+            DockFactory.SetActiveDockable(DockFactory.VisibleDockableControls.Keys.First(k => k.Id == "ResourcesPane"));
+            editorsViewModel.ResourcesEditorsViewModel.OpenTab(new TabbedEditorViewModel(DockFactory, openedAsset));
+        }
+        catch (Exception ex)
+        {
+            Log.WriteLine($"Failed to create editor: {ex.Message}");
+        }
+    }
 
-            var asset = (ResourceTreeElementViewModel)selectedItem;
-            OpenEditor(asset.Asset);
+    public void AssetBlockMouseMove(TreeView projectTree, PointerEventArgs e)
+    {
+        // if (e.LeftButton != MouseButtonState.Pressed)
+        // {
+        //     return;
+        // }
+        //
+        // var asset = (ResourceTreeElementViewModel)projectTree.SelectedItem;
+        // var data = new DraggedData
+        // {
+        //     Data = asset
+        // };
+        // DragDrop.DoDragDrop(projectTree, data, DragDropEffects.Copy);
+    }
+
+    public void BuildPs2()
+    {
+        _projectManager.BuildPs2Project();
+    }
+
+    public void BuildPs2Iso()
+    {
+        _projectManager.BuildPs2Iso();
+    }
+
+    public void CloseProject()
+    {
+        var canClose = ActiveItem.CanClose;
+        if (!canClose)
+        {
+            return;
+        }
+        
+        ActiveItem.ResourcesEditorsViewModel.Clear();
+        ActiveItem.ScenesEditorsViewModel.Clear();
+        _projectManager.CloseProject();
+    }
+
+    public async Task OpenProject()
+    {
+        var proj = await MiscUtils.GetFileFromDialogueAsync("Choose TT Lab Project...", "TT Lab Project Files", ["*.tson", "*.xson"], Preferences.GetPreference<string>(Preferences.ProjectsPath));
+        if (proj != string.Empty)
+        {
+            var open = new OpenProjectCommand(System.IO.Path.GetDirectoryName(proj)!);
+            open.Execute();
+        }
+    }
+
+    public override async Task<Boolean> CanCloseAsync(CancellationToken cancellationToken = new CancellationToken())
+    {
+        if (_dontRemind)
+        {
+            return true;
         }
 
-        public void OpenEditor(IAsset asset)
-        {
-            try
-            {
-                if (asset.Type == typeof(Folder) || asset.Type == typeof(Package)) return;
+        return await Task.FromResult(ActiveItem.CanClose);
+    }
 
-                var editorsViewModel = ActiveItem;
-                if (asset.Type == typeof(ChunkFolder))
+    public Task HandleAsync(ProjectManagerMessage message, CancellationToken cancellationToken)
+    {
+        return Task.Factory.StartNew(() =>
+            {
+                if (!_managerPropsToShellProps.TryGetValue(message.PropertyName, out List<String>? affectedProps))
                 {
-                    // Automatically switch to Scenes Viewer tab
-                    editorsViewModel.ActivateItemAsync(editorsViewModel.Items[0]);
-                    _eventAggregator.PublishOnUIThreadAsync(new CreateEditorMessage<ChunkEditorViewModel>(asset.URI, typeof(ChunkEditorViewModel)));
                     return;
                 }
 
-                // Automatically switch to Resources Editor tab
-                editorsViewModel.ActivateItemAsync(editorsViewModel.Items[1]);
-                var editorType = asset.GetEditorType();
-                var message = new CreateEditorMessage<ResourceEditorViewModel>(asset.URI, editorType);
-                _eventAggregator.PublishOnUIThreadAsync(message);
-            }
-            catch (Exception ex)
-            {
-                Log.WriteLine($"Failed to create editor: {ex.Message}");
-            }
-        }
-
-        public void AssetBlockMouseMove(TreeView projectTree, MouseEventArgs e)
-        {
-            if (e.LeftButton != MouseButtonState.Pressed)
-            {
-                return;
-            }
-
-            var asset = (ResourceTreeElementViewModel)projectTree.SelectedItem;
-            var data = new DraggedData
-            {
-                Data = asset
-            };
-            DragDrop.DoDragDrop(projectTree, data, DragDropEffects.Copy);
-        }
-
-        public async Task PauseRendering()
-        {
-            // if (_deadgeRender)
-            // {
-            //     return;
-            // }
-            //
-            // CompositionTarget.Rendering -= PerformRender;
-            //
-            // await Task.Delay(100);
-            //
-            // if (_deadgeRender)
-            // {
-            //     return;
-            // }
-            //
-            // CompositionTarget.Rendering += PerformRender;
-        }
-
-        public Task StopRendering()
-        {
-            // lock (_ogreWindowManager!.RenderLockObject)
-            // {
-            //     _deadgeRender = true;
-            //     // _ogreWindowManager.CloseAndTerminateAll();
-            //     CompositionTarget.Rendering -= PerformRender;
-            // }
-
-            return Task.CompletedTask;
-        }
-
-        // Props to https://stackoverflow.com/a/25765336
-        public void LogViewerScroll(ScrollViewer sv, ScrollChangedEventArgs e)
-        {
-            bool autoScrollToEnd = true;
-            if (sv.Tag != null)
-            {
-                autoScrollToEnd = (bool)sv.Tag;
-            }
-            if (e.ExtentHeightChange == 0)// user scroll
-            {
-                autoScrollToEnd = sv.ScrollableHeight == sv.VerticalOffset;
-            }
-            else// content change
-            {
-                if (autoScrollToEnd)
+                foreach (var prop in affectedProps)
                 {
-                    sv.ScrollToEnd();
+                    NotifyOfPropertyChange(prop);
                 }
-            }
-            sv.Tag = autoScrollToEnd;
-        }
-
-        public void BuildPs2()
-        {
-            _projectManager.BuildPs2Project();
-        }
-
-        public void BuildPs2Iso()
-        {
-            _projectManager.BuildPs2Iso();
-        }
-
-        public async Task CloseProject()
-        {
-            var canClose = await ActiveItem.CanCloseAsync();
-            if (!canClose)
-            {
-                return;
-            }
-
-            await DeactivateItemAsync(ActiveItem, true);
-            _projectManager.CloseProject();
-            await ActivateItemAsync(IoC.Get<EditorsViewModel>());
-        }
-
-        public void OpenProject()
-        {
-            var recents = Properties.Settings.Default.RecentProjects;
-            var proj = MiscUtils.GetFileFromDialogue("PS2 TT Lab Project|*.tson|XBox TT Lab Project|*.xson", (recents != null && recents.Count != 0 ? recents[0] : "")!);
-            if (proj != string.Empty)
-            {
-                var open = new OpenProjectCommand(System.IO.Path.GetDirectoryName(proj)!);
-                open.Execute();
-            }
-        }
-
-        public override async Task<Boolean> CanCloseAsync(CancellationToken cancellationToken = new CancellationToken())
-        {
-            _deadgeRender = true;
-            if (_dontRemind)
-            {
-                await StopRendering();
-                return true;
-            }
-
-            if (await ActiveItem.CanCloseAsync(cancellationToken))
-            {
-                await StopRendering();
-                return true;
-            }
-            
-            return false;
-        }
-
-        public Task HandleAsync(ProjectManagerMessage message, CancellationToken cancellationToken)
-        {
-            return Task.Factory.StartNew(() =>
-                {
-                    if (!_managerPropsToShellProps.TryGetValue(message.PropertyName, out List<String>? affectedProps))
-                    {
-                        return;
-                    }
-
-                    foreach (var prop in affectedProps)
-                    {
-                        NotifyOfPropertyChange(prop);
-                    }
-                },
-                cancellationToken);
-        }
-
-        protected override Task OnInitializeAsync(CancellationToken cancellationToken)
-        {
-            ActivateItemAsync(IoC.Get<EditorsViewModel>(), cancellationToken);
-            return base.OnInitializeAsync(cancellationToken);
-        }
-
-        protected override async Task OnDeactivateAsync(Boolean close, CancellationToken cancellationToken)
-        {
-            if (close)
-            {
-                _deadgeRender = true;
-                Properties.Settings.Default.Save();
-                Preferences.Save();
-            }
-            
-            await base.OnDeactivateAsync(close, cancellationToken);
-
-            if (!cancellationToken.IsCancellationRequested && close)
-            {
-                _dontRemind = true;
-                // CompositionTarget.Rendering -= PerformRender;
-            }
-            else
-            {
-                _deadgeRender = false;
-            }
-        }
-
-        public BindableCollection<MenuItem> RecentlyOpened => _projectManager.RecentlyOpened;
-
-        public Visibility TreeOptionsVisibility => ProjectOpened ? Visibility.Visible : Visibility.Collapsed;
-
-        public String WindowTitle => _projectManager.ProjectTitle;
-
-        public String SearchAsset
-        {
-            get => _projectManager.SearchAsset;
-            set => _projectManager.SearchAsset = value;
-        }
-
-        public Boolean HasRecents => _projectManager.HasRecents;
-
-        public BindableCollection<ResourceTreeElementViewModel> ProjectTree => _projectManager.ProjectTree;
-
-        public Boolean ProjectOpened => _projectManager.ProjectOpened;
-
-        public Boolean IsCreatingProject => _projectManager.IsCreatingProject;
-        
-        public Visibility SadEasterEggVisibility => IsCreatingProject && Preferences.GetPreference<Boolean>(Preferences.SillinessEnabled) ? Visibility.Visible : Visibility.Collapsed;
+            },
+            cancellationToken);
     }
+
+    protected override async Task OnDeactivateAsync(Boolean close, CancellationToken cancellationToken)
+    {
+        if (close)
+        {
+            // Properties.Settings.Default.Save();
+            Preferences.Save();
+        }
+            
+        await base.OnDeactivateAsync(close, cancellationToken);
+
+        if (!cancellationToken.IsCancellationRequested && close)
+        {
+            _dontRemind = true;
+        }
+
+        await Task.CompletedTask;
+    }
+
+    public BindableCollection<MenuItem> RecentlyOpened => _projectManager.RecentlyOpened;
+
+    public Boolean TreeOptionsVisibility => ProjectOpened;
+
+    public String WindowTitle => _projectManager.ProjectTitle;
+
+    public String SearchAsset
+    {
+        get => _projectManager.SearchAsset;
+        set => _projectManager.SearchAsset = value;
+    }
+
+    public LogViewModel Logger { get; }
+
+    public IFactory DockFactory { get; }
+
+    public EditorsViewModel EditorsViewModel { get; }
+
+    public Boolean HasRecents => _projectManager.HasRecents;
+
+    public BindableCollection<ResourceTreeElementViewModel> ProjectTree => _projectManager.ProjectTree;
+
+    public Boolean ProjectOpened => _projectManager.ProjectOpened;
+
+    public Boolean IsCreatingProject => _projectManager.IsCreatingProject;
 }

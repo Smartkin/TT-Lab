@@ -15,7 +15,7 @@ namespace TT_Lab.Assets.Instance
 
         public AiPath(LabURI package, UInt32 id, String name, String chunk, Int32 layId, ITwinAIPath path) : base(package, id, name, chunk, layId)
         {
-            assetData = new AiPathData(path);
+            AssetData = new AiPathData(this, path);
         }
 
         public AiPath()
@@ -29,13 +29,12 @@ namespace TT_Lab.Assets.Instance
 
         public override AbstractAssetData GetData()
         {
-            if (!IsLoaded || assetData.Disposed)
+            if (!IsLoaded || AssetData.Disposed)
             {
-                assetData = new AiPathData();
-                assetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
-                IsLoaded = true;
+                AssetData = new AiPathData(this);
+                AssetData.Load(DataLoadPath);
             }
-            return assetData;
+            return AssetData;
         }
 
         protected override ResourceTreeElementViewModel CreateResourceTreeElement(ResourceTreeElementViewModel? parent = null)

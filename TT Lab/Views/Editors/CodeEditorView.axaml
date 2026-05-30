@@ -1,0 +1,14 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:avaloniaEdit="https://github.com/avaloniaui/avaloniaedit"
+             xmlns:viewmodels="clr-namespace:TT_Lab.ViewModels.Editors"
+             x:DataType="viewmodels:CodeEditorViewModel"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Views.Editors.CodeEditorView">
+    <StackPanel Orientation="Vertical" ScrollViewer.BringIntoViewOnFocusChange="False">
+        <TextBox Name="Editor" AcceptsReturn="True" AcceptsTab="False" ScrollViewer.BringIntoViewOnFocusChange="False"/>
+        <TextBlock x:Name="CodeParsingError" Foreground="Red" FontSize="14"/>
+    </StackPanel>
+</UserControl>

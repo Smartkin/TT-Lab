@@ -7,6 +7,7 @@ using TT_Lab.Assets.Instance;
 using TT_Lab.Attributes;
 using TT_Lab.Util;
 using TT_Lab.ViewModels.Composite;
+using TT_Lab.ViewModels.ResourceTree;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 
 namespace TT_Lab.ViewModels.Editors.Instance
@@ -43,8 +44,8 @@ namespace TT_Lab.ViewModels.Editors.Instance
             layId = MiscUtils.ConvertEnum<Enums.Layouts>(asset.LayoutID!.Value);
 
             var tree = ParentEditor.ChunkTree;
-            var navPositions = tree.First(avm => avm.Alias == "AI Navigation Positions");
-            foreach (var p in navPositions!.Children!)
+            var navPositions = tree.Where(avm => avm is InstanceElementGenericViewModel<AiPosition>).ToList();
+            foreach (var p in navPositions)
             {
                 positions.Add(p.Asset.URI);
             }

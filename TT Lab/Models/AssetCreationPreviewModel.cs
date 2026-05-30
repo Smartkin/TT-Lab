@@ -1,7 +1,10 @@
 using System;
+using System.Threading.Tasks;
+using Avalonia.Media.Imaging;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Assets.Instance;
+using TT_Lab.Util;
 
 namespace TT_Lab.Models;
 
@@ -16,9 +19,17 @@ public class AssetCreationPreviewModel
         DataCreator = dataCreator;
     }
     
-    public string IconPath => $"/Media/LabIcons/{_asset.IconPath}";
+    public AssetCreationPreviewModel(IAsset assetToPreview, string displayName, Func<IAsset, Task<AssetCreationStatus>>? dataCreator = null)
+    {
+        _asset = assetToPreview;
+        DisplayName = displayName;
+        DataCreatorAsync = dataCreator;
+    }
+    
+    public Bitmap IconPath => new(ManifestResourceLoader.GetPathInExe($"Media/LabIcons/{_asset.IconPath}"));
     public string DisplayName { get; }
     public Func<IAsset, AssetCreationStatus>? DataCreator { get; }
+    public Func<IAsset, Task<AssetCreationStatus>>? DataCreatorAsync { get; }
     public Type AssetType => _asset.GetType();
     public Boolean IsInstance => AssetType.IsAssignableTo(typeof(SerializableInstance));
 }

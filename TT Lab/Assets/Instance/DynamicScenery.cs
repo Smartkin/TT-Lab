@@ -9,6 +9,8 @@ namespace TT_Lab.Assets.Instance
 {
     public class DynamicScenery : SerializableInstance
     {
+        protected override String DataExt => ".glb";
+        
         public override bool IsInScenery => true;
         public override UInt32 Section => Constants.SCENERY_DYNAMIC_SECENERY_ITEM;
 
@@ -18,7 +20,7 @@ namespace TT_Lab.Assets.Instance
 
         public DynamicScenery(LabURI package, UInt32 id, String name, String chunk, ITwinDynamicScenery dynamicScenery) : base(package, id, name, chunk, null)
         {
-            assetData = new DynamicSceneryData(dynamicScenery);
+            AssetData = new DynamicSceneryData(this, dynamicScenery);
         }
 
         public override Type GetEditorType()
@@ -28,13 +30,12 @@ namespace TT_Lab.Assets.Instance
 
         public override AbstractAssetData GetData()
         {
-            if (!IsLoaded || assetData.Disposed)
+            if (!IsLoaded || AssetData.Disposed)
             {
-                assetData = new DynamicSceneryData();
-                assetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
-                IsLoaded = true;
+                AssetData = new DynamicSceneryData(this);
+                AssetData.Load(DataLoadPath);
             }
-            return assetData;
+            return AssetData;
         }
 
         protected override ResourceTreeElementViewModel CreateResourceTreeElement(ResourceTreeElementViewModel? parent = null)

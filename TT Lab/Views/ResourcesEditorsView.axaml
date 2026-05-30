@@ -1,0 +1,42 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewmodelsComposite="clr-namespace:TT_Lab.ViewModels.Composite"
+             xmlns:viewModels="clr-namespace:TT_Lab.ViewModels"
+             xmlns:core="clr-namespace:Dock.Model.Core;assembly=Dock.Model"
+             x:DataType="viewModels:ResourcesEditorsViewModel"
+             x:CompileBindings="False"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Views.ResourcesEditorsView">
+    <UserControl.Styles>
+        <Style Selector="DocumentControl">
+            <Setter Property="HeaderTemplate">
+                <DataTemplate DataType="core:IDockable">
+                    <StackPanel Orientation="Horizontal">
+                        <Image Source="{Binding Context.IconPath}" VerticalAlignment="Center" HorizontalAlignment="Center" Width="24" Height="24" Margin="0,0,3,0" Stretch="Uniform"/>
+                        <TextBlock VerticalAlignment="Center" Text="{Binding Context.Title, Mode=OneWay}" Margin="0,0,10,0"/>
+                    </StackPanel>
+                </DataTemplate>
+            </Setter>
+        </Style>
+    </UserControl.Styles>
+    <DockControl Factory="{Binding Factory}">
+        <DocumentDock x:Name="ResourcesEditorsDock">
+            <DocumentDock.DocumentTemplate>
+                <DocumentTemplate>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="2*"/>
+                            <ColumnDefinition Width="5"/>
+                            <ColumnDefinition Width="{Binding Context.ViewportWidth}"/>
+                        </Grid.ColumnDefinitions>
+                        <ContentControl Grid.Column="0" Content="{Binding Context.Document}"/>
+                        <GridSplitter Grid.Column="1" ShowsPreview="True"/>
+                        <ContentControl Grid.Column="2" IsVisible="{Binding Context.HasViewport}" Content="{Binding Context.Viewport}"/>
+                    </Grid>
+                </DocumentTemplate>
+            </DocumentDock.DocumentTemplate>
+        </DocumentDock>
+    </DockControl>
+</UserControl>

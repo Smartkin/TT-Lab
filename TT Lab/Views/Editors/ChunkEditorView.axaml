@@ -1,0 +1,57 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+             xmlns:viewmodels="clr-namespace:TT_Lab.ViewModels.Editors"
+             x:DataType="viewmodels:ChunkEditorViewModel"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Views.Editors.ChunkEditorView">
+    <Grid RowDefinitions="217*,5,228*" ColumnDefinitions="40*,5,119*,5,40*">
+        <controls:GroupBox Grid.RowSpan="3" Header="Chunk tree">
+            <TreeView x:Name="ChunkTreeView" Margin="0"
+                ItemsSource="{Binding ChunkTree}"
+            >
+                <Interaction.Behaviors>
+                    <EventTriggerBehavior EventName="SelectionChanged">
+                        <InvokeCommandAction Command="{Binding SelectDifferentInstanceFromView}" PassEventArgsToCommand="True"/>
+                    </EventTriggerBehavior>
+                </Interaction.Behaviors>
+                <TreeView.ItemTemplate>
+                    <TreeDataTemplate ItemsSource="{Binding Children}">
+                        <StackPanel Margin="0,2,0,2" Orientation="Horizontal">
+                            <StackPanel.ContextMenu>
+                                <ContextMenu ItemsSource="{Binding MenuOptions}"/>
+                            </StackPanel.ContextMenu>
+                            <Interaction.Behaviors>
+                                <EventTriggerBehavior EventName="ContextRequested">
+                                    <InvokeCommandAction Command="{Binding CreateContextMenuAction}"/>
+                                </EventTriggerBehavior>
+                            </Interaction.Behaviors>
+                            <Image Source="{Binding IconPath}" VerticalAlignment="Center" HorizontalAlignment="Center" Width="24" Height="24" Margin="0,0,3,0" Stretch="Uniform"/>
+                            <TextBlock IsVisible="{Binding IsNotRenaming}" HorizontalAlignment="Center" VerticalAlignment="Center" Text="{Binding Alias}"/>
+                            <TextBox Text="{Binding NewAlias, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center" HorizontalAlignment="Stretch" IsVisible="{Binding IsRenaming}">
+                                <Interaction.Behaviors>
+                                    <EventTriggerBehavior EventName="LostFocus">
+                                        <InvokeCommandAction Command="{Binding StopRenaming}"/>
+                                    </EventTriggerBehavior>
+                                    <EventTriggerBehavior EventName="KeyDown">
+                                        <InvokeCommandAction Command="{Binding SaveRenaming}" PassEventArgsToCommand="True"/>
+                                    </EventTriggerBehavior>
+                                </Interaction.Behaviors>
+                            </TextBox>
+                        </StackPanel>
+                    </TreeDataTemplate>
+                </TreeView.ItemTemplate>
+            </TreeView>
+        </controls:GroupBox>
+        <ContentControl Grid.Row="0" Content="{Binding SceneEditor}" Grid.Column="2" Grid.RowSpan="3"/>
+        <controls:GroupBox Grid.Column="4" x:Name="ItemEditorContainer" Header="Item editor" Margin="0" Grid.Row="0" Grid.RowSpan="3">
+            <ScrollViewer x:Name="EditorScroll" VerticalScrollBarVisibility="Auto" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
+                <ContentControl Content="{Binding CurrentInstanceEditor}"/>
+            </ScrollViewer>
+        </controls:GroupBox>
+        <GridSplitter Background="DarkGray" Grid.Row="0" HorizontalAlignment="Center" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" Grid.Column="1" Grid.RowSpan="3" Width="5"/>
+        <GridSplitter Background="DarkGray" Grid.Row="0" HorizontalAlignment="Center" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" Grid.Column="3" Grid.RowSpan="3" Width="5"/>
+    </Grid>
+</UserControl>

@@ -1,48 +1,59 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using TT_Lab.AssetData.Graphics.SubModels;
 
-namespace TT_Lab.MeshProcessor
+namespace TT_Lab.MeshProcessor;
+
+public class Mesh
 {
-    public class Mesh
+    List<Vertex> vertices;
+    List<IndexedFace> faces;
+    List<SubBlendFaceData>? blendFaces;
+    private List<UInt32>? IndicesOverride;
+
+    public List<Meshlet> Meshlets { get; set; } = new();
+
+    public Mesh(List<Vertex> vertices, List<IndexedFace> faces, List<SubBlendFaceData>? blendFaces = null)
     {
-        List<Vertex> vertices;
-        List<IndexedFace> faces;
-        List<SubBlendFaceData>? blendFaces;
+        this.vertices = vertices;
+        this.faces = faces;
+        this.blendFaces = blendFaces;
+    }
 
-        public List<Meshlet> Meshlets { get; set; } = new();
+    public void AddMeshlet(Meshlet meshlet)
+    {
+        Meshlets.Add(meshlet);
+    }
 
-        public Mesh(List<Vertex> vertices, List<IndexedFace> faces, List<SubBlendFaceData>? blendFaces = null)
-        {
-            this.vertices = vertices;
-            this.faces = faces;
-            this.blendFaces = blendFaces;
-        }
+    public void SetIndicesOverride(List<UInt32> indices)
+    {
+        IndicesOverride = indices;
+    }
 
-        public void AddMeshlet(Meshlet meshlet)
-        {
-            Meshlets.Add(meshlet);
-        }
+    public List<UInt32>? GetIndicesOverride()
+    {
+        return IndicesOverride;
+    }
 
-        public List<Vertex> GetVertices()
-        {
-            return vertices;
-        }
+    public List<Vertex> GetVertices()
+    {
+        return vertices;
+    }
 
-        public List<IndexedFace> GetFaces()
-        {
-            return faces;
-        }
+    public List<IndexedFace> GetFaces()
+    {
+        return faces;
+    }
 
-        public List<SubBlendFaceData>? GetBlendFaces()
-        {
-            return blendFaces;
-        }
+    public List<SubBlendFaceData>? GetBlendFaces()
+    {
+        return blendFaces;
+    }
 
-        public void Clear()
-        {
-            vertices.Clear();
-            faces.Clear();
-            Meshlets.Clear();
-        }
+    public void Clear()
+    {
+        vertices.Clear();
+        faces.Clear();
+        Meshlets.Clear();
     }
 }

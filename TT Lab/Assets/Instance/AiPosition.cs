@@ -15,7 +15,7 @@ namespace TT_Lab.Assets.Instance
 
         public AiPosition(LabURI package, UInt32 id, String name, String chunk, Int32 layId, ITwinAIPosition position) : base(package, id, name, chunk, layId)
         {
-            assetData = new AiPositionData(position);
+            AssetData = new AiPositionData(this, position);
         }
 
         public AiPosition()
@@ -29,13 +29,12 @@ namespace TT_Lab.Assets.Instance
 
         public override AbstractAssetData GetData()
         {
-            if (!IsLoaded || assetData.Disposed)
+            if (!IsLoaded || AssetData.Disposed)
             {
-                assetData = new AiPositionData();
-                assetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
-                IsLoaded = true;
+                AssetData = new AiPositionData(this);
+                AssetData.Load(DataLoadPath);
             }
-            return assetData;
+            return AssetData;
         }
 
         protected override ResourceTreeElementViewModel CreateResourceTreeElement(ResourceTreeElementViewModel? parent = null)

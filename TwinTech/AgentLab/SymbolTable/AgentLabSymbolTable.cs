@@ -7,7 +7,7 @@ using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code.AgentLab;
 
 namespace Twinsanity.AgentLab.SymbolTable;
 
-internal class AgentLabSymbolTable
+public class AgentLabSymbolTable
 {
     private readonly Dictionary<string, AgentLabSymbol> _symbols = new();
     private Func<int> constIdGenerator;

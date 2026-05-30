@@ -5,13 +5,18 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using Avalonia.Controls;
+using Splat;
 using TT_Lab.AssetData.Code.Behaviour;
 using TT_Lab.AssetData.Code.Object;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Attributes;
+using TT_Lab.Project;
 using TT_Lab.Util;
+using TT_Lab.ViewModels.Editors;
+using TT_Lab.ViewModels.Editors.Descs;
 using Twinsanity.AgentLab;
 using Twinsanity.TwinsanityInterchange.Common.AgentLab;
 using Twinsanity.TwinsanityInterchange.Enumerations;
@@ -26,7 +31,7 @@ namespace TT_Lab.AssetData.Code
     [ReferencesAssets]
     public class GameObjectData : AbstractAssetData
     {
-        public GameObjectData()
+        public GameObjectData(IAsset asset) : base(asset)
         {
             Name = "NewGameObject";
             Type = ITwinObject.ObjectType.GenericObject;
@@ -49,61 +54,104 @@ namespace TT_Lab.AssetData.Code
             BehaviourPack = string.Empty;
         }
 
-        public GameObjectData(ITwinObject gameObject, Dictionary<string, TwinBehaviourStarter> starterMap)
+        public GameObjectData(IAsset asset, ITwinObject gameObject, Dictionary<string, TwinBehaviourStarter> starterMap) : base(asset)
         {
             _starterMap = starterMap;
             SetTwinItem(gameObject);
         }
 
-        public GameObjectData(String path) => Load(path, new JsonSerializerSettings
+        public GameObjectData(IAsset asset, String path) : base(asset) => Load(path, new JsonSerializerSettings
         {
             Formatting = Formatting.Indented
         });
 
         [JsonProperty(Required = Required.Always)]
+        [Editable]
         public ITwinObject.ObjectType Type { get; set; }
+        
         [JsonProperty(Required = Required.Always)]
+        [Editable(Hint = "CAREFUL OF EDITING THIS VALUE! In general for all objects it should be equal to 1! For Pickups and Projectiles it can be equal to 17 or 18")]
         public Byte UnkTypeValue { get; set; }
+        
         [JsonProperty(Required = Required.Always)]
         public Byte CameraReactJointAmount { get; set; }
+        
         [JsonProperty(Required = Required.Always)]
         public Byte ExitPointAmount { get; set; }
+        
         [JsonProperty(Required = Required.Always)]
         public String Name { get; set; }
+        
         [JsonProperty(Required = Required.Always)]
+        [Editable(Caption = "Trigger Messages", EditorOrientation = Avalonia.Controls.Dock.Top)]
+        [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Message")]
         public List<ObjectTriggerBehaviourData> TriggerBehaviours { get; set; }
+        
         [JsonProperty(Required = Required.Always)]
+        [Editable(Caption = "OGI Slots", EditorOrientation = Avalonia.Controls.Dock.Top)]
+        [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "OGI Slot")]
+        [EditorParam(UriLinkViewModel.BrowseType, typeof(OGI))]
         public List<LabURI> OGISlots { get; set; }
+        
         [JsonProperty(Required = Required.Always)]
+        [Editable(Caption = "Animation Slots", EditorOrientation = Avalonia.Controls.Dock.Top)]
+        [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Animation Slot")]
+        [EditorParam(UriLinkViewModel.BrowseType, typeof(Animation))]
         public List<LabURI> AnimationSlots { get; set; }
+        
         [JsonProperty(Required = Required.Always)]
+        [Editable(Caption = "Behaviour Slots", EditorOrientation = Avalonia.Controls.Dock.Top)]
+        [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Behaviour Slot")]
+        [EditorParam(UriLinkViewModel.BrowseType, typeof(BehaviourGraph))]
         public List<LabURI> BehaviourSlots { get; set; }
+        
         [JsonProperty(Required = Required.Always)]
+        [Editable(Caption = "Object Slots", EditorOrientation = Avalonia.Controls.Dock.Top)]
+        [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Object Slot")]
+        [EditorParam(UriLinkViewModel.BrowseType, typeof(GameObject))]
         public List<LabURI> ObjectSlots { get; set; }
+        
         [JsonProperty(Required = Required.Always)]
+        [Editable(Caption = "Sound Slots", EditorOrientation = Avalonia.Controls.Dock.Top)]
+        [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Sound Slot")]
+        [EditorParam(UriLinkViewModel.BrowseType, typeof(SoundEffect))]
         public List<LabURI> SoundSlots { get; set; }
+        
         [JsonProperty(Required = Required.Always)]
         public Enums.InstanceState InstanceStateFlags { get; set; }
+        
         [JsonProperty(Required = Required.Always)]
+        [Editable(Caption = "Template Instance Flags", EditorOrientation = Avalonia.Controls.Dock.Top)]
+        [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Flag")]
+        [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
         public List<UInt32> InstFlags { get; set; }
+        
         [JsonProperty(Required = Required.Always)]
+        [Editable(Caption = "Template Instance Floats", EditorOrientation = Avalonia.Controls.Dock.Top)]
+        [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Float")]
+        [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
         public List<Single> InstFloats { get; set; }
+        
         [JsonProperty(Required = Required.Always)]
+        [Editable(Caption = "Template Instance Integers", EditorOrientation = Avalonia.Controls.Dock.Top)]
+        [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Integer")]
+        [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
         public List<UInt32> InstIntegers { get; set; }
+        
         [JsonProperty(Required = Required.Always)]
-        public List<LabURI> RefObjects { get; set; }
-        [JsonProperty(Required = Required.Always)]
-        public List<LabURI> RefOGIs { get; set; }
-        [JsonProperty(Required = Required.Always)]
-        public List<LabURI> RefAnimations { get; set; }
-        [JsonProperty(Required = Required.Always)]
-        public List<LabURI> RefBehaviourCommandsSequences { get; set; }
-        [JsonProperty(Required = Required.Always)]
-        public List<LabURI> RefBehaviours { get; set; }
-        [JsonProperty(Required = Required.Always)]
-        public List<LabURI> RefSounds { get; set; }
-        [JsonProperty(Required = Required.Always)]
+        [Editable(Caption = "Object's AgentLab Commands", EditorOrientation = Avalonia.Controls.Dock.Top, EditorDescType = typeof(CodeEditorDesc))]
+        [EditorParam(DocumentModelViewModel.EditorExplicitOrder, Int32.MaxValue)]
+        [EditorParam(CodeEditorViewModel.ValidateAgentLabCode, true)]
         public string BehaviourPack { get; set; }
+        
+        public List<LabURI> RefObjects { get; set; }
+        public List<LabURI> RefOGIs { get; set; }
+        public List<LabURI> RefAnimations { get; set; }
+        public List<LabURI> RefBehaviourCommandsSequences { get; set; }
+        public List<LabURI> RefBehaviours { get; set; }
+        public List<LabURI> RefSounds { get; set; }
+        
+        
 
         protected override void Dispose(Boolean disposing)
         {
@@ -137,17 +185,17 @@ namespace TT_Lab.AssetData.Code
             TriggerBehaviours = new List<ObjectTriggerBehaviourData>();
             foreach (var e in gameObject.TriggerBehaviours)
             {
-                TriggerBehaviours.Add(new ObjectTriggerBehaviourData(package, variant, e, _starterMap));
+                TriggerBehaviours.Add(new ObjectTriggerBehaviourData(Owner, e, _starterMap));
             }
             OGISlots = new List<LabURI>();
             foreach (var e in gameObject.OGISlots)
             {
-                OGISlots.Add((e == 65535) ? LabURI.Empty : assetManager.GetUri(package, nameof(OGI), variant, e));
+                OGISlots.Add((e == 65535) ? LabURI.Empty : assetManager.GetUriByTwinId<OGI>(Owner, e));
             }
             AnimationSlots = new List<LabURI>();
             foreach (var e in gameObject.AnimationSlots)
             {
-                AnimationSlots.Add((e == 65535) ? LabURI.Empty : assetManager.GetUri(package, nameof(Animation), variant, e));
+                AnimationSlots.Add((e == 65535) ? LabURI.Empty : assetManager.GetUriByTwinId<Animation>(Owner, e));
             }
             BehaviourSlots = new List<LabURI>();
             foreach (var e in gameObject.BehaviourSlots)
@@ -155,7 +203,7 @@ namespace TT_Lab.AssetData.Code
                 var found = false;
                 foreach (var cm in gameObject.RefCodeModels)
                 {
-                    BehaviourCommandsSequence cmGuid = assetManager.GetAsset<BehaviourCommandsSequence>(package, nameof(BehaviourCommandsSequence), variant, cm);
+                    BehaviourCommandsSequence cmGuid = assetManager.GetAsset<BehaviourCommandsSequence>(package, Owner, cm);
                     if (cmGuid.BehaviourGraphLinks.ContainsKey(e))
                     {
                         BehaviourSlots.Add(cmGuid.BehaviourGraphLinks[e]);
@@ -168,7 +216,7 @@ namespace TT_Lab.AssetData.Code
                     var id = e;
                     if (id % 2 == 0)
                     {
-                        var allGraphs = assetManager.GetAllAssetsOf<BehaviourGraph>().Cast<BehaviourGraph>();
+                        var allGraphs = assetManager.GetAllAssetsOf<BehaviourGraph>();
                         foreach (var graph in allGraphs)
                         {
                             if (graph.MapStarterIdToSelf(id) == -1)
@@ -180,52 +228,52 @@ namespace TT_Lab.AssetData.Code
                             break;
                         }
                     }
-                    BehaviourSlots.Add((e == 65535) ? LabURI.Empty : assetManager.GetUri(package, nameof(BehaviourGraph), variant, id));
+                    BehaviourSlots.Add((e == 65535) ? LabURI.Empty : assetManager.GetUriByTwinId<BehaviourGraph>(Owner, id));
                 }
             }
             ObjectSlots = new List<LabURI>();
             foreach (var e in gameObject.ObjectSlots)
             {
-                ObjectSlots.Add((e == 65535) ? LabURI.Empty : assetManager.GetUri(package, nameof(GameObject), variant, e));
+                ObjectSlots.Add((e == 65535) ? LabURI.Empty : assetManager.GetUriByTwinId<GameObject>(Owner, e));
             }
             SoundSlots = new List<LabURI>();
             foreach (var e in gameObject.SoundSlots)
             {
-                var list = CollectMulti5Uri(package, null, e);
+                var list = CollectMulti5Uri(e);
                 if (list.Count != 0)
                 {
                     SoundSlots.AddRange(list);
                 }
                 else
                 {
-                    SoundSlots.Add((e == 65535) ? LabURI.Empty : assetManager.GetUri(package, nameof(SoundEffect), variant, e));
+                    SoundSlots.Add((e == 65535) ? LabURI.Empty : assetManager.GetUriByTwinId<SoundEffect>(Owner, e));
                 }
             }
             RefObjects = new List<LabURI>();
             foreach (var e in gameObject.RefObjects)
             {
-                var uri = assetManager.GetUri(package, nameof(GameObject), variant, e);
+                var uri = assetManager.GetUriByTwinId<GameObject>(Owner, e);
                 Debug.Assert(uri != LabURI.Empty, "REFERENCES CAN NOT CONTAIN REFERENCE TO NULL DATA");
                 RefObjects.Add(uri);
             }
             RefOGIs = new List<LabURI>();
             foreach (var e in gameObject.RefOGIs)
             {
-                var uri = assetManager.GetUri(package, nameof(OGI), variant, e);
+                var uri = assetManager.GetUriByTwinId<OGI>(Owner, e);
                 Debug.Assert(uri != LabURI.Empty, "REFERENCES CAN NOT CONTAIN REFERENCE TO NULL DATA");
                 RefOGIs.Add(uri);
             }
             RefAnimations = new List<LabURI>();
             foreach (var e in gameObject.RefAnimations)
             {
-                var uri = assetManager.GetUri(package, nameof(Animation), variant, e);
+                var uri = assetManager.GetUriByTwinId<Animation>(Owner, e);
                 Debug.Assert(uri != LabURI.Empty, "REFERENCES CAN NOT CONTAIN REFERENCE TO NULL DATA");
                 RefAnimations.Add(uri);
             }
             RefBehaviourCommandsSequences = new List<LabURI>();
             foreach (var e in gameObject.RefCodeModels)
             {
-                var uri = assetManager.GetUri(package, nameof(BehaviourCommandsSequence), variant, e);
+                var uri = assetManager.GetUriByTwinId<BehaviourCommandsSequence>(Owner, e);
                 Debug.Assert(uri != LabURI.Empty, "REFERENCES CAN NOT CONTAIN REFERENCE TO NULL DATA");
                 RefBehaviourCommandsSequences.Add(uri);
             }
@@ -250,7 +298,7 @@ namespace TT_Lab.AssetData.Code
                     }
                     else
                     {
-                        var allCms = assetManager.GetAllAssetsOf<BehaviourCommandsSequence>().Cast<BehaviourCommandsSequence>();
+                        var allCms = assetManager.GetAllAssetsOf<BehaviourCommandsSequence>();
                         foreach (var cm in allCms)
                         {
                             if (cm.BehaviourGraphLinks.ContainsKey(e))
@@ -270,7 +318,7 @@ namespace TT_Lab.AssetData.Code
                         continue;
                     }
                     
-                    var uri = assetManager.GetUri(package, nameof(BehaviourGraph), variant, e);
+                    var uri = assetManager.GetUriByTwinId<BehaviourGraph>(Owner, e);
                     Debug.Assert(uri != LabURI.Empty, $"REFERENCES CAN NOT CONTAIN REFERENCE TO NULL DATA. ATTEMPTED REFERENCE TO GAME ID {e}");
                     RefBehaviours.Add(uri);
                 }
@@ -278,10 +326,10 @@ namespace TT_Lab.AssetData.Code
             RefSounds = new List<LabURI>();
             foreach (var e in gameObject.RefSounds)
             {
-                var sndUri = assetManager.GetUri(package, nameof(SoundEffect), variant, e);
+                var sndUri = assetManager.GetUriByTwinId<SoundEffect>(Owner, e);
                 if (sndUri == LabURI.Empty)
                 {
-                    var multi5 = CollectMulti5Uri(package, null, e);
+                    var multi5 = CollectMulti5Uri(e);
                     foreach (var snd in multi5)
                     {
                         Debug.Assert(snd != LabURI.Empty, "REFERENCES CAN NOT CONTAIN REFERENCE TO NULL DATA");
@@ -313,7 +361,7 @@ namespace TT_Lab.AssetData.Code
             writer.Write(TriggerBehaviours.Count);
             foreach (var triggerBehaviour in TriggerBehaviours)
             {
-                writer.Write((UInt16)(assetManager.GetAsset(triggerBehaviour.TriggerBehaviour).ID - 1));
+                writer.Write((UInt16)(assetManager.GetAsset(triggerBehaviour.TriggerBehaviour).ExportTwinID - 1));
                 writer.Write(triggerBehaviour.MessageID);
                 writer.Write(triggerBehaviour.BehaviourCallerIndex);
             }
@@ -323,7 +371,7 @@ namespace TT_Lab.AssetData.Code
                 writer.Write(list.Count);
                 foreach (var item in list)
                 {
-                    writer.Write((UInt16)(item == LabURI.Empty ? 65535 : assetManager.GetAsset(item).ID));
+                    writer.Write((UInt16)(item == LabURI.Empty ? 65535 : assetManager.GetAsset(item).ExportTwinID));
                 }
             }
             void writeBehaviourUris(IList<LabURI> uris)
@@ -350,13 +398,13 @@ namespace TT_Lab.AssetData.Code
                             var compiledGraph = assetManager.GetAssetData<BehaviourGraphData>(uri).GetCompiledBehaviour(factory);
                             if (compiledGraph.Contains<TwinBehaviourStarter>())
                             {
-                                starterId = (int)behaviour.ID - 1;
+                                starterId = (int)behaviour.ExportTwinID - 1;
                             }
                         }
 
                         if (starterId == -1)
                         {
-                            writer.Write((UInt16)(uri == LabURI.Empty ? 65535 : assetManager.GetAsset(uri).ID));
+                            writer.Write((UInt16)(uri == LabURI.Empty ? 65535 : assetManager.GetAsset(uri).ExportTwinID));
                         }
                         else
                         {
@@ -385,6 +433,12 @@ namespace TT_Lab.AssetData.Code
             writeParamsList(InstFloats, writer.Write);
             writeParamsList(InstIntegers, writer.Write);
 
+            if (factory.IsDefaultResolution)
+            {
+                // Fuck default man for real
+                RefObjects.Insert(0, Owner.URI);
+            }
+            RefObjects.Add(Owner.URI);
             writeUriList(RefObjects);
             writeUriList(RefOGIs);
             writeUriList(RefAnimations);
@@ -411,35 +465,44 @@ namespace TT_Lab.AssetData.Code
                     behaviourRefCount++;
                 }
             }
-            writer.Write(behaviourRefCount);
-            foreach (var uri in RefBehaviours)
+
+            if (factory.IsDefaultResolution && RefBehaviours.Select(b => assetManager.GetAsset(b)).All(a => a is BehaviourCommandsSequence))
             {
-                var behaviour = assetManager.GetAsset(uri);
-                if (uri != LabURI.Empty && behaviour is BehaviourCommandsSequence sequence)
+                writer.Write(0);
+            }
+            else
+            {
+                writer.Write(behaviourRefCount);
+                foreach (var uri in RefBehaviours)
                 {
-                    if (!sequence.BehaviourGraphLinks.ContainsValue(uri))
+                    if (uri == LabURI.Empty)
                     {
+                        writer.Write((UInt16)65535);
                         continue;
                     }
-                    
-                    var neededId = sequence.BehaviourGraphLinks.First(pair => pair.Value == uri).Key;
-                    writer.Write((UInt16)neededId);
-                }
-                else
-                {
-                    if (uri != LabURI.Empty)
+
+                    var behaviour = assetManager.GetAsset(uri);
+                    if (behaviour is BehaviourCommandsSequence sequence)
                     {
-                        var compiledGraph = assetManager.GetAssetData<BehaviourGraphData>(uri).GetCompiledBehaviour(factory);
-                        if (compiledGraph.Contains<TwinBehaviourStarter>())
+                        if (!sequence.BehaviourGraphLinks.ContainsValue(uri))
                         {
-                            var starterId = (int)behaviour.ID - 1;
-                            writer.Write((UInt16)starterId);
+                            continue;
                         }
-                        writer.Write((UInt16)behaviour.ID);
+
+                        var neededId = sequence.BehaviourGraphLinks.First(pair => pair.Value == uri).Key;
+                        writer.Write((UInt16)neededId);
                     }
                     else
                     {
-                        writer.Write((UInt16)(uri == LabURI.Empty ? 65535 : assetManager.GetAsset(uri).ID));
+                        var compiledGraph = assetManager.GetAssetData<BehaviourGraphData>(uri)
+                            .GetCompiledBehaviour(factory);
+                        if (compiledGraph.Contains<TwinBehaviourStarter>())
+                        {
+                            var starterId = (int)behaviour.ExportTwinID - 1;
+                            writer.Write((UInt16)starterId);
+                        }
+
+                        writer.Write((UInt16)behaviour.ExportTwinID);
                     }
                 }
             }
@@ -462,15 +525,15 @@ namespace TT_Lab.AssetData.Code
             return factory.GenerateObject(ms);
         }
 
-        private static List<LabURI> CollectMulti5Uri(LabURI package, String? variant, UInt16 id)
+        private List<LabURI> CollectMulti5Uri(UInt16 id)
         {
             var result = new List<LabURI>();
-            var enUri = AssetManager.Get().GetUri(package, nameof(SoundEffectEN), variant, id);
-            var frUri = AssetManager.Get().GetUri(package, nameof(SoundEffectFR), variant, id);
-            var grUri = AssetManager.Get().GetUri(package, nameof(SoundEffectGR), variant, id);
-            var itUri = AssetManager.Get().GetUri(package, nameof(SoundEffectIT), variant, id);
-            var spUri = AssetManager.Get().GetUri(package, nameof(SoundEffectSP), variant, id);
-            var jpUri = AssetManager.Get().GetUri(package, nameof(SoundEffectJP), variant, id);
+            var enUri = AssetManager.Get().GetUriByTwinId<SoundEffectEN>(Owner, id);
+            var frUri = AssetManager.Get().GetUriByTwinId<SoundEffectFR>(Owner, id);
+            var grUri = AssetManager.Get().GetUriByTwinId<SoundEffectGR>(Owner, id);
+            var itUri = AssetManager.Get().GetUriByTwinId<SoundEffectIT>(Owner, id);
+            var spUri = AssetManager.Get().GetUriByTwinId<SoundEffectSP>(Owner, id);
+            var jpUri = AssetManager.Get().GetUriByTwinId<SoundEffectJP>(Owner, id);
 
             if (!enUri.Equals(LabURI.Empty))
             {
@@ -500,7 +563,8 @@ namespace TT_Lab.AssetData.Code
             return result;
         }
 
-        public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, UInt32 id, Int32? layoutID = null)
+        public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, uint id,
+            int? layoutId = null)
         {
             var assetManager = AssetManager.Get();
             var codeSection = section.GetParent();
@@ -508,40 +572,197 @@ namespace TT_Lab.AssetData.Code
             var animationSection = codeSection.GetItem<ITwinSection>(Constants.CODE_ANIMATIONS_SECTION);
             var behaviourSection = codeSection.GetItem<ITwinSection>(Constants.CODE_BEHAVIOURS_SECTION);
             var sequenceSection = codeSection.GetItem<ITwinSection>(Constants.CODE_BEHAVIOUR_COMMANDS_SEQUENCES_SECTION);
-
-            foreach (var @object in RefObjects)
+            
+            var refObjects = ObjectSlots.Distinct()
+                .Where(b => b != LabURI.Empty).ToList();
+            var refOgis = new List<LabURI>();
+            var refAnimations = new List<LabURI>();
+            var refSounds = new List<LabURI>();
+            var refBehaviours = new List<LabURI>();
+            var refBehaviourCommandSequences = new List<LabURI>();
+            
+            var refObjectsStack = new Stack<LabURI>(refObjects);
+            while(refObjectsStack.Count > 0)
             {
-                assetManager.GetAsset(@object).ResolveChunkResources(factory, section);
+                var objAsset = assetManager.GetAsset<GameObject>(refObjectsStack.Pop());
+                objAsset.ReferencesObtained += ReferencesObtained;
+                objAsset.ResolveChunkResources(factory, section);
+                objAsset.ReferencesObtained -= ReferencesObtained;
+                continue;
+
+                void ReferencesObtained(GameObject.ReferencedResourceUris references)
+                {
+                    foreach (var refObject in references.RefObjects)
+                    {
+                        if (refObjects.Contains(refObject) || refObject == Owner.URI)
+                        {
+                            continue;
+                        }
+                        
+                        refObjects.Add(refObject);
+                        refObjectsStack.Push(refObject);
+                    }
+                    
+                    foreach (var refBehaviour in references.RefBehaviours)
+                    {
+                        if (refBehaviours.Contains(refBehaviour))
+                        {
+                            continue;
+                        }
+                        refBehaviours.Add(refBehaviour);
+                    }
+                    
+                    foreach (var refAnimation in references.RefAnimations)
+                    {
+                        if (refAnimations.Contains(refAnimation))
+                        {
+                            continue;
+                        }
+                        refAnimations.Add(refAnimation);
+                    }
+                    
+                    foreach (var refOgi in references.RefOgis)
+                    {
+                        if (refOgis.Contains(refOgi))
+                        {
+                            continue;
+                        }
+                        refOgis.Add(refOgi);
+                    }
+                    
+                    foreach (var refSound in references.RefSounds)
+                    {
+                        if (refSounds.Contains(refSound))
+                        {
+                            continue;
+                        }
+                        refSounds.Add(refSound);
+                    }
+                }
+            }
+            
+            refOgis.AddRange(OGISlots.Distinct()
+                .Where(b => b != LabURI.Empty)
+                .Where(b => !refOgis.Contains(b)).ToList());
+            refAnimations.AddRange(AnimationSlots.Distinct()
+                .Where(b => b != LabURI.Empty)
+                .Where(b => !refAnimations.Contains(b)).ToList());
+            refSounds.AddRange(SoundSlots.Distinct()
+                .Where(b => b != LabURI.Empty)
+                .Where(b => !refSounds.Contains(b)).ToList());
+            refBehaviours.AddRange(BehaviourSlots.Distinct()
+                .Where(b => b != LabURI.Empty)
+                .Where(b => !refBehaviours.Contains(b)).ToList());
+            refBehaviours.AddRange(TriggerBehaviours
+                .Select(objectTriggerBehaviourData => objectTriggerBehaviourData.TriggerBehaviour)
+                .Where(b => !refBehaviours.Contains(b)));
+
+            var behaviourReferenceStack = new Stack<LabURI>(refBehaviours);
+            while (behaviourReferenceStack.Count > 0)
+            {
+                var behaviour = assetManager.GetAsset(behaviourReferenceStack.Pop());
+                if (behaviour is BehaviourCommandsSequence)
+                {
+                    if (!refBehaviourCommandSequences.Contains(behaviour.URI))
+                    {
+                        refBehaviourCommandSequences.Add(behaviour.URI);
+                    }
+
+                    continue;
+                }
+
+                var graph = (BehaviourGraph)behaviour;
+                graph.ResolvedObjects += objectUris =>
+                {
+                    refObjects.AddRange(objectUris);
+                    refObjects = refObjects.Distinct().ToList();
+                };
+                graph.ResolvedGraphs += behaviourUris =>
+                {
+                    refBehaviours.AddRange(behaviourUris);
+                    refBehaviours = refBehaviours.Distinct().ToList();
+                    var uniqueUris = behaviourUris.Distinct().ToList();
+                    foreach (var uri in uniqueUris.Where(uri => !behaviourReferenceStack.Contains(uri)))
+                    {
+                        behaviourReferenceStack.Push(uri);
+                    }
+                };
+                graph.ResolveChunkResources(factory, behaviourSection);
             }
 
-            foreach (var animation in RefAnimations)
+            foreach (var sequence in refBehaviourCommandSequences)
+            {
+                var seqAss = assetManager.GetAsset(sequence);
+                if (seqAss.ExportTwinID == 0 && !factory.IsDefaultResolution)
+                {
+                    continue;
+                }
+                
+                seqAss.ResolveChunkResources(factory, sequenceSection);
+            }
+            
+            foreach (var animation in refAnimations)
             {
                 assetManager.GetAsset(animation).ResolveChunkResources(factory, animationSection);
             }
 
-            foreach (var behaviour in RefBehaviours.Where(behaviour => assetManager.GetAsset(behaviour) is not BehaviourCommandsSequence))
-            {
-                assetManager.GetAsset(behaviour).ResolveChunkResources(factory, behaviourSection);
-            }
-
-            foreach (var sequence in RefBehaviourCommandsSequences)
-            {
-                assetManager.GetAsset(sequence).ResolveChunkResources(factory, sequenceSection);
-            }
-
-            foreach (var ogi in RefOGIs)
+            foreach (var ogi in refOgis)
             {
                 assetManager.GetAsset(ogi).ResolveChunkResources(factory, ogiSection);
             }
 
-            foreach (var sfx in RefSounds)
+            foreach (var sfx in refSounds)
             {
                 var sfxAsset = assetManager.GetAsset(sfx);
                 var sfxSection = codeSection.GetItem<ITwinSection>(sfxAsset.Section);
                 sfxAsset.ResolveChunkResources(factory, sfxSection);
             }
+            
+            var resultingBehaviourRefs = new List<LabURI>();
+            var addedSeqGraphLinks = new HashSet<uint>();
+            foreach (var refBehaviour in refBehaviours)
+            {
+                var behaviour = assetManager.GetAsset(refBehaviour);
+                if (behaviour is not BehaviourCommandsSequence seqAss)
+                {
+                    resultingBehaviourRefs.Add(refBehaviour);
+                    continue;
+                }
 
-            return base.ResolveChunkResources(factory, section, id, layoutID);
+                foreach (var seqAssBehaviourGraphLink in seqAss.BehaviourGraphLinks)
+                {
+                    if (addedSeqGraphLinks.Contains(seqAssBehaviourGraphLink.Key) || seqAssBehaviourGraphLink.Value != refBehaviour)
+                    {
+                        continue;
+                    }
+                    
+                    resultingBehaviourRefs.Add(seqAssBehaviourGraphLink.Value);
+                    addedSeqGraphLinks.Add(seqAssBehaviourGraphLink.Key);
+                }
+            }
+
+            if (!factory.IsDefaultResolution && Owner.Package == factory.GlobalPackage.URI)
+            {
+                return base.ResolveChunkResources(factory, section, id, layoutId);
+            }
+            
+            RefObjects = refObjects;
+            RefBehaviours = resultingBehaviourRefs;
+            RefAnimations = refAnimations;
+            RefSounds = refSounds;
+            RefBehaviourCommandsSequences = refBehaviourCommandSequences;
+            RefOGIs = refOgis;
+            
+            ((GameObject)Owner).FireReferencedBehavioursObtained(new GameObject.ReferencedResourceUris
+            {
+                RefBehaviours = resultingBehaviourRefs,
+                RefAnimations = refAnimations,
+                RefOgis = refOgis,
+                RefSounds = refSounds,
+                RefObjects = refObjects
+            });
+
+            return base.ResolveChunkResources(factory, section, id, layoutId);
         }
     }
 

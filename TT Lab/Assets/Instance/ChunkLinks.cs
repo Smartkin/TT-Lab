@@ -20,7 +20,7 @@ namespace TT_Lab.Assets.Instance
 
         public ChunkLinks(LabURI package, UInt32 id, String name, String chunk, ITwinLink links) : base(package, id, name, chunk, null)
         {
-            assetData = new ChunkLinksData(links);
+            AssetData = new ChunkLinksData(this, links);
         }
 
         public override Type GetEditorType()
@@ -30,13 +30,12 @@ namespace TT_Lab.Assets.Instance
 
         public override AbstractAssetData GetData()
         {
-            if (!IsLoaded || assetData.Disposed)
+            if (!IsLoaded || AssetData.Disposed)
             {
-                assetData = new ChunkLinksData();
-                assetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
-                IsLoaded = true;
+                AssetData = new ChunkLinksData(this);
+                AssetData.Load(DataLoadPath);
             }
-            return assetData;
+            return AssetData;
         }
 
         protected override ResourceTreeElementViewModel CreateResourceTreeElement(ResourceTreeElementViewModel? parent = null)

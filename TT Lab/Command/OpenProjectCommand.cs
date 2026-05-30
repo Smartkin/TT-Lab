@@ -1,5 +1,6 @@
 ﻿using Caliburn.Micro;
 using System;
+using Splat;
 using TT_Lab.Project;
 
 namespace TT_Lab.Command
@@ -26,7 +27,7 @@ namespace TT_Lab.Command
             try
             {
 #endif
-            IoC.Get<ProjectManager>().OpenProject(path);
+            Locator.Current.GetService<ProjectManager>()!.OpenProject(path);
 #if !DEBUG
             }
             catch (Exception ex)

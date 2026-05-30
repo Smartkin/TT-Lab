@@ -6,8 +6,8 @@ namespace Twinsanity.TwinsanityInterchange.Common
 {
     public class TwinChunkLinkBoundingBoxBuilder : ITwinSerializable
     {
-        public Int32 Type;
-        public TwinBoundingBoxBuilder BondingBoxBuilder;
+        public Int32 Type { get; set; }
+        public TwinBoundingBoxBuilder BondingBoxBuilder { get; set; }
 
         public TwinChunkLinkBoundingBoxBuilder()
         {

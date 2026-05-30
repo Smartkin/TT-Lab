@@ -1,0 +1,61 @@
+[project]
+name = "twin_tech_tools"
+dynamic = ["version"]
+description = 'Blender tools to work with TwinTech Lab(TT-Lab) files'
+readme = "README.md"
+requires-python = "==3.8.*"
+license = "GPL-2.0-or-later"
+keywords = []
+authors = [
+  { name = "Smyshliaev 'Smartkin' Vladislav", email = "klon2223@gmail.com" },
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = ["json5"]
+
+[project.urls]
+Documentation = "https://github.com/Smartkin/TT-Lab"
+Issues = "https://github.com/Smartkin/TT-Lab/issues"
+Source = "https://github.com/Smartkin/TT-Lab"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "code"
+path = "twin_tech_tools/__init__.py"
+expression = "'.'.join([str(v) for v in bl_info['version']])"
+
+[tool.uv]
+managed = true
+dev-dependencies = [
+  "fake-bpy-module-4.1",
+
+  # for blender.nvim:
+  # "pynvim",
+  # "debugpy", # Optional, for debugging
+
+  # for blender_vscode
+  "flask",
+  "requests",
+  "debugpy",
+
+  # For building the add-on
+  "hatchling",
+]
+
+# These basedpyright settings work better for Blender add-ons.
+[tool.basedpyright]
+include = ["twin_tech_tools"]
+exclude = ["**/__pycache__"]
+# stubPath = "stubs"
+reportUnusedCallResult = "none"
+reportImplicitOverride = "none"
+reportInvalidTypeForm = "none"
+typeCheckingMode = "standard"   # off | basic | standard | strict | all

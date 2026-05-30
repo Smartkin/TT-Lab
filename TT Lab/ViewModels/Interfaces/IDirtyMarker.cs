@@ -6,5 +6,7 @@ public interface IDirtyMarker : INotifyPropertyChangedEx
 {
     void ResetDirty();
     
+    int GetStorageHash() { return GetHashCode(); }
+    
     bool IsDirty { get; }
 }

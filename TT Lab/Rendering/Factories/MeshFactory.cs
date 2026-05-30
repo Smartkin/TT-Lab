@@ -119,7 +119,7 @@ public class MeshFactory
             faces.Add(new IndexedFace { Indexes = [i + 2, i + 1, i] });
         }
         
-        var material = new MaterialData();
+        var material = new MaterialData(null);
         material.Shaders[0].TxtMapping = TwinShader.TextureMapping.OFF;
         material.Shaders[0].ShaderType = TwinShader.Type.ColorOnly;
         material.Shaders[0].ABlending = TwinShader.AlphaBlending.ON;
@@ -157,7 +157,7 @@ public class MeshFactory
             faces.Add(new IndexedFace { Indexes = [i + 2, i + 1, i] });
         }
         
-        var material = new MaterialData();
+        var material = new MaterialData(null);
         material.Shaders[0].TxtMapping = TwinShader.TextureMapping.OFF;
         material.Shaders[0].ShaderType = TwinShader.Type.ColorOnly;
         material.Shaders[0].ABlending = TwinShader.AlphaBlending.ON;
@@ -196,7 +196,7 @@ public class MeshFactory
             faces.Add(new IndexedFace { Indexes = [i + 2, i + 1, i] });
         }
 
-        var material = new MaterialData();
+        var material = new MaterialData(null);
         material.Shaders[0].TxtMapping = TwinShader.TextureMapping.OFF;
         material.Shaders[0].ShaderType = TwinShader.Type.ColorOnly;
         material.Shaders[0].ABlending = TwinShader.AlphaBlending.ON;
@@ -206,7 +206,7 @@ public class MeshFactory
 
     private Mesh CreateUntexturedMesh(ModelData data)
     {
-        var material = new MaterialData();
+        var material = new MaterialData(null);
         material.Shaders[0].TxtMapping = TwinShader.TextureMapping.ON;
         material.Shaders[0].ShaderType = TwinShader.Type.UnlitGlossy;
         material.Shaders[0].TextureId = LabURI.BoatGuy;
@@ -219,6 +219,11 @@ public class MeshFactory
         var assetManager = AssetManager.Get();
         var materials = rigidModelData.Materials.Select(m =>
         {
+            if (m == LabURI.Empty)
+            {
+                return MaterialData.GetEmptyMaterial();
+            }
+            
             var material = assetManager.GetAssetData<MaterialData>(m);
             return material;
         }).ToList();
@@ -231,7 +236,7 @@ public class MeshFactory
     private CollisionMesh CreateCollisionMesh(CollisionData collisionData)
     {
         var assetManager = AssetManager.Get();
-        var material = new MaterialData();
+        var material = new MaterialData(null);
         material.Shaders[0].ShaderType = TwinShader.Type.StandardUnlit;
         List<ModelBuffer> buffers = [new(_renderContext,
             _meshBuilder.BuildRigidVaoFromVertexes(
@@ -244,7 +249,7 @@ public class MeshFactory
                     var surfColor = CollisionSurface.DefaultColor;
                     if (surface.Parameters["editor_surface_color"] is JObject colorJson)
                     {
-                        surfColor = colorJson.ToObject<Color>();
+                        surfColor = colorJson.ToObject<Color>()!;
                     }
                     return surfColor.GetVector();
                 }),
@@ -258,7 +263,7 @@ public class MeshFactory
         var assetManager = AssetManager.Get();
         var buffers = skin.SubSkins.Select(ss =>
         {
-            var material = assetManager.GetAssetData<MaterialData>(ss.Material);
+            var material = ss.Material == LabURI.Empty ? MaterialData.GetEmptyMaterial() : assetManager.GetAssetData<MaterialData>(ss.Material);
             return new ModelBuffer(_renderContext, _meshBuilder.BuildSkinnedVaoFromVertexes(ss.Vertexes, ss.Faces), _materialFactory, material);
         }).ToList();
         
@@ -275,7 +280,7 @@ public class MeshFactory
         var facesAmount = 0;
         foreach (var blend in blendSkin.Blends)
         {
-            var material = assetManager.GetAssetData<MaterialData>(blend.Material);
+            var material = blend.Material == LabURI.Empty ? MaterialData.GetEmptyMaterial() : assetManager.GetAssetData<MaterialData>(blend.Material);
             foreach (var blendModel in blend.Models)
             {
                 var indices = new List<Int32>();

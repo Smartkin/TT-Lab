@@ -1,0 +1,21 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:TT_Lab.Controls"
+             xmlns:controls1="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+             xmlns:composite="clr-namespace:TT_Lab.Views.Composite"
+             xmlns:viewModels="clr-namespace:TT_Lab.ViewModels.Editors.Code.OGI"
+             x:DataType="viewModels:ExitPointViewModel"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Views.Editors.Code.OGI.ExitPointView">
+    <controls1:GroupBox>
+        <StackPanel Orientation="Vertical">
+            <controls:LabeledTextBox LayoutOrientation="Horizontal" IsEnabled="False" HorizontalAlignment="Stretch" Text="{Binding ID}" TextBoxName="ID"/>
+            <controls:LabeledTextBox LayoutOrientation="Horizontal" HorizontalAlignment="Stretch" Text="{Binding ParentJointIndex}" TextBoxName="Parent Joint Index"/>
+            <controls1:GroupBox Margin="0, 10, 0, 0" Header="Matrix">
+                <composite:Matrix4View DataContext="{Binding Matrix}"/>
+            </controls1:GroupBox>
+        </StackPanel>
+    </controls1:GroupBox>
+</UserControl>

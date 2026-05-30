@@ -1,47 +1,128 @@
-﻿using Caliburn.Micro;
-using System;
-using System.Threading;
+﻿using System;
+using System.Reactive.Disposables;
+using System.Reactive.Disposables.Fluent;
+using System.Reflection;
 using System.Threading.Tasks;
+using Avalonia.Controls;
+using Avalonia.Media.Imaging;
+using Dock.Model.Core;
+using ReactiveUI;
+using ReactiveUI.SourceGenerators;
+using Splat;
+using TT_Lab.AssetData;
 using TT_Lab.Assets;
-using TT_Lab.ViewModels.Interfaces;
+using TT_Lab.Attributes;
+using TT_Lab.Util;
+using TT_Lab.ViewModels.Editors;
 
-namespace TT_Lab.ViewModels.Composite
+namespace TT_Lab.ViewModels.Composite;
+
+public partial class TabbedEditorViewModel : ReactiveObject
 {
-    public class TabbedEditorViewModel : Conductor<IEditorViewModel>
+    [Reactive]
+    private string _title = "NO NAME TAB";
+
+    [Reactive]
+    private bool _isLoaded;
+    
+    [Reactive(SetModifier = AccessModifier.Private)]
+    private DocumentViewModel? _document;
+
+    [Reactive(SetModifier = AccessModifier.Private)]
+    private ViewportViewModel? _viewport;
+
+    [Reactive] private GridLength _viewportWidth = new(0);
+    
+    private readonly IFactory _factory;
+    private readonly IAsset _asset;
+    private readonly IDisposable _creationTask;
+
+    public TabbedEditorViewModel(IFactory factory, IAsset asset)
     {
-        private LabURI _editableResource;
-        private Type _editorType;
+        _factory = factory;
+        _asset = asset;
+        Title = $"{_asset.Name} (Loading)";
 
-        public TabbedEditorViewModel(LabURI editableResource, Type editorType)
+        _creationTask = RxSchedulers.TaskpoolScheduler.Schedule(this, (_, state) =>
         {
-            _editableResource = editableResource;
-            _editorType = editorType;
-        }
+            if (_asset.GetType().GetCustomAttribute<SupportsViewportAttribute>() != null)
+            {
+                Viewport = new ViewportViewModel();
+                ViewportWidth = new GridLength(5, GridUnitType.Star);
+            }
+            
+            _asset.GetData<AbstractAssetData>(); // Load in the asset data
+            Document = new DocumentViewModel(_asset, Viewport);
+        
+            Document.Initialize();
+            
+            if (_asset.GetType().GetCustomAttribute<SupportsViewportAttribute>() != null)
+            {
+                Viewport!.Init(Document);
+            }
 
-        protected override Task OnInitializeAsync(CancellationToken cancellationToken)
-        {
-            var editor = (IEditorViewModel)IoC.GetInstance(EditorType, null);
-            editor.EditableResource = EditableResource;
-            return ActivateItemAsync(editor, cancellationToken);
-        }
+            Title = _asset.Name;
+            this.WhenAnyValue(x => x.Document!.IsDirty).Subscribe(x => ChangeDisplayName());
 
-        public override Task<Boolean> CanCloseAsync(CancellationToken cancellationToken = new CancellationToken())
-        {
-            return ActiveItem.CanCloseAsync(cancellationToken);
-        }
+            IsLoaded = true;
+            
+            return Disposable.Empty;
+        });
+    }
 
-        public LabURI EditableResource
+    private void ChangeDisplayName()
+    {
+        if (Document == null)
         {
-            get => _editableResource;
-            set => _editableResource = value;
+            return;
         }
         
-        public String IconPath => $"/Media/LabIcons/{AssetManager.Get().GetAsset(EditableResource).IconPath}";
-
-        public Type EditorType
-        {
-            get => _editorType;
-            set => _editorType = value;
-        }
+        Title = Document.IsDirty ? $"{_asset.Name}*" : _asset.Name;
     }
+
+    public void SaveTab()
+    {
+        Document?.Save();
+    }
+
+    public async Task<Boolean> CloseTab()
+    {
+        if (!IsLoaded || Document == null)
+        {
+            Viewport?.Close();
+            _creationTask.Dispose();
+            return true;
+        }
+        
+        var canClose = await Document.CanCloseDocument();
+        if (canClose is DocumentViewModel.DocumentClosing.CloseAndNotSave or DocumentViewModel.DocumentClosing.CloseAndSave)
+        {
+            if (canClose == DocumentViewModel.DocumentClosing.CloseAndSave)
+            {
+                SaveTab();
+            }
+            else
+            {
+                await using System.IO.FileStream fs = new($"{_asset.FullPath}{System.IO.Path.DirectorySeparatorChar}{_asset.Name}.json", System.IO.FileMode.Open, System.IO.FileAccess.Read);
+                using System.IO.StreamReader reader = new(fs);
+                var json = await reader.ReadToEndAsync();
+                _asset.Deserialize(json);
+                _asset.Dispose();
+            }
+
+            Viewport?.Close();
+            _creationTask.Dispose();
+            return true;
+        }
+
+        return false;
+    }
+    
+    public string Id => _asset.URI;
+
+    public bool CanPin => true;
+
+    public LabURI EditableResource => _asset.URI;
+
+    public Bitmap IconPath => new(ManifestResourceLoader.GetPathInExe($"Media/LabIcons/{_asset.IconPath}"));
 }

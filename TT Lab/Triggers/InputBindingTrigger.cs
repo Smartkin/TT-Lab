@@ -1,24 +1,25 @@
-﻿using Microsoft.Xaml.Behaviors;
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Input;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Interactivity;
+using Avalonia.Xaml.Interactivity;
 
 namespace TT_Lab.Triggers
 {
-    public class InputBindingTrigger : TriggerBase<FrameworkElement>, ICommand
+    public class InputBindingTrigger : Trigger<Control>, ICommand
     {
-
-
-        public InputBinding InputBinding
-        {
-            get { return (InputBinding)GetValue(InputBindingProperty); }
-            set { SetValue(InputBindingProperty, value); }
-        }
-
-        // Using a DependencyProperty as the backing store for InputBinding.  This enables animation, styling, binding, etc...
-        public static readonly DependencyProperty InputBindingProperty =
-            DependencyProperty.Register("InputBinding", typeof(InputBinding), typeof(InputBindingTrigger), new UIPropertyMetadata(null));
+        // public InputBinding InputBinding
+        // {
+        //     get { return (InputBinding)GetValue(InputBindingProperty); }
+        //     set { SetValue(InputBindingProperty, value); }
+        // }
+        //
+        // // Using a DependencyProperty as the backing store for InputBinding.  This enables animation, styling, binding, etc...
+        // public static readonly StyledProperty<> InputBindingProperty =
+        //     DependencyProperty.Register("InputBinding", typeof(InputBinding), typeof(InputBindingTrigger), new UIPropertyMetadata(null));
 
 
         public event EventHandler? CanExecuteChanged;
@@ -30,37 +31,37 @@ namespace TT_Lab.Triggers
 
         public void Execute(Object? parameter)
         {
-            InvokeActions(parameter);
+            // InvokeActions(parameter);
         }
 
         protected override void OnAttached()
         {
-            if (InputBinding != null)
-            {
-                InputBinding.Command = this;
-                AssociatedObject.Loaded += OnAssociatedObjectLoaded;
-            }
+            // if (InputBinding != null)
+            // {
+            //     InputBinding.Command = this;
+            //     AssociatedObject.Loaded += OnAssociatedObjectLoaded;
+            // }
             base.OnAttached();
         }
 
         protected override void OnDetaching()
         {
-            if (InputBinding != null)
-            {
-                InputBinding.Command = null;
-                AssociatedObject.Loaded -= OnAssociatedObjectLoaded;
-            }
+            // if (InputBinding != null)
+            // {
+            //     InputBinding.Command = null;
+            //     AssociatedObject.Loaded -= OnAssociatedObjectLoaded;
+            // }
             base.OnDetaching();
         }
 
-        private UIElement GetTopLevelElement(FrameworkElement element)
+        private Control GetTopLevelElement(Control element)
         {
             if (element.Parent == null)
             {
                 return element;
             }
 
-            var parent = element.Parent as FrameworkElement;
+            var parent = element.Parent as Control;
             Debug.Assert(parent != null);
 
             return GetTopLevelElement(parent);
@@ -69,7 +70,7 @@ namespace TT_Lab.Triggers
         private void OnAssociatedObjectLoaded(object sender, RoutedEventArgs e)
         {
             var window = GetTopLevelElement(AssociatedObject);
-            window.InputBindings.Add(InputBinding);
+            // window.InputBindings.Add(InputBinding);
         }
     }
 }

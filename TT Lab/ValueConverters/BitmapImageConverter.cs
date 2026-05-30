@@ -1,10 +1,8 @@
 using System;
-using System.Drawing;
-using System.Drawing.Imaging;
 using System.Globalization;
 using System.IO;
-using System.Windows.Data;
-using System.Windows.Media.Imaging;
+using Avalonia.Data.Converters;
+using Avalonia.Media.Imaging;
 
 namespace TT_Lab.ValueConverters;
 
@@ -18,15 +16,15 @@ public class BitmapImageConverter : IValueConverter
         }
 
         using var memory = new MemoryStream();
-        bp.Save(memory, ImageFormat.Png);
+        bp.Save(memory, 100);
         memory.Position = 0;
-        var bitmapImage = new BitmapImage();
-        bitmapImage.BeginInit();
-        bitmapImage.StreamSource = memory;
-        bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
-        bitmapImage.EndInit();
+        // var bitmapImage = new BitmapImage();
+        // bitmapImage.BeginInit();
+        // bitmapImage.StreamSource = memory;
+        // bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
+        // bitmapImage.EndInit();
         
-        return bitmapImage;
+        return null;
     }
 
     public Object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)

@@ -17,9 +17,9 @@ namespace TT_Lab.ViewModels.Composite
 
         public Vector3ViewModel(float x, float y, float z)
         {
-            X = x;
-            Y = y;
-            Z = z;
+            _x = x;
+            _y = y;
+            _z = z;
         }
 
         public Vector3ViewModel(Vector3 twinVec) : this(twinVec.X, twinVec.Y, twinVec.Z)

@@ -22,8 +22,8 @@ namespace TT_Lab.Assets.Code
 
         public BehaviourCommandsSequence(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinBehaviourCommandsSequence codeModel) : base(id, name, package, needVariant, variant)
         {
-            assetData = new BehaviourCommandsSequenceData(codeModel);
-            assetData.Import(package, variant, LayoutID);
+            AssetData = new BehaviourCommandsSequenceData(this, codeModel);
+            AssetData.Import(package, variant, LayoutID);
             GenerateBehaviourGraphLinks(codeModel, package, variant);
         }
 
@@ -32,7 +32,7 @@ namespace TT_Lab.Assets.Code
             base.PostDeserialize();
             foreach (var graphLink in BehaviourGraphLinks)
             {
-                AssetManager.Get().AddAssetUnsafe(graphLink.Value, this);
+                AssetManager.Get().TryAddAsset(graphLink.Value, this);
             }
         }
 
@@ -43,13 +43,12 @@ namespace TT_Lab.Assets.Code
 
         public override AbstractAssetData GetData()
         {
-            if (!IsLoaded || assetData.Disposed)
+            if (!IsLoaded || AssetData.Disposed)
             {
-                assetData = new BehaviourCommandsSequenceData();
-                assetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
-                IsLoaded = true;
+                AssetData = new BehaviourCommandsSequenceData(this);
+                AssetData.Load(DataLoadPath);
             }
-            return assetData;
+            return AssetData;
         }
 
         private void GenerateBehaviourGraphLinks(ITwinBehaviourCommandsSequence codeModel, LabURI package, String? variant)

@@ -1,0 +1,40 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:TT_Lab.Controls"
+             xmlns:controls1="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+             xmlns:code="clr-namespace:TT_Lab.ViewModels.Editors.Code"
+             x:DataType="code:SoundEffectViewModel"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Views.Editors.Code.SoundEffectView">
+    <Interaction.Behaviors>
+        <EventTriggerBehavior EventName="Rendered">
+            <InvokeCommandAction Command="{Binding UpdateTrackUi}"/>
+        </EventTriggerBehavior>
+    </Interaction.Behaviors>
+    <controls1:GroupBox>
+        <StackPanel Orientation="Vertical">
+            <Grid RowDefinitions="*,*" ColumnDefinitions="*,*">
+                <Slider x:Name="PlayerTrack"
+                        Margin="0, 0, 0, 5"
+                        Minimum="0"
+                        TickPlacement="Outside"
+                        Grid.Column="0" Grid.ColumnSpan="2" Grid.Row="0">
+                    <Interaction.Behaviors>
+                        <EventTrigger EventName="ValueChanged">
+                            <InvokeCommandAction Command="{Binding ChangeTrackPosition}" PassEventArgsToCommand="True"/>
+                        </EventTrigger>
+                    </Interaction.Behaviors>
+                </Slider>
+                <TextBlock x:Name="CurrentTime" Margin="0, 0, 0, 5" Grid.Column="0" Grid.Row="1"/>
+                <TextBlock x:Name="TrackLength" Margin="0, 0, 0, 5" Grid.Column="1" Grid.Row="1" TextAlignment="Right"/>
+            </Grid>
+            <UniformGrid Columns="3">
+                <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5" Command="{Binding PlaySound}" Content="Play"></Button>
+                <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5" Command="{Binding PauseSound}" Content="Pause"></Button>
+                <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5" Command="{Binding ReplaceSound}" Content="Replace"></Button>
+            </UniformGrid>
+        </StackPanel>
+    </controls1:GroupBox>
+</UserControl>

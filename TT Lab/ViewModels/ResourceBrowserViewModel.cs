@@ -4,10 +4,12 @@ using System.Linq;
 using Caliburn.Micro;
 using TT_Lab.Assets;
 using TT_Lab.Command;
+using TT_Lab.ViewModels.Interfaces;
+using TT_Lab.ViewModels.ResourceTree;
 
 namespace TT_Lab.ViewModels;
 
-public class ResourceBrowserViewModel : Screen
+public class ResourceBrowserViewModel : Screen, IHaveResult
 {
     private BindableCollection<LabURI> _resourcesToBrowse;
     private BindableCollection<LabURI> _resourcesToBrowseView;
@@ -17,7 +19,7 @@ public class ResourceBrowserViewModel : Screen
     {
         _resourcesToBrowse = new BindableCollection<LabURI> { LabURI.Empty };
         SelectedLink = selectedLink == null ? _resourcesToBrowse[0] : selectedLink;
-        _resourcesToBrowse.AddRange(AssetManager.Get().GetAllAssetsOf(browseType).Select(a => a.URI));
+        _resourcesToBrowse.AddRange(AssetManager.Get().GetAllAssetUrisOf(browseType));
         _resourcesToBrowseView = new BindableCollection<LabURI>(_resourcesToBrowse.Distinct().Order());
     }
     
@@ -37,7 +39,7 @@ public class ResourceBrowserViewModel : Screen
 
     public void Link()
     {
-        TryCloseAsync(true);
+        this.DeactivateAsync(true);
     }
 
     public void Filter(ICommand filterCommand)
@@ -77,7 +79,12 @@ public class ResourceBrowserViewModel : Screen
         NotifyOfPropertyChange(nameof(ResourcesToBrowseView));
     }
 
+    public string BrowserName { get; set; }
     public LabURI SelectedLink { get; set; }
+
+    public ResourceTreeElementViewModel? SelectedResourceTreeElement => SelectedLink == LabURI.Empty ? null
+        : AssetManager.Get().GetAsset(SelectedLink).GetResourceTreeElement();
+    
     public BindableCollection<LabURI> ResourcesToBrowseView => _resourcesToBrowseView;
 
     public string SearchAsset
@@ -91,5 +98,10 @@ public class ResourceBrowserViewModel : Screen
                 DoSearch();
             }
         }
+    }
+
+    public object GetResult()
+    {
+        return true;
     }
 }

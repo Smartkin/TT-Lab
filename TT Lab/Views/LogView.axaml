@@ -1,0 +1,15 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:gif="clr-namespace:Avalonia.Labs.Gif;assembly=Avalonia.Labs.Gif"
+             xmlns:avaloniaEdit="https://github.com/avaloniaui/avaloniaedit"
+             xmlns:viewModels="clr-namespace:TT_Lab.ViewModels"
+             x:DataType="viewModels:LogViewModel"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Views.LogView">
+        <Grid>
+            <avaloniaEdit:TextEditor AttachedToVisualTree="LogText_OnAttachedToVisualTree" x:Name="LogText" HorizontalScrollBarVisibility="Disabled" WordWrap="True" VerticalScrollBarVisibility="Auto" ShowLineNumbers="True" Watermark="Logs will be written here..." IsReadOnly="True"/>
+            <gif:GifImage Source="{Binding SadEasterEgg, FallbackValue={x:Null}}" Stretch="Uniform" HorizontalAlignment="Right" Margin="10, 10, 20, 10" IsVisible="{Binding SadEasterEggVisibility}"/>
+        </Grid>
+</UserControl>

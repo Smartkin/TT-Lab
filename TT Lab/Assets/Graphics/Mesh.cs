@@ -4,28 +4,27 @@ using TT_Lab.AssetData.Graphics;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items;
 
-namespace TT_Lab.Assets.Graphics
+namespace TT_Lab.Assets.Graphics;
+
+public class Mesh : RigidModel
 {
-    public class Mesh : RigidModel
+    protected override bool SetIdFromDataHash => true;
+    public override UInt32 Section => Constants.GRAPHICS_MESHES_SECTION;
+
+    public Mesh() { }
+
+    public Mesh(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinMesh mesh) : base(package, needVariant, variant, id, name, mesh)
     {
-        public override UInt32 Section => Constants.GRAPHICS_MESHES_SECTION;
+        AssetData = new MeshData(this, mesh);
+    }
 
-        public Mesh() { }
-
-        public Mesh(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinMesh mesh) : base(package, needVariant, variant, id, name, mesh)
+    public override AbstractAssetData GetData()
+    {
+        if (!IsLoaded || AssetData.Disposed)
         {
-            assetData = new MeshData(mesh);
+            AssetData = new MeshData(this);
+            AssetData.Load(DataLoadPath);
         }
-
-        public override AbstractAssetData GetData()
-        {
-            if (!IsLoaded || assetData.Disposed)
-            {
-                assetData = new MeshData();
-                assetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
-                IsLoaded = true;
-            }
-            return assetData;
-        }
+        return AssetData;
     }
 }

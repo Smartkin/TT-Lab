@@ -19,10 +19,10 @@ namespace TT_Lab.ViewModels.Composite
 
         public Vector4ViewModel(float x, float y, float z, float w)
         {
-            X = x;
-            Y = y;
-            Z = z;
-            W = w;
+            _x = x;
+            _y = y;
+            _z = z;
+            _w = w;
         }
 
         public Vector4ViewModel(Vector4 twinVec) : this(twinVec.X, twinVec.Y, twinVec.Z, twinVec.W)

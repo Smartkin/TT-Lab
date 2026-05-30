@@ -45,7 +45,7 @@ namespace TT_Lab.Util
                     return;
                 }
             }
-            Debug.WriteLine("[{1}] INFO: {0}", formatted, typeName);
+            Console.WriteLine("[{1}] INFO: {0}", formatted, typeName);
         }
 
         /// <summary>
@@ -63,7 +63,7 @@ namespace TT_Lab.Util
                     return;
                 }
             }
-            Debug.WriteLine("[{1}] WARN: {0}", formatted, typeName);
+            Console.WriteLine("[{1}] WARN: {0}", formatted, typeName);
         }
 
         /// <summary>
@@ -72,7 +72,7 @@ namespace TT_Lab.Util
         /// <param name="exception">The exception.</param>
         public void Error(Exception exception)
         {
-            Debug.WriteLine("[{1}] ERROR: {0}", exception, typeName);
+            Console.WriteLine("[{1}] ERROR: {0}", exception, typeName);
         }
     }
 }

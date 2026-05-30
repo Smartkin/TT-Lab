@@ -1,0 +1,14 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewmodels="clr-namespace:TT_Lab.ViewModels.Editors"
+             x:DataType="viewmodels:UriLinkViewModel"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="250"
+             x:Class="TT_Lab.Views.Editors.UriLinkView">
+    <Grid ColumnDefinitions="*, 40, 40">
+        <TextBox Grid.Column="0" x:Name="UriDisplay" VerticalContentAlignment="Center" IsReadOnly="True"/>
+        <Button VerticalAlignment="Stretch" VerticalContentAlignment="Center" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" x:Name="ChangeLink" Grid.Column="1" Content="..."/>
+        <Button VerticalAlignment="Stretch" VerticalContentAlignment="Center" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" x:Name="OpenDocument" Grid.Column="2" Content="->"/>
+    </Grid>
+</UserControl>

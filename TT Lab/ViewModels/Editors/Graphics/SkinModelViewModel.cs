@@ -3,6 +3,7 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Splat;
 using TT_Lab.AssetData.Graphics;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Graphics;
@@ -17,27 +18,17 @@ namespace TT_Lab.ViewModels.Editors.Graphics;
 
 public class SkinModelViewModel : ResourceEditorViewModel
 {
-    private readonly MeshService _meshService;
     private Int32 _selectedMaterial;
     private String _materialName;
 
-    public SkinModelViewModel(MeshService meshService)
+    public SkinModelViewModel()
     {
-        _meshService = meshService;
-        // Scenes.Add(IoC.Get<SceneEditorViewModel>());
-        // Scenes.Add(IoC.Get<SceneEditorViewModel>());
         _materialName = "NO MATERIAL";
-        // SceneRenderer.SceneHeaderModel = "Skin viewer";
-        // MaterialViewer.SceneHeaderModel = "Material viewer";
-        //
-        // InitMaterialViewer();
-        // InitSceneRenderer();
-            
-        SceneRenderer = IoC.Get<ViewportViewModel>();
-        MaterialViewer = IoC.Get<ViewportViewModel>();
+        SceneRenderer = Locator.Current.GetService<ViewportViewModel>()!;
+        MaterialViewer = Locator.Current.GetService<ViewportViewModel>()!;
         SceneRenderer.SceneInitializer = (renderer, scene) =>
         {
-            var mesh = _meshService.GetMesh(EditableResource);
+            var mesh = renderer.GetRenderContext().MeshService.GetMesh(EditableResource);
             if (mesh.Model != null)
             {
                 scene.AddChild(mesh.Model);
@@ -45,16 +36,16 @@ public class SkinModelViewModel : ResourceEditorViewModel
         };
     }
 
-    protected override async Task OnActivateAsync(CancellationToken cancellationToken)
+    protected override async Task OnActivatedAsync(CancellationToken cancellationToken)
     {
-        await ActivateItemAsync(SceneRenderer, cancellationToken);
+        // await ActivateItemAsync(SceneRenderer, cancellationToken);
             
-        await base.OnActivateAsync(cancellationToken);
+        await base.OnActivatedAsync(cancellationToken);
     }
 
     protected override async Task OnDeactivateAsync(bool close, CancellationToken cancellationToken)
     {
-        await DeactivateItemAsync(SceneRenderer, close, cancellationToken);
+        // await DeactivateItemAsync(SceneRenderer, close, cancellationToken);
             
         await base.OnDeactivateAsync(close, cancellationToken);
     }

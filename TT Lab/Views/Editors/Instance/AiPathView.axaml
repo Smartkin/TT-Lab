@@ -1,0 +1,53 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:TT_Lab.Controls"
+             xmlns:controls1="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+             xmlns:composite="clr-namespace:TT_Lab.Views.Composite"
+             xmlns:valueConverters="clr-namespace:TT_Lab.ValueConverters"
+             xmlns:viewModels="clr-namespace:TT_Lab.ViewModels.Editors.Instance"
+             x:DataType="viewModels:AiPathViewModel"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Views.Editors.Instance.AiPathView">
+    <UserControl.Resources>
+        <valueConverters:LabUriConverter x:Key="UriConverter"/>
+        <valueConverters:PrimitiveWrapperConverterLabUri x:Key="WrapperUriConverter"/>
+        <!-- <ObjectDataProvider MethodName="GetValues" ObjectType="{x:Type sys:Enum}" x:Key="InstanceLayouts"> -->
+        <!--     <ObjectDataProvider.MethodParameters> -->
+        <!--         <x:Type TypeName="twinTech:Enums+Layouts"></x:Type> -->
+        <!--     </ObjectDataProvider.MethodParameters> -->
+        <!-- </ObjectDataProvider> -->
+    </UserControl.Resources>
+    <controls1:GroupBox>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="11*"/>
+                <RowDefinition Height="34*"/>
+            </Grid.RowDefinitions>
+
+            <controls:LabeledDropList Items="{Binding InstanceLayers}" SelectedItem="{Binding LayoutID}" VerticalAlignment="Center" DropListName="Instance layout" Grid.ColumnSpan="2" Height="48"/>
+            <UniformGrid Grid.Row="1" Rows="5">
+                <composite:ResourceBrowserOpener BrowserName="Path Begin" ResourcesToBrowse="{Binding Positions}" LinkedResource="{Binding PathBegin}"/>
+                <composite:ResourceBrowserOpener BrowserName="Path End" ResourcesToBrowse="{Binding Positions}" LinkedResource="{Binding PathEnd}"/>
+                <!-- <Controls:LabeledDropList SelectedItem="{Binding PathBegin, Converter={StaticResource WrapperUriConverter}}" Items="{Binding Positions}" DropListName="Path Begin"> -->
+                <!--     <Controls:LabeledDropList.ItemTemplate> -->
+                <!--         <DataTemplate> -->
+                <!--             <TextBlock Text="{Binding Value, Converter={StaticResource UriConverter}}"/> -->
+                <!--         </DataTemplate> -->
+                <!--     </Controls:LabeledDropList.ItemTemplate> -->
+                <!-- </Controls:LabeledDropList> -->
+                <!-- <Controls:LabeledDropList SelectedItem="{Binding PathEnd, Converter={StaticResource WrapperUriConverter}}" Items="{Binding Positions}" DropListName="Path End"> -->
+                <!--     <Controls:LabeledDropList.ItemTemplate> -->
+                <!--         <DataTemplate> -->
+                <!--             <TextBlock Text="{Binding Value, Converter={StaticResource UriConverter}}"/> -->
+                <!--         </DataTemplate> -->
+                <!--     </Controls:LabeledDropList.ItemTemplate> -->
+                <!-- </Controls:LabeledDropList> -->
+                <controls:LabeledTextBox Text="{Binding Arg1}" VerticalAlignment="Center" HorizontalAlignment="Stretch" TextBoxName="Argument 1"/>
+                <controls:LabeledTextBox Text="{Binding Arg2}" VerticalAlignment="Center" HorizontalAlignment="Stretch" TextBoxName="Argument 2"/>
+                <controls:LabeledTextBox Text="{Binding Arg3}" VerticalAlignment="Center" HorizontalAlignment="Stretch" TextBoxName="Argument 3"/>
+            </UniformGrid>
+        </Grid>
+    </controls1:GroupBox>
+</UserControl>

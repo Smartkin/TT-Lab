@@ -1,42 +1,45 @@
 ﻿using System;
 using TT_Lab.AssetData;
 using TT_Lab.AssetData.Graphics;
+using TT_Lab.Attributes;
 using TT_Lab.ViewModels.Editors.Graphics;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items;
 
-namespace TT_Lab.Assets.Graphics
+namespace TT_Lab.Assets.Graphics;
+
+[SupportsViewport]
+public class Model : SerializableAsset
 {
-    public class Model : SerializableAsset
+    protected override bool SetIdFromDataHash => true;
+    protected override String DataExt => ".glb";
+    public override UInt32 Section => Constants.GRAPHICS_MODELS_SECTION;
+    public override String IconPath => "Model.png";
+
+    public bool UseOptimalStrips { get; set; } = true;
+
+    public Model(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinModel model) : base(id, name, package, needVariant, variant)
     {
-        protected override String DataExt => ".glb";
-        public override UInt32 Section => Constants.GRAPHICS_MODELS_SECTION;
-        public override String IconPath => "Model.png";
+        AssetData = new ModelData(this, model);
+        Raw = false;
+    }
 
-        public Model(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinModel model) : base(id, name, package, needVariant, variant)
-        {
-            assetData = new ModelData(model);
-            Raw = false;
-        }
+    public Model()
+    {
+    }
 
-        public Model()
-        {
-        }
+    public override Type GetEditorType()
+    {
+        return typeof(ModelViewModel);
+    }
 
-        public override Type GetEditorType()
+    public override AbstractAssetData GetData()
+    {
+        if (!IsLoaded || AssetData.Disposed)
         {
-            return typeof(ModelViewModel);
+            AssetData = new ModelData(this);
+            AssetData.Load(DataLoadPath);
         }
-
-        public override AbstractAssetData GetData()
-        {
-            if (!IsLoaded || assetData.Disposed)
-            {
-                assetData = new ModelData();
-                assetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
-                IsLoaded = true;
-            }
-            return assetData;
-        }
+        return AssetData;
     }
 }

@@ -1,0 +1,18 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewModels="clr-namespace:TT_Lab.ViewModels.Editors.Graphics"
+             x:DataType="viewModels:SkinModelViewModel"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Views.Editors.Graphics.SkinModelView">
+    <Grid RowDefinitions="61*,89*" ColumnDefinitions="659*,141*">
+        <ContentControl x:Name="SceneRenderer" Content="{Binding SceneRenderer}" Margin="10,0,0,0" Grid.RowSpan="2"/>
+        <ContentControl Content="{Binding MaterialViewer}" Grid.Row="0" Grid.Column="1" Margin="0,0,0,11"/>
+        <Grid Grid.Column="1" Grid.Row="1" RowDefinitions="*,*,*">
+            <Button x:Name="NextMatButton" Content="Next material" Grid.Row="0" Height="25"/>
+            <TextBlock Foreground="White" x:Name="MaterialName" TextWrapping="Wrap" Text="Material Name" TextAlignment="Center" Grid.Row="1" VerticalAlignment="Center"/>
+            <Button x:Name="PrevMatButton" Content="Previous material" Height="25" Grid.Row="2"/>
+        </Grid>
+    </Grid>
+</UserControl>

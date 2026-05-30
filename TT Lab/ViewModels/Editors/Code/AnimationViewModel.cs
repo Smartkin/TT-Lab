@@ -4,28 +4,33 @@ using System.Linq;
 using System.Numerics;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Forms;
-using System.Windows.Media;
+using Avalonia;
+using Avalonia.Controls.Primitives;
+using Avalonia.Threading;
 using Caliburn.Micro;
+using DynamicData;
 using GlmSharp;
 using ImGuiNET;
+using ReactiveUI;
+using Splat;
 using TT_Lab.AssetData.Code;
 using TT_Lab.Assets;
 using TT_Lab.Extensions;
 using TT_Lab.Rendering;
+using TT_Lab.Rendering.Objects;
+using TT_Lab.Rendering.Scene;
 using TT_Lab.Rendering.Services;
 using TT_Lab.Util;
+using TT_Lab.ViewModels.Editors.PropertyGraph;
+using TT_Lab.ViewModels.Interfaces;
 using Twinsanity.TwinsanityInterchange.Common.Animation;
 using Math = System.Math;
 
 namespace TT_Lab.ViewModels.Editors.Code;
 
-public class AnimationViewModel : ResourceEditorViewModel
+public class AnimationViewModel : DocumentDataViewModel<AnimationData>
 {
-    private readonly RenderContext _context;
-    private readonly TwinSkeletonManager _skeletonManager;
-    private readonly MeshService _meshService;
+    private RenderContext _context;
     private short _playbackFps;
     private ushort _totalFrames;
     private ushort _currentAnimationFrame;
@@ -36,6 +41,7 @@ public class AnimationViewModel : ResourceEditorViewModel
     private bool _isLooping = true;
     private int _runCounter = 0;
     private bool _doRunningCounter = false;
+    private Scene _scene;
     private Rendering.Objects.OGI? _ogiRender;
     private TwinAnimation _twinAnimation;
     private TwinMorphAnimation _twinMorphAnimation;
@@ -43,65 +49,32 @@ public class AnimationViewModel : ResourceEditorViewModel
     private LabURI _selectedOgi = LabURI.Empty;
     private bool _tryingToClose = false;
 
-    public AnimationViewModel(RenderContext context, TwinSkeletonManager skeletonManager, MeshService meshService)
+    public AnimationViewModel(DocumentViewModel document, PropertyNode animationData, params DocumentNodeViewModel[] dependencies) : base(document, animationData, dependencies)
     {
-        _context = context;
-        _skeletonManager = skeletonManager;
-        _meshService = meshService;
-        // Scenes.Add(IoC.Get<SceneEditorViewModel>());
-        AnimationScene = IoC.Get<ViewportViewModel>();
-        InitAnimationScene();
+        LoadData();
     }
 
-    public override async Task<Boolean> CanCloseAsync(CancellationToken cancellationToken = new CancellationToken())
+    private void LoadData()
     {
-        _tryingToClose = true;
-        var result = await base.CanCloseAsync(cancellationToken);
-        if (!result)
-        {
-            _tryingToClose = false;
-        }
-        
-        return result;
-    }
-
-    protected override async Task OnActivateAsync(CancellationToken cancellationToken)
-    {
-        await ActivateItemAsync(AnimationScene, cancellationToken);
-        
-        await base.OnActivateAsync(cancellationToken);
-    }
-
-    protected override async Task OnDeactivateAsync(bool close, CancellationToken cancellationToken)
-    {
-        await DeactivateItemAsync(AnimationScene, close, cancellationToken);
-        PauseAnimation();
-        
-        await base.OnDeactivateAsync(close, cancellationToken);
-    }
-
-    public override void LoadData()
-    {
-        var asset = AssetManager.Get().GetAsset(EditableResource);
-        var data = asset.GetData<AnimationData>();
+        var data = CurrentValue!;
         _playbackFps = data.DefaultFPS;
         _totalFrames = data.TotalFrames;
         _twinAnimation = data.MainAnimation;
         _twinMorphAnimation = data.FacialAnimation;
         _currentAnimationFrame = 0;
 
-        _doRunningCounter = Preferences.GetPreference<bool>(Preferences.SillinessEnabled) && asset.ID == 2;
+        _doRunningCounter = Preferences.GetPreference<bool>(Preferences.SillinessEnabled) && data.GetOwner().ID == 2;
         
         SuitableModels.Clear();
         var allOgis = AssetManager.Get().GetAllAssetsOf<Assets.Code.OGI>().Where(ogi =>
-            ogi.GetData<OGIData>().Joints.Count >= data.MainAnimation.JointSettings.Count).ToList();
+            ogi.GetData().To<OGIData>().Joints.Count >= data.MainAnimation.JointSettings.Count).ToList();
         var allOgiUris = allOgis.Select(ogi => ogi.URI).ToList();
-        var bestFitIndex = allOgis.FindIndex(ogi => ogi.GetData<OGIData>().Joints.Count == data.MainAnimation.JointSettings.Count);
+        var bestFitIndex = allOgis.FindIndex(ogi => ogi.GetData().To<OGIData>().Joints.Count == data.MainAnimation.JointSettings.Count);
         SuitableModels.AddRange(allOgiUris);
         _selectedOgi = SuitableModels[bestFitIndex == -1 ? 0 : bestFitIndex];
     }
     
-    public void ChangeTrackPosition(RoutedPropertyChangedEventArgs<double> e)
+    public void ChangeTrackPosition(RangeBaseValueChangedEventArgs e)
     {
         if (_isPlaying)
         {
@@ -118,7 +91,6 @@ public class AnimationViewModel : ResourceEditorViewModel
         _isPlaying = true;
         
         _renderWatch.Start();
-        CompositionTarget.Rendering += UpdateAnimationPlayback;
     }
     
     public void PauseAnimation()
@@ -126,27 +98,37 @@ public class AnimationViewModel : ResourceEditorViewModel
         _runCounter = 0;
         _isPlaying = false;
         _renderWatch.Reset();
-        CompositionTarget.Rendering -= UpdateAnimationPlayback;
     }
 
     public void ExportAnimation()
     {
-        using var sfd = new SaveFileDialog();
-        sfd.Title = "Export Animation";
-        sfd.Filter = "GLB file (*.glb)|*.glb";
-        var result = sfd.ShowDialog();
-        if (result == DialogResult.OK)
-        {
-            var path = sfd.FileName;
-            var ogiData = AssetManager.Get().GetAssetData<OGIData>(_selectedOgi);
-            ogiData.ExportGltf(path, AssetManager.Get().GetAssetData<AnimationData>(EditableResource));
-        }
+        // using var sfd = new SaveFileDialog();
+        // sfd.Title = "Export Animation";
+        // sfd.Filter = "GLB file (*.glb)|*.glb";
+        // var result = sfd.ShowDialog();
+        // if (result == DialogResult.OK)
+        // {
+        //     var path = sfd.FileName;
+        //     var ogiData = AssetManager.Get().GetAssetData<OGIData>(_selectedOgi);
+        //     ogiData.ExportGltf(path, AssetManager.Get().GetAssetData<AnimationData>(EditableResource));
+        // }
     }
 
-    private void UpdateAnimationPlayback()
+    public void UpdateAnimationPlayback()
+    {
+        _ogiRender ??= Document.Viewport?.GetViewportObjects()[0].Render.Children[0] as Rendering.Objects.OGI;
+        if (_ogiRender == null)
+        {
+            return;
+        }
+        
+        Document.Viewport?.GetRenderContext()?.QueueRenderAction(UpdateAnimationPlaybackRender);
+    }
+
+    private void UpdateAnimationPlaybackRender()
     {
         var nextFrame = (ushort)Math.Min(_currentAnimationFrame + 1, TotalFrames);
-        if (CurrentAnimationFrame == TotalFrames)
+        if (_currentAnimationFrame == TotalFrames)
         {
             if (_isLooping && _isPlaying)
             {
@@ -230,6 +212,7 @@ public class AnimationViewModel : ResourceEditorViewModel
     {
         // TODO: Use animation's sampler method to reduce code duplication
         var useAddRot = jointSettings.UseAdditionalRotation;
+        var independentScaling = jointSettings.IndependentScaling;
         var transformIndex = jointSettings.TransformationIndex;
         var currentFrameTransformIndex = jointSettings.AnimationTransformationIndex;
         var nextFrameTransformIndex = jointSettings.AnimationTransformationIndex;
@@ -378,7 +361,8 @@ public class AnimationViewModel : ResourceEditorViewModel
             resRotationQuat = addRotQuat * lerpedQuat;
         }
         
-        _ogiRender!.ApplyTransformToJoint(jointIndex, resultTranslation, scale, resRotationQuat);
+        _ogiRender?.SetInheritScaleForJoint(jointIndex, !independentScaling);
+        _ogiRender?.ApplyTransformToJoint(jointIndex, resultTranslation, scale, resRotationQuat);
     }
 
     private (float, float) GetRotationChanges(int rot1, int rot2)
@@ -398,26 +382,18 @@ public class AnimationViewModel : ResourceEditorViewModel
         return (rot1Rad, rot2Rad);
     }
 
-    private void UpdateAnimationPlayback(object? sender, EventArgs e)
-    {
-        if (_tryingToClose)
-        {
-            return;
-        }
-        
-        UpdateAnimationPlayback();
-    }
-
     private void InitAnimationScene()
     {
-        AnimationScene.SceneInitializer = (renderer, scene) =>
-        {
-            _ogiRender = new Rendering.Objects.OGI(_context, _skeletonManager, _meshService, AssetManager.Get().GetAssetData<OGIData>(_selectedOgi));
-            scene.AddChild(_ogiRender);
-            InitImgui(renderer);
-            
-            UpdateAnimationPlayback();
-        };
+        // AnimationScene.SceneInitializer = (renderer, scene) =>
+        // {
+        //     _context = renderer.GetRenderContext();
+        //     _ogiRender = new Rendering.Objects.OGI(_context, _context.SkeletonManager, _context.MeshService, AssetManager.Get().GetAssetData<OGIData>(_selectedOgi));
+        //     _scene = scene;
+        //     _scene.AddChild(_ogiRender);
+        //     InitImgui(renderer);
+        //     
+        //     UpdateAnimationPlayback();
+        // };
     }
 
     private void InitImgui(Renderer renderer)
@@ -430,7 +406,7 @@ public class AnimationViewModel : ResourceEditorViewModel
         renderer.RenderImgui += () =>
         {
             ImGui.Begin("Animation Info");
-            ImGui.SetWindowPos(new Vector2(5, 5));
+            ImGui.SetWindowPos(new Vector2(5, 5), ImGuiCond.FirstUseEver);
             ImGui.Text($"Total Frames: {TotalFrames + 1}");
             if (_doRunningCounter)
             {
@@ -451,7 +427,7 @@ public class AnimationViewModel : ResourceEditorViewModel
             if (_isLooping != value)
             {
                 _isLooping = value;
-                NotifyOfPropertyChange();
+                this.RaisePropertyChanged();
             }
         }
     }
@@ -464,7 +440,7 @@ public class AnimationViewModel : ResourceEditorViewModel
             if (value != _playbackFps)
             {
                 _playbackFps = value;
-                NotifyOfPropertyChange();
+                this.RaisePropertyChanged();
             }
         }
     }
@@ -477,7 +453,7 @@ public class AnimationViewModel : ResourceEditorViewModel
             if (value != _currentAnimationFrame)
             {
                 _currentAnimationFrame = value;
-                NotifyOfPropertyChange();
+                Dispatcher.UIThread.Invoke(() => this.RaisePropertyChanged());
             }
         }
     }
@@ -493,12 +469,25 @@ public class AnimationViewModel : ResourceEditorViewModel
             {
                 _selectedOgi = value;
                 // AnimationScene.ResetScene();
-                NotifyOfPropertyChange();
+                Document.Viewport?.GetRenderContext()?.QueueRenderAction(() =>
+                {
+                    var context = Document.Viewport?.GetRenderContext();
+                    if (context == null)
+                    {
+                        return;
+                    }
+                    var scene = Document.Viewport!.GetViewportObjects()[0].Render;
+                    if (_ogiRender != null)
+                    {
+                        scene.RemoveChild(_ogiRender);
+                    }
+                    _ogiRender = new Rendering.Objects.OGI(context, context.SkeletonManager, context.MeshService, AssetManager.Get().GetAssetData<OGIData>(_selectedOgi));
+                    scene.AddChild(_ogiRender);
+                });
+                this.RaisePropertyChanged();
             }
         }
     }
     
     public int TotalFrames => _totalFrames - 1;
-
-    public ViewportViewModel AnimationScene { get; }
 }

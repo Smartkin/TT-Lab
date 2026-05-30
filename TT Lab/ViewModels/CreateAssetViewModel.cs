@@ -5,15 +5,16 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Controls;
+using Avalonia.Controls;
 using Caliburn.Micro;
+using Splat;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Models;
 using TT_Lab.Project;
 using TT_Lab.ServiceProviders;
 using TT_Lab.Services;
+using TT_Lab.Util;
 using TT_Lab.ViewModels.ResourceTree;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 
@@ -45,37 +46,52 @@ public class CreateAssetViewModel : Screen, INotifyDataErrorInfo
     {
         CreatableAssets.Add(AssetCreationPreviewModelFactory.CreatePreview<T>(displayName, createCallback));
     }
+    
+    public void RegisterAssetToCreate<T>(string displayName, Func<IAsset, Task<AssetCreationStatus>> createCallback) where T : IAsset, new()
+    {
+        CreatableAssets.Add(AssetCreationPreviewModelFactory.CreatePreview<T>(displayName, createCallback));
+    }
 
     public void AssignFolder(FolderElementViewModel folder)
     {
         _selectedFolder = folder;
     }
 
-    public Task CreateAssetButton()
+    public async Task CreateAssetButton()
     {
         ITwinIdGeneratorService idGenerator;
         if (SelectedCreationModel.IsInstance)
         {
             Debug.Assert(_activeChunkService.CurrentChunkEditor != null, "A chunk must be active for a new instance to be created");
             idGenerator = TwinIdGeneratorServiceProvider.GetGeneratorForChunk(SelectedCreationModel.AssetType,
-                AssetManager.Get().GetAsset(_activeChunkService.CurrentChunkEditor.EditableResource).Variation, LayoutID);
+                AssetManager.Get().GetAsset(_activeChunkService.CurrentChunkEditor.EditableResource).AdditionalPath!, LayoutID);
         }
         else
         {
             idGenerator = TwinIdGeneratorServiceProvider.GetGenerator(SelectedCreationModel.AssetType);
         }
 
-        var newAsset = AssetFactory.CreateAsset(SelectedCreationModel.AssetType, _selectedFolder.GetAsset<Folder>(),
-            _assetName.Trim(), IoC.Get<ProjectManager>().OpenedProject!.BasePackage.ID.ToString(), idGenerator,
-            SelectedCreationModel.DataCreator, SelectedCreationModel.IsInstance ? LayoutID : null);
+        IAsset? newAsset = null;
+        if (SelectedCreationModel.DataCreator != null)
+        {
+            newAsset = AssetFactory.CreateAsset(SelectedCreationModel.AssetType, _selectedFolder.GetAsset<Folder>(),
+                _assetName.Trim(), Locator.Current.GetService<ProjectManager>()!.OpenedProject!.BasePackage.ID.ToString(), idGenerator,
+                SelectedCreationModel.DataCreator, SelectedCreationModel.IsInstance ? LayoutID : null);
+        }
+        else if (SelectedCreationModel.DataCreatorAsync != null)
+        {
+            newAsset = await AssetFactory.CreateAsset(SelectedCreationModel.AssetType,
+                _selectedFolder.GetAsset<Folder>(), _assetName.Trim(),
+                Locator.Current.GetService<ProjectManager>()!.OpenedProject!.BasePackage.ID.ToString(), idGenerator,
+                SelectedCreationModel.DataCreatorAsync, SelectedCreationModel.IsInstance ? LayoutID : null);
+        }
         if (newAsset != null)
         {
-            return TryCloseAsync();
+            await this.DeactivateAsync(true);
+            return;
         }
         
-        Log.WriteLine("Error: Failed to create asset");
-        return Task.CompletedTask;
-
+        Log.WriteLine("Failed to create asset", Log.LogType.Error);
     }
 
     private Boolean IsAssetNameValid(string name)
@@ -112,8 +128,9 @@ public class CreateAssetViewModel : Screen, INotifyDataErrorInfo
             _dataValidatorService.RemoveError(nameof(AssetName), ASSET_NAME_INVALID_CHARS_ERROR);
         }
         
-        var assetsOfType = AssetManager.Get().GetAllAssetsOf(SelectedCreationModel.AssetType);
-        if (assetsOfType.Any(asset => asset.Name == name))
+        var assetManager = AssetManager.Get();
+        var assetFileNames = _selectedFolder.GetAsset<Folder>().Children.Select(child => assetManager.GetAsset(child).InvariantName);
+        if (assetFileNames.Any(asset => asset == name))
         {
             _dataValidatorService.AddError(nameof(AssetName), ASSET_NAME_ALREADY_EXISTS);
             isValid = false;
@@ -132,7 +149,10 @@ public class CreateAssetViewModel : Screen, INotifyDataErrorInfo
 
         SelectedCreationModel = CreatableAssets[0];
         _dataValidatorService.ValidateProperty(AssetName, nameof(AssetName));
+        NotifyOfPropertyChange(nameof(CanCreate));
     }
+
+    public BindableCollection<object> InstanceLayouts => ViewModelUtil.Layers;
 
     public BindableCollection<AssetCreationPreviewModel> CreatableAssets { get; set; } = new();
 
@@ -185,9 +205,9 @@ public class CreateAssetViewModel : Screen, INotifyDataErrorInfo
 
     public bool HasErrors => _dataValidatorService.HasErrors;
 
-    public Visibility IsInstance => SelectedCreationModel.IsInstance ? Visibility.Visible : Visibility.Collapsed;
+    public Boolean IsInstance => SelectedCreationModel == null ? false : SelectedCreationModel.IsInstance;
     
-    public string LayoutRowHeight => (IsInstance == Visibility.Visible) ? "2*" : "0";
+    public GridLength LayoutRowHeight => IsInstance ? new GridLength(2, GridUnitType.Star) : new GridLength(0);
 
     public event EventHandler<DataErrorsChangedEventArgs>? ErrorsChanged
     {

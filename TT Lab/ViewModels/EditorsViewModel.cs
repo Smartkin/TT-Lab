@@ -1,40 +1,35 @@
 ﻿using System;
+using System.Collections.ObjectModel;
 using Caliburn.Micro;
 using System.Threading;
 using System.Threading.Tasks;
+using Dock.Model.ReactiveUI.Controls;
+using Splat;
 
-namespace TT_Lab.ViewModels
+namespace TT_Lab.ViewModels;
+
+public class EditorsViewModel : Document
 {
-    public class EditorsViewModel : Conductor<EditorsViewerViewModel>.Collection.OneActive
+    private readonly ScenesEditorsViewModel _scenesEditorsViewModel;
+    private readonly ResourcesEditorsViewModel _resourcesEditorsViewModel;
+    
+    public ObservableCollection<EditorsViewerViewModel> Editors { get; }
+
+    public EditorsViewModel(ScenesEditorsViewModel scenesEditorsViewModel,
+        ResourcesEditorsViewModel resourcesEditorsViewModel)
     {
-        public override async Task<Boolean> CanCloseAsync(CancellationToken cancellationToken = new CancellationToken())
-        {
-            var result = true;
-            foreach (var item in Items)
-            {
-                result = await item.CanCloseAsync(cancellationToken);
-                if (!result)
-                {
-                    break;
-                }
-            }
-            
-            return result;
-        }
+        _scenesEditorsViewModel = scenesEditorsViewModel;
+        _resourcesEditorsViewModel = resourcesEditorsViewModel;
 
-        public void Save()
-        {
-            foreach (var item in Items)
-            {
-                item.Save();
-            }
-        }
-
-        protected override Task OnInitializeAsync(CancellationToken cancellationToken)
-        {
-            ActivateItemAsync(IoC.Get<ScenesEditorsViewModel>(), cancellationToken);
-            ActivateItemAsync(IoC.Get<ResourcesEditorsViewModel>(), cancellationToken);
-            return base.OnInitializeAsync(cancellationToken);
-        }
+        Editors = [ScenesEditorsViewModel, ResourcesEditorsViewModel];
     }
+
+    public void Save()
+    {
+        _scenesEditorsViewModel.Save();
+        _resourcesEditorsViewModel.Save();
+    }
+
+    public ScenesEditorsViewModel ScenesEditorsViewModel => _scenesEditorsViewModel;
+    public ResourcesEditorsViewModel ResourcesEditorsViewModel => _resourcesEditorsViewModel;
 }

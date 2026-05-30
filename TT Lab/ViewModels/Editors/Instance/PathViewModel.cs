@@ -1,4 +1,5 @@
-﻿using Caliburn.Micro;
+﻿using System.Linq;
+using Caliburn.Micro;
 using TT_Lab.AssetData.Instance;
 using TT_Lab.Assets;
 using TT_Lab.Attributes;
@@ -7,95 +8,91 @@ using TT_Lab.Util;
 using TT_Lab.ViewModels.Composite;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 
-namespace TT_Lab.ViewModels.Editors.Instance
+namespace TT_Lab.ViewModels.Editors.Instance;
+
+public class PathViewModel : InstanceSectionResourceEditorViewModel
 {
-    public class PathViewModel : InstanceSectionResourceEditorViewModel
+    private Enums.Layouts _layoutId;
+    private BindableCollection<Vector4ViewModel> _points = new();
+    private BindableCollection<Vector2ViewModel> _arguments = new();
+
+    public PathViewModel()
     {
-        private Enums.Layouts _layoutId;
-        private BindableCollection<Vector4ViewModel> _points = new();
-        private BindableCollection<Vector2ViewModel> _arguments = new();
+        DirtyTracker.AddBindableCollection(_points);
+        DirtyTracker.AddBindableCollection(_arguments);
+    }
 
-        public PathViewModel()
+    protected override void Save()
+    {
+        var asset = AssetManager.Get().GetAsset(EditableResource);
+        asset.LayoutID = (int)LayoutID;
+        var data = asset.GetData<PathData>();
+        data.Points.Clear();
+        foreach (var p in Points)
         {
-            DirtyTracker.AddBindableCollection(_points);
-            DirtyTracker.AddBindableCollection(_arguments);
+            var v = new Twinsanity.TwinsanityInterchange.Common.Vector4();
+            p.Save(v);
         }
-
-        protected override void Save()
+        data.Parameters.Clear();
+        foreach (var p in Arguments)
         {
-            var asset = AssetManager.Get().GetAsset(EditableResource);
-            asset.LayoutID = (int)LayoutID;
-            var data = asset.GetData<PathData>();
-            data.Points.Clear();
-            foreach (var p in Points)
-            {
-                var v = new Twinsanity.TwinsanityInterchange.Common.Vector4();
-                p.Save(v);
-                data.Points.Add(v);
-            }
-            data.Parameters.Clear();
-            foreach (var p in Arguments)
-            {
-                var v = new Twinsanity.TwinsanityInterchange.Common.Vector2();
-                p.Save(v);
-                data.Parameters.Add(v);
-            }
+            var v = new Twinsanity.TwinsanityInterchange.Common.Vector2();
+            p.Save(v);
+            data.Parameters.Add(v);
+        }
             
-            base.Save();
-        }
+        base.Save();
+    }
 
-        public override void LoadData()
+    public override void LoadData()
+    {
+        var asset = AssetManager.Get().GetAsset(EditableResource);
+        var pathData = asset.GetData<PathData>();
+        _points = [];
+        DirtyTracker.AddBindableCollection(_points);
+        
+        _arguments = [];
+        foreach (var vm in pathData.Parameters.Select(p => new Vector2ViewModel(p)))
         {
-            var asset = AssetManager.Get().GetAsset(EditableResource);
-            var pathData = asset.GetData<PathData>();
-            _points = new BindableCollection<Vector4ViewModel>();
-            foreach (var p in pathData.Points)
-            {
-                var vm = new Vector4ViewModel(p);
-                _points.Add(vm);
-            }
-            _arguments = new BindableCollection<Vector2ViewModel>();
-            foreach (var p in pathData.Parameters)
-            {
-                var vm = new Vector2ViewModel(p);
-                _arguments.Add(vm);
-            }
-            _layoutId = MiscUtils.ConvertEnum<Enums.Layouts>(asset.LayoutID!.Value);
-
-            AddArgumentCommand = new AddItemToListCommand<Vector2ViewModel>(Arguments);
-            AddPointCommand = new AddItemToListCommand<Vector4ViewModel>(Points);
-            DeleteArgumentCommand = new DeleteItemFromListCommand(Arguments);
-            DeletePointCommand = new DeleteItemFromListCommand(Points);
+            _arguments.Add(vm);
         }
+        DirtyTracker.AddBindableCollection(_arguments);
+        
+        _layoutId = MiscUtils.ConvertEnum<Enums.Layouts>(asset.LayoutID!.Value);
 
-        public AddItemToListCommand<Vector2ViewModel> AddArgumentCommand { get; private set; }
-        public AddItemToListCommand<Vector4ViewModel> AddPointCommand { get; private set; }
-        public DeleteItemFromListCommand DeleteArgumentCommand { get; private set; }
-        public DeleteItemFromListCommand DeletePointCommand { get; private set; }
+        AddArgumentCommand = new AddItemToListCommand<Vector2ViewModel>(Arguments);
+        AddPointCommand = new AddItemToListCommand<Vector4ViewModel>(Points);
+        DeleteArgumentCommand = new DeleteItemFromListCommand(Arguments);
+        DeletePointCommand = new DeleteItemFromListCommand(Points);
+    }
 
-        [MarkDirty]
-        public Enums.Layouts LayoutID
+    public AddItemToListCommand<Vector2ViewModel> AddArgumentCommand { get; private set; }
+    public AddItemToListCommand<Vector4ViewModel> AddPointCommand { get; private set; }
+    public DeleteItemFromListCommand DeleteArgumentCommand { get; private set; }
+    public DeleteItemFromListCommand DeletePointCommand { get; private set; }
+
+    [MarkDirty]
+    public Enums.Layouts LayoutID
+    {
+        get => _layoutId;
+        set
         {
-            get => _layoutId;
-            set
+            if (value != _layoutId)
             {
-                if (value != _layoutId)
-                {
-                    _layoutId = value;
+                _layoutId = value;
                     
-                    NotifyOfPropertyChange();
-                }
+                NotifyOfPropertyChange();
             }
         }
+    }
 
-        public BindableCollection<Vector4ViewModel> Points
-        {
-            get => _points;
-        }
+    public BindableCollection<Vector4ViewModel> Points
+    {
+        get => _points;
+    }
 
-        public BindableCollection<Vector2ViewModel> Arguments
-        {
-            get => _arguments;
-        }
+    public BindableCollection<Vector2ViewModel> Arguments
+    {
+        get => _arguments;
     }
 }

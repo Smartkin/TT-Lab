@@ -17,7 +17,7 @@ namespace TT_Lab.Assets.Instance
 
         public Camera(LabURI package, UInt32 id, String name, String chunk, Int32 layId, ITwinCamera camera) : base(package, id, name, chunk, layId)
         {
-            assetData = new CameraData(camera);
+            AssetData = new CameraData(this, camera);
             Parameters = new Dictionary<string, object?>
             {
                 ["MainCamera1Type"] = null,
@@ -54,9 +54,9 @@ namespace TT_Lab.Assets.Instance
 
         public override void Serialize(SerializationFlags serializationFlags = SerializationFlags.None)
         {
-            if (assetData != null)
+            if (AssetData != null)
             {
-                var camData = (CameraData)assetData;
+                var camData = (CameraData)AssetData;
                 if (camData.MainCamera1 != null)
                 {
                     Parameters["MainCamera1Type"] = camData.MainCamera1.GetType();
@@ -72,13 +72,12 @@ namespace TT_Lab.Assets.Instance
 
         public override AbstractAssetData GetData()
         {
-            if (!IsLoaded || assetData.Disposed)
+            if (!IsLoaded || AssetData.Disposed)
             {
-                assetData = new CameraData((Type?)Parameters["MainCamera1Type"], (Type?)Parameters["MainCamera2Type"]);
-                assetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
-                IsLoaded = true;
+                AssetData = new CameraData(this, (Type?)Parameters["MainCamera1Type"], (Type?)Parameters["MainCamera2Type"]);
+                AssetData.Load(DataLoadPath);
             }
-            return assetData;
+            return AssetData;
         }
 
         protected override ResourceTreeElementViewModel CreateResourceTreeElement(ResourceTreeElementViewModel? parent = null)

@@ -1,0 +1,37 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:controls="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+        xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+        xmlns:viewmodels="clr-namespace:TT_Lab.ViewModels"
+        xmlns:valueConverters="clr-namespace:TT_Lab.ValueConverters"
+        x:DataType="viewmodels:ResourceBrowserViewModel"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        x:Class="TT_Lab.Views.ResourceBrowserView"
+        Title="Select Resource To Link...">
+    <Window.Resources>
+        <valueConverters:LabUriConverter x:Key="UriConverter"/>
+        <sys:Boolean x:Key="ShowData">True</sys:Boolean>
+    </Window.Resources>
+    <controls:GroupBox>
+        <Grid RowDefinitions="30,*,30">
+            <TextBox
+                Watermark="Search"
+                Text="{Binding SearchAsset, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" MaxLines="1"
+            />
+            <controls:GroupBox Grid.Row="1">
+                <ListBox SelectedItem="{Binding SelectedLink, Mode=TwoWay}" ItemsSource="{Binding ResourcesToBrowseView}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Margin="0,2,0,2" Orientation="Horizontal">
+                                <TextBlock Text="{Binding Converter={StaticResource UriConverter}, ConverterParameter={StaticResource ShowData}}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </controls:GroupBox>
+            <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Command="{Binding Link}" Content="Link" Grid.Row="2"/>
+        </Grid>
+    </controls:GroupBox>
+</Window>

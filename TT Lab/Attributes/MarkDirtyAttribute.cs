@@ -7,12 +7,7 @@ namespace TT_Lab.Attributes;
 /// When property marked with this attribute is changed then IsDirty will be triggered in the ViewModel containing this property
 /// </summary>
 [AttributeUsage(AttributeTargets.Property)]
-public class MarkDirtyAttribute : Attribute
+public class MarkDirtyAttribute([CallerMemberName] string propertyName = "") : Attribute
 {
-    public string MarkTarget { get; private set; }
-    
-    public MarkDirtyAttribute([CallerMemberName] string propertyName = "")
-    {
-        MarkTarget = propertyName;
-    }
+    public string MarkTarget { get; private set; } = propertyName;
 }

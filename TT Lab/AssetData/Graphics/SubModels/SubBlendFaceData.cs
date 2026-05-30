@@ -16,13 +16,19 @@ namespace TT_Lab.AssetData.Graphics.SubModels
 
         public SubBlendFaceData() { }
 
-        public SubBlendFaceData(ITwinBlendSkinFace face)
+        public SubBlendFaceData(ITwinBlendSkinFace face, List<int> usedIdxs)
         {
             VertexesAmount = face.VertexesAmount;
 
             face.CalculateData();
+            var idx = 0;
             foreach (var shape in face.Vertices)
             {
+                if (!usedIdxs.Contains(idx++))
+                {
+                    continue;
+                }
+                
                 var shapeData = new BlendShapeData()
                 {
                     Offset = CloneUtils.Clone(shape.Offset)

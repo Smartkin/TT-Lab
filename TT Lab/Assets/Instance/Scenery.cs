@@ -8,52 +8,65 @@ using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.SM;
 
-namespace TT_Lab.Assets.Instance
+namespace TT_Lab.Assets.Instance;
+
+public class Scenery : SerializableInstance
 {
-    public class Scenery : SerializableInstance
+    public static readonly Color[] FogColors =
+    [
+        new(128,0,128,255), // Purple
+        new( 0, 0,0,0), // No color
+        new( 173, 216,230,255), // Light blue
+        new(0, 255, 0,255), // Green
+        new(127,  127, 127,255), // Grey
+        new( 245,  245, 220,255), // Beige
+    ];
+    
+    protected override String DataExt => ".glb";
+    
+    public override bool IsInScenery => true;
+    public override UInt32 Section => Constants.SCENERY_SECENERY_ITEM;
+    public override String IconPath => "Collision.png";
+
+    public Scenery()
     {
-        public static readonly Color[] FogColors =
-        [
-            new(128,0,128,255), // Purple
-            new( 0, 0,0,0), // No color
-            new( 173, 216,230,255), // Light blue
-            new(0, 255, 0,255), // Green
-            new(127,  127, 127,255), // Grey
-            new( 245,  245, 220,255), // Beige
-        ];
-        
-        public override bool IsInScenery => true;
-        public override UInt32 Section => Constants.SCENERY_SECENERY_ITEM;
+        Parameters = new Dictionary<string, object?>();
+    }
 
-        public Scenery()
+    public Scenery(LabURI package, UInt32 id, String name, String chunk, ITwinScenery scenery, LabURI dynamicScenery) : base(package, id, name, chunk, null)
+    {
+        AssetData = new SceneryData(this, scenery)
         {
-            Parameters = new Dictionary<string, object?>();
-        }
+            DynamicScenery = dynamicScenery
+        };
+    }
 
-        public Scenery(LabURI package, UInt32 id, String name, String chunk, ITwinScenery scenery) : base(package, id, name, chunk, null)
+    public void LinkCollision(LabURI collision)
+    {
+        if (IsLoaded)
         {
-            assetData = new SceneryData(scenery);
+            ((SceneryData)AssetData!).Collision = collision;
         }
+    }
 
-        public override Type GetEditorType()
-        {
-            return typeof(SceneryViewModel);
-        }
+    public override Type GetEditorType()
+    {
+        return typeof(SceneryViewModel);
+    }
 
-        public override AbstractAssetData GetData()
+    public override AbstractAssetData GetData()
+    {
+        if (!IsLoaded || AssetData.Disposed)
         {
-            if (!IsLoaded || assetData.Disposed)
-            {
-                assetData = new SceneryData();
-                assetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
-                IsLoaded = true;
-            }
-            return assetData;
+            AssetData = new SceneryData(this);
+            AssetData.Load(DataLoadPath);
         }
+            
+        return AssetData;
+    }
 
-        protected override ResourceTreeElementViewModel CreateResourceTreeElement(ResourceTreeElementViewModel? parent = null)
-        {
-            return new SceneryElementViewModel(URI, parent);
-        }
+    protected override ResourceTreeElementViewModel CreateResourceTreeElement(ResourceTreeElementViewModel? parent = null)
+    {
+        return new SceneryElementViewModel(URI, parent);
     }
 }

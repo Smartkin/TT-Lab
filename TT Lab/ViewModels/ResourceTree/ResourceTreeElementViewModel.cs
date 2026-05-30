@@ -3,18 +3,22 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
 using System.Windows.Input;
-using System.Windows.Threading;
+using Avalonia.Controls;
+using Avalonia.Data;
+using Avalonia.Input;
+using Avalonia.Layout;
+using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 using Caliburn.Micro;
-using Microsoft.Xaml.Behaviors.Core;
 using Newtonsoft.Json;
+using Splat;
 using TT_Lab.AssetData;
 using TT_Lab.Assets;
 using TT_Lab.Command;
 using TT_Lab.Controls;
 using TT_Lab.Util;
+using TT_Lab.ViewModels.Interfaces;
 using Action = System.Action;
 
 namespace TT_Lab.ViewModels.ResourceTree;
@@ -53,7 +57,7 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
     private Boolean _isTargetItem;
     private Boolean _isSelected;
     private Boolean _isExpanded;
-    private Visibility _isVisible;
+    private Boolean _isVisible;
     private Boolean _isRenaming;
     private Boolean _contextMenuCreated;
 
@@ -64,7 +68,7 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
         _newAlias = Alias;
     }
 
-    public BindableCollection<ResourceTreeElementViewModel>? Children => _asset.Type == typeof(ChunkFolder) ? null : _children;
+    public BindableCollection<ResourceTreeElementViewModel>? Children => _asset.Type == typeof(LevelChunk) ? null : _children;
 
     public virtual void Init()
     {
@@ -78,9 +82,8 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
     protected void BuildChildren(Folder folder)
     {
         // Build the tree
-        var myChildren = folder.GetData().To<FolderData>().Children;
+        var myChildren = folder.Children;
         var children = (from child in myChildren
-            orderby _asset.Order
             let c = AssetManager.Get().GetAsset(child)
             select c.GetResourceTreeElement(this));
         _children = new BindableCollection<ResourceTreeElementViewModel>(children);
@@ -153,19 +156,19 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
         var newItem = new MenuItem
         {
             Header = settings.Header,
-            IsCheckable = settings.IsCheckable,
-            HorizontalContentAlignment = HorizontalAlignment.Stretch,
-            VerticalContentAlignment = VerticalAlignment.Center
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Center
         };
         
         if (settings.Action != null)
         {
-            newItem.Command = new ActionCommand(settings.Action);
+            newItem.Command = new GenerateCommand(settings.Action);
         }
 
         if (settings is { IsCheckable: true, IsChecked: not null })
         {
-            newItem.SetBinding(MenuItem.IsCheckedProperty, settings.IsChecked);
+            newItem.ToggleType = MenuItemToggleType.CheckBox;
+            newItem.Bind(MenuItem.IsCheckedProperty, settings.IsChecked);
         }
         
         _menuOptions.Add(newItem);
@@ -187,16 +190,17 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
         });
     }
 
+    public void CreateEditor()
+    {
+        var mainShell = Locator.Current.GetService<ILabManager>()!;
+        mainShell.OpenEditor(Asset);
+    }
+
     public async Task CreateContextMenuAction()
     {
-        // TODO: Rework this so menu gets recreated because if you click on many resources the memory consumption is gonna be pretty high
-        if (_contextMenuCreated)
-        {
-            return;
-        }
+        _menuOptions.Clear();
         
-        _contextMenuCreated = true;
-        await Application.Current.Dispatcher.BeginInvoke(CreateContextMenu, DispatcherPriority.Background);
+        await Dispatcher.UIThread.InvokeAsync(CreateContextMenu, DispatcherPriority.Background);
     }
 
     public void StopRenaming()
@@ -238,11 +242,11 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
         NotifyOfPropertyChange(nameof(IsNotRenaming));
     }
 
-    private void StartDeletingAsset()
+    private async void StartDeletingAsset()
     {
         var result = new OpenDialogueCommand.DialogueResult();
-        var showCommandDialogue = new OpenDialogueCommand(() => new DeleteAssetDialogue(result, this));
-        showCommandDialogue.Execute();
+        var showCommandDialogue = new DeleteAssetDialogue(result, this);
+        await showCommandDialogue.ShowDialog(MiscUtils.GetMainWindow());
         if (result.Result == null)
         {
             return;
@@ -289,11 +293,11 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
         }
     }
 
-    public Visibility IsRenaming => _isRenaming ? Visibility.Visible : Visibility.Collapsed;
+    public Boolean IsRenaming => _isRenaming;
 
-    public Visibility IsNotRenaming => !_isRenaming ? Visibility.Visible : Visibility.Collapsed;
+    public Boolean IsNotRenaming => !_isRenaming;
 
-    public String IconPath => ManifestResourceLoader.GetPathInExe($"Media/LabIcons/{Asset.IconPath}");
+    public Bitmap IconPath => new(ManifestResourceLoader.GetPathInExe($"Media/LabIcons/{Asset.IconPath}"));
 
     public Boolean IsSelected
     {
@@ -330,7 +334,7 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
     
     public ResourceTreeElementViewModel? Parent => _parent;
 
-    public Visibility IsVisible
+    public Boolean IsVisible
     {
         get => _isVisible;
         set
@@ -341,9 +345,9 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
                 NotifyOfPropertyChange();
             }
 
-            if (_isVisible == Visibility.Visible && _parent != null)
+            if (_isVisible && _parent != null)
             {
-                _parent._isVisible = Visibility.Visible;
+                _parent._isVisible = true;
             }
         }
     }

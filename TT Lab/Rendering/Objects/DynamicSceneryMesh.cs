@@ -1,5 +1,6 @@
 using System;
 using GlmSharp;
+using Silk.NET.Maths;
 using TT_Lab.Extensions;
 using TT_Lab.Util;
 using Twinsanity.TwinsanityInterchange.Common.Animation;
@@ -88,8 +89,7 @@ public class DynamicSceneryMesh : Renderable
         var rotationChoiceW = model.RotateW;
         if (transformChoiceX == Enums.TransformType.Animated)
         {
-            currentTranslation.x = _animation.AnimatedTransformations[_currentAnimationFrame]
-                .TransformationValues[animatedIndexCurrentFrame++];
+            currentTranslation.x = _animation.AnimatedTransformations[_currentAnimationFrame].TransformationValues[animatedIndexCurrentFrame++];
             nextTranslation.x = _animation.AnimatedTransformations[nextFrame].TransformationValues[animatedIndexNextFrame++];
         }
         else
@@ -100,8 +100,7 @@ public class DynamicSceneryMesh : Renderable
         
         if (transformChoiceY == Enums.TransformType.Animated)
         {
-            currentTranslation.y = _animation.AnimatedTransformations[_currentAnimationFrame]
-                .TransformationValues[animatedIndexCurrentFrame++];
+            currentTranslation.y = _animation.AnimatedTransformations[_currentAnimationFrame].TransformationValues[animatedIndexCurrentFrame++];
             nextTranslation.y = _animation.AnimatedTransformations[nextFrame].TransformationValues[animatedIndexNextFrame++];
         }
         else
@@ -112,8 +111,7 @@ public class DynamicSceneryMesh : Renderable
         
         if (transformChoiceZ == Enums.TransformType.Animated)
         {
-            currentTranslation.z = _animation.AnimatedTransformations[_currentAnimationFrame]
-                .TransformationValues[animatedIndexCurrentFrame++];
+            currentTranslation.z = _animation.AnimatedTransformations[_currentAnimationFrame].TransformationValues[animatedIndexCurrentFrame++];
             nextTranslation.z = _animation.AnimatedTransformations[nextFrame].TransformationValues[animatedIndexNextFrame++];
         }
         else

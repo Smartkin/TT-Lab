@@ -6,8 +6,9 @@ using System.IO;
 using System.Linq;
 using System.Numerics;
 using GlmSharp;
+using Newtonsoft.Json.Linq;
 using SharpGLTF.Schema2;
-using Silk.NET.Maths;
+using TT_Lab.AssetData.Code;
 using TT_Lab.AssetData.Graphics;
 using TT_Lab.AssetData.Graphics.SubModels;
 using TT_Lab.AssetData.Instance.Collision;
@@ -31,12 +32,12 @@ using VERTEX_BUILDER = SharpGLTF.Geometry.VertexBuilder<SharpGLTF.Geometry.Verte
 [ReferencesAssets]
 public class CollisionData : AbstractAssetData
 {
-    public CollisionData()
+    public CollisionData(IAsset asset) : base(asset)
     {
         Vectors = new List<Vector4>();
     }
 
-    public CollisionData(ITwinCollision collision) : this()
+    public CollisionData(IAsset asset, ITwinCollision collision) : this(asset)
     {
         SetTwinItem(collision);
     }
@@ -72,11 +73,16 @@ public class CollisionData : AbstractAssetData
         Triangles.Clear();
 
         var model = ModelRoot.Load(dataPath);
+        LoadFromGltf(model.LogicalMeshes);
+    }
+
+    public void LoadFromGltf(IReadOnlyList<Mesh> meshes)
+    {
         var indexOffset = 0;
         var assetManager = AssetManager.Get();
         var surfaces = assetManager.GetAllAssetsOf<CollisionSurface>();
         var defaultSurface = surfaces.First();
-        foreach (var mesh in model.LogicalMeshes)
+        foreach (var mesh in meshes)
         {
             foreach (var prim in mesh.Primitives)
             {
@@ -104,7 +110,10 @@ public class CollisionData : AbstractAssetData
     public GltfGeometryWrapper GetMesh(SharpGLTF.Scenes.NodeBuilder root)
     {
         var materials = GetMaterials();
-        var builder = new SharpGLTF.Geometry.MeshBuilder<VERTEX>();
+        var builder = new SharpGLTF.Geometry.MeshBuilder<VERTEX>
+        {
+            Name = "STATIC_COLLISION_MESH"
+        };
         foreach (var collisionTriangle in Triangles)
         {
             var v1 = Vectors[collisionTriangle.Face.Indexes![0]];
@@ -115,7 +124,11 @@ public class CollisionData : AbstractAssetData
                 new VERTEX_BUILDER(new VERTEX(v2.X, v2.Y, v2.Z)),
                 new VERTEX_BUILDER(new VERTEX(v3.X, v3.Y, v3.Z)));
         }
-        return new GltfGeometryWrapper(builder, [(root, Matrix4x4.Identity)]);
+        return new GltfGeometryWrapper(builder, [new GltfBone
+        {
+            Node = root,
+            InverseBindMatrix = Matrix4x4.Identity
+        }]);
     }
 
     public void RebuildBvh()
@@ -180,7 +193,7 @@ public class CollisionData : AbstractAssetData
                 Vector1Index = tri.Face.Indexes![0],
                 Vector2Index = tri.Face.Indexes[1],
                 Vector3Index = tri.Face.Indexes[2],
-                SurfaceIndex = (int)assetManager.GetAsset(tri.Surface).ID
+                SurfaceIndex = (int)assetManager.GetAsset(tri.Surface).ExportTwinID
             };
             twinTri.Write(writer);
         }
@@ -202,7 +215,11 @@ public class CollisionData : AbstractAssetData
         var surfaces = assetManager.GetAllAssetsOf<CollisionSurface>();
         foreach (var surface in surfaces)
         {
-            var surfColor = (Color)surface.Parameters["editor_surface_color"]!;
+            var surfColor = CollisionSurface.DefaultColor;
+            if (surface.Parameters["editor_surface_color"] is JObject colorJson)
+            {
+                surfColor = colorJson.ToObject<Color>()!;
+            }
             var surfaceMaterial = new SharpGLTF.Materials.MaterialBuilder().WithDoubleSide(true)
                 .WithBaseColor(new System.Numerics.Vector4(surfColor.R / 255.0f, surfColor.G / 255.0f, surfColor.B / 255.0f, surfColor.A / 255.0f));
             surfaceMaterial.Name = surface.Name;

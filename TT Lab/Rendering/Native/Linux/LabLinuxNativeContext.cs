@@ -1,3 +1,4 @@
+#if _LINUX
 using System;
 using System.Diagnostics.CodeAnalysis;
 using Silk.NET.Core.Contexts;
@@ -51,3 +52,4 @@ public class LabLinuxNativeContext : IGlContext
     }
     
 }
+#endif

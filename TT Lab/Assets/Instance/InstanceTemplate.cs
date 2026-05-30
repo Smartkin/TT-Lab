@@ -14,7 +14,7 @@ namespace TT_Lab.Assets.Instance
 
         public InstanceTemplate(LabURI package, UInt32 id, String name, String chunk, Int32 layId, ITwinTemplate template) : base(package, id, name, chunk, layId)
         {
-            assetData = new InstanceTemplateData(template);
+            AssetData = new InstanceTemplateData(this, template);
         }
 
         public InstanceTemplate()
@@ -28,13 +28,12 @@ namespace TT_Lab.Assets.Instance
 
         public override AbstractAssetData GetData()
         {
-            if (!IsLoaded || assetData.Disposed)
+            if (!IsLoaded || AssetData.Disposed)
             {
-                assetData = new InstanceTemplateData();
-                assetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
-                IsLoaded = true;
+                AssetData = new InstanceTemplateData(this);
+                AssetData.Load(DataLoadPath);
             }
-            return assetData;
+            return AssetData;
         }
 
         protected override ResourceTreeElementViewModel CreateResourceTreeElement(ResourceTreeElementViewModel? parent = null)

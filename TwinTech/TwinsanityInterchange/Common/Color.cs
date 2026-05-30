@@ -41,7 +41,7 @@ namespace Twinsanity.TwinsanityInterchange.Common
 
         public Byte GetAlphaBasedOnBlend()
         {
-            return AlphaBlendFlag ? (Byte)((A & 127) | (1 << 7)) : A;
+            return AlphaBlendFlag ? (Byte)((A & 127) | (1 << 7)) : (Byte)(A & 127);
         }
         public Byte A { get; set; }
         public Byte R { get; set; }
@@ -92,9 +92,22 @@ namespace Twinsanity.TwinsanityInterchange.Common
             return vec;
         }
 
+        public Color ToPremulAlpha()
+        {
+            R = (byte)((R * A + 127) / 255);
+            G = (byte)((G * A + 127) / 255);
+            B = (byte)((B * A + 127) / 255);
+            return this;
+        }
+
         public UInt32 ToARGB()
         {
             return (UInt32)((A << 24) | (R << 16) | (G << 8) | (B));
+        }
+
+        public UInt32 ToRGBA()
+        {
+            return (UInt32)((R << 24) | (G << 16) | (B << 8) | (A));
         }
         public void FromABGR(UInt32 val)
         {

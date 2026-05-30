@@ -1,24 +1,18 @@
-﻿using Microsoft.WindowsAPICodePack.Dialogs;
-using System;
-using System.Windows;
+﻿using System;
+using System.Diagnostics;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Platform.Storage;
 
 namespace TT_Lab.Command
 {
-    public class SelectFolderCommand : ICommand
+    public class SelectFolderCommand(object target, string textStoragePropName, string startPath = "")
+        : ICommand
     {
-        private readonly object target;
-        private readonly string propName;
-        private readonly string startPath;
-        private readonly Window? owner;
+        private TopLevel? owner;
 
-        public SelectFolderCommand(object target, string textStoragePropName, string startPath = "")
-        {
-            this.target = target;
-            this.startPath = startPath;
-            propName = textStoragePropName;
-        }
-
-        public SelectFolderCommand(Window? owner, object target, string textStoragePropName, string startPath = "")
+        public SelectFolderCommand(TopLevel? owner, object target, string textStoragePropName, string startPath = "")
             : this(target, textStoragePropName, startPath)
         {
             this.owner = owner;
@@ -31,18 +25,35 @@ namespace TT_Lab.Command
             return true;
         }
 
-        public void Execute(object? parameter = null)
+        public async void Execute(object? parameter = null)
         {
-            using CommonOpenFileDialog ofd = new()
+            if (owner == null)
             {
-                IsFolderPicker = true,
-                InitialDirectory = startPath
+                if (Application.Current!.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+                {
+                    owner = desktop.MainWindow;
+                }
+                else if (Application.Current.ApplicationLifetime is ISingleViewApplicationLifetime singleView)
+                {
+                    owner = singleView.MainView as TopLevel;
+                }
+            }
+
+            if (owner == null)
+            {
+                throw new Exception("Unsupported platform!");
+            }
+
+            var folderPickerOptions = new FolderPickerOpenOptions
+            {
+                AllowMultiple = false
             };
-            var dialRes = owner == null ? ofd.ShowDialog() : ofd.ShowDialog(owner);
-            if (dialRes == CommonFileDialogResult.Ok)
+            var folder = await owner.StorageProvider.OpenFolderPickerAsync(folderPickerOptions);
+            if (folder.Count > 0)
             {
-                var prop = target.GetType().GetProperty(propName)!;
-                prop.SetValue(target, ofd.FileName);
+                var prop = target.GetType().GetProperty(textStoragePropName);
+                Debug.Assert(prop != null, $"Invalid property {textStoragePropName}!");
+                prop.SetValue(target, folder[0].Path.LocalPath);
             }
         }
 

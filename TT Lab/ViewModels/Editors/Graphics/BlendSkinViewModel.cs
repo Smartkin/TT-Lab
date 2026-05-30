@@ -3,6 +3,7 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Splat;
 using TT_Lab.AssetData.Graphics;
 using TT_Lab.Assets;
 using TT_Lab.Rendering;
@@ -15,24 +16,22 @@ namespace TT_Lab.ViewModels.Editors.Graphics;
 
 public class BlendSkinViewModel : ResourceEditorViewModel
 {
-    private readonly MeshService _meshService;
     private Single[] shapeWeights;
     private BlendSkinnedMesh _blendSkin;
     private Int32 _selectedMaterial;
     private String _materialName;
 
-    public BlendSkinViewModel(MeshService meshService)
+    public BlendSkinViewModel()
     {
-        _meshService = meshService;
         shapeWeights = new Single[15];
         _materialName = "NO MATERIAL";
 
-        SceneRenderer = IoC.Get<ViewportViewModel>();
-        MaterialViewer = IoC.Get<ViewportViewModel>();
+        SceneRenderer = Locator.Current.GetService<ViewportViewModel>()!;
+        MaterialViewer = Locator.Current.GetService<ViewportViewModel>()!;
             
         SceneRenderer.SceneInitializer = (renderer, scene) =>
         {
-            var blendSkin = _meshService.GetMesh(EditableResource);
+            var blendSkin = renderer.GetRenderContext().MeshService.GetMesh(EditableResource);
             if (blendSkin.Model != null)
             {
                 _blendSkin = (BlendSkinnedMesh)blendSkin.Model;
@@ -41,16 +40,16 @@ public class BlendSkinViewModel : ResourceEditorViewModel
         };
     }
 
-    protected override async Task OnActivateAsync(CancellationToken cancellationToken)
+    protected override async Task OnActivatedAsync(CancellationToken cancellationToken)
     {
-        await ActivateItemAsync(SceneRenderer, cancellationToken);
+        // await ActivateItemAsync(SceneRenderer, cancellationToken);
             
-        await base.OnActivateAsync(cancellationToken);
+        await base.OnActivatedAsync(cancellationToken);
     }
 
     protected override async Task OnDeactivateAsync(bool close, CancellationToken cancellationToken)
     {
-        await DeactivateItemAsync(SceneRenderer, close, cancellationToken);
+        // await DeactivateItemAsync(SceneRenderer, close, cancellationToken);
             
         await base.OnDeactivateAsync(close, cancellationToken);
     }

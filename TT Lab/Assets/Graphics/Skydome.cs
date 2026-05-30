@@ -1,40 +1,43 @@
 ﻿using System;
 using TT_Lab.AssetData;
 using TT_Lab.AssetData.Graphics;
+using TT_Lab.Attributes;
 using TT_Lab.ViewModels.Editors.Graphics;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items;
 
-namespace TT_Lab.Assets.Graphics
+namespace TT_Lab.Assets.Graphics;
+
+[SupportsViewport]
+public class Skydome : SerializableAsset
 {
-    public class Skydome : SerializableAsset
+    protected override bool SetIdFromDataHash => true;
+    protected override string DataExt => ".glb";
+    
+    public override UInt32 Section => Constants.GRAPHICS_SKYDOMES_SECTION;
+    public override String IconPath => "Skybox.png";
+
+    public Skydome(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinSkydome skydome) : base(id, name, package, needVariant, variant)
     {
-        public override UInt32 Section => Constants.GRAPHICS_SKYDOMES_SECTION;
-        public override String IconPath => "Skybox.png";
+        AssetData = new SkydomeData(this, skydome);
+    }
 
-        public Skydome(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinSkydome skydome) : base(id, name, package, needVariant, variant)
-        {
-            assetData = new SkydomeData(skydome);
-        }
+    public Skydome()
+    {
+    }
 
-        public Skydome()
-        {
-        }
+    public override Type GetEditorType()
+    {
+        return typeof(SkydomeViewModel);
+    }
 
-        public override Type GetEditorType()
+    public override AbstractAssetData GetData()
+    {
+        if (!IsLoaded || AssetData.Disposed)
         {
-            return typeof(SkydomeViewModel);
+            AssetData = new SkydomeData(this);
+            AssetData.Load(DataLoadPath);
         }
-
-        public override AbstractAssetData GetData()
-        {
-            if (!IsLoaded || assetData.Disposed)
-            {
-                assetData = new SkydomeData();
-                assetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
-                IsLoaded = true;
-            }
-            return assetData;
-        }
+        return AssetData;
     }
 }

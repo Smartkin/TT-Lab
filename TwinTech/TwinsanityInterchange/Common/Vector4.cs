@@ -36,6 +36,18 @@ namespace Twinsanity.TwinsanityInterchange.Common
             this.W = W;
         }
 
+        public Vector4(uint packedX, uint packedY, uint packedZ)
+        {
+            var baseX = packedX & 0xFFFF;
+            var baseY = packedY & 0xFFFF;
+            var baseZ = packedZ & 0xFFFF;
+            var resultQuat = GetPackedRotationXYZ(baseX, baseY, baseZ);
+            X = resultQuat.X;
+            Y = resultQuat.Y;
+            Z = resultQuat.Z;
+            W = resultQuat.W;
+        }
+
         public Vector4(Vector4 other)
         {
             X = other.X;
@@ -56,6 +68,7 @@ namespace Twinsanity.TwinsanityInterchange.Common
         public void Normalize()
         {
             var length = Length();
+            Debug.Assert(length > 0);
             X /= length;
             Y /= length;
             Z /= length;
@@ -72,6 +85,13 @@ namespace Twinsanity.TwinsanityInterchange.Common
             Y = reader.ReadSingle();
             Z = reader.ReadSingle();
             W = reader.ReadSingle();
+        }
+
+        public void Add(Vector4 vec)
+        {
+            X += vec.X;
+            Y += vec.Y;
+            Z += vec.Z;
         }
 
         public Vector4 Multiply(float value)
@@ -165,6 +185,216 @@ namespace Twinsanity.TwinsanityInterchange.Common
             var vec = new Vector4(c.R / 255f, c.G / 255f, c.B / 255f, c.A / 255f);
             vec.StoresColorWithAlphaBlend = c.AlphaBlendFlag;
             return vec;
+        }
+
+        public static (float, float) GetCosSin(uint packedValue)
+        {
+            var halfPacked = (int)(packedValue * 0.5f);
+            var biasAngle = halfPacked + 8;
+            var coarseIndex = (biasAngle >> 4) & 0x3FF;
+            var fineOffset = biasAngle & 0xF;
+            var quadrant = (biasAngle >> 4) & 0xC00;
+
+            if (quadrant is 0x400 or 0x800 or 0xC00)
+            {
+                if (quadrant is 0x400 or 0xC00)
+                {
+                    coarseIndex = 0x400 - coarseIndex;
+                    fineOffset = 7 - fineOffset;
+                }
+                else
+                {
+                    fineOffset -= 8;
+                }
+            }
+            else
+            {
+                fineOffset -= 8;
+            }
+
+            var angleBase = coarseIndex * 1.5707964f * (1.0f / 1024.0f);
+            var cosBase = (float)Math.Cos(angleBase);
+            var sinBase = (float)Math.Sin(angleBase);
+
+            Single resultX;
+            Single resultY;
+            if (fineOffset == 0)
+            {
+                resultX = cosBase;
+                resultY = sinBase;
+            }
+            else
+            {
+                var delta = 2 * (float)Math.PI * (1.0f / 4096.0f) * 0.0625f * fineOffset;
+
+                resultX = cosBase - delta * sinBase;
+                resultY = sinBase + delta * cosBase;
+            }
+
+            switch (quadrant)
+            {
+                case 0x400:
+                    resultX = -resultX;
+                    break;
+                case 0x800:
+                    resultX = -resultX;
+                    resultY = -resultY;
+                    break;
+                case 0xC00:
+                    resultY = -resultY;
+                    break;
+            }
+            
+            return (resultX, resultY);
+        }
+        
+        public static uint GetAngle(float a, float b)
+        {
+
+            uint result = 0;
+            uint biasAngle = 0;
+            uint coarseIndex = (biasAngle >> 4) & 0x03FF;
+            uint fineOffset = biasAngle & 0xF;
+            uint quadrant = (biasAngle >> 4) & 0x0C00;
+
+            var valX = a;
+            var valY = b;
+            if (valX < 0 && valY < 0)
+            {
+                quadrant = 0x800;
+                valX = -valX;
+                valY = -valY;
+            } else if (valY < 0)
+            {
+                quadrant = 0xC00;
+                valY = -valY;
+            } else
+            {
+                quadrant = 0x400;
+                valX = -valX;
+            }
+
+
+            float delta = 0;
+            fineOffset = 0;
+            var angleBase = MathF.Acos(valX);
+            coarseIndex = (uint)(angleBase * 1024.0f / 1.5707964f);
+            if (quadrant is 0x400 or 0xC00)
+            {
+                coarseIndex = 0x400 - coarseIndex;
+            }
+
+            biasAngle = 0xFFFF0000 | ((quadrant & 0x0C00) << 4 ) | ((coarseIndex & 0x03FF) << 4) | fineOffset & 0xF;
+            result = biasAngle - 8;
+            result *= 2;
+            return result;
+        }
+
+
+
+        private static Vector4 GetPackedRotationYZ(uint baseY, uint baseZ)
+        {
+            if (baseY == 0)
+            {
+                if (baseZ == 0)
+                {
+                    return new Vector4(0, 0, 0, 1);
+                }
+                
+                var components = GetCosSin(baseZ);
+                return new Vector4(0, 0, components.Item1, components.Item2);
+            }
+            
+            if (baseZ == 0)
+            {
+                var components = GetCosSin(baseY);
+                return new Vector4(0, components.Item1, 0, components.Item2);
+            }
+            
+            var componentsY = GetCosSin(baseY);
+            var componentsZ = GetCosSin(baseZ);
+
+            return new Vector4(-componentsY.Item2 * componentsZ.Item2, componentsY.Item2 * componentsZ.Item1,
+                componentsY.Item1 * componentsZ.Item2, componentsY.Item2 * componentsZ.Item1);
+        }
+
+        private static Vector4 GetPackedRotationXZ(uint baseX, uint baseZ)
+        {
+            if (baseX == 0)
+            {
+                if (baseZ == 0)
+                {
+                    return new Vector4(0, 0, 0, 1);
+                }
+                
+                var components = GetCosSin(baseZ);
+                return new Vector4(0, 0, components.Item1, components.Item2);
+            }
+
+            if (baseZ == 0)
+            {
+                var components = GetCosSin(baseX);
+                return new Vector4(components.Item1, 0, 0, components.Item2);
+            }
+            
+            var componentsX = GetCosSin(baseX);
+            var componentsZ = GetCosSin(baseZ);
+
+            return new Vector4(componentsX.Item2 * componentsZ.Item1, componentsX.Item2 * componentsZ.Item2,
+                componentsX.Item1 * componentsZ.Item2, componentsX.Item1 * componentsZ.Item1);
+        }
+
+        private static Vector4 GetPackedRotationXY(uint baseX, uint baseY)
+        {
+            if (baseX == 0)
+            {
+                if (baseY == 0)
+                {
+                    return new Vector4(0, 0, 0, 1);
+                }
+                
+                var components = GetCosSin(baseY);
+                return new Vector4(0, components.Item1, 0, components.Item2);
+            }
+
+            if (baseY == 0)
+            {
+                var components = GetCosSin(baseX);
+                return new Vector4(components.Item1, 0, 0, components.Item2);
+            }
+            
+            var componentsX = GetCosSin(baseX);
+            var componentsY = GetCosSin(baseY);
+
+            return new Vector4(componentsX.Item2 * componentsY.Item1, componentsX.Item1 * componentsY.Item2,
+                -componentsX.Item2 * componentsY.Item2, componentsX.Item1 * componentsY.Item1);
+        }
+
+        private static Vector4 GetPackedRotationXYZ(uint baseX, uint baseY, uint baseZ)
+        {
+            if (baseX == 0)
+            {
+                return GetPackedRotationYZ(baseY, baseZ);
+            }
+
+            if (baseY == 0)
+            {
+                return GetPackedRotationXZ(baseX, baseZ);
+            }
+
+            if (baseZ == 0)
+            {
+                return GetPackedRotationXY(baseX, baseY);
+            }
+            
+            var componentsX = GetCosSin(baseX);
+            var componentsY = GetCosSin(baseY);
+            var componentsZ = GetCosSin(baseZ);
+
+            return new Vector4(componentsZ.Item1 * componentsX.Item2 * componentsY.Item1 - componentsZ.Item2 * componentsX.Item1 * componentsY.Item1,
+                                componentsZ.Item2 * componentsX.Item2 * componentsY.Item1 + componentsZ.Item1 * componentsX.Item1 * componentsY.Item2,
+                                componentsZ.Item2 * componentsX.Item1 * componentsY.Item1 - componentsZ.Item1 * componentsX.Item2 * componentsY.Item2,
+                                componentsZ.Item1 * componentsX.Item1 * componentsY.Item1 + componentsZ.Item2 * componentsX.Item2 * componentsY.Item2);
         }
 
         private String DebuggerDisplay

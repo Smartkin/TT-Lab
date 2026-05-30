@@ -35,8 +35,8 @@ namespace Twinsanity.TwinsanityInterchange.Common.ScenerySubtypes
             {
                 switch (sceneryType)
                 {
-                    // This is pretty tough since these are the only 2 types besides the Root type
-                    // of course a Dictionary Int -> Type could work but I decided to opt for simple
+                    // This is pretty tough since these are the only 2 types besides the Root type.
+                    // Of course a Dictionary Int -> Type could work, but I decided to opt for simple
                     // if checks since I don't see it worth the effort to make a mess out of Read
                     // method calls.
                     //                                                                      ~Smartkin

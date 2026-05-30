@@ -1,17 +1,20 @@
 ﻿using System;
 using System.Runtime.InteropServices;
 using System.Windows;
+using Avalonia;
+using Avalonia.Controls;
 
 namespace TT_Lab.Libraries
 {
-    public static class OsNative
+    public static partial class OsNative
     {
-        [DllImport("User32.dll")]
-        public static extern bool SetCursorPos(int x, int y);
-        
-        [DllImport("user32.dll")]
+        [LibraryImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool GetCursorPos(ref Win32Point pt);
+        public static partial bool SetCursorPos(int x, int y);
+        
+        [LibraryImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static partial bool GetCursorPos(ref Win32Point pt);
 
         [StructLayout(LayoutKind.Sequential)]
         private struct Win32Point
@@ -20,11 +23,11 @@ namespace TT_Lab.Libraries
             public int Y;
         };
         
-        [DllImport("user32.dll")]
-        private static extern void ClipCursor(ref Win32Rect lpRect);
+        [LibraryImport("user32.dll")]
+        private static partial void ClipCursor(ref Win32Rect lpRect);
 
-        [DllImport("user32.dll")]
-        private static extern void ClipCursor(IntPtr lpRect);
+        [LibraryImport("user32.dll")]
+        private static partial void ClipCursor(IntPtr lpRect);
 
         [StructLayout(LayoutKind.Sequential)]
         private struct Win32Rect
@@ -43,10 +46,10 @@ namespace TT_Lab.Libraries
             
             var windowBounds = new Win32Rect
             {
-                Left = (int)window.Left,
-                Top = (int)window.Top,
-                Right = (int)(window.Left + window.Width),
-                Bottom = (int)(window.Top + window.Height)
+                Left = window.Position.X,
+                Top = window.Position.Y,
+                Right = (int)(window.Position.X + window.Width),
+                Bottom = (int)(window.Position.Y + window.Height)
             };
 
             ClipCursor(ref windowBounds);

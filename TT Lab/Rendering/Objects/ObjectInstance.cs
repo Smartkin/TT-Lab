@@ -1,5 +1,6 @@
 ﻿using GlmSharp;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Caliburn.Micro;
 using TT_Lab.AssetData.Code;
@@ -16,40 +17,42 @@ namespace TT_Lab.Rendering.Objects;
 
 public sealed class ObjectInstance : EditableObject
 {
-    private OGI skeleton;
+    private Renderable _skeleton;
     private readonly TwinSkeletonManager _skeletonManager;
     private readonly MeshService _meshService;
     private readonly ObjectInstanceData _instanceData;
 
-    public ObjectInstance(RenderContext context, TwinSkeletonManager skeletonManager, MeshService meshService, string name, ObjectInstanceData instance, vec3 size) : base(context, name, size)
+    public ObjectInstance(RenderContext context, TwinSkeletonManager skeletonManager, MeshService meshService, string name, ObjectInstanceData instance, vec3 size) : base(context, null, name, size)
     {
         _skeletonManager = skeletonManager;
         _meshService = meshService;
         _instanceData = instance;
-        var objURI = _instanceData.ObjectId;
-        SetupModelBuffer(context, objURI);
+        var objUri = _instanceData.ObjectId;
+        SetupModelBuffer(context, objUri);
     }
 
     protected override void InitSceneTransform()
     {
         Pos = new vec3(_instanceData.Position.X, _instanceData.Position.Y, _instanceData.Position.Z);
-        Rot = new vec3(glm.Radians(_instanceData.RotationX.GetRotation()), glm.Radians(_instanceData.RotationY.GetRotation()), glm.Radians(_instanceData.RotationZ.GetRotation()));
+        Rot = new vec3(glm.Radians(_instanceData.Rotation.X), glm.Radians(_instanceData.Rotation.Y), glm.Radians(_instanceData.Rotation.Z));
     }
 
+    [MemberNotNull(nameof(_skeleton))]
     private void SetupModelBuffer(RenderContext context, LabURI uri)
     {
         var assetManager = AssetManager.Get();
         var objData = assetManager.GetAssetData<GameObjectData>(uri);
         if (objData.OGISlots.All(ogiUri => ogiUri == LabURI.Empty))
         {
-            skeleton = new OGI(Context, _skeletonManager, _meshService, assetManager.GetAssetData<OGIData>(IoC.Get<ProjectManager>().OpenedProject!.Ps2Package.URI, nameof(Assets.Code.OGI), null, 0));
-            AddChild(skeleton);
+            _skeleton = _meshService.GetMesh(LabURI.Box).Model!;
+            _skeleton.Scale(vec3.Ones * 0.5f);
+            AddChild(_skeleton);
             return;
         }
         
-        var ogiURI = objData.OGISlots.First(ogiUri => ogiUri != LabURI.Empty);
-        var ogiData = assetManager.GetAssetData<OGIData>(ogiURI);
-        skeleton = new OGI(context, _skeletonManager, _meshService, ogiData);
-        AddChild(skeleton);
+        var ogiUri = objData.OGISlots.First(ogiUri => ogiUri != LabURI.Empty);
+        var ogiData = assetManager.GetAssetData<OGIData>(ogiUri);
+        _skeleton = new OGI(context, _skeletonManager, _meshService, ogiData);
+        AddChild(_skeleton);
     }
 }

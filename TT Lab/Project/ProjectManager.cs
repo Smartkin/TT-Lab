@@ -5,8 +5,11 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Windows.Controls;
-using System.Windows.Data;
+using Avalonia.Controls;
+using Avalonia.Data;
+using Avalonia.Threading;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using TT_Lab.AssetData;
 using TT_Lab.Assets;
 using TT_Lab.Command;
@@ -35,19 +38,19 @@ namespace TT_Lab.Project
 
         public ProjectManager(IEventAggregator eventAggregator)
         {
-            BindingOperations.EnableCollectionSynchronization(_projectTree, _treeLock);
+            // BindingOperations.EnableCollectionSynchronization(_projectTree, _treeLock);
             _eventAggregator = eventAggregator;
 
-            var recents = Properties.Settings.Default.RecentProjects;
-            if (recents == null)
-            {
-                return;
-            }
-            
-            foreach (var recent in recents)
-            {
-                _recentMenus.Add(GenerateRecentMenu(recent!));
-            }
+            // var recents = Properties.Settings.Default.RecentProjects;
+            // if (recents == null)
+            // {
+            //     return;
+            // }
+            //
+            // foreach (var recent in recents)
+            // {
+            //     _recentMenus.Add(GenerateRecentMenu(recent!));
+            // }
         }
 
         public IProject? OpenedProject
@@ -243,11 +246,40 @@ namespace TT_Lab.Project
                 Log.WriteLine("Unpacking XBox assets...");
                 OpenedProject.UnpackAssetsXbox();
 
-                Log.WriteLine($"Converting assets...");
-                foreach (var asset in OpenedProject.AssetManager.GetAssets())
+                Log.WriteLine($"Importing assets...");
+                var query = from asset in OpenedProject.AssetManager.GetAssets()
+                    group asset by asset.Type;
+                var assetTypesQuery = query as IGrouping<Type, IAsset>[] ?? query.ToArray();
+                var tasks = new Task[assetTypesQuery.Length];
+                var index = 0;
+                var startAsset = DateTime.Now;
+                foreach (var group in assetTypesQuery)
                 {
-                    asset.Import();
+                    tasks[index++] = Task.Factory.StartNew(() =>
+                    {
+                        Log.WriteLine($"Importing {group.Key.Name}...");
+                        var now = DateTime.Now;
+#if !DEBUG
+                    try
+                    {
+#endif
+                        foreach (var asset in group)
+                        {
+                            asset.Import();
+                        }
+#if !DEBUG
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.WriteLine($"Error serializing: {ex.Message}");
+                    }
+#endif
+                        var span = DateTime.Now - now;
+                        Log.WriteLine($"Finished importing {group.Key.Name} in {span}");
+                    });
                 }
+
+                Task.WaitAll(tasks);
                 var assetsToImport = OpenedProject.AssetManager.GetAssetsToImport();
                 while (!assetsToImport.IsEmpty)
                 {
@@ -260,17 +292,26 @@ namespace TT_Lab.Project
                     }
                     assetsToImport = OpenedProject.AssetManager.GetAssetsToImport();
                 }
+                
+                Log.WriteLine($"Imported assets in {(DateTime.Now - startAsset)}");
 
                 Log.WriteLine("Serializing assets...");
                 OpenedProject.Serialize(); // Call to serialize the asset list and chunk list
 
+                Log.WriteLine("Post processing assets...");
+                var assetsToPostProcess = OpenedProject.AssetManager.GetAssets();
+                foreach (var asset in assetsToPostProcess)
+                {
+                    asset.PostDeserialize();
+                }
+
                 Log.WriteLine("Building project tree...");
                 BuildProjectTree();
 
-                Execute.OnUIThread(() =>
+                Dispatcher.UIThread.Invoke(() =>
                 {
                     AddRecentlyOpened(OpenedProject.ProjectPath);
-                });
+                }, DispatcherPriority.Background);
                 
                 WorkableProject = true;
                 IsCreatingProject = false;
@@ -338,7 +379,7 @@ namespace TT_Lab.Project
                         }
                         catch (Exception ex)
                         {
-                            Log.WriteLine($"Error opening project: {ex.Message}\n{ex.StackTrace}");
+                            Log.WriteLine($"Error opening project: {ex.Message}");
                         }
 #endif
                 });
@@ -360,7 +401,16 @@ namespace TT_Lab.Project
             Task.Factory.StartNew(() =>
             {
                 var pr = OpenedProject!;
+#if !DEBUG
+                try {
+#endif
                 pr.PackAssetsPS2();
+#if !DEBUG
+                } catch (Exception ex)
+                {
+                    Log.WriteLine($"Error building PS2 project: {ex.Message}");
+                }
+#endif
                 WorkableProject = true;
             });
         }
@@ -371,18 +421,22 @@ namespace TT_Lab.Project
             Task.Factory.StartNew(() =>
             {
                 var pr = OpenedProject!;
+#if !DEBUG
+                try {
+#endif
                 pr.CreatePs2ArchivesAndIso();
+#if !DEBUG
+                } catch (Exception ex)
+                {
+                    Log.WriteLine($"Error creating PS2 ISO: {ex.Message}");
+                }
+#endif
                 WorkableProject = true;
             });
         }
 
         public void CloseProject()
         {
-            // if (OpenedProject != null)
-            // {
-            //     _ogreWindowManager.RemoveResourceLocation($"{OpenedProject.ProjectPath}/assets");
-            // }
-            
             OpenedProject = null;
             WorkableProject = false;
             ProjectTree.Clear();
@@ -412,58 +466,108 @@ namespace TT_Lab.Project
 
         private void BuildProjectTree()
         {
-            var tree = (from asset in OpenedProject!.AssetManager.GetAssets()
-                        where asset is Folder
-                        let folder = (Folder)asset
-                        where folder.GetData().To<FolderData>().Parent == null
-                        orderby folder.Order
-                        select folder.GetResourceTreeElement());
-            ProjectTree = new BindableCollection<ResourceTreeElementViewModel>(tree);
+            var root = new Folder(OpenedProject!.Name)
+            {
+                Mark = FolderMark.Locked
+            };
+            
+            var assetRoot = $"{OpenedProject!.ProjectPath}";
+            var dirInfo = new DirectoryInfo(assetRoot);
+            ExploreFolder(root, dirInfo, false);
+            ProjectTree = new BindableCollection<ResourceTreeElementViewModel>(root.Children.Select(uri => OpenedProject!.AssetManager.GetAsset(uri).GetResourceTreeElement()));
             _internalTree.AddRange(ProjectTree);
             _eventAggregator.PublishOnUIThreadAsync(new ProjectManagerMessage(nameof(ProjectTree)));
         }
 
+        private static readonly string[] _reservedLockedDirectories = ["assets", "disc", "build"];
+        private void ExploreFolder(Folder folder, DirectoryInfo directory, bool setFolderAsParent = true)
+        {
+            
+            var serializer = JsonSerializer.Create();
+            var hasChunk = false;
+            foreach (var fileInfo in directory.GetFiles("*.json"))
+            {
+                using var reader = new JsonTextReader(new StreamReader(fileInfo.FullName));
+                var deserialized = (JObject)serializer.Deserialize(reader)!;
+                var assetType = deserialized["Type"]!.ToObject<Type>();
+                var assetUri = deserialized["URI"]!.ToObject<LabURI>()!;
+                if (assetType == typeof(Package))
+                {
+                    folder.Mark |= FolderMark.IsPackage;
+                    folder.Mark |= FolderMark.Locked;
+                    folder.Mark &= ~FolderMark.Normal;
+                    folder.Package = assetUri;
+                    continue;
+                }
+
+                if (assetType == typeof(LevelChunk))
+                {
+                    hasChunk = true;
+                    folder.Mark |= FolderMark.IsChunk;
+                }
+                folder.AddChild(assetUri);
+            }
+
+            if (hasChunk)
+            {
+                return;
+            }
+            
+            foreach (var assetDirectory in directory.GetDirectories())
+            {
+                var directoryName = assetDirectory.Name;
+                var newFolder = new Folder(directoryName)
+                {
+                    Parent = setFolderAsParent ? folder.URI : LabURI.Empty,
+                    Mark = _reservedLockedDirectories.Contains(directoryName) ? FolderMark.Locked : FolderMark.Normal
+                };
+                OpenedProject!.AssetManager.AddAsset(newFolder);
+                folder.AddChild(newFolder);
+                ExploreFolder(newFolder, assetDirectory);
+            }
+        }
+
         private void AddRecentlyOpened(string path)
         {
-            var recents = Properties.Settings.Default.RecentProjects;
-            if (recents == null)
-            {
-                recents = new System.Collections.Specialized.StringCollection();
-                Properties.Settings.Default.RecentProjects = recents;
-            }
-            if (!recents.Contains(path))
-            {
-                recents.Insert(0, path);
-                RecentlyOpened.Insert(0, GenerateRecentMenu(path));
-                // Store only last 10 paths
-                if (recents.Count > 10)
-                {
-                    recents.RemoveAt(10);
-                    RecentlyOpened.RemoveAt(10);
-                }
-            }
-            else
-            {
-                var index = recents.IndexOf(path);
-                recents.RemoveAt(index);
-                RecentlyOpened.RemoveAt(index);
-                recents.Insert(0, path);
-                RecentlyOpened.Insert(0, GenerateRecentMenu(path));
-            }
-            _eventAggregator.PublishOnUIThreadAsync(new ProjectManagerMessage(nameof(RecentlyOpened)));
-            _eventAggregator.PublishOnUIThreadAsync(new ProjectManagerMessage(nameof(HasRecents)));
+            // var recents = Properties.Settings.Default.RecentProjects;
+            // if (recents == null)
+            // {
+            //     recents = new System.Collections.Specialized.StringCollection();
+            //     Properties.Settings.Default.RecentProjects = recents;
+            // }
+            // if (!recents.Contains(path))
+            // {
+            //     recents.Insert(0, path);
+            //     RecentlyOpened.Insert(0, GenerateRecentMenu(path));
+            //     // Store only last 10 paths
+            //     if (recents.Count > 10)
+            //     {
+            //         recents.RemoveAt(10);
+            //         RecentlyOpened.RemoveAt(10);
+            //     }
+            // }
+            // else
+            // {
+            //     var index = recents.IndexOf(path);
+            //     recents.RemoveAt(index);
+            //     RecentlyOpened.RemoveAt(index);
+            //     recents.Insert(0, path);
+            //     RecentlyOpened.Insert(0, GenerateRecentMenu(path));
+            // }
+            // _eventAggregator.PublishOnUIThreadAsync(new ProjectManagerMessage(nameof(RecentlyOpened)));
+            // _eventAggregator.PublishOnUIThreadAsync(new ProjectManagerMessage(nameof(HasRecents)));
         }
 
         private void RemoveRecentlyOpened(string path)
         {
-            if (Properties.Settings.Default.RecentProjects == null || !Properties.Settings.Default.RecentProjects.Contains(path)) return;
-
-            var recents = Properties.Settings.Default.RecentProjects;
-            var recentIdx = recents.IndexOf(path);
-            recents.Remove(path);
-            RecentlyOpened.RemoveAt(recentIdx);
-            _eventAggregator.PublishOnUIThreadAsync(new ProjectManagerMessage(nameof(RecentlyOpened)));
-            _eventAggregator.PublishOnUIThreadAsync(new ProjectManagerMessage(nameof(HasRecents)));
+            // if (Properties.Settings.Default.RecentProjects == null || !Properties.Settings.Default.RecentProjects.Contains(path)) return;
+            //
+            // var recents = Properties.Settings.Default.RecentProjects;
+            // var recentIdx = recents.IndexOf(path);
+            // recents.Remove(path);
+            // RecentlyOpened.RemoveAt(recentIdx);
+            // _eventAggregator.PublishOnUIThreadAsync(new ProjectManagerMessage(nameof(RecentlyOpened)));
+            // _eventAggregator.PublishOnUIThreadAsync(new ProjectManagerMessage(nameof(HasRecents)));
         }
 
         private static MenuItem GenerateRecentMenu(String recentPath)
@@ -472,10 +576,8 @@ namespace TT_Lab.Project
             {
                 Header = $"{recentPath}",
                 Command = new OpenProjectCommand(recentPath),
-                HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch,
-                VerticalAlignment = System.Windows.VerticalAlignment.Center,
-                HorizontalContentAlignment = System.Windows.HorizontalAlignment.Stretch,
-                VerticalContentAlignment = System.Windows.VerticalAlignment.Center,
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
             };
         }
     }

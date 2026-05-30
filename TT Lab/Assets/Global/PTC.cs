@@ -4,43 +4,42 @@ using TT_Lab.AssetData.Global;
 using TT_Lab.Assets.Graphics;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 
-namespace TT_Lab.Assets.Global
+namespace TT_Lab.Assets.Global;
+
+public class PTC : GlobalAsset
 {
-    public class PTC : SerializableAsset
+    protected override String TwinDataExt => "ptc";
+    public override UInt32 Section => throw new NotImplementedException();
+    public override String IconPath => "PTC.png";
+
+    public PTC() { }
+
+    public PTC(LabURI package, Boolean needVariant, String variant, String name, ITwinPTC ptc) : base((UInt32)Guid.NewGuid().GetHashCode(), name, package, needVariant, variant)
     {
-        protected override String TwinDataExt => "ptc";
-        public override UInt32 Section => throw new NotImplementedException();
-        public override String IconPath => "PTC.png";
+        AssetData = new PTCData(this, ptc);
+    }
 
-        public PTC() { }
-
-        public PTC(LabURI package, Boolean needVariant, String variant, String name, ITwinPTC ptc) : base((UInt32)Guid.NewGuid().GetHashCode(), name, package, needVariant, variant)
+    public override AbstractAssetData GetData()
+    {
+        if (!IsLoaded || AssetData.Disposed)
         {
-            assetData = new PTCData(ptc);
+            AssetData = new PTCData(this);
+            AssetData.Load(DataLoadPath);
         }
+        return AssetData;
+    }
 
-        public override AbstractAssetData GetData()
-        {
-            if (!IsLoaded || assetData.Disposed)
-            {
-                assetData = new PTCData();
-                assetData.Load(System.IO.Path.Combine("assets", SavePath, Data));
-                IsLoaded = true;
-            }
-            return assetData;
-        }
+    public override void PreResolveResources()
+    {
+        base.PreResolveResources();
+        
+        var data = (PTCData)GetData();
+        AssetManager.Get().GetAsset<Texture>(data.TextureID).PreResolveResources();
+        AssetManager.Get().GetAsset<Material>(data.MaterialID).PreResolveResources();
+    }
 
-        public override void PreResolveResources()
-        {
-            base.PreResolveResources();
-            PTCData data = (PTCData)GetData();
-            AssetManager.Get().GetAsset<Texture>(data.TextureID).PreResolveResources();
-            AssetManager.Get().GetAsset<Material>(data.MaterialID).PreResolveResources();
-        }
-
-        public override Type GetEditorType()
-        {
-            throw new NotImplementedException();
-        }
+    public override Type GetEditorType()
+    {
+        throw new NotImplementedException();
     }
 }

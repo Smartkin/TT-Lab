@@ -1,0 +1,37 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:TT_Lab.Controls"
+             xmlns:controls1="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+             xmlns:cameras="clr-namespace:TT_Lab.Views.Editors.Instance.Cameras"
+             xmlns:composite="clr-namespace:TT_Lab.Views.Composite"
+             xmlns:vm="clr-namespace:TT_Lab.ViewModels.Editors.Instance.Cameras"
+             x:DataType="vm:BossCameraViewModel"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Views.Editors.Instance.Cameras.BossCameraView">
+    <controls1:GroupBox>
+        <StackPanel Orientation="Vertical">
+            <cameras:BaseCameraView DataContext="{Binding}"/>
+            <controls1:GroupBox Header="Parameters">
+                <StackPanel Orientation="Vertical">
+                    <controls:LabeledTextBox HorizontalAlignment="Stretch" TextBoxName="Unknown float 3" Text="{Binding UnkFloat3}"/>
+                    <controls:LabeledTextBox HorizontalAlignment="Stretch" TextBoxName="Unknown float 4" Text="{Binding UnkFloat4}"/>
+                    <controls:LabeledTextBox HorizontalAlignment="Stretch" TextBoxName="Unknown float 5" Text="{Binding UnkFloat5}"/>
+                    <controls:LabeledTextBox HorizontalAlignment="Stretch" TextBoxName="Unknown float 6" Text="{Binding UnkFloat6}"/>
+                    <controls:LabeledTextBox HorizontalAlignment="Stretch" TextBoxName="Unknown byte 1" Text="{Binding UnkByte1}"/>
+                    <controls:LabeledTextBox HorizontalAlignment="Stretch" TextBoxName="Unknown byte 2" Text="{Binding UnkByte2}"/>
+                </StackPanel>
+            </controls1:GroupBox>
+            <controls1:GroupBox Header="Unknown Matrix 1">
+                <composite:Matrix4View DataContext="{Binding UnkMatrix1}"/>
+            </controls1:GroupBox>
+            <controls1:GroupBox Header="Unknown Matrix 2">
+                <composite:Matrix4View DataContext="{Binding UnkMatrix2}"/>
+            </controls1:GroupBox>
+            <controls1:GroupBox Header="Unknown Vector">
+                <composite:Vector4View DataContext="{Binding UnkVec}"/>
+            </controls1:GroupBox>
+        </StackPanel>
+    </controls1:GroupBox>
+</UserControl>
