@@ -24,4 +24,14 @@ public class Matrix4FieldViewModel : DocumentDataViewModel<Matrix4>
         V3 = new Vector4FieldViewModel(document, Property.Find("Column3")!, this);
         V4 = new Vector4FieldViewModel(document, Property.Find("Column4")!, this);
     }
+
+    protected override void OnCurrentValueChanged()
+    {
+        V1.SetValueCommand.Execute(Property.Find("Column1")!.GetValue<Vector4>());
+        V2.SetValueCommand.Execute(Property.Find("Column2")!.GetValue<Vector4>());
+        V3.SetValueCommand.Execute(Property.Find("Column3")!.GetValue<Vector4>());
+        V4.SetValueCommand.Execute(Property.Find("Column4")!.GetValue<Vector4>());
+        
+        base.OnCurrentValueChanged();
+    }
 }

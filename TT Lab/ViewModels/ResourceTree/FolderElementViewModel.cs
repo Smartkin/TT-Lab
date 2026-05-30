@@ -75,7 +75,7 @@ public class FolderElementViewModel : ResourceTreeElementViewModel
             RegisterMenuItem(new MenuItemSettings
             {
                 Header = "Build chunk",
-                Action = RebuildChunk
+                Action = async () => await RebuildChunk()
             });
             RegisterMenuItem(new MenuItemSettings
             {
@@ -116,11 +116,42 @@ public class FolderElementViewModel : ResourceTreeElementViewModel
                 IsChecked = binding
             });
         }
+        else
+        {
+            RegisterMenuItem(new MenuItemSettings
+            {
+                Header = "Build contained chunks",
+                Action = BuildContainedChunks
+            });
+        }
         
         if (!mark.HasFlag(FolderMark.Locked))
         {
             base.CreateContextMenu();
         }
+    }
+    
+    private async void BuildContainedChunks()
+    {
+        if (Children == null)
+        {
+            return;
+        }
+        
+        Log.WriteLine("Started building contained chunks...");
+        foreach (var child in Children)
+        {
+            if (child is not FolderElementViewModel folder)
+            {
+                continue;
+            }
+
+            if (folder.GetMark().HasFlag(FolderMark.IsChunk))
+            {
+                await folder.RebuildChunk();
+            }
+        }
+        Log.WriteLine("Finished building contained chunks...");
     }
 
     private void OpenPackageSettings()
@@ -234,7 +265,7 @@ public class FolderElementViewModel : ResourceTreeElementViewModel
         }
     }
 
-    private async void RebuildChunk()
+    private async Task RebuildChunk()
     {
         try
         {

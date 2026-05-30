@@ -2,6 +2,8 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Reactive;
+using System.Reactive.Linq;
 using System.Reflection;
 using TT_Lab.Assets;
 using TT_Lab.Attributes;
@@ -11,13 +13,29 @@ namespace TT_Lab.ViewModels.Editors.PropertyGraph;
 
 public class PropertyNode
 {
+    private bool _isReadOnly;
+    
     public event Action? Changed;
+    public event Action? ReadOnlyChanged;
     
     public string Name { get; }
     public string Path { get; internal set; }
-    public bool IsReadOnly { get; set; }
+    public bool IsReadOnly
+    {
+        get => _isReadOnly;
+        set
+        {
+            if (_isReadOnly == value)
+            {
+                return;
+            }
+            
+            _isReadOnly = value;
+            ReadOnlyChanged?.Invoke();
+        }
+    }
     public PropertyGraph? Graph { get; private set; }
-    public object Target { get; private set; }
+    public object Target { get; internal set; }
     public PropertyMetadata? Metadata { get; }
     public int? Index { get; internal set; }
     public Type PropertyType { get; }
@@ -43,15 +61,25 @@ public class PropertyNode
 
     internal void InitPropertyLinks()
     {
+        foreach (var childNode in Children)
+        {
+            childNode.InitPropertyLinks();
+        }
+        
         var links = Metadata?.FieldReactors;
         if (links == null)
+        {
+            return;
+        }
+        
+        if (Parent == null)
         {
             return;
         }
 
         foreach (var (prop, reactors) in links)
         {
-            var linkedProp = Find(prop);
+            var linkedProp = Parent.Find(prop);
             if (linkedProp == null)
             {
                 Log.WriteLine($"Linked property {prop} not found!", Log.LogType.Warning);
@@ -60,6 +88,8 @@ public class PropertyNode
             
             _fieldReactorHandlers.Add(linkedProp, () => LinkedPropOnChanged(linkedProp, reactors));
             linkedProp.Changed += _fieldReactorHandlers[linkedProp];
+            
+            LinkedPropOnChanged(linkedProp, reactors);
         }
     }
 
@@ -101,8 +131,9 @@ public class PropertyNode
         {
             nodeMetadata = nodeMetadata with { ContainedTypeConstructor = null };
         }
-        var node = PropertyGraphBuilder.BuildNode(list, nodeMetadata, childPath, innerType: addedValue.GetType(), index: Children.Count);
+        var node = PropertyGraphBuilder.BuildNode(list, nodeMetadata, childPath, Graph!.Tracker, innerType: addedValue.GetType(), index: Children.Count);
         AddChild(node);
+        Graph.Index(node);
         RaiseGraphChange(null, addedValue);
         return node;
     }
@@ -114,24 +145,12 @@ public class PropertyNode
             return;
         }
         
+        Graph!.Deindex(this);
         list.Remove(value.GetValue());
         Children.Remove(value);
         PropertyGraphBuilder.RebuildCollection(this);
+        Graph.Index(this);
         RaiseGraphChange(value, null);
-    }
-
-    public void RemoveElement(int index)
-    {
-        if (GetValue() is not IList list)
-        {
-            return;
-        }
-        
-        var oldValue = list[index];
-        list.RemoveAt(index);
-        Children.RemoveAt(index);
-        PropertyGraphBuilder.RebuildCollection(this);
-        RaiseGraphChange(oldValue, null);
     }
 
     public T? GetValue<T>()
@@ -168,6 +187,11 @@ public class PropertyNode
     public void SetValue(object? value)
     {
         var oldValue = GetValue();
+        if (oldValue?.Equals(value) == true || (value == null && oldValue == null))
+        {
+            return;
+        }
+        
         if (SetValueDelegate != null)
         {
             SetValueDelegate(this, value);
@@ -179,6 +203,10 @@ public class PropertyNode
         if (Index.HasValue && Target is IList list)
         {
             list[Index.Value] = value;
+            foreach (var childNode in Children)
+            {
+                childNode.Target = value;
+            }
             RaiseGraphChange(oldValue, value);
             return;
         }
@@ -203,6 +231,7 @@ public class PropertyNode
         foreach (var childNode in Children)
         {
             childNode.Target = newTarget;
+            childNode.UpdateChildrenTarget(childNode.GetValue());
         }
     }
 

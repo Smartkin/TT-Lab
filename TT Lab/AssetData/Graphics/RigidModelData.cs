@@ -296,9 +296,10 @@ public class RigidModelData : AbstractAssetData
         assetManager.GetAsset(Model).ResolveChunkResources(factory, modelsSection);
     }
 
-    public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, UInt32 id, Int32? layoutID = null)
+    public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, uint id,
+        int? layoutId = null)
     {
         ResolveResources(factory, section);
-        return base.ResolveChunkResources(factory, section, id, layoutID);
+        return base.ResolveChunkResources(factory, section, id, layoutId);
     }
 }

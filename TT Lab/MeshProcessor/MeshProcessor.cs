@@ -19,20 +19,16 @@ public static class MeshProcessor
     /// Stripifies the entire mesh then splits it into substrips
     /// </summary>
     /// <param name="mesh">Mesh to process</param>
-    public static void ProcessMesh(Mesh mesh)
+    /// <param name="useOptimalStrips">Uses a better algorithm to stripify but some meshes may look incorrectly</param>
+    public static void ProcessMesh(Mesh mesh, bool useOptimalStrips = true)
     {
-        StripifyMesh(mesh);
+        StripifyMesh(mesh, useOptimalStrips);
         BuildMeshletsForStrip(mesh);
     }
 
-    /// <summary>
-    /// Stripifies the entire mesh and puts the strip in a single meshlet. Removes all the previously created meshlets
-    /// </summary>
-    /// <param name="mesh"></param>
-    public static void StripifyMesh(Mesh mesh)
+    private static void StripifyMesh(Mesh mesh, bool useOptimalStrips = true)
     {
-        mesh.Meshlets.Clear();
-        var strip = MeshOptimizer.Stripify(GetMeshIndices(mesh), (UInt32)mesh.GetVertices().Count);
+        var strip = MeshOptimizer.Stripify(GetMeshIndices(mesh), (UInt32)mesh.GetVertices().Count, useOptimalStrips);
         var meshlet = new Meshlet
         {
             Strip = strip,
@@ -53,11 +49,27 @@ public static class MeshProcessor
         for (var i = 0; i < strip.Count; ++i)
         {
             var idx = strip[i];
+            var needStitching = true;
             currentIdxs.Add(idx);
 
-            if (i < finalIdx && currentIdxs.Count < TwinVIFCompiler.VertexStripCache)
+            var earlyFlush = idx == 0xFFFF && currentIdxs.Count >= TwinVIFCompiler.VertexStripCache - 6;
+            if (i < finalIdx && currentIdxs.Count <= TwinVIFCompiler.VertexStripCache && !earlyFlush)
             {
                 continue;
+            }
+
+            if (currentIdxs.Count < 3)
+            {
+                resultingMeshlets[^1].Strip.AddRange(currentIdxs);
+                currentIdxs.Clear();
+                continue;
+            }
+
+            // If we end where strip ends then no stitching is required which saves 2 vertices
+            if (currentIdxs[^1] == 0xFFFF)
+            {
+                currentIdxs.RemoveAt(currentIdxs.Count - 1);
+                needStitching = false;
             }
             
             var meshlet = new Meshlet
@@ -67,13 +79,21 @@ public static class MeshProcessor
                 BlendFaces = mesh.GetBlendFaces(),
                 Indices = meshIndices.ToList()
             };
+            meshlet.CalculateNormals();
             resultingMeshlets.Add(meshlet);
-
-            var v1 = currentIdxs[^2];
-            var v2 = currentIdxs[^1];
             
-            var winding = ((currentIdxs.Count - 2) % 2) == 1;
+            var winding = currentIdxs.Count % 2 == 1;
+            var v1 = currentIdxs[^1];
+            var v2 = currentIdxs[^2];
+            
             currentIdxs.Clear();
+
+            if (!needStitching)
+            {
+                continue;
+            }
+
+            // TODO: Verify that Twins actually cares about winding, if not just leave adding 2 extra vertices in whatever order
             if (!winding)
             {
                 currentIdxs.Add(v1);
@@ -94,9 +114,9 @@ public static class MeshProcessor
         List<UInt32> indices = new();
         foreach (var face in mesh.GetFaces())
         {
-            indices.Add((UInt32)face.Indexes![0]);
-            indices.Add((UInt32)face.Indexes[1]);
-            indices.Add((UInt32)face.Indexes[2]);
+            indices.Add((ushort)face.Indexes![0]);
+            indices.Add((ushort)face.Indexes[1]);
+            indices.Add((ushort)face.Indexes[2]);
         }
 
         return indices;

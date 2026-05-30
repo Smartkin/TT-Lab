@@ -13,7 +13,6 @@ public class RotationGizmo : Gizmo
 
     public RotationGizmo(RenderContext renderContext, EditingContext editingContext) : base(renderContext, editingContext)
     {
-        RenderNode.SetInheritRotation(false);
         var gizmoRootNode = new Node(renderContext, RenderNode);
         for (var j = 0; j < 3; ++j)
         {

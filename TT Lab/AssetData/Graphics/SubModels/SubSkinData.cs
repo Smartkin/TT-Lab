@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Graphics;
 using TT_Lab.Attributes;
@@ -29,35 +31,59 @@ public class SubSkinData : IDisposable
         Vertexes = new List<Vertex>();
         Faces = new List<IndexedFace>();
 
-        Int32 refIndex = 0;
         subSkin.CalculateData();
-        for (var i = 0; i < subSkin.Vertexes.Count; ++i)
+        var winding = false;
+        var e = subSkin;
+        var tempFaceList = new List<IndexedFace>();
+        for (var j = 2; j < e.Vertexes.Count; ++j)
         {
-            if (i < subSkin.Vertexes.Count - 2)
+            if (!e.SkinJoints[j].Connection)
             {
-                if (subSkin.SkinJoints[i + 2].Connection)
-                {
-                    if (i % 2 == 0)
-                    {
-                        int[] triIndices = [refIndex, refIndex + 1, refIndex + 2];
-                        Faces.Add(new IndexedFace(triIndices));
-                    }
-                    else
-                    {
-                        int[] triIndices = [refIndex + 1, refIndex, refIndex + 2];
-                        Faces.Add(new IndexedFace(triIndices));
-                    }
-                }
-                ++refIndex;
+                winding = !winding;
+                continue;
             }
-            Vertexes.Add(new Vertex(subSkin.Vertexes[i], subSkin.Colors[i], subSkin.UVW[i], subSkin.Colors[i])
+
+            int[] triIndices;
+            if (!winding)
             {
-                JointInfo = CloneUtils.Clone(subSkin.SkinJoints[i])
-            });
+                triIndices = [j - 2, j - 1, j];
+            }
+            else
+            {
+                triIndices = [j - 1, j - 2, j];
+            }
+            
+            tempFaceList.Add(new IndexedFace(triIndices));
+            winding = !winding;
+        }
+        
+        foreach (var face in tempFaceList)
+        {
+            var verIdx = 0;
+            var newFace = new IndexedFace(0, 0, 0);
+            foreach (var j in face.Indexes!)
+            {
+                var ver = GetVertexFromSubSkin(subSkin, j);
+
+                if (!Vertexes.Contains(ver))
+                {
+                    Vertexes.Add(ver);
+                }
+                newFace.Indexes![verIdx++] = Vertexes.IndexOf(ver);
+            }
+            Faces.Add(newFace);
         }
 
         Mesh = MeshProcessor.MeshProcessor.CreateMesh(Vertexes, Faces);
         MeshProcessor.MeshProcessor.ProcessMesh(Mesh);
+    }
+
+    private static Vertex GetVertexFromSubSkin(ITwinSubSkin subSkin, int i)
+    {
+        return new Vertex(subSkin.Vertexes[i], subSkin.Colors[i], subSkin.UVW[i], subSkin.Colors[i])
+        {
+            JointInfo = CloneUtils.Clone(subSkin.SkinJoints[i])
+        };
     }
 
     public SubSkinData(LabURI material, List<Vertex> vertexes, List<IndexedFace> faces)

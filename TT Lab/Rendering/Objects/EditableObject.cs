@@ -25,8 +25,8 @@ public class EditableObject : Renderable
     protected vec3 Size;
     protected vec3 Offset;
     protected bool Selected;
-    protected vec4 SelectedColor = new(0.3f, 0.3f, 0.3f, 1.0f);
-    protected vec4 UnselectedColor = new(1.0f, 1.0f, 1.0f, 1.0f);
+    public vec4 SelectedColor { get; set; } = new(0.3f, 0.3f, 0.3f, 1.0f);
+    public vec4 UnselectedColor { get; set; } = new(1.0f, 1.0f, 1.0f, 1.0f);
 
     public EditableObject(RenderContext context, Renderable visual, string name, vec3 offset = new(), vec3 size = new()) : base(context, name)
     {
@@ -95,7 +95,7 @@ public class EditableObject : Renderable
 
     public vec3 GetSize()
     {
-        return Size * Scl;
+        return Size;
     }
 
     public vec3 GetOffset()
@@ -136,7 +136,7 @@ public class EditableObject : Renderable
     {
         var eulerAngles = rotation.EulerAngles;
         Rot += new vec3((float)eulerAngles.x, (float)eulerAngles.y, (float)eulerAngles.z);
-        Rot = vec3.Degrees(Rot);
+        Rot = (vec3.Degrees(Rot) % 360 + 360) % 360;
         Rot = vec3.Radians(Rot);
         
         base.Rotate(rotation, inLocalSpace);

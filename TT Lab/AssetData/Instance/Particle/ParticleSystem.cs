@@ -274,10 +274,11 @@ public class ParticleSystem : IDocumentModel
     [Editable] public Single JibberYAmp { get; set; }
 
     [Editable] [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
-    public Vector4[] ColorGradients { get; set; } = new Vector4[8];
+    public Vector4[] ColorGradients { get; set; } = [new(), new(), new(), new(), new(), new(), new(), new()];
 
-    [Editable] [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
-    public Vector2[] AlphaGradient { get; set; } = new Vector2[8];
+    [Editable]
+    [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
+    public Vector2[] AlphaGradient { get; set; } = [new(), new(), new(), new(), new(), new(), new(), new()];
 
     [Editable] public Vector2 Distortion { get; set; } = new()
     {
@@ -290,30 +291,30 @@ public class ParticleSystem : IDocumentModel
     [Editable] public Single MaxSize { get; set; }
 
     [Editable] [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
-    public Vector2[] SizeWidth { get; set; } = new Vector2[8];
+    public Vector2[] SizeWidth { get; set; } = [new(), new(), new(), new(), new(), new(), new(), new()];
 
     [Editable] [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
-    public Vector2[] SizeHeight { get; set; } = new Vector2[8];
+    public Vector2[] SizeHeight { get; set; } = [new(), new(), new(), new(), new(), new(), new(), new()];
 
     [Editable] public Single MinRotation { get; set; }
 
     [Editable] public Single MaxRotation { get; set; }
 
     [Editable] [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
-    public Vector2[] Rotation { get; set; } = new Vector2[8];
+    public Vector2[] Rotation { get; set; } = [new(), new(), new(), new(), new(), new(), new(), new()];
 
     [Editable] [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
-    public Vector2[] UnkGradient1 { get; set; } = new Vector2[8];
+    public Vector2[] UnkGradient1 { get; set; } = [new(), new(), new(), new(), new(), new(), new(), new()];
 
     [Editable] [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
-    public Vector2[] UnkGradient2 { get; set; } = new Vector2[8];
+    public Vector2[] UnkGradient2 { get; set; } = [new(), new(), new(), new(), new(), new(), new(), new()];
 
     [Editable] public Vector2 TextureStart { get; set; } = new();
 
     [Editable] public Vector2 TextureEnd { get; set; } = new();
 
     [Editable] [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
-    public Vector2[] Collision { get; set; } = new Vector2[8];
+    public Vector2[] Collision { get; set; } = [new(), new(), new(), new(), new(), new(), new(), new()];
 
     [Editable] public Byte CollisionNumSpheres { get; set; }
 

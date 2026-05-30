@@ -216,7 +216,8 @@ public class DynamicSceneryData : AbstractAssetData
         return factory.GenerateDynamicScenery(ms);
     }
 
-    public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, UInt32 id, Int32? layoutID = null)
+    public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, uint id,
+        int? layoutId = null)
     {
         var assetManager = AssetManager.Get();
         var graphicsSection = section.GetItem<ITwinSection>(Constants.SCENERY_GRAPHICS_SECTION);
@@ -227,7 +228,7 @@ public class DynamicSceneryData : AbstractAssetData
             assetManager.GetAsset(model.Mesh).ResolveChunkResources(factory, meshSection);
         }
         
-        var item = base.ResolveChunkResources(factory, section, id, layoutID);
+        var item = base.ResolveChunkResources(factory, section, id, layoutId);
         item?.SetID(id);
 
         return item;

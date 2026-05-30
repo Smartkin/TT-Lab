@@ -13,7 +13,8 @@ public class EditableAttribute : Attribute
     public string Caption { get; init; } = string.Empty;
     public string? Hint { get; init; }
     public Type? EditorDescType { get; set; }
-    public bool IsExcludedFromPropertyGraph { get; init; }
+    public bool IsConstructible { get; init; }
+    public int MaxLinkGraphDepth { get; init; } = int.MaxValue;
     
     public Avalonia.Controls.Dock EditorOrientation { get; init; } = Avalonia.Controls.Dock.Left;
 }

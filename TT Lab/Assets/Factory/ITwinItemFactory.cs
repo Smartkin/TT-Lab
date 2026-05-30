@@ -17,6 +17,8 @@ namespace TT_Lab.Assets.Factory
 {
     public interface ITwinItemFactory
     {
+        public Package GlobalPackage { get; set; }
+        public bool IsDefaultResolution { get; set; }
         public string ChunkPath { get; set; }
         
         ITwinBlendSkin GenerateBlendSkin(Int32 blendsAmount, List<SubBlendData> blends, UInt32? compileScale);

@@ -15,7 +15,7 @@ namespace TT_Lab.ViewModels.Editors;
 public partial class CodeEditorViewModel(DocumentViewModel document, PropertyNode code, params DocumentNodeViewModel[] dependencies) : DocumentDataViewModel<string>(document, code, dependencies)
 {
     [Reactive]
-    private TextDocument _code;
+    private String _code;
     
     private bool _canClose = true;
 
@@ -28,7 +28,7 @@ public partial class CodeEditorViewModel(DocumentViewModel document, PropertyNod
             return;
         }
         
-        this.ValidationRule(x => x.Code.Text, code =>
+        this.ValidationRule(x => x.Code, code =>
         {
             if (string.IsNullOrEmpty(code))
             {
@@ -61,8 +61,8 @@ public partial class CodeEditorViewModel(DocumentViewModel document, PropertyNod
 
         RxSchedulers.MainThreadScheduler.Schedule(this, (_, viewModel) =>
         {
-            Code = new TextDocument(CurrentValue);
-            return viewModel.WhenAnyValue(x => x.Code.Text).ObserveOn(RxSchedulers.MainThreadScheduler)
+            Code = new String(CurrentValue);
+            return viewModel.WhenAnyValue(x => x.Code).ObserveOn(RxSchedulers.MainThreadScheduler)
                 .Skip(1)
                 .Subscribe(code =>
                 {

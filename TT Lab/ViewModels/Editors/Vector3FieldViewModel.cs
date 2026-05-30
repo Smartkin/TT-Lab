@@ -23,12 +23,12 @@ public class Vector3FieldViewModel : DocumentDataViewModel<Vector3>
         Z = new TextFieldViewModel(document, Property.Find("Z")!, this) { Caption = "Z" };
     }
 
-    protected override void NodeOnChanged()
+    protected override void OnCurrentValueChanged()
     {
         X.SetValueCommand.Execute(Property.Find("X")!.GetValue());
         Y.SetValueCommand.Execute(Property.Find("Y")!.GetValue());
         Z.SetValueCommand.Execute(Property.Find("Z")!.GetValue());
         
-        base.NodeOnChanged();
+        base.OnCurrentValueChanged();
     }
 }

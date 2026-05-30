@@ -122,7 +122,8 @@ public class SkydomeData : AbstractAssetData
         return factory.GenerateSkydome(ms);
     }
 
-    public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, UInt32 id, Int32? layoutID = null)
+    public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, uint id,
+        int? layoutId = null)
     {
         var assetManager = AssetManager.Get();
         var root = section.GetRoot();
@@ -134,7 +135,7 @@ public class SkydomeData : AbstractAssetData
         }
 
         section = graphicsSection.GetItem<ITwinSection>(Constants.GRAPHICS_SKYDOMES_SECTION);
-        return base.ResolveChunkResources(factory, section, id, layoutID);
+        return base.ResolveChunkResources(factory, section, id, layoutId);
     }
 
     public override List<ViewportObject> GetViewportObjects(ViewportContext viewportContext,

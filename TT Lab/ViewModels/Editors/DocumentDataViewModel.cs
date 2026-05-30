@@ -3,6 +3,7 @@ using System.Reactive;
 using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
+using System.Reactive.Subjects;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
 using SharpGLTF.Schema2;
@@ -15,53 +16,46 @@ public partial class DocumentDataViewModel<T> : DocumentNodeViewModel
     [ObservableAsProperty]
     private T? _currentValue;
     
-    public ReactiveCommand<T?, Unit> SetValueCommand { get; }
+    public ReactiveCommand<T?, Unit>   SetValueCommand { get; }
+
+    private readonly Subject<Unit> _valueChanged = new();
 
     protected DocumentDataViewModel(DocumentViewModel document, PropertyNode node, params DocumentNodeViewModel[] dependencies) : base(document, node, dependencies)
     {
-        _currentValueHelper = this.WhenAnyValue(x => x.Property)
-            .Select(GetCurrentValue).ToProperty(this, x => x.CurrentValue);
+        _currentValueHelper = Observable.Merge(
+                this.WhenAnyValue(x => x.Property).Select(_ => Unit.Default),
+                _valueChanged
+            )
+            .Select(_ => GetCurrentValue())
+            .ToProperty(this, nameof(CurrentValue));
 
         SetValueCommand = ReactiveCommand.CreateFromObservable<T?, Unit>(value =>
         {
-            SetCurrentValue(value);
+            Property.SetValue(value);
+            _valueChanged.OnNext(Unit.Default);
             OnCurrentValueChanged();
             return Observable.Empty<Unit>();
         });
     }
 
-    protected override void OnActivated(CompositeDisposable disposables)
+    protected sealed override void PropertyOnChanged()
     {
-        base.OnActivated(disposables);
+        base.PropertyOnChanged();
         
-        Property.Changed += NodeOnChanged;
-        Disposable.Create(Property, (n) => n.Changed -= NodeOnChanged).DisposeWith(FullDeactivationDisposables);
+        SetValueCommand.Execute(GetCurrentValue());
     }
 
     protected virtual void OnCurrentValueChanged()
     {
-        this.RaisePropertyChanged(nameof(CurrentValue));
     }
 
-    protected virtual void NodeOnChanged()
+    protected virtual T? GetCurrentValue()
     {
-        this.RaisePropertyChanged(nameof(CurrentValue));
-    }
-
-    protected override void PropertyOnChanged()
-    {
-        base.PropertyOnChanged();
-        
-        this.RaisePropertyChanged(nameof(CurrentValue));
-    }
-
-    protected virtual T? GetCurrentValue(PropertyNode node)
-    {
-        return node.GetValue<T>();
+        return Property.GetValue<T>();
     }
 
     protected virtual void SetCurrentValue(T? value)
     {
-        Property.SetValue(value);
+        SetValueCommand.Execute(value);
     }
 }

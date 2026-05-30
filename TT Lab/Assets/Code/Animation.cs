@@ -1,42 +1,43 @@
 ﻿using System;
 using TT_Lab.AssetData;
 using TT_Lab.AssetData.Code;
+using TT_Lab.Attributes;
 using TT_Lab.ViewModels.Editors.Code;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code;
 
-namespace TT_Lab.Assets.Code
+namespace TT_Lab.Assets.Code;
+
+[SupportsViewport]
+public class Animation : SerializableAsset
 {
-    public class Animation : SerializableAsset
+    public override UInt32 Section => Constants.CODE_ANIMATIONS_SECTION;
+    public override String IconPath => "Animation.png";
+
+    public Animation() { }
+
+    public Animation(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinAnimation? animation = null) : base(id, name, package, needVariant, variant)
     {
-        public override UInt32 Section => Constants.CODE_ANIMATIONS_SECTION;
-        public override String IconPath => "Animation.png";
-
-        public Animation() { }
-
-        public Animation(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinAnimation? animation = null) : base(id, name, package, needVariant, variant)
+        if (animation == null)
         {
-            if (animation == null)
-            {
-                return;
-            }
+            return;
+        }
             
-            AssetData = new AnimationData(this, animation);
-        }
+        AssetData = new AnimationData(this, animation);
+    }
 
-        public override Type GetEditorType()
-        {
-            return typeof(AnimationViewModel);
-        }
+    public override Type GetEditorType()
+    {
+        return typeof(AnimationViewModel);
+    }
 
-        public override AbstractAssetData GetData()
+    public override AbstractAssetData GetData()
+    {
+        if (!IsLoaded || AssetData.Disposed)
         {
-            if (!IsLoaded || AssetData.Disposed)
-            {
-                AssetData = new AnimationData(this);
-                AssetData.Load(DataLoadPath);
-            }
-            return AssetData;
+            AssetData = new AnimationData(this);
+            AssetData.Load(DataLoadPath);
         }
+        return AssetData;
     }
 }

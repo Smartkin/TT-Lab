@@ -2,10 +2,12 @@
 using SharpGLTF.Schema2;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
 using Caliburn.Micro;
+using GlmSharp;
 using SharpGLTF.Materials;
 using SharpGLTF.Memory;
 using SharpGLTF.Scenes;
@@ -13,13 +15,17 @@ using TT_Lab.AssetData.Code;
 using TT_Lab.AssetData.Graphics.SubModels;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
+using TT_Lab.Assets.Graphics;
+using TT_Lab.Extensions;
 using TT_Lab.Libraries;
 using TT_Lab.Project;
 using TT_Lab.Util;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items;
+using Twinsanity.TwinsanityInterchange.Interfaces.Items.SubItems;
 using AlphaMode = SharpGLTF.Materials.AlphaMode;
+using Mesh = SharpGLTF.Schema2.Mesh;
 using Vector4 = Twinsanity.TwinsanityInterchange.Common.Vector4;
 
 namespace TT_Lab.AssetData.Graphics;
@@ -378,13 +384,6 @@ public class ModelData : AbstractAssetData
             Vertexes.Add(submodel);
             Faces.Add(faces);
         }
-        
-        for (var i = 0; i < Vertexes.Count; ++i)
-        {
-            var mesh = MeshProcessor.MeshProcessor.CreateMesh(Vertexes[i], Faces[i]);
-            MeshProcessor.MeshProcessor.ProcessMesh(mesh);
-            Meshes.Add(mesh);
-        }
     }
 
     protected override void LoadInternal(String dataPath, JsonSerializerSettings? settings = null)
@@ -406,58 +405,111 @@ public class ModelData : AbstractAssetData
         {
             var vertList = new List<Vertex>();
             var faceList = new List<IndexedFace>();
-            Int32 refIndex = 0;
             e.CalculateData();
-            for (var j = 0; j < e.Vertexes.Count; ++j)
+            var winding = false;
+            for (var j = 2; j < e.Vertexes.Count; ++j)
             {
-                if (j < e.Vertexes.Count - 2)
+                if (!e.Connection[j])
                 {
-                    if (e.Connection[j + 2])
+                    winding = !winding;
+                    continue;
+                }
+                
+                int[] triIndices;
+                if (!winding)
+                {
+                    triIndices = [j - 2, j - 1, j];
+                }
+                else
+                {
+                    triIndices = [j - 1, j - 2, j];
+                }
+                
+                faceList.Add(new IndexedFace(triIndices));
+                winding = !winding;
+            }
+
+            if (faceList.Count == 0)
+            {
+                continue;
+            }
+
+            var realFaceList = new List<IndexedFace>();
+            foreach (var face in faceList)
+            {
+                var verIdx = 0;
+                var newFace = new IndexedFace(0, 0, 0);
+                foreach (var j in face.Indexes!)
+                {
+                    var ver = new Vertex(e.Vertexes[j], e.Colors[j], e.UVW[j]);
+                    if (e.EmitColor.Count == e.Vertexes.Count)
                     {
-                        if (j % 2 == 0)
-                        {
-                            int[] triIndices = [refIndex, refIndex + 1, refIndex + 2];
-                            faceList.Add(new IndexedFace(triIndices));
-                        }
-                        else
-                        {
-                            int[] triIndices = [refIndex + 1, refIndex, refIndex + 2];
-                            faceList.Add(new IndexedFace(triIndices));
-                        }
+                        ver.EmitColor = new Vector4(e.EmitColor[j].X, e.EmitColor[j].Y, e.EmitColor[j].Z,
+                            e.EmitColor[j].W);
                     }
 
-                    ++refIndex;
-                }
+                    if (e.Normals.Count == e.Vertexes.Count)
+                    {
+                        ver.Normal = new Vector4(e.Normals[j].X, e.Normals[j].Y, e.Normals[j].Z, e.Normals[j].W);
+                    }
 
-                var ver = new Vertex(e.Vertexes[j], e.Colors[j], e.UVW[j]);
-                if (e.EmitColor.Count == e.Vertexes.Count)
-                {
-                    ver.EmitColor = new Vector4(e.EmitColor[j].X, e.EmitColor[j].Y, e.EmitColor[j].Z, e.EmitColor[j].W);
+                    if (!vertList.Contains(ver))
+                    {
+                        vertList.Add(ver);
+                    }
+                    newFace.Indexes![verIdx++] = vertList.IndexOf(ver);
                 }
-
-                if (e.Normals.Count == e.Vertexes.Count)
-                {
-                    ver.Normal = new Vector4(e.Normals[j].X, e.Normals[j].Y, e.Normals[j].Z, e.Normals[j].W);
-                    ver.Normal.Normalize();
-                }
-
-                vertList.Add(ver);
+                realFaceList.Add(newFace);
             }
 
             Vertexes.Add(vertList);
-            Faces.Add(faceList);
+            Faces.Add(realFaceList);
         }
-        
-        for (var i = 0; i < Vertexes.Count; ++i)
+
+        // Change winding order based on normals
+        if (Vertexes.Any(verts => verts.Any(v => v.HasNormals)))
         {
-            var mesh = MeshProcessor.MeshProcessor.CreateMesh(Vertexes[i], Faces[i]);
-            MeshProcessor.MeshProcessor.ProcessMesh(mesh);
-            Meshes.Add(mesh);
+            var vertsIndex = 0;
+            foreach (var faceList in Faces)
+            {
+                var verts = Vertexes[vertsIndex++];
+                foreach (var face in faceList)
+                {
+                    var v0 = verts[face.Indexes![0]];
+                    var v1 = verts[face.Indexes![1]];
+                    var v2 = verts[face.Indexes![2]];
+                    var storedNormal = ((v0.Normal.ToGlm() + v1.Normal.ToGlm() + v2.Normal.ToGlm()) / 3.0f).xyz;
+                    var calculatedNormal = glm.Cross((v1.Position.ToGlm() - v0.Position.ToGlm()).xyz, (v2.Position.ToGlm() - v0.Position.ToGlm()).xyz);
+                    if (glm.Dot(calculatedNormal, storedNormal) < 0.0f)
+                    {
+                        (face.Indexes[0], face.Indexes[2]) = (face.Indexes[2], face.Indexes[0]);
+                    }
+                }
+            }
         }
+
+        
+    }
+
+    private static bool IsDegenerateTri(Vector4 v1, Vector4 v2, Vector4 v3)
+    {
+        var e1 = new Vector3(v2.X - v1.X, v2.Y - v1.Y, v2.Z - v1.Z);
+        var e2 = new Vector3(v3.X - v1.X, v3.Y - v1.Y, v3.Z - v1.Z);
+        var cross = new Vector3(e1.Y * e2.Z - e1.Z * e2.Y, e1.Z * e2.X - e1.X * e2.Z, e1.X * e2.Y - e1.Y * e2.X);
+        var area = cross.X * cross.X + cross.Y * cross.Y + cross.Z * cross.Z;
+        return area < 10e-6;
     }
 
     public override ITwinItem Export(ITwinItemFactory factory)
     {
+        Meshes.Clear();
+        for (var i = 0; i < Vertexes.Count; ++i)
+        {
+            var mesh = MeshProcessor.MeshProcessor.CreateMesh(Vertexes[i], Faces[i]);
+            MeshProcessor.MeshProcessor.ProcessMesh(mesh, ((Model)Owner).UseOptimalStrips);
+            Meshes.Add(mesh);
+        }
+        
         return factory.GenerateModel(Meshes);
     }
 

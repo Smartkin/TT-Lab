@@ -18,7 +18,6 @@ public abstract class Gizmo : IGizmo
         
         // ReSharper disable once VirtualMemberCallInConstructor
         RenderNode = new Node(renderContext, editingContext.GetEditorNode(), GetGizmoName());
-        RenderNode.SetInheritScale(false);
         RenderNode.SetInheritDiffuse(false);
         RenderNode.IsVisible = false;
     }

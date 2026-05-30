@@ -88,14 +88,20 @@ public abstract partial class DocumentCompositeViewModel : DocumentNodeViewModel
             }).DisposeWith(disposables);
     }
 
-    protected virtual void OnExpanded(CompositeDisposable disposables)
+    protected void Rebuild()
     {
+        _nodes.Clear();
         foreach (var viewModel in Property.Children
                      .Select(propertyChild => EditorDescRegistry.GetDesc(Document, propertyChild))
                      .Select(desc => desc.Construct()))
         {
             AddNode(viewModel);
         }
+    }
+
+    protected virtual void OnExpanded(CompositeDisposable disposables)
+    {
+        Rebuild();
     }
 
     protected virtual void OnCollapsed(CompositeDisposable disposables)

@@ -18,7 +18,7 @@ namespace TT_Lab.ViewModels.Editors;
 
 public partial class UriLinkViewModel : DocumentDataViewModel<LabURI>
 {
-    [ObservableAsProperty]
+    [Reactive(SetModifier = AccessModifier.Private)]
     private string _linkText = "Empty";
 
     public enum Scope
@@ -29,13 +29,6 @@ public partial class UriLinkViewModel : DocumentDataViewModel<LabURI>
     
     public UriLinkViewModel(DocumentViewModel document, PropertyNode data, params DocumentNodeViewModel[] dependencies) : base(document, data, dependencies)
     {
-        var assetManager = AssetManager.Get();
-        
-        _linkTextHelper = this.WhenAnyValue(x => x.CurrentValue)
-            .WhereNotNull()
-            .Select(uri => uri == LabURI.Empty ? "Empty" : assetManager.GetAsset(uri).Alias)
-            .ToProperty(this, x => x.LinkText, scheduler: ReactiveUI.Avalonia.AvaloniaScheduler.Instance)
-            .DisposeWith(FullDeactivationDisposables);
     }
 
     protected override void ApplyEditorAttributes()
@@ -53,19 +46,33 @@ public partial class UriLinkViewModel : DocumentDataViewModel<LabURI>
         _openInInspector = GetEditorParameter(OpenInInspector, false);
     }
 
+    protected override void OnCurrentValueChanged()
+    {
+        base.OnCurrentValueChanged();
+        
+        UpdateLinkText();
+    }
+
     protected override void OnActivated(CompositeDisposable disposables)
     {
         base.OnActivated(disposables);
-        
-        this.WhenAnyValue(x => x.CurrentValue)
-            .WhereNotNull()
-            .Where(uri => uri != CurrentValue)
-            .Subscribe(uri =>
-            {
-                Document.RemoveResource(CurrentValue!);
-                SetValueCommand.Execute(uri);
-                Document.AddResource(CurrentValue!);
-            }).DisposeWith(disposables);
+
+        SelectUriFromLinkCommand.InvokeCommand(SetValueCommand).DisposeWith(disposables);
+
+        UpdateLinkText();
+    }
+
+    private void UpdateLinkText()
+    {
+        var assetManager = AssetManager.Get();
+        if (CurrentValue == null || CurrentValue == LabURI.Empty)
+        {
+            LinkText = "Empty";
+        }
+        else
+        {
+            LinkText = assetManager.GetAsset(CurrentValue).Alias;
+        }
     }
 
     [ReactiveCommand]
@@ -91,6 +98,8 @@ public partial class UriLinkViewModel : DocumentDataViewModel<LabURI>
         var result = await linkBrowserDialogue.ShowDialog<bool?>(MiscUtils.GetMainWindow());
         if (result.HasValue && result.Value)
         {
+            Document.RemoveResource(uri);
+            Document.AddResource(linkBrowser.SelectedLink);
             return linkBrowser.SelectedLink;
         }
 

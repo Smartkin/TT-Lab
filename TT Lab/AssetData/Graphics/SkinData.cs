@@ -292,7 +292,8 @@ public class SkinData : AbstractAssetData
         return factory.GenerateSkin(SubSkins);
     }
 
-    public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, UInt32 id, Int32? layoutID = null)
+    public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, uint id,
+        int? layoutId = null)
     {
         var assetManager = AssetManager.Get();
         var graphicsSection = section.GetRoot().GetItem<ITwinSection>(Constants.LEVEL_GRAPHICS_SECTION);
@@ -301,6 +302,6 @@ public class SkinData : AbstractAssetData
         {
             assetManager.GetAsset(subSkin.Material).ResolveChunkResources(factory, materialsSection);
         }
-        return base.ResolveChunkResources(factory, section, id, layoutID);
+        return base.ResolveChunkResources(factory, section, id, layoutId);
     }
 }

@@ -174,7 +174,8 @@ public class CollisionSurfaceData : AbstractAssetData
         return factory.GenerateSurface(ms);
     }
 
-    public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, UInt32 id, Int32? layoutID = null)
+    public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, uint id,
+        int? layoutId = null)
     {
         var assetManager = AssetManager.Get();
         var soundSection = section.GetRoot().GetItem<ITwinSection>(Constants.LEVEL_CODE_SECTION).GetItem<ITwinSection>(Constants.CODE_SOUND_EFFECTS_SECTION);
@@ -204,6 +205,6 @@ public class CollisionSurfaceData : AbstractAssetData
             assetManager.GetAsset(UnkSoundId).ResolveChunkResources(factory, soundSection);
         }
 
-        return base.ResolveChunkResources(factory, section, id, layoutID);
+        return base.ResolveChunkResources(factory, section, id, layoutId);
     }
 }

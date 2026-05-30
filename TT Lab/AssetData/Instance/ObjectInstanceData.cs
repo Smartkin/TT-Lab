@@ -162,14 +162,17 @@ public class ObjectInstanceData : AbstractAssetData
         var assetManager = AssetManager.Get();
         using var ms = new MemoryStream();
         using var writer = new BinaryWriter(ms);
-        Position.Write(writer);
-        var twinRotation = new TwinIntegerRotation();
-        twinRotation.SetRotation(Rotation.X);
-        twinRotation.Write(writer);
-        twinRotation.SetRotation(Rotation.Y);
-        twinRotation.Write(writer);
-        twinRotation.SetRotation(Rotation.Z);
-        twinRotation.Write(writer);
+        var position = new Vector4(Position, 1.0f);
+        position.Write(writer);
+        var twinRotationX = new TwinIntegerRotation();
+        twinRotationX.SetRotation(Rotation.X);
+        twinRotationX.Write(writer);
+        var twinRotationY = new TwinIntegerRotation();
+        twinRotationY.SetRotation(Rotation.Y);
+        twinRotationY.Write(writer);
+        var twinRotationZ = new TwinIntegerRotation();
+        twinRotationZ.SetRotation(Rotation.Z);
+        twinRotationZ.Write(writer);
 
         writer.Write(Instances.Count);
         writer.Write(Instances.Count);
@@ -199,7 +202,7 @@ public class ObjectInstanceData : AbstractAssetData
 
         writer.Write(RefListIndex);
 
-        writer.Write(OnSpawnScriptId == LabURI.Empty ? UInt16.MaxValue : (UInt16)assetManager.GetAsset(OnSpawnScriptId).ExportTwinID);
+        writer.Write(OnSpawnScriptId == LabURI.Empty ? UInt16.MaxValue : (UInt16)(assetManager.GetAsset(OnSpawnScriptId).ExportTwinID - 1));
         writer.Write((Byte)ParamList1.Count);
         writer.Write((Byte)ParamList2.Count);
         writer.Write((Byte)ParamList3.Count);
@@ -229,7 +232,8 @@ public class ObjectInstanceData : AbstractAssetData
         return factory.GenerateInstance(ms);
     }
 
-    public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, UInt32 id, Int32? layoutID = null)
+    public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, uint id,
+        int? layoutId = null)
     {
         var assetManager = AssetManager.Get();
         var root = section.GetRoot();
@@ -237,9 +241,9 @@ public class ObjectInstanceData : AbstractAssetData
         var objectsSection = codeSection.GetItem<ITwinSection>(Constants.CODE_GAME_OBJECTS_SECTION);
         var behavioursSection = codeSection.GetItem<ITwinSection>(Constants.CODE_BEHAVIOURS_SECTION);
 
-        if (layoutID is Constants.LEVEL_LAYOUT_6_SECTION)
+        if (layoutId is Constants.LEVEL_LAYOUT_6_SECTION)
         {
-            return base.ResolveChunkResources(factory, section, id, layoutID);
+            return base.ResolveChunkResources(factory, section, id, layoutId);
         }
 
         assetManager.GetAsset(ObjectId).ResolveChunkResources(factory, objectsSection);
@@ -250,7 +254,7 @@ public class ObjectInstanceData : AbstractAssetData
 
         // Positions, paths and instances don't need to be resolved because they are gonna be resolved by themselves anyway
 
-        return base.ResolveChunkResources(factory, section, id, layoutID);
+        return base.ResolveChunkResources(factory, section, id, layoutId);
     }
 
     public override List<ViewportObject> GetViewportObjects(ViewportContext viewportContext,

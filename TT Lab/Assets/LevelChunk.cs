@@ -27,7 +27,7 @@ public class LevelChunk : SerializableAsset
     
     public override string IconPath => "Scene.png";
 
-    [JsonProperty(Required = Required.Always)]
+    [JsonProperty(Required = Required.Always, ObjectCreationHandling = ObjectCreationHandling.Replace)]
     [Editable]
     [EditorParam(UriLinkViewModel.BrowseScope, UriLinkViewModel.Scope.Document)]
     [EditorParam(UriLinkViewModel.OpenInInspector, true)]
@@ -36,7 +36,7 @@ public class LevelChunk : SerializableAsset
 
     [JsonProperty(Required = Required.Always)]
     [Editable]
-    [EditorParam(DocumentModelViewModel.EditorExplicitOrder, -4)]
+    [EditorParam(DocumentCompositeViewModel.EditorExplicitOrder, -4)]
     [EditorParam(UriLinkViewModel.BrowseType, typeof(Skydome))]
     [EditorHiddenIn("default", false)]
     public LabURI Skydome { get; set; } = LabURI.Empty;
@@ -52,7 +52,29 @@ public class LevelChunk : SerializableAsset
     }
 
     public string GetChunkPath() => SavePathInPackage;
-    
+
+    public override void Dispose()
+    {
+        var assetManager = AssetManager.Get();
+        foreach (var chunkResource in ChunkResources)
+        {
+            assetManager.GetAsset(chunkResource).Dispose();
+        }
+        
+        base.Dispose();
+    }
+
+    public override void Save()
+    {
+        base.Save();
+
+        var assetManager = AssetManager.Get();
+        foreach (var asset in ChunkResources.Select(chunkResource => assetManager.GetAsset(chunkResource)))
+        {
+            asset.Save();
+        }
+    }
+
     public override void Serialize(SerializationFlags serializationFlags = SerializationFlags.None)
     {
         if (serializationFlags.HasFlag(SerializationFlags.SetDirectoryToAssets))
@@ -90,7 +112,7 @@ public class LevelChunk : SerializableAsset
 
         var chunkResourceList = property.Find(nameof(ChunkResources))!;
         var idx = 0;
-        foreach (var data in ChunkResources.Select(resource => assetManager.GetAssetData(resource)))
+        foreach (var data in ChunkResources.Select(assetManager.GetAssetData))
         {
             var dataDoc = chunkResourceList.Find($"[{idx}]");
             if (dataDoc is not null)

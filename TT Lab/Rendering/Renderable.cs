@@ -156,19 +156,43 @@ public abstract class Renderable
 
     public virtual vec3 GetRotation()
     {
-        var quat = GlmSharp.quat.FromMat4(WorldTransform);
+        var transform = WorldTransform;
+        transform.m00 = 1.0f;
+        transform.m11 = 1.0f;
+        transform.m22 = 1.0f;
+        var quat = GlmSharp.quat.FromMat4(transform);
         var angles = quat.EulerAngles;
         return new vec3((float)angles.x, (float)angles.y, (float)angles.z);
     }
 
     public quat GetRotationQuat()
     {
-        return quat.FromMat4(WorldTransform);
+        var scale = GetScale();
+        var rotMat = new mat3(WorldTransform);
+        if (scale.x > 0.000001f)
+        {
+            rotMat.Column0 /= scale.x;
+        }
+        if (scale.y > 0.000001f)
+        {
+            rotMat.Column1 /= scale.y;
+        }
+        if (scale.z > 0.000001f)
+        {
+            rotMat.Column2 /= scale.z;
+        }
+        return quat.FromMat3(rotMat);
     }
 
     public virtual vec3 GetScale()
     {
-        return new vec3(WorldTransform.m00, WorldTransform.m11, WorldTransform.m22);
+        var left = GetLeft();
+        var up = GetUp();
+        var forward = GetForward();
+        var scaleX = (float)Math.Sqrt(left.x * left.x + left.y * left.y + left.z * left.z);
+        var scaleY = (float)Math.Sqrt(up.x * up.x + up.y * up.y + up.z * up.z);
+        var scaleZ = (float)Math.Sqrt(forward.x * forward.x + forward.y * forward.y + forward.z * forward.z);
+        return new vec3(scaleX, scaleY, scaleZ);
     }
 
     public virtual vec3 GetPosition()

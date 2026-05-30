@@ -8,16 +8,27 @@ public class EditorHiddenInAttribute(string editorName, bool partialComparison =
     public override void ApplyTo(DocumentNodeViewModel viewModel)
     {
         var isHidden = false;
-        if (!string.IsNullOrEmpty(editorName) && viewModel.Property.Parent != null)
+        if (!string.IsNullOrEmpty(editorName))
         {
-            if (PartialComparison)
+            var currentParent = viewModel.Property.Parent;
+            while (currentParent != null)
             {
-                isHidden = viewModel.Property.Parent.Name.Contains(editorName,
-                    StringComparison.InvariantCultureIgnoreCase);
-            }
-            else
-            {
-                isHidden = viewModel.Property.Parent.Name == editorName;
+                if (PartialComparison)
+                {
+                    isHidden = currentParent.Name.Contains(editorName,
+                        StringComparison.InvariantCultureIgnoreCase);
+                }
+                else
+                {
+                    isHidden = currentParent.Name == editorName;
+                }
+
+                if (isHidden)
+                {
+                    break;
+                }
+                
+                currentParent = currentParent.Parent;
             }
         }
         viewModel.IsVisible = !isHidden;

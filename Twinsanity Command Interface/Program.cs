@@ -97,6 +97,10 @@ class Program
         // Console.WriteLine(result.ToString());
         //
         // return;
+        // var test = Vector4.GetCosSin(0x7B7A);
+        // var reconvert = Vector4.GetAngle(0, 0);
+        // var result = new Vector4(0xFFFF851D, 0xFFFFEB90, 0x7B7A);
+        // Console.WriteLine($"Result quat {result}");
         using var defaultRm2File = new FileStream(args[0], FileMode.Open, FileAccess.Read);
         using var reader = new BinaryReader(defaultRm2File);
         var moddedModel = new PS2AnyModel();
@@ -104,6 +108,23 @@ class Program
         foreach (var subModel in moddedModel.SubModels)
         {
             subModel.CalculateData();
+            for (var i = 0; i < subModel.Vertexes.Count; i++)
+            {
+                Console.WriteLine($"Vertex {i}: {subModel.Vertexes[i]}");
+                // Console.WriteLine($"Color {i}: {subModel.Colors[i]}");
+                // Console.WriteLine($"UV {i}: {subModel.UVW[i]}");
+                if (subModel.Normals.Count == subModel.Vertexes.Count)
+                {
+                    Console.WriteLine($"Normal {i}: {subModel.Normals[i]}");
+                }
+                //
+                // if (subModel.EmitColor.Count == subModel.Vertexes.Count)
+                // {
+                //     Console.WriteLine($"Emit Color {i}: {subModel.EmitColor[i]}");
+                // }
+                //
+                // Console.WriteLine($"{i} Part of strip {subModel.Connection[i]}");
+            }
         }
         
         using var defaultRm2File2 = new FileStream(args[1], FileMode.Open, FileAccess.Read);
@@ -113,6 +134,23 @@ class Program
         foreach (var subModel in vanillaModel.SubModels)
         {
             subModel.CalculateData();
+            for (var i = 0; i < subModel.Vertexes.Count; i++)
+            {
+                // Console.WriteLine($"Vertex {i}: {subModel.Vertexes[i]}");
+                // Console.WriteLine($"Color {i}: {subModel.Colors[i]}");
+                // Console.WriteLine($"UV {i}: {subModel.UVW[i]}");
+                if (subModel.Normals.Count == subModel.Vertexes.Count)
+                {
+                    Console.WriteLine($"Normal {i}: {subModel.Normals[i]}");
+                }
+                //
+                // if (subModel.EmitColor.Count == subModel.Vertexes.Count)
+                // {
+                //     Console.WriteLine($"Emit Color {i}: {subModel.EmitColor[i]}");
+                // }
+                //
+                // Console.WriteLine($"{i} Part of strip {subModel.Connection[i]}");
+            }
         }
         return;
         // var behaviours = frontend.GetItem<ITwinSection>(Constants.LEVEL_CODE_SECTION).GetItem<ITwinSection>(Constants.CODE_BEHAVIOUR_COMMANDS_SEQUENCES_SECTION);

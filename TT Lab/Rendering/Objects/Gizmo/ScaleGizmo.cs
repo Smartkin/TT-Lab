@@ -21,6 +21,7 @@ public class ScaleGizmo : Gizmo
             var axisColor = new vec4(j == 0 ? 1.0f : 0.0f, j == 1 ? 1.0f : 0.0f, j == 2 ? 1.0f : 0.0f, 1.0f);
             var cubeMesh = BufferGeneration.GetCubeBuffer(renderContext).Model!;
             cubeMesh.Diffuse = axisColor;
+            cubeMesh.Scale(vec3.Ones * 0.5f);
             cubeMesh.AddMaterialOverride(new TwinMaterialDepthTestOverride { DepthTestOverride = TwinShader.DepthTestMethod.ALWAYS});
             axisNode.AddChild(cubeMesh);
             

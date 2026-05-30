@@ -123,7 +123,8 @@ public class DefaultParticleData : ParticleData
         }
     }
 
-    public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, UInt32 id, Int32? layoutID = null)
+    public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, uint id,
+        int? layoutId = null)
     {
         var assetManager = AssetManager.Get();
         var graphicsSection = section.GetItem<ITwinSection>(Constants.LEVEL_GRAPHICS_SECTION);

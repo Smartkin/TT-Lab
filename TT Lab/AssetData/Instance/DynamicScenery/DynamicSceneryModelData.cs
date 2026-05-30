@@ -12,6 +12,7 @@ using TT_Lab.Util;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Common.DynamicScenery;
 using Twinsanity.TwinsanityInterchange.Common.Animation;
+using Vortice.Mathematics;
 using AnimatedTransformation = Twinsanity.TwinsanityInterchange.Common.DynamicScenery.AnimatedTransformation;
 using Mesh = TT_Lab.Assets.Graphics.Mesh;
 using Transformation = Twinsanity.TwinsanityInterchange.Common.DynamicScenery.Transformation;
@@ -99,7 +100,7 @@ public class DynamicSceneryModelData
         Animation.ModelSettings.Add(settings);
         var translations = gltfAnimation.Translation.GetLinearKeys().ToList();
         var rotations = gltfAnimation.Rotation.GetLinearKeys().ToList();
-        var rotationsEuler = rotations.Select(tuple => (tuple.Key, tuple.Value.ToTwin().ToEulerAngles())).ToList();
+        var rotationsEuler = rotations.Select(tuple => (tuple.Key, tuple.Value.ToEuler())).ToList();
         AnimatedFrames = translations.Count;
         Animation.TotalFrames = (ushort)AnimatedFrames;
 

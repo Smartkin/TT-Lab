@@ -275,8 +275,8 @@ public class ChunkEditorViewModel :
                 DeactivateItemAsync(CurrentInstanceEditor, false);
             }
 
-            CurrentInstanceEditor = (InstanceSectionResourceEditorViewModel)Locator.Current.GetService(asset.GetEditorType())!;
-            CurrentInstanceEditor.EditableResource = asset.URI;
+            // CurrentInstanceEditor = (InstanceSectionResourceEditorViewModel)Locator.Current.GetService(asset.GetEditorType())!;
+            CurrentInstanceEditor!.EditableResource = asset.URI;
             CurrentInstanceEditor.ParentEditor = this;
             ActivateItemAsync(CurrentInstanceEditor);
             NotifyOfPropertyChange(nameof(CurrentInstanceEditor));

@@ -19,19 +19,16 @@
         </EventTriggerBehavior>
     </Interaction.Behaviors>
     <controls1:GroupBox>
-        <Grid RowDefinitions="4*,2*">
-            <ContentControl Grid.Row="0" Margin="5" Content="{Binding AnimationScene}"/>
-            <StackPanel Margin="5" Grid.Row="1" Orientation="Vertical">
+        <Grid>
+            <StackPanel Margin="5" Orientation="Vertical">
                 <composite:ResourceBrowserOpener LinkedResource="{Binding SelectedOgi}" ResourcesToBrowse="{Binding SuitableModels}" Margin="5" BrowserName="Model Picker"/>
                 <Grid Margin="5" RowDefinitions="*,*" ColumnDefinitions="*,*">
                     <Slider x:Name="AnimationTrack"
-                            Value="{Binding CurrentAnimationFrame}"
                             Margin="0, 0, 0, 0"
                             TickFrequency="1"
                             SmallChange="1"
                             IsSnapToTickEnabled="True"
                             Minimum="0"
-                            Maximum="{Binding TotalFrames}"
                             TickPlacement="Outside"
                             Grid.Column="0" Grid.ColumnSpan="2" Grid.Row="0">
                         <Interaction.Behaviors>
@@ -40,15 +37,15 @@
                             </EventTriggerBehavior>
                         </Interaction.Behaviors>
                     </Slider>
-                    <TextBlock Margin="0, 0, 0, 5" Grid.Column="0" Grid.Row="1" Text="{Binding CurrentAnimationFrame, FallbackValue=0}"/>
-                    <TextBlock Margin="0, 0, 0, 5" Grid.Column="1" Grid.Row="1" Text="{Binding TotalFrames, FallbackValue=0}" TextAlignment="Right"/>
+                    <TextBlock x:Name="CurrentFrame" Margin="0, 0, 0, 5" Grid.Column="0" Grid.Row="1"/>
+                    <TextBlock x:Name="TotalFrames" Margin="0, 0, 0, 5" Grid.Column="1" Grid.Row="1" TextAlignment="Right"/>
                 </Grid>
-                <UniformGrid Columns="5">
+                <UniformGrid Columns="4">
                     <controls:LabeledTextBox LayoutOrientation="Horizontal" Text="{Binding PlaybackFps}" TextBoxName="Playback FPS" Margin="5" HorizontalAlignment="Stretch"/>
                     <controls:LabeledCheckBox Checked="{Binding Loop}" HorizontalAlignment="Left" CheckBoxName="Loop" LayoutOrientation="Horizontal"/>
                     <Button HorizontalContentAlignment="Center" HorizontalAlignment="Stretch" Margin="5" Command="{Binding PlayAnimation}" Content="Play"/>
                     <Button HorizontalContentAlignment="Center" HorizontalAlignment="Stretch" Margin="5" Command="{Binding PauseAnimation}" Content="Pause"/>
-                    <Button HorizontalContentAlignment="Center" HorizontalAlignment="Stretch" Margin="5" Command="{Binding ExportAnimation}" Content="Export"/>
+                    <!-- <Button HorizontalContentAlignment="Center" HorizontalAlignment="Stretch" Margin="5" Command="{Binding ExportAnimation}" Content="Export"/> -->
                 </UniformGrid>
             </StackPanel>
         </Grid>

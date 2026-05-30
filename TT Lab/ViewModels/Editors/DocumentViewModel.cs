@@ -1,6 +1,7 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Reactive.Disposables;
+using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
 using DynamicData;
@@ -22,6 +23,7 @@ public partial class DocumentViewModel : ReactiveObject
     public DocumentRootViewModel Root { get; }
     public IDocumentModel DocumentModel { get; }
     public PropertyGraph.PropertyGraph PropertyGraph { get; }
+    public ViewportViewModel? Viewport { get; }
 
     public ReadOnlyObservableCollection<LabURI> Uris;
 
@@ -45,14 +47,21 @@ public partial class DocumentViewModel : ReactiveObject
         DoNotClose,
     }
 
-    public DocumentViewModel(IDocumentModel documentModel)
+    public DocumentViewModel(IDocumentModel documentModel, ViewportViewModel? viewport = null)
     {
         _resourcesInDocument = new SourceCache<LabURI, String>(uri => uri);
         _resourcesInDocument.AddOrUpdate(LabURI.Empty);
-        _resourcesInDocument.Connect().Bind(out Uris);
+        Viewport = viewport;
         
         PropertyGraph = PropertyGraphBuilder.Build(documentModel);
         PropertyGraph.Changed += _ => IsDirty = true;
+
+        foreach (var trackerExploredUri in PropertyGraph.Tracker.ExploredUris)
+        {
+            _resourcesInDocument.AddOrUpdate(trackerExploredUri);
+        }
+        
+        _resourcesInDocument.Connect().Bind(out Uris).Subscribe();
         
         Root = new DocumentRootViewModel(this, PropertyGraph.Root)
         {
@@ -78,12 +87,20 @@ public partial class DocumentViewModel : ReactiveObject
 
     public void OpenInspector(PropertyNode? docToInspect)
     {
+        if (Inspector != null)
+        {
+            Inspector.IsVisible = false;
+        }
         Inspector?.Close();
 
         if (docToInspect != null)
         {
             Inspector = EditorDescRegistry.GetDesc(this, docToInspect).Construct();
             Lifecycle.Register(Inspector);
+        }
+        else
+        {
+            Inspector = null;
         }
 
         if (Inspector != null)
@@ -102,9 +119,9 @@ public partial class DocumentViewModel : ReactiveObject
         _resourcesInDocument.AddOrUpdate(uri);
     }
 
-    public void RemoveResource(LabURI uri)
+    public void RemoveResource(LabURI? uri)
     {
-        if (uri == LabURI.Empty)
+        if (uri == null || uri == LabURI.Empty)
         {
             return;
         }

@@ -1,27 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
-using System.Windows;
-using Avalonia;
-using Avalonia.Data;
-using Caliburn.Micro;
 using GlmSharp;
-using TT_Lab.AssetData.Instance;
-using TT_Lab.Assets;
 using TT_Lab.Extensions;
-using TT_Lab.Rendering.Factories;
 using TT_Lab.Rendering.Objects;
 using TT_Lab.Rendering.Objects.Gizmo;
-using TT_Lab.Rendering.Objects.SceneInstances;
 using TT_Lab.Rendering.Scene;
-using TT_Lab.Util;
-using TT_Lab.ViewModels.Editors;
-using TT_Lab.ViewModels.Editors.Instance;
 using TT_Lab.ViewModels.Interfaces;
 using Twinsanity.TwinsanityInterchange.Common;
 using Color = System.Drawing.Color;
-using Math = System.Math;
 
 namespace TT_Lab.Rendering;
 
@@ -35,10 +22,13 @@ public class EditingContext
     private readonly EditorCursor _cursor;
     private readonly ViewportObject?[] _palette = new ViewportObject[9];
     private readonly BillboardSet _positionsBillboards;
+    private readonly BillboardSet _pathsBillboards;
+    private readonly BillboardSet _particlesBillboards;
     private readonly BillboardSet _triggersBillboards;
     private readonly BillboardSet _camerasBillboards;
     private readonly BillboardSet _instancesBillboards;
     private readonly BillboardSet _aiPositionsBillboards;
+    private readonly BillboardSet _chunkLinksBillboards;
     private int _currentPaletteIndex = 0;
     private readonly Node _editCtxNode;
     private IGizmo? _currentGizmo;
@@ -69,11 +59,24 @@ public class EditingContext
             
         _instancesBillboards = CreateBillboardSet(context, "InstancesBillboards", "Instance");
         _editCtxNode.AddChild(_instancesBillboards);
-            
+        
         _aiPositionsBillboards = CreateBillboardSet(context, "AiPositionsBillboards", "AI_Position");
         color = Color.FromKnownColor(KnownColor.Yellow);
         _aiPositionsBillboards.Diffuse = new vec4(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, 1.0f);
         _editCtxNode.AddChild(_aiPositionsBillboards);
+
+        _pathsBillboards = CreateBillboardSet(context, "PathsBillboards", "Path");
+        color = Color.FromKnownColor(KnownColor.LightBlue);
+        _pathsBillboards.Diffuse = new vec4(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, 1.0f);
+        _editCtxNode.AddChild(_pathsBillboards);
+
+        _particlesBillboards = CreateBillboardSet(context, "ParticlesBillboards", "Particle_Emitter", false);
+        _editCtxNode.AddChild(_particlesBillboards);
+
+        _chunkLinksBillboards = CreateBillboardSet(context, "ChunkLinksBillboard", "Chunk_Link");
+        color = Color.FromKnownColor(KnownColor.Red);
+        _chunkLinksBillboards.Diffuse = new vec4(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, 1.0f);
+        _editCtxNode.AddChild(_chunkLinksBillboards);
         
         RegisterGizmo(new SelectionGizmo(context, this));
         RegisterGizmo(new TranslationGizmo(context, this));
@@ -126,6 +129,11 @@ public class EditingContext
     {
         return _positionsBillboards.CreateBillboard(0, 0, 0);
     }
+
+    public Billboard CreateChunkLinkBillboard()
+    {
+        return _chunkLinksBillboards.CreateBillboard(0, 0, 0);
+    }
         
     public Billboard CreateTriggerBillboard()
     {
@@ -135,6 +143,11 @@ public class EditingContext
     public Billboard CreateInstanceBillboard()
     {
         return _instancesBillboards.CreateBillboard(0, 0, 0);
+    }
+
+    public Billboard CreateParticleBillboard()
+    {
+        return _particlesBillboards.CreateBillboard(0, 0, 0);
     }
     
     public Billboard CreateCameraBillboard()
@@ -147,6 +160,11 @@ public class EditingContext
         return _aiPositionsBillboards.CreateBillboard(0, 0, 0);
     }
 
+    public Billboard CreatePathBillboard()
+    {
+        return _pathsBillboards.CreateBillboard(0, 0, 0);
+    }
+
     public RenderContext GetRenderContext()
     {
         return _renderContext;
@@ -154,45 +172,55 @@ public class EditingContext
 
     public void Deselect()
     {
-        TransformMode = TransformMode.SELECTION;
-        TransformAxis = TransformAxis.NONE;
-        SelectedInstance?.Render.Deselect();
-        SelectedInstance = null;
-        SelectedRenderable = null;
-        SwitchGizmo(GizmoType.Selection);
-        _currentGizmo?.Hide();
+        _renderContext.QueueRenderAction(() =>
+        {
+            TransformMode = TransformMode.SELECTION;
+            TransformAxis = TransformAxis.NONE;
+            SelectedInstance?.Render.Deselect();
+            SelectedInstance = null;
+            SelectedRenderable = null;
+            SwitchGizmo(GizmoType.Selection);
+            _currentGizmo?.Hide();
+        });
     }
 
     public void Select(ViewportObject instance)
     {
         Deselect();
-        SelectedInstance = instance;
-        SelectedInstance?.Render.Select();
-        SelectedRenderable = SelectedInstance?.Render;
-        
-        if (SelectedInstance != null)
+        _renderContext.QueueRenderAction(() =>
         {
-            SwitchGizmo((GizmoType)(int)TransformMode);
-        }
+            SelectedInstance = instance;
+            SelectedInstance?.Render.Select();
+            SelectedRenderable = SelectedInstance?.Render;
+        
+            if (SelectedInstance != null)
+            {
+                SwitchGizmo((GizmoType)(int)TransformMode);
+            }
+        });
+        
     }
 
     public void SwitchGizmo(GizmoType type, string? customGizmoName = null)
     {
-        _currentGizmo?.HighlightAxis(TransformAxis.NONE);
-        _currentGizmo?.DetachGizmo();
-        _currentGizmo?.Hide();
-        var availableGizmos = _gizmos.Where(g => g.GetGizmoType() == type);
-        if (type == GizmoType.Custom && !string.IsNullOrEmpty(customGizmoName))
+        _renderContext.QueueRenderAction(() =>
         {
-            availableGizmos = availableGizmos.Where(g => g.GetGizmoName() == customGizmoName);
-        }
+            _currentGizmo?.HighlightAxis(TransformAxis.NONE);
+            _currentGizmo?.DetachGizmo();
+            _currentGizmo?.Hide();
+            var availableGizmos = _gizmos.Where(g => g.GetGizmoType() == type);
+            if (type == GizmoType.Custom && !string.IsNullOrEmpty(customGizmoName))
+            {
+                availableGizmos = availableGizmos.Where(g => g.GetGizmoName() == customGizmoName);
+            }
 
-        _currentGizmo = availableGizmos.FirstOrDefault();
-        if (SelectedInstance != null)
-        {
-            _currentGizmo?.AttachGizmo(SelectedInstance.Render);
-        }
-        _currentGizmo?.Show();
+            _currentGizmo = availableGizmos.FirstOrDefault();
+            if (SelectedInstance != null)
+            {
+                _currentGizmo?.AttachGizmo(SelectedInstance.Render);
+            }
+            _currentGizmo?.Show();
+        });
     }
 
     public void SetGrid()
@@ -423,7 +451,7 @@ public class EditingContext
 
     private void Scale(vec3 offset)
     {
-        SelectedInstance?.Render.Scale(offset + vec3.Ones);
+        SelectedInstance?.Render.Scale(offset + vec3.Ones, true);
         if (SelectedInstance is { Scale: not null })
         {
             var editorScale = SelectedInstance.Render.GetEditorScale();
@@ -469,9 +497,9 @@ public class EditingContext
         }
     }
 
-    private BillboardSet CreateBillboardSet(RenderContext renderContext, string billboardName, string billboardIconName)
+    private BillboardSet CreateBillboardSet(RenderContext renderContext, string billboardName, string billboardIconName, bool useDiffuseOnly = true)
     {
-        var billboardSet = new BillboardSet(renderContext, renderContext.MeshFactory, billboardIconName, billboardName);
+        var billboardSet = new BillboardSet(renderContext, renderContext.MeshFactory, billboardIconName, billboardName, useDiffuseOnly);
         return billboardSet;
     }
 }

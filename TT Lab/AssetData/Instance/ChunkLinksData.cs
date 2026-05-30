@@ -2,12 +2,20 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using GlmSharp;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Attributes;
 using TT_Lab.Attributes.EditorParamWrappers;
 using TT_Lab.Extensions;
+using TT_Lab.Rendering.Objects;
+using TT_Lab.Rendering.Scene;
+using TT_Lab.ViewModels;
+using TT_Lab.ViewModels.Editors.PropertyGraph;
+using TT_Lab.ViewModels.Interfaces;
+using Twinsanity.TwinsanityInterchange.Common;
+using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.SM;
 
@@ -79,5 +87,39 @@ public class ChunkLinksData : AbstractAssetData
         writer.Flush();
         ms.Position = 0;
         return factory.GenerateLink(ms);
+    }
+
+    public override List<ViewportObject> GetViewportObjects(ViewportContext viewportContext, PropertyNode property)
+    {
+        var viewportObjects = new List<ViewportObject>();
+        var assetManager = AssetManager.Get();
+        var linkIdx = 0;
+        foreach (var link in Links)
+        {
+            var linkedChunk = assetManager.GetAsset<LevelChunk>(link.Path);
+            var chunkData = linkedChunk.ChunkResources;
+            var linkedSceneryUri = chunkData.First(uri => assetManager.GetAsset(uri).Section == Constants.SCENERY_SECENERY_ITEM);
+            var linkedScenery = assetManager.GetAssetData<SceneryData>(linkedSceneryUri);
+            var linkedSceneryRender = new Rendering.Objects.Scenery(viewportContext.RenderContext, viewportContext.RenderContext.MeshService, linkedScenery);
+            if (link is { IsAlwaysVisible: false, IsVisibleInCameraFrustum: false })
+            {
+                linkedSceneryRender.IsVisible = false;
+            }
+
+            var size = vec3.Ones;
+            var offset = -vec3.Ones * 0.5f;
+            var editableObject = new EditableObject(viewportContext.RenderContext, linkedSceneryRender, $"{Owner.FullDataPath}{linkIdx}", offset, size);
+            editableObject.Init();
+            editableObject.SetLocalTransform(link.ChunkMatrix.ToGlm());
+            var billboard = viewportContext.EditingContext.CreateChunkLinkBillboard();
+            editableObject.AddChild(billboard);
+
+            var linkTransformProperty = property.Find($"[data].AssetData.Links[{linkIdx++}].{nameof(ChunkLink.ChunkMatrix)}")!;
+            viewportObjects.Add(new ViewportObject(editableObject, linkTransformProperty.Path, property)
+            {
+                Transform = linkTransformProperty
+            });
+        }
+        return viewportObjects;
     }
 }

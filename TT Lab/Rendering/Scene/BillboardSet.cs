@@ -13,14 +13,16 @@ namespace TT_Lab.Rendering.Scene;
 
 public class BillboardSet : Renderable
 {
+    private readonly bool _useDiffuseOnly;
     private readonly MaterialData _renderMaterial;
     private readonly ModelBuffer _planeBuffer;
     private readonly List<Billboard> _billboards = [];
     private readonly List<mat4> _billboardMatrices = [];
     private readonly BufferObject<float> _modelMatricesView;
     
-    public BillboardSet(RenderContext context, MeshFactory meshFactory, string labIconName, string name = "") : base(context, name)
+    public BillboardSet(RenderContext context, MeshFactory meshFactory, string labIconName, string name = "", bool useDiffuseOnly = true) : base(context, name)
     {
+        _useDiffuseOnly = useDiffuseOnly;
         _renderMaterial = new MaterialData(null);
         _renderMaterial.Shaders[0].TxtMapping = TwinShader.TextureMapping.ON;
         _renderMaterial.Shaders[0].TextureId = LabURI.GetLabIcon(labIconName);
@@ -91,7 +93,7 @@ public class BillboardSet : Renderable
         Context.Gl.Uniform1(flipYLoc, 1.0f);
         
         var diffuseOnlyLoc = Context.CurrentPass.Program.GetUniformLocation("DiffuseOnly");
-        Context.Gl.Uniform1(diffuseOnlyLoc, 1.0f);
+        Context.Gl.Uniform1(diffuseOnlyLoc, _useDiffuseOnly ? 1.0f : 0.0f);
         
         for (uint i = 0; i < 4; ++i)
         {

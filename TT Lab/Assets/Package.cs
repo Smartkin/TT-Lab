@@ -19,9 +19,11 @@ public class Package : SerializableAsset
     [JsonProperty(Required = Required.Always)]
     [Editable]
     public Boolean Enabled { get; set; }
-    [JsonProperty(Required = Required.Always)]
-    [Editable]
+    
+    [JsonProperty(Required = Required.Always, ObjectCreationHandling = ObjectCreationHandling.Replace)]
+    [Editable(MaxLinkGraphDepth = 2)]
     public List<LabURI> Dependencies { get; private set; } = [];
+    
     [JsonProperty(Required = Required.Always)]
     public String Variant { get; set; } = "";
 
@@ -41,7 +43,7 @@ public class Package : SerializableAsset
 
     public Folder GetPackageFolder()
     {
-        return AssetManager.Get().GetAsset<Folder>(new LabURI($"res://__GLOBAL_FOLDER__/assets/{Name}"));
+        return AssetManager.Get().GetAsset<Folder>(new LabURI(GetFolderUri()));
     }
 
     public string GetFolderUri()

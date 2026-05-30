@@ -11,6 +11,10 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout
         /// </summary>
         Vector4 Position { get; set; }
         /// <summary>
+        /// Instance's rotation in the chunk in quaternion
+        /// </summary>
+        Vector4 Rotation { get; set; }
+        /// <summary>
         /// Instance's X rotation <seealso cref="TwinIntegerRotation"/>
         /// </summary>
         TwinIntegerRotation RotationX { get; set; }

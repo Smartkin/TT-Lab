@@ -144,7 +144,8 @@ public class BehaviourGraphData : AbstractAssetData
         return factory.GenerateBehaviourGraph(ms);
     }
 
-    public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, uint id, int? layoutID = null)
+    public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, uint id,
+        int? layoutId = null)
     {
         _graphId = (int)id;
         var compiledBehaviour = GetCompiledBehaviour(factory);

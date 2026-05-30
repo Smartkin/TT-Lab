@@ -87,6 +87,8 @@ public class SceneryData : AbstractAssetData
 
     protected override void Dispose(Boolean disposing)
     {
+        AssetManager.Get().GetAsset(DynamicScenery).Delete();
+        AssetManager.Get().GetAsset(Collision).Delete();
         AmbientLights.Clear();
         DirectionalLights.Clear();
         PointLights.Clear();
@@ -654,7 +656,8 @@ public class SceneryData : AbstractAssetData
         return factory.GenerateScenery(ms);
     }
 
-    public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, UInt32 id, Int32? layoutID = null)
+    public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, uint id,
+        int? layoutId = null)
     {
         var assetManager = AssetManager.Get();
         var graphicsSection = section.GetItem<ITwinSection>(Constants.SCENERY_GRAPHICS_SECTION);
@@ -667,12 +670,12 @@ public class SceneryData : AbstractAssetData
         if (DynamicScenery != LabURI.Empty)
         {
             assetManager.GetAssetData<DynamicSceneryData>(DynamicScenery).ResolveChunkResources(factory, section,
-                Constants.SCENERY_DYNAMIC_SECENERY_ITEM, layoutID);
+                Constants.SCENERY_DYNAMIC_SECENERY_ITEM, layoutId);
         }
         else
         {
             var dummyDynamicScenery = new DynamicSceneryData(null);
-            dummyDynamicScenery.ResolveChunkResources(factory, section, Constants.SCENERY_DYNAMIC_SECENERY_ITEM, layoutID);
+            dummyDynamicScenery.ResolveChunkResources(factory, section, Constants.SCENERY_DYNAMIC_SECENERY_ITEM, layoutId);
         }
 
         foreach (var scenery in Sceneries)
@@ -680,7 +683,7 @@ public class SceneryData : AbstractAssetData
             scenery.ResolveChunkResouces(factory, graphicsSection);
         }
 
-        return base.ResolveChunkResources(factory, section, Constants.SCENERY_SECENERY_ITEM, layoutID);
+        return base.ResolveChunkResources(factory, section, Constants.SCENERY_SECENERY_ITEM, layoutId);
     }
 
     public override List<ViewportObject> GetViewportObjects(ViewportContext viewportContext,

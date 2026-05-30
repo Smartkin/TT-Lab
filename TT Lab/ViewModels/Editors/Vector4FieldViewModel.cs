@@ -26,13 +26,13 @@ public class Vector4FieldViewModel : DocumentDataViewModel<Vector4>
         W = new TextFieldViewModel(document, Property.Find("W")!, this) { Caption = "W" };
     }
 
-    protected override void NodeOnChanged()
+    protected override void OnCurrentValueChanged()
     {
         X.SetValueCommand.Execute(Property.Find("X")!.GetValue());
         Y.SetValueCommand.Execute(Property.Find("Y")!.GetValue());
         Z.SetValueCommand.Execute(Property.Find("Z")!.GetValue());
         W.SetValueCommand.Execute(Property.Find("W")!.GetValue());
         
-        base.NodeOnChanged();
+        base.OnCurrentValueChanged();
     }
 }

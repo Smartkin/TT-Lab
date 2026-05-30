@@ -38,6 +38,7 @@ public class RenderRoutedEventArgs : RoutedEventArgs
 
 public class Viewport : Control, ICustomHitTest
 {
+    private ManualResetEventSlim _imageReadySlim = new(false);
     private Thread? _renderThread;
     private Sdl2Window _sdlWindow;
     private RenderContext? _context;
@@ -73,6 +74,7 @@ public class Viewport : Control, ICustomHitTest
         }
         
         SizeChanged += OnSizeChanged;
+        
         Focusable = true;
     }
 
@@ -88,7 +90,7 @@ public class Viewport : Control, ICustomHitTest
         
         _renderThread = new Thread(() => RenderThread(_cancellationTokenSource.Token))
         {
-            Name = "Viewport Render Thread",
+            Name = $"Viewport Render Thread {GetHashCode()}",
             IsBackground = true
         };
         _renderThread!.Start();
@@ -113,6 +115,7 @@ public class Viewport : Control, ICustomHitTest
                 new Vector(96, 96),
                 PixelFormat.Bgra8888, AlphaFormat.Unpremul);
             _framebufferData = new uint[_bitmap.PixelSize.Width * _bitmap.PixelSize.Height];
+            _imageReadySlim.Set();
         }
         
         _context?.QueueRenderAction(() =>
@@ -125,12 +128,14 @@ public class Viewport : Control, ICustomHitTest
 
             _sdlWindow.X = 0;
             _sdlWindow.Y = 0;
+            _context!.ViewportSize = new vec2(_sdlWindow.Width, _sdlWindow.Height);
             Sdl2Native.SDL_PumpEvents();
         });
     }
 
     private unsafe void RenderThread(CancellationToken token)
     {
+        _imageReadySlim.Wait(token);
         var stopwatch = Stopwatch.StartNew();
         
         _sdlWindow = new Sdl2Window($"VIEWPORT_{GetHashCode()}", 0, 0, (int)Bounds.Width, (int)Bounds.Height,
@@ -138,6 +143,14 @@ public class Viewport : Control, ICustomHitTest
             false);
 
         var glCtxPtr = Sdl2Native.SDL_GL_CreateContext(_sdlWindow.SdlWindowHandle);
+        if (glCtxPtr == IntPtr.Zero)
+        {
+            var sdlError = Sdl2Native.SDL_GetError();
+            var sdlErrorString = Marshal.PtrToStringAnsi((IntPtr)sdlError);
+            Log.WriteLine($"Failed to initialize viewport: {sdlErrorString}\n Try to reopen the tab or reopen to application.", Log.LogType.Error);
+            _sdlWindow.Close();
+            return;
+        }
         Sdl2Native.SDL_GL_MakeCurrent(_sdlWindow.SdlWindowHandle, glCtxPtr);
         
         _context = new RenderContext(GL.GetApi(Sdl2Native.SDL_GL_GetProcAddress))
@@ -157,13 +170,16 @@ public class Viewport : Control, ICustomHitTest
 
         _sdlWindow.Closing += OnOpenGlDeinit;
 
+        var resizeHack = false;
         var presentElapsedTime = 0.0f;
         while (!token.IsCancellationRequested)
         {
+            Thread.Sleep(5);
             _context.SetGlAccessibility(true);
             var delta = stopwatch.ElapsedMilliseconds / 1000.0f;
             stopwatch.Restart();
-            OnOpenGlRender(delta);
+            var renderDelta = delta;
+            OnOpenGlRender(renderDelta);
             presentElapsedTime += delta;
             if (presentElapsedTime < 0.016f)
             {
@@ -192,10 +208,20 @@ public class Viewport : Control, ICustomHitTest
                 }
                 bitsHandle.Free();
             }
+            
+            if (!resizeHack)
+            {
+                _sdlWindow.Width += 1;
+                _context.FireResize();
+                resizeHack = true;
+            }
+            
             _context.SetGlAccessibility(false);
+            
             Dispatcher.UIThread.Post(InvalidateVisual);
         }
         
+        Sdl2Native.SDL_GL_MakeCurrent(_sdlWindow.SdlWindowHandle, IntPtr.Zero);
         _sdlWindow.Close();
     }
 
@@ -218,8 +244,7 @@ public class Viewport : Control, ICustomHitTest
     {
         var sdlWindowWidth = _sdlWindow.Width;
         var sdlWindowHeight = _sdlWindow.Height;
-        _context!.ViewportSize = new vec2(sdlWindowWidth, sdlWindowHeight);
-        _context.Gl.Viewport(0, 0, (uint)sdlWindowWidth, (uint)sdlWindowHeight);
+        _context!.Gl.Viewport(0, 0, (uint)sdlWindowWidth, (uint)sdlWindowHeight);
         _context.Gl.Scissor(0, 0, (uint)sdlWindowWidth, (uint)sdlWindowHeight);
         _context.PerformRender((float)delta);
     }
@@ -228,7 +253,7 @@ public class Viewport : Control, ICustomHitTest
     {
         if (Design.IsDesignMode)
         {
-            context.DrawText(new FormattedText("No render is supported in design mode", CultureInfo.InvariantCulture, FlowDirection.LeftToRight, Typeface.Default, 12, _noRenderColor),
+            context.DrawText(new FormattedText("Rendering is not supported in design mode", CultureInfo.InvariantCulture, FlowDirection.LeftToRight, Typeface.Default, 12, _noRenderColor),
                 new Point(5, 5));
             return;
         }

@@ -11,6 +11,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Layout
     public class PS2AnyInstance : BaseTwinItem, ITwinInstance
     {
         public Vector4 Position { get; set; }
+        public Vector4 Rotation { get; set; }
         public TwinIntegerRotation RotationX { get; set; }
         public TwinIntegerRotation RotationY { get; set; }
         public TwinIntegerRotation RotationZ { get; set; }
@@ -31,6 +32,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Layout
         public PS2AnyInstance()
         {
             Position = new Vector4();
+            Rotation = new Vector4(0, 0, 0, 1);
             RotationX = new TwinIntegerRotation();
             RotationY = new TwinIntegerRotation();
             RotationZ = new TwinIntegerRotation();

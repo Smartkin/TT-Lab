@@ -18,16 +18,12 @@ public partial class CodeEditorView : DocumentBaseView<CodeEditorViewModel>
     public CodeEditorView()
     {
         InitializeComponent();
-        
-        var registryOptions = new RegistryOptions(ThemeName.DarkPlus);
-        var textMateInstallation = Editor.InstallTextMate(registryOptions);
-        textMateInstallation.SetGrammar(registryOptions.GetScopeByExtension(".cs"));
     }
 
     protected override void HandleActivation(CompositeDisposable disposables)
     {
-        this.Bind(ViewModel, viewModel => viewModel.Code, view => view.Editor.Document).DisposeWith(disposables);
+        this.Bind(ViewModel, viewModel => viewModel.Code, view => view.Editor.Text).DisposeWith(disposables);
         
-        this.BindValidation(ViewModel, viewModel => viewModel.Code.Text, view => view.CodeParsingError.Text).DisposeWith(disposables);
+        this.BindValidation(ViewModel, viewModel => viewModel.Code, view => view.CodeParsingError.Text).DisposeWith(disposables);
     }
 }

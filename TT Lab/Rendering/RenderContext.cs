@@ -29,6 +29,7 @@ public class RenderContext : IDisposable
     }
 
     public event Action<double>? Render;
+    public event Action? ResizeFramebuffer;
     public event Action? Destroy;
 
     private bool _isInit = false;
@@ -153,7 +154,11 @@ public class RenderContext : IDisposable
         _isGlAccessible = isAccessible;
     }
 
-    public void SetOutputBuffer(int fb) => _outputBuffer = fb;
+    public void FireResize()
+    {
+        ResizeFramebuffer?.Invoke();
+    }
+
     public uint GetOutputBuffer() => 0U;
 
     public void QueueRenderAction(Action action)

@@ -624,6 +624,7 @@ public class Project : IProject
     public void PackChunk(LabURI chunkUri, ITwinItemFactory? itemFactory = null)
     {
         var factory = itemFactory ?? new PS2ItemFactory();
+        factory.GlobalPackage = GlobalPackagePS2;
         var assetManager = AssetManager.Get();
         var chunk = assetManager.GetAsset<LevelChunk>(chunkUri);
         factory.ChunkPath = chunk.AdditionalPath!;
@@ -635,6 +636,7 @@ public class Project : IProject
         System.IO.Directory.SetCurrentDirectory("archives");
         if (chunk.Name == "default")
         {
+            factory.IsDefaultResolution = true;
             Log.WriteLine("Writing Default chunk...");
             System.IO.Directory.CreateDirectory("Startup");
             System.IO.Directory.SetCurrentDirectory("Startup");
@@ -721,7 +723,10 @@ public class Project : IProject
             return;
         }
 
-        var factory = new PS2ItemFactory();
+        var factory = new PS2ItemFactory
+        {
+            GlobalPackage = GlobalPackagePS2
+        };
         var assetManager = AssetManager;
 
         Log.WriteLine("Creating build directories...");
@@ -753,17 +758,17 @@ public class Project : IProject
         // {
         //     ResolveAndWriteChunks(factory, folder, ref totalGlobals, ref currentGlobalsCount);
         // }
-        //
-        // Log.WriteLine("Writing Extras...");
-        // System.IO.Directory.SetCurrentDirectory("../Extras");
-        //
-        // var extrasFolder = assetManager.GetAsset<Folder>(GlobalPackagePS2.GetPackageFolder().FindChild<Folder>("Extras"));
-        // ResolveGlobalAssets(factory, extrasFolder.Children, ref totalGlobals, ref currentGlobalsCount);
-        //
-        // System.IO.Directory.SetCurrentDirectory("../Language");
-        // Log.WriteLine("Writing Language...");
-        // var languageFolder = assetManager.GetAsset<Folder>(GlobalPackagePS2.GetPackageFolder().FindChild<Folder>("Language"));
-        // ResolveGlobalAssets(factory, languageFolder.Children, ref totalGlobals, ref currentGlobalsCount);
+        
+        Log.WriteLine("Writing Extras...");
+        System.IO.Directory.SetCurrentDirectory("../Extras");
+        
+        var extrasFolder = assetManager.GetAsset<Folder>(GlobalPackagePS2.GetPackageFolder().FindChild<Folder>("Extras"));
+        ResolveGlobalAssets(factory, extrasFolder.Children, ref totalGlobals, ref currentGlobalsCount);
+        
+        System.IO.Directory.SetCurrentDirectory("../Language");
+        Log.WriteLine("Writing Language...");
+        var languageFolder = assetManager.GetAsset<Folder>(GlobalPackagePS2.GetPackageFolder().FindChild<Folder>("Language"));
+        ResolveGlobalAssets(factory, languageFolder.Children, ref totalGlobals, ref currentGlobalsCount);
 
         System.IO.Directory.SetCurrentDirectory("../Startup");
         Log.WriteLine("Writing Startup...");
@@ -842,6 +847,7 @@ public class Project : IProject
 
     private void ResolveAndWriteChunks(ITwinItemFactory factory, Folder currentFolder, ref UInt32 scenesTotal, ref UInt32 currentSceneCount, bool isDefault = false)
     {
+        factory.IsDefaultResolution = isDefault;
         var assetManager = AssetManager.Get();
         scenesTotal += (UInt32)currentFolder.Children.Select(assetManager.GetAsset).Count(a => a is LevelChunk);
         foreach (var item in currentFolder.Children)

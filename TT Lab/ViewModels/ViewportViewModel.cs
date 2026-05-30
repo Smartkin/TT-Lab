@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
@@ -119,13 +120,8 @@ public partial class ViewportViewModel : ReactiveObject
             }).DisposeWith(_closeDisposables);
     }
 
-    public void FrameResized(SizeChangedEventArgs newSize)
+    public void FrameResized(SizeChangedEventArgs _)
     {
-        if (ViewportSize.Equals(new ivec2((int)newSize.NewSize.Width, (int)newSize.NewSize.Height)))
-        {
-            return;
-        }
-        
         CanRender = false;
         this.RaisePropertyChanged(nameof(CanRender));
         this.RaisePropertyChanged(nameof(SceneStatus));
@@ -146,6 +142,16 @@ public partial class ViewportViewModel : ReactiveObject
             this.RaisePropertyChanged(nameof(CanRender));
             this.RaisePropertyChanged(nameof(SceneStatus));
         });
+    }
+
+    public RenderContext? GetRenderContext()
+    {
+        return _renderContext;
+    }
+
+    public IReadOnlyList<ViewportObject> GetViewportObjects()
+    {
+        return _editableObjects.Items;
     }
 
     public void Close()
@@ -332,7 +338,7 @@ public partial class ViewportViewModel : ReactiveObject
             return;
         }
 
-        var viewportContext = new ViewportContext(_renderContext!, _editingContext!);
+        var viewportContext = new ViewportContext(_renderContext!, _editingContext!, _renderer!);
 
         var viewportObjects = _document.DocumentModel.GetViewportObjects(viewportContext, _document.PropertyGraph.Root);
         foreach (var viewportObject in viewportObjects)
@@ -486,6 +492,7 @@ public partial class ViewportViewModel : ReactiveObject
         }
         else if (key == Key.U)
         {
+            _document?.OpenInspector(null);
             _editingContext.Deselect();
         }
     }
@@ -531,4 +538,4 @@ public partial class ViewportViewModel : ReactiveObject
     public string SceneStatus => CanRender ? "" : "Loading scene...";
 }
 
-public record ViewportContext(RenderContext RenderContext, EditingContext EditingContext);
+public record ViewportContext(RenderContext RenderContext, EditingContext EditingContext, Renderer Renderer);

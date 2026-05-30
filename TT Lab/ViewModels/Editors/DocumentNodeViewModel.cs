@@ -106,6 +106,7 @@ public abstract partial class DocumentNodeViewModel : DocumentBaseViewModel, IAc
     protected virtual void OnActivated(CompositeDisposable disposables)
     {
         Property.Changed += PropertyOnChanged;
+        Property.ReadOnlyChanged += PropertyOnReadOnlyChanged;
         ApplyEditorAttributes();
         RxSchedulers.MainThreadScheduler.Schedule(this, (_, state) =>
         {
@@ -114,12 +115,18 @@ public abstract partial class DocumentNodeViewModel : DocumentBaseViewModel, IAc
         }).DisposeWith(disposables);
     }
 
+    private void PropertyOnReadOnlyChanged()
+    {
+        IsReadOnly = Property.IsReadOnly;
+    }
+
     protected virtual void PropertyOnChanged()
     {
     }
 
     protected virtual void OnDeactivated(CompositeDisposable disposables)
     {
+        Property.ReadOnlyChanged -= PropertyOnReadOnlyChanged;
         Property.Changed -= PropertyOnChanged;
         RxSchedulers.MainThreadScheduler.Schedule(this, (_, state) =>
         {

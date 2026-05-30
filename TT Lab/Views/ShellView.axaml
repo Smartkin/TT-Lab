@@ -26,7 +26,7 @@
             <MenuItem x:Name="ProjectSubMenu" Header="Project">
                 <MenuItem Click="CreateProject_OnClick" Header="Create Project..."/>
                 <MenuItem x:Name="OpenProjectItem" Command="{Binding OpenProject}" Header="Open Project..." InputGesture="Ctrl+O"/>
-                <MenuItem x:Name="OpenRecentSubMenu" Header="Open Recent" ItemsSource="{Binding RecentlyOpened}" IsEnabled="{Binding HasRecents}"/>
+                <!-- <MenuItem x:Name="OpenRecentSubMenu" Header="Open Recent" ItemsSource="{Binding RecentlyOpened}" IsEnabled="{Binding HasRecents}"/> -->
                 <MenuItem x:Name="SaveProjectItem" Command="{Binding SaveProject}" Header="Save all" InputGesture="Ctrl+Shift+S" IsEnabled="{Binding ProjectOpened}"/>
                 <MenuItem Command="{Binding CloseProject}" Header="Close Project" IsEnabled="{Binding ProjectOpened}"/>
             </MenuItem>
@@ -35,9 +35,9 @@
                 <MenuItem Command="{Binding BuildPs2Iso}" Header="Build Only PS2 ISO" ToolTip.Tip="Creates PS2 archives then creates the ISO"/>
                 <MenuItem x:Name="BuildXbox" Header="Build XBox ISO" IsEnabled="False"/>
             </MenuItem>
-            <MenuItem x:Name="ToolsSubMenu" Header="Tools" IsEnabled="False">
-                <MenuItem/>
-            </MenuItem>
+            <!-- <MenuItem x:Name="ToolsSubMenu" Header="Tools" IsEnabled="False"> -->
+            <!--     <MenuItem/> -->
+            <!-- </MenuItem> -->
             <MenuItem Click="Preferences_OnClick" Header="Preferences"/>
             <MenuItem Click="About_OnClick" Header="About"/>
         </Menu>
@@ -62,7 +62,7 @@
                         <model:ProportionalDockSplitter x:Name="BottomSplitter" Id="BottomSplitter"/>
                         
                         <model:DocumentDock Proportion="0.15" x:Name="LogPane" Id="LogPane">
-                            <Document Id="Logger" Title="Logger" CanClose="False" CanPin="True">
+                            <Document Id="Logger" Title="Log" CanClose="False" CanPin="True">
                                 <Document.Content>
                                     <local:LogView DataContext="{Binding #MainApplication.DataContext.Logger}"/>
                                 </Document.Content>

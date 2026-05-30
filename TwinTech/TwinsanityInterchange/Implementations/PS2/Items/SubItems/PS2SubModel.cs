@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using Twinsanity.PS2Hardware;
@@ -121,7 +122,40 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SubItems
                     {
                         if (e == null)
                             break;
-                        Normals.Add(new Vector4(e.X, e.Y, e.Z, 1.0f));
+                        var normal = e;
+                        // Abysmally short normals
+                        if (normal.Length() == 0)
+                        {
+                            if (normal.X < 0)
+                            {
+                                normal.X = -1.0f;
+                            }
+                            else
+                            {
+                                normal.X = 1.0f;
+                            }
+
+                            if (normal.Y < 0)
+                            {
+                                normal.Y = -1.0f;
+                            }
+                            else
+                            {
+                                normal.Y = 1.0f;
+                            }
+
+                            if (normal.Z < 0)
+                            {
+                                normal.Z = -1.0f;
+                            }
+                            else
+                            {
+                                normal.Z = 1.0f;
+                            }
+                        }
+                        Debug.Assert(normal.Length() > 0);
+                        normal.Normalize();
+                        Normals.Add(new Vector4(normal.X, normal.Y, normal.Z, 1.0f));
                     }
                 }
                 if (fieldsPresent.HasFlag(FieldsPresent.EmitColors))

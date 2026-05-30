@@ -23,13 +23,16 @@ public abstract partial record EditorDesc
         }
         result.Caption = caption;
         result.Hint = Node.Metadata?.Editable?.Hint;
-        result.IsEditable = !Node.IsReadOnly;
+        result.IsReadOnly = Node.IsReadOnly;
         result.EditorParameters = Node.Metadata?.EditorParams ?? new Dictionary<String, Object>();
         ApplyAttributeWrappers(result);
         return result;
     }
-    
-    protected virtual DocumentNodeViewModel ConstructInternal() => new DocumentModelViewModel(Document, Node);
+
+    protected virtual DocumentNodeViewModel ConstructInternal() => new DocumentModelViewModel(Document, Node)
+    {
+        IsConstructible = Node.Metadata?.Editable?.IsConstructible ?? false,
+    };
     
     private void ApplyAttributeWrappers(DocumentNodeViewModel documentNode)
     {

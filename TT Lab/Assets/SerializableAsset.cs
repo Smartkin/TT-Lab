@@ -47,7 +47,7 @@ public abstract class SerializableAsset : IAsset
     public String Name => string.IsNullOrEmpty(Variation) ? InvariantName : $"{InvariantName}_{Variation}";
 
     public string DocumentName => Alias;
-    public void Save()
+    public virtual void Save()
     {
         Serialize(SerializationFlags.SaveData | SerializationFlags.SetDirectoryToAssets);
     }
@@ -239,7 +239,16 @@ public abstract class SerializableAsset : IAsset
     }
 
     public virtual List<ViewportObject> GetViewportObjects(ViewportContext viewportContext,
-        PropertyNode property) => [];
+        PropertyNode property)
+    {
+        var result = new List<ViewportObject>();
+        if (_assetData != null)
+        {
+            result.AddRange(_assetData.GetViewportObjects(viewportContext, property));
+        }
+
+        return result;
+    }
 
     public abstract Type GetEditorType();
     public abstract AbstractAssetData GetData();
@@ -302,10 +311,9 @@ public abstract class SerializableAsset : IAsset
         item?.Compile();
     }
 
-    public void Dispose()
+    public virtual void Dispose()
     {
         DisposeData();
-        GC.SuppressFinalize(this);
     }
 
     protected void DisposeData(bool force = false)

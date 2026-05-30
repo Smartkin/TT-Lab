@@ -21,11 +21,11 @@ public class Vector2FieldViewModel : DocumentDataViewModel<Vector2>
         Y = new TextFieldViewModel(document, Property.Find("Y")!, this) { Caption = "Y" };
     }
 
-    protected override void NodeOnChanged()
+    protected override void OnCurrentValueChanged()
     {
         X.SetValueCommand.Execute(Property.Find("X")!.GetValue());
         Y.SetValueCommand.Execute(Property.Find("Y")!.GetValue());
         
-        base.NodeOnChanged();
+        base.OnCurrentValueChanged();
     }
 }

@@ -72,13 +72,18 @@ public class MeshData : RigidModelData
             assetManager.GetAsset(material).ResolveChunkResources(factory, materialsSection);
         }
 
-        assetManager.GetAsset(Model).ResolveChunkResources(factory, modelsSection);
+        
+        var model = assetManager.GetAsset<Model>(Model);
+        // HACK: Default meshes are shadows which HATE the optimized strips and render very incorrectly otherwise!
+        model.UseOptimalStrips = !factory.IsDefaultResolution;
+        model.ResolveChunkResources(factory, modelsSection);
     }
 
-    public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, uint id, int? layoutID = null)
+    public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, uint id,
+        int? layoutId = null)
     {
         return base.ResolveChunkResources(factory, section.GetParent() == null
             ? section.GetItem<ITwinSection>(Constants.LEVEL_GRAPHICS_SECTION).GetItem<ITwinSection>(Constants.GRAPHICS_MESHES_SECTION)
-            : section, id, layoutID);
+            : section, id, layoutId);
     }
 }

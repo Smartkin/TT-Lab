@@ -19,6 +19,9 @@ namespace TT_Lab.Assets.Factory
 {
     public class XboxItemFactory : ITwinItemFactory
     {
+        public Package GlobalPackage { get; set; }
+        public bool IsDefaultResolution { get; set; }
+        
         public ITwinAIPath GenerateAIPath(Stream stream)
         {
             throw new NotImplementedException();

@@ -36,6 +36,11 @@ public sealed class SoundEffectData : AbstractAssetData
         return new MemoryStream(_wave);
     }
 
+    public UInt32 GetFrequency()
+    {
+        return _frequency;
+    }
+
     public bool IsStereo()
     {
         return _channels == 2;

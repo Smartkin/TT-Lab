@@ -176,7 +176,8 @@ public class MaterialData : AbstractAssetData
         return factory.GenerateMaterial(ms);
     }
 
-    public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, UInt32 id, Int32? layoutID = null)
+    public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, uint id,
+        int? layoutId = null)
     {
         var assetManager = AssetManager.Get();
         var graphicsSection = section.GetParent();
@@ -186,6 +187,6 @@ public class MaterialData : AbstractAssetData
             assetManager.GetAsset(shader.TextureId).ResolveChunkResources(factory, texturesSection);
         }
         
-        return base.ResolveChunkResources(factory, section, id, layoutID);
+        return base.ResolveChunkResources(factory, section, id, layoutId);
     }
 }

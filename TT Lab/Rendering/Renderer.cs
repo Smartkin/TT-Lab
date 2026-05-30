@@ -57,8 +57,15 @@ public class Renderer : IView
         _batchStorage.NewBatchCreated += BatchStorageOnNewBatchCreated;
         _passService = renderContext.PassService;
         renderContext.Render += DoRender;
+        renderContext.ResizeFramebuffer += RenderContextOnResizeFramebuffer;
         renderContext.Destroy += Dispose;
         _updateWatch.Start();
+    }
+
+    private void RenderContextOnResizeFramebuffer()
+    {
+        DeleteRenderBuffer();
+        SetupRenderBuffer();
     }
 
     private void BatchStorageOnNewBatchCreated(RenderBatch renderBatch)
@@ -275,7 +282,7 @@ public class Renderer : IView
             lock (_imguiLock)
             {
                 _imgui.StartFrame((float)delta);
-                ImGui.ShowDemoWindow();
+                ImGui.ShowMetricsWindow();
                 RenderImgui?.Invoke();
         
                 _imgui.Render();
@@ -283,10 +290,6 @@ public class Renderer : IView
         }
         
         _renderContext.Invalidate();
-        // Swap buffers
-        // SaveFramebuffer();
-        // (_readBuffer, _writeBuffer) = (_writeBuffer, _readBuffer);
-        // _renderContext.Gl.BindFramebuffer(FramebufferTarget.Framebuffer, _renderContext.GetOutputBuffer());
         FinishRender?.Invoke();
     }
 
@@ -323,23 +326,6 @@ public class Renderer : IView
         }
 
         pass.EndPass();
-    }
-
-    private unsafe void SaveFramebuffer()
-    {
-        _renderContext.Gl.Flush();
-        _renderContext.Gl.BindFramebuffer(FramebufferTarget.ReadFramebuffer, _pongBuffers[_readBuffer].Handler);
-        lock (_framebufferWriteLock)
-        {
-            fixed (byte* p = _framebufferData)
-            {
-                _renderContext.Gl.PixelStore(GLEnum.PackAlignment, 1);
-                _renderContext.Gl.ReadPixels(0, 0, (uint)_frameBufferSize.x, (uint)_frameBufferSize.y, GLEnum.Bgra,
-                    GLEnum.UnsignedByte, p);
-            }
-
-            FlipY(_framebufferData, _frameBufferSize.x, _frameBufferSize.y);
-        }
     }
 
     public void DoUpdate()
@@ -439,36 +425,6 @@ public class Renderer : IView
     public Vector2D<Int32> FramebufferSize => new(_frameBufferSize.x, _frameBufferSize.y);
     public bool IsInitialized => true;
 
-    public void GetRenderImage(WriteableBitmap bitmap)
-    {
-        lock (_framebufferWriteLock)
-        {
-            // bitmap.CopyPixels(new PixelRect(0, 0, _frameBufferSize.x, _frameBufferSize.y), _framebufferData, _framebufferData.Length);
-            
-            // using var bitmapLock = bitmap.Lock();
-            // bitmap.WritePixels(new Int32Rect(0, 0, _frameBufferSize.x, _frameBufferSize.y), _framebufferData,
-            //     bitmap.BackBufferStride, 0);
-            // bitmap.Unlock();
-        }
-    }
-    
-    private static void FlipY(byte[] pixels, int width, int height)
-    {
-        var rowSize = width * 4;
-        var tempRow = new byte[rowSize];
-
-        for (var y = 0; y < height / 2; y++)
-        {
-            var topOffset = y * rowSize;
-            var bottomOffset = (height - 1 - y) * rowSize;
-
-            // Swap rows
-            Buffer.BlockCopy(pixels, topOffset, tempRow, 0, rowSize);
-            Buffer.BlockCopy(pixels, bottomOffset, pixels, topOffset, rowSize);
-            Buffer.BlockCopy(tempRow, 0, pixels, bottomOffset, rowSize);
-        }
-    }
-
     [MemberNotNull(nameof(_screenBuffer))]
     [MemberNotNull(nameof(_screenBuffer))]
     [MemberNotNull(nameof(_emptyVao))]
@@ -497,13 +453,15 @@ public class Renderer : IView
         {
             return;
         }
+        IsDisposed = true;
         
         Closing?.Invoke();
         _renderContext.Render -= DoRender;
+        _renderContext.ResizeFramebuffer -= RenderContextOnResizeFramebuffer;
+        _renderContext.Destroy -= Dispose;
         _imgui?.Dispose();
         DeleteRenderBuffer();
         
-        IsDisposed = true;
         GC.SuppressFinalize(this);
     }
 

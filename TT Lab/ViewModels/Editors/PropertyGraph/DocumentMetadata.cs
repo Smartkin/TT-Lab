@@ -56,6 +56,16 @@ public record DocumentMetadata : EditorMetadata
 
                 if (property.PropertyType.IsAssignableTo(typeof(IList)) && searchAllAttributes)
                 {
+                    editableProps.Add(new PropertyMetadata
+                    {
+                        PropertyInfo = property,
+                        ContainedTypeConstructor = containedTypeConstructor,
+                        EditorDescType = null,
+                        Editable = null,
+                        EditorParams = [],
+                        EditorParamWrappers = [],
+                        FieldReactors = []
+                    });
                     continue;
                 }
             }
@@ -92,11 +102,18 @@ public record DocumentMetadata : EditorMetadata
             }
             else
             {
+                var typeConstructors = new Dictionary<Type, Func<object?>>();
+                if (editableAttribute!.IsConstructible)
+                {
+                    var typeTree = InheritanceTreeBuilder.BuildTree(property.PropertyType);
+                    typeConstructors = InheritanceTreeBuilder.GetAllFactories(typeTree);
+                }
                 editableProps.Add(new PropertyMetadata
                 {
                     PropertyInfo = property,
                     ContainedTypeConstructor = containedTypeConstructor,
-                    EditorDescType = editableAttribute!.EditorDescType,
+                    TypeConstructors = typeConstructors,
+                    EditorDescType = editableAttribute.EditorDescType,
                     Editable = editableAttribute,
                     EditorParams = property.GetCustomAttributes<EditorParamAttribute>().ToDictionary(x => x.Param, x => x.Value),
                     EditorParamWrappers = property.GetCustomAttributes<EditorParamWrapperBaseAttribute>().ToArray(),
@@ -126,6 +143,13 @@ public record DocumentMetadata : EditorMetadata
         return result;
     }
 
+    public class TypeFactoryNode
+    {
+        public Type Type { get; init; }
+        public Func<object>? Factory { get; set; }
+        public List<TypeFactoryNode> Children { get; set; } = [];
+    }
+
     private static readonly Dictionary<Type, Func<object>> ConstructorCache = new();
     private static Func<object> GetTypeFactory(Type type)
     {
@@ -151,4 +175,52 @@ public record DocumentMetadata : EditorMetadata
         ConstructorCache[type] = result;
         return result;
     }
+
+    private static class InheritanceTreeBuilder
+    {
+        public static TypeFactoryNode BuildTree(Type type)
+        {
+            var allTypes = AppDomain.CurrentDomain.GetAssemblies()
+                .SelectMany(a => a.GetTypes()).Where(t => type.IsAssignableFrom(t) && t != type).ToList();
+            var lookup = allTypes.ToLookup(t => t.BaseType);
+
+            return new TypeFactoryNode
+            {
+                Type = type,
+                Factory = (type.IsAbstract || type.IsInterface) ? null : GetTypeFactory(type),
+                Children = lookup[type].Select(BuildNode).ToList()
+            };
+
+            TypeFactoryNode BuildNode(Type baseType)
+            {
+                return new TypeFactoryNode
+                {
+                    Type = baseType,
+                    Factory = (baseType.IsAbstract || baseType.IsInterface) ? null : GetTypeFactory(baseType),
+                    Children = lookup[baseType].Select(BuildNode).ToList()
+                };
+            }
+        }
+
+        public static Dictionary<Type, Func<object?>> GetAllFactories(TypeFactoryNode node)
+        {
+            var factories = new Dictionary<Type, Func<object?>>();
+            TraverseFactoryTree(node, factories);
+            return factories;
+        }
+
+        private static void TraverseFactoryTree(TypeFactoryNode node, Dictionary<Type, Func<object?>> factories)
+        {
+            if (node.Factory != null)
+            {
+                factories[node.Type] = node.Factory;
+            }
+
+            foreach (var child in node.Children)
+            {
+                TraverseFactoryTree(child, factories);
+            }
+        }
+    }
+    
 }

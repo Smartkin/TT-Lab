@@ -7,8 +7,14 @@ using GlmSharp;
 using SharpGLTF.Schema2;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
+using TT_Lab.Attributes;
 using TT_Lab.Extensions;
+using TT_Lab.Rendering.Objects;
 using TT_Lab.Util;
+using TT_Lab.ViewModels;
+using TT_Lab.ViewModels.Editors.Descs;
+using TT_Lab.ViewModels.Editors.PropertyGraph;
+using TT_Lab.ViewModels.Interfaces;
 using Twinsanity.TwinsanityInterchange.Common.Animation;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code;
@@ -27,7 +33,8 @@ public struct MorphAnimationSample
     public float Time;
     public float[] Weights;
 }
-    
+
+[Editable(Caption = "Animation Editor", EditorDescType = typeof(AnimationEditorDesc), EditorOrientation = Avalonia.Controls.Dock.Top)]
 public class AnimationData : AbstractAssetData
 {
     private class GltfAnimation
@@ -359,7 +366,7 @@ public class AnimationData : AbstractAssetData
                 break;
             }
 
-            var rotationEuler = rotationSampler[0].Value.ToTwin().ToEulerAngles();
+            var rotationEuler = rotationSampler[0].Value.ToTwinEulerAngles();
             var rotationX = rotationEuler.X;
             var rotationY = rotationEuler.Y;
             var rotationZ = rotationEuler.Z;
@@ -568,5 +575,18 @@ public class AnimationData : AbstractAssetData
         writer.Flush();
         ms.Position = 0;
         return factory.GenerateAnimation(ms);
+    }
+
+    public override List<ViewportObject> GetViewportObjects(ViewportContext viewportContext, PropertyNode property)
+    {
+        var context = viewportContext.RenderContext;
+        var allOgis = AssetManager.Get().GetAllAssetsOf<Assets.Code.OGI>().Where(ogi =>
+            ogi.GetData().To<OGIData>().Joints.Count >= MainAnimation.JointSettings.Count).ToList();
+        var allOgiUris = allOgis.Select(ogi => ogi.URI).ToList();
+        var bestFitIndex = allOgis.FindIndex(ogi => ogi.GetData().To<OGIData>().Joints.Count == MainAnimation.JointSettings.Count);
+        var bestOgi = allOgiUris[bestFitIndex == -1 ? 0 : bestFitIndex];
+        var ogiRender = new OGI(context, context.SkeletonManager, context.MeshService, AssetManager.Get().GetAssetData<OGIData>(bestOgi));
+        var viewportObject = new ViewportObject(new EditableObject(context, ogiRender, "AnimationRender"), property.Name, property);
+        return [viewportObject];
     }
 }

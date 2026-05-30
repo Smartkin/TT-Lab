@@ -125,7 +125,8 @@ public class LodModelData : AbstractAssetData
         return factory.GenerateLOD(ms);
     }
 
-    public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, UInt32 id, Int32? layoutID = null)
+    public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, uint id,
+        int? layoutId = null)
     {
         var assetManager = AssetManager.Get();
         var graphicsSection = section.GetParent();
@@ -135,6 +136,6 @@ public class LodModelData : AbstractAssetData
             assetManager.GetAsset(mesh).ResolveChunkResources(factory, meshesSection);
         }
 
-        return base.ResolveChunkResources(factory, section, id, layoutID);
+        return base.ResolveChunkResources(factory, section, id, layoutId);
     }
 }

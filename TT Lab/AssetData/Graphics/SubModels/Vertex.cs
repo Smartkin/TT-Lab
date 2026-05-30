@@ -4,7 +4,7 @@ using Twinsanity.TwinsanityInterchange.Common;
 
 namespace TT_Lab.AssetData.Graphics.SubModels;
 
-public class Vertex
+public class Vertex : IEquatable<Vertex>
 {
     public Vertex()
     {
@@ -107,6 +107,31 @@ public class Vertex
 
     private Vector4 _normal;
     private Vector4 _emitColor;
+
+    public Boolean Equals(Vertex? other)
+    {
+        if (other is null)
+        {
+            return false;
+        }
+
+        return IsFloatEqual(Position.X, other.Position.X) &&
+               IsFloatEqual(Position.Y, other.Position.Y) &&
+               IsFloatEqual(Position.Z, other.Position.Z) &&
+               IsFloatEqual(UV.X, other.UV.X) &&
+               IsFloatEqual(UV.Y, other.UV.Y) &&
+               IsFloatEqual(Normal.X, other.Normal.X) &&
+               IsFloatEqual(Normal.Y, other.Normal.Y) &&
+               IsFloatEqual(Normal.Z, other.Normal.Z) &&
+               IsFloatEqual(JointInfo.Weight1, other.JointInfo.Weight1) &&
+               IsFloatEqual(JointInfo.Weight2, other.JointInfo.Weight2) &&
+               IsFloatEqual(JointInfo.Weight3, other.JointInfo.Weight3) &&
+               JointInfo.JointIndex1 == other.JointInfo.JointIndex1 &&
+               JointInfo.JointIndex2 == other.JointInfo.JointIndex2 &&
+               JointInfo.JointIndex3 == other.JointInfo.JointIndex3;
+
+        static bool IsFloatEqual(float f1, float f2) => Math.Abs(f1 - f2) < 10e-9f;
+    }
 
     public override String ToString()
     {

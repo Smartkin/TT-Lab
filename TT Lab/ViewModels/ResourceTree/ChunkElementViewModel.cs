@@ -67,7 +67,7 @@ public class ChunkElementViewModel : ResourceTreeElementViewModel
         }
     }
 
-    private async void RebuildChunk()
+    public async void RebuildChunk()
     {
         try
         {

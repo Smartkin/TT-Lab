@@ -23,12 +23,12 @@ public class VectorCharacterDataViewModel : DocumentDataViewModel<VectorCharacte
         };
     }
 
-    protected override void NodeOnChanged()
+    protected override void OnCurrentValueChanged()
     {
         Uv.SetValueCommand.Execute(Property.Find("PageUv")!.GetValue<Vector2>());
         Size.SetValueCommand.Execute(Property.Find("Size")!.GetValue<Vector2>());
         PageNum.SetValueCommand.Execute(Property.Find("FontPageSpecifier")!.GetValue());
         
-        base.NodeOnChanged();
+        base.OnCurrentValueChanged();
     }
 }

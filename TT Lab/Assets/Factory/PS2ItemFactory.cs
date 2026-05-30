@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using TT_Lab.AssetData.Graphics.SubModels;
@@ -40,6 +41,9 @@ namespace TT_Lab.Assets.Factory
 {
     public class PS2ItemFactory : ITwinItemFactory
     {
+        public Package GlobalPackage { get; set; }
+        public bool IsDefaultResolution { get; set; }
+        
         public ITwinAIPath GenerateAIPath(Stream stream)
         {
             var aiPath = new PS2AnyAIPath();
@@ -162,13 +166,21 @@ namespace TT_Lab.Assets.Factory
 
                         var j = 0;
                         var groupCount = 0;
+                        var prevIdx2 = -1;
                         var prevIdx = -1;
                         foreach (var idx in meshlet.Strip.Select(v => (Int32)v))
                         {
-                            // Degenerate encountered. Reset the strip
-                            if (idx == prevIdx)
+                            // Strip reset encountered
+                            if (idx == 0xFFFF)
                             {
                                 j = 0;
+                                continue;
+                            }
+
+                            // Triangle fan encountered
+                            if (idx == prevIdx2)
+                            {
+                                j = 1;
                             }
 
                             submodel.Vertexes.Add(new Vector4(meshlet.Vertexes[idx].Position));
@@ -188,6 +200,7 @@ namespace TT_Lab.Assets.Factory
                             submodel.SkinJoints.Add(jointInfo);
 
                             groupCount++;
+                            prevIdx2 = prevIdx;
                             prevIdx = idx;
                             j++;
                         }
@@ -202,6 +215,11 @@ namespace TT_Lab.Assets.Factory
 
                             foreach (Int32 idx in meshlet.Strip.Select(v => (Int32)v))
                             {
+                                if (idx == 0xFFFF)
+                                {
+                                    continue;
+                                }
+                                
                                 var blendShape = blendFace.BlendShapes[idx];
                                 ps2BlendFace.Vertices.Add(new VertexBlendShape
                                 {
@@ -345,14 +363,22 @@ namespace TT_Lab.Assets.Factory
                 {
                     var j = 0;
                     var prevIdx = -1;
+                    var prevIdx2 = -1;
                     var groupCount = 0;
                     var rawModel = mesh.Meshlets[groupIndex];
                     foreach (var idx in group)
                     {
-                        // Degenerate encountered. Reset the strip
-                        if (idx == prevIdx)
+                        // Strip reset encountered
+                        if (idx == 0xFFFF)
                         {
                             j = 0;
+                            continue;
+                        }
+
+                        // Triangle fan encountered
+                        if (idx == prevIdx2)
+                        {
+                            j = 1;
                         }
 
                         submodel.Vertexes.Add(new Vector4(rawModel.Vertexes[idx].Position));
@@ -364,10 +390,11 @@ namespace TT_Lab.Assets.Factory
                         }
                         if (rawModel.Vertexes[idx].HasNormals)
                         {
-                            submodel.Normals.Add(rawModel.Vertexes[idx].Normal);
+                            submodel.Normals.Add(new Vector4(rawModel.Normals[idx]));
                         }
                         submodel.Connection.Add(j > 1);
                         j++;
+                        prevIdx2 = prevIdx;
                         prevIdx = idx;
                         groupCount++;
                     }
@@ -635,15 +662,23 @@ namespace TT_Lab.Assets.Factory
                 foreach (var group in groups)
                 {
                     var j = 0;
+                    var prevIdx2 = -1;
                     var prevIdx = -1;
                     var groupCount = 0;
                     var rawModel = mesh.Meshlets[groupIndex];
                     foreach (var idx in group)
                     {
-                        // Degenerate encountered. Reset the strip
-                        if (idx == prevIdx)
+                        // Strip reset encountered
+                        if (idx == 0xFFFF)
                         {
                             j = 0;
+                            continue;
+                        }
+
+                        // Triangle fan encountered
+                        if (idx == prevIdx2)
+                        {
+                            j = 1;
                         }
 
                         submodel.Vertexes.Add(new Vector4(rawModel.Vertexes[idx].Position));
@@ -663,6 +698,7 @@ namespace TT_Lab.Assets.Factory
                         submodel.SkinJoints.Add(jointInfo);
                         groupCount++;
                         j++;
+                        prevIdx2 = prevIdx;
                         prevIdx = idx;
                     }
 

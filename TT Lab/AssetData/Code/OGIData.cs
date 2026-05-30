@@ -16,7 +16,11 @@ using TT_Lab.Assets.Factory;
 using TT_Lab.Assets.Graphics;
 using TT_Lab.Attributes;
 using TT_Lab.Extensions;
+using TT_Lab.Rendering.Objects;
 using TT_Lab.Util;
+using TT_Lab.ViewModels;
+using TT_Lab.ViewModels.Editors.PropertyGraph;
+using TT_Lab.ViewModels.Interfaces;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces;
@@ -259,6 +263,10 @@ public class OGIData : AbstractAssetData
             }),
             Name = "SKELETON_ROOT"
         };
+        rootJoint.WithLocalTranslation(new System.Numerics.Vector3(Joints[0].LocalTranslation.X,
+                Joints[0].LocalTranslation.Y, Joints[0].LocalTranslation.Z))
+            .WithLocalRotation(new System.Numerics.Quaternion(Joints[0].LocalRotation.X, Joints[0].LocalRotation.Y,
+                Joints[0].LocalRotation.Z, Joints[0].LocalRotation.W));
         scene.AddNode(rootJoint);
 
         foreach (var twinExitPoint in ExitPoints)
@@ -590,7 +598,8 @@ public class OGIData : AbstractAssetData
         return factory.GenerateOGI(ms);
     }
 
-    public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, UInt32 id, Int32? layoutID = null)
+    public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, uint id,
+        int? layoutId = null)
     {
         var assetManager = AssetManager.Get();
         var graphicsSection = section.GetRoot().GetItem<ITwinSection>(Constants.LEVEL_GRAPHICS_SECTION);
@@ -634,7 +643,15 @@ public class OGIData : AbstractAssetData
             }
             assetManager.GetAsset(BlendSkin).ResolveChunkResources(factory, blendSkinSection);
         }
-        return base.ResolveChunkResources(factory, section, id, layoutID);
+        return base.ResolveChunkResources(factory, section, id, layoutId);
+    }
+
+    public override List<ViewportObject> GetViewportObjects(ViewportContext viewportContext, PropertyNode property)
+    {
+        var context = viewportContext.RenderContext;
+        var ogiRender = new OGI(context, context.SkeletonManager, context.MeshService, this);
+        var viewportObject = new ViewportObject(new EditableObject(context, ogiRender, "OGIRender"), property.Name, property);
+        return [viewportObject];
     }
 }
 

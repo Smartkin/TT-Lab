@@ -3,6 +3,7 @@ using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
 using System.Reflection;
 using System.Threading.Tasks;
+using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using Dock.Model.Core;
 using ReactiveUI;
@@ -29,6 +30,8 @@ public partial class TabbedEditorViewModel : ReactiveObject
 
     [Reactive(SetModifier = AccessModifier.Private)]
     private ViewportViewModel? _viewport;
+
+    [Reactive] private GridLength _viewportWidth = new(0);
     
     private readonly IFactory _factory;
     private readonly IAsset _asset;
@@ -42,15 +45,20 @@ public partial class TabbedEditorViewModel : ReactiveObject
 
         _creationTask = RxSchedulers.TaskpoolScheduler.Schedule(this, (_, state) =>
         {
+            if (_asset.GetType().GetCustomAttribute<SupportsViewportAttribute>() != null)
+            {
+                Viewport = new ViewportViewModel();
+                ViewportWidth = new GridLength(5, GridUnitType.Star);
+            }
+            
             _asset.GetData<AbstractAssetData>(); // Load in the asset data
-            Document = new DocumentViewModel(_asset);
+            Document = new DocumentViewModel(_asset, Viewport);
         
             Document.Initialize();
             
             if (_asset.GetType().GetCustomAttribute<SupportsViewportAttribute>() != null)
             {
-                Viewport = new ViewportViewModel();
-                Viewport.Init(Document);
+                Viewport!.Init(Document);
             }
 
             Title = _asset.Name;

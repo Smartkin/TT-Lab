@@ -24,8 +24,8 @@ public class ChunkLink : IDocumentModel
     public Boolean UnkFlag { get; set; }
     
     [JsonProperty(Required = Required.Always)]
-    [Editable(IsExcludedFromPropertyGraph = true)]
-    [EditorParam(DocumentModelViewModel.EditorExplicitOrder, -1)]
+    [Editable(MaxLinkGraphDepth = 4)]
+    [EditorParam(DocumentCompositeViewModel.EditorExplicitOrder, -1)]
     public LabURI Path { get; set; }
     
     [JsonProperty(Required = Required.Always)]
@@ -60,7 +60,7 @@ public class ChunkLink : IDocumentModel
     [Editable]
     public Matrix4 ChunkMatrix { get; set; }
     
-    [JsonProperty(Required = Required.AllowNull, NullValueHandling = NullValueHandling.Ignore)]
+    [JsonProperty(Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
     [Editable]
     [EditorLinkedField(typeof(CanEditLoadWall), nameof(IsLoadWallActive))]
     public Matrix4 LoadingWall { get; set; }

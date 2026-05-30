@@ -16,6 +16,8 @@ public class Model : SerializableAsset
     public override UInt32 Section => Constants.GRAPHICS_MODELS_SECTION;
     public override String IconPath => "Model.png";
 
+    public bool UseOptimalStrips { get; set; } = true;
+
     public Model(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinModel model) : base(id, name, package, needVariant, variant)
     {
         AssetData = new ModelData(this, model);

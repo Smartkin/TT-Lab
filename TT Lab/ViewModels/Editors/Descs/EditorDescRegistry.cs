@@ -65,6 +65,8 @@ public static class EditorDescRegistry
     private static void RegisterDefaultDescs()
     {
         Register<bool>((document, node) => new BoolEditorDesc { Document = document, Node = node });
+        Register<SoundEffectEditorDesc>((document, node) => new SoundEffectEditorDesc { Document = document, Node = node });
+        Register<AnimationEditorDesc>((document, node) => new AnimationEditorDesc { Document = document, Node = node });
         Register<CodeEditorDesc>((document, node) => new CodeEditorDesc { Document = document, Node = node });
         Register<EnumMarker>((document, node) => new EnumEditorDesc { Document = document, Node = node });
         Register<FlagsMarker>((document, node) => new FlagsEditorDesc { Document = document, Node = node });

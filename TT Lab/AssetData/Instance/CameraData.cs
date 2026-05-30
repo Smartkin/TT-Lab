@@ -141,11 +141,11 @@ public class CameraData : AbstractAssetData
     public Byte UnkByte { get; set; }
     
     [JsonProperty(Required = Required.AllowNull)]
-    [Editable]
+    [Editable(IsConstructible = true)]
     public CameraSubBase? MainCamera1 { get; set; }
     
     [JsonProperty(Required = Required.AllowNull)]
-    [Editable]
+    [Editable(IsConstructible = true)]
     public CameraSubBase? MainCamera2 { get; set; }
 
     protected override void LoadInternal(String dataPath, JsonSerializerSettings? settings = null)
@@ -242,15 +242,16 @@ public class CameraData : AbstractAssetData
     public override List<ViewportObject> GetViewportObjects(ViewportContext viewportContext,
         PropertyNode property)
     {
-        return [];
-        
         var visual = BufferGeneration.GetCubeBuffer(viewportContext.RenderContext).Model!;
         var color = System.Drawing.Color.FromKnownColor(System.Drawing.KnownColor.Blue);
         visual.Diffuse = new vec4(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f,  color.A / 255.0f * 0.5f);
         
         var size = vec3.Ones;
-        var offset = -vec3.Ones * Trigger.Scale.ToGlm() * 0.5f;
+        var offset = -vec3.Ones * 0.5f;
         var editableObject = new EditableObject(viewportContext.RenderContext, visual, Owner.FullDataPath, offset, size);
+        color = System.Drawing.Color.FromKnownColor(System.Drawing.KnownColor.LightBlue);
+        editableObject.SelectedColor = new vec4(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f,  color.A / 255.0f * 0.25f);
+        editableObject.UnselectedColor = visual.Diffuse;
         editableObject.SetPosition(Trigger.Position.ToGlm());
         editableObject.SetRotation(new quat(Trigger.Rotation.ToRadiansGlm()));
         editableObject.SetScale(Trigger.Scale.ToGlm());
@@ -258,9 +259,9 @@ public class CameraData : AbstractAssetData
         
         return [new ViewportObject(editableObject, property.Path, property)
         {
-            Position = property.Find(nameof(Trigger.Position)),
-            Rotation = property.Find(nameof(Trigger.Rotation)),
-            Scale = property.Find(nameof(Trigger.Scale)),
+            Position = property.Find($"[data].AssetData.{nameof(Trigger)}.{nameof(Trigger.Position)}"),
+            Rotation = property.Find($"[data].AssetData.{nameof(Trigger)}.{nameof(Trigger.Rotation)}"),
+            Scale = property.Find($"[data].AssetData.{nameof(Trigger)}.{nameof(Trigger.Scale)}"),
         }];
     }
 }

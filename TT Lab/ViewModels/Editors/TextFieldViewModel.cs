@@ -114,11 +114,11 @@ public partial class TextFieldViewModel(DocumentViewModel document, PropertyNode
                 
                 if (_converter != null)
                 {
-                    SetCurrentValue(_converter.ConvertFromString(s!));
+                    SetValueCommand.Execute(_converter.ConvertFromString(s!));
                     return;
                 }
                 
-                SetCurrentValue(s);
+                SetValueCommand.Execute(s);
             }).DisposeWith(disposables);
     }
 

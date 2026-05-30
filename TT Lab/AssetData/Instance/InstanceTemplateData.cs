@@ -160,7 +160,8 @@ public class InstanceTemplateData : AbstractAssetData
         return factory.GenerateTemplate(ms);
     }
 
-    public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, UInt32 id, Int32? layoutID = null)
+    public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, uint id,
+        int? layoutId = null)
     {
         var assetManager = AssetManager.Get();
         var root = section.GetRoot();
@@ -175,6 +176,6 @@ public class InstanceTemplateData : AbstractAssetData
             assetManager.GetAsset(behaviour).ResolveChunkResources(factory, behavioursSection);
         }
 
-        return base.ResolveChunkResources(factory, section, id, layoutID);
+        return base.ResolveChunkResources(factory, section, id, layoutId);
     }
 }

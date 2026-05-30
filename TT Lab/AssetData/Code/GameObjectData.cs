@@ -6,12 +6,14 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using Avalonia.Controls;
+using Splat;
 using TT_Lab.AssetData.Code.Behaviour;
 using TT_Lab.AssetData.Code.Object;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Attributes;
+using TT_Lab.Project;
 using TT_Lab.Util;
 using TT_Lab.ViewModels.Editors;
 using TT_Lab.ViewModels.Editors.Descs;
@@ -431,6 +433,11 @@ namespace TT_Lab.AssetData.Code
             writeParamsList(InstFloats, writer.Write);
             writeParamsList(InstIntegers, writer.Write);
 
+            if (factory.IsDefaultResolution)
+            {
+                // Fuck default man for real
+                RefObjects.Insert(0, Owner.URI);
+            }
             RefObjects.Add(Owner.URI);
             writeUriList(RefObjects);
             writeUriList(RefOGIs);
@@ -458,35 +465,45 @@ namespace TT_Lab.AssetData.Code
                     behaviourRefCount++;
                 }
             }
-            writer.Write(behaviourRefCount);
-            foreach (var uri in RefBehaviours)
+
+            if (factory.IsDefaultResolution && RefBehaviours.Select(b => assetManager.GetAsset(b)).All(a => a is BehaviourCommandsSequence))
             {
-                if (uri == LabURI.Empty)
+                writer.Write(0);
+            }
+            else
+            {
+                writer.Write(behaviourRefCount);
+                foreach (var uri in RefBehaviours)
                 {
-                    writer.Write((UInt16)65535);
-                    continue;
-                }
-                
-                var behaviour = assetManager.GetAsset(uri);
-                if (behaviour is BehaviourCommandsSequence sequence)
-                {
-                    if (!sequence.BehaviourGraphLinks.ContainsValue(uri))
+                    if (uri == LabURI.Empty)
                     {
+                        writer.Write((UInt16)65535);
                         continue;
                     }
-                    
-                    var neededId = sequence.BehaviourGraphLinks.First(pair => pair.Value == uri).Key;
-                    writer.Write((UInt16)neededId);
-                }
-                else
-                {
-                    var compiledGraph = assetManager.GetAssetData<BehaviourGraphData>(uri).GetCompiledBehaviour(factory);
-                    if (compiledGraph.Contains<TwinBehaviourStarter>())
+
+                    var behaviour = assetManager.GetAsset(uri);
+                    if (behaviour is BehaviourCommandsSequence sequence)
                     {
-                        var starterId = (int)behaviour.ExportTwinID - 1;
-                        writer.Write((UInt16)starterId);
+                        if (!sequence.BehaviourGraphLinks.ContainsValue(uri))
+                        {
+                            continue;
+                        }
+
+                        var neededId = sequence.BehaviourGraphLinks.First(pair => pair.Value == uri).Key;
+                        writer.Write((UInt16)neededId);
                     }
-                    writer.Write((UInt16)behaviour.ExportTwinID);
+                    else
+                    {
+                        var compiledGraph = assetManager.GetAssetData<BehaviourGraphData>(uri)
+                            .GetCompiledBehaviour(factory);
+                        if (compiledGraph.Contains<TwinBehaviourStarter>())
+                        {
+                            var starterId = (int)behaviour.ExportTwinID - 1;
+                            writer.Write((UInt16)starterId);
+                        }
+
+                        writer.Write((UInt16)behaviour.ExportTwinID);
+                    }
                 }
             }
 
@@ -546,7 +563,8 @@ namespace TT_Lab.AssetData.Code
             return result;
         }
 
-        public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, UInt32 id, Int32? layoutID = null)
+        public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, uint id,
+            int? layoutId = null)
         {
             var assetManager = AssetManager.Get();
             var codeSection = section.GetParent();
@@ -557,22 +575,87 @@ namespace TT_Lab.AssetData.Code
             
             var refObjects = ObjectSlots.Distinct()
                 .Where(b => b != LabURI.Empty).ToList();
-            var refOgis = OGISlots.Distinct()
-                .Where(b => b != LabURI.Empty).ToList();
-            var refAnimations = AnimationSlots.Distinct()
-                .Where(b => b != LabURI.Empty).ToList();
-            var refSounds = SoundSlots.Distinct()
-                .Where(b => b != LabURI.Empty).ToList();
-            var refBehaviours = BehaviourSlots.Distinct()
-                .Where(b => b != LabURI.Empty).ToList();
+            var refOgis = new List<LabURI>();
+            var refAnimations = new List<LabURI>();
+            var refSounds = new List<LabURI>();
+            var refBehaviours = new List<LabURI>();
             var refBehaviourCommandSequences = new List<LabURI>();
-
-            foreach (var animation in refAnimations)
+            
+            var refObjectsStack = new Stack<LabURI>(refObjects);
+            while(refObjectsStack.Count > 0)
             {
-                assetManager.GetAsset(animation).ResolveChunkResources(factory, animationSection);
-            }
+                var objAsset = assetManager.GetAsset<GameObject>(refObjectsStack.Pop());
+                objAsset.ReferencesObtained += ReferencesObtained;
+                objAsset.ResolveChunkResources(factory, section);
+                objAsset.ReferencesObtained -= ReferencesObtained;
+                continue;
 
-            refBehaviours.AddRange(TriggerBehaviours.Select(objectTriggerBehaviourData => objectTriggerBehaviourData.TriggerBehaviour));
+                void ReferencesObtained(GameObject.ReferencedResourceUris references)
+                {
+                    foreach (var refObject in references.RefObjects)
+                    {
+                        if (refObjects.Contains(refObject) || refObject == Owner.URI)
+                        {
+                            continue;
+                        }
+                        
+                        refObjects.Add(refObject);
+                        refObjectsStack.Push(refObject);
+                    }
+                    
+                    foreach (var refBehaviour in references.RefBehaviours)
+                    {
+                        if (refBehaviours.Contains(refBehaviour))
+                        {
+                            continue;
+                        }
+                        refBehaviours.Add(refBehaviour);
+                    }
+                    
+                    foreach (var refAnimation in references.RefAnimations)
+                    {
+                        if (refAnimations.Contains(refAnimation))
+                        {
+                            continue;
+                        }
+                        refAnimations.Add(refAnimation);
+                    }
+                    
+                    foreach (var refOgi in references.RefOgis)
+                    {
+                        if (refOgis.Contains(refOgi))
+                        {
+                            continue;
+                        }
+                        refOgis.Add(refOgi);
+                    }
+                    
+                    foreach (var refSound in references.RefSounds)
+                    {
+                        if (refSounds.Contains(refSound))
+                        {
+                            continue;
+                        }
+                        refSounds.Add(refSound);
+                    }
+                }
+            }
+            
+            refOgis.AddRange(OGISlots.Distinct()
+                .Where(b => b != LabURI.Empty)
+                .Where(b => !refOgis.Contains(b)).ToList());
+            refAnimations.AddRange(AnimationSlots.Distinct()
+                .Where(b => b != LabURI.Empty)
+                .Where(b => !refAnimations.Contains(b)).ToList());
+            refSounds.AddRange(SoundSlots.Distinct()
+                .Where(b => b != LabURI.Empty)
+                .Where(b => !refSounds.Contains(b)).ToList());
+            refBehaviours.AddRange(BehaviourSlots.Distinct()
+                .Where(b => b != LabURI.Empty)
+                .Where(b => !refBehaviours.Contains(b)).ToList());
+            refBehaviours.AddRange(TriggerBehaviours
+                .Select(objectTriggerBehaviourData => objectTriggerBehaviourData.TriggerBehaviour)
+                .Where(b => !refBehaviours.Contains(b)));
 
             var behaviourReferenceStack = new Stack<LabURI>(refBehaviours);
             while (behaviourReferenceStack.Count > 0)
@@ -606,15 +689,21 @@ namespace TT_Lab.AssetData.Code
                 };
                 graph.ResolveChunkResources(factory, behaviourSection);
             }
-            
-            foreach (var @object in refObjects)
-            {
-                assetManager.GetAsset(@object).ResolveChunkResources(factory, section);
-            }
 
             foreach (var sequence in refBehaviourCommandSequences)
             {
-                assetManager.GetAsset(sequence).ResolveChunkResources(factory, sequenceSection);
+                var seqAss = assetManager.GetAsset(sequence);
+                if (seqAss.ExportTwinID == 0 && !factory.IsDefaultResolution)
+                {
+                    continue;
+                }
+                
+                seqAss.ResolveChunkResources(factory, sequenceSection);
+            }
+            
+            foreach (var animation in refAnimations)
+            {
+                assetManager.GetAsset(animation).ResolveChunkResources(factory, animationSection);
             }
 
             foreach (var ogi in refOgis)
@@ -629,14 +718,51 @@ namespace TT_Lab.AssetData.Code
                 sfxAsset.ResolveChunkResources(factory, sfxSection);
             }
             
+            var resultingBehaviourRefs = new List<LabURI>();
+            var addedSeqGraphLinks = new HashSet<uint>();
+            foreach (var refBehaviour in refBehaviours)
+            {
+                var behaviour = assetManager.GetAsset(refBehaviour);
+                if (behaviour is not BehaviourCommandsSequence seqAss)
+                {
+                    resultingBehaviourRefs.Add(refBehaviour);
+                    continue;
+                }
+
+                foreach (var seqAssBehaviourGraphLink in seqAss.BehaviourGraphLinks)
+                {
+                    if (addedSeqGraphLinks.Contains(seqAssBehaviourGraphLink.Key) || seqAssBehaviourGraphLink.Value != refBehaviour)
+                    {
+                        continue;
+                    }
+                    
+                    resultingBehaviourRefs.Add(seqAssBehaviourGraphLink.Value);
+                    addedSeqGraphLinks.Add(seqAssBehaviourGraphLink.Key);
+                }
+            }
+
+            if (!factory.IsDefaultResolution && Owner.Package == factory.GlobalPackage.URI)
+            {
+                return base.ResolveChunkResources(factory, section, id, layoutId);
+            }
+            
             RefObjects = refObjects;
-            RefBehaviours = refBehaviours;
+            RefBehaviours = resultingBehaviourRefs;
             RefAnimations = refAnimations;
             RefSounds = refSounds;
             RefBehaviourCommandsSequences = refBehaviourCommandSequences;
             RefOGIs = refOgis;
+            
+            ((GameObject)Owner).FireReferencedBehavioursObtained(new GameObject.ReferencedResourceUris
+            {
+                RefBehaviours = resultingBehaviourRefs,
+                RefAnimations = refAnimations,
+                RefOgis = refOgis,
+                RefSounds = refSounds,
+                RefObjects = refObjects
+            });
 
-            return base.ResolveChunkResources(factory, section, id, layoutID);
+            return base.ResolveChunkResources(factory, section, id, layoutId);
         }
     }
 

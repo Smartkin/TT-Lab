@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using TT_Lab.AssetData.Graphics.SubModels;
 
 namespace TT_Lab.MeshProcessor;
@@ -8,6 +9,7 @@ public class Mesh
     List<Vertex> vertices;
     List<IndexedFace> faces;
     List<SubBlendFaceData>? blendFaces;
+    private List<UInt32>? IndicesOverride;
 
     public List<Meshlet> Meshlets { get; set; } = new();
 
@@ -21,6 +23,16 @@ public class Mesh
     public void AddMeshlet(Meshlet meshlet)
     {
         Meshlets.Add(meshlet);
+    }
+
+    public void SetIndicesOverride(List<UInt32> indices)
+    {
+        IndicesOverride = indices;
+    }
+
+    public List<UInt32>? GetIndicesOverride()
+    {
+        return IndicesOverride;
     }
 
     public List<Vertex> GetVertices()
