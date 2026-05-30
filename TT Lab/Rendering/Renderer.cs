@@ -282,7 +282,6 @@ public class Renderer : IView
             lock (_imguiLock)
             {
                 _imgui.StartFrame((float)delta);
-                ImGui.ShowMetricsWindow();
                 RenderImgui?.Invoke();
         
                 _imgui.Render();
