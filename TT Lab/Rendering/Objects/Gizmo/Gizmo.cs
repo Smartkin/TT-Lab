@@ -29,6 +29,12 @@ public abstract class Gizmo : IGizmo
         RenderNode.IsVisible = true;
     }
 
+    public void ChangeLocalityRender(TransformLocality locality)
+    {
+        RenderNode.SetInheritRotation(locality == TransformLocality.LOCAL);
+        RenderNode.SetInheritScale(locality == TransformLocality.LOCAL);
+    }
+
     public void Hide()
     {
         RenderNode.IsVisible = false;

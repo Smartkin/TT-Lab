@@ -495,6 +495,10 @@ public partial class ViewportViewModel : ReactiveObject
             _document?.OpenInspector(null);
             _editingContext.Deselect();
         }
+        else if (key == Key.L)
+        {
+            _editingContext.ToggleLocality();
+        }
     }
 
     private Vector2 _prevMousePosition = new(-1, -1);

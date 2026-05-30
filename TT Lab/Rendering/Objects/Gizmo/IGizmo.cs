@@ -21,6 +21,7 @@ public interface IGizmo
     void Show();
     void Hide();
     void HighlightAxis(TransformAxis axis);
+    void ChangeLocalityRender(TransformLocality locality);
     GizmoType GetGizmoType();
     string GetGizmoName();
 

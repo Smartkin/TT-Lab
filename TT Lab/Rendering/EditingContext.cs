@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using GlmSharp;
@@ -18,7 +19,9 @@ public class EditingContext
     public EditableObject? SelectedRenderable;
     public TransformMode TransformMode = TransformMode.SELECTION;
     public TransformAxis TransformAxis = TransformAxis.NONE;
-        
+    public TransformLocality TransformLocality = TransformLocality.LOCAL;
+
+    private readonly Scene.Scene _scene;
     private readonly EditorCursor _cursor;
     private readonly ViewportObject?[] _palette = new ViewportObject[9];
     private readonly BillboardSet _positionsBillboards;
@@ -39,6 +42,7 @@ public class EditingContext
 
     public EditingContext(RenderContext context, Scene.Scene scene)
     {
+        _scene = scene;
         _renderContext = context;
         _editCtxNode = new Node(context, scene);
         _cursor = new EditorCursor(this);
@@ -176,6 +180,7 @@ public class EditingContext
         {
             TransformMode = TransformMode.SELECTION;
             TransformAxis = TransformAxis.NONE;
+            TransformLocality = TransformLocality.LOCAL;
             SelectedInstance?.Render.Deselect();
             SelectedInstance = null;
             SelectedRenderable = null;
@@ -205,6 +210,7 @@ public class EditingContext
     {
         _renderContext.QueueRenderAction(() =>
         {
+            _currentGizmo?.ChangeLocalityRender(TransformLocality);
             _currentGizmo?.HighlightAxis(TransformAxis.NONE);
             _currentGizmo?.DetachGizmo();
             _currentGizmo?.Hide();
@@ -220,6 +226,8 @@ public class EditingContext
                 _currentGizmo?.AttachGizmo(SelectedInstance.Render);
             }
             _currentGizmo?.Show();
+            _currentGizmo?.HighlightAxis(TransformAxis);
+            _currentGizmo?.ChangeLocalityRender(TransformLocality);
         });
     }
 
@@ -344,6 +352,7 @@ public class EditingContext
             {
                 axis.z = 1.0f;
             }
+
             Translate(axis * k * delta);
         }
         if (TransformMode == TransformMode.SCALE)
@@ -394,6 +403,10 @@ public class EditingContext
             TransformMode = TransformMode.SELECTION;
         }
         TransformAxis = TransformAxis.NONE;
+        if (mode != TransformMode.TRANSLATE)
+        {
+            TransformLocality = TransformLocality.LOCAL;
+        }
         SwitchGizmo((GizmoType)(int)TransformMode);
     }
 
@@ -405,6 +418,20 @@ public class EditingContext
         }
         
         SwitchEditMode(TransformMode.SCALE);
+    }
+
+    public void ToggleLocality()
+    {
+        if (SelectedInstance == null)
+        {
+            return;
+        }
+
+        TransformLocality = TransformLocality == TransformLocality.LOCAL ? TransformLocality.WORLD : TransformLocality.LOCAL;
+        _renderContext.QueueRenderAction(() =>
+        {
+            _currentGizmo?.ChangeLocalityRender(TransformLocality);
+        });
     }
 
     public void ToggleTranslate()
@@ -467,7 +494,7 @@ public class EditingContext
 
     private void Translate(vec3 offset)
     {
-        SelectedInstance?.Render.Translate(offset, true);
+        SelectedInstance?.Render.Translate(offset, TransformLocality == TransformLocality.LOCAL);
         if (SelectedInstance is { Position: not null })
         {
             var editorPos = SelectedInstance.Render.GetEditorPosition();
@@ -502,6 +529,12 @@ public class EditingContext
         var billboardSet = new BillboardSet(renderContext, renderContext.MeshFactory, billboardIconName, billboardName, useDiffuseOnly);
         return billboardSet;
     }
+}
+
+public enum TransformLocality
+{
+    LOCAL,
+    WORLD
 }
 
 public enum TransformMode
