@@ -292,6 +292,37 @@ public class ObjectInstanceData : AbstractAssetData
         editableObject.Init();
         editableObject.SetPosition(Position.ToGlm());
         editableObject.SetRotation(new quat(Rotation.ToRadiansGlm()));
+        property.Find($"[data].AssetData.{nameof(ObjectId)}")!.Changed += () =>
+        {
+            viewportContext.RenderContext.QueueRenderAction(() =>
+            {
+                editableObject.RemoveChild(visual);
+                var newObjectData = assetManager.GetAssetData<GameObjectData>(property.Find($"[data].AssetData.{nameof(ObjectId)}")!.GetValue<LabURI>()!);
+                if (newObjectData.OGISlots.All(ogiUri => ogiUri == LabURI.Empty))
+                {
+                    visual = viewportContext.RenderContext.MeshService.GetMesh(LabURI.Box).Model!;
+                    visual.Scale(vec3.Ones * 0.5f);
+                }
+                else
+                {
+                    var ogiUri = newObjectData.OGISlots.First(ogiUri => ogiUri != LabURI.Empty);
+                    var ogiData = assetManager.GetAssetData<OGIData>(ogiUri);
+                    visual = new OGI(viewportContext.RenderContext, viewportContext.RenderContext.SkeletonManager, viewportContext.RenderContext.MeshService, ogiData);
+                    size = new vec3
+                    {
+                        x = ogiData.BoundingBox[1].X - ogiData.BoundingBox[0].X,
+                        y = ogiData.BoundingBox[1].Y - ogiData.BoundingBox[0].Y,
+                        z = ogiData.BoundingBox[1].Z - ogiData.BoundingBox[0].Z
+                    };
+                    offset = new vec3(ogiData.BoundingBox[0].X, ogiData.BoundingBox[0].Y, ogiData.BoundingBox[0].Z);
+                }
+
+                editableObject.Size = size;
+                editableObject.Offset = offset;
+                editableObject.AddChild(visual);
+                visual.Diffuse = editableObject.Diffuse;
+            });
+        };
         return [new ViewportObject(editableObject, $"INSTANCE_{property.Path}", property)
         {
             Position = property.Find($"[data].AssetData.{nameof(Position)}"),

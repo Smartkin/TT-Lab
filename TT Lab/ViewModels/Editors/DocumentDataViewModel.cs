@@ -16,7 +16,7 @@ public partial class DocumentDataViewModel<T> : DocumentNodeViewModel
     [ObservableAsProperty]
     private T? _currentValue;
     
-    public ReactiveCommand<T?, Unit>   SetValueCommand { get; }
+    public ReactiveCommand<T?, Unit> SetValueCommand { get; }
 
     private readonly Subject<Unit> _valueChanged = new();
 

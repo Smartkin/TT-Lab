@@ -22,8 +22,8 @@ public class EditableObject : Renderable
     protected vec3 Pos = new();
     protected vec3 Rot = new();
     protected vec3 Scl;
-    protected vec3 Size;
-    protected vec3 Offset;
+    public vec3 Size;
+    public vec3 Offset;
     protected bool Selected;
     public vec4 SelectedColor { get; set; } = new(0.3f, 0.3f, 0.3f, 1.0f);
     public vec4 UnselectedColor { get; set; } = new(1.0f, 1.0f, 1.0f, 1.0f);

@@ -174,7 +174,7 @@ public class Viewport : Control, ICustomHitTest
         var presentElapsedTime = 0.0f;
         while (!token.IsCancellationRequested)
         {
-            Thread.Sleep(5);
+            Thread.Sleep(1);
             _context.SetGlAccessibility(true);
             var delta = stopwatch.ElapsedMilliseconds / 1000.0f;
             stopwatch.Restart();

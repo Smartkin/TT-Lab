@@ -224,7 +224,15 @@ public class PropertyNode
         }
         
         Metadata.PropertyInfo.SetValue(Target, value);
-        UpdateChildrenTarget(value);
+        if (PropertyType.IsAssignableTo(typeof(LabURI)))
+        {
+            PropertyGraphBuilder.RebuildLink(this);
+            Graph?.Index(this);
+        }
+        else
+        {
+            UpdateChildrenTarget(value);
+        }
         RaiseGraphChange(oldValue, value);
     }
 
@@ -237,7 +245,15 @@ public class PropertyNode
 
         foreach (var childNode in Children)
         {
-            childNode.Target = newTarget;
+            if (newTarget.GetType().IsAssignableTo(typeof(LabURI)))
+            {
+                childNode.Target = AssetManager.Get().GetAsset((LabURI)newTarget);
+            }
+            else
+            {
+                childNode.Target = newTarget;
+            }
+
             childNode.UpdateChildrenTarget(childNode.GetValue());
         }
     }
