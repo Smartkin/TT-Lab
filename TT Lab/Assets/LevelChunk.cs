@@ -110,7 +110,7 @@ public class LevelChunk : SerializableAsset
     {
         var assetManager = AssetManager.Get();
         var packageFolderUri = assetManager.GetAsset<Package>(Package).GetFolderUri();
-        return AssetManager.Get().GetAsset<Folder>(new LabURI($"{packageFolderUri}/{GetChunkPath()}"));
+        return AssetManager.Get().GetAsset<Folder>(new LabURI($"{packageFolderUri}/{GetChunkPath().Replace('\\', '/')}"));
     }
 
     public override List<ViewportObject> GetViewportObjects(ViewportContext viewportContext,
