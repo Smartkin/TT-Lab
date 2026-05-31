@@ -26,18 +26,18 @@
     
     <Target Name="CopyNativeLibs" AfterTargets="AfterBuild">
         <ItemGroup>
-            <NativeLibrariesWindows Include="$(MSBuildProjectDirectory)\Libraries\Native\Windows\*.dll"/>
-            <RuntimeCopyPathWindows Include="$(MSBuildProjectDirectory)\$(OutputPath)\runtimes\win-x64\native\"/>
+            <NativeLibrariesWindows Include="$(MSBuildProjectDirectory)\Libraries\Native\Windows\*.dll" />
+            <RuntimeCopyPathWindows Include="$(MSBuildProjectDirectory)\$(OutputPath)\runtimes\win-x64\native\" />
         </ItemGroup>
         <ItemGroup>
-            <NativeLibrariesLinux Include="$(MSBuildProjectDirectory)\Libraries\Native\Linux\*.so"/>
-            <RuntimeCopyPathLinux Include="$(MSBuildProjectDirectory)\$(OutputPath)\runtimes\linux-x64\native\"/>
+            <NativeLibrariesLinux Include="$(MSBuildProjectDirectory)\Libraries\Native\Linux\*.so" />
+            <RuntimeCopyPathLinux Include="$(MSBuildProjectDirectory)\$(OutputPath)\runtimes\linux-x64\native\" />
         </ItemGroup>
         
-        <Message Text="Copying Windows native libraries into resulting executable..." Importance="high"/>
-        <Copy SourceFiles="@(NativeLibrariesWindows)" DestinationFolder="@(RuntimeCopyPathWindows)"/>
-        <Message Text="Copying Linux native libraries into resulting executable..." Importance="high"/>
-        <Copy SourceFiles="@(NativeLibrariesLinux)" DestinationFolder="@(RuntimeCopyPathLinux)"/>
+        <Message Text="Copying Windows native libraries into resulting executable..." Importance="high" />
+        <Copy SourceFiles="@(NativeLibrariesWindows)" DestinationFolder="@(RuntimeCopyPathWindows)" />
+        <Message Text="Copying Linux native libraries into resulting executable..." Importance="high" />
+        <Copy SourceFiles="@(NativeLibrariesLinux)" DestinationFolder="@(RuntimeCopyPathLinux)" />
     </Target>
 
     <ItemGroup>
@@ -47,8 +47,8 @@
         <PackageReference Include="Avalonia.Desktop" Version="11.3.12" />
         <PackageReference Include="Avalonia.Labs.Gif" Version="11.3.1" />
         <PackageReference Include="Avalonia.Markup.Xaml.Loader" Version="11.3.12" />
-        <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.12"/>
-        <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.12"/>
+        <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.12" />
+        <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.12" />
         <!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
         <PackageReference Include="Avalonia.Diagnostics" Version="11.3.12">
             <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
@@ -107,9 +107,9 @@
     </ItemGroup>
 
     <ItemGroup>
-      <AvaloniaResource Include="Images/AfroGod.png"/>
-      <AvaloniaResource Include="Images/God_Messenger.png"/>
-      <AvaloniaResource Include="Images/SadTransparent.gif"/>
+      <AvaloniaResource Include="Images/AfroGod.png" />
+      <AvaloniaResource Include="Images/God_Messenger.png" />
+      <AvaloniaResource Include="Images/SadTransparent.gif" />
       <AvaloniaResource Include="Images/tt_lab_logo_v6_2k.ico" />
       <Content Include="Images\SadTransparent.gif">
           <CopyToOutputDirectory>Always</CopyToOutputDirectory>
@@ -136,5 +136,6 @@
 
     <ItemGroup>
       <Folder Include="Libraries\Native\Linux\" />
+      <Folder Include="Rendering\Native\Windows\" />
     </ItemGroup>
 </Project>
