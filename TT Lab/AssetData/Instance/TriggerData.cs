@@ -230,7 +230,7 @@ public class TriggerData : AbstractAssetData
         editableObject.SetScale(Scale.ToGlm());
         editableObject.AddChild(viewportContext.EditingContext.CreateTriggerBillboard());
         
-        return [new ViewportObject(editableObject, property.Path, property)
+        return [new ViewportObject(editableObject, $"TRIGGER_{property.Path}", property)
         {
             Position = property.Find($"[data].AssetData.{nameof(Position)}"),
             Rotation = property.Find($"[data].AssetData.{nameof(Rotation)}"),

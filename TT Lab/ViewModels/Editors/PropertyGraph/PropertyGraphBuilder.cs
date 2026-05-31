@@ -24,7 +24,7 @@ public static class PropertyGraphBuilder
         BuildCollection(node, node.GetValue()!, node.Path, node.Graph!.Tracker);
     }
 
-    private static void RebuildLink(PropertyNode node)
+    public static void RebuildLink(PropertyNode node)
     {
         node.Children.Clear();
         BuildLink(node, node.Path, node.Graph!.Tracker);

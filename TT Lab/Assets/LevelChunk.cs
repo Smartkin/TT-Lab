@@ -66,11 +66,26 @@ public class LevelChunk : SerializableAsset
 
     public override void Save()
     {
-        base.Save();
-
         var assetManager = AssetManager.Get();
-        foreach (var asset in ChunkResources.Select(chunkResource => assetManager.GetAsset(chunkResource)))
+        var allCurrentAssets = ChunkResources.Select(assetManager.GetAsset);
+        var chunkFolder = GetChunkFolder();
+        foreach (var asset in chunkFolder.Children.Select(assetManager.GetAsset))
         {
+            if (asset == this)
+            {
+                continue;
+            }
+            
+            asset.Delete();
+        }
+        
+        base.Save();
+        foreach (var asset in allCurrentAssets)
+        {
+            if (!assetManager.DoesAssetExist(asset.URI))
+            {
+                assetManager.AddAsset(asset);
+            }
             asset.Save();
         }
     }

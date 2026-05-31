@@ -32,7 +32,7 @@ public static class AssetFactory
         
         AssetManager.Get().AddAsset(newAsset);
         folder.AddChild(newAsset);
-        if (type != typeof(Folder))
+        if (type != typeof(Folder) && layout is null)
         {
             newAsset.Serialize(SerializationFlags.SetDirectoryToAssets | SerializationFlags.SaveData);
             folder.Serialize(SerializationFlags.SetDirectoryToAssets | SerializationFlags.SaveData |

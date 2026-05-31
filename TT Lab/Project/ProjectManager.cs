@@ -482,7 +482,6 @@ namespace TT_Lab.Project
         private static readonly string[] _reservedLockedDirectories = ["assets", "disc", "build"];
         private void ExploreFolder(Folder folder, DirectoryInfo directory, bool setFolderAsParent = true)
         {
-            
             var serializer = JsonSerializer.Create();
             var hasChunk = false;
             foreach (var fileInfo in directory.GetFiles("*.json"))
@@ -519,7 +518,8 @@ namespace TT_Lab.Project
                 var newFolder = new Folder(directoryName)
                 {
                     Parent = setFolderAsParent ? folder.URI : LabURI.Empty,
-                    Mark = _reservedLockedDirectories.Contains(directoryName) ? FolderMark.Locked : FolderMark.Normal
+                    Mark = _reservedLockedDirectories.Contains(directoryName) ? FolderMark.Locked : FolderMark.Normal,
+                    Package = setFolderAsParent ? folder.Package : LabURI.Empty,
                 };
                 OpenedProject!.AssetManager.AddAsset(newFolder);
                 folder.AddChild(newFolder);

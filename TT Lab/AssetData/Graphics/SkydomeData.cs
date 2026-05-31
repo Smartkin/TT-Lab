@@ -146,6 +146,6 @@ public class SkydomeData : AbstractAssetData
         {
             IsSelectable = false
         };
-        return [new ViewportObject(editableObject, property.Path, property)];
+        return [new ViewportObject(editableObject, $"SKYDOME_EDITABLE_{property.Path}", property)];
     }
 }

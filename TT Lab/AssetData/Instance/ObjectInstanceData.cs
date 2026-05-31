@@ -31,6 +31,10 @@ namespace TT_Lab.AssetData.Instance;
 [ReferencesAssets]
 public class ObjectInstanceData : AbstractAssetData
 {
+    public ObjectInstanceData() : this(null!)
+    {
+    }
+
     public ObjectInstanceData(IAsset asset) : base(asset)
     {
         InstancesRelated = 10;
@@ -288,7 +292,7 @@ public class ObjectInstanceData : AbstractAssetData
         editableObject.Init();
         editableObject.SetPosition(Position.ToGlm());
         editableObject.SetRotation(new quat(Rotation.ToRadiansGlm()));
-        return [new ViewportObject(editableObject, property.Path, property)
+        return [new ViewportObject(editableObject, $"INSTANCE_{property.Path}", property)
         {
             Position = property.Find($"[data].AssetData.{nameof(Position)}"),
             Rotation = property.Find($"[data].AssetData.{nameof(Rotation)}"),

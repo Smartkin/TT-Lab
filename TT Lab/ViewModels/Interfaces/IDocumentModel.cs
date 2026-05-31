@@ -19,7 +19,7 @@ public interface IDocumentModel : IDisposable
 }
 
 
-public record ViewportObject(EditableObject Render, string DocumentName, PropertyNode Property)
+public record ViewportObject(EditableObject Render, string DocumentName, PropertyNode Property, object? UserData = null)
 {
     public PropertyNode? Position { get; init; }
     public PropertyNode? Rotation { get; init; }

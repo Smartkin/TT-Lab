@@ -12,6 +12,7 @@ using Splat;
 using TT_Lab.AssetData;
 using TT_Lab.Assets;
 using TT_Lab.Attributes;
+using TT_Lab.ServiceProviders;
 using TT_Lab.Util;
 using TT_Lab.ViewModels.Editors;
 
@@ -42,6 +43,11 @@ public partial class TabbedEditorViewModel : ReactiveObject
         _factory = factory;
         _asset = asset;
         Title = $"{_asset.Name} (Loading)";
+
+        if (asset is LevelChunk chunk)
+        {
+            TwinIdGeneratorServiceProvider.RegisterGeneratorServiceForChunk(chunk);
+        }
 
         _creationTask = RxSchedulers.TaskpoolScheduler.Schedule(this, (_, state) =>
         {
@@ -89,8 +95,7 @@ public partial class TabbedEditorViewModel : ReactiveObject
     {
         if (!IsLoaded || Document == null)
         {
-            Viewport?.Close();
-            _creationTask.Dispose();
+            Cleanup();
             return true;
         }
         
@@ -110,12 +115,22 @@ public partial class TabbedEditorViewModel : ReactiveObject
                 _asset.Dispose();
             }
 
-            Viewport?.Close();
-            _creationTask.Dispose();
+            Cleanup();
             return true;
         }
 
         return false;
+    }
+
+    private void Cleanup()
+    {
+        if (_asset is LevelChunk chunk)
+        {
+            TwinIdGeneratorServiceProvider.DeregisterGeneratorServiceForChunk(chunk.AdditionalPath!);
+        }
+        
+        Viewport?.Close();
+        _creationTask.Dispose();
     }
     
     public string Id => _asset.URI;

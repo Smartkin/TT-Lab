@@ -108,7 +108,17 @@ public class EditingContext
     {
         return _positionsBillboards;
     }
-        
+
+    public Renderable GetPathBillboards()
+    {
+        return _pathsBillboards;
+    }
+
+    public Renderable GetParticleBillboards()
+    {
+        return _particlesBillboards;
+    }
+    
     public Renderable GetInstancesBillboards()
     {
         return _instancesBillboards;
@@ -262,25 +272,27 @@ public class EditingContext
         _cursor.SetPosition(pos);
     }
 
+    public vec3 GetCursorCoordinates()
+    {
+        return _cursor.GetPosition();
+    }
+
     public void SetPalette(ViewportObject instance)
     {
         _palette[_currentPaletteIndex] = instance;
     }
 
-    public void SpawnAtCursor()
+    public ViewportObject? SpawnAtCursor()
     {
         if (_palette[_currentPaletteIndex] == null)
         {
-            return;
+            return null;
         }
 
-        var cursorPosition = _cursor.GetPosition();
-        // TODO: Request instance creation
-        // var newInstance = _editor.NewSceneInstance(_palette[_currentPaletteIndex]!.GetType(), _palette[_currentPaletteIndex]!.GetAttachedAsset());
-        // Select(newInstance);
-        // newInstance.SetPositionRotationScale(cursorPosition, _palette[_currentPaletteIndex]!.GetRotation(), _palette[_currentPaletteIndex]!.GetScale());
+        
         TransformMode = TransformMode.SELECTION;
         TransformAxis = TransformAxis.NONE;
+        return _palette[_currentPaletteIndex];
     }
 
     public bool StartTransform(float x, float y)
@@ -422,7 +434,7 @@ public class EditingContext
 
     public void ToggleLocality()
     {
-        if (SelectedInstance == null)
+        if (SelectedInstance == null || TransformMode != TransformMode.TRANSLATE)
         {
             return;
         }

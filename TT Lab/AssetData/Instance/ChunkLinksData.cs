@@ -115,7 +115,7 @@ public class ChunkLinksData : AbstractAssetData
             editableObject.AddChild(billboard);
 
             var linkTransformProperty = property.Find($"[data].AssetData.Links[{linkIdx++}].{nameof(ChunkLink.ChunkMatrix)}")!;
-            viewportObjects.Add(new ViewportObject(editableObject, linkTransformProperty.Path, property)
+            viewportObjects.Add(new ViewportObject(editableObject, $"CHUNK_LINK_{linkTransformProperty.Path}", property)
             {
                 Transform = linkTransformProperty
             });

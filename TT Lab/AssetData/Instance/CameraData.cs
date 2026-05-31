@@ -257,7 +257,7 @@ public class CameraData : AbstractAssetData
         editableObject.SetScale(Trigger.Scale.ToGlm());
         editableObject.AddChild(viewportContext.EditingContext.CreateCameraBillboard());
         
-        return [new ViewportObject(editableObject, property.Path, property)
+        return [new ViewportObject(editableObject, $"CAMERA_{property.Path}", property)
         {
             Position = property.Find($"[data].AssetData.{nameof(Trigger)}.{nameof(Trigger.Position)}"),
             Rotation = property.Find($"[data].AssetData.{nameof(Trigger)}.{nameof(Trigger.Rotation)}"),

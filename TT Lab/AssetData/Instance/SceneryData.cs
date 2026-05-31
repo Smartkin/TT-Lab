@@ -695,7 +695,7 @@ public class SceneryData : AbstractAssetData
         {
             IsSelectable = false
         };
-        result.Add(new ViewportObject(editingObject, property.Path, property));
+        result.Add(new ViewportObject(editingObject, $"SCENERY_{property.Path}", property));
         
         if (DynamicScenery != LabURI.Empty)
         {
@@ -716,7 +716,7 @@ public class SceneryData : AbstractAssetData
                 {
                     IsSelectable = false
                 };
-            result.Add(new ViewportObject(collisionEditing, $"COLLISION_{property.Path}", property));
+            result.Add(new ViewportObject(collisionEditing, $"COLLISION_{property.Path}", property, AssetManager.Get().GetAssetData(Collision)));
             collisionEditing.IsVisible = false;
         }
         

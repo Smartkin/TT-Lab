@@ -17,10 +17,15 @@ using Avalonia.Threading;
 using Caliburn.Micro;
 using DynamicData;
 using GlmSharp;
+using ImGuiNET;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
 using Silk.NET.Input;
+using TT_Lab.AssetData;
+using TT_Lab.AssetData.Instance;
 using TT_Lab.Assets;
+using TT_Lab.Assets.Factory;
+using TT_Lab.Assets.Instance;
 using TT_Lab.Attributes.Viewport;
 using TT_Lab.Controls;
 using TT_Lab.Extensions;
@@ -29,11 +34,13 @@ using TT_Lab.Rendering.Input;
 using TT_Lab.Rendering.Objects;
 using TT_Lab.Rendering.Scene;
 using TT_Lab.Rendering.Services;
+using TT_Lab.ServiceProviders;
 using TT_Lab.Util;
 using TT_Lab.ViewModels.Editors;
 using TT_Lab.ViewModels.Interfaces;
 using TT_Lab.Views;
 using Twinsanity.TwinsanityInterchange.Common;
+using Twinsanity.TwinsanityInterchange.Enumerations;
 using Action = System.Action;
 using Screen = Caliburn.Micro.Screen;
 using Vector2 = System.Numerics.Vector2;
@@ -48,7 +55,8 @@ public partial class ViewportViewModel : ReactiveObject
     
     private readonly SourceCache<ViewportObject, string> _editableObjects;
     private Renderer? _renderer;
-    
+
+    private bool _isChunkViewport = false;
     private IInputContext? _inputContext;
     private IKeyboard? _keyboard;
     private IMouse? _mouse;
@@ -61,6 +69,29 @@ public partial class ViewportViewModel : ReactiveObject
     private DocumentViewModel? _document;
     private ivec2 ViewportSize => _renderContext == null ? ivec2.Ones : new ivec2((int)_renderContext.ViewportSize.x, (int)_renderContext.ViewportSize.y);
     private readonly CompositeDisposable _closeDisposables = new();
+    private DrawFilter _drawFilter = DrawFilter.Scenery | DrawFilter.DynamicScenery | DrawFilter.Triggers |
+                                     DrawFilter.Positions | DrawFilter.Instances | DrawFilter.Cameras |
+                                     DrawFilter.Skybox | DrawFilter.LinkedScenery | DrawFilter.Particles;
+
+    [Flags]
+    private enum DrawFilter
+    {
+        Disabled = 0,
+        Scenery = 1 << 0,
+        Collision = 1 << 1,
+        Instances = 1 << 2,
+        Positions = 1 << 3,
+        Triggers = 1 << 4,
+        Cameras = 1 << 5,
+        Skybox = 1 << 6,
+        Paths = 1 << 7,
+        AiPositions = 1 << 8,
+        AiPaths = 1 << 9,
+        DynamicScenery = 1 << 10,
+        Lighting = 1 << 11,
+        LinkedScenery = 1 << 12,
+        Particles = 1 << 13
+    }
 
     public ViewportViewModel()
     {
@@ -71,6 +102,7 @@ public partial class ViewportViewModel : ReactiveObject
     public void Init(DocumentViewModel document)
     {
         _document = document;
+        _isChunkViewport = document.DocumentModel is LevelChunk;
 
         _editableObjects.Connect().Subscribe(x =>
         {
@@ -293,41 +325,102 @@ public partial class ViewportViewModel : ReactiveObject
             }
         }
         
-        // if (result == null && _colData != null)
-        // {
-        //     var hit = new vec3();
-        //     var minDistance = float.MaxValue;
-        //     foreach (var triangle in _colData.Triangles)
-        //     {
-        //         var hitPos = new vec3();
-        //         var distance = float.MaxValue;
-        //         var p1 = _colData.Vectors[triangle.Face.Indexes![0]];
-        //         var p2 = _colData.Vectors[triangle.Face.Indexes[1]];
-        //         var p3 = _colData.Vectors[triangle.Face.Indexes[2]];
-        //         if (!MathExtension.IntersectRayTriangle(rayOrigin, rayDirection, new vec3(p1.X, p1.Y, p1.Z),
-        //                 new vec3(p2.X, p2.Y, p2.Z), new vec3(p3.X, p3.Y, p3.Z), ref distance, ref hitPos))
-        //         {
-        //             continue;
-        //         }
-        //
-        //         if (!(distance < minDistance))
-        //         {
-        //             continue;
-        //         }
-        //
-        //         hit = hitPos;
-        //         minDistance = distance;
-        //     }
-        //
-        //     if (!minDistance.Equals(float.MaxValue))
-        //     {
-        //         _editingContext.SetCursorCoordinates(hit);
-        //         if (_keyboard.IsKeyPressed(Key.ControlLeft))
-        //         {
-        //             _editingContext.SpawnAtCursor();
-        //         }
-        //     }
-        // }
+        if (result == null && _editableObjects.Keys.FirstOrDefault(key => key.StartsWith("COLLISION_")) != null)
+        {
+            var colData = (CollisionData)_editableObjects.KeyValues[_editableObjects.Keys.First(key => key.StartsWith("COLLISION_"))].UserData!;
+            var hit = new vec3();
+            var minDistance = float.MaxValue;
+            foreach (var triangle in colData.Triangles)
+            {
+                var hitPos = new vec3();
+                var distance = float.MaxValue;
+                var p1 = colData.Vectors[triangle.Face.Indexes![0]];
+                var p2 = colData.Vectors[triangle.Face.Indexes[1]];
+                var p3 = colData.Vectors[triangle.Face.Indexes[2]];
+                if (!MathExtension.IntersectRayTriangle(rayOrigin, rayDirection, new vec3(p1.X, p1.Y, p1.Z),
+                        new vec3(p2.X, p2.Y, p2.Z), new vec3(p3.X, p3.Y, p3.Z), ref distance, ref hitPos))
+                {
+                    continue;
+                }
+        
+                if (!(distance < minDistance))
+                {
+                    continue;
+                }
+        
+                hit = hitPos;
+                minDistance = distance;
+            }
+        
+            if (!minDistance.Equals(float.MaxValue))
+            {
+                _editingContext.SetCursorCoordinates(hit);
+                if (_keyboard.IsKeyPressed(Key.ControlLeft))
+                {
+                    var objectToSpawn = _editingContext.SpawnAtCursor();
+                    CreateNewInstance(objectToSpawn);
+                }
+            }
+        }
+    }
+
+    private void DeleteInstance()
+    {
+        if (SelectedObject == null)
+        {
+            return;
+        }
+        
+        _editingContext?.Deselect();
+        _editableObjects.Remove(SelectedObject);
+        var chunkResources = _document!.PropertyGraph.Root.Find(nameof(LevelChunk.ChunkResources))!;
+        chunkResources.RemoveElement(SelectedObject.Property);
+    }
+
+    private void CreateNewInstance(ViewportObject? objectToSpawn)
+    {
+        if (objectToSpawn == null)
+        {
+            return;
+        }
+        
+        var basedOn = objectToSpawn.Property["[data]"]!.GetValue<IAsset>();
+        if (basedOn == null)
+        {
+            return;
+        }
+        
+        var chunk = (LevelChunk)_document!.DocumentModel;
+        var newInstance = AssetFactory.CreateAsset(basedOn.Type, chunk.GetChunkFolder(),
+            $"New {basedOn.Type.Name} {(uint)Guid.NewGuid().GetHashCode()}", "",
+            TwinIdGeneratorServiceProvider.GetGeneratorForChunk(basedOn.Type, chunk.AdditionalPath!, (Enums.Layouts)basedOn.LayoutID!),
+            (asset) =>
+            {
+                var instanceAsset = (SerializableInstance)asset;
+                instanceAsset.Chunk = chunk.AdditionalPath!;
+                instanceAsset.AdditionalPath = chunk.AdditionalPath;
+                instanceAsset.RegenerateLinks();
+                var assetData = basedOn.GetData<AbstractAssetData>();
+                asset.SetData((AbstractAssetData)CloneUtils.DeepClone(assetData, assetData.GetType()));
+                asset.GetData<AbstractAssetData>().SetOwner(asset);
+                return AssetCreationStatus.Success;
+            },
+            (Enums.Layouts)basedOn.LayoutID)!;
+
+        var chunkResources = _document.PropertyGraph.Root.Find(nameof(LevelChunk.ChunkResources));
+        var newElement = chunkResources!.AddElement()!;
+        newElement.SetValue(newInstance.URI);
+        var viewportContext = new ViewportContext(_renderContext!, _editingContext!, _renderer!);
+        var viewportObjects = newInstance.GetViewportObjects(viewportContext, newElement);
+        var cursorCoords = _editingContext!.GetCursorCoordinates();
+        foreach (var viewportObject in viewportObjects)
+        {
+            _editableObjects.AddOrUpdate(viewportObject);
+            _editingContext?.Select(viewportObject);
+            SelectedObject = viewportObject;
+            viewportObject.Render.SetPosition(cursorCoords);
+            viewportObject.Position?.SetValue(new Vector3(cursorCoords.x, cursorCoords.y, cursorCoords.z));
+        }
     }
 
     private void InitScene()
@@ -356,6 +449,7 @@ public partial class ViewportViewModel : ReactiveObject
         _renderer!.FireSceneInitialized();
         _renderer.RegisterForRendering(_scene!, true);
         _renderer.RegisterForUpdating(_scene!);
+        _renderer.RenderImgui += RendererOnRenderImgui;
 
         var camForward = -_scene!.Camera.GetForward();
         _scene.Camera.Translate(camForward * -5);
@@ -363,6 +457,50 @@ public partial class ViewportViewModel : ReactiveObject
         CanRender = true;
         this.RaisePropertyChanged(nameof(CanRender));
         this.RaisePropertyChanged(nameof(SceneStatus));
+    }
+
+    private void RendererOnRenderImgui()
+    {
+        if (_renderer == null || _editingContext == null || !_isChunkViewport)
+        {
+            return;
+        }
+        
+        ImGui.Begin("Chunk Render Settings");
+        ImGui.SetWindowPos(new Vector2(_renderer.GetFrameBufferSize().x - 300, 5), ImGuiCond.Appearing);
+        ImGui.SetWindowSize(new Vector2(295, 200),  ImGuiCond.Appearing);
+        if (_editableObjects.Keys.FirstOrDefault(key => key.StartsWith("COLLISION_")) != null)
+        {
+            ImguiRenderFilterCheckbox("Render Collision", _editableObjects.KeyValues[_editableObjects.Keys.First(key => key.StartsWith("COLLISION_"))].Render, DrawFilter.Collision);
+        }
+        if (_editableObjects.Keys.FirstOrDefault(key => key.StartsWith("DYNAMIC_SCENERY_")) != null)
+        {
+            ImguiRenderFilterCheckbox("Render Dynamic Scenery", _editableObjects.KeyValues[_editableObjects.Keys.First(key => key.StartsWith("DYNAMIC_SCENERY_"))].Render, DrawFilter.DynamicScenery);
+        }
+        ImguiRenderFilterCheckbox("Render Scenery", _editableObjects.KeyValues[_editableObjects.Keys.First(key => key.StartsWith("SCENERY_"))].Render, DrawFilter.Scenery);
+        if (_editableObjects.Keys.FirstOrDefault(key => key.StartsWith("SKYDOME_EDITABLE_")) != null)
+        {
+            ImguiRenderFilterCheckbox("Render Skydome", _editableObjects.KeyValues[_editableObjects.Keys.First(key => key.StartsWith("SKYDOME_EDITABLE_"))].Render, DrawFilter.Skybox);
+        }
+        ImguiRenderFilterCheckbox("Render Positions", _editingContext.GetPositionBillboards(), DrawFilter.Positions);
+        ImguiRenderFilterCheckbox("Render Paths", _editingContext.GetPathBillboards(), DrawFilter.Paths);
+        ImguiRenderFilterCheckbox("Render Particles", _editingContext.GetParticleBillboards(), DrawFilter.Particles);
+        var triggers = _editableObjects.KeyValues.Where(kv => kv.Key.StartsWith("TRIGGER_")).Select(kv => kv.Value.Render).ToList();
+        ImguiRenderFilterCheckbox("Render Triggers", triggers, DrawFilter.Triggers);
+        var cameras = _editableObjects.KeyValues.Where(kv => kv.Key.StartsWith("CAMERA_")).Select(kv => kv.Value.Render).ToList();
+        ImguiRenderFilterCheckbox("Render Cameras", cameras, DrawFilter.Cameras);
+        ImguiRenderFilterCheckbox("Render AI Positions", _editingContext.GetAiPositionsBillboards(), DrawFilter.AiPositions);
+        var instances = _editableObjects.KeyValues.Where(kv => kv.Key.StartsWith("INSTANCE_")).Select(kv => kv.Value.Render).ToList();
+        ImguiRenderFilterCheckbox("Render Instances", instances, DrawFilter.Instances);
+        var links = _editableObjects.KeyValues.Where(kv => kv.Key.StartsWith("CHUNK_LINK_")).Select(kv => kv.Value.Render).ToList();
+        ImguiRenderFilterCheckbox("Render Linked Scenery", links, DrawFilter.LinkedScenery);
+        ImGui.End();
+
+        if (_editingContext.IsInstanceSelected())
+        {
+            ImguiRenderControls();
+            _editingContext.SelectedRenderable?.RenderUpdate();
+        }
     }
 
     public void TerminateRender()
@@ -425,7 +563,7 @@ public partial class ViewportViewModel : ReactiveObject
 
     private void KeyboardOnKeyDown(IKeyboard keyboard, Key key, int scanCode)
     {
-        if (_scene == null || _editingContext == null)
+        if (_scene == null || _editingContext == null || !_isChunkViewport)
         {
             return;
         }
@@ -484,7 +622,7 @@ public partial class ViewportViewModel : ReactiveObject
         }
         else if (key == Key.P)
         {
-            _editingContext.SpawnAtCursor();
+            CreateNewInstance(_editingContext.SpawnAtCursor());
         }
         else if (key == Key.G)
         {
@@ -498,6 +636,10 @@ public partial class ViewportViewModel : ReactiveObject
         else if (key == Key.L)
         {
             _editingContext.ToggleLocality();
+        }
+        else if (key == Key.Delete)
+        {
+            DeleteInstance();
         }
     }
 
@@ -534,6 +676,79 @@ public partial class ViewportViewModel : ReactiveObject
         }
 
         _prevMousePosition = mousePos;
+    }
+    
+    private void ImguiRenderControls()
+    {
+        if (_renderer == null || _editingContext == null)
+        {
+            return;
+        }
+        
+        ImGui.Begin("Editor Info");
+        ImGui.SetWindowPos(new Vector2(5, _renderer.GetFrameBufferSize().y - 400), ImGuiCond.FirstUseEver);
+        ImGui.SetWindowSize(new Vector2(300, 395), ImGuiCond.FirstUseEver);
+        ImGui.Text($"Editing mode: {_editingContext.TransformMode}");
+        ImGui.Text($"Editing axis: {_editingContext.TransformAxis}");
+        ImGui.Text($"Translation locality mode: {_editingContext.TransformLocality}");
+        ImGui.Text("U - Unselect");
+        ImGui.Text("T - Toggle translate");
+        ImGui.Text("R - Toggle rotate");
+        ImGui.Text("E - Toggle scale");
+        ImGui.Text("X - Edit on X axis");
+        ImGui.Text("Y - Edit on Y axis");
+        ImGui.Text("Z - Edit on Z axis");
+        ImGui.Text("L - Switch translation locality");
+        ImGui.Text("G - Move edit cursor on a grid");
+        ImGui.Text("P - Create duplicate instance at cursor's position");
+        ImGui.Text("K - Add current selection to palette");
+        ImGui.Text("Delete - Remove currently selected instance");
+        ImGui.End();
+    }
+    
+    private void ImguiRenderFilterCheckbox(string label, Renderable renderObject, DrawFilter filter, Action<bool>? toggleCallback = null)
+    {
+        ImguiRenderFilterCheckbox(label, [renderObject], filter, toggleCallback);
+    }
+    
+    private void ImguiRenderFilterCheckbox(string label, IReadOnlyList<Renderable> renderObjects, DrawFilter filter, Action<bool>? toggleCallback = null)
+    {
+        var renderEnabled = IsDrawFilterEnabled(filter);
+        if (ImGui.Checkbox(label, ref renderEnabled) && renderObjects.Any(r => !r.IsVisible))
+        {
+            foreach (var renderObject in renderObjects)
+            {
+                renderObject.IsVisible = true;
+            }
+            
+            EnableDrawFilter(filter);
+            toggleCallback?.Invoke(true);
+        }
+        else if (!renderEnabled && renderObjects.Any(r => r.IsVisible))
+        {
+            foreach (var renderObject in renderObjects)
+            {
+                renderObject.IsVisible = false;
+            }
+            
+            DisableDrawFilter(filter);
+            toggleCallback?.Invoke(false);
+        }
+    }
+    
+    private bool IsDrawFilterEnabled(DrawFilter filter)
+    {
+        return _drawFilter.HasFlag(filter);
+    }
+
+    private void EnableDrawFilter(DrawFilter filter)
+    {
+        _drawFilter |= filter;
+    }
+
+    private void DisableDrawFilter(DrawFilter filter)
+    {
+        _drawFilter &= ~filter;
     }
 
     public Action<Renderer, Scene>? SceneInitializer { get; set; }

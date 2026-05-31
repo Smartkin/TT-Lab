@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Reactive;
 using System.Reactive.Linq;
 using System.Reflection;
@@ -206,6 +207,12 @@ public class PropertyNode
             foreach (var childNode in Children)
             {
                 childNode.Target = value;
+            }
+
+            if (PropertyType.IsAssignableTo(typeof(LabURI)))
+            {
+                PropertyGraphBuilder.RebuildLink(this);
+                Graph?.Index(this);
             }
             RaiseGraphChange(oldValue, value);
             return;
