@@ -251,7 +251,7 @@ public class EditingContext
         _gridStep.x = SelectedInstance.Render.GetSize().x;
         _gridStep.y = SelectedInstance.Render.GetSize().y;
         _gridStep.z = SelectedInstance.Render.GetSize().z;
-        _gridRotation = (new quat(SelectedInstance.Render.GetRotation())).ToMat4;
+        _gridRotation = (SelectedInstance.Render.LocalTransform.ToQuaternion).ToMat4;
         SetCursorCoordinates(SelectedInstance.Render.GetPosition());
     }
 
