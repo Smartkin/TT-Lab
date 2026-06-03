@@ -643,9 +643,9 @@ public class ImGuiController : IDisposable
     public void Dispose()
     {
         _renderer.Resize -= WindowResized;
-        _gl.DeleteBuffer(_vboHandle);
-        _gl.DeleteBuffer(_elementsHandle);
-        _gl.DeleteVertexArray(_vertexArrayObject);
+        try { _gl.DeleteBuffer(_vboHandle); } catch { }
+        try { _gl.DeleteBuffer(_elementsHandle); } catch { }
+        try { _gl.DeleteVertexArray(_vertexArrayObject); } catch { }
         _fontTexture.Dispose();
         _shader.Dispose();
         ImGui.DestroyContext(_context);

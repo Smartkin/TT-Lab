@@ -65,8 +65,8 @@ public class Shader
         {
             return;
         }
-        
-        _gl.DeleteProgram(Program);
+
+        try { _gl.DeleteProgram(Program); } catch { }
         _initialized = false;
     }
 
