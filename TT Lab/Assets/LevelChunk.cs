@@ -76,7 +76,7 @@ public class LevelChunk : SerializableAsset
                 continue;
             }
             
-            asset.Delete();
+            //asset.Delete();
         }
         
         base.Save();

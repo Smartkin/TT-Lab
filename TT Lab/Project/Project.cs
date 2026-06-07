@@ -782,7 +782,7 @@ public class Project : IProject
             startupUri = GlobalPackagePS2.GetPackageFolder().FindChild<Folder>("startup");
         }
         var startupFolder = assetManager.GetAsset<Folder>(startupUri);
-        var childrenCopy = startupFolder.Children.Where(e => e.GetUri() != "res://__GLOBAL_FOLDER__/assets/Global PS2_Penis/startup/default").ToList();
+        var childrenCopy = startupFolder.Children.Where(e => !e.GetUri().EndsWith("/default")).ToList();
         ResolveGlobalAssets(factory, childrenCopy, ref totalGlobals, ref currentGlobalsCount);
 
         System.IO.Directory.SetCurrentDirectory("../..");
