@@ -39,6 +39,7 @@ using Twinsanity.TwinsanityInterchange.Implementations.PS2.Sections.RM2.Code;
 using Twinsanity.TwinsanityInterchange.Implementations.PS2.Sections.RM2.Layout;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Path = TT_Lab.Assets.Instance.Path;
+using ReactiveUI;
 
 namespace TT_Lab.Project;
 
@@ -745,20 +746,20 @@ public class Project : IProject
         UInt32 totalGlobals = 0;
         UInt32 currentGlobalsCount = 0;
         System.IO.Directory.SetCurrentDirectory("Levels");
-        // Log.WriteLine("Writing Levels...");
-        // var chunksFolder = (from dependencyUri in BasePackage.Dependencies
-        //     let dependency = assetManager.GetAsset<Package>(dependencyUri)
-        //     where dependency.Enabled
-        //     let packageFolder = dependency.GetPackageFolder()
-        //     let folder = packageFolder.FindChild("levels")
-        //     where folder != LabURI.Empty
-        //     select assetManager.GetAsset<Folder>(folder)).ToList();
-        //
-        // foreach (var folder in chunksFolder)
-        // {
-        //     ResolveAndWriteChunks(factory, folder, ref totalGlobals, ref currentGlobalsCount);
-        // }
-        
+        Log.WriteLine("Writing Levels...");
+        var chunksFolder = (from dependencyUri in BasePackage.Dependencies
+                            let dependency = assetManager.GetAsset<Package>(dependencyUri)
+                            where dependency.Enabled
+                            let packageFolder = dependency.GetPackageFolder()
+                            let folder = packageFolder.FindChild("levels")
+                            where folder != LabURI.Empty
+                            select assetManager.GetAsset<Folder>(folder)).ToList();
+
+        foreach (var folder in chunksFolder)
+        {
+            ResolveAndWriteChunks(factory, folder, ref totalGlobals, ref currentGlobalsCount);
+        }
+
         Log.WriteLine("Writing Extras...");
         System.IO.Directory.SetCurrentDirectory("../Extras");
         
@@ -774,9 +775,15 @@ public class Project : IProject
         Log.WriteLine("Writing Startup...");
         ResolveAndWriteChunks(factory, new Folder("temp") { Children = [GlobalPackagePS2.GetPackageFolder().FindAndGetChild<Folder>("startup")
             .FindAndGetChild<Folder>("default").FindChild<LevelChunk>("default")] }, ref totalGlobals, ref currentGlobalsCount, true);
-        
-        var startupFolder = assetManager.GetAsset<Folder>(GlobalPackagePS2.GetPackageFolder().FindChild<Folder>("Startup"));
-        ResolveGlobalAssets(factory, startupFolder.Children, ref totalGlobals, ref currentGlobalsCount);
+
+        var startupUri = GlobalPackagePS2.GetPackageFolder().FindChild<Folder>("Startup");
+        if (startupUri == LabURI.Empty)
+        {
+            startupUri = GlobalPackagePS2.GetPackageFolder().FindChild<Folder>("startup");
+        }
+        var startupFolder = assetManager.GetAsset<Folder>(startupUri);
+        var childrenCopy = startupFolder.Children.Where(e => e.GetUri() != "res://__GLOBAL_FOLDER__/assets/Global PS2_Penis/startup/default").ToList();
+        ResolveGlobalAssets(factory, childrenCopy, ref totalGlobals, ref currentGlobalsCount);
 
         System.IO.Directory.SetCurrentDirectory("../..");
         Log.WriteLine("Finished writing main archive files!");
