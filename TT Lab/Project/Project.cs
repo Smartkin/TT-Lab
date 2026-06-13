@@ -773,15 +773,14 @@ public class Project : IProject
 
         System.IO.Directory.SetCurrentDirectory("../Startup");
         Log.WriteLine("Writing Startup...");
-        ResolveAndWriteChunks(factory, new Folder("temp") { Children = [GlobalPackagePS2.GetPackageFolder().FindAndGetChild<Folder>("startup")
-            .FindAndGetChild<Folder>("default").FindChild<LevelChunk>("default")] }, ref totalGlobals, ref currentGlobalsCount, true);
-
         var startupUri = GlobalPackagePS2.GetPackageFolder().FindChild<Folder>("Startup");
         if (startupUri == LabURI.Empty)
         {
             startupUri = GlobalPackagePS2.GetPackageFolder().FindChild<Folder>("startup");
         }
         var startupFolder = assetManager.GetAsset<Folder>(startupUri);
+        ResolveAndWriteChunks(factory, new Folder("temp") { Children = [startupFolder.FindAndGetChild<Folder>("default")
+            .FindChild<LevelChunk>("default")] }, ref totalGlobals, ref currentGlobalsCount, true);
         var childrenCopy = startupFolder.Children.Where(e => !e.GetUri().EndsWith("/default")).ToList();
         ResolveGlobalAssets(factory, childrenCopy, ref totalGlobals, ref currentGlobalsCount);
 
@@ -811,6 +810,8 @@ public class Project : IProject
             System.IO.Directory.CreateDirectory($"{ProjectPath}/build/image");
         }
         var progress = Ps2ImageMaker.StartPacking(DiscContentPathPS2!, $"{ProjectPath}/build/image/{Name}.iso");
+        Thread.Sleep(TimeSpan.FromSeconds(0.5));
+        progress = Ps2ImageMaker.PollProgress();
         while (!progress.Finished)
         {
             Thread.Sleep(TimeSpan.FromSeconds(0.5));
