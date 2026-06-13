@@ -22,6 +22,7 @@ using TT_Lab.ViewModels.Interfaces;
 using TT_Lab.ViewModels.ResourceTree;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items;
+using TT_Lab.ViewModels.Editors.Descs;
 
 namespace TT_Lab.Assets;
 
@@ -76,6 +77,8 @@ public abstract class SerializableAsset : IAsset
     }
     
     public String Chunk { get; set; }
+    [Editable(EditorDescType = typeof(TextEditorDesc))]
+    [EditorParam(DocumentCompositeViewModel.EditorExplicitOrder, -4)]
     public Int32? LayoutID { get; set; }
     public Boolean IsLoaded => AssetData is { Disposed: false };
     public bool IsInternal { get; set; } = false;
