@@ -342,6 +342,11 @@ public class ModelData : AbstractAssetData
             foreach (var primitive in mesh.Primitives)
             {
                 var vertexes = primitive.GetVertexColumns();
+                var selectedColors = vertexes.Colors1;
+                if (selectedColors == null)
+                {
+                    selectedColors = vertexes.Colors0;
+                }
                 var hasAlphaBlendingBit = primitive.VertexAccessors.Keys.Any(a => a == attributeKey);
                 var alphaBlendingBits = hasAlphaBlendingBit
                     ? primitive.GetVertexAccessor(attributeKey).AsVector4Array()
@@ -368,7 +373,8 @@ public class ModelData : AbstractAssetData
 
                     if (hasEmitsStored)
                     {
-                        ver.EmitColor = vertexes.Colors1[i].ToTwin();
+                        
+                        ver.EmitColor = (selectedColors != null)? selectedColors[i].ToTwin() : new Vector4(0.5f, 0.5f, 0.5f, 0.5f);
                         ver.EmitColor.StoresColorWithAlphaBlend = false;
                     }
 

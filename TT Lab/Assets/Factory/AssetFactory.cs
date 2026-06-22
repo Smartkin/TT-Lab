@@ -35,8 +35,6 @@ public static class AssetFactory
         if (type != typeof(Folder) && layout is null)
         {
             newAsset.Serialize(SerializationFlags.SetDirectoryToAssets | SerializationFlags.SaveData);
-            folder.Serialize(SerializationFlags.SetDirectoryToAssets | SerializationFlags.SaveData |
-                             SerializationFlags.FixReferences);
         }
 
         var parent = folder.GetResourceTreeElement();

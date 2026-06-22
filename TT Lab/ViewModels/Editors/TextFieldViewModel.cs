@@ -31,6 +31,7 @@ public partial class TextFieldViewModel(DocumentViewModel document, PropertyNode
         DefaultStringConverters[typeof(Int16)] = new Int16Converter();
         DefaultStringConverters[typeof(UInt32)] = new UInt32Converter();
         DefaultStringConverters[typeof(Int32)] = new Int32Converter();
+        DefaultStringConverters[typeof(Int32?)] = new Int32Converter();
         DefaultStringConverters[typeof(UInt64)] = new UInt64Converter();
         DefaultStringConverters[typeof(Int64)] = new Int64Converter();
         DefaultStringConverters[typeof(UInt128)] = new UInt128Converter();
