@@ -145,6 +145,7 @@ public class AgentLabSymbolTable
         Define(CreateBuiltInConstSymbol("Translates", AgentLabToken.TokenType.BooleanType));
         Define(CreateBuiltInConstSymbol("Rotates", AgentLabToken.TokenType.BooleanType));
         Define(CreateBuiltInConstSymbol("TranslationContinues", AgentLabToken.TokenType.BooleanType));
+        Define(CreateBuiltInConstSymbol("TracksDestination", AgentLabToken.TokenType.BooleanType));
         Define(CreateBuiltInConstSymbol("InterpolatesAngles", AgentLabToken.TokenType.BooleanType));
         Define(CreateBuiltInConstSymbol("YawFaces", AgentLabToken.TokenType.BooleanType));
         Define(CreateBuiltInConstSymbol("PitchFaces", AgentLabToken.TokenType.BooleanType));

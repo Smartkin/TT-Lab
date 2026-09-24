@@ -151,6 +151,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
                 StringUtils.WriteLineTabulated(writer, $"Translates = {Translates.ToString().ToLower()};", tabs + 2);
                 StringUtils.WriteLineTabulated(writer, $"Rotates = {Rotates.ToString().ToLower()};", tabs + 2);
                 StringUtils.WriteLineTabulated(writer, $"TranslationContinues = {TranslationContinues.ToString().ToLower()};", tabs + 2);
+                StringUtils.WriteLineTabulated(writer, $"TracksDestination = {TracksDestination.ToString().ToLower()};", tabs + 2);
                 StringUtils.WriteLineTabulated(writer, $"InterpolatesAngles = {InterpolatesAngles.ToString().ToLower()};", tabs + 2);
                 StringUtils.WriteLineTabulated(writer, $"YawFaces = {YawFaces.ToString().ToLower()};", tabs + 2);
                 StringUtils.WriteLineTabulated(writer, $"PitchFaces = {PitchFaces.ToString().ToLower()};", tabs + 2);
