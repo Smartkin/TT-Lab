@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using TT_Lab.AssetData.Code;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
 using Twinsanity.TwinsanityInterchange.Enumerations;
@@ -55,19 +56,14 @@ public class OgiResolver : AssetResolver<ITwinOGI>
         return new OGI(package.URI, needVariant, variant, item.GetID(), item.GetName(), item);
     }
 
-    public void AddAnimationLinks(Dictionary<ushort, List<ushort>> twinLinks)
+    // Every OGI keeps the animations game objects play on it
+    public void AddAnimations(Dictionary<ushort, List<ushort>> twinLinks)
     {
         foreach (var (ogiId, animations) in twinLinks)
         {
-            var fittingOgis = Assets.Where(meta => meta.Asset.ID == ogiId);
-            var animList = new List<LabURI>();
-            foreach (var fittingAnims in animations.Select(animRef => _animationResolver.GetAssets().Where(meta => meta.Asset.ID == animRef)))
+            foreach (var ogi in Assets.Where(meta => meta.Asset.ID == ogiId))
             {
-                animList.AddRange(fittingAnims.Select(meta => meta.Uri));
-            }
-            foreach (var ogi in fittingOgis)
-            {
-                ((OGI)ogi.Asset).LinkAnimationsToData(animList);
+                ((OGI)ogi.Asset).SetAnimationsToData(animations.Select(id => _animationResolver.Get(id)).OfType<ITwinAnimation>().Select(animation => new AnimationData(animation)).ToList());
             }
         }
     }

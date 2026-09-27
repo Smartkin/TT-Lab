@@ -34,6 +34,35 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.Graphics
         public Byte[] UnkBytes3 { get; set; }
         public Byte[] UnusedMetadata { get; set; }
         public Byte[] TextureData { get; set; }
+        // Left over from the tools like the unused metadata, see TwinTextureLeftovers
+        UInt32 reserved1;
+        UInt32 reserved2;
+        UInt16 reserved3;
+
+        public TwinTextureLeftovers Leftovers
+        {
+            get
+            {
+                var toolMemory = new UInt32[UnusedMetadata.Length / 4];
+                Buffer.BlockCopy(UnusedMetadata, 0, toolMemory, 0, toolMemory.Length * 4);
+                return new TwinTextureLeftovers
+                {
+                    SignatureLeftover = (UInt16)HeaderSignature,
+                    ToolSlot = reserved1,
+                    Reserved1 = reserved2,
+                    Reserved2 = reserved3,
+                    ToolMemory = toolMemory
+                };
+            }
+            set
+            {
+                HeaderSignature = (HeaderSignature & 0xFFFF0000) | value.SignatureLeftover;
+                reserved1 = value.ToolSlot;
+                reserved2 = value.Reserved1;
+                reserved3 = value.Reserved2;
+                Buffer.BlockCopy(value.ToolMemory, 0, UnusedMetadata, 0, Math.Min(UnusedMetadata.Length, value.ToolMemory.Length * 4));
+            }
+        }
 
         public PS2AnyTexture()
         {
@@ -100,10 +129,10 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.Graphics
             ClutBufferBasePointer = reader.ReadInt32();
             reader.ReadInt32(); // CLUT buffer width, always 1 meaning always 64
             UnkBytes2 = reader.ReadBytes(4);
-            reader.ReadInt32(); // Reserved
-            reader.ReadInt32(); // Reserved
+            reserved1 = reader.ReadUInt32();
+            reserved2 = reader.ReadUInt32();
             UnkBytes3 = reader.ReadBytes(2);
-            reader.ReadBytes(2); // Reserved
+            reserved3 = reader.ReadUInt16();
             reader.Read(UnusedMetadata, 0, UnusedMetadata.Length);
             TextureData = reader.ReadBytes(dataLen - 96 - UnusedMetadata.Length);
         }
@@ -134,10 +163,10 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.Graphics
             writer.Write(ClutBufferBasePointer);
             writer.Write(1); // CLUT buffer width
             writer.Write(UnkBytes2);
-            writer.Write(0); // Reserved
-            writer.Write(0); // Reserved
+            writer.Write(reserved1);
+            writer.Write(reserved2);
             writer.Write(UnkBytes3);
-            writer.Write((Int16)0); // Reserved
+            writer.Write(reserved3);
             writer.Write(UnusedMetadata);
             writer.Write(TextureData);
         }
@@ -201,8 +230,8 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.Graphics
             {
                 TextureDescriptor textureDescriptor = TextureDescriptorHelper[$"{width}x{height}"];
                 ClutBufferBasePointer = textureDescriptor.CBP;
-                MipLevelsTBP = textureDescriptor.MipTBP;
-                MipLevelsTBW = textureDescriptor.MipTBW;
+                MipLevelsTBP = (Int32[])textureDescriptor.MipTBP.Clone();
+                MipLevelsTBW = (Int32[])textureDescriptor.MipTBW.Clone();
                 MipLevels = (byte)textureDescriptor.MipLevels;
             }
             else
@@ -213,15 +242,11 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.Graphics
                 MipLevels = 1;
             }
 
-            if (format == ITwinTexture.TexturePixelFormat.PSMT8 && !generateMipmaps)
+            if (format == ITwinTexture.TexturePixelFormat.PSMT8 && MipLevels == 1)
             {
-                TextureDescriptor textureDescriptor = TextureDescriptorHelper[$"{width}x{height}"];
-                ClutBufferBasePointer = textureDescriptor.CBP;
+                // Without mips the palette goes where the game's textures of the size have it, the descriptors lay textures out with their mips
+                ClutBufferBasePointer = UnmippedClutPointers.TryGetValue($"{width}x{height}", out var pointer) ? pointer : TextureDescriptorHelper[$"{width}x{height}"].CBP;
             }
-
-            //this is probably not bytes but whatever
-            UnkBytes2[1] = UnkBytes3[0] = (Byte)((width == 256) ? 0 : (byte)Math.Min(width, height));
-            UnkBytes2[2] = UnkBytes3[1] = (Byte)((width == 256) ? 2 : 0);
 
             GIFTag headerTag = new GIFTag();
             headerTag.REGS = new REGSEnum[16];
@@ -250,17 +275,24 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.Graphics
                     c.ScaleAlphaDown();
                 }
                 tag = EzSwizzle.ColorsToTag(image);
+                // The pixels get uploaded as they are, the transfer covers the whole image
+                head2.Output = ((UInt64)height << 32) | (UInt64)width;
+                SetMemorySize(width * height);
             }
             else
             {
                 var textureData = new byte[width * height];
                 var paletteData = new byte[256 * 4];
                 var palette = new List<Color>(256);
+                // Colors are equal by their ARGB value, the first occurrence decides a color's index in the palette
+                var paletteIndices = new Dictionary<UInt32, Int32>(256);
                 
                 foreach (var c in image)
                 {
-                    if (!palette.Contains(c))
+                    var argb = c.ToARGB();
+                    if (!paletteIndices.ContainsKey(argb))
                     {
+                        paletteIndices.Add(argb, palette.Count);
                         palette.Add(c);
                     }
                 }
@@ -278,7 +310,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.Graphics
                 var index = 0;
                 foreach (var c in image)
                 {
-                    textureData[index] = useQuantizer ? ImageQuantizer.PaletteIndex(c, palette) : (byte)palette.IndexOf(c);
+                    textureData[index] = useQuantizer ? ImageQuantizer.PaletteIndex(c, palette) : (byte)paletteIndices[c.ToARGB()];
                     ++index;
                 }
                 foreach (var c in palette)
@@ -307,6 +339,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.Graphics
                 ulong high = (ulong)textureDescriptor.RRH;
                 ulong low = (ulong)textureDescriptor.RRW;
                 head2.Output = (high << 32) | (low);
+                SetMemorySize(textureDescriptor.RRW * textureDescriptor.RRH);
                 byte[] rawTextureData = new byte[textureDescriptor.RRH * 256];
                 Array.Fill<byte>(rawTextureData, 0xFF);
 
@@ -356,6 +389,25 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.Graphics
                 writer.Flush();
                 TextureData = stream.ToArray();
             }
+        }
+
+        // The game's textures without mips put their palette right after their pixels
+        private static readonly Dictionary<String, Int32> UnmippedClutPointers = new()
+        {
+            { "32x8", 8 },
+            { "32x32", 8 },
+            { "32x64", 4 },
+            { "64x64", 16 },
+            { "128x128", 64 },
+            { "128x256", 128 }
+        };
+
+        // The header has the texture's size twice, in blocks of 64 of the 32 bit pixels it uploads
+        private void SetMemorySize(Int32 uploadedPixels)
+        {
+            var blocks = uploadedPixels / 64;
+            UnkBytes2 = new Byte[] { 0xE0, (Byte)blocks, (Byte)(blocks >> 8), 0 };
+            UnkBytes3 = new Byte[] { (Byte)blocks, (Byte)(blocks >> 8) };
         }
 
         public override String GetName()

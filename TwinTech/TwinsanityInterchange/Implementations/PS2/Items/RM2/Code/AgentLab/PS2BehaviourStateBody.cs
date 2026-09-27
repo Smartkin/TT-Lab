@@ -23,6 +23,11 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
 
         bool ITwinBehaviourStateBody.HasNext { get; set; }
 
+        protected virtual PS2BehaviourCommand CreateCommand()
+        {
+            return new PS2BehaviourCommand();
+        }
+
         public PS2BehaviourStateBody()
         {
             Commands = new List<ITwinBehaviourCommand>();
@@ -88,7 +93,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
             Commands.Clear();
             for (var i = 0; i < commandsAmt; ++i)
             {
-                var com = new PS2BehaviourCommand();
+                var com = CreateCommand();
                 Commands.Add(com);
                 com.Read(reader, length);
             }
@@ -174,7 +179,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
                 }
                 else if (!line.StartsWith("}"))
                 {
-                    PS2BehaviourCommand cmd = new();
+                    var cmd = CreateCommand();
                     cmd.ReadText(line);
                     Commands.Add(cmd);
                 }

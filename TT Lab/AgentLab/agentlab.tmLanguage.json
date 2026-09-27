@@ -1,0 +1,78 @@
+{
+  "name": "AgentLab",
+  "scopeName": "source.agentlab",
+  "fileTypes": [ "lab" ],
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#attributes" },
+    { "include": "#declarations" },
+    { "include": "#execute" },
+    { "include": "#keywords" },
+    { "include": "#numbers" },
+    { "include": "#calls" },
+    { "include": "#constants" },
+    { "include": "#operators" }
+  ],
+  "repository": {
+    "comments": {
+      "match": "//.*$",
+      "name": "comment.line.double-slash.agentlab"
+    },
+    "strings": {
+      "patterns": [
+        { "begin": "\"", "end": "\"|$", "name": "string.quoted.double.agentlab" },
+        { "begin": "'", "end": "'|$", "name": "string.quoted.single.agentlab" }
+      ]
+    },
+    "attributes": {
+      "match": "(\\[)\\s*([A-Za-z_][A-Za-z0-9_]*)",
+      "captures": {
+        "1": { "name": "punctuation.definition.attribute.agentlab" },
+        "2": { "name": "entity.other.attribute-name.agentlab" }
+      }
+    },
+    "declarations": {
+      "match": "\\b(library|behaviour|state|packet)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+      "captures": {
+        "1": { "name": "storage.type.agentlab" },
+        "2": { "name": "entity.name.type.agentlab" }
+      }
+    },
+    "execute": {
+      "match": "\\b(execute)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+      "captures": {
+        "1": { "name": "keyword.control.agentlab" },
+        "2": { "name": "entity.name.type.agentlab" }
+      }
+    },
+    "keywords": {
+      "patterns": [
+        { "match": "\\b(library|behaviour|state|starter|assigner|settings|data|packet)\\b", "name": "storage.type.agentlab" },
+        { "match": "\\b(if|execute|interval|unknown|threshold|const)\\b", "name": "keyword.control.agentlab" },
+        { "match": "\\b(bool|int|float|string|action|condition)\\b", "name": "storage.type.primitive.agentlab" },
+        { "match": "\\b(true|false)\\b", "name": "constant.language.agentlab" }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        { "match": "\\b0x[0-9A-Fa-f]+\\b", "name": "constant.numeric.hex.agentlab" },
+        { "match": "(?<![A-Za-z0-9_.])-?\\d+(\\.\\d+)?([eE][-+]?\\d+)?\\b", "name": "constant.numeric.agentlab" }
+      ]
+    },
+    "calls": {
+      "match": "\\b([A-Za-z_][A-Za-z0-9_]*)\\s*(?=\\()",
+      "captures": {
+        "1": { "name": "entity.name.function.agentlab" }
+      }
+    },
+    "constants": {
+      "match": "\\b[A-Z][A-Z0-9_]*\\b",
+      "name": "variable.other.constant.agentlab"
+    },
+    "operators": {
+      "match": ">=|<=|==|=|!|\\+|-|\\*|/",
+      "name": "keyword.operator.agentlab"
+    }
+  }
+}

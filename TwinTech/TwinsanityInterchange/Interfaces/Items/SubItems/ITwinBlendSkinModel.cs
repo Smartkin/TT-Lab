@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using Twinsanity.PS2Hardware;
 using Twinsanity.TwinsanityInterchange.Common;
 
 namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.SubItems
@@ -7,9 +8,13 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.SubItems
     public interface ITwinBlendSkinModel : ITwinSerializable
     {
         /// <summary>
-        /// Scale used to compress vectors into UInt16
+        /// How positions and UVs get packed, null lets compiling pick settings that fit
         /// </summary>
-        UInt32 CompileScale { get; set; }
+        TwinSkinCompression Compression { get; set; }
+        /// <summary>
+        /// How the compiled packet gets padded
+        /// </summary>
+        TwinVifPadding Padding { get; set; }
         /// <summary>
         /// Total amount of vertexes in the model
         /// </summary>

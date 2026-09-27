@@ -12,7 +12,7 @@ internal class AgentLabActionSymbol : AgentLabSymbol
     public AgentLabActionSymbol(string name, int id, AgentLabSymbol type, params AgentLabSymbol[] parameters) : base(name, type)
     {
         Id = id;
-        Parameters = new AgentLabSymbolTable();
+        Parameters = new AgentLabSymbolTable(false);
         if (parameters == null)
         {
             return;

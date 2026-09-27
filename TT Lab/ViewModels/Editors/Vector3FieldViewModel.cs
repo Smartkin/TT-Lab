@@ -9,25 +9,28 @@ using Twinsanity.TwinsanityInterchange.Common;
 
 namespace TT_Lab.ViewModels.Editors;
 
-public class Vector3FieldViewModel : DocumentDataViewModel<Vector3>
+public class Vector3FieldViewModel(DocumentViewModel document, PropertyNode data, params DocumentNodeViewModel[] dependencies)
+    : DocumentDataViewModel<Vector3>(document, data, dependencies)
 {
-    public TextFieldViewModel X { get; }
-    public TextFieldViewModel Y { get; }
-    public TextFieldViewModel Z { get; }
+    private TextFieldViewModel? _x;
+    private TextFieldViewModel? _y;
+    private TextFieldViewModel? _z;
 
-    public Vector3FieldViewModel(DocumentViewModel document, PropertyNode data, params DocumentNodeViewModel[] dependencies)
-        : base(document, data, dependencies)
+    // Components are made once shown, a long list of vectors mostly consists of editors that never are
+    public TextFieldViewModel X => _x ??= CreateComponent("X");
+    public TextFieldViewModel Y => _y ??= CreateComponent("Y");
+    public TextFieldViewModel Z => _z ??= CreateComponent("Z");
+
+    private TextFieldViewModel CreateComponent(string name)
     {
-        X = new TextFieldViewModel(document, Property.Find("X")!, this) { Caption = "X" };
-        Y = new TextFieldViewModel(document, Property.Find("Y")!, this) { Caption = "Y" };
-        Z = new TextFieldViewModel(document, Property.Find("Z")!, this) { Caption = "Z" };
+        return new TextFieldViewModel(Document, Property.Find(name)!, this) { Caption = name };
     }
 
     protected override void OnCurrentValueChanged()
     {
-        X.SetValueCommand.Execute(Property.Find("X")!.GetValue());
-        Y.SetValueCommand.Execute(Property.Find("Y")!.GetValue());
-        Z.SetValueCommand.Execute(Property.Find("Z")!.GetValue());
+        _x?.SetValueCommand.Execute(Property.Find("X")!.GetValue());
+        _y?.SetValueCommand.Execute(Property.Find("Y")!.GetValue());
+        _z?.SetValueCommand.Execute(Property.Find("Z")!.GetValue());
         
         base.OnCurrentValueChanged();
     }

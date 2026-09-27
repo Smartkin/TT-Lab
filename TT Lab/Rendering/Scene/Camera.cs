@@ -2,6 +2,7 @@ using System;
 using GlmSharp;
 using TT_Lab.Rendering.Objects;
 using TT_Lab.Rendering.Services;
+using TT_Lab.Rendering.Shaders;
 
 namespace TT_Lab.Rendering.Scene;
 
@@ -28,10 +29,15 @@ public class Camera(RenderContext context) : Renderable(context, "Scene Camera")
 
     public vec3 GetRayFromViewport(float x, float y)
     {
-        var win = new vec3(_viewportResolution.x - x, _viewportResolution.y - y, 0.0f);
-        var view = new vec4(0, 0, _viewportResolution.x, _viewportResolution.y);
-        var worldPos = mat4.UnProject(win, WorldTransform.Inverse, _projectionMatrix, view);
-        return glm.Normalized(worldPos - GetPosition());
+        return GetFrameCamera().ScreenRay(new vec2(x, y)).Direction;
+    }
+
+    /// <summary>
+    /// Camera as it's getting rendered on the render thread or as it currently is everywhere else
+    /// </summary>
+    public FrameCamera GetFrameCamera(bool asRendered = false)
+    {
+        return new FrameCamera(asRendered ? RenderTransform : WorldTransform, _projectionMatrix, _viewportResolution, glm.Radians(_fov));
     }
 
     public override (String, int)[] GetPriorityPasses()
@@ -41,22 +47,15 @@ public class Camera(RenderContext context) : Renderable(context, "Scene Camera")
 
     protected override void RenderSelf(float delta)
     {
-        var projectionLoc = _context.CurrentPass.Program.GetUniformLocation("StartProjection");
-        var viewMatrixLoc = _context.CurrentPass.Program.GetUniformLocation("StartView");
-        var cameraPositionLoc = _context.CurrentPass.Program.GetUniformLocation("EyePosition");
-        var cameraDirectionLoc = _context.CurrentPass.Program.GetUniformLocation("EyeDirection");
-        var fovLoc = _context.CurrentPass.Program.GetUniformLocation("Fov");
-        var aspectLoc = _context.CurrentPass.Program.GetUniformLocation("Aspect");
-        var fogColorLoc = _context.CurrentPass.Program.GetUniformLocation("FogColor");
-        var resultView = RenderTransform.Inverse;
-        var position = GetRenderPosition();
-        var forward = GetRenderForward();
-        _context.Gl.UniformMatrix4(projectionLoc, false, _projectionMatrix.Values1D);
-        _context.Gl.UniformMatrix4(viewMatrixLoc, false, resultView.Values1D);
-        _context.Gl.Uniform3(fogColorLoc, _fogColor.Values);
-        _context.Gl.Uniform3(cameraPositionLoc, position.Values);
-        _context.Gl.Uniform3(cameraDirectionLoc, forward.Values);
-        _context.Gl.Uniform1(fovLoc, glm.Radians(_fov));
-        _context.Gl.Uniform1(aspectLoc, _viewportResolution.x / _viewportResolution.y);
+        var program = _context.CurrentPass.Program;
+        var camera = _context.FrameCamera;
+        program.SetUniform(KnownUniform.StartProjection, camera.Projection);
+        program.SetUniform(KnownUniform.StartView, camera.View);
+        program.SetUniform(KnownUniform.InverseView, camera.World);
+        program.SetUniform(KnownUniform.FogColor, _fogColor);
+        program.SetUniform(KnownUniform.EyePosition, camera.Position);
+        program.SetUniform(KnownUniform.EyeDirection, camera.World.Column2.xyz);
+        program.SetUniform(KnownUniform.Fov, glm.Radians(_fov));
+        program.SetUniform(KnownUniform.Aspect, _viewportResolution.x / _viewportResolution.y);
     }
 }

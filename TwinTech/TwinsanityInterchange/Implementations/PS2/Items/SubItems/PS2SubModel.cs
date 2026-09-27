@@ -1,6 +1,5 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using Twinsanity.PS2Hardware;
@@ -23,6 +22,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SubItems
         public List<Vector4> Normals { get; set; }
         public List<bool> Connection { get; set; }
         public List<Int32> GroupSizes { get; set; }
+        public TwinVifPadding Padding { get; set; }
         public PS2SubModel()
         {
 
@@ -41,19 +41,8 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SubItems
             UnusedBlob = reader.ReadBytes(blobLen);
         }
 
-        [Flags]
-        private enum FieldsPresent
-        {
-            Vertex = 0,
-            UV_Color = 1,
-            Normals = 2,
-            EmitColors = 4
-        }
-
         public void CalculateData()
         {
-            var interpreter = VIFInterpreter.InterpretCode(VertexData);
-            var data = interpreter.GetMem();
             Vertexes = new List<Vector4>();
             UVW = new List<Vector4>();
             EmitColor = new List<Vector4>();
@@ -61,125 +50,57 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SubItems
             Colors = new List<Vector4>();
             Connection = new List<bool>();
             GroupSizes = new List<Int32>();
-            var index = 0;
-            for (var i = 0; i < data.Count;)
+            Padding = TwinVifPacket.DetectPadding(VertexData);
+            foreach (var batch in TwinVifPacket.ReadBatches(VertexData))
             {
-                var verts = data[i][0].GetBinaryX() & 0xFF;
-                var fieldsPresent = FieldsPresent.Vertex;
-                var outputAddr = interpreter.GetAddressOutput();
-                var fields = 0;
-                foreach (var addr in outputAddr[index++])
+                var positions = batch.FirstOrDefault(u => u.Address == 3);
+                var uvColors = batch.FirstOrDefault(u => u.Address == 4);
+                if (positions == null || uvColors == null)
                 {
-                    switch (addr)
-                    {
-                        case 0x3:
-                            fieldsPresent |= FieldsPresent.Vertex;
-                            fields++;
-                            break;
-                        case 0x4:
-                            fieldsPresent |= FieldsPresent.UV_Color;
-                            fields++;
-                            break;
-                        case 0x5:
-                            fieldsPresent |= FieldsPresent.Normals;
-                            fields++;
-                            break;
-                        case 0x6:
-                            fieldsPresent |= FieldsPresent.EmitColors;
-                            fields++;
-                            break;
-                    }
-                    if (i + fields + 2 >= data.Count)
-                        break;
-
+                    continue;
                 }
-                Vertexes.AddRange(data[i + 2].Where((v) => v != null));
-                if (fieldsPresent.HasFlag(FieldsPresent.UV_Color))
+
+                var normals = batch.FirstOrDefault(u => u.Address == 5);
+                var emits = batch.FirstOrDefault(u => u.Address == 6);
+                var count = positions.Amount;
+                GroupSizes.Add(count);
+                for (var i = 0; i < count; i++)
                 {
-                    var uv_con = data[i + 3].Where((v) => v != null);
-                    foreach (var e in uv_con)
+                    var position = positions.GetVector(i);
+                    var vertex = new Vector4();
+                    vertex.SetBinaryX(position[0]);
+                    vertex.SetBinaryY(position[1]);
+                    vertex.SetBinaryZ(position[2]);
+                    Vertexes.Add(vertex);
+
+                    var uvColor = uvColors.GetVector(i);
+                    var uv = new Vector4();
+                    uv.SetBinaryX(uvColor[0] & 0xFFFFFF00);
+                    uv.SetBinaryY(uvColor[1] & 0xFFFFFF00);
+                    uv.SetBinaryZ(uvColor[2] & 0xFFFFFF00);
+                    UVW.Add(uv);
+                    Colors.Add(Vector4.FromColor(new Color((Byte)uvColor[0], (Byte)uvColor[1], (Byte)uvColor[2], (Byte)uvColor[3], true)));
+                    Connection.Add((uvColor[3] & 0x8000) == 0);
+
+                    if (normals != null)
                     {
-                        var conn = (e.GetBinaryW() & 0xFF00) >> 8;
-                        Connection.Add(conn != 128);
-                        var r = e.GetBinaryX() & 0xFF;
-                        var g = e.GetBinaryY() & 0xFF;
-                        var b = e.GetBinaryZ() & 0xFF;
-                        var a = e.GetBinaryW() & 0xFF;
+                        var normal = normals.GetVector(i);
+                        var vector = new Vector4();
+                        vector.SetBinaryX(normal[0]);
+                        vector.SetBinaryY(normal[1]);
+                        vector.SetBinaryZ(normal[2]);
+                        Normals.Add(vector);
+                    }
 
-                        Color col = new((byte)r, (byte)g, (byte)b, (byte)a, true);
-                        Colors.Add(Vector4.FromColor(col));
-
-                        Vector4 uv = new(e);
-                        uv.SetBinaryX(uv.GetBinaryX() & 0xFFFFFF00);
-                        uv.SetBinaryY(uv.GetBinaryY() & 0xFFFFFF00);
-                        uv.SetBinaryZ(uv.GetBinaryZ() & 0xFFFFFF00);
-                        UVW.Add(uv);
+                    if (emits != null)
+                    {
+                        var emit = emits.GetVector(i);
+                        EmitColor.Add(Vector4.FromColor(new Color((Byte)emit[0], (Byte)emit[1], (Byte)emit[2], (Byte)emit[3], true)));
                     }
                 }
-                if (fieldsPresent.HasFlag(FieldsPresent.Normals))
-                {
-                    foreach (var e in data[i + 4])
-                    {
-                        if (e == null)
-                            break;
-                        var normal = e;
-                        // Abysmally short normals
-                        if (normal.Length() == 0)
-                        {
-                            if (normal.X < 0)
-                            {
-                                normal.X = -1.0f;
-                            }
-                            else
-                            {
-                                normal.X = 1.0f;
-                            }
-
-                            if (normal.Y < 0)
-                            {
-                                normal.Y = -1.0f;
-                            }
-                            else
-                            {
-                                normal.Y = 1.0f;
-                            }
-
-                            if (normal.Z < 0)
-                            {
-                                normal.Z = -1.0f;
-                            }
-                            else
-                            {
-                                normal.Z = 1.0f;
-                            }
-                        }
-                        Debug.Assert(normal.Length() > 0);
-                        normal.Normalize();
-                        Normals.Add(new Vector4(normal.X, normal.Y, normal.Z, 1.0f));
-                    }
-                }
-                if (fieldsPresent.HasFlag(FieldsPresent.EmitColors))
-                {
-                    foreach (var e in data[i + fields + 1])
-                    {
-                        if (e == null)
-                            break;
-
-                        var r = (byte)(e.GetBinaryX() & 0xFF);
-                        var g = (byte)(e.GetBinaryY() & 0xFF);
-                        var b = (byte)(e.GetBinaryZ() & 0xFF);
-                        var a = (byte)(e.GetBinaryW() & 0xFF);
-                        Color col = new(r, g, b, a, true);
-
-                        EmitColor.Add(Vector4.FromColor(col));
-                    }
-                }
-                i += fields + 2;
-                GroupSizes.Add((Int32)verts);
-                TrimList(UVW, Vertexes.Count);
-                TrimList(Colors, Vertexes.Count);
             }
         }
+
         public void Write(BinaryWriter writer)
         {
             writer.Write(VertexesCount);
@@ -192,76 +113,41 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SubItems
         public void Compile()
         {
             VertexesCount = (UInt32)Vertexes.Count;
-            TrimList(UVW, (Int32)VertexesCount);
-            TrimList(Colors, (Int32)VertexesCount, Vector4.FromColor(new Color()));
-            var data = new List<List<Vector4>>
+            var hasNormals = Normals != null && Normals.Count == Vertexes.Count;
+            var hasEmitColors = EmitColor != null && EmitColor.Count == Vertexes.Count;
+            var batches = new List<TwinVIFCompiler.RigidBatch>();
+            var start = 0;
+            foreach (var size in GroupSizes)
             {
-                GroupSizes.Select(i => new Vector4(i, 0, 0, 0)).ToList(),
-                Vertexes,
-                Colors,
-                UVW
-            };
-            var hasNormals = Normals.Count == Vertexes.Count;
-            var hasEmitColors = EmitColor.Count == Vertexes.Count;
-            // Normals are optional
-            if (hasNormals)
-            {
-                data.Add(Normals);
+                var batch = new TwinVIFCompiler.RigidBatch
+                {
+                    Normals = hasNormals ? new List<Vector4>() : null,
+                    EmitColors = hasEmitColors ? new List<Color>() : null
+                };
+                for (var i = start; i < start + size; i++)
+                {
+                    batch.Positions.Add(Vertexes[i]);
+                    batch.Uvs.Add(i < UVW.Count ? UVW[i] : new Vector4(0, 0, 1, 0));
+                    batch.Colors.Add(ToGameColor(i < Colors.Count ? Colors[i] : new Vector4(1, 1, 1, 1)));
+                    batch.Adc.Add(!Connection[i]);
+                    batch.Normals?.Add(Normals[i]);
+                    batch.EmitColors?.Add(ToGameColor(EmitColor[i]));
+                }
+
+                batches.Add(batch);
+                start += size;
             }
-            // Emit colors are optional
-            if (hasEmitColors)
-            {
-                data.Add(EmitColor);
-            }
-            var compiler = new TwinVIFCompiler(data, Connection, hasNormals, hasEmitColors);
-            VertexData = compiler.Compile();
+
+            VertexData = TwinVIFCompiler.CompileRigid(batches, Padding);
+            UnusedBlob ??= Array.Empty<Byte>();
         }
 
-        public UInt32 GetMinSkinCoord()
+        // Inverse of how the colors get read, 7 bits of alpha stored doubled and the blending flag above them
+        private static Color ToGameColor(Vector4 color)
         {
-            var minSkinCoord = UInt32.MaxValue;
-            foreach (var vec in Vertexes)
-            {
-                var binX = vec.GetBinaryX();
-                var binY = vec.GetBinaryY();
-                var binZ = vec.GetBinaryZ();
-                if (binX < minSkinCoord && binX > 0x358637BF)
-                {
-                    minSkinCoord = binX;
-                }
-                if (binY < minSkinCoord && binY > 0x358637BF)
-                {
-                    minSkinCoord = binY;
-                }
-                if (binZ < minSkinCoord && binZ > 0x358637BF)
-                {
-                    minSkinCoord = binZ;
-                }
-            }
-
-            return minSkinCoord;
-        }
-
-        private static void TrimList(List<Vector4> list, Int32 desiredLength, Vector4 defaultValue = null)
-        {
-            if (list != null)
-            {
-                if (list.Count > desiredLength)
-                {
-                    list.RemoveRange(desiredLength, list.Count - desiredLength);
-                }
-                while (list.Count < desiredLength)
-                {
-                    if (defaultValue != null)
-                    {
-                        list.Add(new Vector4(defaultValue));
-                    }
-                    else
-                    {
-                        list.Add(new Vector4());
-                    }
-                }
-            }
+            static Byte ToByte(Single value) => (Byte)Math.Clamp(Math.Round(value * 255.0f), 0, 255);
+            var alpha = (Byte)(ToByte(color.W) >> 1 | (color.StoresColorWithAlphaBlend ? 0x80 : 0));
+            return new Color(ToByte(color.X), ToByte(color.Y), ToByte(color.Z), alpha);
         }
     }
 }

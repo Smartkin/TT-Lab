@@ -59,20 +59,6 @@
                                                     </controls:EditableListBox.ItemTemplate>
                                                 </controls:EditableListBox>
                                             </StackPanel>
-                                            <StackPanel Grid.Column="1" Orientation="Vertical">
-                                                <controls:EditableListBox HorizontalContentAlignment="Stretch" MaxHeight="500" Items="{Binding AnimationSlots}" ListBoxName="Animation Slots">
-                                                    <controls:EditableListBox.ItemTemplate>
-                                                        <DataTemplate x:DataType="{x:Type composite1:PrimitiveWrapperViewModel, x:TypeArguments=assets1:LabURI}">
-                                                            <composite:ResourceBrowserOpener
-                                                                HorizontalAlignment="Stretch"
-                                                                BrowserName=""
-                                                                LinkedResource="{Binding Value}"
-                                                                BrowseType="{x:Type assets:Animation}"
-                                                                IncludeEmptyResourceInBrowse="True"/>
-                                                        </DataTemplate>
-                                                    </controls:EditableListBox.ItemTemplate>
-                                                </controls:EditableListBox>
-                                            </StackPanel>
                                         </Grid>
                                     </Expander>
                                     <Expander HorizontalAlignment="Stretch" Header="Behaviour slots">

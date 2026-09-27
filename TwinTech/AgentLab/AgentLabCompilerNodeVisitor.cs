@@ -44,6 +44,7 @@ internal class AgentLabCompilerNodeVisitor : NodeVisitor
         Visitors.Add(typeof(BehaviourNode), VisitBehaviourNode);
         Visitors.Add(typeof(BehaviourBodyNode), VisitBehaviourBodyNode);
         Visitors.Add(typeof(PriorityAttributeNode), VisitPriorityAttributeNode);
+        Visitors.Add(typeof(GraphPriorityAttributeNode), VisitGraphPriorityAttributeNode);
         Visitors.Add(typeof(StartFromAttributeNode), VisitStartFromAttributeNode);
         Visitors.Add(typeof(StarterNode), VisitStarterNode);
         Visitors.Add(typeof(StarterAssignerNode), VisitStarterAssignerNode);
@@ -542,6 +543,12 @@ internal class AgentLabCompilerNodeVisitor : NodeVisitor
         return null;
     }
     
+    private Object VisitGraphPriorityAttributeNode(IAgentLabTreeNode node)
+    {
+        var priority = (GraphPriorityAttributeNode)node;
+        return (byte)(int)Visit(priority.Priority);
+    }
+
     private Object VisitBehaviourBodyNode(IAgentLabTreeNode node)
     {
         var behaviourBody = (BehaviourBodyNode)node;
@@ -563,9 +570,10 @@ internal class AgentLabCompilerNodeVisitor : NodeVisitor
         Visit(behaviour.Priority);
         compiledBehaviour.ScriptStates = (List<ITwinBehaviourState>)Visit(behaviour.Body) ?? new List<ITwinBehaviourState>();
         Visit(behaviour.StartFrom);
+        // With a starter the Priority attribute is the starter's, the graph keeps its own separately
         if (_result.Contains<TwinBehaviourStarter>())
         {
-            compiledBehaviour.Priority = 0;
+            compiledBehaviour.Priority = behaviour.GraphPriority != null ? (byte)Visit(behaviour.GraphPriority) : (byte)0;
         }
         
         return null;

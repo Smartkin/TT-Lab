@@ -9,18 +9,6 @@ namespace TT_Lab.AssetResolvers;
 
 public class MaterialResolver(TextureResolver textureResolver, bool isInScenery) : AssetResolver<ITwinMaterial>
 {
-    private bool _isWritingInternal = true;
-    
-    public bool IsWritingInternal
-    {
-        get => _isWritingInternal;
-        set
-        {
-            _isWritingInternal = value;
-            textureResolver.IsWritingInternal = value;
-        }
-    }
-    
     public override void CreateAssetsFromChunk(ITwinSection chunk, Package package)
     {
         throw new System.NotImplementedException();
@@ -36,8 +24,7 @@ public class MaterialResolver(TextureResolver textureResolver, bool isInScenery)
 
         return new Material(package.URI, needVariant, variant, item.GetID(), item.GetName(), item)
         {
-            AdditionalPath = isInScenery ? ChunkPath : string.Empty,
-            IsInternal = IsWritingInternal
+            AdditionalPath = isInScenery ? ChunkPath : string.Empty
         };
     }
 

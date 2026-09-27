@@ -9,22 +9,25 @@ using Twinsanity.TwinsanityInterchange.Common;
 
 namespace TT_Lab.ViewModels.Editors;
 
-public class Vector2FieldViewModel : DocumentDataViewModel<Vector2>
+public class Vector2FieldViewModel(DocumentViewModel document, PropertyNode data, params DocumentNodeViewModel[] dependencies)
+    : DocumentDataViewModel<Vector2>(document, data, dependencies)
 {
-    public TextFieldViewModel X { get; }
-    public TextFieldViewModel Y { get; }
+    private TextFieldViewModel? _x;
+    private TextFieldViewModel? _y;
 
-    public Vector2FieldViewModel(DocumentViewModel document, PropertyNode data, params DocumentNodeViewModel[] dependencies)
-        : base(document, data, dependencies)
+    // Components are made once shown, a long list of vectors mostly consists of editors that never are
+    public TextFieldViewModel X => _x ??= CreateComponent("X");
+    public TextFieldViewModel Y => _y ??= CreateComponent("Y");
+
+    private TextFieldViewModel CreateComponent(string name)
     {
-        X = new TextFieldViewModel(document, Property.Find("X")!, this) { Caption = "X" };
-        Y = new TextFieldViewModel(document, Property.Find("Y")!, this) { Caption = "Y" };
+        return new TextFieldViewModel(Document, Property.Find(name)!, this) { Caption = name };
     }
 
     protected override void OnCurrentValueChanged()
     {
-        X.SetValueCommand.Execute(Property.Find("X")!.GetValue());
-        Y.SetValueCommand.Execute(Property.Find("Y")!.GetValue());
+        _x?.SetValueCommand.Execute(Property.Find("X")!.GetValue());
+        _y?.SetValueCommand.Execute(Property.Find("Y")!.GetValue());
         
         base.OnCurrentValueChanged();
     }

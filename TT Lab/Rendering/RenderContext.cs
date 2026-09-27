@@ -7,6 +7,7 @@ using System.Threading;
 using GlmSharp;
 using Silk.NET.Core.Native;
 using Silk.NET.OpenGL;
+using TT_Lab.Rendering.Buffers;
 using TT_Lab.Rendering.Factories;
 using TT_Lab.Rendering.Native;
 using TT_Lab.Rendering.Passes;
@@ -45,6 +46,7 @@ public class RenderContext : IDisposable
     public RenderContext(GL gl)
     {
         _gl = gl;
+        State = new GlStateCache(gl);
         InitRenderApi();
         InitServices();
     }
@@ -80,7 +82,7 @@ public class RenderContext : IDisposable
         
 #if DEBUG
         Gl.Enable(EnableCap.DebugOutputSynchronous);
-        Gl.DebugMessageCallback(DebugGlCallback, IntPtr.Zero);
+        Gl.DebugMessageCallback(DebugCallback, IntPtr.Zero);
 #endif
         
         Gl.Enable(EnableCap.DepthTest);
@@ -97,11 +99,21 @@ public class RenderContext : IDisposable
         _programs.Add("Generic", program);
         WriteProgramUniforms(program);
         
-        var instancedVertShader = new Shader(this, ShaderType.VertexShader, "MainPassInstanced.vert");
-        var instancedFragShader = new Shader(this, ShaderType.FragmentShader, "MainPass.frag");
-        var instancedProgram = new ShaderProgram(this, instancedVertShader, instancedFragShader);
-        _programs.Add("GenericInstanced", instancedProgram);
-        WriteProgramUniforms(instancedProgram);
+        var lineVertShader = new Shader(this, ShaderType.VertexShader, "PrimitiveLine.vert");
+        var lineFragShader = new Shader(this, ShaderType.FragmentShader, "PrimitiveLine.frag");
+        _programs.Add("PrimitiveLine", new ShaderProgram(this, lineVertShader, lineFragShader));
+
+        var shapeVertShader = new Shader(this, ShaderType.VertexShader, "PrimitiveShape.vert");
+        var shapeFragShader = new Shader(this, ShaderType.FragmentShader, "PrimitiveShape.frag");
+        _programs.Add("PrimitiveShape", new ShaderProgram(this, shapeVertShader, shapeFragShader));
+
+        var gridVertShader = new Shader(this, ShaderType.VertexShader, "PrimitiveGrid.vert");
+        var gridFragShader = new Shader(this, ShaderType.FragmentShader, "PrimitiveGrid.frag");
+        _programs.Add("PrimitiveGrid", new ShaderProgram(this, gridVertShader, gridFragShader));
+
+        var particleVertShader = new Shader(this, ShaderType.VertexShader, "Particle.vert");
+        var particleFragShader = new Shader(this, ShaderType.FragmentShader, "Particle.frag");
+        _programs.Add("Particle", new ShaderProgram(this, particleVertShader, particleFragShader));
 
         var screenVertShader = new Shader(this, ShaderType.VertexShader, "ScreenRender.vert");
         var screenFlipFragShader = new Shader(this, ShaderType.FragmentShader, "ScreenHorizontalFlip.frag");
@@ -121,8 +133,10 @@ public class RenderContext : IDisposable
     [MemberNotNull(nameof(PassService))]
     [MemberNotNull(nameof(PrimitiveRenderer))]
     [MemberNotNull(nameof(MaterialService))]
+    [MemberNotNull(nameof(Instances))]
     private void InitServices()
     {
+        Instances = new InstanceBuffer(this);
         PrimitiveRenderer = new PrimitiveRenderer(this);
         SkeletonManager = new TwinSkeletonManager(this);
         MeshBuilder = new MeshBuilder(this);
@@ -136,6 +150,10 @@ public class RenderContext : IDisposable
         MaterialService = new MaterialService(this, MaterialFactory);
     }
     
+    public GlStateCache State { get; }
+    public InstanceBuffer Instances { get; private set; }
+    // Camera the current frame gets rendered from, only valid on the render thread while rendering
+    public FrameCamera FrameCamera { get; set; }
     public PassService PassService { get; private set; }
     public TwinSkeletonManager SkeletonManager { get; private set; }
     public MeshBuilder MeshBuilder { get; private set; }
@@ -159,7 +177,10 @@ public class RenderContext : IDisposable
         ResizeFramebuffer?.Invoke();
     }
 
-    public uint GetOutputBuffer() => 0U;
+    // Framebuffer the viewport shows, the context's window is only there to make the context current
+    public uint OutputBuffer { get; set; }
+
+    public uint GetOutputBuffer() => OutputBuffer;
 
     public void QueueRenderAction(Action action)
     {
@@ -168,12 +189,16 @@ public class RenderContext : IDisposable
 
     public void PerformRender(float delta)
     {
+        ProcessRenderQueue();
+        Render?.Invoke(delta);
+    }
+
+    public void ProcessRenderQueue()
+    {
         while (_renderQueue.TryDequeue(out var renderAction))
         {
             renderAction.Invoke();
         }
-        
-        Render?.Invoke(delta);
     }
 
     public ShaderProgram GetProgram(string shaderName)
@@ -209,6 +234,9 @@ public class RenderContext : IDisposable
         }
     }
 
+    // Kept alive for as long as the driver can call it
+    private static readonly DebugProc DebugCallback = DebugGlCallback;
+
     private static void DebugGlCallback(GLEnum source, GLEnum type, int id, GLEnum severity, int length, IntPtr message, IntPtr userParam)
     {
         // TODO: We don't care about performance right now, maybe we will later... Also we don't care about notifications
@@ -218,9 +246,11 @@ public class RenderContext : IDisposable
         }
 
         var msg = SilkMarshal.PtrToString(message);
+        // Exceptions can't go through the driver's frames back to managed code, throwing here ended the application
         if (type == GLEnum.DebugTypeError)
         {
-            throw new Exception($@"GLEnum.DebugTypeError: {msg}");
+            Log.WriteLine($"GL error: {msg}\n{Environment.StackTrace}", Log.LogType.Error);
+            return;
         }
         
         Console.WriteLine($@"GL {source} {type} {severity}: {msg}");
@@ -229,6 +259,8 @@ public class RenderContext : IDisposable
     public void Dispose()
     {
         Destroy?.Invoke();
+        Instances.Dispose();
+        PrimitiveRenderer.Dispose();
         Gl.Dispose();
         SetGlAccessibility(false);
         GC.SuppressFinalize(this);

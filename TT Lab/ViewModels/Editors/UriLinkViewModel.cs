@@ -1,14 +1,17 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
 using Splat;
 using TT_Lab.AssetData;
 using TT_Lab.Assets;
+using TT_Lab.Assets.Instance;
 using TT_Lab.Util;
 using TT_Lab.ViewModels.Editors.PropertyGraph;
 using TT_Lab.ViewModels.Interfaces;
@@ -43,6 +46,8 @@ public partial class UriLinkViewModel : DocumentDataViewModel<LabURI>
         }
         
         _browseScope = GetEditorParameter(BrowseScope, Scope.Project);
+        _browseExcludeWhen = GetEditorParameter<string>(BrowseExcludeWhen);
+        _browseExcludeOwnerChunk = GetEditorParameter(BrowseExcludeOwnerChunk, false);
         _openInInspector = GetEditorParameter(OpenInInspector, false);
     }
 
@@ -51,6 +56,7 @@ public partial class UriLinkViewModel : DocumentDataViewModel<LabURI>
         base.OnCurrentValueChanged();
         
         UpdateLinkText();
+        UpdateIsOverridden();
     }
 
     protected override void OnActivated(CompositeDisposable disposables)
@@ -89,6 +95,17 @@ public partial class UriLinkViewModel : DocumentDataViewModel<LabURI>
                 resourcesToBrowse.AddRange(Document.Uris);
                 break;
         }
+
+        if (_browseExcludeWhen != null)
+        {
+            resourcesToBrowse.RemoveAll(IsExcludedFromBrowsing);
+        }
+
+        if (_browseExcludeOwnerChunk)
+        {
+            var ownerChunk = GetOwnerChunk();
+            resourcesToBrowse.RemoveAll(link => link != LabURI.Empty && link == ownerChunk);
+        }
         
         var linkBrowser = new ResourceBrowserViewModel(_browseType, resourcesToBrowse, uri);
         var linkBrowserDialogue = new ResourceBrowserView
@@ -106,6 +123,37 @@ public partial class UriLinkViewModel : DocumentDataViewModel<LabURI>
         return uri!;
     }
 
+    private bool IsExcludedFromBrowsing(LabURI uri)
+    {
+        if (uri == LabURI.Empty)
+        {
+            return false;
+        }
+
+        var asset = AssetManager.Get().GetAsset(uri);
+        var condition = asset.GetType().GetProperty(_browseExcludeWhen!, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        return condition?.GetValue(asset) is true;
+    }
+
+    // The link can be edited either as a part of the chunk's document or from within one of the chunk's resources
+    private LabURI GetOwnerChunk()
+    {
+        for (var node = Property.Parent; node != null; node = node.Parent)
+        {
+            switch (node.Target)
+            {
+                case LevelChunk chunk:
+                    return chunk.URI;
+                case SerializableInstance { Chunk: not null } instance:
+                    var ownerChunk = AssetManager.Get().GetAllAssetsOf<LevelChunk>()
+                        .FirstOrDefault(c => c.Package == instance.Package && c.AdditionalPath == instance.Chunk);
+                    return ownerChunk?.URI ?? LabURI.Empty;
+            }
+        }
+
+        return LabURI.Empty;
+    }
+
     [ReactiveCommand]
     private void OpenDocument()
     {
@@ -115,9 +163,12 @@ public partial class UriLinkViewModel : DocumentDataViewModel<LabURI>
             return;
         }
 
-        if (_openInInspector)
+        // A chunk's document edits the assets it shares with other chunks through its views of them, their own editors edit them for
+        // every chunk
+        var data = Property.Find("[data]");
+        if (_openInInspector || data?.Target is SerializableAsset { OverriddenAsset: not null })
         {
-            Document.OpenInspector(Property.Find("[data]"));
+            Document.OpenInspector(data);
         }
         else
         {
@@ -129,8 +180,13 @@ public partial class UriLinkViewModel : DocumentDataViewModel<LabURI>
     public const string BrowseType = "URI_LINK_FIELD_BROWSE_TYPE_NAME";
     public const string BrowseScope = "URI_LINK_FIELD_BROWSE_SCOPE";
     public const string OpenInInspector = "URI_LINK_FIELD_OPEN_IN_INSPECTOR";
+    // Name of a boolean property on the browsed assets, assets where it's true can't be linked
+    public const string BrowseExcludeWhen = "URI_LINK_FIELD_BROWSE_EXCLUDE_WHEN";
+    public const string BrowseExcludeOwnerChunk = "URI_LINK_FIELD_BROWSE_EXCLUDE_OWNER_CHUNK";
     
     private Type _browseType = typeof(IAsset);
     private Scope _browseScope = Scope.Project;
     private bool _openInInspector = false;
+    private string? _browseExcludeWhen;
+    private bool _browseExcludeOwnerChunk;
 }

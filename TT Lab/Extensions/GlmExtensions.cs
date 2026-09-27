@@ -6,6 +6,17 @@ namespace TT_Lab.Extensions;
 
 public static class GlmExtensions
 {
+    // Euler angles in radians the way quat(vec3) takes them. GlmSharp's EulerAngles gives NaN at gimbal lock, where rounding puts
+    // the sine of the middle angle past 1
+    public static vec3 ToEulerAngles(this quat rotation)
+    {
+        var q = rotation.NormalizedSafe;
+        var pitch = MathF.Atan2(2.0f * (q.y * q.z + q.w * q.x), q.w * q.w - q.x * q.x - q.y * q.y + q.z * q.z);
+        var yaw = MathF.Asin(Math.Clamp(-2.0f * (q.x * q.z - q.w * q.y), -1.0f, 1.0f));
+        var roll = MathF.Atan2(2.0f * (q.x * q.y + q.w * q.z), q.w * q.w + q.x * q.x - q.y * q.y - q.z * q.z);
+        return new vec3(pitch, yaw, roll);
+    }
+
     // Slerp code credits to https://github.com/opentk/opentk/blob/master/src/OpenTK.Mathematics/Data/Quaternion.cs
     public static quat SLerpSafe(quat q1, quat q2, float blend)
     {

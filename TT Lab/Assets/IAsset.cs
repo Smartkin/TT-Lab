@@ -22,7 +22,7 @@ namespace TT_Lab.Assets;
  * -    Skin: Skinned models with materials
  * -    BlendSkins: Skinned models with facial poses
  * All the above-mentioned assets are merged into higher level assets such as Scenery, DynamicScenery, Skydome and OGI
- * which consequently get imported into GLTF and metadata files with all the necessary data
+ * which keep them in their TT Lab model files
  */
 
 [Flags]
@@ -175,10 +175,21 @@ public interface IAsset : IDocumentModel
     Boolean IsInternal { get; set; }
 
     /// <summary>
+    /// For internal assets the asset whose data created them
+    /// </summary>
+    /// <remarks>Internal assets get recreated whenever their owner's data is loaded so they're dropped once the owner isn't loaded anymore</remarks>
+    IAsset? InternalOwner { get; set; }
+
+    /// <summary>
     /// If asset shouldn't be exported during game's build stage
     /// </summary>
     [JsonProperty(Required = Required.Always)]
     Boolean SkipExport { get; set; }
+
+    /// <summary>
+    /// Whether the asset's editor should display a viewport
+    /// </summary>
+    Boolean SupportsViewport { get; }
 
     /// <summary>
     /// 
@@ -199,6 +210,12 @@ public interface IAsset : IDocumentModel
     void SetData(AbstractAssetData data);
 
     /// <summary>
+    /// Stops holding on to the loaded data so it can be collected, the next access loads it from disk again
+    /// </summary>
+    /// <remarks>The data isn't disposed because renderers may still hold on to it</remarks>
+    void UnloadData();
+
+    /// <summary>
     /// Adds new resource reference
     /// </summary>
     /// <param name="reference">Resource to reference</param>
@@ -213,10 +230,16 @@ public interface IAsset : IDocumentModel
     }
 
     /// <summary>
-    /// Removes reference to a resource
+    /// Whether the asset references any of the given assets
     /// </summary>
-    /// <param name="reference">Resource to remove reference from</param>
-    void RemoveReference(LabURI reference);
+    /// <param name="assets">Assets to check for</param>
+    bool IsReferencingAny(IReadOnlySet<LabURI> assets);
+
+    /// <summary>
+    /// Fixes up the references to deleted assets, whether anything gets changed depends on the fixer
+    /// </summary>
+    /// <param name="fixer">Fixer holding the deleted assets and their replacements</param>
+    void FixDeletedReferences(DeletedReferenceFixer fixer);
 
     /// <summary>
     /// Loads in asset's data if it's not loaded
@@ -287,11 +310,10 @@ public interface IAsset : IDocumentModel
     void PostDeserialize();
 
     /// <summary>
-    /// Deletes the asset from disk drive and all references to it
+    /// Removes the asset from the project and deletes its files from the disk drive
     /// </summary>
-    /// <param name="setDirectoryToAssets"></param>
-    /// <param name="deleteAllReferencedData"></param>
-    void Delete(bool setDirectoryToAssets = false, bool deleteAllReferencedData = false);
+    /// <remarks>References other assets have to it are left as is, use <see cref="AssetDeletion"/> to fix them up as well</remarks>
+    void Delete();
 
     /// <summary>
     /// Finishes import on Project Creation stage
@@ -308,6 +330,11 @@ public interface IAsset : IDocumentModel
     /// </summary>
     /// <param name="factory"></param>
     void ExportToFile(Factory.ITwinItemFactory factory);
+
+    /// <summary>
+    /// Name of the file <see cref="ExportToFile"/> writes into the current directory
+    /// </summary>
+    string ExportFileName { get; }
 
     /// <summary>
     /// Traverses the chunk sections to fill it with all the referenced data

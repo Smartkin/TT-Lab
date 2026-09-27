@@ -1,8 +1,11 @@
 ﻿using System;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Windows;
 using Avalonia;
 using Avalonia.Controls;
+
+[assembly: DisableRuntimeMarshalling]
 
 namespace TT_Lab.Libraries
 {

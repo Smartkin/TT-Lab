@@ -1,6 +1,8 @@
 ﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using TT_Lab.Util;
 
@@ -27,6 +29,15 @@ namespace TT_Lab
         public const string Ps2DiscContentPath = "PS2DiscContentPath";
         public const string XboxDiscContentPath = "XboxDiscContentPath";
         public const string ProjectsPath = "ProjectsPath";
+        public const string ViewportSnapping = "ViewportSnapping";
+        public const string ViewportTranslationSnap = "ViewportTranslationSnap";
+        public const string ViewportRotationSnap = "ViewportRotationSnap";
+        public const string ViewportScaleSnap = "ViewportScaleSnap";
+        public const string ViewportGridShown = "ViewportGridShown";
+        // Megabytes of memory builds keep TT Lab within, chunks only build in parallel while there's room for more
+        public const string BuildMemoryBudget = "BuildMemoryBudget";
+        // Folders of the projects opened last, newest first
+        public const string RecentProjects = "RecentProjects";
 
         static Preferences()
         {
@@ -35,6 +46,13 @@ namespace TT_Lab
             Settings[Ps2DiscContentPath] = ExePath;
             Settings[XboxDiscContentPath] = ExePath;
             Settings[ProjectsPath] = ExePath;
+            Settings[ViewportSnapping] = false;
+            Settings[ViewportTranslationSnap] = 1.0;
+            Settings[ViewportRotationSnap] = 15.0;
+            Settings[ViewportScaleSnap] = 0.1;
+            Settings[ViewportGridShown] = true;
+            Settings[BuildMemoryBudget] = 2048.0;
+            Settings[RecentProjects] = new List<string>();
         }
 
         public static void Save()
@@ -74,6 +92,17 @@ namespace TT_Lab
             PreferenceChanged?.Invoke(null, new PreferenceChangedArgs { PreferenceName = prefName });
         }
 
+        public static void SetPreference(string prefName, Double value)
+        {
+            if (Settings[prefName] is IConvertible current && current.ToDouble(CultureInfo.InvariantCulture) == value)
+            {
+                return;
+            }
+
+            Settings[prefName] = value;
+            PreferenceChanged?.Invoke(null, new PreferenceChangedArgs { PreferenceName = prefName });
+        }
+
         public static void SetPreference<T>(string prefName, T value) where T : class
         {
             if (Settings[prefName] == value)
@@ -91,6 +120,16 @@ namespace TT_Lab
             if (retT.IsEnum)
             {
                 return MiscUtils.ConvertEnum<T>(Settings[prefName])!;
+            }
+            // Numbers read from the settings file are whatever JSON made of them, a whole number becomes a long
+            if (retT.IsPrimitive && Settings[prefName] is IConvertible convertible)
+            {
+                return (T)convertible.ToType(retT, CultureInfo.InvariantCulture);
+            }
+            // Lists read from the settings file stay JSON until they're asked for
+            if (Settings[prefName] is JToken token)
+            {
+                return token.ToObject<T>()!;
             }
             return (T)Settings[prefName];
         }

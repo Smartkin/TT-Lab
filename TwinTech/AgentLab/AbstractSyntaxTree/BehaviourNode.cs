@@ -8,14 +8,16 @@ internal class BehaviourNode : IAgentLabTreeNode
     public string Name { get; }
     public BehaviourBodyNode Body { get; }
     public PriorityAttributeNode Priority { get; } // Can be null
+    public GraphPriorityAttributeNode GraphPriority { get; } // Can be null
     public StartFromAttributeNode StartFrom { get; } // Can be null
     
-    public BehaviourNode(AgentLabToken token, BehaviourBodyNode body, PriorityAttributeNode priorityAttributeNode = null, StartFromAttributeNode startFrom = null)
+    public BehaviourNode(AgentLabToken token, BehaviourBodyNode body, PriorityAttributeNode priorityAttributeNode = null, StartFromAttributeNode startFrom = null, GraphPriorityAttributeNode graphPriority = null)
     {
         Token = token;
         Body = body;
         Name = token.GetValue<string>();
         Priority = priorityAttributeNode;
+        GraphPriority = graphPriority;
         StartFrom = startFrom;
     }
 }

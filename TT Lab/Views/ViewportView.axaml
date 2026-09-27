@@ -4,31 +4,143 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:viewmodels="clr-namespace:TT_Lab.ViewModels"
              xmlns:controls="clr-namespace:TT_Lab.Controls"
+             xmlns:rendering="clr-namespace:TT_Lab.Rendering"
              x:DataType="viewmodels:ViewportViewModel"
              HorizontalAlignment="Stretch"
              VerticalAlignment="Stretch"
-             Loaded="ViewportView_OnLoaded"
-             SizeChanged="ViewportView_OnSizeChanged"
-             LayoutUpdated="ViewportView_OnSourceUpdated"
-             
+
              mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="300"
              MinWidth="300"
              MinHeight="300"
              x:Class="TT_Lab.Views.ViewportView">
-    <Grid Margin="5">
-        <controls:Viewport>
-            <Interaction.Behaviors>
-                <EventTriggerBehavior EventName="RenderInitialized">
-                    <InvokeCommandAction Command="{Binding PrepareRender}" PassEventArgsToCommand="True" />
-                </EventTriggerBehavior>
-                <EventTriggerBehavior EventName="RenderTerminated">
-                    <InvokeCommandAction Command="{Binding TerminateRender}"/>
-                </EventTriggerBehavior>
-                <EventTriggerBehavior EventName="SizeChanged">
-                    <InvokeCommandAction Command="{Binding FrameResized}" PassEventArgsToCommand="True"/>
-                </EventTriggerBehavior>
-            </Interaction.Behaviors>
-        </controls:Viewport>
-        <TextBlock Text="{Binding SceneStatus}" FontSize="32" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-    </Grid>
+    <UserControl.Styles>
+        <Style Selector="Button.tool">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="6,4"/>
+            <Setter Property="MinWidth" Value="30"/>
+            <Setter Property="MinHeight" Value="28"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Button.tool.active /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#FF2F5C8F"/>
+            <Setter Property="BorderBrush" Value="#FF5B9BE0"/>
+        </Style>
+        <Style Selector="Button.tool:disabled">
+            <Setter Property="Opacity" Value="0.35"/>
+        </Style>
+        <Style Selector="Button.tool PathIcon">
+            <Setter Property="Width" Value="16"/>
+            <Setter Property="Height" Value="16"/>
+        </Style>
+        <Style Selector="Border.separator">
+            <Setter Property="Width" Value="1"/>
+            <Setter Property="Margin" Value="4,4"/>
+            <Setter Property="Background" Value="#FF4A4A52"/>
+        </Style>
+    </UserControl.Styles>
+    <DockPanel>
+        <Border x:Name="Toolbar" DockPanel.Dock="Top" IsVisible="{Binding IsChunkViewport}" Background="#FF26262A" BorderBrush="#FF3F3F46" BorderThickness="0,0,0,1" Padding="4,2">
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Classes="tool">
+                    <ToolTip.Tip>
+                        <StackPanel Spacing="2">
+                            <TextBlock FontWeight="Bold" Text="Viewport controls"/>
+                            <TextBlock Text="Q select, T move, R rotate, E scale, L switches between local and world space"/>
+                            <TextBlock Text="Drag the gizmo's arrows, planes, rings or boxes to transform, Esc or right click cancels"/>
+                            <TextBlock Text="The magnet snaps moving, rotating and scaling to steps, holding Ctrl while dragging does the opposite"/>
+                            <TextBlock Text="Hold the right mouse button to look around, WASD to fly, Shift to go faster, F frames the selection"/>
+                            <TextBlock Text="Click collision to place the cursor, Ctrl+click places the palette's object there"/>
+                            <TextBlock Text="K puts the selection in the palette, P places it at the cursor"/>
+                            <TextBlock Text="G snaps the cursor to the selection, arrow keys and Page Up/Down move it on a grid"/>
+                            <TextBlock Text="Ctrl+D duplicates the selection in place, U or Esc deselects, Delete removes the selected resource from the chunk"/>
+                        </StackPanel>
+                    </ToolTip.Tip>
+                    <TextBlock Text="?" FontWeight="Bold"/>
+                </Button>
+                <StackPanel Orientation="Horizontal" Spacing="2">
+                    <Button x:Name="SelectTool" Classes="tool" Classes.active="{Binding IsSelectTool}" Command="{Binding SelectToolCommand}"
+                            CommandParameter="{x:Static rendering:TransformMode.SELECTION}" ToolTip.Tip="Select (Q)">
+                        <PathIcon Data="M4,2 L4,20 L8.5,15.5 L11.5,22 L14.5,20.6 L11.5,14.2 L18,14.2 Z"/>
+                    </Button>
+                    <Button x:Name="TranslateTool" Classes="tool" IsEnabled="{Binding CanTranslate}" Classes.active="{Binding IsTranslateTool}" Command="{Binding SelectToolCommand}"
+                            CommandParameter="{x:Static rendering:TransformMode.TRANSLATE}" ToolTip.Tip="Move (T)">
+                        <PathIcon Data="M12,1 L16,5 L13,5 L13,11 L19,11 L19,8 L23,12 L19,16 L19,13 L13,13 L13,19 L16,19 L12,23 L8,19 L11,19 L11,13 L5,13 L5,16 L1,12 L5,8 L5,11 L11,11 L11,5 L8,5 Z"/>
+                    </Button>
+                    <Button x:Name="RotateTool" Classes="tool" IsEnabled="{Binding CanRotate}" Classes.active="{Binding IsRotateTool}" Command="{Binding SelectToolCommand}"
+                            CommandParameter="{x:Static rendering:TransformMode.ROTATE}" ToolTip.Tip="Rotate (R)">
+                        <PathIcon Data="M12,2 A10,10 0 1 0 22,12 L19.5,12 A7.5,7.5 0 1 1 12,4.5 L12,6.5 L16.5,3.25 L12,0 Z"/>
+                    </Button>
+                    <Button x:Name="ScaleTool" Classes="tool" IsEnabled="{Binding CanScale}" Classes.active="{Binding IsScaleTool}" Command="{Binding SelectToolCommand}"
+                            CommandParameter="{x:Static rendering:TransformMode.SCALE}" ToolTip.Tip="Scale (E)">
+                        <PathIcon Data="M2,2 L12,2 L12,4.5 L4.5,4.5 L4.5,19.5 L19.5,19.5 L19.5,12 L22,12 L22,22 L2,22 Z M14,2 L22,2 L22,10 L19,7 L12.5,13.5 L10.5,11.5 L17,5 Z"/>
+                    </Button>
+                    <Border Classes="separator"/>
+                    <Button x:Name="TransformSpace" Classes="tool" Classes.active="{Binding IsWorldSpace}" Command="{Binding ToggleTransformSpaceCommand}"
+                            ToolTip.Tip="Move and rotate along the object's own axes or the world's (L)">
+                        <TextBlock Text="{Binding TransformSpaceName}" MinWidth="36" TextAlignment="Center"/>
+                    </Button>
+                    <Border Classes="separator"/>
+                    <Button x:Name="Snapping" Classes="tool" Classes.active="{Binding IsSnapping}" Command="{Binding ToggleSnappingCommand}"
+                            ToolTip.Tip="Snap moving, rotating and scaling to steps, holding Ctrl while dragging does the opposite">
+                        <PathIcon Data="M4,3 L9,3 L9,12 A3,3 0 0 0 15,12 L15,3 L20,3 L20,12 A8,8 0 0 1 4,12 Z M4,6.5 L9,6.5 L9,7.5 L4,7.5 Z M15,6.5 L20,6.5 L20,7.5 L15,7.5 Z"/>
+                    </Button>
+                    <Button x:Name="SnappingSteps" Classes="tool" ToolTip.Tip="Steps to snap to and the grids around the selection">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <TextBlock Text="{Binding SnapStepText}" MinWidth="24" TextAlignment="Center" VerticalAlignment="Center"/>
+                            <PathIcon Data="M6,9 L12,15 L18,9 Z" Width="9" Height="9"/>
+                        </StackPanel>
+                        <Button.Flyout>
+                            <Flyout Placement="BottomEdgeAlignedLeft">
+                                <Grid ColumnDefinitions="Auto, 10, 110" RowDefinitions="Auto, 6, Auto, 6, Auto, 12, Auto">
+                                    <TextBlock Text="Move by" VerticalAlignment="Center"/>
+                                    <ComboBox x:Name="TranslationSnapStep" Grid.Column="2" IsEditable="True" HorizontalAlignment="Stretch"
+                                              ItemsSource="{Binding TranslationSnap.Presets}" Text="{Binding TranslationSnap.Text}"/>
+                                    <TextBlock Grid.Row="2" Text="Rotate by (degrees)" VerticalAlignment="Center"/>
+                                    <ComboBox x:Name="RotationSnapStep" Grid.Row="2" Grid.Column="2" IsEditable="True" HorizontalAlignment="Stretch"
+                                              ItemsSource="{Binding RotationSnap.Presets}" Text="{Binding RotationSnap.Text}"/>
+                                    <TextBlock Grid.Row="4" Text="Scale by" VerticalAlignment="Center"/>
+                                    <ComboBox x:Name="ScaleSnapStep" Grid.Row="4" Grid.Column="2" IsEditable="True" HorizontalAlignment="Stretch"
+                                              ItemsSource="{Binding ScaleSnap.Presets}" Text="{Binding ScaleSnap.Text}"/>
+                                    <CheckBox x:Name="GridShown" Grid.Row="6" Grid.ColumnSpan="3" Content="Show grids around the selection, a line every step it moves by"
+                                              IsChecked="{Binding IsGridShown}"/>
+                                </Grid>
+                            </Flyout>
+                        </Button.Flyout>
+                    </Button>
+                    <Border Classes="separator"/>
+                    <Button x:Name="FrameSelection" Classes="tool" Command="{Binding FrameSelectionCommand}" ToolTip.Tip="Frame the selection (F)">
+                        <PathIcon Data="M2,8 L2,2 L8,2 L8,4 L4,4 L4,8 Z M16,2 L22,2 L22,8 L20,8 L20,4 L16,4 Z M22,16 L22,22 L16,22 L16,20 L20,20 L20,16 Z M8,22 L2,22 L2,16 L4,16 L4,20 L8,20 Z M12,9 A3,3 0 1 1 11.99,9 Z"/>
+                    </Button>
+                    <Button x:Name="LayersButton" Classes="tool" ToolTip.Tip="Choose what's shown">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <PathIcon Data="M12,5 C6.5,5 2.7,9.1 1,12 C2.7,14.9 6.5,19 12,19 C17.5,19 21.3,14.9 23,12 C21.3,9.1 17.5,5 12,5 Z M12,8.5 A3.5,3.5 0 1 0 12.01,8.5 Z"/>
+                            <TextBlock Text="Show" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <Button.Flyout>
+                            <Flyout Placement="BottomEdgeAlignedLeft">
+                                <ItemsControl ItemsSource="{Binding LayerToggles}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="viewmodels:ViewportLayerToggle">
+                                            <CheckBox Content="{Binding Name}" IsChecked="{Binding IsShown}"/>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Flyout>
+                        </Button.Flyout>
+                    </Button>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+        <Grid Margin="5">
+            <controls:Viewport Host="{Binding Host}"/>
+            <Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="6" Padding="6,4" CornerRadius="3" Background="#C0202024"
+                    IsHitTestVisible="False" IsVisible="{Binding SelectionInfo, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                <TextBlock Text="{Binding SelectionInfo}" FontSize="12" Foreground="#FFE0E0E0"/>
+            </Border>
+            <TextBlock Text="{Binding SceneStatus}" FontSize="32" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+        </Grid>
+    </DockPanel>
 </UserControl>

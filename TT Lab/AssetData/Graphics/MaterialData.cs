@@ -46,23 +46,6 @@ public class MaterialData : AbstractAssetData
         return material;
     }
 
-    private class MaterialJsonData
-    {
-        public UInt32 DmaChainIndex { get; set; }
-        public string Name { get; set; }
-    }
-
-    public JsonNode GetJsonFormat()
-    {
-        var jsonData = new MaterialJsonData
-        {
-            Name = Name,
-            DmaChainIndex = DmaChainIndex,
-        };
-        
-        return System.Text.Json.JsonSerializer.SerializeToNode(jsonData)!;
-    }
-
     [JsonProperty(Required = Required.Always)]
     [Editable]
     [EditorReadOnly]
@@ -87,46 +70,6 @@ public class MaterialData : AbstractAssetData
     protected override void Dispose(Boolean disposing)
     {
         Shaders.Clear();
-    }
-
-    public static MaterialData LoadFromGltf(IAsset owner, SharpGLTF.Schema2.Node materialNode, List<SharpGLTF.Schema2.Material> gltfMaterials)
-    {
-        var materialData = new MaterialData(owner);
-        var materialInfo = materialNode.Extras.Deserialize<MaterialJsonData>();
-        materialData.DmaChainIndex = materialInfo!.DmaChainIndex;
-        materialData.Name = materialInfo.Name;
-
-        var assetManager = AssetManager.Get();
-        materialData.Shaders = [];
-        materialData.ActivatedShaders = 0;
-        foreach (var gltfMaterial in gltfMaterials)
-        {
-            var shader = LabShader.GetShaderFromGltf(gltfMaterial);
-            Debug.Assert(shader != null, "Shader must not be null!");
-            var gltfTexture = gltfMaterial.FindChannel(nameof(SharpGLTF.Materials.KnownChannel.BaseColor))?.Texture;
-            if (gltfTexture != null)
-            {
-                var texture = new Texture
-                {
-                    Package = owner.Package,
-                    InvariantName = $"Texture_{owner.Name}",
-                    Alias = $"Texture_{owner.Name}",
-                    IsInternal = true
-                };
-                
-                var textureData = TextureData.LoadFromGltf(texture, gltfTexture);
-                texture.SetData(textureData);
-                
-                assetManager.TryAddAsset(texture);
-
-                shader.TextureId = texture.URI;
-            }
-            
-            materialData.ActivatedShaders |= Enum.Parse<AppliedShaders>(shader.ShaderType.ToString());
-            materialData.Shaders.Add(shader);
-        }
-        
-        return materialData;
     }
 
     public override String GetStringified()

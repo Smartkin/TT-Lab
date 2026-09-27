@@ -21,6 +21,13 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
             Commands = new List<ITwinBehaviourCommand>();
         }
 
+        protected virtual String Marker => "PS2";
+
+        protected virtual PS2BehaviourCommand CreateCommand()
+        {
+            return new PS2BehaviourCommand();
+        }
+
         public int GetLength()
         {
             return 4 + Commands.Sum(com => com.GetLength());
@@ -45,7 +52,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
             Commands.Clear();
             for (var i = 0; i < amt; ++i)
             {
-                var com = new PS2BehaviourCommand();
+                var com = CreateCommand();
                 Commands.Add(com);
                 com.Read(reader, length);
             }
@@ -63,7 +70,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
 
         public void WriteText(StreamWriter writer, Int32 tabs = 0)
         {
-            StringUtils.WriteLineTabulated(writer, "@PS2 Pack", tabs);
+            StringUtils.WriteLineTabulated(writer, $"@{Marker} Pack", tabs);
             foreach (var cmd in Commands)
             {
                 cmd.WriteText(writer, tabs);
@@ -73,7 +80,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
         public bool ReadText(StreamReader reader)
         {
             String line = reader.ReadLine().Trim();
-            Debug.Assert(line == "@PS2 Pack", "Attepting to parse PS2 command pack as a different version");
+            Debug.Assert(line == $"@{Marker} Pack", "Attepting to parse a command pack of a different version");
             while (!reader.EndOfStream)
             {
                 line = reader.ReadLine().Trim();
@@ -85,7 +92,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
                 {
                     return false;
                 }
-                PS2BehaviourCommand cmd = new();
+                var cmd = CreateCommand();
                 cmd.ReadText(line);
                 Commands.Add(cmd);
             }

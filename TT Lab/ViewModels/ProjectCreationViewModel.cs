@@ -19,7 +19,8 @@ public class ProjectCreationViewModel : Screen, INotifyDataErrorInfo
     private string _projectName = "New project";
     private string _projectPath = Preferences.GetPreference<string>(Preferences.ProjectsPath);
     private string _ps2DiscContentPath = Preferences.GetPreference<string>(Preferences.Ps2DiscContentPath);
-    private string _xboxDiscContentPath = ""; // TODO: Add back in when XBox builds are gonna be supported
+    // Only picked when wanted, a remembered path would add the Xbox version to every new project
+    private string _xboxDiscContentPath = "";
     private Boolean _copyDiscContents = true;
     private readonly IWindowManager _windowManager;
     private readonly ProjectManager _projectManager;
@@ -74,12 +75,7 @@ public class ProjectCreationViewModel : Screen, INotifyDataErrorInfo
     {
         _dataValidatorService.ValidateProperty(ProjectName, nameof(ProjectName));
         _dataValidatorService.ValidateProperty(ProjectPath, nameof(ProjectPath));
-        if (_dataValidatorService.ValidateProperty(PS2DiscContentPath, nameof(PS2DiscContentPath)))
-        {
-            return;
-        }
-            
-        _dataValidatorService.ValidateProperty(XboxDiscContentPath, nameof(XboxDiscContentPath));
+        _dataValidatorService.ValidateProperty(PS2DiscContentPath, nameof(PS2DiscContentPath));
     }
 
     public Task Create()
@@ -180,36 +176,31 @@ public class ProjectCreationViewModel : Screen, INotifyDataErrorInfo
         return true;
     }
 
-    private Boolean IsDiscContentPathValid(String otherContentPathProperty, String discContentPath)
+    // Either version's disc is enough, a path that's given has to hold that version's files
+    private Boolean IsDiscContentPathValid(String changedProperty, String discContentPath)
     {
-        Debug.Assert(_discContentIsCurrentValidMap.ContainsKey(otherContentPathProperty), "Invalid property name passed to check!");
+        Debug.Assert(_discContentIsCurrentValidMap.ContainsKey(changedProperty), "Invalid property name passed to check!");
 
-        var contentStatus = _discContentIsCurrentValidMap[otherContentPathProperty](discContentPath);
-        if (contentStatus == DiscContentsStatus.Empty)
+        var statuses = new Dictionary<String, DiscContentsStatus>
         {
-            _dataValidatorService.AddError(nameof(PS2DiscContentPath), DISC_CONTENT_PATH_EMPTY_ERROR);
-            _dataValidatorService.AddError(nameof(XboxDiscContentPath), DISC_CONTENT_PATH_EMPTY_ERROR);
-            return false;
+            [nameof(PS2DiscContentPath)] = IsPs2DiscContentPathValid(changedProperty == nameof(PS2DiscContentPath) ? discContentPath : PS2DiscContentPath),
+            [nameof(XboxDiscContentPath)] = IsXboxDiscContentPathValid(changedProperty == nameof(XboxDiscContentPath) ? discContentPath : XboxDiscContentPath)
+        };
+        var bothEmpty = statuses.Values.All(status => status == DiscContentsStatus.Empty);
+        foreach (var (property, status) in statuses)
+        {
+            _dataValidatorService.RemoveError(property);
+            if (bothEmpty)
+            {
+                _dataValidatorService.AddError(property, DISC_CONTENT_PATH_EMPTY_ERROR);
+            }
+            else if (status == DiscContentsStatus.Invalid)
+            {
+                _dataValidatorService.AddError(property, DISC_CONTENT_INVALID_CONTENTS);
+            }
         }
 
-        if (contentStatus == DiscContentsStatus.Invalid)
-        {
-            if (!CheckForFile(discContentPath, "System.cnf") && otherContentPathProperty == nameof(PS2DiscContentPath))
-            {
-                _dataValidatorService.AddError(nameof(PS2DiscContentPath), DISC_CONTENT_INVALID_CONTENTS);
-            }
-
-            if (!CheckForFile(PS2DiscContentPath, "Default.xbe") && otherContentPathProperty == nameof(XboxDiscContentPath))
-            {
-                _dataValidatorService.AddError(nameof(XboxDiscContentPath), DISC_CONTENT_INVALID_CONTENTS);
-            }
-
-            return false;
-        }
-
-        _dataValidatorService.RemoveError(nameof(PS2DiscContentPath));
-        _dataValidatorService.RemoveError(nameof(XboxDiscContentPath));
-        return true;
+        return !bothEmpty && statuses[changedProperty] != DiscContentsStatus.Invalid;
     }
 
     private DiscContentsStatus IsPs2DiscContentPathValid(string newVal)
@@ -242,10 +233,9 @@ public class ProjectCreationViewModel : Screen, INotifyDataErrorInfo
         return DiscContentsStatus.Valid;
     }
 
-    private bool CheckForFile(string path, string fileName)
+    private static bool CheckForFile(string path, string fileName)
     {
-        return File.Exists(path + fileName.ToLower()) || File.Exists(path + fileName) ||
-               File.Exists(path + fileName.ToUpper());
+        return Directory.Exists(path) && Directory.EnumerateFiles(path).Any(file => Path.GetFileName(file).Equals(fileName, StringComparison.OrdinalIgnoreCase));
     }
 
     public IEnumerable GetErrors(String? propertyName)

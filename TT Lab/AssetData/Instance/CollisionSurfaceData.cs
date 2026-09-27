@@ -46,10 +46,12 @@ public class CollisionSurfaceData : AbstractAssetData
     
     [JsonProperty(Required = Required.Always)]
     [Editable]
+    [OnReferenceDeleted(DeletedReferenceAction.Clear)]
     public LabURI StepSoundId1 { get; set; }
     
     [JsonProperty(Required = Required.Always)]
     [Editable]
+    [OnReferenceDeleted(DeletedReferenceAction.Clear)]
     public LabURI StepSoundId2 { get; set; }
     
     [JsonProperty(Required = Required.Always)]
@@ -62,6 +64,7 @@ public class CollisionSurfaceData : AbstractAssetData
     
     [JsonProperty(Required = Required.Always)]
     [Editable]
+    [OnReferenceDeleted(DeletedReferenceAction.Clear)]
     public LabURI LandSoundId1 { get; set; }
     
     [JsonProperty(Required = Required.Always)]
@@ -74,10 +77,12 @@ public class CollisionSurfaceData : AbstractAssetData
     
     [JsonProperty(Required = Required.Always)]
     [Editable]
+    [OnReferenceDeleted(DeletedReferenceAction.Clear)]
     public LabURI LandSoundId2 { get; set; }
     
     [JsonProperty(Required = Required.Always)]
     [Editable]
+    [OnReferenceDeleted(DeletedReferenceAction.Clear)]
     public LabURI UnkSoundId { get; set; }
     
     [JsonProperty(Required = Required.Always)]

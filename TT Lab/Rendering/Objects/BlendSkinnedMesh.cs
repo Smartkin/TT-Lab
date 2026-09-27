@@ -4,15 +4,18 @@ using System.Linq;
 using GlmSharp;
 using Silk.NET.OpenGL;
 using TT_Lab.Rendering.Buffers;
+using TT_Lab.Rendering.Shaders;
 
 namespace TT_Lab.Rendering.Objects;
 
 public class BlendSkinnedMesh(RenderContext context, List<ModelBufferBlendSkin> models, TextureBuffer vertexOffsets, vec3 blendShape, int blendShapesAmount, float[] weights) : SkinnedMesh(context, models.Cast<ModelBuffer>().ToList())
 {
+    private const int MaxBlends = 15;
+
     private readonly RenderContext _context = context;
     private readonly float[] _weights = weights;
-    private readonly float[] _renderWeights = weights;
-    private static readonly float[] ZeroWeights = new float[15];
+    // Always uploaded whole so weights of other blend skins drawn before can't be left over
+    private readonly float[] _renderWeights = new float[MaxBlends];
 
     public override Mesh Clone()
     {
@@ -26,40 +29,42 @@ public class BlendSkinnedMesh(RenderContext context, List<ModelBufferBlendSkin> 
         {
             return;
         }
-        
+
         _weights[shapeIndex] = weight;
+    }
+
+    public void ResetShapeWeights()
+    {
+        Array.Clear(_weights);
     }
 
     public override void UpdateRenderTransform()
     {
-        for (var i = 0; i < _weights.Length; i++)
+        for (var i = 0; i < _renderWeights.Length; i++)
         {
-            _renderWeights[i] = _weights[i];
+            _renderWeights[i] = i < _weights.Length ? _weights[i] : 0.0f;
         }
-        
+
         base.UpdateRenderTransform();
     }
 
-    protected override void RenderSelf(float delta)
+    public override void BeginIndividualDraw(ModelBuffer model)
     {
         vertexOffsets.Bind(TextureUnit.Texture6);
 
         var program = _context.CurrentPass.Program;
-        var blendShapesAmountLoc = program.GetUniformLocation("BlendShapesAmount");
-        var blendShapeLoc = program.GetUniformLocation("BlendShape");
-        _context.Gl.Uniform1(blendShapesAmountLoc, blendShapesAmount);
-        _context.Gl.Uniform3(blendShapeLoc, blendShape.Values);
+        program.SetUniform(KnownUniform.BlendShapesAmount, blendShapesAmount);
+        program.SetUniform(KnownUniform.BlendShape, blendShape);
+        _context.Gl.Uniform1(program[KnownUniform.MorphWeights], _renderWeights);
+        program.SetUniform(KnownUniform.UseMorphs, true);
 
-        var morphWeightLoc = program.GetUniformLocation("MorphWeights");
-        _context.Gl.Uniform1(morphWeightLoc, _renderWeights);
-        
-        base.RenderSelf(delta);
+        base.BeginIndividualDraw(model);
     }
 
-    public override void EndRender()
+    public override void EndIndividualDraw(ModelBuffer model)
     {
-        var program = _context.CurrentPass.Program;
-        var morphWeightLoc = program.GetUniformLocation("MorphWeights");
-        _context.Gl.Uniform1(morphWeightLoc, ZeroWeights);
+        _context.CurrentPass.Program.SetUniform(KnownUniform.UseMorphs, false);
+
+        base.EndIndividualDraw(model);
     }
 }

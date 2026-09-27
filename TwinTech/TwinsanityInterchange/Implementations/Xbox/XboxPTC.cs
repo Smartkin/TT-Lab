@@ -24,7 +24,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox
             TexID = reader.ReadUInt32();
             MatID = reader.ReadUInt32();
             Texture = new XboxAnyTexture();
-            Texture.Read(reader, length);
+            Texture.Read(reader, 0);
             Material = new XboxAnyMaterial();
             Material.Read(reader, length);
         }

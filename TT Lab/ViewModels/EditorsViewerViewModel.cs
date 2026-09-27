@@ -1,65 +1,134 @@
-﻿using Caliburn.Micro;
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Linq;
-using System.Reactive.Disposables.Fluent;
-using System.Threading;
+using System.Reactive;
 using System.Threading.Tasks;
-using Dock.Model.Core;
+using Dock.Model.Controls;
 using Dock.Model.ReactiveUI.Controls;
-using DynamicData;
 using ReactiveUI;
 using TT_Lab.Assets;
 using TT_Lab.ViewModels.Composite;
-using TT_Lab.ViewModels.Editors;
 
 namespace TT_Lab.ViewModels;
 
-public abstract class EditorsViewerViewModel : ReactiveObject, IActivatableViewModel
+public abstract class EditorsViewerViewModel : Document
 {
-    public IFactory Factory { get; }
-    private readonly SourceCache<TabbedEditorViewModel, string> _documentTabs;
+    public event Action<TabbedEditorViewModel>? EditorClosed;
 
-    public ReadOnlyObservableCollection<TabbedEditorViewModel> Tabs;
+    /// <summary>
+    /// One of the editors got activated or focused, even when it already was the active one
+    /// </summary>
+    public event Action? Used;
 
-    protected EditorsViewerViewModel(IFactory factory)
+    private TabbedEditorViewModel? _activeEditor;
+
+    protected EditorsViewerViewModel(string id, string title)
     {
-        Factory = factory;
-        _documentTabs = new SourceCache<TabbedEditorViewModel, String>(x => x.EditableResource);
-        this.WhenActivated(disposables =>
+        Id = id;
+        Title = title;
+
+        TabsFactory = new EditorTabsFactory();
+        TabsFactory.EditorClosed += editor =>
         {
-            _documentTabs.Connect().Bind(out Tabs).Subscribe().DisposeWith(disposables);
-        });
-    }
-
-    public void Clear()
-    {
-        _documentTabs.Clear();
-    }
-
-    public void OpenTab(TabbedEditorViewModel editor)
-    {
-        _documentTabs.AddOrUpdate(editor);
-    }
-    
-    public virtual async Task CloseEditorTab(TabbedEditorViewModel editor)
-    {
-        await editor.CloseTab();
-    }
-
-    public virtual void SaveEditorTab(TabbedEditorViewModel editor)
-    {
-        editor.Document.Save();
-    }
-
-    public virtual void Save()
-    {
-        foreach (var item in Tabs)
+            UpdateActiveEditor();
+            EditorClosed?.Invoke(editor);
+        };
+        TabsFactory.ActiveDockableChanged += (_, _) =>
         {
-            item.Document.Save();
+            UpdateActiveEditor();
+            Used?.Invoke();
+        };
+        TabsFactory.FocusedDockableChanged += (_, _) =>
+        {
+            UpdateActiveEditor();
+            Used?.Invoke();
+        };
+        TabsFactory.DockableRemoved += (_, _) => UpdateActiveEditor();
+        EditorsLayout = TabsFactory.CreateLayout();
+        TabsFactory.InitLayout(EditorsLayout);
+
+        SaveActiveEditorCommand = ReactiveCommand.Create(() => TabsFactory.GetActiveEditor()?.SaveTab());
+        CloseActiveEditorCommand = ReactiveCommand.Create(() => TabsFactory.GetActiveEditor()?.RequestClose());
+        UndoActiveEditorCommand = ReactiveCommand.Create(() => TabsFactory.GetActiveEditor()?.Document?.Undo());
+        RedoActiveEditorCommand = ReactiveCommand.Create(() => TabsFactory.GetActiveEditor()?.Document?.Redo());
+    }
+
+    public ReactiveCommand<Unit, Unit> SaveActiveEditorCommand { get; }
+    public ReactiveCommand<Unit, Unit> CloseActiveEditorCommand { get; }
+    public ReactiveCommand<Unit, Unit> UndoActiveEditorCommand { get; }
+    public ReactiveCommand<Unit, Unit> RedoActiveEditorCommand { get; }
+
+    public EditorTabsFactory TabsFactory { get; }
+
+    public IRootDock EditorsLayout { get; }
+
+    public IEnumerable<TabbedEditorViewModel> Tabs => TabsFactory.GetEditors();
+
+    /// <summary>
+    /// Editor last interacted with, panels outside the tabs show its parts
+    /// </summary>
+    public TabbedEditorViewModel? ActiveEditor
+    {
+        get => _activeEditor;
+        private set => this.RaiseAndSetIfChanged(ref _activeEditor, value);
+    }
+
+    // Dock keeps pointing at a closed editor as the focused one
+    private void UpdateActiveEditor()
+    {
+        var active = TabsFactory.GetActiveEditor();
+        ActiveEditor = active != null && Tabs.Contains(active) ? active : Tabs.FirstOrDefault();
+    }
+
+    public void OpenEditor(IAsset asset)
+    {
+        var openedTab = Tabs.FirstOrDefault(tab => tab.EditableResource == asset.URI);
+        if (openedTab != null)
+        {
+            TabsFactory.ActivateEditor(openedTab);
+            return;
+        }
+
+        TabsFactory.AddEditor(CreateTab(asset));
+    }
+
+    public async Task<bool> CloseAllTabs()
+    {
+        foreach (var tab in Tabs.ToList())
+        {
+            if (!await tab.CloseTab())
+            {
+                return false;
+            }
+
+            TabsFactory.RemoveEditor(tab);
+        }
+
+        return true;
+    }
+
+    public async Task<bool> CloseTabsReferencing(IReadOnlySet<LabURI> assets)
+    {
+        foreach (var tab in Tabs.Where(tab => tab.GetReferencedAssets().Any(assets.Contains)).ToList())
+        {
+            if (!await tab.CloseTab())
+            {
+                return false;
+            }
+
+            TabsFactory.RemoveEditor(tab);
+        }
+
+        return true;
+    }
+
+    public void Save()
+    {
+        foreach (var tab in Tabs)
+        {
+            tab.SaveTab();
         }
     }
 
-    public ViewModelActivator Activator { get; } = new();
+    protected abstract TabbedEditorViewModel CreateTab(IAsset asset);
 }

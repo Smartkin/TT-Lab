@@ -8,28 +8,35 @@
              x:DataType="viewmodels:DocumentCompositeViewModel"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="TT_Lab.Views.Editors.DocumentCompositeView">
+    <UserControl.Styles>
+        <Style Selector="DockPanel.highlighted">
+            <Setter Property="Background" Value="#40FFB21E"/>
+        </Style>
+        <!-- The chunk's own value of an asset it shares with other chunks -->
+        <Style Selector="TextBlock.overridden">
+            <Setter Property="Foreground" Value="#FF6FB4FF"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+    </UserControl.Styles>
     <Border BorderBrush="DimGray" BorderThickness="1">
         <ScrollViewer BringIntoViewOnFocusChange="False" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
             <Expander ContentTransition="{x:Null}" IsExpanded="{Binding IsExpanded}" HorizontalAlignment="Stretch">
                 <Expander.Header>
                     <Panel>
                         <DockPanel>
-                            <TextBlock VerticalAlignment="Center" DockPanel.Dock="Left" Text="{Binding Caption}"/>
+                            <TextBlock VerticalAlignment="Center" DockPanel.Dock="Left" Text="{Binding Caption}" Classes.overridden="{Binding IsOverridden}" ContextRequested="Caption_OnContextRequested"/>
                             <Button x:Name="AddNewItem" DockPanel.Dock="Right" HorizontalAlignment="Right" HorizontalContentAlignment="Center" IsVisible="{Binding IsCollection}" Content="+"/>
                         </DockPanel>
                     </Panel>
                 </Expander.Header>
+                <!-- The view picks whether the items are virtualized -->
                 <ItemsControl HorizontalAlignment="Stretch" VerticalAlignment="Stretch" DockPanel.Dock="Top" x:Name="EditorsContainer">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <StackPanel Orientation="Vertical"/>
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="viewmodels:DocumentNodeViewModel">
-                            <DockPanel IsVisible="{Binding IsVisible}" HorizontalSpacing="15" LastChildFill="True" Background="Transparent" ToolTip.Tip="{Binding Hint}">
+                            <DockPanel Classes.highlighted="{Binding IsHighlighted}" IsVisible="{Binding IsVisible}" HorizontalSpacing="15" LastChildFill="True" Background="Transparent" ToolTip.Tip="{Binding Hint}">
                                 <Button Command="{Binding Close}" DockPanel.Dock="Right" IsVisible="{Binding #Document.DataContext.IsCollection}" HorizontalAlignment="Right" VerticalAlignment="Top" VerticalContentAlignment="Center" Content="x"/>
-                                <TextBlock IsVisible="{Binding IsCaptionVisible}" Margin="5, 0, 0, 0" MinWidth="80" DockPanel.Dock="{Binding Orientation}" VerticalAlignment="Center" Text="{Binding Caption}"/>
+                                <TextBlock IsVisible="{Binding IsCaptionVisible}" Margin="5, 0, 0, 0" MinWidth="80" DockPanel.Dock="{Binding Orientation}" VerticalAlignment="Center" Text="{Binding Caption}"
+                                           Classes.overridden="{Binding IsOverridden}" ContextRequested="Caption_OnContextRequested"/>
                                 <ScrollViewer DockPanel.Dock="{Binding EditorOrientation}" BringIntoViewOnFocusChange="False" MaxHeight="800" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
                                     <ContentControl HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Content="{Binding}"/>
                                 </ScrollViewer>

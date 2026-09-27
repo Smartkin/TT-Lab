@@ -3,60 +3,12 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text.Json;
-using SharpGLTF.Materials;
 using TT_Lab.AssetData.Code;
 using TT_Lab.Assets;
 using TT_Lab.Util;
 using Twinsanity.TwinsanityInterchange.Common;
 
 namespace TT_Lab.AssetData.Graphics;
-
-public struct GltfBone
-{
-    public SharpGLTF.Scenes.NodeBuilder Node;
-    public System.Numerics.Matrix4x4 InverseBindMatrix;
-    public SharpGLTF.Scenes.NodeBuilder? Parent;
-    public int ParentIndex;
-}
-
-public struct GltfGeometryWrapper(
-    SharpGLTF.Geometry.IMeshBuilder<MaterialBuilder> mesh,
-    List<GltfBone> joints,
-    bool facesSquashedOnExport = false)
-{
-    public readonly SharpGLTF.Geometry.IMeshBuilder<MaterialBuilder> Mesh = mesh;
-    public readonly List<GltfBone> Joints = joints;
-    public readonly bool FacesSquashedOnExport = facesSquashedOnExport;
-}
-
-public class GltfMaterialBuilder(List<MaterialBuilder> materialBuilders)
-{
-    public List<MaterialBuilder> MaterialBuilders { get; } = materialBuilders;
-}
-
-public static class GraphicsHelpers
-{
-    public const string MaterialTokenDivider = "____";
-    public const string MeshTokenDivider = "_";
-}
-
-public enum MeshExportType
-{
-    Rigid,
-    Skinned,
-    BlendSkinned
-}
-
-public class MeshExtraInfo
-{
-    [System.Text.Json.Serialization.JsonConverter(typeof(JsonVector3Converter))]
-    public Vector3 BlendShape { get; init; } = new(0, 0, 0);
-    
-    [System.Text.Json.Serialization.JsonConverter(typeof(JsonEnumStringConverter<MeshExportType>))]
-    public MeshExportType Type { get; init; } = MeshExportType.Rigid;
-
-    public Boolean HasEmits { get; init; } = false;
-}
 
 public class JsonEnumStringConverter<T> : System.Text.Json.Serialization.JsonConverter<T> where T : struct
 {
@@ -410,5 +362,3 @@ public class JsonListConverter<T> : System.Text.Json.Serialization.JsonConverter
         writer.WriteEndArray();
     }
 }
-
-public record GltfMaterialLabUri(int GltfIndex, LabURI MaterialUri);

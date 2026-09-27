@@ -9,28 +9,31 @@ using Twinsanity.TwinsanityInterchange.Common;
 
 namespace TT_Lab.ViewModels.Editors;
 
-public class Matrix4FieldViewModel : DocumentDataViewModel<Matrix4>
+public class Matrix4FieldViewModel(DocumentViewModel document, PropertyNode data, params DocumentNodeViewModel[] dependencies)
+    : DocumentDataViewModel<Matrix4>(document, data, dependencies)
 {
-    public Vector4FieldViewModel V1 { get; }
-    public Vector4FieldViewModel V2 { get; }
-    public Vector4FieldViewModel V3 { get; }
-    public Vector4FieldViewModel V4 { get; }
+    private Vector4FieldViewModel? _v1;
+    private Vector4FieldViewModel? _v2;
+    private Vector4FieldViewModel? _v3;
+    private Vector4FieldViewModel? _v4;
 
-    public Matrix4FieldViewModel(DocumentViewModel document, PropertyNode data, params DocumentNodeViewModel[] dependencies)
-        : base(document, data, dependencies)
+    // Columns are made once shown, like the components of vectors
+    public Vector4FieldViewModel V1 => _v1 ??= CreateColumn("Column1");
+    public Vector4FieldViewModel V2 => _v2 ??= CreateColumn("Column2");
+    public Vector4FieldViewModel V3 => _v3 ??= CreateColumn("Column3");
+    public Vector4FieldViewModel V4 => _v4 ??= CreateColumn("Column4");
+
+    private Vector4FieldViewModel CreateColumn(string name)
     {
-        V1 = new Vector4FieldViewModel(document, Property.Find("Column1")!, this);
-        V2 = new Vector4FieldViewModel(document, Property.Find("Column2")!, this);
-        V3 = new Vector4FieldViewModel(document, Property.Find("Column3")!, this);
-        V4 = new Vector4FieldViewModel(document, Property.Find("Column4")!, this);
+        return new Vector4FieldViewModel(Document, Property.Find(name)!, this);
     }
 
     protected override void OnCurrentValueChanged()
     {
-        V1.SetValueCommand.Execute(Property.Find("Column1")!.GetValue<Vector4>());
-        V2.SetValueCommand.Execute(Property.Find("Column2")!.GetValue<Vector4>());
-        V3.SetValueCommand.Execute(Property.Find("Column3")!.GetValue<Vector4>());
-        V4.SetValueCommand.Execute(Property.Find("Column4")!.GetValue<Vector4>());
+        _v1?.SetValueCommand.Execute(Property.Find("Column1")!.GetValue<Vector4>());
+        _v2?.SetValueCommand.Execute(Property.Find("Column2")!.GetValue<Vector4>());
+        _v3?.SetValueCommand.Execute(Property.Find("Column3")!.GetValue<Vector4>());
+        _v4?.SetValueCommand.Execute(Property.Find("Column4")!.GetValue<Vector4>());
         
         base.OnCurrentValueChanged();
     }

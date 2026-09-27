@@ -7,6 +7,10 @@
         <ApplicationIcon>Images/tt_lab_logo_v6_2k.ico</ApplicationIcon>
         <ApplicationManifest>app.manifest</ApplicationManifest>
         <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+        <!-- Project creation and builds work on lots of assets in parallel. Server GC with dynamic adaptation (DATAS) halves the time
+             it takes while using less memory than workstation GC does -->
+        <ServerGarbageCollection>true</ServerGarbageCollection>
+        <GarbageCollectionAdaptationMode>1</GarbageCollectionAdaptationMode>
         <IsWindows Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))' == 'true'">true</IsWindows>
         <IsLinux Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' == 'true'">true</IsLinux>
     </PropertyGroup>
@@ -40,10 +44,25 @@
         <Copy SourceFiles="@(NativeLibrariesLinux)" DestinationFolder="@(RuntimeCopyPathLinux)" />
     </Target>
 
+    <!-- Publishing for a runtime flattens the packages' native libraries next to the executable, ours have to go there as well.
+         Publishing without a runtime keeps the same layout as the build -->
+    <Target Name="PublishNativeLibs" AfterTargets="Publish">
+        <ItemGroup>
+            <PublishNativeLibrariesWindows Include="$(MSBuildProjectDirectory)\Libraries\Native\Windows\*.dll" />
+            <PublishNativeLibrariesLinux Include="$(MSBuildProjectDirectory)\Libraries\Native\Linux\*.so" />
+        </ItemGroup>
+
+        <Copy Condition="'$(RuntimeIdentifier)' == ''" SourceFiles="@(PublishNativeLibrariesWindows)" DestinationFolder="$(PublishDir)runtimes\win-x64\native\" />
+        <Copy Condition="'$(RuntimeIdentifier)' == ''" SourceFiles="@(PublishNativeLibrariesLinux)" DestinationFolder="$(PublishDir)runtimes\linux-x64\native\" />
+        <Copy Condition="$(RuntimeIdentifier.StartsWith('win'))" SourceFiles="@(PublishNativeLibrariesWindows)" DestinationFolder="$(PublishDir)" />
+        <Copy Condition="$(RuntimeIdentifier.StartsWith('linux'))" SourceFiles="@(PublishNativeLibrariesLinux)" DestinationFolder="$(PublishDir)" />
+    </Target>
+
     <ItemGroup>
         <PackageReference Include="Avalonia" Version="11.3.12" />
         <PackageReference Include="Avalonia.AvaloniaEdit" Version="11.3.0" />
         <PackageReference Include="Avalonia.Controls.ItemsRepeater" Version="11.1.5" />
+        <PackageReference Include="Avalonia.Controls.ColorPicker" Version="11.3.12" />
         <PackageReference Include="Avalonia.Desktop" Version="11.3.12" />
         <PackageReference Include="Avalonia.Labs.Gif" Version="11.3.1" />
         <PackageReference Include="Avalonia.Markup.Xaml.Loader" Version="11.3.12" />
@@ -66,7 +85,6 @@
         <PackageReference Include="Dock.Serializer.Newtonsoft" Version="11.3.11.16" />
         <PackageReference Include="geometry3Sharp" Version="1.0.324" />
         <PackageReference Include="GlmSharpStd" Version="0.9.8" />
-        <PackageReference Include="Meshoptimizer.NET" Version="1.0.7" />
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.3" />
         <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.3" />
         <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
@@ -77,11 +95,9 @@
           <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
         <PackageReference Include="ReactiveUI.Validation" Version="6.0.18" />
-        <PackageReference Include="SharpGLTF.Core" Version="1.0.6" />
-        <PackageReference Include="SharpGLTF.Toolkit" Version="1.0.6" />
         <PackageReference Include="SharpHash" Version="1.2.0" />
+        <PackageReference Include="Silk.NET.Input.Common" Version="2.22.0" />
         <PackageReference Include="Silk.NET.OpenGL" Version="2.22.0" />
-        <PackageReference Include="Silk.NET.OpenGL.Extensions.ImGui" Version="2.22.0" />
         <PackageReference Include="Silk.NET.Windowing.Glfw" Version="2.23.0" />
         <PackageReference Include="Silk.NET.Windowing.Sdl" Version="2.23.0" />
         <PackageReference Include="SoundFlow" Version="1.4.0">
@@ -107,6 +123,11 @@
     </ItemGroup>
 
     <ItemGroup>
+      <InternalsVisibleTo Include="TT Lab.Tests" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <EmbeddedResource Include="AgentLab/agentlab.tmLanguage.json" LogicalName="TT_Lab.AgentLab.agentlab.tmLanguage.json" />
       <AvaloniaResource Include="Images/AfroGod.png" />
       <AvaloniaResource Include="Images/God_Messenger.png" />
       <AvaloniaResource Include="Images/SadTransparent.gif" />
@@ -123,13 +144,7 @@
       <Content Include="Libraries\Native\Windows\PS2ImageMaker.dll">
           <PackagePath>runtimes/win-x64/native</PackagePath>
       </Content>
-      <Content Include="Libraries\Native\Windows\meshoptimizer.dll">
-          <PackagePath>runtimes/win-x64/native</PackagePath>
-      </Content>
       <Content Include="Libraries\Native\Linux\libPS2ImageMaker.so">
-          <PackagePath>runtimes/linux-x64/native</PackagePath>
-      </Content>
-      <Content Include="Libraries\Native\Linux\libmeshoptimizer.so">
           <PackagePath>runtimes/linux-x64/native</PackagePath>
       </Content>
     </ItemGroup>

@@ -1,0 +1,75 @@
+name: Build
+
+# Run by hand only, every push and pull request used up the Actions budget
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build ${{ matrix.runtime }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            runtime: win-x64
+          - os: ubuntu-latest
+            runtime: linux-x64
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # global.json rolls forward to the newest SDK, the tests and the app itself run on .NET 8
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.x"
+
+      - uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Test Blender add-on
+        working-directory: TT Lab/BlenderTools
+        run: python -m unittest discover -s tests -v
+
+      # The app ships the add-on next to itself
+      - name: Package Blender add-on
+        working-directory: TT Lab/BlenderTools
+        run: python scripts/package_addon.py
+
+      - name: Test
+        run: dotnet test "TT Lab.Tests/TT Lab.Tests.csproj" -c Release --logger "trx;LogFileName=results.trx" --logger "console;verbosity=normal" --results-directory TestResults
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-${{ matrix.runtime }}
+          path: TestResults
+          if-no-files-found: ignore
+
+      # Platform specific code is picked by the OS doing the build so each platform is built on its own runner
+      - name: Publish
+        run: dotnet publish "TT Lab/TT Lab.csproj" -c Release -r ${{ matrix.runtime }} --self-contained false -o publish
+
+      - name: Upload build
+        uses: actions/upload-artifact@v7
+        with:
+          name: TT-Lab-${{ matrix.runtime }}
+          path: publish
+          if-no-files-found: error

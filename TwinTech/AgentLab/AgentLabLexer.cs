@@ -14,6 +14,8 @@ public class AgentLabLexer : IDisposable
     private List<AgentLabToken> _reservedKeywords = new();
     private char[] _reservedChar = { '/', '*', '!', '[', ']', '{', '}', '(', ')', '+', '-', '=', ';', ':', ',', '>', '<', '"', '\'' };
     private Char? _currentChar;
+    private int _line = 1;
+    private int _column;
     
     public AgentLabLexer(string text)
     {
@@ -62,6 +64,7 @@ public class AgentLabLexer : IDisposable
         _reservedKeywords.Add(GenerateKeywordType(AgentLabToken.TokenType.Condition, "condition"));
         _reservedKeywords.Add(GenerateKeyword("GlobalObjectId"));
         _reservedKeywords.Add(GenerateKeyword("Priority"));
+        _reservedKeywords.Add(GenerateKeyword("GraphPriority"));
         _reservedKeywords.Add(GenerateKeyword("NonBlocking"));
         _reservedKeywords.Add(GenerateKeyword("SkipFirstBody"));
         _reservedKeywords.Add(GenerateKeyword("UseObjectSlot"));
@@ -74,6 +77,13 @@ public class AgentLabLexer : IDisposable
 
     private void Advance()
     {
+        if (_currentChar == '\n')
+        {
+            _line++;
+            _column = 0;
+        }
+
+        _column++;
         var peek = _reader.Peek();
         if (peek != -1)
         {
@@ -139,11 +149,15 @@ public class AgentLabLexer : IDisposable
                 Advance();
                 continue;
             }
+
+            var line = _line;
+            var column = _column;
             
             if (char.IsAsciiDigit(_currentChar.Value))
             {
                 var lexeme = AdvanceLexeme();
-                if (_currentChar == '-')
+                // Floats like 1E+30 have their exponent's sign after the e
+                if (_currentChar == '-' || (_currentChar == '+' && !lexeme.StartsWith("0x") && (lexeme.EndsWith("e") || lexeme.EndsWith("E"))))
                 {
                     lexeme += _currentChar;
                     Advance();
@@ -230,15 +244,15 @@ public class AgentLabLexer : IDisposable
 
             if (token.Type == AgentLabToken.TokenType.Eof)
             {
-                _currentToken = GetIdentifier();
+                _currentToken = GetIdentifier().WithPosition(line, column);
                 return _currentToken;
             }
             
-            _currentToken = token;
-            return token;
+            _currentToken = token.WithPosition(line, column);
+            return _currentToken;
         }
         
-        return new AgentLabToken(AgentLabToken.TokenType.Eof, null);
+        return new AgentLabToken(AgentLabToken.TokenType.Eof, null).WithPosition(_line, _column);
     }
     
     public void Dispose()

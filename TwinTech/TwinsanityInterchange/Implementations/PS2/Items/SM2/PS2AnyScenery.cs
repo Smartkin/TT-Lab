@@ -21,9 +21,11 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SM2
         public List<PointLight> PointLights { get; set; }
         public List<NegativeLight> NegativeLights { get; set; }
         public List<TwinSceneryBaseType> Sceneries { get; set; }
+        public List<Int32> LightOrder { get; set; }
 
         public PS2AnyScenery()
         {
+            LightOrder = new List<Int32>();
             AmbientLights = new List<AmbientLight>();
             DirectionalLights = new List<DirectionalLight>();
             PointLights = new List<PointLight>();
@@ -58,12 +60,23 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SM2
             }
             if (HasLighting)
             {
-                reader.ReadBytes(0x400); // Lights accessor buffer
-                reader.ReadInt32(); // Total lights amount
+                var accessors = reader.ReadBytes(0x400);
+                var totalLights = reader.ReadInt32();
                 var ambientLights = reader.ReadInt32();
                 var dirLights = reader.ReadInt32();
                 var pointLights = reader.ReadInt32();
                 var negativeLights = reader.ReadInt32();
+                LightOrder.Clear();
+                for (var i = 0; i < Math.Min(totalLights, 0x80); ++i)
+                {
+                    LightOrder.Add(BitConverter.ToInt32(accessors, i * 8));
+                    LightOrder.Add(BitConverter.ToInt32(accessors, i * 8 + 4));
+                }
+
+                if (LightOrder.SequenceEqual(GetDefaultLightOrder(ambientLights, dirLights, pointLights, negativeLights)))
+                {
+                    LightOrder.Clear();
+                }
                 // GetLength methods can be used here since all these classes have static length
                 for (var i = 0; i < ambientLights; ++i)
                 {
@@ -121,25 +134,12 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SM2
             }
             if (HasLighting)
             {
-                for (var i = 0; i < AmbientLights.Count; ++i)
+                var defaultOrder = GetDefaultLightOrder(AmbientLights.Count, DirectionalLights.Count, PointLights.Count, NegativeLights.Count);
+                // An order that no longer lists every light once goes back to the default one
+                var order = LightOrder.Count == defaultOrder.Count && Pairs(LightOrder).OrderBy(pair => pair).SequenceEqual(Pairs(defaultOrder).OrderBy(pair => pair)) ? LightOrder : defaultOrder;
+                foreach (var value in order)
                 {
-                    writer.Write(i);
-                    writer.Write((Int32)LightIdentifier.Ambient);
-                }
-                for (var i = 0; i < DirectionalLights.Count; ++i)
-                {
-                    writer.Write(i);
-                    writer.Write((Int32)LightIdentifier.Directional);
-                }
-                for (var i = 0; i < PointLights.Count; i++)
-                {
-                    writer.Write(i);
-                    writer.Write((Int32)LightIdentifier.Point);
-                }
-                for (var i = 0; i < NegativeLights.Count; ++i)
-                {
-                    writer.Write(i);
-                    writer.Write((Int32)LightIdentifier.Negative);
+                    writer.Write(value);
                 }
                 var totalLightCount = AmbientLights.Count + DirectionalLights.Count + PointLights.Count + NegativeLights.Count;
                 writer.Write(ITwinScenery.GetReservedBlob(), 0, 0x400 - (8 * totalLightCount));
@@ -179,12 +179,28 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SM2
             return $"Scenery {id:X}";
         }
 
-        private enum LightIdentifier
+        private static List<Int32> GetDefaultLightOrder(Int32 ambient, Int32 directional, Int32 point, Int32 negative)
         {
-            Ambient,
-            Directional,
-            Point,
-            Negative
+            var order = new List<Int32>();
+            var counts = new[] { ambient, directional, point, negative };
+            for (var kind = 0; kind < counts.Length; ++kind)
+            {
+                for (var i = 0; i < counts[kind]; ++i)
+                {
+                    order.Add(i);
+                    order.Add(kind);
+                }
+            }
+
+            return order;
+        }
+
+        private static IEnumerable<(Int32, Int32)> Pairs(List<Int32> order)
+        {
+            for (var i = 0; i + 1 < order.Count; i += 2)
+            {
+                yield return (order[i], order[i + 1]);
+            }
         }
     }
 }

@@ -54,12 +54,15 @@ public class Folder : SerializableAsset
         Children.Add(asset.URI);
     }
 
-    public override void Delete(bool setDirectoryToAssets = false, bool deleteAllReferencedData = false)
+    public override void Delete()
     {
-        Directory.SetCurrentDirectory(Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath);
-        Directory.SetCurrentDirectory($".{Path.DirectorySeparatorChar}{GetPath()}");
-        Directory.SetCurrentDirectory("..");
-        Directory.Delete(Alias, true);
+        AssetManager.Get().RemoveAsset(this);
+        var projectPath = Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath;
+        var directory = Path.Combine(projectPath, GetPath().TrimStart('/'));
+        if (Directory.Exists(directory))
+        {
+            Directory.Delete(directory, true);
+        }
     }
 
     public string GetPath()

@@ -9,7 +9,12 @@ namespace Twinsanity.TwinsanityInterchange.Common.DynamicScenery
     public class TwinDynamicSceneryAnimation : ITwinSerializable
     {
         UInt32 dataPacker;
+        const UInt32 FlagBits = 0x780;
         public UInt16 TotalFrames { get; set; }
+        /// <summary>
+        /// Bits 7 to 10 of the header, only the Xbox version sets them
+        /// </summary>
+        public UInt32 HeaderFlags { get; set; }
 
         public List<DynamicModelSettings> ModelSettings { get; set; } = new();
         public List<Transformation> StaticTransformations { get; set; } = new();
@@ -28,6 +33,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.DynamicScenery
         public void Read(BinaryReader reader, Int32 length)
         {
             dataPacker = reader.ReadUInt32();
+            HeaderFlags = dataPacker & FlagBits;
             TotalFrames = reader.ReadUInt16();
             var modelSettings = (dataPacker & 0x7F);
             var staticTransformations = ((dataPacker >> 0x9) & 0x1FFC) / 4;
@@ -70,6 +76,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.DynamicScenery
                 packer |= (UInt32)(AnimatedTransformations[0].TransformationValues.Count << 0x16);
             }
 
+            packer |= HeaderFlags & FlagBits;
             dataPacker = packer;
             writer.Write(packer);
 

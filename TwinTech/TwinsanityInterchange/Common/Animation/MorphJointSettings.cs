@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Linq;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using static Twinsanity.TwinsanityInterchange.Common.Animation.Enums;
 
@@ -56,6 +57,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.Animation
             newFlags |= (UInt16)(hasUnusedFlag << 0xD);
             var hasUseAdditionalRotation = UseAdditionalRotation ? 1 : 0;
             newFlags |= (UInt16)(hasUseAdditionalRotation << 0xC);
+            newFlags |= JointSettings.CountChannels(AnimationMorph.Take(FacialShapesAmount).ToArray());
             flags = newFlags;
             writer.Write(flags);
 

@@ -27,6 +27,10 @@ public partial class LogViewModel : Document, IActivatableViewModel, IHandle<Pro
     public LogViewModel(IEventAggregator eventAggregator, ProjectManager projectManager)
     {
         _projectManager = projectManager;
+        Id = "Logger";
+        Title = "Log";
+        // The undo history would keep every logged line forever
+        this.WhenAnyValue(x => x.Text).WhereNotNull().Subscribe(document => document.UndoStack.SizeLimit = 0);
         this.WhenActivated((CompositeDisposable disposables) => { });
         eventAggregator.SubscribeOnUIThread(this);
     }

@@ -1,0 +1,51 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:avaloniaEdit="https://github.com/avaloniaui/avaloniaedit"
+             xmlns:global="clr-namespace:TT_Lab.ViewModels.Editors.Global"
+             x:DataType="global:TextFileEditorViewModel"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Views.Editors.Global.TextFileEditorView">
+    <DockPanel LastChildFill="True">
+        <WrapPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0, 0, 0, 4">
+            <TextBlock Text="Font" VerticalAlignment="Center" Margin="0, 0, 6, 0"/>
+            <ComboBox x:Name="FontChoice" ItemsSource="{Binding Fonts}" SelectedItem="{Binding SelectedFont}" MinWidth="140" Margin="0, 0, 10, 0"
+                      VerticalAlignment="Center" ToolTip.Tip="Font the text is shown with, the game's fonts draw some characters as controller buttons">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="global:TextFileFont">
+                        <TextBlock Text="{Binding Name}"/>
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+            <!-- Dark like the text's background, the fonts are drawn for dark screens -->
+            <Button Tag="~" Click="Insert" Content="&#x21B5;" MinWidth="32" Height="32" Margin="0, 0, 2, 0" Background="#FF1E1E28" Foreground="#FF5CA8FF"
+                    FontSize="16" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="Inserts ~, the game starts a new line on it"/>
+            <ItemsControl x:Name="Buttons" ItemsSource="{Binding Buttons}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="global:TextFileGlyph">
+                        <Button Tag="{Binding Character}" Click="Insert" Height="32" Padding="3" Margin="0, 0, 2, 0" Background="#FF1E1E28"
+                                ToolTip.Tip="{Binding Tip}">
+                            <Image Source="{Binding Image}" Stretch="Uniform"/>
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </WrapPanel>
+        <!-- A fixed height lets the editor scroll by itself instead of growing inside the document's scroll viewers -->
+        <avaloniaEdit:TextEditor x:Name="Editor"
+                                 Height="640"
+                                 ShowLineNumbers="True"
+                                 WordWrap="False"
+                                 FontSize="14"
+                                 Background="#FF1E1E28"
+                                 Foreground="#FFE0E0E0"
+                                 HorizontalScrollBarVisibility="Auto"
+                                 VerticalScrollBarVisibility="Auto"/>
+    </DockPanel>
+</UserControl>

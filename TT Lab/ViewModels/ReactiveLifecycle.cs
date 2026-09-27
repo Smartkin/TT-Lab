@@ -8,9 +8,16 @@ public sealed class ReactiveLifecycle
 {
     private readonly List<ILifecycleNode> _nodes = [];
     private readonly HashSet<ILifecycleNode> _initializedNodes = [];
+    private bool _isInitialized;
 
     public void Register(ILifecycleNode node)
     {
+        // Nodes created after initialization never get initialized, keeping them only kept every editor ever opened in the document alive
+        if (_isInitialized)
+        {
+            return;
+        }
+
         _nodes.Add(node);
     }
 
@@ -34,5 +41,9 @@ public sealed class ReactiveLifecycle
                 _initializedNodes.Add(node);
             }
         }
+
+        _isInitialized = true;
+        _nodes.Clear();
+        _initializedNodes.Clear();
     }
 }

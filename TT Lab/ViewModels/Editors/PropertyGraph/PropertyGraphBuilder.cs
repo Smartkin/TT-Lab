@@ -14,7 +14,8 @@ public static class PropertyGraphBuilder
 {
     public static PropertyGraph Build(IDocumentModel document)
     {
-        var graphTracker = new PropertyGraphTracker();
+        // A chunk's document edits the assets it shares with other chunks through its views of them
+        var graphTracker = new PropertyGraphTracker { Overrides = document is LevelChunk chunk ? new ChunkOverrideSession(chunk) : null };
         var rootNode = BuildNode(document, null, "Root", graphTracker);
         return new PropertyGraph(rootNode, graphTracker);
     }
@@ -119,6 +120,11 @@ public static class PropertyGraphBuilder
         
         var asset = AssetManager.Get().GetAsset(uri);
         asset.GetData<AbstractAssetData>(); // Load the asset data
+        if (tracker.Overrides is { } overrides && overrides.IsShared(asset))
+        {
+            asset = overrides.GetView(asset);
+        }
+
         var childPath = $"{path}[data]";
         var child = new PropertyNode(asset.Type.Name, childPath, asset, specifiedType: asset.Type)
         {
@@ -130,18 +136,32 @@ public static class PropertyGraphBuilder
         };
         node.AddChild(child);
 
-        if (!tracker.Enter(uri) || tracker.DepthExceeded())
+        // Links cut short used to stay entered, and later links to the same asset got no properties
+        try
         {
-            return;
-        }
-        
-        BuildObject(child, asset, childPath, tracker);
-        
-        tracker.Exit(uri);
+            if (!tracker.Enter(uri))
+            {
+                return;
+            }
 
-        if (setBranchLimit)
+            try
+            {
+                if (!tracker.DepthExceeded())
+                {
+                    BuildObject(child, asset, childPath, tracker);
+                }
+            }
+            finally
+            {
+                tracker.Exit(uri);
+            }
+        }
+        finally
         {
-            tracker.SetMaxDepth(-1);
+            if (setBranchLimit)
+            {
+                tracker.SetMaxDepth(-1);
+            }
         }
     }
 
@@ -156,7 +176,7 @@ public static class PropertyGraphBuilder
         {
             if (node.Children.Count > i)
             {
-                node.Children[i].Path = $"{path}[{i}]";
+                node.Children[i].SetPath($"{path}[{i}]");
                 node.Children[i].Index = i;
                 continue;
             }
@@ -247,6 +267,8 @@ public static class PropertyGraphBuilder
 
 public class PropertyGraphTracker
 {
+    public ChunkOverrideSession? Overrides { get; init; }
+
     private readonly HashSet<LabURI> _currentVisits = [];
     private readonly HashSet<LabURI> _trackedUris = [];
     private int _maxDepth = -1;
@@ -254,11 +276,17 @@ public class PropertyGraphTracker
 
     public IReadOnlyList<LabURI> ExploredUris => _trackedUris.ToList();
 
+    // Entering an asset already on the way to the link doesn't go deeper, it isn't exited either
     public bool Enter(LabURI uri)
     {
-        _currentDepth++;
         _trackedUris.Add(uri);
-        return _currentVisits.Add(uri);
+        if (!_currentVisits.Add(uri))
+        {
+            return false;
+        }
+
+        _currentDepth++;
+        return true;
     }
     
     public void Exit(LabURI uri)

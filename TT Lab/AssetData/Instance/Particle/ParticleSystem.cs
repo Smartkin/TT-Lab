@@ -4,6 +4,7 @@ using TT_Lab.Attributes;
 using TT_Lab.Attributes.EditorParamWrappers;
 using TT_Lab.Util;
 using TT_Lab.ViewModels.Editors;
+using TT_Lab.ViewModels.Editors.Descs;
 using TT_Lab.ViewModels.Interfaces;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Common.Particles;
@@ -273,11 +274,11 @@ public class ParticleSystem : IDocumentModel
 
     [Editable] public Single JibberYAmp { get; set; }
 
-    [Editable] [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
+    // Curves are keys of a time in the particle's life and a value, they end at the first key at 1
+    [Editable(Caption = "Color", EditorDescType = typeof(ParticleGradientEditorDesc), EditorOrientation = Avalonia.Controls.Dock.Top)]
     public Vector4[] ColorGradients { get; set; } = [new(), new(), new(), new(), new(), new(), new(), new()];
 
-    [Editable]
-    [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
+    [Editable(Caption = "Alpha", EditorDescType = typeof(ParticleCurveEditorDesc), EditorOrientation = Avalonia.Controls.Dock.Top)]
     public Vector2[] AlphaGradient { get; set; } = [new(), new(), new(), new(), new(), new(), new(), new()];
 
     [Editable] public Vector2 Distortion { get; set; } = new()
@@ -290,30 +291,30 @@ public class ParticleSystem : IDocumentModel
 
     [Editable] public Single MaxSize { get; set; }
 
-    [Editable] [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
+    [Editable(Caption = "Width", EditorDescType = typeof(ParticleCurveEditorDesc), EditorOrientation = Avalonia.Controls.Dock.Top)]
     public Vector2[] SizeWidth { get; set; } = [new(), new(), new(), new(), new(), new(), new(), new()];
 
-    [Editable] [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
+    [Editable(Caption = "Height", EditorDescType = typeof(ParticleCurveEditorDesc), EditorOrientation = Avalonia.Controls.Dock.Top)]
     public Vector2[] SizeHeight { get; set; } = [new(), new(), new(), new(), new(), new(), new(), new()];
 
     [Editable] public Single MinRotation { get; set; }
 
     [Editable] public Single MaxRotation { get; set; }
 
-    [Editable] [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
+    [Editable(Caption = "Angle", EditorDescType = typeof(ParticleCurveEditorDesc), EditorOrientation = Avalonia.Controls.Dock.Top)]
     public Vector2[] Rotation { get; set; } = [new(), new(), new(), new(), new(), new(), new(), new()];
 
-    [Editable] [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
+    [Editable(Caption = "UnkGradient1", EditorDescType = typeof(ParticleCurveEditorDesc), EditorOrientation = Avalonia.Controls.Dock.Top)]
     public Vector2[] UnkGradient1 { get; set; } = [new(), new(), new(), new(), new(), new(), new(), new()];
 
-    [Editable] [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
+    [Editable(Caption = "UnkGradient2", EditorDescType = typeof(ParticleCurveEditorDesc), EditorOrientation = Avalonia.Controls.Dock.Top)]
     public Vector2[] UnkGradient2 { get; set; } = [new(), new(), new(), new(), new(), new(), new(), new()];
 
     [Editable] public Vector2 TextureStart { get; set; } = new();
 
     [Editable] public Vector2 TextureEnd { get; set; } = new();
 
-    [Editable] [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
+    [Editable(Caption = "Collision", EditorDescType = typeof(ParticleCurveEditorDesc), EditorOrientation = Avalonia.Controls.Dock.Top)]
     public Vector2[] Collision { get; set; } = [new(), new(), new(), new(), new(), new(), new(), new()];
 
     [Editable] public Byte CollisionNumSpheres { get; set; }

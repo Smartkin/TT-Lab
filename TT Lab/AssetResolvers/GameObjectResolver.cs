@@ -50,7 +50,8 @@ public class GameObjectResolver : AssetResolver<ITwinObject>
             
             var twinGameObject = gameObjectSection.GetItem<ITwinObject>(itemId);
 
-            twinGameObject.RefAnimations.ForEach(animRef => _animationResolver.CreateAssetFromId(chunk, animSection, package, animRef));
+            twinGameObject.RefAnimations.ForEach(animRef => _animationResolver.Collect(animSection, animRef));
+            twinGameObject.AnimationSlots.ForEach(animRef => _animationResolver.Collect(animSection, animRef));
             twinGameObject.RefOGIs.ForEach(ogiRef => _ogiResolver.CreateAssetFromId(chunk, ogiSection, package, ogiRef));
 
             foreach (var soundRef in twinGameObject.RefSounds)
@@ -94,6 +95,75 @@ public class GameObjectResolver : AssetResolver<ITwinObject>
         }
     }
 
+    // Objects and sounds that differ between chunks have a version for each, references to them get the one of the chunk being built
+    public List<LabURI> GetChunkVersions(ITwinSection chunk)
+    {
+        var code = chunk.GetItem<ITwinSection>(Constants.LEVEL_CODE_SECTION);
+        var objects = code.GetItem<ITwinSection>(Constants.CODE_GAME_OBJECTS_SECTION);
+        var versions = Enumerable.Range(0, objects.GetItemsAmount()).Select(i => GetResolvedUri(objects.GetItem<ITwinObject>(objects.GetItem(i).GetID()))).ToList();
+        foreach (var (sectionId, resolve) in SoundSections())
+        {
+            if (!code.ContainsItem((UInt32)sectionId))
+            {
+                continue;
+            }
+
+            var section = code.GetItem<ITwinSection>((UInt32)sectionId);
+            versions.AddRange(Enumerable.Range(0, section.GetItemsAmount()).Select(i => resolve(section, section.GetItem(i).GetID())));
+        }
+
+        return versions.OfType<LabURI>().Distinct().ToList();
+    }
+
+    private (Int32, Func<ITwinSection, UInt32, LabURI?>)[] SoundSections() =>
+    [
+        (Constants.CODE_SOUND_EFFECTS_SECTION, _soundResolver.GetResolvedUri<SoundEffect>),
+        (Constants.CODE_LANG_ENG_SECTION, _soundResolver.GetResolvedUri<SoundEffectEN>),
+        (Constants.CODE_LANG_FRE_SECTION, _soundResolver.GetResolvedUri<SoundEffectFR>),
+        (Constants.CODE_LANG_GER_SECTION, _soundResolver.GetResolvedUri<SoundEffectGR>),
+        (Constants.CODE_LANG_ITA_SECTION, _soundResolver.GetResolvedUri<SoundEffectIT>),
+        (Constants.CODE_LANG_SPA_SECTION, _soundResolver.GetResolvedUri<SoundEffectSP>),
+        (Constants.CODE_LANG_JPN_SECTION, _soundResolver.GetResolvedUri<SoundEffectJP>)
+    ];
+
+    // The game plays some of the startup chunk's sounds without any object referencing them
+    public List<MetaAsset> CreateUnreferencedSounds(ITwinSection chunk, Package package)
+    {
+        var code = chunk.GetItem<ITwinSection>(Constants.LEVEL_CODE_SECTION);
+        var objects = code.GetItem<ITwinSection>(Constants.CODE_GAME_OBJECTS_SECTION);
+        var referenced = Enumerable.Range(0, objects.GetItemsAmount()).Select(i => (ITwinObject)objects.GetItem(i))
+            .SelectMany(o => o.RefSounds.Concat(o.SoundSlots)).Select(id => (UInt32)id).ToHashSet();
+        var sounds = new List<MetaAsset?>();
+        foreach (var (sectionId, create) in new (Int32, Func<ITwinSection, UInt32, MetaAsset?>)[]
+                 {
+                     (Constants.CODE_SOUND_EFFECTS_SECTION, (section, id) => _soundResolver.CreateAssetFromId<SoundEffect>(section, package, id)),
+                     (Constants.CODE_LANG_ENG_SECTION, (section, id) => _soundResolver.CreateAssetFromId<SoundEffectEN>(section, package, id)),
+                     (Constants.CODE_LANG_FRE_SECTION, (section, id) => _soundResolver.CreateAssetFromId<SoundEffectFR>(section, package, id)),
+                     (Constants.CODE_LANG_GER_SECTION, (section, id) => _soundResolver.CreateAssetFromId<SoundEffectGR>(section, package, id)),
+                     (Constants.CODE_LANG_ITA_SECTION, (section, id) => _soundResolver.CreateAssetFromId<SoundEffectIT>(section, package, id)),
+                     (Constants.CODE_LANG_SPA_SECTION, (section, id) => _soundResolver.CreateAssetFromId<SoundEffectSP>(section, package, id)),
+                     (Constants.CODE_LANG_JPN_SECTION, (section, id) => _soundResolver.CreateAssetFromId<SoundEffectJP>(section, package, id))
+                 })
+        {
+            if (!code.ContainsItem((UInt32)sectionId))
+            {
+                continue;
+            }
+
+            var section = code.GetItem<ITwinSection>((UInt32)sectionId);
+            for (var i = 0; i < section.GetItemsAmount(); i++)
+            {
+                var id = section.GetItem(i).GetID();
+                if (!referenced.Contains(id))
+                {
+                    sounds.Add(create(section, id));
+                }
+            }
+        }
+
+        return sounds.OfType<MetaAsset>().ToList();
+    }
+
     protected override IAsset CreateAsset(ITwinSection chunk, Package package, ITwinObject item, bool needVariant, string variant)
     {
         return new GameObject(package.URI, needVariant, variant, item.GetID(), item.GetName(), item, _starterMap);
@@ -101,9 +171,8 @@ public class GameObjectResolver : AssetResolver<ITwinObject>
 
     public override void FinalizeResolve()
     {
-        _animationResolver.FinalizeResolve();
         _ogiResolver.FinalizeResolve();
-        _ogiResolver.AddAnimationLinks(_ogiToAnimations);
+        _ogiResolver.AddAnimations(_ogiToAnimations);
         _soundResolver.FinalizeResolve();
         
         base.FinalizeResolve();

@@ -72,28 +72,47 @@ public class SoundEffect : SerializableAsset
 
     public override void ResolveChunkResources(ITwinItemFactory factory, ITwinSection section)
     {
-        if (!IsLoaded || AssetData.Disposed)
+        if (OverrideViewOf(factory) is { } view)
         {
-            AssetData = GetData();
+            view.ResolveChunkResources(factory, section);
+            return;
         }
 
-        var item = AssetData.ResolveChunkResources(factory, section, ID) as ITwinSound;
-        item?.SetID(ID);
-        item?.Compile();
-        if (item != null)
+        if (ChunkVersionOf(factory) is { } version)
         {
-            var soundData = (SoundEffectData)AssetData;
-            item.Header = Header;
-            item.UnkFlag = UnkFlag;
-            item.SetFreq((UInt16)soundData.GetFrequency());
-            item.Param1 = Param1;
-            item.Param2 = Param2;
-            item.Param3 = Param3;
-            item.Param4 = Param4;
-            item.SetDataFromPCM(soundData.GetPcm());
+            version.ResolveChunkResources(factory, section);
+            return;
         }
 
-        AssetData.Dispose();
+        if (!factory.Resolution.Begin(this, section))
+        {
+            return;
+        }
+
+        try
+        {
+            var soundData = (SoundEffectData)GetData();
+            var item = soundData.ResolveChunkResources(factory, section, ID) as ITwinSound;
+            item?.SetID(ID);
+            item?.Compile();
+            if (item != null)
+            {
+                item.Header = Header;
+                item.UnkFlag = UnkFlag;
+                item.SetFreq((UInt16)soundData.GetFrequency());
+                item.Param1 = Param1;
+                item.Param2 = Param2;
+                item.Param3 = Param3;
+                item.Param4 = Param4;
+                item.SetDataFromPCM(soundData.GetPcm());
+            }
+
+            DisposeData();
+        }
+        finally
+        {
+            factory.Resolution.End(this, section);
+        }
     }
 
     public override AbstractAssetData GetData()

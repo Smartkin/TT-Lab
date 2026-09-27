@@ -1,0 +1,40 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewModels="clr-namespace:TT_Lab.ViewModels"
+             x:DataType="viewModels:HistoryViewModel"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="300"
+             Focusable="True"
+             x:Class="TT_Lab.Views.HistoryView">
+    <UserControl.KeyBindings>
+        <KeyBinding Command="{Binding UndoCommand}" Gesture="Ctrl+Z"/>
+        <KeyBinding Command="{Binding RedoCommand}" Gesture="Ctrl+Y"/>
+        <KeyBinding Command="{Binding RedoCommand}" Gesture="Ctrl+Shift+Z"/>
+    </UserControl.KeyBindings>
+    <Grid>
+        <TextBlock Text="Work in an editor to see what it changed, every editor keeps its own history" TextWrapping="Wrap" Margin="10" Opacity="0.7"
+                   IsVisible="{Binding Document, Converter={x:Static ObjectConverters.IsNull}}"/>
+        <DockPanel IsVisible="{Binding Document, Converter={x:Static ObjectConverters.IsNotNull}}">
+            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="4" Margin="4">
+                <Button Content="Undo" Command="{Binding UndoCommand}" IsEnabled="{Binding Document.CanUndo, FallbackValue=False}" ToolTip.Tip="Ctrl+Z"/>
+                <Button Content="Redo" Command="{Binding RedoCommand}" IsEnabled="{Binding Document.CanRedo, FallbackValue=False}" ToolTip.Tip="Ctrl+Y or Ctrl+Shift+Z"/>
+                <TextBlock VerticalAlignment="Center" Margin="6, 0, 0, 0" Opacity="0.7" Text="Pick a step to go back or forward to it, branches stay after undoing"/>
+            </StackPanel>
+            <ListBox x:Name="EntriesList" ItemsSource="{Binding Entries}" SelectedItem="{Binding SelectedEntry}">
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="viewModels:HistoryEntry">
+                        <DockPanel Opacity="{Binding Opacity}" ToolTip.Tip="{Binding Tip}" Background="Transparent">
+                            <TextBlock DockPanel.Dock="Right" Text="{Binding Time}" Opacity="0.6" Margin="10, 0, 0, 0" VerticalAlignment="Center"/>
+                            <TextBlock DockPanel.Dock="Right" Text="saved" Opacity="0.6" Margin="10, 0, 0, 0" VerticalAlignment="Center" FontStyle="Italic"
+                                       IsVisible="{Binding IsSaved}"/>
+                            <TextBlock DockPanel.Dock="Left" Text="{Binding Marker}" Width="14" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding Description}" Margin="{Binding Indent, Converter={x:Static viewModels:HistoryViewModel.IndentConverter}}"
+                                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                        </DockPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </DockPanel>
+    </Grid>
+</UserControl>

@@ -8,7 +8,6 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.RMX.Code
     public class XboxAnySound : BaseTwinItem, ITwinSound
     {
         UInt32 frequency;
-        UInt32 unkInt;
 
         public UInt32 Header { get; set; }
         public Byte UnkFlag { get; set; }
@@ -24,7 +23,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.RMX.Code
 
         public override Int32 GetLength()
         {
-            return 0x50 + Sound.Length;
+            return 0x4C + Sound.Length;
         }
 
         public override void Read(BinaryReader reader, Int32 length)
@@ -32,9 +31,8 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.RMX.Code
             Header = reader.ReadUInt32();
             frequency = reader.ReadUInt32();
             reader.ReadBytes(headerStatic1.Length + headerStatic2.Length + 8);
+            // 16 bit PCM samples
             var soundSize = reader.ReadInt32();
-            unkInt = reader.ReadUInt32();
-            soundSize -= 4;
             Sound = reader.ReadBytes(soundSize);
             reader.ReadBytes(8); // SoundSize and zero
         }
@@ -47,10 +45,9 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.RMX.Code
             writer.Write(frequency);
             writer.Write(frequency * 2);
             writer.Write(headerStatic2);
-            writer.Write(Sound.Length + 4);
-            writer.Write(unkInt);
+            writer.Write(Sound.Length);
             writer.Write(Sound);
-            writer.Write(Sound.Length + 4);
+            writer.Write(Sound.Length);
             writer.Write(0U);
         }
 

@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Caliburn.Micro;
@@ -14,6 +16,18 @@ namespace TT_Lab;
 
 public static class DependencyInjection
 {
+    private static readonly HashSet<Type> SingletonViewModels =
+    [
+        typeof(LogViewModel),
+        typeof(ProjectTreeViewModel),
+        typeof(ChunkResourcesViewModel),
+        typeof(ChunkInspectorViewModel),
+        typeof(HistoryViewModel),
+        typeof(ScenesEditorsViewModel),
+        typeof(ResourcesEditorsViewModel),
+        typeof(EditorsViewModel)
+    ];
+
     public static IServiceCollection RegisterAllViewsAndViewModels(this IServiceCollection services)
     {
         Locator.CurrentMutable.RegisterViewsForViewModels(Assembly.GetCallingAssembly());
@@ -35,9 +49,9 @@ public static class DependencyInjection
                         return;
                     }
 
-                    if (viewModelType == typeof(LogViewModel))
+                    if (SingletonViewModels.Contains(viewModelType))
                     {
-                        services.AddSingleton<LogViewModel>();
+                        services.AddSingleton(viewModelType);
                         return;
                     }
                         

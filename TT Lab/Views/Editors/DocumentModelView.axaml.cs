@@ -1,4 +1,6 @@
+using System;
 using System.Reactive.Disposables;
+using System.Reactive.Linq;
 using System.Reactive.Disposables.Fluent;
 using Avalonia;
 using Avalonia.Controls;
@@ -21,6 +23,11 @@ public partial class DocumentModelView : DocumentBaseView<DocumentModelViewModel
         this.OneWayBind(ViewModel, viewModel => viewModel.Nodes,
             view => view.EditorsContainer.ItemsSource).DisposeWith(disposables);
 
+        this.WhenAnyValue(view => view.ViewModel!.ScrollRequest)
+            .WhereNotNull()
+            .Subscribe(_ => BringNodeIntoView(EditorsContainer, ViewModel!.Nodes, ViewModel.TakeScrollRequest()))
+            .DisposeWith(disposables);
+
         this.OneWayBind(ViewModel, viewModel => viewModel.Constructors,
             view => view.ConstructibleTypesContainer.ItemsSource).DisposeWith(disposables);
     }
@@ -29,4 +36,6 @@ public partial class DocumentModelView : DocumentBaseView<DocumentModelViewModel
     {
         ConstructNewInstance.Flyout?.Hide();
     }
+
+    private void Caption_OnContextRequested(object? sender, Avalonia.Controls.ContextRequestedEventArgs e) => OverrideMenu.Show(sender, e);
 }

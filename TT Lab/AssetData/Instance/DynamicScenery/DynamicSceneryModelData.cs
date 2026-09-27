@@ -2,9 +2,10 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.Json.Nodes;
 using GlmSharp;
-using SharpGLTF.Schema2;
 using TT_Lab.AssetData.Graphics;
+using TT_Lab.AssetData.Graphics.TlModel;
 using TT_Lab.Assets;
 using TT_Lab.Attributes;
 using TT_Lab.Extensions;
@@ -12,7 +13,6 @@ using TT_Lab.Util;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Common.DynamicScenery;
 using Twinsanity.TwinsanityInterchange.Common.Animation;
-using Vortice.Mathematics;
 using AnimatedTransformation = Twinsanity.TwinsanityInterchange.Common.DynamicScenery.AnimatedTransformation;
 using Mesh = TT_Lab.Assets.Graphics.Mesh;
 using Transformation = Twinsanity.TwinsanityInterchange.Common.DynamicScenery.Transformation;
@@ -68,6 +68,138 @@ public class DynamicSceneryModelData
         }
     }
 
+    public const string TlmKind = "dynamic_model";
+
+    /// <summary>
+    /// The model as a node, its movement as the game has it next to every frame's translation and Euler angles, which Blender shows
+    /// </summary>
+    public JsonObject WriteTlmNode(TlmFile file, TlmMaterials materials, Int32 order)
+    {
+        var node = TlmNodes.Create(TlmKind, $"Dynamic Model {order}", new JsonObject
+        {
+            ["Order"] = order,
+            ["LodFlag"] = (Int32)LodFlag,
+            ["BoundingBoxMin"] = TlmJson.ToJson(BoundingBox[0]),
+            ["BoundingBoxMax"] = TlmJson.ToJson(BoundingBox[1]),
+            ["Collisions"] = new JsonArray(BoundingBoxBuilders.Select(builder => (JsonNode)new JsonObject
+            {
+                ["Points"] = TlmJson.ToJson(builder.BoundingBoxPoints.SelectMany(v => new[] { v.X, v.Y, v.Z, v.W })),
+                ["UnkVectors1"] = TlmJson.ToJson(builder.UnkVectors1.SelectMany(v => new[] { v.X, v.Y, v.Z, v.W })),
+                ["UnkVectors2"] = TlmJson.ToJson(builder.UnkVectors2.SelectMany(v => new[] { v.X, v.Y, v.Z, v.W })),
+                ["UnkVectors3"] = TlmJson.ToJson(builder.UnkVectors3.SelectMany(v => new[] { v.X, v.Y, v.Z, v.W })),
+                ["UnkShorts"] = TlmJson.ToJson(builder.UnkShorts.Select(v => (Int32)v)),
+                ["UnkBytes1"] = TlmJson.ToJson(builder.UnkBytes1.Select(v => (Int32)v)),
+                ["UnkBytes2"] = TlmJson.ToJson(builder.UnkBytes2.Select(v => (Int32)v))
+            }).ToArray())
+        });
+        var assetManager = AssetManager.Get();
+        if (Mesh != LabURI.Empty && assetManager.DoesAssetExist(Mesh))
+        {
+            node[TlmNodes.MeshKey] = assetManager.GetAssetData<MeshData>(Mesh).WriteTlmMesh(file, materials);
+        }
+
+        using var stream = new MemoryStream();
+        using var writer = new BinaryWriter(stream);
+        Animation.Write(writer);
+        writer.Flush();
+        var translations = new List<Single>();
+        var rotations = new List<Single>();
+        for (var frame = 0; frame < AnimatedFrames; frame++)
+        {
+            var (translation, rotation) = GetValues(frame);
+            translations.AddRange([translation.X, translation.Y, translation.Z]);
+            rotations.AddRange([rotation.X, rotation.Y, rotation.Z]);
+        }
+
+        node["animation"] = new JsonObject
+        {
+            ["frames"] = AnimatedFrames,
+            ["exact"] = file.Write(stream.ToArray().AsSpan()),
+            ["translation"] = file.Write(translations),
+            ["rotation"] = file.Write(rotations)
+        };
+        return node;
+    }
+
+    /// <summary>
+    /// Reads a dynamic model from its node, its movement stays as the game had it while the node's keys are its values
+    /// </summary>
+    public static DynamicSceneryModelData FromTlm(TlmFile file, TlmTreeNode node)
+    {
+        var data = node.Data;
+        var result = new DynamicSceneryModelData
+        {
+            LodFlag = (Byte)data.GetInt("LodFlag"),
+            BoundingBox = [data.GetVector4("BoundingBoxMin", new Vector4(0, 0, 0, 1)), data.GetVector4("BoundingBoxMax", new Vector4(10, 10, 10, 1))],
+            BoundingBoxBuilders = data.GetIndexed("Collisions").Select(collision => new TwinBoundingBoxBuilder
+            {
+                BoundingBoxPoints = ToVectors(collision.GetFloats("Points")),
+                UnkVectors1 = ToVectors(collision.GetFloats("UnkVectors1")),
+                UnkVectors2 = ToVectors(collision.GetFloats("UnkVectors2")),
+                UnkVectors3 = ToVectors(collision.GetFloats("UnkVectors3")),
+                UnkShorts = collision.GetInts("UnkShorts").Select(v => (UInt16)v).ToList(),
+                UnkBytes1 = collision.GetInts("UnkBytes1").Select(v => (Byte)v).ToList(),
+                UnkBytes2 = collision.GetInts("UnkBytes2").Select(v => (Byte)v).ToList()
+            }).ToList()
+        };
+
+        if (node.Json["animation"] is not JsonObject animation)
+        {
+            return result;
+        }
+
+        var frames = animation.GetInt("frames");
+        var translations = file.Read<Single>(animation["translation"]);
+        var rotations = file.Read<Single>(animation["rotation"]);
+        var exact = file.Read<Byte>(animation["exact"]);
+        if (exact.Length > 0)
+        {
+            using var stream = new MemoryStream(exact);
+            using var reader = new BinaryReader(stream);
+            result.Animation = new TwinDynamicSceneryAnimation();
+            result.Animation.Read(reader, exact.Length);
+            result.AnimatedFrames = frames;
+            if (translations.Length == frames * 3 && rotations.Length == frames * 3 && result.HasKeys(translations, rotations))
+            {
+                return result;
+            }
+        }
+
+        if (translations.Length >= frames * 3 && rotations.Length >= frames * 3)
+        {
+            result.ReadAnimationFromKeys(frames, translations, rotations);
+        }
+
+        return result;
+    }
+
+    // Whether the keys are the values of every frame of the movement, Blender keeps them exactly
+    private Boolean HasKeys(Single[] translations, Single[] rotations)
+    {
+        for (var frame = 0; frame < AnimatedFrames; frame++)
+        {
+            var (translation, rotation) = GetValues(frame);
+            if (translation != new System.Numerics.Vector3(translations[frame * 3], translations[frame * 3 + 1], translations[frame * 3 + 2]) ||
+                rotation != new System.Numerics.Vector3(rotations[frame * 3], rotations[frame * 3 + 1], rotations[frame * 3 + 2]))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static List<Vector4> ToVectors(Single[] values)
+    {
+        var result = new List<Vector4>();
+        for (var i = 0; i + 3 < values.Length; i += 4)
+        {
+            result.Add(new Vector4(values[i], values[i + 1], values[i + 2], values[i + 3]));
+        }
+
+        return result;
+    }
+
     public List<DynamicModelAnimationSample> GetAnimationSamples()
     {
         var result = new List<DynamicModelAnimationSample>();
@@ -80,14 +212,15 @@ public class DynamicSceneryModelData
         return result;
     }
 
-    private Enums.TransformType IsPropertyAnimated(List<(float, float)> propertyTimeline)
+    private static Enums.TransformType IsPropertyAnimated(List<Single> values)
     {
-        return propertyTimeline.All(tuple => Math.Abs(tuple.Item2 - propertyTimeline[0].Item2) < 0.000001)
-            ? Enums.TransformType.Static
-            : Enums.TransformType.Animated;
+        return values.All(value => Math.Abs(value - values[0]) < 0.000001) ? Enums.TransformType.Static : Enums.TransformType.Animated;
     }
 
-    public void ReadAnimationFromGltf(NodeCurveSamplers gltfAnimation)
+    /// <summary>
+    /// Makes the movement out of the translation and Euler angles of every frame, the ones that never change are stored once
+    /// </summary>
+    public void ReadAnimationFromKeys(Int32 frames, Single[] translations, Single[] rotations)
     {
         Animation = new TwinDynamicSceneryAnimation();
         var settings = new DynamicModelSettings
@@ -98,143 +231,33 @@ public class DynamicSceneryModelData
             AnimationTransformationIndex = 0
         };
         Animation.ModelSettings.Add(settings);
-        var translations = gltfAnimation.Translation.GetLinearKeys().ToList();
-        var rotations = gltfAnimation.Rotation.GetLinearKeys().ToList();
-        var rotationsEuler = rotations.Select(tuple => (tuple.Key, tuple.Value.ToEuler())).ToList();
-        AnimatedFrames = translations.Count;
-        Animation.TotalFrames = (ushort)AnimatedFrames;
-
-        var translationsX = translations.Select(tuple => (tuple.Key, tuple.Value.X)).ToList();
-        var translationsY = translations.Select(tuple => (tuple.Key, tuple.Value.Y)).ToList();
-        var translationsZ = translations.Select(tuple => (tuple.Key, tuple.Value.Z)).ToList();
-        var rotationsX = rotationsEuler.Select(tuple => (tuple.Key, tuple.Item2.X)).ToList();
-        var rotationsY = rotationsEuler.Select(tuple => (tuple.Key, tuple.Item2.Y)).ToList();
-        var rotationsZ = rotationsEuler.Select(tuple => (tuple.Key, tuple.Item2.Z)).ToList();
-        settings.TranslateX = IsPropertyAnimated(translationsX);
-        settings.TranslateY = IsPropertyAnimated(translationsY);
-        settings.TranslateZ = IsPropertyAnimated(translationsZ);
-        settings.RotateX = IsPropertyAnimated(rotationsX);
-        settings.RotateY = IsPropertyAnimated(rotationsY);
-        settings.RotateZ = IsPropertyAnimated(rotationsZ);
+        AnimatedFrames = frames;
+        Animation.TotalFrames = (UInt16)frames;
+        var channels = Enumerable.Range(0, 6).Select(channel => Enumerable.Range(0, frames)
+            .Select(frame => channel < 3 ? translations[frame * 3 + channel] : rotations[frame * 3 + channel - 3]).ToList()).ToList();
+        var choices = channels.Select(values => values.Count == 0 ? Enums.TransformType.Static : IsPropertyAnimated(values)).ToArray();
+        settings.TranslateX = choices[0];
+        settings.TranslateY = choices[1];
+        settings.TranslateZ = choices[2];
+        settings.RotateX = choices[3];
+        settings.RotateY = choices[4];
+        settings.RotateZ = choices[5];
         settings.RotateW = Enums.TransformType.Static;
-
-        ushort animatedPropertiesAmount = 0;
-        
-        if (settings.TranslateX == Enums.TransformType.Static)
+        for (var channel = 0; channel < channels.Count; channel++)
         {
-            Animation.StaticTransformations.Add(new Transformation
+            if (choices[channel] == Enums.TransformType.Static)
             {
-                Value = translationsX[0].X
-            });
-        }
-        else
-        {
-            animatedPropertiesAmount++;
-        }
-
-        if (settings.TranslateY == Enums.TransformType.Static)
-        {
-            Animation.StaticTransformations.Add(new Transformation
-            {
-                Value = translationsY[0].Y
-            });
-        }
-        else
-        {
-            animatedPropertiesAmount++;
-        }
-
-        if (settings.TranslateZ == Enums.TransformType.Static)
-        {
-            Animation.StaticTransformations.Add(new Transformation
-            {
-                Value = translationsZ[0].Z
-            });
-        }
-        else
-        {
-            animatedPropertiesAmount++;
-        }
-
-        if (settings.RotateX == Enums.TransformType.Static)
-        {
-            Animation.StaticTransformations.Add(new Transformation
-            {
-                Value = rotationsX[0].X
-            });
-        }
-        else
-        {
-            animatedPropertiesAmount++;
-        }
-
-        if (settings.RotateY == Enums.TransformType.Static)
-        {
-            Animation.StaticTransformations.Add(new Transformation
-            {
-                Value = rotationsY[0].Y
-            });
-        }
-        else
-        {
-            animatedPropertiesAmount++;
-        }
-
-        if (settings.RotateZ == Enums.TransformType.Static)
-        {
-            Animation.StaticTransformations.Add(new Transformation
-            {
-                Value = rotationsZ[0].Z
-            });
-        }
-        else
-        {
-            animatedPropertiesAmount++;
-        }
-        
-        Animation.StaticTransformations.Add(new Transformation
-        {
-            Value = 1.0f
-        });
-
-        for (var i = 0; i < AnimatedFrames; i++)
-        {
-            var transformIndex = 0;
-            Animation.AnimatedTransformations.Add(new AnimatedTransformation(animatedPropertiesAmount));
-            for (var j = 0; j < animatedPropertiesAmount; j++)
-            {
-                Animation.AnimatedTransformations[i].TransformationValues.Add(0.0f);
+                Animation.StaticTransformations.Add(new Transformation { Value = channels[channel].FirstOrDefault() });
             }
+        }
 
-            if (settings.TranslateX == Enums.TransformType.Animated)
-            {
-                Animation.AnimatedTransformations[i].TransformationValues[transformIndex++] = translationsX[i].X;
-            }
-            
-            if (settings.TranslateY == Enums.TransformType.Animated)
-            {
-                Animation.AnimatedTransformations[i].TransformationValues[transformIndex++] = translationsY[i].Y;
-            }
-            
-            if (settings.TranslateZ == Enums.TransformType.Animated)
-            {
-                Animation.AnimatedTransformations[i].TransformationValues[transformIndex++] = translationsZ[i].Z;
-            }
-
-            if (settings.RotateX == Enums.TransformType.Animated)
-            {
-                Animation.AnimatedTransformations[i].TransformationValues[transformIndex++] = rotationsX[i].X;
-            }
-
-            if (settings.RotateY == Enums.TransformType.Animated)
-            {
-                Animation.AnimatedTransformations[i].TransformationValues[transformIndex++] = rotationsY[i].Y;
-            }
-
-            if (settings.RotateZ == Enums.TransformType.Animated)
-            {
-                Animation.AnimatedTransformations[i].TransformationValues[transformIndex] = rotationsZ[i].Z;
-            }
+        Animation.StaticTransformations.Add(new Transformation { Value = 1.0f });
+        var animated = Enumerable.Range(0, channels.Count).Where(channel => choices[channel] == Enums.TransformType.Animated).ToList();
+        for (var frame = 0; frame < frames; frame++)
+        {
+            var transformation = new AnimatedTransformation((UInt16)animated.Count);
+            transformation.TransformationValues.AddRange(animated.Select(channel => channels[channel][frame]));
+            Animation.AnimatedTransformations.Add(transformation);
         }
     }
 
@@ -259,98 +282,37 @@ public class DynamicSceneryModelData
     private DynamicModelAnimationSample GetTransformFromAnimation(int frame)
     {
         var sampleTime = frame / 25.0f;
-        if (Animation.ModelSettings.Count <= 0)
-        {
-            return new DynamicModelAnimationSample
-            {
-                Translation = (sampleTime, System.Numerics.Vector3.Zero),
-                Rotation = (sampleTime, System.Numerics.Quaternion.Identity),
-            };
-        }
-        
-        var model = Animation.ModelSettings[0];
-        var staticIndex = model.StaticTransformationIndex;
-        var animatedIndexCurrentFrame = model.AnimationTransformationIndex;
-        var currentTranslation = new System.Numerics.Vector3();
-        var currentRotation = new vec4();
-        var transformChoiceX = model.TranslateX;
-        var transformChoiceY = model.TranslateY;
-        var transformChoiceZ = model.TranslateZ;
-        var rotationChoiceX = model.RotateX;
-        var rotationChoiceY = model.RotateY;
-        var rotationChoiceZ = model.RotateZ;
-        var rotationChoiceW = model.RotateW;
-        if (transformChoiceX == Enums.TransformType.Animated)
-        {
-            currentTranslation.X = Animation.AnimatedTransformations[frame]
-                .TransformationValues[animatedIndexCurrentFrame++];
-        }
-        else
-        {
-            currentTranslation.X = Animation.StaticTransformations[staticIndex++].Value;
-        }
-        
-        if (transformChoiceY == Enums.TransformType.Animated)
-        {
-            currentTranslation.Y = Animation.AnimatedTransformations[frame]
-                .TransformationValues[animatedIndexCurrentFrame++];
-        }
-        else
-        {
-            currentTranslation.Y = Animation.StaticTransformations[staticIndex++].Value;
-        }
-        
-        if (transformChoiceZ == Enums.TransformType.Animated)
-        {
-            currentTranslation.Z = Animation.AnimatedTransformations[frame]
-                .TransformationValues[animatedIndexCurrentFrame++];
-        }
-        else
-        {
-            currentTranslation.Z = Animation.StaticTransformations[staticIndex++].Value;
-        }
-
-        if (rotationChoiceX == Enums.TransformType.Animated)
-        {
-            currentRotation.x = (Animation.AnimatedTransformations[frame].TransformationValues[animatedIndexCurrentFrame++]);
-        }
-        else
-        {
-            currentRotation.x = (Animation.StaticTransformations[staticIndex++].Value);
-        }
-        
-        if (rotationChoiceY == Enums.TransformType.Animated)
-        {
-            currentRotation.y = (Animation.AnimatedTransformations[frame].TransformationValues[animatedIndexCurrentFrame++]);
-        }
-        else
-        {
-            currentRotation.y = (Animation.StaticTransformations[staticIndex++].Value);
-        }
-        
-        if (rotationChoiceZ == Enums.TransformType.Animated)
-        {
-            currentRotation.z = (Animation.AnimatedTransformations[frame].TransformationValues[animatedIndexCurrentFrame++]);
-        }
-        else
-        {
-            currentRotation.z = (Animation.StaticTransformations[staticIndex++].Value);
-        }
-        
-        if (rotationChoiceW == Enums.TransformType.Animated)
-        {
-            currentRotation.w = (Animation.AnimatedTransformations[frame].TransformationValues[animatedIndexCurrentFrame]);
-        }
-        else
-        {
-            currentRotation.w = (Animation.StaticTransformations[staticIndex].Value);
-        }
-
-        var quat = new quat(currentRotation.xyz);
+        var (translation, rotation) = GetValues(frame);
+        var quat = new quat(new vec3(rotation.X, rotation.Y, rotation.Z));
         return new DynamicModelAnimationSample
         {
-            Translation = (sampleTime, currentTranslation),
+            Translation = (sampleTime, translation),
             Rotation = (sampleTime, new System.Numerics.Quaternion(quat.x, quat.y, quat.z, quat.w)),
         };
+    }
+
+    /// <summary>
+    /// Translation and Euler angles of a frame
+    /// </summary>
+    private (System.Numerics.Vector3 Translation, System.Numerics.Vector3 Rotation) GetValues(Int32 frame)
+    {
+        if (Animation.ModelSettings.Count <= 0)
+        {
+            return (System.Numerics.Vector3.Zero, System.Numerics.Vector3.Zero);
+        }
+
+        var model = Animation.ModelSettings[0];
+        var staticIndex = model.StaticTransformationIndex;
+        var animatedIndex = model.AnimationTransformationIndex;
+        var choices = new[] { model.TranslateX, model.TranslateY, model.TranslateZ, model.RotateX, model.RotateY, model.RotateZ };
+        var values = new Single[choices.Length];
+        for (var channel = 0; channel < choices.Length; channel++)
+        {
+            values[channel] = choices[channel] == Enums.TransformType.Animated
+                ? Animation.AnimatedTransformations[frame].TransformationValues[animatedIndex++]
+                : Animation.StaticTransformations[staticIndex++].Value;
+        }
+
+        return (new System.Numerics.Vector3(values[0], values[1], values[2]), new System.Numerics.Vector3(values[3], values[4], values[5]));
     }
 }

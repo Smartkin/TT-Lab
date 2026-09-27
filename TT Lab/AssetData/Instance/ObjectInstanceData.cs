@@ -70,6 +70,7 @@ public class ObjectInstanceData : AbstractAssetData
     
     [JsonProperty(Required = Required.Always)]
     [Editable]
+    [OnReferenceDeleted(DeletedReferenceAction.Remove)]
     public List<LabURI> Instances { get; set; }
     
     [JsonProperty(Required = Required.Always)]
@@ -77,6 +78,7 @@ public class ObjectInstanceData : AbstractAssetData
     
     [JsonProperty(Required = Required.Always)]
     [Editable]
+    [OnReferenceDeleted(DeletedReferenceAction.Remove)]
     public List<LabURI> Positions { get; set; }
     
     [JsonProperty(Required = Required.Always)]
@@ -84,6 +86,7 @@ public class ObjectInstanceData : AbstractAssetData
     
     [JsonProperty(Required = Required.Always)]
     [Editable]
+    [OnReferenceDeleted(DeletedReferenceAction.Remove)]
     public List<LabURI> Paths { get; set; }
     
     [JsonProperty(Required = Required.Always)]
@@ -96,6 +99,7 @@ public class ObjectInstanceData : AbstractAssetData
     
     [JsonProperty(Required = Required.Always)]
     [Editable]
+    [OnReferenceDeleted(DeletedReferenceAction.Clear)]
     public LabURI OnSpawnScriptId { get; set; }
     
     [JsonProperty(Required = Required.Always)]
@@ -265,7 +269,9 @@ public class ObjectInstanceData : AbstractAssetData
         PropertyNode property)
     {
         var assetManager = AssetManager.Get();
-        var objData = assetManager.GetAssetData<GameObjectData>(ObjectId);
+        // A chunk's document shows its own version of an object it shares with other chunks
+        var objectAsset = property.Find($"[data].AssetData.{nameof(ObjectId)}[data]")?.Target as IAsset ?? assetManager.GetAsset(ObjectId);
+        var objData = objectAsset.GetData<GameObjectData>();
         Renderable visual;
         var size = vec3.Ones * 0.5f;
         var offset = -vec3.Ones * 0.25f;
@@ -273,60 +279,30 @@ public class ObjectInstanceData : AbstractAssetData
         {
             visual = viewportContext.RenderContext.MeshService.GetMesh(LabURI.Box).Model!;
             visual.Scale(vec3.Ones * 0.5f);
+            size = vec3.Ones;
+            offset = -vec3.Ones * 0.5f;
         }
         else
         {
             var ogiUri = objData.OGISlots.First(ogiUri => ogiUri != LabURI.Empty);
             var ogiData = assetManager.GetAssetData<OGIData>(ogiUri);
             visual = new OGI(viewportContext.RenderContext, viewportContext.RenderContext.SkeletonManager, viewportContext.RenderContext.MeshService, ogiData);
-            size = new vec3
-            {
-                x = ogiData.BoundingBox[1].X - ogiData.BoundingBox[0].X,
-                y = ogiData.BoundingBox[1].Y - ogiData.BoundingBox[0].Y,
-                z = ogiData.BoundingBox[1].Z - ogiData.BoundingBox[0].Z
-            };
-            offset = new vec3(ogiData.BoundingBox[0].X, ogiData.BoundingBox[0].Y, ogiData.BoundingBox[0].Z);
+            (offset, size) = ogiData.GetBounds();
         }
 
         var editableObject = new EditableObject(viewportContext.RenderContext, visual, Owner.FullDataPath, offset, size);
         editableObject.Init();
         editableObject.SetPosition(Position.ToGlm());
         editableObject.SetRotation(new quat(Rotation.ToRadiansGlm()));
-        property.Find($"[data].AssetData.{nameof(ObjectId)}")!.Changed += () =>
-        {
-            viewportContext.RenderContext.QueueRenderAction(() =>
-            {
-                editableObject.RemoveChild(visual);
-                var newObjectData = assetManager.GetAssetData<GameObjectData>(property.Find($"[data].AssetData.{nameof(ObjectId)}")!.GetValue<LabURI>()!);
-                if (newObjectData.OGISlots.All(ogiUri => ogiUri == LabURI.Empty))
-                {
-                    visual = viewportContext.RenderContext.MeshService.GetMesh(LabURI.Box).Model!;
-                    visual.Scale(vec3.Ones * 0.5f);
-                }
-                else
-                {
-                    var ogiUri = newObjectData.OGISlots.First(ogiUri => ogiUri != LabURI.Empty);
-                    var ogiData = assetManager.GetAssetData<OGIData>(ogiUri);
-                    visual = new OGI(viewportContext.RenderContext, viewportContext.RenderContext.SkeletonManager, viewportContext.RenderContext.MeshService, ogiData);
-                    size = new vec3
-                    {
-                        x = ogiData.BoundingBox[1].X - ogiData.BoundingBox[0].X,
-                        y = ogiData.BoundingBox[1].Y - ogiData.BoundingBox[0].Y,
-                        z = ogiData.BoundingBox[1].Z - ogiData.BoundingBox[0].Z
-                    };
-                    offset = new vec3(ogiData.BoundingBox[0].X, ogiData.BoundingBox[0].Y, ogiData.BoundingBox[0].Z);
-                }
-
-                editableObject.Size = size;
-                editableObject.Offset = offset;
-                editableObject.AddChild(visual);
-                visual.Diffuse = editableObject.Diffuse;
-            });
-        };
+        var objectProperty = property.Find($"[data].AssetData.{nameof(ObjectId)}");
         return [new ViewportObject(editableObject, $"INSTANCE_{property.Path}", property)
         {
             Position = property.Find($"[data].AssetData.{nameof(Position)}"),
             Rotation = property.Find($"[data].AssetData.{nameof(Rotation)}"),
+            Category = ViewportObjectCategory.Instances,
+            // A different object brings a different model, which is easier to make from scratch
+            RenderDependencies = objectProperty == null ? [] : [objectProperty],
+            Refresh = () => false,
         }];
     }
 }

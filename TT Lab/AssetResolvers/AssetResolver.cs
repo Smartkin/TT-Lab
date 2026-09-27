@@ -9,6 +9,7 @@ namespace TT_Lab.AssetResolvers;
 public abstract class AssetResolver<TTwinItem> : IAssetResolver where TTwinItem : ITwinItem
 {
     protected readonly Dictionary<string, uint> HashChecker = [];
+    private readonly Dictionary<string, LabURI> _uriByHash = [];
     protected readonly List<MetaAsset> Assets = [];
     
     public IAsset CreatedAsset { get; private set; }
@@ -31,9 +32,18 @@ public abstract class AssetResolver<TTwinItem> : IAssetResolver where TTwinItem 
         var needVariant = twinIdCollisions > 1;
         var labAsset = CreateAsset(chunk, package, twinItem, needVariant, ChunkPath);
         labAsset.RegenerateLinks();
+        _uriByHash[objectHash] = labAsset.URI;
         CreatedAsset = labAsset;
         Assets.Add(new MetaAsset(labAsset.URI, labAsset));
         return Assets[^1];
+    }
+
+    /// <summary>
+    /// The asset an item became, or the one an item with the same content became
+    /// </summary>
+    public LabURI? GetResolvedUri(TTwinItem item)
+    {
+        return _uriByHash.TryGetValue(GetTwinItemHash(item), out var uri) ? uri : null;
     }
 
     protected virtual bool IsAlreadyContained(string hash)

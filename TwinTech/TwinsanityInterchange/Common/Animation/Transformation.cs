@@ -20,7 +20,14 @@ namespace Twinsanity.TwinsanityInterchange.Common.Animation
             set => transformValue = (Int16)((UInt16.MaxValue + 1) * value / (16 * (float)Math.PI * 2));
         }
         
-        public Int16 PureValue => transformValue;
+        /// <summary>
+        /// Raw fixed point value as it's stored in the game's files
+        /// </summary>
+        public Int16 PureValue
+        {
+            get => transformValue;
+            set => transformValue = value;
+        }
 
         public Int32 GetLength()
         {

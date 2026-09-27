@@ -1,0 +1,26 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:composite="clr-namespace:TT_Lab.ViewModels.Composite"
+             x:DataType="composite:ResourceEditorTabViewModel"
+             x:CompileBindings="False"
+             Focusable="True"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Views.Composite.ResourceEditorTabView">
+    <!-- Focusable so clicking anywhere in the editor moves the focus into it, which the shortcuts need -->
+    <UserControl.KeyBindings>
+        <KeyBinding Command="{Binding SaveCommand}" Gesture="Ctrl+S"/>
+        <KeyBinding Command="{Binding CloseCommand}" Gesture="Ctrl+W"/>
+    </UserControl.KeyBindings>
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="2*"/>
+            <ColumnDefinition Width="5"/>
+            <ColumnDefinition Width="{Binding ViewportWidth}"/>
+        </Grid.ColumnDefinitions>
+        <ContentControl Grid.Column="0" Content="{Binding Document}"/>
+        <GridSplitter Grid.Column="1" IsVisible="{Binding HasViewport}" ShowsPreview="True"/>
+        <ContentControl Grid.Column="2" IsVisible="{Binding HasViewport}" Content="{Binding Viewport}"/>
+    </Grid>
+</UserControl>

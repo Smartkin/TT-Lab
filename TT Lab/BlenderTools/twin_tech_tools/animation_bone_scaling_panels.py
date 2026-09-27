@@ -16,57 +16,90 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import bpy
-import typing
-from .properties import NodeHasIndependentScaling
 
-class TTT_Panel:
-    bl_label = "Twin Tech Bone Scaling Per Animation"
+from . import flags
+
+
+def _active_armature(context):
+    armature_object = context.object
+    if armature_object is None or armature_object.type != "ARMATURE":
+        return None
+
+    return armature_object
+
+
+def _active_action(animated_object):
+    animation_data = animated_object.animation_data if animated_object is not None else None
+    return animation_data.action if animation_data is not None else None
+
+
+def _draw_flags(layout, joint, action, add_operator, read_operator):
+    box = layout.box()
+    if action is None:
+        box.label(text="No animation is playing", icon="INFO")
+    else:
+        box.label(text=f"Playing: {action.name}", icon="ACTION")
+        entry = flags.find_flags(joint, action.name)
+        if entry is None:
+            box.operator(add_operator, icon="ADD")
+        else:
+            box.prop(entry, "independent_scaling", text="Doesn't inherit parent's scale")
+            box.prop(entry, "uses_additional_rotation", text="Uses additional rotation")
+
+    entries = [entry for entry in getattr(joint, flags.FLAGS_PROPERTY) if entry.action is not None]
+    if len(entries) > 0:
+        column = layout.column(heading="Doesn't inherit parent's scale in")
+        for entry in entries:
+            column.prop(entry, "independent_scaling", text=entry.action.name)
+
+    layout.operator(read_operator, icon="FILE_REFRESH")
+
+
+class TTT_OT_AddAnimationFlags(bpy.types.Operator):
+    """Adds settings for the animation that is currently playing to the active bone"""
+
+    bl_idname = "ttt.add_animation_flags"
+    bl_label = "Add Current Animation"
+    bl_options = {"REGISTER", "UNDO"}
+
+    @classmethod
+    def poll(cls, context):
+        return context.bone is not None and _active_action(_active_armature(context)) is not None
+
+    def execute(self, context):
+        flags.get_or_add_flags(context.bone, _active_action(_active_armature(context)))
+        return {"FINISHED"}
+
+
+class TTT_OT_ReadAnimationFlags(bpy.types.Operator):
+    """Puts the per animation settings of every bone back the way the imported file had them"""
+
+    bl_idname = "ttt.read_animation_flags"
+    bl_label = "Reset To Imported"
+    bl_options = {"REGISTER", "UNDO"}
+
+    @classmethod
+    def poll(cls, context):
+        return _active_armature(context) is not None
+
+    def execute(self, context):
+        for bone in _active_armature(context).data.bones:
+            flags.reset_to_imported(bone)
+
+        return {"FINISHED"}
+
+
+class TTT_PT_AnimationBoneScalingPanel(bpy.types.Panel):
+    bl_label = "Twin Tech Bone Settings Per Animation"
+    bl_idname = "TTT_PT_AnimationBoneScalingPanel"
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
-    bl_category = "Twin Tech Tools"
-
-    def draw_per_animation_layout(self, layout: bpy.types.UILayout, object: typing.Any):
-        for item in object.NodeHasIndependentScaling.links:
-            row = layout.row()
-            row.prop(item, "independentScaling", text="Scales independently in " + item.animationLink.name)
-
-
-class TTT_PT_AnimationBoneScalingForBonePanel(TTT_Panel, bpy.types.Panel):
-    bl_idname = "TTT_PT_AnimationBoneScalingForBonePanel"
     bl_context = "bone"
 
     @classmethod
     def poll(cls, context):
-        return (context.bone is not None)
+        return context.bone is not None and _active_armature(context) is not None
 
     def draw(self, context):
-        layout = self.layout
-
-        super().draw_per_animation_layout(layout, context.bone)
-
-
-class TTT_PT_AnimationBoneScalingForMeshPanel(TTT_Panel, bpy.types.Panel):
-    bl_idname = "TTT_PT_AnimationBoneScalingForMeshPanel"
-    bl_context = "object"
-
-    @classmethod
-    def poll(cls, context):
-        return (context.object is not None and context.object.type == "MESH")
-
-    def draw(self, context):
-        layout = self.layout
-
-        super().draw_per_animation_layout(layout, context.object)
-
-class TTT_PT_AnimationBoneScalingForNodePanel(TTT_Panel, bpy.types.Panel):
-    bl_idname = "TTT_PT_AnimationBoneScalingForNodePanel"
-    bl_context = "object"
-
-    @classmethod
-    def poll(cls, context):
-        return (context.object is not None and context.object.type == "EMPTY") # Empty is a node
-
-    def draw(self, context):
-        layout = self.layout
-
-        super().draw_per_animation_layout(layout, context.object)
+        _draw_flags(self.layout, context.bone, _active_action(_active_armature(context)), TTT_OT_AddAnimationFlags.bl_idname,
+                    TTT_OT_ReadAnimationFlags.bl_idname)

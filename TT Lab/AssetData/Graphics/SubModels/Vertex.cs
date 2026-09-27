@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using Twinsanity.TwinsanityInterchange.Common;
 
@@ -102,6 +103,7 @@ public class Vertex : IEquatable<Vertex>
     }
 
     public bool HasNormals { get; private set; }
+    public static IEqualityComparer<Vertex> ExactComparer { get; } = new BitwiseComparer();
     public bool HasEmitColor { get; private set; }
     public bool AlphaBlendingBit { get; set; }
 
@@ -131,6 +133,94 @@ public class Vertex : IEquatable<Vertex>
                JointInfo.JointIndex3 == other.JointInfo.JointIndex3;
 
         static bool IsFloatEqual(float f1, float f2) => Math.Abs(f1 - f2) < 10e-9f;
+    }
+
+    // Everything the game stores for the vertex compared bit for bit, the connection flag belongs to where the vertex is in a strip so it's left out
+    private sealed class BitwiseComparer : IEqualityComparer<Vertex>
+    {
+        public Boolean Equals(Vertex? x, Vertex? y)
+        {
+            if (ReferenceEquals(x, y))
+            {
+                return true;
+            }
+
+            if (x is null || y is null)
+            {
+                return false;
+            }
+
+            return SameBits(x.Position, y.Position) && SameBits(x.UV, y.UV) && SameBits(x.Color, y.Color) &&
+                   x.Color.StoresColorWithAlphaBlend == y.Color.StoresColorWithAlphaBlend && x.AlphaBlendingBit == y.AlphaBlendingBit &&
+                   x.HasNormals == y.HasNormals && (!x.HasNormals || SameBits(x.Normal, y.Normal)) &&
+                   x.HasEmitColor == y.HasEmitColor && (!x.HasEmitColor || SameBits(x.EmitColor, y.EmitColor) && x.EmitColor.StoresColorWithAlphaBlend == y.EmitColor.StoresColorWithAlphaBlend) &&
+                   SameJoints(x.JointInfo, y.JointInfo);
+        }
+
+        public Int32 GetHashCode(Vertex vertex)
+        {
+            return HashCode.Combine(vertex.Position.GetBinaryX(), vertex.Position.GetBinaryY(), vertex.Position.GetBinaryZ(), vertex.UV.GetBinaryX(),
+                vertex.UV.GetBinaryY(), vertex.Color.GetBinaryX(), vertex.JointInfo.JointIndex1);
+        }
+
+        private static Boolean SameBits(Vector4 a, Vector4 b)
+        {
+            return a.GetBinaryX() == b.GetBinaryX() && a.GetBinaryY() == b.GetBinaryY() && a.GetBinaryZ() == b.GetBinaryZ() && a.GetBinaryW() == b.GetBinaryW();
+        }
+
+        private static Boolean SameJoints(VertexJointInfo a, VertexJointInfo b)
+        {
+            return BitConverter.SingleToUInt32Bits(a.Weight1) == BitConverter.SingleToUInt32Bits(b.Weight1) &&
+                   BitConverter.SingleToUInt32Bits(a.Weight2) == BitConverter.SingleToUInt32Bits(b.Weight2) &&
+                   BitConverter.SingleToUInt32Bits(a.Weight3) == BitConverter.SingleToUInt32Bits(b.Weight3) &&
+                   a.JointIndex1 == b.JointIndex1 && a.JointIndex2 == b.JointIndex2 && a.JointIndex3 == b.JointIndex3 &&
+                   a.WeightsAmount == b.WeightsAmount;
+        }
+    }
+
+    public Vertex Clone()
+    {
+        var clone = new Vertex(Position, Color, UV)
+        {
+            AlphaBlendingBit = AlphaBlendingBit,
+            JointInfo = new VertexJointInfo
+            {
+                Weight1 = JointInfo.Weight1,
+                Weight2 = JointInfo.Weight2,
+                Weight3 = JointInfo.Weight3,
+                JointIndex1 = JointInfo.JointIndex1,
+                JointIndex2 = JointInfo.JointIndex2,
+                JointIndex3 = JointInfo.JointIndex3,
+                WeightsAmount = JointInfo.WeightsAmount,
+                Connection = JointInfo.Connection
+            }
+        };
+        clone.Color.StoresColorWithAlphaBlend = Color.StoresColorWithAlphaBlend;
+        if (HasNormals)
+        {
+            clone.Normal = new Vector4(Normal);
+        }
+
+        if (HasEmitColor)
+        {
+            clone.EmitColor = new Vector4(EmitColor) { StoresColorWithAlphaBlend = EmitColor.StoresColorWithAlphaBlend };
+        }
+
+        return clone;
+    }
+
+    /// <summary>
+    /// The normal to light the vertex with, the game's normals aren't always normalized and some are zero
+    /// </summary>
+    public Vector4 GetUnitNormal()
+    {
+        var length = Normal.Length();
+        if (!HasNormals || length < 1e-6f || Single.IsNaN(length))
+        {
+            return new Vector4(0, 1, 0, 0);
+        }
+
+        return new Vector4(Normal.X / length, Normal.Y / length, Normal.Z / length, 0);
     }
 
     public override String ToString()

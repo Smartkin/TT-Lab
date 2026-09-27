@@ -4,7 +4,6 @@ using System.Numerics;
 using Caliburn.Micro;
 using System.Threading;
 using System.Threading.Tasks;
-using ImGuiNET;
 using Splat;
 using TT_Lab.AssetData.Graphics;
 using TT_Lab.Assets;
@@ -32,17 +31,6 @@ public class ModelViewModel : ResourceEditorViewModel
                 scene.AddChild(mesh.Model);
             }
 
-            var modelData = AssetManager.Get().GetAssetData<ModelData>(EditableResource);
-            renderer.RenderImgui += () =>
-            {
-                ImGui.Begin("Model Data");
-                ImGui.SetWindowPos(new Vector2(5, 5));
-                ImGui.SetWindowSize(new Vector2(150, 90));
-                ImGui.Text($"Vertexes {modelData.Vertexes.Sum(v => v.Count)}");
-                ImGui.Text($"Faces {modelData.Faces.Sum(f => f.Count)}");
-                ImGui.Text($"Meshes {modelData.Meshes.Count}");
-                ImGui.End();
-            };
         };
     }
 

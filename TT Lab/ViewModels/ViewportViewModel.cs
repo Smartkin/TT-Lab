@@ -1,59 +1,154 @@
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Reactive;
 using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
-using System.Reflection;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Windows;
 using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Media.Imaging;
-using Avalonia.Platform;
 using Avalonia.Threading;
-using Caliburn.Micro;
-using DynamicData;
 using GlmSharp;
-using ImGuiNET;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
 using Silk.NET.Input;
+using Silk.NET.Maths;
 using TT_Lab.AssetData;
 using TT_Lab.AssetData.Instance;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Assets.Instance;
-using TT_Lab.Attributes.Viewport;
 using TT_Lab.Controls;
 using TT_Lab.Extensions;
 using TT_Lab.Rendering;
 using TT_Lab.Rendering.Input;
 using TT_Lab.Rendering.Objects;
+using TT_Lab.Rendering.Objects.Gizmo;
 using TT_Lab.Rendering.Scene;
-using TT_Lab.Rendering.Services;
 using TT_Lab.ServiceProviders;
 using TT_Lab.Util;
 using TT_Lab.ViewModels.Editors;
+using TT_Lab.ViewModels.Editors.PropertyGraph;
 using TT_Lab.ViewModels.Interfaces;
-using TT_Lab.Views;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Action = System.Action;
-using Screen = Caliburn.Micro.Screen;
 using Vector2 = System.Numerics.Vector2;
 using Vector3 = Twinsanity.TwinsanityInterchange.Common.Vector3;
 
 namespace TT_Lab.ViewModels;
 
+/// <summary>
+/// Kind of viewport objects that can be shown or hidden from the toolbar
+/// </summary>
+public partial class ViewportLayerToggle : ReactiveObject
+{
+    [Reactive]
+    private bool _isShown;
+
+    public ViewportLayerToggle(string name, ViewportObjectCategory category, bool isShown)
+    {
+        Name = name;
+        Category = category;
+        _isShown = isShown;
+    }
+
+    public string Name { get; }
+    public ViewportObjectCategory Category { get; }
+}
+
+/// <summary>
+/// Step one kind of transform snaps to, typed in or picked from the presets
+/// </summary>
+public class SnapStep : ReactiveObject
+{
+    private float _value;
+    private string _text;
+
+    public SnapStep(float value, params float[] presets)
+    {
+        _value = value;
+        _text = Format(value);
+        Presets = presets.Select(Format).ToList();
+    }
+
+    public IReadOnlyList<string> Presets { get; }
+
+    public float Value
+    {
+        get => _value;
+        set
+        {
+            if (!(value > 0.0f) || !float.IsFinite(value) || _value == value)
+            {
+                return;
+            }
+
+            this.RaiseAndSetIfChanged(ref _value, value);
+            if (!TryParse(_text, out var typed) || typed != value)
+            {
+                _text = Format(value);
+                this.RaisePropertyChanged(nameof(Text));
+            }
+        }
+    }
+
+    // Text that isn't a positive number stays as it's typed without changing the step, turning it back while typing would fight the user
+    public string Text
+    {
+        get => _text;
+        set
+        {
+            this.RaiseAndSetIfChanged(ref _text, value);
+            if (TryParse(value, out var step))
+            {
+                Value = step;
+            }
+        }
+    }
+
+    public static string Format(float value)
+    {
+        return value.ToString("0.###", CultureInfo.CurrentCulture);
+    }
+
+    private static bool TryParse(string? text, out float value)
+    {
+        return (float.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out value) ||
+                float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value)) && value > 0.0f && float.IsFinite(value);
+    }
+}
+
 public partial class ViewportViewModel : ReactiveObject
 {
     [Reactive(SetModifier = AccessModifier.Private)]
     private ViewportObject? _selectedObject;
-    
-    private readonly SourceCache<ViewportObject, string> _editableObjects;
+
+    [Reactive(SetModifier = AccessModifier.Private)]
+    private TransformMode _activeTool = TransformMode.SELECTION;
+
+    [Reactive(SetModifier = AccessModifier.Private)]
+    private TransformLocality _transformSpace = TransformLocality.LOCAL;
+
+    [Reactive]
+    private bool _isSnapping;
+
+    [Reactive]
+    private bool _isGridShown = true;
+
+    // Where the selection is, shown in the viewport's corner
+    [Reactive(SetModifier = AccessModifier.Private)]
+    private string _selectionInfo = string.Empty;
+
+    // Tools that stand in for the chosen one when the selection can't be transformed that way, in the order they're tried
+    private static readonly TransformMode[] FallbackTools = [TransformMode.TRANSLATE, TransformMode.ROTATE, TransformMode.SCALE];
+
+    // Tool the user chose last, it's used again once something that can be transformed with it gets selected
+    private TransformMode _chosenTool = TransformMode.SELECTION;
+
+    // Replaced as a whole whenever objects come or go, so the UI thread can go through them while the render thread changes them
+    private ViewportObject[] _viewportObjects = [];
+    private readonly object _viewportObjectsLock = new();
     private Renderer? _renderer;
 
     private bool _isChunkViewport = false;
@@ -61,119 +156,145 @@ public partial class ViewportViewModel : ReactiveObject
     private IKeyboard? _keyboard;
     private IMouse? _mouse;
     private Scene? _scene;
-    private bool _renderInit;
-    private bool _canStartRenderingOnRenderCreation = false;
+    private volatile bool _renderInit;
     private bool _firstRender = true;
     private RenderContext? _renderContext;
     private EditingContext? _editingContext;
     private DocumentViewModel? _document;
     private ivec2 ViewportSize => _renderContext == null ? ivec2.Ones : new ivec2((int)_renderContext.ViewportSize.x, (int)_renderContext.ViewportSize.y);
     private readonly CompositeDisposable _closeDisposables = new();
-    private DrawFilter _drawFilter = DrawFilter.Scenery | DrawFilter.DynamicScenery | DrawFilter.Triggers |
-                                     DrawFilter.Positions | DrawFilter.Instances | DrawFilter.Cameras |
-                                     DrawFilter.Skybox | DrawFilter.LinkedScenery | DrawFilter.Particles;
+    private readonly FloorGrid _floorGrid = new();
 
-    [Flags]
-    private enum DrawFilter
-    {
-        Disabled = 0,
-        Scenery = 1 << 0,
-        Collision = 1 << 1,
-        Instances = 1 << 2,
-        Positions = 1 << 3,
-        Triggers = 1 << 4,
-        Cameras = 1 << 5,
-        Skybox = 1 << 6,
-        Paths = 1 << 7,
-        AiPositions = 1 << 8,
-        AiPaths = 1 << 9,
-        DynamicScenery = 1 << 10,
-        Lighting = 1 << 11,
-        LinkedScenery = 1 << 12,
-        Particles = 1 << 13
-    }
+    // Viewers of a single model turn the camera around the model instead of flying it
+    private readonly OrbitCamera _orbit = new();
+    private vec3 _modelMin = new(float.MaxValue);
+    private vec3 _modelMax = new(float.MinValue);
 
     public ViewportViewModel()
     {
-        _editableObjects = new SourceCache<ViewportObject, String>(x => x.DocumentName);
-        _editableObjects.DisposeWith(_closeDisposables);
+        Host = new ViewportHost();
+        Host.Initialized += PrepareRender;
+        LayerToggles =
+        [
+            new ViewportLayerToggle("Scenery", ViewportObjectCategory.Scenery, true),
+            new ViewportLayerToggle("Dynamic scenery", ViewportObjectCategory.DynamicScenery, true),
+            new ViewportLayerToggle("Collision", ViewportObjectCategory.Collision, false),
+            new ViewportLayerToggle("Skydome", ViewportObjectCategory.Skydome, true),
+            new ViewportLayerToggle("Linked scenery", ViewportObjectCategory.LinkedScenery, true),
+            new ViewportLayerToggle("Load walls", ViewportObjectCategory.LoadWalls, true),
+            new ViewportLayerToggle("Instances", ViewportObjectCategory.Instances, true),
+            new ViewportLayerToggle("Triggers", ViewportObjectCategory.Triggers, true),
+            new ViewportLayerToggle("Cameras", ViewportObjectCategory.Cameras, true),
+            new ViewportLayerToggle("Camera paths", ViewportObjectCategory.CameraPaths, true),
+            new ViewportLayerToggle("Positions", ViewportObjectCategory.Positions, true),
+            new ViewportLayerToggle("Paths", ViewportObjectCategory.Paths, true),
+            new ViewportLayerToggle("AI positions", ViewportObjectCategory.AiPositions, true),
+            new ViewportLayerToggle("AI paths", ViewportObjectCategory.AiPaths, true),
+            new ViewportLayerToggle("Particles", ViewportObjectCategory.Particles, true),
+        ];
+
+        foreach (var toggle in LayerToggles)
+        {
+            toggle.WhenAnyValue(x => x.IsShown).Skip(1)
+                .Subscribe(isShown => SetCategoryShown(toggle.Category, isShown))
+                .DisposeWith(_closeDisposables);
+        }
+
+        TranslationSnap = new SnapStep(1.0f, 0.1f, 0.25f, 0.5f, 1.0f, 2.0f, 5.0f, 10.0f);
+        RotationSnap = new SnapStep(15.0f, 1.0f, 5.0f, 10.0f, 15.0f, 22.5f, 30.0f, 45.0f, 90.0f);
+        ScaleSnap = new SnapStep(0.1f, 0.01f, 0.05f, 0.1f, 0.25f, 0.5f, 1.0f);
+        LoadSnappingPreferences();
+        // Snapping is set up the same in all viewports, changing it in one changes it everywhere
+        Preferences.PreferenceChanged += OnPreferenceChanged;
+        Disposable.Create(() => Preferences.PreferenceChanged -= OnPreferenceChanged).DisposeWith(_closeDisposables);
+
+        SelectToolCommand = ReactiveCommand.Create<TransformMode>(SetTool);
+        ToggleTransformSpaceCommand = ReactiveCommand.Create(ToggleTransformSpace);
+        ToggleSnappingCommand = ReactiveCommand.Create(() => { IsSnapping = !IsSnapping; });
+        FrameSelectionCommand = ReactiveCommand.Create(FrameSelection);
+        this.WhenAnyValue(x => x.ActiveTool).Subscribe(_ =>
+        {
+            this.RaisePropertyChanged(nameof(IsSelectTool));
+            this.RaisePropertyChanged(nameof(IsTranslateTool));
+            this.RaisePropertyChanged(nameof(IsRotateTool));
+            this.RaisePropertyChanged(nameof(IsScaleTool));
+            this.RaisePropertyChanged(nameof(SnapStepText));
+        }).DisposeWith(_closeDisposables);
+        this.WhenAnyValue(x => x.IsSnapping, x => x.IsGridShown, x => x.TranslationSnap.Value, x => x.RotationSnap.Value, x => x.ScaleSnap.Value)
+            .Subscribe(_ =>
+            {
+                ApplySnapping();
+                SaveSnappingPreferences();
+                this.RaisePropertyChanged(nameof(SnapStepText));
+            }).DisposeWith(_closeDisposables);
+        this.WhenAnyValue(x => x.TransformSpace).Subscribe(_ =>
+        {
+            this.RaisePropertyChanged(nameof(IsWorldSpace));
+            this.RaisePropertyChanged(nameof(TransformSpaceName));
+        }).DisposeWith(_closeDisposables);
+        this.WhenAnyValue(x => x.SelectedObject).Subscribe(_ =>
+        {
+            this.RaisePropertyChanged(nameof(CanTranslate));
+            this.RaisePropertyChanged(nameof(CanRotate));
+            this.RaisePropertyChanged(nameof(CanScale));
+            ApplyTool();
+        }).DisposeWith(_closeDisposables);
     }
-    
+
+    public IReadOnlyList<ViewportLayerToggle> LayerToggles { get; }
+    public ReactiveCommand<TransformMode, Unit> SelectToolCommand { get; }
+    public ReactiveCommand<Unit, Unit> ToggleTransformSpaceCommand { get; }
+    public ReactiveCommand<Unit, Unit> ToggleSnappingCommand { get; }
+    public ReactiveCommand<Unit, Unit> FrameSelectionCommand { get; }
+    public bool IsSelectTool => ActiveTool == TransformMode.SELECTION;
+    public bool IsTranslateTool => ActiveTool == TransformMode.TRANSLATE;
+    public bool IsRotateTool => ActiveTool == TransformMode.ROTATE;
+    public bool IsScaleTool => ActiveTool == TransformMode.SCALE;
+    public bool CanTranslate => IsToolUsable(TransformMode.TRANSLATE);
+    public bool CanRotate => IsToolUsable(TransformMode.ROTATE);
+    public bool CanScale => IsToolUsable(TransformMode.SCALE);
+    public bool IsWorldSpace => TransformSpace == TransformLocality.WORLD;
+    public string TransformSpaceName => IsWorldSpace ? "World" : "Local";
+    public bool IsChunkViewport => _isChunkViewport;
+    public SnapStep TranslationSnap { get; }
+    public SnapStep RotationSnap { get; }
+    public SnapStep ScaleSnap { get; }
+
+    // Step of what the active tool does, moving is what the grids show when only selecting
+    public string SnapStepText => ActiveTool switch
+    {
+        TransformMode.ROTATE => $"{SnapStep.Format(RotationSnap.Value)}°",
+        TransformMode.SCALE => $"×{SnapStep.Format(ScaleSnap.Value)}",
+        _ => SnapStep.Format(TranslationSnap.Value),
+    };
+
     public void Init(DocumentViewModel document)
     {
         _document = document;
         _isChunkViewport = document.DocumentModel is LevelChunk;
-
-        _editableObjects.Connect().Subscribe(x =>
-        {
-            foreach (var change in x)
-            {
-                switch (change.Reason)
-                {
-                    case ChangeReason.Add:
-                        _scene?.AddChild(change.Current.Render);
-                        break;
-                    case ChangeReason.Remove:
-                        _scene?.RemoveChild(change.Current.Render);
-                        break;
-                }
-            }
-        }).DisposeWith(_closeDisposables);
+        this.RaisePropertyChanged(nameof(IsChunkViewport));
 
         this.WhenAnyValue(x => x._document!.IsReady)
             .Where(x => x)
             .Take(1)
             .Subscribe(_ =>
             {
-                if (_renderInit)
+                // Without a render context the scene gets built once PrepareRender receives one
+                if (_renderInit || _renderContext == null)
                 {
                     return;
                 }
-                
-                if (_renderContext == null)
-                {
-                    _canStartRenderingOnRenderCreation = true;
-                    return;
-                }
-                
+
                 _renderContext.QueueRenderAction(InitScene);
             }).DisposeWith(_closeDisposables);
 
         this.WhenAnyValue(x => x._document!.Inspector).ObserveOn(RxSchedulers.MainThreadScheduler)
             .WhereNotNull()
-            .Subscribe(x =>
-            {
-                var viewportObject = _editableObjects.Lookup(x.EditorName);
-                if (viewportObject is { HasValue: true, Value.Render.IsSelectable: true } && viewportObject.Value != SelectedObject)
-                {
-                    _editingContext?.Select(viewportObject.Value);
-                    SelectedObject = viewportObject.Value;
-                }
-            }).DisposeWith(_closeDisposables);
-    }
+            .Subscribe(inspector => SelectInspected(inspector.Property))
+            .DisposeWith(_closeDisposables);
 
-    public void FrameResized(SizeChangedEventArgs _)
-    {
-        CanRender = false;
-        this.RaisePropertyChanged(nameof(CanRender));
-        this.RaisePropertyChanged(nameof(SceneStatus));
-        _renderContext?.QueueRenderAction(() =>
-        {
-            _renderer?.SetFrameBufferSize(ViewportSize);
-            _scene?.UpdateResolution(ViewportSize);
-        });
-        
-        Dispatcher.UIThread.Post(() =>
-        {
-            if (!_renderInit)
-            {
-                return;
-            }
-            
-            CanRender = true;
-            this.RaisePropertyChanged(nameof(CanRender));
-            this.RaisePropertyChanged(nameof(SceneStatus));
-        });
+        document.PropertyGraph.Changed += PropertyGraphOnChanged;
+        Disposable.Create(() => document.PropertyGraph.Changed -= PropertyGraphOnChanged).DisposeWith(_closeDisposables);
     }
 
     public RenderContext? GetRenderContext()
@@ -183,216 +304,339 @@ public partial class ViewportViewModel : ReactiveObject
 
     public IReadOnlyList<ViewportObject> GetViewportObjects()
     {
-        return _editableObjects.Items;
+        return _viewportObjects;
     }
 
     public void Close()
     {
         _closeDisposables.Dispose();
+        Host.Initialized -= PrepareRender;
+        if (_keyboard != null)
+        {
+            _keyboard.KeyDown -= KeyboardOnKeyDown;
+        }
+
+        if (_mouse != null)
+        {
+            _mouse.MouseMove -= OnMouseMove;
+            _mouse.MouseDown -= OnMouseDown;
+            _mouse.MouseUp -= OnMouseUp;
+            _mouse.Scroll -= OnMouseScroll;
+        }
+
+        _inputContext?.Dispose();
+        // Everything made for the context goes with it on the render thread
+        Host.Dispose();
     }
 
-    public void PrepareRender(RenderRoutedEventArgs renderArgs)
+    /// <summary>
+    /// GL context, render thread and frames of the viewport, kept while the editor is open no matter which control shows them
+    /// </summary>
+    public ViewportHost Host { get; }
+
+    // The host's context lives as long as this, so the scene only gets built once
+    private void PrepareRender(RenderContext renderContext)
     {
-        _renderContext = renderArgs.RenderContext;
-        
-        _renderContext.QueueRenderAction(() =>
+        _renderContext = renderContext;
+        var inputContext = new LabInputContext(Host);
+        _inputContext = inputContext;
+        _mouse = inputContext.Mice[0];
+        _keyboard = inputContext.Keyboards[0];
+        _keyboard.KeyDown += KeyboardOnKeyDown;
+        _mouse.MouseMove += OnMouseMove;
+        _mouse.MouseDown += OnMouseDown;
+        _mouse.MouseUp += OnMouseUp;
+        _mouse.Scroll += OnMouseScroll;
+
+        renderContext.QueueRenderAction(() =>
         {
-            _renderer = new Renderer(_renderContext);
+            _renderer = new Renderer(renderContext);
             _renderer.FinishRender += RendererOnFinishRender;
             _renderer.SceneInitialized += RendererOnSceneInitialized;
-            _inputContext = new LabInputContext(_renderer, renderArgs.RenderArea);
-            _renderer.InitInput(_inputContext, UseImgui);
-        
-            _scene = new Scene(_renderContext, "ROOT_SCENE");
+            _renderer.FramebufferResize += RendererOnFramebufferResize;
+            inputContext.SetView(_renderer);
+            _renderer.InitInput(inputContext);
+
+            _scene = new Scene(renderContext, "ROOT_SCENE");
+            _scene.UpdateResolution(ViewportSize);
             _renderer.RegisterForRendering(_scene.Camera);
+            _renderer.Camera = _scene.Camera;
 
-            _editingContext = new EditingContext(_renderContext, _scene);
+            _editingContext = new EditingContext(renderContext, _scene);
+            _editingContext.SetTransformMode(ActiveTool);
+            _editingContext.SetTransformLocality(TransformSpace);
+            ApplySnapping();
+            _renderer.DrawPrimitives += _editingContext.DrawPrimitives;
+            _renderer.DrawPrimitives += DrawFloorGrid;
 
-            if (_canStartRenderingOnRenderCreation)
+            if (_document is { IsReady: true })
             {
-                _renderContext.QueueRenderAction(InitScene);
+                renderContext.QueueRenderAction(InitScene);
             }
-        
-            _mouse = _inputContext.Mice[0];
-            _keyboard = _inputContext.Keyboards[0];
-        
-            _keyboard.KeyDown += KeyboardOnKeyDown;
-            _mouse.MouseMove += OnMouseMove;
-            _mouse.MouseDown += OnMouseDown;
-            _mouse.MouseUp += OnMouseUp;
+
             _renderer.Update += RendererOnUpdate;
-
-            if (CanRender)
-            {
-                _renderer.SetFrameBufferSize(ViewportSize);
-                _scene.UpdateResolution(ViewportSize);
-            }
         });
+    }
+
+    private void RendererOnFramebufferResize(Vector2D<int> _)
+    {
+        _scene?.UpdateResolution(ViewportSize);
     }
 
     private void OnMouseUp(IMouse mouse, MouseButton button)
     {
-        if (_editingContext == null)
+        if (button == MouseButton.Left && _editingContext is { IsDraggingGizmo: true })
         {
-            return;
+            _editingContext.EndGizmoDrag();
+            EndDragStep();
         }
-        
-        if (!_editingContext.IsInstanceSelected())
+    }
+
+    // A drag of the gizmo is one step to undo, however long it takes
+    private IDisposable? _dragStep;
+
+    private void BeginDragStep()
+    {
+        _dragStep?.Dispose();
+        var name = (SelectedObject?.Property.Find("[data]")?.GetValue() as IAsset)?.Alias ?? SelectedObject?.DocumentName ?? "the selection";
+        var verb = ActiveTool switch
         {
-            return;
-        }
-            
-        var pos = mouse.Position;
-        _editingContext.EndTransform(pos.X, pos.Y);
+            TransformMode.ROTATE => "Rotated",
+            TransformMode.SCALE => "Scaled",
+            _ => "Moved",
+        };
+        _dragStep = _document?.History.BeginGroup($"{verb} {name}");
+    }
+
+    private void EndDragStep()
+    {
+        _dragStep?.Dispose();
+        _dragStep = null;
     }
 
     private void OnMouseDown(IMouse mouse, MouseButton button)
     {
-        if (_editingContext == null)
+        if (_editingContext == null || _scene == null || !_isChunkViewport)
         {
             return;
         }
-        
+
+        if (_editingContext.IsDraggingGizmo)
+        {
+            // Another button during a drag gives up on it
+            if (button != MouseButton.Left)
+            {
+                _editingContext.CancelGizmoDrag();
+                EndDragStep();
+            }
+
+            return;
+        }
+
         if (button != MouseButton.Left)
         {
             return;
         }
-            
+
         var pos = mouse.Position;
-        if ((_editingContext.TransformMode == TransformMode.SELECTION || _editingContext.TransformAxis == TransformAxis.NONE) && !_editingContext.IsInstanceSelected())
+        if (_editingContext.BeginGizmoDrag(_scene.Camera.GetFrameCamera(), new vec2(pos.X, pos.Y)))
         {
-            MouseSelect(pos.X, pos.Y);
+            BeginDragStep();
+            return;
         }
-        else if (_editingContext.IsInstanceSelected())
-        {
-            _editingContext.StartTransform(pos.X, pos.Y);
-        }
+
+        MouseSelect(pos.X, pos.Y);
     }
-    
+
     private void MouseSelect(float x, float y)
     {
         if (_renderer == null || _scene == null || _keyboard == null || _editingContext == null)
         {
             return;
         }
-            
-        var rayOrigin = _scene.Camera.GetPosition();
-        var rayDirection = _scene.Camera.GetRayFromViewport(x, y);
-            
-        _editingContext.Deselect();
+
+        var ray = _scene.Camera.GetFrameCamera().ScreenRay(new vec2(x, y));
+        var rayOrigin = ray.Origin;
+        var rayDirection = ray.Direction;
         ViewportObject? result = null;
         if (!_keyboard.IsKeyPressed(Key.ControlLeft))
         {
             var minDistance = float.MaxValue;
-            foreach (var (name, viewportObject) in _editableObjects.KeyValues)
+            foreach (var viewportObject in _viewportObjects)
             {
                 var instance = viewportObject.Render;
                 if (!instance.IsVisible || !instance.IsSelectable)
                 {
                     continue;
                 }
-                
-                var hit = new vec3();
-                var distance = 0.0f;
-                var worldPosition = instance.WorldTransform.Column3.xyz;
-                if (!MathExtension.IntersectRayBox(rayOrigin, rayDirection, worldPosition.xyz, instance.GetOffset(),
-                        instance.GetSize(), instance.LocalTransform, ref distance, ref hit))
+
+                var distance = GizmoMath.IntersectBox(ray, instance.GetBoundsTransform());
+                if (distance == null || !(distance < minDistance))
                 {
                     continue;
                 }
 
-                if (!(distance < minDistance))
-                {
-                    continue;
-                }
-                
                 result = viewportObject;
-                minDistance = distance;
+                minDistance = distance.Value;
             }
-            
+
             if (result != null)
             {
-                _editingContext.Select(result);
-                SelectedObject = result;
-                if (SelectedObject.Property.PropertyType == typeof(LabURI))
-                {
-                    _document?.OpenInspector(SelectedObject.Property["[data]"]);
-                }
-                else
-                {
-                    _document?.OpenInspector(SelectedObject.Property);
-                }
+                SelectObject(result, true);
+                return;
             }
         }
-        
-        if (result == null && _editableObjects.Keys.FirstOrDefault(key => key.StartsWith("COLLISION_")) != null)
+
+        _editingContext.Deselect();
+        SelectedObject = null;
+        var collision = _viewportObjects.FirstOrDefault(viewportObject => viewportObject.Category == ViewportObjectCategory.Collision);
+        if (collision?.UserData is not CollisionData colData)
         {
-            var colData = (CollisionData)_editableObjects.KeyValues[_editableObjects.Keys.First(key => key.StartsWith("COLLISION_"))].UserData!;
-            var hit = new vec3();
-            var minDistance = float.MaxValue;
-            foreach (var triangle in colData.Triangles)
-            {
-                var hitPos = new vec3();
-                var distance = float.MaxValue;
-                var p1 = colData.Vectors[triangle.Face.Indexes![0]];
-                var p2 = colData.Vectors[triangle.Face.Indexes[1]];
-                var p3 = colData.Vectors[triangle.Face.Indexes[2]];
-                if (!MathExtension.IntersectRayTriangle(rayOrigin, rayDirection, new vec3(p1.X, p1.Y, p1.Z),
-                        new vec3(p2.X, p2.Y, p2.Z), new vec3(p3.X, p3.Y, p3.Z), ref distance, ref hitPos))
-                {
-                    continue;
-                }
-        
-                if (!(distance < minDistance))
-                {
-                    continue;
-                }
-        
-                hit = hitPos;
-                minDistance = distance;
-            }
-        
-            if (!minDistance.Equals(float.MaxValue))
-            {
-                _editingContext.SetCursorCoordinates(hit);
-                if (_keyboard.IsKeyPressed(Key.ControlLeft))
-                {
-                    var objectToSpawn = _editingContext.SpawnAtCursor();
-                    CreateNewInstance(objectToSpawn);
-                }
-            }
+            return;
         }
+
+        var cursorHit = new vec3();
+        var closestHit = float.MaxValue;
+        foreach (var triangle in colData.Triangles)
+        {
+            var hitPos = new vec3();
+            var distance = float.MaxValue;
+            var p1 = colData.Vectors[triangle.Face.Indexes![0]];
+            var p2 = colData.Vectors[triangle.Face.Indexes[1]];
+            var p3 = colData.Vectors[triangle.Face.Indexes[2]];
+            if (!MathExtension.IntersectRayTriangle(rayOrigin, rayDirection, new vec3(p1.X, p1.Y, p1.Z),
+                    new vec3(p2.X, p2.Y, p2.Z), new vec3(p3.X, p3.Y, p3.Z), ref distance, ref hitPos))
+            {
+                continue;
+            }
+
+            if (!(distance < closestHit))
+            {
+                continue;
+            }
+
+            cursorHit = hitPos;
+            closestHit = distance;
+        }
+
+        if (closestHit.Equals(float.MaxValue))
+        {
+            return;
+        }
+
+        _editingContext.SetCursorCoordinates(cursorHit);
+        if (_keyboard.IsKeyPressed(Key.ControlLeft))
+        {
+            CreateNewInstance(_editingContext.SpawnAtCursor());
+        }
+    }
+
+    internal void SelectObject(ViewportObject viewportObject, bool openInspector)
+    {
+        _editingContext?.Select(viewportObject);
+        SelectedObject = viewportObject;
+        if (!openInspector)
+        {
+            return;
+        }
+
+        // Parts of something, like a point of a path, open what they belong to and bring themselves into view in it
+        var inspected = viewportObject.Property.PropertyType == typeof(LabURI) ? viewportObject.Property["[data]"] : viewportObject.Property;
+        _document?.OpenInspector(inspected, viewportObject.InspectorFocus);
+    }
+
+    private void SelectInspected(PropertyNode inspected)
+    {
+        if (_editingContext == null || (SelectedObject != null && IsInspecting(SelectedObject, inspected)))
+        {
+            return;
+        }
+
+        var viewportObject = _viewportObjects.FirstOrDefault(viewportObject => viewportObject.Render.IsSelectable && IsInspecting(viewportObject, inspected));
+        if (viewportObject != null)
+        {
+            SelectObject(viewportObject, false);
+        }
+    }
+
+    private static bool IsInspecting(ViewportObject viewportObject, PropertyNode inspected)
+    {
+        return viewportObject.Property == inspected || viewportObject.Property.Find("[data]") == inspected;
     }
 
     private void DeleteInstance()
     {
-        if (SelectedObject == null)
+        if (SelectedObject == null || _renderContext == null)
         {
             return;
         }
-        
+
+        var property = SelectedObject.Property;
         _editingContext?.Deselect();
-        _editableObjects.Remove(SelectedObject);
+        SelectedObject = null;
+        _renderContext.QueueRenderAction(() => RemoveViewportObjects(_viewportObjects.Where(viewportObject => viewportObject.Property == property).ToList()));
         var chunkResources = _document!.PropertyGraph.Root.Find(nameof(LevelChunk.ChunkResources))!;
-        chunkResources.RemoveElement(SelectedObject.Property);
+        chunkResources.RemoveElement(property);
     }
 
-    private void CreateNewInstance(ViewportObject? objectToSpawn)
+    // Copies the selection where it is and selects the copy, so it can be moved away right after. An object standing for an element of
+    // a list (an emitter, a point of a path, a link) gets a copy of the element next to it, an instance of a layout a copy of the instance
+    private void DuplicateSelection()
     {
-        if (objectToSpawn == null)
+        var selected = SelectedObject;
+        if (selected == null || _renderContext == null)
         {
             return;
         }
-        
+
+        if (selected.DuplicatedElement is { } element)
+        {
+            DuplicateElement(selected, element);
+            return;
+        }
+
+        if (selected.Property.Find("[data]")?.GetValue() is SerializableInstance { LayoutID: not null })
+        {
+            CreateNewInstance(selected, false);
+        }
+    }
+
+    private void DuplicateElement(ViewportObject selected, PropertyNode element)
+    {
+        if (element.Parent is not { } list || element.Index is not { } index || element.GetValue() is not { } value)
+        {
+            return;
+        }
+
+        _editingContext?.Deselect();
+        SelectedObject = null;
+        var copy = list.InsertElement(index + 1, CloneUtils.DeepClone(value, value.GetType()));
+        if (copy == null)
+        {
+            return;
+        }
+
+        // The objects of the element are named after its path
+        RebuildViewportObjects(selected.Property, selected.DocumentName.Replace(element.Path, copy.Path));
+    }
+
+    private void CreateNewInstance(ViewportObject? objectToSpawn, bool atCursor = true)
+    {
+        if (objectToSpawn == null || _renderContext == null)
+        {
+            return;
+        }
+
         var basedOn = objectToSpawn.Property["[data]"]!.GetValue<IAsset>();
         if (basedOn == null)
         {
             return;
         }
-        
+
         var chunk = (LevelChunk)_document!.DocumentModel;
+        var name = atCursor ? $"New {basedOn.Type.Name} {(uint)Guid.NewGuid().GetHashCode()}" : $"{basedOn.Name} Copy {(uint)Guid.NewGuid().GetHashCode():X8}";
         var newInstance = AssetFactory.CreateAsset(basedOn.Type, chunk.GetChunkFolder(),
-            $"New {basedOn.Type.Name} {(uint)Guid.NewGuid().GetHashCode()}", "",
+            name, "",
             TwinIdGeneratorServiceProvider.GetGeneratorForChunk(basedOn.Type, chunk.AdditionalPath!, (Enums.Layouts)basedOn.LayoutID!),
             (asset) =>
             {
@@ -400,114 +644,485 @@ public partial class ViewportViewModel : ReactiveObject
                 instanceAsset.Chunk = chunk.AdditionalPath!;
                 instanceAsset.AdditionalPath = chunk.AdditionalPath;
                 instanceAsset.RegenerateLinks();
-                var assetData = basedOn.GetData<AbstractAssetData>();
-                asset.SetData((AbstractAssetData)CloneUtils.DeepClone(assetData, assetData.GetType()));
-                asset.GetData<AbstractAssetData>().SetOwner(asset);
+                asset.SetData(basedOn.GetData<AbstractAssetData>().CopyFor(asset));
                 return AssetCreationStatus.Success;
             },
             (Enums.Layouts)basedOn.LayoutID)!;
 
+        // Placing it and moving it to the cursor is one step to undo
+        var placing = _document.History.BeginGroup($"Placed {newInstance.Alias}");
         var chunkResources = _document.PropertyGraph.Root.Find(nameof(LevelChunk.ChunkResources));
         var newElement = chunkResources!.AddElement()!;
         newElement.SetValue(newInstance.URI);
-        var viewportContext = new ViewportContext(_renderContext!, _editingContext!, _renderer!);
-        var viewportObjects = newInstance.GetViewportObjects(viewportContext, newElement);
         var cursorCoords = _editingContext!.GetCursorCoordinates();
-        foreach (var viewportObject in viewportObjects)
+        var renderContext = _renderContext;
+        renderContext.QueueRenderAction(() =>
         {
-            _editableObjects.AddOrUpdate(viewportObject);
-            _editingContext?.Select(viewportObject);
-            SelectedObject = viewportObject;
-            viewportObject.Render.SetPosition(cursorCoords);
-            viewportObject.Position?.SetValue(new Vector3(cursorCoords.x, cursorCoords.y, cursorCoords.z));
-        }
+            var viewportObjects = newInstance.GetViewportObjects(new ViewportContext(renderContext, _editingContext!, _renderer!), newElement);
+            AddViewportObjects(viewportObjects);
+            Dispatcher.UIThread.Post(() =>
+            {
+                using (placing)
+                {
+                    foreach (var viewportObject in viewportObjects.Where(_ => atCursor))
+                    {
+                        viewportObject.Render.SetPosition(cursorCoords);
+                        viewportObject.Position?.SetValue(new Vector3(cursorCoords.x, cursorCoords.y, cursorCoords.z));
+                    }
+                }
+
+                if (viewportObjects.FirstOrDefault(viewportObject => viewportObject.Render.IsSelectable) is { } selectable)
+                {
+                    SelectObject(selectable, true);
+                }
+            });
+        });
     }
 
     private void InitScene()
     {
-        if (_document == null)
+        // Both PrepareRender and the document becoming ready can queue this
+        if (_renderInit)
         {
-            FinalizeSceneInit();
             return;
         }
 
-        var viewportContext = new ViewportContext(_renderContext!, _editingContext!, _renderer!);
-
-        var viewportObjects = _document.DocumentModel.GetViewportObjects(viewportContext, _document.PropertyGraph.Root);
-        foreach (var viewportObject in viewportObjects)
+        if (_document != null)
         {
-            _editableObjects.AddOrUpdate(viewportObject);
+            var viewportContext = new ViewportContext(_renderContext!, _editingContext!, _renderer!);
+            AddViewportObjects(_document.DocumentModel.GetViewportObjects(viewportContext, _document.PropertyGraph.Root));
         }
-        
+
+        FitFloorGrid();
+        FitOrbitToModel();
         FinalizeSceneInit();
     }
 
     private void FinalizeSceneInit()
     {
         _renderInit = true;
-        
+
         _renderer!.FireSceneInitialized();
         _renderer.RegisterForRendering(_scene!, true);
         _renderer.RegisterForUpdating(_scene!);
-        _renderer.RenderImgui += RendererOnRenderImgui;
 
-        var camForward = -_scene!.Camera.GetForward();
-        _scene.Camera.Translate(camForward * -5);
-        
+        if (_isChunkViewport)
+        {
+            var camForward = -_scene!.Camera.GetForward();
+            _scene.Camera.Translate(camForward * -5);
+        }
+        else
+        {
+            PlaceOrbitCamera();
+        }
+
         CanRender = true;
         this.RaisePropertyChanged(nameof(CanRender));
         this.RaisePropertyChanged(nameof(SceneStatus));
     }
 
-    private void RendererOnRenderImgui()
+    // Scene graph changes happen on the render thread
+    private void AddViewportObjects(IReadOnlyCollection<ViewportObject> viewportObjects)
     {
-        if (_renderer == null || _editingContext == null || !_isChunkViewport)
+        if (viewportObjects.Count == 0)
         {
             return;
         }
-        
-        ImGui.Begin("Chunk Render Settings");
-        ImGui.SetWindowPos(new Vector2(_renderer.GetFrameBufferSize().x - 300, 5), ImGuiCond.Appearing);
-        ImGui.SetWindowSize(new Vector2(295, 200),  ImGuiCond.Appearing);
-        if (_editableObjects.Keys.FirstOrDefault(key => key.StartsWith("COLLISION_")) != null)
-        {
-            ImguiRenderFilterCheckbox("Render Collision", _editableObjects.KeyValues[_editableObjects.Keys.First(key => key.StartsWith("COLLISION_"))].Render, DrawFilter.Collision);
-        }
-        if (_editableObjects.Keys.FirstOrDefault(key => key.StartsWith("DYNAMIC_SCENERY_")) != null)
-        {
-            ImguiRenderFilterCheckbox("Render Dynamic Scenery", _editableObjects.KeyValues[_editableObjects.Keys.First(key => key.StartsWith("DYNAMIC_SCENERY_"))].Render, DrawFilter.DynamicScenery);
-        }
-        ImguiRenderFilterCheckbox("Render Scenery", _editableObjects.KeyValues[_editableObjects.Keys.First(key => key.StartsWith("SCENERY_"))].Render, DrawFilter.Scenery);
-        if (_editableObjects.Keys.FirstOrDefault(key => key.StartsWith("SKYDOME_EDITABLE_")) != null)
-        {
-            ImguiRenderFilterCheckbox("Render Skydome", _editableObjects.KeyValues[_editableObjects.Keys.First(key => key.StartsWith("SKYDOME_EDITABLE_"))].Render, DrawFilter.Skybox);
-        }
-        ImguiRenderFilterCheckbox("Render Positions", _editingContext.GetPositionBillboards(), DrawFilter.Positions);
-        ImguiRenderFilterCheckbox("Render Paths", _editingContext.GetPathBillboards(), DrawFilter.Paths);
-        ImguiRenderFilterCheckbox("Render Particles", _editingContext.GetParticleBillboards(), DrawFilter.Particles);
-        var triggers = _editableObjects.KeyValues.Where(kv => kv.Key.StartsWith("TRIGGER_")).Select(kv => kv.Value.Render).ToList();
-        ImguiRenderFilterCheckbox("Render Triggers", triggers, DrawFilter.Triggers);
-        var cameras = _editableObjects.KeyValues.Where(kv => kv.Key.StartsWith("CAMERA_")).Select(kv => kv.Value.Render).ToList();
-        ImguiRenderFilterCheckbox("Render Cameras", cameras, DrawFilter.Cameras);
-        ImguiRenderFilterCheckbox("Render AI Positions", _editingContext.GetAiPositionsBillboards(), DrawFilter.AiPositions);
-        var instances = _editableObjects.KeyValues.Where(kv => kv.Key.StartsWith("INSTANCE_")).Select(kv => kv.Value.Render).ToList();
-        ImguiRenderFilterCheckbox("Render Instances", instances, DrawFilter.Instances);
-        var links = _editableObjects.KeyValues.Where(kv => kv.Key.StartsWith("CHUNK_LINK_")).Select(kv => kv.Value.Render).ToList();
-        ImguiRenderFilterCheckbox("Render Linked Scenery", links, DrawFilter.LinkedScenery);
-        ImGui.End();
 
-        if (_editingContext.IsInstanceSelected())
+        lock (_viewportObjectsLock)
         {
-            ImguiRenderControls();
-            _editingContext.SelectedRenderable?.RenderUpdate();
+            _viewportObjects = [.. _viewportObjects, .. viewportObjects];
+        }
+
+        foreach (var viewportObject in viewportObjects)
+        {
+            var toggle = LayerToggles.FirstOrDefault(toggle => toggle.Category == viewportObject.Category);
+            if (toggle is { IsShown: false })
+            {
+                viewportObject.Render.IsVisible = false;
+            }
+
+            _scene?.AddChild(viewportObject.Render);
         }
     }
 
-    public void TerminateRender()
+    private void RemoveViewportObjects(IReadOnlyCollection<ViewportObject> viewportObjects)
     {
-        CanRender = false;
-        this.RaisePropertyChanged(nameof(CanRender));
-        this.RaisePropertyChanged(nameof(SceneStatus));
+        if (viewportObjects.Count == 0)
+        {
+            return;
+        }
+
+        lock (_viewportObjectsLock)
+        {
+            _viewportObjects = _viewportObjects.Except(viewportObjects).ToArray();
+        }
+
+        foreach (var viewportObject in viewportObjects)
+        {
+            _scene?.RemoveChild(viewportObject.Render);
+            ReleaseBillboards(viewportObject.Render);
+        }
+    }
+
+    private static void ReleaseBillboards(Renderable renderable)
+    {
+        if (renderable is Billboard billboard)
+        {
+            billboard.Release();
+        }
+
+        foreach (var child in renderable.Children)
+        {
+            ReleaseBillboards(child);
+        }
+    }
+
+    private void PropertyGraphOnChanged(PropertyChange change)
+    {
+        if (!_renderInit)
+        {
+            return;
+        }
+
+        var changedPath = change.Node.Path;
+        List<PropertyNode>? rebuilds = null;
+        // Undoing and redoing take instances away and put them back, placing and deleting them here updates the objects right away
+        var chunkResources = _document?.PropertyGraph.Root.Find(nameof(LevelChunk.ChunkResources));
+        if (_document?.History.IsApplying == true && chunkResources != null)
+        {
+            if (change.Node == chunkResources && change.Kind != PropertyChangeKind.Value)
+            {
+                RemoveObjectsOfGoneResources(chunkResources);
+                if (change.Kind == PropertyChangeKind.Insert && change.Index < chunkResources.Children.Count)
+                {
+                    AddRebuild(ref rebuilds, chunkResources.Children[change.Index]);
+                }
+            }
+            else if (change.Node.Parent == chunkResources && _viewportObjects.All(viewportObject => viewportObject.Property != change.Node))
+            {
+                AddRebuild(ref rebuilds, change.Node);
+            }
+        }
+
+        foreach (var viewportObject in _viewportObjects)
+        {
+            // Links to other resources have their whole data below them, pointing one to another resource replaces it
+            if (viewportObject.Property == change.Node)
+            {
+                AddRebuild(ref rebuilds, viewportObject.Property);
+                continue;
+            }
+
+            if (IsWithin(changedPath, viewportObject.Position) || IsWithin(changedPath, viewportObject.Rotation) ||
+                IsWithin(changedPath, viewportObject.Scale) || IsWithin(changedPath, viewportObject.Transform))
+            {
+                ApplyTransformFromData(viewportObject);
+            }
+
+            if (viewportObject.Refresh != null && viewportObject.RenderDependencies.Any(dependency => IsWithin(changedPath, dependency)) &&
+                !viewportObject.Refresh())
+            {
+                AddRebuild(ref rebuilds, viewportObject.Property);
+            }
+        }
+
+        // Whether the selection can be transformed depends on its data too, like the load wall of a link that doesn't use it
+        if (SelectedObject != null)
+        {
+            this.RaisePropertyChanged(nameof(CanTranslate));
+            this.RaisePropertyChanged(nameof(CanRotate));
+            this.RaisePropertyChanged(nameof(CanScale));
+            ApplyTool();
+        }
+
+        if (rebuilds == null)
+        {
+            return;
+        }
+
+        foreach (var property in rebuilds)
+        {
+            RebuildViewportObjects(property);
+        }
+    }
+
+    private void RemoveObjectsOfGoneResources(PropertyNode chunkResources)
+    {
+        var gone = _viewportObjects.Where(viewportObject => viewportObject.Property.Parent == chunkResources && !chunkResources.Children.Contains(viewportObject.Property)).ToList();
+        if (gone.Count == 0 || _renderContext == null)
+        {
+            return;
+        }
+
+        if (SelectedObject != null && gone.Contains(SelectedObject))
+        {
+            _editingContext?.Deselect();
+            SelectedObject = null;
+        }
+
+        _renderContext.QueueRenderAction(() => RemoveViewportObjects(gone));
+    }
+
+    private static void AddRebuild(ref List<PropertyNode>? rebuilds, PropertyNode property)
+    {
+        rebuilds ??= [];
+        if (!rebuilds.Contains(property))
+        {
+            rebuilds.Add(property);
+        }
+    }
+
+    private static bool IsWithin(string path, PropertyNode? node)
+    {
+        if (node == null)
+        {
+            return false;
+        }
+
+        var nodePath = node.Path;
+        return path.StartsWith(nodePath, StringComparison.Ordinal) && (path.Length == nodePath.Length || path[nodePath.Length] is '.' or '[');
+    }
+
+    private static void ApplyTransformFromData(ViewportObject viewportObject)
+    {
+        var render = viewportObject.Render;
+        if (viewportObject.Transform?.GetValue() is Matrix4 matrix)
+        {
+            render.SetLocalTransform(viewportObject.GetTransformFromData(matrix));
+            return;
+        }
+
+        if (viewportObject.Position?.GetValue() is Vector3 position)
+        {
+            render.SetPosition(position.ToGlm());
+        }
+
+        if (viewportObject.Rotation?.GetValue() is Vector3 rotation)
+        {
+            render.SetRotation(new quat(rotation.ToRadiansGlm()));
+        }
+
+        if (viewportObject.Scale?.GetValue() is Vector3 scale)
+        {
+            render.SetScale(scale.ToGlm());
+        }
+    }
+
+    /// <summary>
+    /// Creates the objects of a linked resource from scratch, reselecting what was selected of it or selecting the named one
+    /// </summary>
+    private void RebuildViewportObjects(PropertyNode property, string? selectName = null)
+    {
+        var renderContext = _renderContext;
+        if (renderContext == null || _editingContext == null || _renderer == null)
+        {
+            return;
+        }
+
+        var selectedName = selectName ?? (SelectedObject?.Property == property ? SelectedObject.DocumentName : null);
+        if (selectedName != null)
+        {
+            _editingContext.Deselect();
+            SelectedObject = null;
+        }
+
+        renderContext.QueueRenderAction(() =>
+        {
+            if (!_renderInit || _renderContext != renderContext)
+            {
+                return;
+            }
+
+            RemoveViewportObjects(_viewportObjects.Where(viewportObject => viewportObject.Property == property).ToList());
+            if (property.GetValue() is not LabURI uri || uri == LabURI.Empty || !AssetManager.Get().DoesAssetExist(uri))
+            {
+                return;
+            }
+
+            var viewportObjects = AssetManager.Get().GetAssetData(uri).GetViewportObjects(new ViewportContext(renderContext, _editingContext!, _renderer!), property);
+            AddViewportObjects(viewportObjects);
+            if (selectedName == null)
+            {
+                return;
+            }
+
+            Dispatcher.UIThread.Post(() =>
+            {
+                var reselected = viewportObjects.FirstOrDefault(viewportObject => viewportObject.DocumentName == selectedName);
+                if (reselected != null && SelectedObject == null)
+                {
+                    // What got made, like a duplicate, is shown in the inspector as well
+                    SelectObject(reselected, selectName != null);
+                }
+            });
+        });
+    }
+
+    private void SetCategoryShown(ViewportObjectCategory category, bool isShown)
+    {
+        foreach (var viewportObject in _viewportObjects.Where(viewportObject => viewportObject.Category == category))
+        {
+            viewportObject.Render.IsVisible = isShown;
+            if (isShown)
+            {
+                // Showing an object shows everything of it, including what its data hides like the scenery of a link that isn't visible
+                viewportObject.Refresh?.Invoke();
+            }
+
+            if (!isShown && viewportObject == SelectedObject)
+            {
+                _editingContext?.Deselect();
+                SelectedObject = null;
+            }
+        }
+    }
+
+    private void SetTool(TransformMode tool)
+    {
+        if (_editingContext is { IsDraggingGizmo: true } || !IsToolUsable(tool))
+        {
+            return;
+        }
+
+        _chosenTool = tool;
+        ApplyTool();
+    }
+
+    private void ApplyTool()
+    {
+        var tool = IsToolUsable(_chosenTool) ? _chosenTool : FallbackTools.FirstOrDefault(IsToolUsable, TransformMode.SELECTION);
+        ActiveTool = tool;
+        _editingContext?.SetTransformMode(tool);
+    }
+
+    // Without a selection any tool can be picked for what gets selected next
+    private bool IsToolUsable(TransformMode tool)
+    {
+        return tool == TransformMode.SELECTION || SelectedObject == null || SelectedObject.IsTransformSupported(tool);
+    }
+
+    private void ApplySnapping()
+    {
+        if (_editingContext == null)
+        {
+            return;
+        }
+
+        _editingContext.SetSnapping(IsSnapping, new GizmoSnapping(TranslationSnap.Value, RotationSnap.Value, ScaleSnap.Value));
+        _editingContext.IsGridShown = IsGridShown;
+    }
+
+    private void LoadSnappingPreferences()
+    {
+        IsSnapping = Preferences.GetPreference<bool>(Preferences.ViewportSnapping);
+        IsGridShown = Preferences.GetPreference<bool>(Preferences.ViewportGridShown);
+        TranslationSnap.Value = Preferences.GetPreference<float>(Preferences.ViewportTranslationSnap);
+        RotationSnap.Value = Preferences.GetPreference<float>(Preferences.ViewportRotationSnap);
+        ScaleSnap.Value = Preferences.GetPreference<float>(Preferences.ViewportScaleSnap);
+    }
+
+    private void SaveSnappingPreferences()
+    {
+        Preferences.SetPreference(Preferences.ViewportSnapping, IsSnapping);
+        Preferences.SetPreference(Preferences.ViewportGridShown, IsGridShown);
+        Preferences.SetPreference(Preferences.ViewportTranslationSnap, (double)TranslationSnap.Value);
+        Preferences.SetPreference(Preferences.ViewportRotationSnap, (double)RotationSnap.Value);
+        Preferences.SetPreference(Preferences.ViewportScaleSnap, (double)ScaleSnap.Value);
+    }
+
+    private void OnPreferenceChanged(object? sender, Preferences.PreferenceChangedArgs e)
+    {
+        if (e.PreferenceName.StartsWith("Viewport", StringComparison.Ordinal))
+        {
+            LoadSnappingPreferences();
+        }
+    }
+
+    // Viewers of a single model get a floor sized to fit it, chunks have their own
+    private void FitFloorGrid()
+    {
+        var extent = 0.0f;
+        foreach (var viewportObject in _viewportObjects)
+        {
+            var bounds = viewportObject.Render.GetBoundsTransform();
+            for (var corner = 0; corner < 8; corner++)
+            {
+                var point = (bounds * new vec4((corner & 1) == 0 ? -1.0f : 1.0f, (corner & 2) == 0 ? -1.0f : 1.0f, (corner & 4) == 0 ? -1.0f : 1.0f, 1.0f)).xyz;
+                extent = MathF.Max(extent, MathF.Max(MathF.Abs(point.x), MathF.Max(MathF.Abs(point.y), MathF.Abs(point.z))));
+            }
+        }
+
+        _floorGrid.FitTo(extent);
+    }
+
+    private void FitOrbitToModel()
+    {
+        _modelMin = new vec3(float.MaxValue);
+        _modelMax = new vec3(float.MinValue);
+        foreach (var viewportObject in _viewportObjects)
+        {
+            var bounds = viewportObject.Render.GetBoundsTransform();
+            for (var corner = 0; corner < 8; corner++)
+            {
+                var point = (bounds * new vec4((corner & 1) == 0 ? -1.0f : 1.0f, (corner & 2) == 0 ? -1.0f : 1.0f, (corner & 4) == 0 ? -1.0f : 1.0f, 1.0f)).xyz;
+                _modelMin = vec3.Min(_modelMin, point);
+                _modelMax = vec3.Max(_modelMax, point);
+            }
+        }
+    }
+
+    private void PlaceOrbitCamera()
+    {
+        var camera = _scene!.Camera;
+        camera.LocalTransform = _orbit.Frame(_modelMin, _modelMax, camera.GetFrameCamera().FovY);
+    }
+
+    private void OnMouseScroll(IMouse mouse, ScrollWheel wheel)
+    {
+        if (_isChunkViewport || _scene == null || !_renderInit || wheel.Y == 0)
+        {
+            return;
+        }
+
+        _scene.Camera.LocalTransform = _orbit.Zoom(_scene.Camera.LocalTransform, _orbit.Distance * MathF.Pow(0.9f, wheel.Y));
+    }
+
+    private void DrawFloorGrid(PrimitiveRenderer renderer, FrameCamera camera)
+    {
+        if (!_isChunkViewport && _renderInit)
+        {
+            _floorGrid.Draw(renderer, camera);
+        }
+    }
+
+    private void ToggleTransformSpace()
+    {
+        if (_editingContext is { IsDraggingGizmo: true })
+        {
+            return;
+        }
+
+        TransformSpace = TransformSpace == TransformLocality.LOCAL ? TransformLocality.WORLD : TransformLocality.LOCAL;
+        _editingContext?.SetTransformLocality(TransformSpace);
+    }
+
+    /// <summary>
+    /// Moves the camera back from the selection until all of it is in view
+    /// </summary>
+    private void FrameSelection()
+    {
+        if (SelectedObject == null || _scene == null)
+        {
+            return;
+        }
+
+        var bounds = SelectedObject.Render.GetBoundsTransform();
+        var center = bounds.Column3.xyz;
+        var radius = Math.Max((bounds.Column0.xyz + bounds.Column1.xyz + bounds.Column2.xyz).Length, 0.5f);
+        var camera = _scene.Camera.GetFrameCamera();
+        var distance = radius / MathF.Tan(camera.FovY * 0.5f) * 1.2f;
+        _scene.Camera.SetPosition(center - camera.Forward * distance);
     }
 
     private void RendererOnSceneInitialized()
@@ -516,7 +1131,7 @@ public partial class ViewportViewModel : ReactiveObject
         {
             return;
         }
-        
+
         _firstRender = false;
     }
 
@@ -535,11 +1150,30 @@ public partial class ViewportViewModel : ReactiveObject
         {
             return;
         }
-        
+
+        var selectionInfo = _isChunkViewport && _editingContext?.SelectedRenderable is { IsSelected: true } selected ? selected.Describe() : string.Empty;
+        if (selectionInfo != SelectionInfo)
+        {
+            SelectionInfo = selectionInfo;
+        }
+
+        // Shortcuts like duplicating with Ctrl+D share their keys with moving
+        if (IsControlPressed())
+        {
+            return;
+        }
+
         var camForward = -_scene.Camera.GetForward();
         var camLeft = -_scene.Camera.GetLeft();
+        var fast = _keyboard.IsKeyPressed(Key.ShiftLeft) || _keyboard.IsKeyPressed(Key.ShiftRight);
+        if (!_isChunkViewport)
+        {
+            MoveOrbitCamera(camLeft, (float)delta * (fast ? 3.0f : 1.0f));
+            return;
+        }
+
         var camSpeed = 10.0f;
-        if (_keyboard.IsKeyPressed(Key.ShiftLeft) || _keyboard.IsKeyPressed(Key.ShiftRight))
+        if (fast)
         {
             camSpeed *= 5.0f;
         }
@@ -561,97 +1195,130 @@ public partial class ViewportViewModel : ReactiveObject
         }
     }
 
+    // W and S move closer and further away, A and D move the camera and what it turns around sideways
+    private void MoveOrbitCamera(vec3 camLeft, float delta)
+    {
+        if (!_renderInit)
+        {
+            return;
+        }
+
+        var step = _orbit.Distance * delta;
+        var zoom = (_keyboard!.IsKeyPressed(Key.S) ? step : 0) - (_keyboard.IsKeyPressed(Key.W) ? step : 0);
+        var pan = (_keyboard.IsKeyPressed(Key.D) ? step : 0) - (_keyboard.IsKeyPressed(Key.A) ? step : 0);
+        if (zoom == 0 && pan == 0)
+        {
+            return;
+        }
+
+        var camera = _scene!.Camera;
+        camera.LocalTransform = _orbit.Zoom(_orbit.Pan(camera.LocalTransform, camLeft * pan), _orbit.Distance + zoom);
+    }
+
     private void KeyboardOnKeyDown(IKeyboard keyboard, Key key, int scanCode)
     {
         if (_scene == null || _editingContext == null || !_isChunkViewport)
         {
             return;
         }
-        
-        if (key == Key.T)
+
+        if (IsControlPressed())
         {
-            _editingContext.ToggleTranslate();
+            if (key == Key.D)
+            {
+                DuplicateSelection();
+            }
+
+            return;
         }
-        else if (key == Key.R)
+
+        switch (key)
         {
-            _editingContext.ToggleRotate();
+            case Key.Q:
+                SetTool(TransformMode.SELECTION);
+                break;
+            case Key.T:
+                SetTool(TransformMode.TRANSLATE);
+                break;
+            case Key.R:
+                SetTool(TransformMode.ROTATE);
+                break;
+            case Key.E:
+                SetTool(TransformMode.SCALE);
+                break;
+            case Key.L:
+                ToggleTransformSpace();
+                break;
+            case Key.F:
+                FrameSelection();
+                break;
+            case Key.Left:
+                _editingContext.MoveCursorGrid(-vec3.UnitX);
+                break;
+            case Key.Right:
+                _editingContext.MoveCursorGrid(vec3.UnitX);
+                break;
+            case Key.Up:
+                _editingContext.MoveCursorGrid(vec3.UnitZ);
+                break;
+            case Key.Down:
+                _editingContext.MoveCursorGrid(-vec3.UnitZ);
+                break;
+            case Key.PageUp:
+                _editingContext.MoveCursorGrid(vec3.UnitY);
+                break;
+            case Key.PageDown:
+                _editingContext.MoveCursorGrid(-vec3.UnitY);
+                break;
+            case Key.K when _editingContext.SelectedInstance != null:
+                _editingContext.SetPalette(_editingContext.SelectedInstance);
+                break;
+            case Key.P:
+                CreateNewInstance(_editingContext.SpawnAtCursor());
+                break;
+            case Key.G:
+                _editingContext.SetGrid();
+                break;
+            case Key.Escape when _editingContext.IsDraggingGizmo:
+                _editingContext.CancelGizmoDrag();
+                EndDragStep();
+                break;
+            case Key.U:
+            case Key.Escape:
+                _document?.OpenInspector(null);
+                _editingContext.Deselect();
+                SelectedObject = null;
+                break;
+            case Key.Delete:
+                DeleteInstance();
+                break;
         }
-        else if (key == Key.E)
-        {
-            _editingContext.ToggleScale();
-        }
-        else if (key == Key.X)
-        {
-            _editingContext.SetTransformAxis(TransformAxis.X);
-        }
-        else if (key == Key.Y)
-        {
-            _editingContext.SetTransformAxis(TransformAxis.Y);
-        }
-        else if (key == Key.Z)
-        {
-            _editingContext.SetTransformAxis(TransformAxis.Z);
-        }
-        else if (key == Key.Left)
-        {
-            _editingContext.MoveCursorGrid(-vec3.UnitX);
-        }
-        else if (key == Key.Right)
-        {
-            _editingContext.MoveCursorGrid(vec3.UnitX);
-        }
-        else if (key == Key.Up)
-        {
-            _editingContext.MoveCursorGrid(vec3.UnitZ);
-        }
-        else if (key == Key.Down)
-        {
-            _editingContext.MoveCursorGrid(-vec3.UnitZ);
-        }
-        else if (key == Key.PageUp)
-        {
-            _editingContext.MoveCursorGrid(vec3.UnitY);
-        }
-        else if (key == Key.PageDown)
-        {
-            _editingContext.MoveCursorGrid(-vec3.UnitY);
-        }
-        else if (key == Key.K && _editingContext.SelectedInstance != null)
-        {
-            _editingContext.SetPalette(_editingContext.SelectedInstance);
-        }
-        else if (key == Key.P)
-        {
-            CreateNewInstance(_editingContext.SpawnAtCursor());
-        }
-        else if (key == Key.G)
-        {
-            _editingContext.SetGrid();
-        }
-        else if (key == Key.U)
-        {
-            _document?.OpenInspector(null);
-            _editingContext.Deselect();
-        }
-        else if (key == Key.L)
-        {
-            _editingContext.ToggleLocality();
-        }
-        else if (key == Key.Delete)
-        {
-            DeleteInstance();
-        }
+    }
+
+    private bool IsControlPressed()
+    {
+        return _keyboard != null && (_keyboard.IsKeyPressed(Key.ControlLeft) || _keyboard.IsKeyPressed(Key.ControlRight));
     }
 
     private Vector2 _prevMousePosition = new(-1, -1);
     private void OnMouseMove(IMouse mouse, Vector2 mousePos)
     {
+        // A drag keeps going when the mouse leaves the viewport
+        if (_editingContext is { IsDraggingGizmo: true } && _scene != null)
+        {
+            // Holding Ctrl snaps when snapping is off and the other way around
+            var invertSnapping = IsControlPressed();
+            _editingContext.UpdateGizmoDrag(_scene.Camera.GetFrameCamera(), new vec2(mousePos.X, mousePos.Y), invertSnapping);
+            _prevMousePosition = mousePos;
+            return;
+        }
+
         var viewRect = new Rect(0, 0, ViewportSize.x, ViewportSize.y);
         if (!viewRect.Contains(new Point(mousePos.X, mousePos.Y)))
         {
             return;
         }
-        
+
         if (_prevMousePosition is { X: -1, Y: -1 })
         {
             _prevMousePosition = mousePos;
@@ -660,6 +1327,17 @@ public partial class ViewportViewModel : ReactiveObject
         if (mouse.IsButtonPressed(MouseButton.Right))
         {
             var delta = (_prevMousePosition - mousePos).FromSystem() * 0.2f;
+            if (!_isChunkViewport)
+            {
+                if (_scene != null && _renderInit)
+                {
+                    _scene.Camera.LocalTransform = _orbit.Orbit(_scene.Camera.LocalTransform, glm.Radians(-delta.x), 0.05f * delta.y);
+                }
+
+                _prevMousePosition = mousePos;
+                return;
+            }
+
             var camera = _scene!.Camera;
             var camPosition = camera.GetPosition();
             camera.SetPosition(vec3.Zero);
@@ -668,92 +1346,18 @@ public partial class ViewportViewModel : ReactiveObject
             camera.Rotate(left * delta.y);
             camera.SetPosition(camPosition);
         }
-
-        if (_editingContext != null && mouse.IsButtonPressed(MouseButton.Left) && _editingContext.IsInstanceSelected())
+        else if (!mouse.IsButtonPressed(MouseButton.Left) && _scene != null && _isChunkViewport)
         {
-            var pos = mousePos;
-            _editingContext.UpdateTransform(pos.X, pos.Y);
+            _editingContext?.UpdateGizmoHover(_scene.Camera.GetFrameCamera(), new vec2(mousePos.X, mousePos.Y));
         }
 
         _prevMousePosition = mousePos;
     }
-    
-    private void ImguiRenderControls()
-    {
-        if (_renderer == null || _editingContext == null)
-        {
-            return;
-        }
-        
-        ImGui.Begin("Editor Info");
-        ImGui.SetWindowPos(new Vector2(5, _renderer.GetFrameBufferSize().y - 400), ImGuiCond.FirstUseEver);
-        ImGui.SetWindowSize(new Vector2(300, 395), ImGuiCond.FirstUseEver);
-        ImGui.Text($"Editing mode: {_editingContext.TransformMode}");
-        ImGui.Text($"Editing axis: {_editingContext.TransformAxis}");
-        ImGui.Text($"Translation locality mode: {_editingContext.TransformLocality}");
-        ImGui.Text("U - Unselect");
-        ImGui.Text("T - Toggle translate");
-        ImGui.Text("R - Toggle rotate");
-        ImGui.Text("E - Toggle scale");
-        ImGui.Text("X - Edit on X axis");
-        ImGui.Text("Y - Edit on Y axis");
-        ImGui.Text("Z - Edit on Z axis");
-        ImGui.Text("L - Switch translation locality");
-        ImGui.Text("G - Move edit cursor on a grid");
-        ImGui.Text("P - Create duplicate instance at cursor's position");
-        ImGui.Text("K - Add current selection to palette");
-        ImGui.Text("Delete - Remove currently selected instance");
-        ImGui.End();
-    }
-    
-    private void ImguiRenderFilterCheckbox(string label, Renderable renderObject, DrawFilter filter, Action<bool>? toggleCallback = null)
-    {
-        ImguiRenderFilterCheckbox(label, [renderObject], filter, toggleCallback);
-    }
-    
-    private void ImguiRenderFilterCheckbox(string label, IReadOnlyList<Renderable> renderObjects, DrawFilter filter, Action<bool>? toggleCallback = null)
-    {
-        var renderEnabled = IsDrawFilterEnabled(filter);
-        if (ImGui.Checkbox(label, ref renderEnabled) && renderObjects.Any(r => !r.IsVisible))
-        {
-            foreach (var renderObject in renderObjects)
-            {
-                renderObject.IsVisible = true;
-            }
-            
-            EnableDrawFilter(filter);
-            toggleCallback?.Invoke(true);
-        }
-        else if (!renderEnabled && renderObjects.Any(r => r.IsVisible))
-        {
-            foreach (var renderObject in renderObjects)
-            {
-                renderObject.IsVisible = false;
-            }
-            
-            DisableDrawFilter(filter);
-            toggleCallback?.Invoke(false);
-        }
-    }
-    
-    private bool IsDrawFilterEnabled(DrawFilter filter)
-    {
-        return _drawFilter.HasFlag(filter);
-    }
-
-    private void EnableDrawFilter(DrawFilter filter)
-    {
-        _drawFilter |= filter;
-    }
-
-    private void DisableDrawFilter(DrawFilter filter)
-    {
-        _drawFilter &= ~filter;
-    }
 
     public Action<Renderer, Scene>? SceneInitializer { get; set; }
     public bool CanRender { get; private set; }
-    public bool UseImgui { get; set; } = true;
+
+    public bool IsBuildingScene => _renderContext != null && !_renderInit;
     public string SceneStatus => CanRender ? "" : "Loading scene...";
 }
 

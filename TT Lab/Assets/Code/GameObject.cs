@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using TT_Lab.AssetData;
 using TT_Lab.AssetData.Code;
+using TT_Lab.Assets.Factory;
+using Twinsanity.TwinsanityInterchange.Interfaces;
 using TT_Lab.ViewModels.Editors.Code;
 using Twinsanity.TwinsanityInterchange.Common.AgentLab;
 using Twinsanity.TwinsanityInterchange.Enumerations;
@@ -15,11 +17,10 @@ public class GameObject : SerializableAsset
     {
         public IReadOnlyList<LabURI> RefObjects { get; init; } = [];
         public IReadOnlyList<LabURI> RefOgis { get; init; } = [];
-        public IReadOnlyList<LabURI> RefAnimations { get; init; } = [];
+        public IReadOnlyList<UInt16> RefAnimations { get; init; } = [];
         public IReadOnlyList<LabURI> RefSounds { get; init; } = [];
         public IReadOnlyList<LabURI> RefBehaviours { get; init; } = [];
     }
-    public event Action<ReferencedResourceUris>? ReferencesObtained;
         
     public override UInt32 Section => Constants.CODE_GAME_OBJECTS_SECTION;
     public override String IconPath => "Game_Object.png";
@@ -46,8 +47,26 @@ public class GameObject : SerializableAsset
         return AssetData;
     }
 
-    public void FireReferencedBehavioursObtained(ReferencedResourceUris resourceReferences)
+    public override void ResolveChunkResources(ITwinItemFactory factory, ITwinSection section)
     {
-        ReferencesObtained?.Invoke(resourceReferences);
+        if (OverrideViewOf(factory) is { } view)
+        {
+            view.ResolveChunkResources(factory, section);
+            return;
+        }
+
+        // What references this object gets the references of the version the chunk gets
+        if (ChunkVersionOf(factory) is GameObject version)
+        {
+            version.ResolveChunkResources(factory, section);
+            if (factory.Resolution.ObjectReferences.TryGetValue(version.URI, out var references))
+            {
+                factory.Resolution.ObjectReferences[URI] = references;
+            }
+
+            return;
+        }
+
+        base.ResolveChunkResources(factory, section);
     }
 }

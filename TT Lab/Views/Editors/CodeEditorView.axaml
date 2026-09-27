@@ -7,8 +7,15 @@
              x:DataType="viewmodels:CodeEditorViewModel"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="TT_Lab.Views.Editors.CodeEditorView">
-    <StackPanel Orientation="Vertical" ScrollViewer.BringIntoViewOnFocusChange="False">
-        <TextBox Name="Editor" AcceptsReturn="True" AcceptsTab="False" ScrollViewer.BringIntoViewOnFocusChange="False"/>
-        <TextBlock x:Name="CodeParsingError" Foreground="Red" FontSize="14"/>
-    </StackPanel>
+    <DockPanel LastChildFill="True">
+        <TextBlock x:Name="CodeParsingError" DockPanel.Dock="Bottom" Margin="5" Foreground="IndianRed" FontSize="14" TextWrapping="Wrap"/>
+        <!-- A fixed height lets the editor scroll by itself instead of growing inside the document's scroll viewers -->
+        <avaloniaEdit:TextEditor x:Name="Editor"
+                                 Height="640"
+                                 ShowLineNumbers="True"
+                                 WordWrap="False"
+                                 FontSize="13"
+                                 HorizontalScrollBarVisibility="Auto"
+                                 VerticalScrollBarVisibility="Auto"/>
+    </DockPanel>
 </UserControl>

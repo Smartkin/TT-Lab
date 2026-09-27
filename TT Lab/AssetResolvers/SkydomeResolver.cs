@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Graphics;
 using Twinsanity.TwinsanityInterchange.Enumerations;
@@ -9,42 +10,35 @@ namespace TT_Lab.AssetResolvers;
 
 public class SkydomeResolver : AssetResolver<ITwinSkydome>
 {
-    private MeshResolver _meshResolver;
-    
-    public SkydomeResolver()
-    {
-        const string resourcePath = "Skydome";
-        var modelResolver = new ModelResolver(true)
-        {
-            ChunkPathOverride = resourcePath
-        };
-        var textureResolver = new TextureResolver(true)
-        {
-            ChunkPathOverride = resourcePath
-        };
-        var materialResolver = new MaterialResolver(textureResolver, true)
-        {
-            ChunkPathOverride = resourcePath
-        };
-        _meshResolver = new MeshResolver(modelResolver, materialResolver)
-        {
-            ChunkPathOverride = resourcePath
-        };
-    }
-    
+    private readonly List<MeshResolver> _meshResolvers = [];
+
     public override void CreateAssetsFromChunk(ITwinSection chunk, Package package)
     {
         throw new System.NotImplementedException();
     }
 
+    // Skies use the same texture IDs for other pictures (the sun of AltEarth's sky isn't the one of the others), so each keeps its
+    // parts in a folder of its own, where its materials find its textures
     protected override IAsset CreateAsset(ITwinSection chunk, Package package, ITwinSkydome item, bool needVariant, string variant)
     {
+        var resourcePath = $"Skydome/{item.GetID():X}";
+        var textureResolver = new TextureResolver(true)
+        {
+            ChunkPathOverride = resourcePath
+        };
+        var meshResolver = new MeshResolver(new ModelResolver(true) { ChunkPathOverride = resourcePath },
+            new MaterialResolver(textureResolver, true) { ChunkPathOverride = resourcePath })
+        {
+            ChunkPathOverride = resourcePath
+        };
+        _meshResolvers.Add(meshResolver);
+
         var meshSection = chunk.GetItem<ITwinSection>(Constants.SCENERY_GRAPHICS_SECTION).GetItem<ITwinSection>(Constants.GRAPHICS_MESHES_SECTION);
         foreach (var itemMesh in item.Meshes)
         {
-            _meshResolver.CreateAssetFromId(chunk, meshSection, package, itemMesh);
+            meshResolver.CreateAssetFromId(chunk, meshSection, package, itemMesh);
         }
-        
+
         return new Skydome(package.URI, needVariant, variant, item.GetID(), item.GetName(), item);
     }
 
@@ -55,8 +49,8 @@ public class SkydomeResolver : AssetResolver<ITwinSkydome>
 
     public override void FinalizeResolve()
     {
-        _meshResolver.FinalizeResolve();
-        
+        _meshResolvers.ForEach(resolver => resolver.FinalizeResolve());
+
         base.FinalizeResolve();
     }
 }

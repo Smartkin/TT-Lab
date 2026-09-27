@@ -7,8 +7,11 @@
              x:DataType="composite:TabbedEditorViewModel"
              x:Class="TT_Lab.Views.Composite.TabbedEditorView">
     <UserControl.KeyBindings>
-        <KeyBinding Command="{Binding CloseTab}" Gesture="Ctrl+W"/>
-        <KeyBinding Command="{Binding SaveTab}" Gesture="Ctrl+S"/>
+        <KeyBinding Command="{Binding CloseCommand}" Gesture="Ctrl+W"/>
+        <KeyBinding Command="{Binding SaveCommand}" Gesture="Ctrl+S"/>
+        <KeyBinding Command="{Binding UndoCommand}" Gesture="Ctrl+Z"/>
+        <KeyBinding Command="{Binding RedoCommand}" Gesture="Ctrl+Y"/>
+        <KeyBinding Command="{Binding RedoCommand}" Gesture="Ctrl+Shift+Z"/>
     </UserControl.KeyBindings>
     <!-- <i:Interaction.Triggers> -->
     <!--     <Triggers:InputBindingTrigger> -->

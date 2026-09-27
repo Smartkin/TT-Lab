@@ -1,0 +1,80 @@
+using System;
+using System.Collections.Generic;
+using Avalonia.Controls;
+using Avalonia.Layout;
+using Avalonia.Media;
+using AvaloniaEdit.CodeCompletion;
+using AvaloniaEdit.Document;
+using AvaloniaEdit.Editing;
+using Twinsanity.AgentLab;
+
+namespace TT_Lab.AgentLab;
+
+/// <summary>
+/// Suggestion shown in the behaviour editor's completion list
+/// </summary>
+public sealed class AgentLabCompletionData(AgentLabCompletionItem item) : ICompletionData
+{
+    // Colors match the ones the Dark+ theme highlights the same kind of code with
+    private static readonly Dictionary<AgentLabCompletionKind, (string Badge, IBrush Brush)> Badges = new()
+    {
+        [AgentLabCompletionKind.Keyword] = ("K", new SolidColorBrush(Color.Parse("#569CD6"))),
+        [AgentLabCompletionKind.Action] = ("A", new SolidColorBrush(Color.Parse("#DCDCAA"))),
+        [AgentLabCompletionKind.Condition] = ("C", new SolidColorBrush(Color.Parse("#4EC9B0"))),
+        [AgentLabCompletionKind.State] = ("S", new SolidColorBrush(Color.Parse("#C586C0"))),
+        [AgentLabCompletionKind.ControlPacket] = ("P", new SolidColorBrush(Color.Parse("#9CDCFE"))),
+        [AgentLabCompletionKind.Attribute] = ("@", new SolidColorBrush(Color.Parse("#D7BA7D"))),
+        [AgentLabCompletionKind.Constant] = ("V", new SolidColorBrush(Color.Parse("#4FC1FF"))),
+        [AgentLabCompletionKind.EnumValue] = ("E", new SolidColorBrush(Color.Parse("#B5CEA8")))
+    };
+
+    private Control? _content;
+
+    public AgentLabCompletionItem Item => item;
+
+    public IImage? Image => null;
+
+    public string Text => item.Text;
+
+    // Lists can hold every action so their controls are only made once they get shown
+    public object Content => _content ??= CreateContent();
+
+    public object Description => item.Description;
+
+    public double Priority => 0;
+
+    public void Complete(TextArea textArea, ISegment completionSegment, EventArgs insertionRequestEventArgs)
+    {
+        textArea.Document.Replace(completionSegment, item.Text);
+    }
+
+    private Control CreateContent()
+    {
+        var (badge, brush) = Badges[item.Kind];
+        return new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 6,
+            Children =
+            {
+                new Border
+                {
+                    Width = 16,
+                    Height = 16,
+                    CornerRadius = new Avalonia.CornerRadius(3),
+                    Background = brush,
+                    Child = new TextBlock
+                    {
+                        Text = badge,
+                        FontSize = 10,
+                        FontWeight = FontWeight.Bold,
+                        Foreground = Brushes.Black,
+                        HorizontalAlignment = HorizontalAlignment.Center,
+                        VerticalAlignment = VerticalAlignment.Center
+                    }
+                },
+                new TextBlock { Text = item.Text, VerticalAlignment = VerticalAlignment.Center }
+            }
+        };
+    }
+}

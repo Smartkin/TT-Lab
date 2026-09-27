@@ -24,6 +24,7 @@ public class PSMData : AbstractAssetData
 
     [JsonProperty(Required = Required.Always)]
     [Editable]
+    [OnReferenceDeleted(DeletedReferenceAction.Remove)]
     public List<LabURI> PTCs { get; set; }
 
     public override ITwinItem Export(ITwinItemFactory factory)

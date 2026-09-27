@@ -83,6 +83,7 @@ public class TriggerData : AbstractAssetData
     
     [JsonProperty(Required = Required.Always)]
     [Editable]
+    [OnReferenceDeleted(DeletedReferenceAction.Remove)]
     public List<LabURI> Instances { get; set; }
     
     [JsonProperty(Required = Required.Always)]
@@ -215,15 +216,16 @@ public class TriggerData : AbstractAssetData
 
     public override List<ViewportObject> GetViewportObjects(ViewportContext viewportContext, PropertyNode property)
     {
-        var visual = BufferGeneration.GetCubeBuffer(viewportContext.RenderContext).Model!;
+        var visual = BufferGeneration.GetVolumeBuffer(viewportContext.RenderContext).Model!;
         var color = System.Drawing.Color.FromKnownColor(System.Drawing.KnownColor.Orange);
-        visual.Diffuse = new vec4(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f,  color.A / 255.0f * 0.5f);
+        visual.Diffuse = new vec4(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f,  color.A / 255.0f * BufferGeneration.VolumeOpacity);
         
-        var size = vec3.Ones;
-        var offset = -vec3.Ones * 0.5f;
+        // The cube goes from -1 to 1 before the trigger's scale
+        var size = vec3.Ones * 2.0f;
+        var offset = -vec3.Ones;
         var editableObject = new EditableObject(viewportContext.RenderContext, visual, Owner.FullDataPath, offset, size);
         color = System.Drawing.Color.FromKnownColor(System.Drawing.KnownColor.Yellow);
-        editableObject.SelectedColor = new vec4(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f,  color.A / 255.0f * 0.25f);
+        editableObject.SelectedColor = new vec4(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f,  color.A / 255.0f * BufferGeneration.SelectedVolumeOpacity);
         editableObject.UnselectedColor = visual.Diffuse;
         editableObject.SetPosition(Position.ToGlm());
         editableObject.SetRotation(new quat(Rotation.ToRadiansGlm()));
@@ -235,6 +237,7 @@ public class TriggerData : AbstractAssetData
             Position = property.Find($"[data].AssetData.{nameof(Position)}"),
             Rotation = property.Find($"[data].AssetData.{nameof(Rotation)}"),
             Scale = property.Find($"[data].AssetData.{nameof(Scale)}"),
+            Category = ViewportObjectCategory.Triggers,
         }];
     }
 

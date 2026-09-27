@@ -1,0 +1,54 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls1="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+             xmlns:code="clr-namespace:TT_Lab.ViewModels.Editors.Code"
+             xmlns:assetCode="clr-namespace:TT_Lab.AssetData.Code"
+             xmlns:labControls="clr-namespace:TT_Lab.Controls"
+             x:DataType="code:OgiAnimationsViewModel"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Views.Editors.Code.OgiAnimationsView">
+    <!-- The inspector scrolls sideways, without this the text wouldn't wrap and long rows would push out a horizontal scrollbar -->
+    <labControls:FitToScrollViewport>
+        <controls1:GroupBox>
+            <StackPanel Orientation="Vertical" Spacing="4">
+                <TextBlock Margin="5" TextWrapping="Wrap" IsVisible="{Binding !HasAnimations}"
+                           Text="No animations present. Create new ones in Blender"/>
+                <ListBox x:Name="AnimationList" MaxHeight="240" IsVisible="{Binding HasAnimations}" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         ItemsSource="{Binding Animations}" SelectedItem="{Binding SelectedAnimation}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="assetCode:AnimationData">
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                <TextBlock Grid.Column="0" Margin="0,0,8,0" FontWeight="SemiBold" Text="{Binding ID, StringFormat={}{0:X}}"/>
+                                <TextBlock Grid.Column="1" Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Grid.Column="2" Margin="8,0,0,0" Opacity="0.7">
+                                    <Run Text="{Binding TotalFrames}"/>
+                                    <Run Text="frames at"/>
+                                    <Run Text="{Binding DefaultFPS}"/>
+                                    <Run Text="FPS"/>
+                                </TextBlock>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+                <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasAnimations}">
+                    <Slider Grid.Column="0" Minimum="0" Maximum="{Binding LastFrame}" Value="{Binding Frame}" SmallChange="1" LargeChange="10"/>
+                    <TextBlock Grid.Column="1" Margin="8,0,5,0" VerticalAlignment="Center" MinWidth="110" TextAlignment="Right" Text="{Binding FrameText}"/>
+                </Grid>
+                <WrapPanel Orientation="Horizontal" ItemSpacing="5" LineSpacing="5" Margin="5" IsVisible="{Binding HasAnimations}">
+                    <Button MinWidth="70" HorizontalContentAlignment="Center" Command="{Binding PlayAnimation}" Content="Play" IsVisible="{Binding !IsPlaying}"/>
+                    <Button MinWidth="70" HorizontalContentAlignment="Center" Command="{Binding PauseAnimation}" Content="Pause" IsVisible="{Binding IsPlaying}"/>
+                    <Button MinWidth="70" HorizontalContentAlignment="Center" Command="{Binding StopAnimation}" Content="Stop"/>
+                    <Button MinWidth="70" HorizontalContentAlignment="Center" Command="{Binding ShowBindPose}" Content="Bind Pose"
+                            ToolTip.Tip="Shows the model the way it's bound, without the animation"/>
+                    <CheckBox Margin="5,0,0,0" VerticalAlignment="Center" IsChecked="{Binding Loop}" Content="Loop"/>
+                    <StackPanel Orientation="Horizontal" Spacing="5" Margin="5,0,0,0">
+                        <TextBlock VerticalAlignment="Center" Text="Speed"/>
+                        <NumericUpDown Width="120" Minimum="0.05" Maximum="4" Increment="0.25" FormatString="0.##" Value="{Binding Speed}"/>
+                    </StackPanel>
+                </WrapPanel>
+            </StackPanel>
+        </controls1:GroupBox>
+    </labControls:FitToScrollViewport>
+</UserControl>

@@ -1,0 +1,25 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:composite="clr-namespace:TT_Lab.ViewModels.Composite"
+             x:DataType="composite:SceneEditorTabViewModel"
+             x:CompileBindings="False"
+             Focusable="True"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Views.Composite.SceneEditorTabView">
+    <!-- Focusable so clicking anywhere in the editor moves the focus into it, which the shortcuts need -->
+    <UserControl.KeyBindings>
+        <KeyBinding Command="{Binding SaveCommand}" Gesture="Ctrl+S"/>
+        <KeyBinding Command="{Binding UndoCommand}" Gesture="Ctrl+Z"/>
+        <KeyBinding Command="{Binding RedoCommand}" Gesture="Ctrl+Y"/>
+        <KeyBinding Command="{Binding RedoCommand}" Gesture="Ctrl+Shift+Z"/>
+        <KeyBinding Command="{Binding CloseCommand}" Gesture="Ctrl+W"/>
+    </UserControl.KeyBindings>
+    <!-- The chunk's resources and inspector are panels of their own (ChunkResourcesViewModel, ChunkInspectorViewModel) -->
+    <Grid IsEnabled="{Binding IsLoaded}">
+        <ContentControl IsVisible="{Binding HasViewport}" Content="{Binding Viewport}"/>
+        <TextBlock IsVisible="{Binding !HasViewport}" Text="This chunk has no scene, its resources are in the Chunk Resources panel"
+                   HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap" Margin="20" Opacity="0.7"/>
+    </Grid>
+</UserControl>

@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using Twinsanity.Libraries;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Implementations.Base;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items;
@@ -19,6 +20,13 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.Graphics
         static Dictionary<string, TextureDescriptor> TextureDescriptorHelper;
 
         UInt32 textureType;
+        // Left over from the PS2 texture it was converted from, the size the PS2 one had (32 bits per pixel with a header of 0x84 or 0xA0)
+        UInt32 sourceLength;
+        // Runtime values the game ignores when loading
+        UInt32 reserved1;
+        UInt32 reserved2;
+        UInt16 reserved3;
+        const Int32 HeaderLength = 0x88;
 
         public List<Color> Colors { get; set; }
         public UInt32 HeaderSignature { get; set; }
@@ -64,14 +72,37 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.Graphics
         public Byte[] UnusedMetadata { get; set; }
         public Byte[] TextureData { get; set; }
 
+        public TwinTextureLeftovers Leftovers
+        {
+            get
+            {
+                var toolMemory = new UInt32[UnusedMetadata.Length / 4];
+                Buffer.BlockCopy(UnusedMetadata, 0, toolMemory, 0, toolMemory.Length * 4);
+                return new TwinTextureLeftovers
+                {
+                    SignatureLeftover = (UInt16)HeaderSignature,
+                    ToolSlot = reserved1,
+                    Reserved1 = reserved2,
+                    Reserved2 = reserved3,
+                    ToolMemory = toolMemory
+                };
+            }
+            set
+            {
+                HeaderSignature = (HeaderSignature & 0xFFFF0000) | value.SignatureLeftover;
+                reserved1 = value.ToolSlot;
+                reserved2 = value.Reserved1;
+                reserved3 = value.Reserved2;
+                Buffer.BlockCopy(value.ToolMemory, 0, UnusedMetadata, 0, Math.Min(UnusedMetadata.Length, value.ToolMemory.Length * 4));
+            }
+        }
+
         public XboxAnyTexture()
         {
             if (TextureDescriptorHelper == null)
             {
-                string codeBase = Assembly.GetExecutingAssembly().Location;
-                UriBuilder uri = new(codeBase);
-                string path = Uri.UnescapeDataString(uri.Path);
-                using FileStream stream = new(Path.Combine(Path.GetDirectoryName(path), @"TextureDescriptionHelper.json"), FileMode.Open, FileAccess.Read);
+                string path = Assembly.GetExecutingAssembly().Location;
+                using FileStream stream = new(Path.Combine(Path.GetDirectoryName(path), "TextureDescriptionHelper.json"), FileMode.Open, FileAccess.Read);
                 using StreamReader reader = new(stream);
                 TextureDescriptorHelper = JsonSerializer.Deserialize<Dictionary<string, TextureDescriptor>>(reader.ReadToEnd());
             }
@@ -94,11 +125,12 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.Graphics
             UnusedMetadata[17] = 246;
             UnusedMetadata[18] = 89;
             UnusedMetadata[19] = 32;
+            reserved2 = 0xF;
         }
 
         public override Int32 GetLength()
         {
-            return 4 + 100 + UnusedMetadata.Length + (TextureData != null ? TextureData.Length : 0);
+            return HeaderLength + (TextureData != null ? TextureData.Length : 0);
         }
 
         public override String GetName()
@@ -108,7 +140,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.Graphics
 
         public override void Read(BinaryReader reader, Int32 length)
         {
-            int dataLen = reader.ReadInt32();
+            sourceLength = reader.ReadUInt32();
             HeaderSignature = reader.ReadUInt32();
             ImageWidthPower = reader.ReadUInt16();
             ImageHeightPower = reader.ReadUInt16();
@@ -133,20 +165,20 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.Graphics
             }
             ClutBufferBasePointer = reader.ReadInt32();
             UnkBytes2 = reader.ReadBytes(8);
-            reader.ReadInt32(); // Reserved
-            reader.ReadInt32(); // Reserved
+            reserved1 = reader.ReadUInt32();
+            reserved2 = reader.ReadUInt32();
             UnkBytes3 = reader.ReadBytes(2);
-            reader.ReadBytes(2); // Reserved
+            reserved3 = reader.ReadUInt16();
             reader.Read(UnusedMetadata, 0, UnusedMetadata.Length);
 
-            // XBox specific
+            // XBox specific, only the largest mip is stored. Textures inside other files don't know their length
             textureType = reader.ReadUInt32();
-            TextureData = reader.ReadBytes(dataLen - 100 - UnusedMetadata.Length);
+            TextureData = reader.ReadBytes(length > 0 ? length - HeaderLength : GetDataLength());
         }
 
         public override void Write(BinaryWriter writer)
         {
-            writer.Write(GetLength() - 4);
+            writer.Write(sourceLength);
             writer.Write(HeaderSignature);
             writer.Write(ImageWidthPower);
             writer.Write(ImageHeightPower);
@@ -169,74 +201,58 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.Graphics
             }
             writer.Write(ClutBufferBasePointer);
             writer.Write(UnkBytes2);
-            writer.Write(0); // Reserved
-            writer.Write(0); // Reserved
+            writer.Write(reserved1);
+            writer.Write(reserved2);
             writer.Write(UnkBytes3);
-            writer.Write((Int16)0); // Reserved
+            writer.Write(reserved3);
             writer.Write(UnusedMetadata);
             writer.Write(textureType);
             writer.Write(TextureData);
         }
 
-        public void CalculateData()
+        // Uncompressed textures can have 28 bytes after their pixels, the length of the PS2 texture they came from counts them
+        private Int32 GetDataLength()
         {
-            using var ms = new MemoryStream(TextureData);
-            using var reader = new BinaryReader(ms);
-            var width = (1 << ImageWidthPower);
-            var height = (1 << ImageHeightPower);
-            Color[] rawData;
-            byte[] imageData;
+            var width = 1 << ImageWidthPower;
+            var height = 1 << ImageHeightPower;
             if (textureType != 0)
             {
-                // BC3/DXT5 compression
-                imageData = reader.ReadBytes(width * height);
-                byte[] decompressed = new byte[imageData.Length * 4];
-                DecompressDXT5(imageData, width, height, decompressed);
-
-                rawData = new Color[width * height];
-                int b = 0;
-                int c = 0;
-                for (int y = height - 1; y >= 0; y--)
-                {
-                    c = (width * y);
-                    for (int x = 0; x < width; x++)
-                    {
-                        rawData[c + x] = new Color(decompressed[b + 3], decompressed[b + 2], decompressed[b + 1], decompressed[b + 0]);
-                        b += 4;
-                    }
-                }
+                return Math.Max(1, width / 4) * Math.Max(1, height / 4) * 16;
             }
-            else
+
+            return Math.Max(width * height * 4, (Int32)sourceLength - 0x84);
+        }
+
+        public void CalculateData()
+        {
+            var width = 1 << ImageWidthPower;
+            var height = 1 << ImageHeightPower;
+            if (textureType != 0)
             {
-                // Uncompressed pixels (PSM)
-                imageData = Array.Empty<Byte>();
-                rawData = new Color[width * height];
-                int c = 0;
-                for (int y = height - 1; y >= 0; y--)
-                {
-                    c = (width * y);
-                    for (int x = 0; x < width; x++)
-                    {
-                        byte[] clr = reader.ReadBytes(4);
-                        rawData[c + x] = new Color(clr[3], clr[2], clr[1], clr[0]);
-                    }
-                }
+                Colors = Dxt5.Decode(TextureData, width, height);
+                return;
             }
 
-            Colors = new List<Color>(rawData);
+            // Uncompressed pixels are stored as BGRA
+            Colors = new List<Color>(width * height);
+            for (var i = 0; i < width * height && i * 4 + 3 < TextureData.Length; i++)
+            {
+                Colors.Add(new Color(TextureData[i * 4 + 2], TextureData[i * 4 + 1], TextureData[i * 4], TextureData[i * 4 + 3]));
+            }
         }
 
         public void FromBitmap(List<Color> image, Int32 width, ITwinTexture.TextureFunction fun, ITwinTexture.TexturePixelFormat format, bool generateMipmaps = false)
         {
             int height = image.Count / width;
             TexFun = fun;
-            TextureFormat = format;
+            // Textures of levels are always compressed, the ones of menus and fonts keep every pixel
+            TextureFormat = format == ITwinTexture.TexturePixelFormat.Raw ? ITwinTexture.TexturePixelFormat.Raw : ITwinTexture.TexturePixelFormat.DXT5;
+            ps2TextureFormat = format == ITwinTexture.TexturePixelFormat.PSMCT32 ? ITwinTexture.TexturePixelFormat.PSMCT32 : ITwinTexture.TexturePixelFormat.PSMT8;
             TextureBufferWidth = (int)Math.Ceiling(width / 64.0f);
             ImageWidthPower = (ushort)Math.Log2(width);
             ImageHeightPower = (ushort)Math.Log2(height);
-            if (width != 256 && generateMipmaps)
+            if (width != 256 && generateMipmaps && TextureDescriptorHelper.TryGetValue($"{width}x{height}", out var textureDescriptor))
             {
-                TextureDescriptor textureDescriptor = TextureDescriptorHelper[$"{width}x{height}"];
                 ClutBufferBasePointer = textureDescriptor.CBP;
                 MipLevelsTBP = textureDescriptor.MipTBP;
                 MipLevelsTBW = textureDescriptor.MipTBW;
@@ -249,387 +265,26 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.Graphics
                 MipLevelsTBW = new Int32[6];
                 MipLevels = 1;
             }
-            //this is probably not bytes but whatever
-            UnkBytes2[5] = UnkBytes3[0] = (Byte)((width == 256) ? 0 : (byte)Math.Min(width, height));
-            UnkBytes2[6] = UnkBytes3[1] = (Byte)((width == 256) ? 2 : 0);
-
-            if (textureType == 2)
+            // The game's textures keep the size of the PS2 texture they were made from, it's written the same way for new ones
+            sourceLength = (UInt32)(width * height * 4 + 0x84);
+            UnkBytes3 = new Byte[2];
+            BitConverter.TryWriteBytes(UnkBytes2.AsSpan(0, 4), 1U);
+            BitConverter.TryWriteBytes(UnkBytes2.AsSpan(4, 4), sourceLength);
+            if (textureType != 0)
             {
-                Byte[] rawData = new Byte[image.Sum(_ => 4)];
-                var byteIndex = 0;
-                for (Int32 i = 0; i < image.Count; i++)
-                {
-                    rawData[byteIndex++] = image[i].A;
-                    rawData[byteIndex++] = image[i].R;
-                    rawData[byteIndex++] = image[i].G;
-                    rawData[byteIndex++] = image[i].B;
-                }
-
-                CompressDXT5(rawData, (UInt32)width, (UInt32)height, out Byte[] compressedData);
-                TextureData = compressedData;
+                TextureData = Dxt5.Encode(image, width, height);
+                return;
             }
-            else
-            {
-                Byte[] rawData = new Byte[image.Sum(_ => 4)];
-                var byteIndex = 0;
-                for (Int32 i = 0; i < image.Count; i++)
-                {
-                    rawData[byteIndex++] = image[i].A;
-                    rawData[byteIndex++] = image[i].R;
-                    rawData[byteIndex++] = image[i].G;
-                    rawData[byteIndex++] = image[i].B;
-                }
 
-                TextureData = rawData;
+            TextureData = new Byte[width * height * 4];
+            for (var i = 0; i < width * height; i++)
+            {
+                TextureData[i * 4] = image[i].B;
+                TextureData[i * 4 + 1] = image[i].G;
+                TextureData[i * 4 + 2] = image[i].R;
+                TextureData[i * 4 + 3] = image[i].A;
             }
         }
 
-        #region Compression
-        public static void DecompressDXT1(byte[] input, int width, int height, byte[] output)
-        {
-            int offset = 0;
-            int bcw = (width + 3) / 4;
-            int bch = (height + 3) / 4;
-            int clen_last = (width + 3) % 4 + 1;
-            uint[] buffer = new uint[16];
-            int[] colors = new int[4];
-            for (int t = 0; t < bch; t++)
-            {
-                for (int s = 0; s < bcw; s++, offset += 8)
-                {
-                    int q0 = input[offset + 0] | input[offset + 1] << 8;
-                    int q1 = input[offset + 2] | input[offset + 3] << 8;
-                    Rgb565(q0, out Int32 r0, out Int32 g0, out Int32 b0);
-                    Rgb565(q1, out Int32 r1, out Int32 g1, out Int32 b1);
-                    colors[0] = TColor(r0, g0, b0, 255);
-                    colors[1] = TColor(r1, g1, b1, 255);
-                    if (q0 > q1)
-                    {
-                        colors[2] = TColor((r0 * 2 + r1) / 3, (g0 * 2 + g1) / 3, (b0 * 2 + b1) / 3, 255);
-                        colors[3] = TColor((r0 + r1 * 2) / 3, (g0 + g1 * 2) / 3, (b0 + b1 * 2) / 3, 255);
-                    }
-                    else
-                    {
-                        colors[2] = TColor((r0 + r1) / 2, (g0 + g1) / 2, (b0 + b1) / 2, 255);
-                    }
-
-                    uint d = BitConverter.ToUInt32(input, offset + 4);
-                    for (int i = 0; i < 16; i++, d >>= 2)
-                    {
-                        buffer[i] = unchecked((uint)colors[d & 3]);
-                    }
-
-                    int clen = (s < bcw - 1 ? 4 : clen_last) * 4;
-                    for (int i = 0, y = t * 4; i < 4 && y < height; i++, y++)
-                    {
-                        Buffer.BlockCopy(buffer, i * 4 * 4, output, (y * width + s * 4) * 4, clen);
-                    }
-                }
-            }
-        }
-
-        public static void DecompressDXT3(byte[] input, int width, int height, byte[] output)
-        {
-            int offset = 0;
-            int bcw = (width + 3) / 4;
-            int bch = (height + 3) / 4;
-            int clen_last = (width + 3) % 4 + 1;
-            uint[] buffer = new uint[16];
-            int[] colors = new int[4];
-            int[] alphas = new int[16];
-            for (int t = 0; t < bch; t++)
-            {
-                for (int s = 0; s < bcw; s++, offset += 16)
-                {
-                    for (int i = 0; i < 4; i++)
-                    {
-                        int alpha = input[offset + i * 2] | input[offset + i * 2 + 1] << 8;
-                        alphas[i * 4 + 0] = (((alpha >> 0) & 0xF) * 0x11) << 24;
-                        alphas[i * 4 + 1] = (((alpha >> 4) & 0xF) * 0x11) << 24;
-                        alphas[i * 4 + 2] = (((alpha >> 8) & 0xF) * 0x11) << 24;
-                        alphas[i * 4 + 3] = (((alpha >> 12) & 0xF) * 0x11) << 24;
-                    }
-
-                    int q0 = input[offset + 8] | input[offset + 9] << 8;
-                    int q1 = input[offset + 10] | input[offset + 11] << 8;
-                    Rgb565(q0, out Int32 r0, out Int32 g0, out Int32 b0);
-                    Rgb565(q1, out Int32 r1, out Int32 g1, out Int32 b1);
-                    colors[0] = TColor(r0, g0, b0, 0);
-                    colors[1] = TColor(r1, g1, b1, 0);
-                    if (q0 > q1)
-                    {
-                        colors[2] = TColor((r0 * 2 + r1) / 3, (g0 * 2 + g1) / 3, (b0 * 2 + b1) / 3, 0);
-                        colors[3] = TColor((r0 + r1 * 2) / 3, (g0 + g1 * 2) / 3, (b0 + b1 * 2) / 3, 0);
-                    }
-                    else
-                    {
-                        colors[2] = TColor((r0 + r1) / 2, (g0 + g1) / 2, (b0 + b1) / 2, 0);
-                    }
-
-                    uint d = BitConverter.ToUInt32(input, offset + 12);
-                    for (int i = 0; i < 16; i++, d >>= 2)
-                    {
-                        buffer[i] = unchecked((uint)(colors[d & 3] | alphas[i]));
-                    }
-
-                    int clen = (s < bcw - 1 ? 4 : clen_last) * 4;
-                    for (int i = 0, y = t * 4; i < 4 && y < height; i++, y++)
-                    {
-                        Buffer.BlockCopy(buffer, i * 4 * 4, output, (y * width + s * 4) * 4, clen);
-                    }
-                }
-            }
-        }
-
-        // Implementation based on https://github.com/bhlzlx/DXT5-Compression
-        public static void CompressDXT5(byte[] input, uint width, uint height, out byte[] output)
-        {
-            var totalBlockCols = ((width + 3) & ~(3)) / 4;
-            var totalBlockRows = ((height + 3) & ~(3)) / 4;
-            output = new byte[16 * totalBlockCols * totalBlockRows];
-            DXT5Block[] blocks = new DXT5Block[totalBlockCols * totalBlockRows];
-            var blockIndex = 0;
-            for (UInt32 blockCol = 0; blockCol < totalBlockCols; blockCol++)
-            {
-                for (UInt32 blockRow = 0; blockRow < totalBlockRows; blockRow++)
-                {
-                    UInt32[] bitmapBlock = new UInt32[16];
-                    for (UInt32 localPixelCol = 0; localPixelCol < 4; localPixelCol++)
-                    {
-                        UInt32 pixelCol = blockCol * 4 + localPixelCol;
-                        for (UInt32 localPixelRow = 0; localPixelRow < 4; localPixelRow++)
-                        {
-                            UInt32 pixelRow = localPixelRow + blockRow * 4;
-                            UInt32 localPixelIndex = localPixelRow + localPixelCol * 4;
-                            UInt32 pixelIndex = pixelRow + pixelCol * width;
-                            if (pixelCol >= height || pixelRow >= width)
-                            {
-                                bitmapBlock[localPixelRow + localPixelCol * 4] = bitmapBlock[0];
-                            }
-                            else
-                            {
-                                bitmapBlock[localPixelIndex] = BitConverter.ToUInt32(input, (Int32)pixelIndex * 4);
-                            }
-                        }
-                    }
-                    blocks[blockIndex++].CompressBitmap(bitmapBlock, 4, 4);
-                }
-            }
-
-            for (Int32 i = 0; i < blocks.Length; i++)
-            {
-                var alphaBytes = BitConverter.GetBytes(blocks[i].Alpha);
-                var colorBytes = BitConverter.GetBytes(blocks[i].Color);
-                for (Int32 j = 0; j < 8; ++j)
-                {
-                    output[i * 16 + j] = alphaBytes[j];
-                    output[i * 16 + j + 8] = colorBytes[j];
-                }
-            }
-        }
-
-        [StructLayout(LayoutKind.Sequential, Pack = 16)]
-        private struct DXT5Block
-        {
-            public UInt64 Alpha;
-            public UInt64 Color;
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public static Byte CalculateAlphaLevel(Byte min, Byte max, Byte alpha)
-            {
-                if (min != max)
-                {
-                    Byte level = (Byte)(((max - alpha) * 0xFF / (max - min)) >> 5);
-                    Byte[] map = { 0, 2, 3, 4, 5, 6, 7, 1 };
-                    return map[level];
-                }
-                return 0;
-            }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public static UInt32 CalculateRelativeWeight(UInt32 color1, UInt32 color2)
-            {
-                UInt32 weight = 0;
-                for (Int32 i = 0; i < 3; i++)
-                {
-                    Byte channel1 = (Byte)((color1 >> i * 8) & 0xFF);
-                    Byte channel2 = (Byte)((color2 >> i * 8) & 0xFF);
-                    if (channel1 > channel2)
-                    {
-                        weight += (UInt32)channel1 - channel2;
-                    }
-                    else
-                    {
-                        weight += (UInt32)channel2 - channel1;
-                    }
-                }
-
-                return weight;
-            }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public static Byte CalculateColorLevel(UInt32[] colorTable, UInt32 color)
-            {
-                Byte level = 0;
-                UInt32 weight = UInt32.MaxValue;
-                for (UInt32 i = 0; i < 4; i++)
-                {
-                    UInt32 currentWeight = CalculateRelativeWeight(colorTable[i], color);
-                    if (weight > currentWeight)
-                    {
-                        weight = currentWeight;
-                        level = (Byte)i;
-                    }
-                }
-
-                return level;
-            }
-
-            public void CompressBitmap(UInt32[] bitmapData, UInt32 width, UInt32 height)
-            {
-                Alpha = Color = 0;
-                UInt32 pixelAmount = width * height;
-                Debug.Assert(pixelAmount == 16);
-
-                UInt32 alphaMin = UInt32.MaxValue;
-                UInt32 alphaMax = 0;
-                UInt32 redMin = UInt32.MaxValue;
-                UInt32 redMax = 0;
-                UInt32 greenMin = UInt32.MaxValue;
-                UInt32 greenMax = 0;
-                UInt32 blueMin = UInt32.MaxValue;
-                UInt32 blueMax = 0;
-                for (UInt32 i = 0; i < pixelAmount; i++)
-                {
-                    UInt32 pixel = bitmapData[i];
-                    if (alphaMin > (pixel & 0xFF000000)) alphaMin = (pixel & 0xFF000000);
-                    if (alphaMax < (pixel & 0xFF000000)) alphaMax = (pixel & 0xFF000000);
-                    if (blueMin > (pixel & 0x00FF0000)) blueMin = (pixel & 0x00FF0000);
-                    if (blueMax < (pixel & 0x00FF0000)) blueMax = (pixel & 0x00FF0000);
-                    if (greenMin > (pixel & 0x0000FF00)) greenMin = (pixel & 0x0000FF00);
-                    if (greenMax < (pixel & 0x0000FF00)) greenMax = (pixel & 0x0000FF00);
-                    if (redMin > (pixel & 0x000000FF)) redMin = (pixel & 0x000000FF);
-                    if (redMax < (pixel & 0x000000FF)) redMax = (pixel & 0x000000FF);
-                }
-                alphaMin >>= 24;
-                alphaMax >>= 24;
-                blueMin >>= 16;
-                blueMax >>= 16;
-                greenMin >>= 8;
-                greenMax >>= 8;
-                UInt64 colorMax = blueMax >> 3 | ((greenMax >> 2) << 5) | ((redMax >> 3) << 11);
-                UInt64 colorMin = blueMin >> 3 | ((greenMin << 2) << 5) | ((redMin >> 3) << 11);
-
-                Color |= (colorMax | colorMin << 16);
-
-                UInt32[] colorTable =
-                {
-                    redMax | greenMax << 8 | blueMax << 16,
-                    redMin | greenMin << 8 | blueMin << 16,
-                    (redMax - (redMax - redMin) / 3) | (greenMax - (greenMax - greenMin) / 3) << 8 | (blueMax - (blueMax - blueMin) / 3) << 16,
-                    (redMin + (redMax - redMin) / 3) | (greenMin + (greenMax - greenMin) / 3) << 8 | (blueMin + (blueMax - blueMin) / 3) << 16,
-                };
-
-                Alpha |= alphaMax;
-                Alpha |= (alphaMin << 8);
-
-                for (UInt32 pixelIndex = 0; pixelIndex < 16; pixelIndex++)
-                {
-                    UInt16 alphaShift = (UInt16)(16 + (pixelIndex * 3));
-                    UInt16 colorShift = (UInt16)(32 + (pixelIndex * 2));
-                    UInt64 alphaLevel = CalculateAlphaLevel((Byte)alphaMin, (Byte)alphaMax, (Byte)(bitmapData[pixelAmount] >> 24));
-                    UInt64 colorLevel = CalculateColorLevel(colorTable, bitmapData[pixelIndex]);
-                    Alpha |= alphaLevel << alphaShift;
-                    Color |= colorLevel << colorShift;
-                }
-            }
-        }
-
-        public static void DecompressDXT5(byte[] input, int width, int height, byte[] output)
-        {
-            int offset = 0;
-            int bcw = (width + 3) / 4;
-            int bch = (height + 3) / 4;
-            int clen_last = (width + 3) % 4 + 1;
-            uint[] buffer = new uint[16];
-            int[] colors = new int[4];
-            int[] alphas = new int[8];
-            for (int t = 0; t < bch; t++)
-            {
-                for (int s = 0; s < bcw; s++, offset += 16)
-                {
-                    alphas[0] = input[offset + 0];
-                    alphas[1] = input[offset + 1];
-                    if (alphas[0] > alphas[1])
-                    {
-                        alphas[2] = (alphas[0] * 6 + alphas[1]) / 7;
-                        alphas[3] = (alphas[0] * 5 + alphas[1] * 2) / 7;
-                        alphas[4] = (alphas[0] * 4 + alphas[1] * 3) / 7;
-                        alphas[5] = (alphas[0] * 3 + alphas[1] * 4) / 7;
-                        alphas[6] = (alphas[0] * 2 + alphas[1] * 5) / 7;
-                        alphas[7] = (alphas[0] + alphas[1] * 6) / 7;
-                    }
-                    else
-                    {
-                        alphas[2] = (alphas[0] * 4 + alphas[1]) / 5;
-                        alphas[3] = (alphas[0] * 3 + alphas[1] * 2) / 5;
-                        alphas[4] = (alphas[0] * 2 + alphas[1] * 3) / 5;
-                        alphas[5] = (alphas[0] + alphas[1] * 4) / 5;
-                        alphas[7] = 255;
-                    }
-                    for (int i = 0; i < 8; i++)
-                    {
-                        alphas[i] <<= 24;
-                    }
-
-                    int q0 = input[offset + 8] | input[offset + 9] << 8;
-                    int q1 = input[offset + 10] | input[offset + 11] << 8;
-                    Rgb565(q0, out Int32 r0, out Int32 g0, out Int32 b0);
-                    Rgb565(q1, out Int32 r1, out Int32 g1, out Int32 b1);
-                    colors[0] = TColor(r0, g0, b0, 0);
-                    colors[1] = TColor(r1, g1, b1, 0);
-                    if (q0 > q1)
-                    {
-                        colors[2] = TColor((r0 * 2 + r1) / 3, (g0 * 2 + g1) / 3, (b0 * 2 + b1) / 3, 0);
-                        colors[3] = TColor((r0 + r1 * 2) / 3, (g0 + g1 * 2) / 3, (b0 + b1 * 2) / 3, 0);
-                    }
-                    else
-                    {
-                        colors[2] = TColor((r0 + r1) / 2, (g0 + g1) / 2, (b0 + b1) / 2, 0);
-                    }
-
-                    ulong da = BitConverter.ToUInt64(input, offset) >> 16;
-                    uint dc = BitConverter.ToUInt32(input, offset + 12);
-                    for (int i = 0; i < 16; i++, da >>= 3, dc >>= 2)
-                    {
-                        buffer[i] = unchecked((uint)(alphas[da & 7] | colors[dc & 3]));
-                    }
-
-                    int clen = (s < bcw - 1 ? 4 : clen_last) * 4;
-                    for (int i = 0, y = t * 4; i < 4 && y < height; i++, y++)
-                    {
-                        Buffer.BlockCopy(buffer, i * 4 * 4, output, (y * width + s * 4) * 4, clen);
-                    }
-                }
-            }
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void Rgb565(int c, out int r, out int g, out int b)
-        {
-            r = (c & 0xf800) >> 8;
-            g = (c & 0x07e0) >> 3;
-            b = (c & 0x001f) << 3;
-            r |= r >> 5;
-            g |= g >> 6;
-            b |= b >> 5;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static int TColor(int r, int g, int b, int a)
-        {
-            return r << 16 | g << 8 | b | a << 24;
-        }
-        #endregion
     }
 }

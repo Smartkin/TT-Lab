@@ -12,6 +12,7 @@ namespace TT_Lab.Assets.Code;
 [SupportsViewport]
 public class OGI : SerializableAsset
 {
+    protected override String DataExt => ".tlm";
     public override UInt32 Section => Constants.CODE_OGIS_SECTION;
     public override String IconPath => "OGI.png";
 
@@ -22,9 +23,9 @@ public class OGI : SerializableAsset
         AssetData = new OGIData(this, ogi);
     }
 
-    public void LinkAnimationsToData(List<LabURI> animations)
+    public void SetAnimationsToData(List<AnimationData> animations)
     {
-        ((OGIData)AssetData).LinkAnimations(animations);
+        ((OGIData)GetData()).SetAnimations(animations);
     }
 
     public override Type GetEditorType()

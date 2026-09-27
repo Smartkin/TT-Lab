@@ -1,6 +1,7 @@
 using System;
 using TT_Lab.AssetData.Graphics;
 using TT_Lab.Rendering.Factories;
+using TT_Lab.Rendering.Shaders;
 
 namespace TT_Lab.Rendering.Buffers;
 
@@ -17,10 +18,8 @@ public class ModelBufferBlendSkin(RenderContext context, BlendSkinModelBufferBui
         }
 
         var program = _context.CurrentPass.Program;
-        var shapeStartLoc = program.GetUniformLocation("ShapeStart");
-        _context.Gl.Uniform1(shapeStartLoc, build.ShapeBuild.ShapeStart);
-        var shapeOffsetLoc = program.GetUniformLocation("ShapeOffset");
-        _context.Gl.Uniform1(shapeOffsetLoc, build.ShapeBuild.ShapesOffsets);
+        program.SetUniform(KnownUniform.ShapeStart, build.ShapeBuild.ShapeStart);
+        _context.Gl.Uniform1(program[KnownUniform.ShapeOffset], build.ShapeBuild.ShapesOffsets);
         
         return true;
     }

@@ -1,0 +1,16 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:controls="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+        mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="120"
+        x:Class="TT_Lab.Controls.MessageDialogue"
+        x:DataType="x:String"
+        SizeToContent="WidthAndHeight" MinWidth="300" MaxWidth="500" CanResize="False" ShowInTaskbar="False" Topmost="True" WindowStartupLocation="CenterOwner">
+    <controls:GroupBox>
+        <StackPanel Margin="5" Spacing="10">
+            <TextBlock Text="{Binding}" TextWrapping="Wrap"/>
+            <Button HorizontalAlignment="Center" HorizontalContentAlignment="Center" MinWidth="80" Content="OK" Padding="3" IsDefault="True" IsCancel="True" Click="OkButton_OnClick"/>
+        </StackPanel>
+    </controls:GroupBox>
+</Window>

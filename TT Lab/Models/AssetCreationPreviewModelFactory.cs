@@ -1,6 +1,5 @@
 using System;
 using System.Threading.Tasks;
-using SharpGLTF.Schema2;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
 

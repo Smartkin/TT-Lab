@@ -23,6 +23,25 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Archives
             Items = new List<BDRecord>();
         }
 
+        // Where the archive keeps each of its files, read from its header without reading any of the files
+        public static List<BHRecord> ReadRecords(String headerPath)
+        {
+            var header = new PS2BH();
+            using var stream = new FileStream(headerPath, FileMode.Open, FileAccess.Read);
+            using var reader = new BinaryReader(stream);
+            header.Read(reader, (Int32)stream.Length);
+            return header.Records;
+        }
+
+        public static Byte[] ReadFile(String archivePath, BHRecord record)
+        {
+            using var stream = new FileStream(archivePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            stream.Position = record.Offset;
+            var data = new Byte[record.Length];
+            stream.ReadExactly(data);
+            return data;
+        }
+
         public void BuildRecords(string folderSource)
         {
             var files = Directory.GetFiles(folderSource, "*.*", SearchOption.AllDirectories);

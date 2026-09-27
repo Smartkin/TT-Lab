@@ -13,6 +13,7 @@ using Newtonsoft.Json.Linq;
 using TT_Lab.AssetData;
 using TT_Lab.Assets;
 using TT_Lab.Command;
+using TT_Lab.Controls;
 using TT_Lab.Project.Messages;
 using TT_Lab.Rendering;
 using TT_Lab.Util;
@@ -29,7 +30,6 @@ namespace TT_Lab.Project
         private IProject? _openedProject;
         private bool _isCreatingProject;
         private readonly CommandManager _commandManager = new();
-        private readonly BindableCollection<MenuItem> _recentMenus = new();
         private BindableCollection<ResourceTreeElementViewModel> _projectTree = new();
         private readonly BindableCollection<ResourceTreeElementViewModel> _internalTree = new();
         private bool _workableProject = false;
@@ -40,18 +40,11 @@ namespace TT_Lab.Project
         {
             // BindingOperations.EnableCollectionSynchronization(_projectTree, _treeLock);
             _eventAggregator = eventAggregator;
-
-            // var recents = Properties.Settings.Default.RecentProjects;
-            // if (recents == null)
-            // {
-            //     return;
-            // }
-            //
-            // foreach (var recent in recents)
-            // {
-            //     _recentMenus.Add(GenerateRecentMenu(recent!));
-            // }
         }
+
+        private const int MaxRecentProjects = 10;
+
+        public event System.Action? RecentProjectsChanged;
 
         public IProject? OpenedProject
         {
@@ -185,9 +178,7 @@ namespace TT_Lab.Project
 
         public string ProjectTitle => OpenedProject != null ? $"TT Lab - {OpenedProject.Name}" : "TT Lab";
 
-        public BindableCollection<MenuItem> RecentlyOpened => _recentMenus;
-
-        public bool HasRecents => RecentlyOpened.Count != 0;
+        public IReadOnlyList<string> RecentProjects => Preferences.GetPreference<List<string>>(Preferences.RecentProjects);
 
         public void CreateProject(string name, string path, string? discContentPathPS2, string? discContentPathXbox, bool copyDiscContents)
         {
@@ -241,62 +232,26 @@ namespace TT_Lab.Project
                 Directory.SetCurrentDirectory("assets");
                 Log.WriteLine("Creating base packages...");
                 OpenedProject.CreateBasePackages();
-                Log.WriteLine("Unpacking PS2 assets...");
-                OpenedProject.UnpackAssetsPS2();
-                Log.WriteLine("Unpacking XBox assets...");
-                OpenedProject.UnpackAssetsXbox();
-
-                Log.WriteLine($"Importing assets...");
-                var query = from asset in OpenedProject.AssetManager.GetAssets()
-                    group asset by asset.Type;
-                var assetTypesQuery = query as IGrouping<Type, IAsset>[] ?? query.ToArray();
-                var tasks = new Task[assetTypesQuery.Length];
-                var index = 0;
-                var startAsset = DateTime.Now;
-                foreach (var group in assetTypesQuery)
+                // Reading chunks and importing and writing assets all run in parallel, the gate keeps them within the memory budget. Each
+                // version of the game is done before the next one's disc gets read. The items read from a disc take a good part of the
+                // budget until their assets are written, more work starts until it's mostly used
+                using (var gate = new MemoryGate((long)(Preferences.GetPreference<Double>(Preferences.BuildMemoryBudget) * 1024 * 1024), 0.8))
                 {
-                    tasks[index++] = Task.Factory.StartNew(() =>
-                    {
-                        Log.WriteLine($"Importing {group.Key.Name}...");
-                        var now = DateTime.Now;
-#if !DEBUG
-                    try
-                    {
-#endif
-                        foreach (var asset in group)
-                        {
-                            asset.Import();
-                        }
-#if !DEBUG
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.WriteLine($"Error serializing: {ex.Message}");
-                    }
-#endif
-                        var span = DateTime.Now - now;
-                        Log.WriteLine($"Finished importing {group.Key.Name} in {span}");
-                    });
-                }
+                    var writer = new CreationWriter(OpenedProject.AssetManager, gate);
+                    Log.WriteLine("Unpacking PS2 assets...");
+                    OpenedProject.UnpackAssetsPS2(gate);
+                    writer.ImportAndWrite();
+                    writer.RemoveInternalAssets();
+                    MergeVariants();
+                    Log.WriteLine("Unpacking XBox assets...");
+                    OpenedProject.UnpackAssetsXbox(gate);
+                    writer.ImportAndWrite();
+                    writer.RemoveInternalAssets();
+                    MergeVariants();
 
-                Task.WaitAll(tasks);
-                var assetsToImport = OpenedProject.AssetManager.GetAssetsToImport();
-                while (!assetsToImport.IsEmpty)
-                {
-                    foreach (var asset in assetsToImport)
-                    {
-                        asset.Import();
-                        // If asset is embedded it shouldn't be exported during game's build stage because its owner will do it for us
-                        asset.SkipExport = true;
-                        OpenedProject.AssetManager.AddAsset(asset);
-                    }
-                    assetsToImport = OpenedProject.AssetManager.GetAssetsToImport();
+                    Log.WriteLine("Serializing assets...");
+                    OpenedProject.Serialize(writer.IsWritten); // Call to serialize the asset list and chunk list
                 }
-                
-                Log.WriteLine($"Imported assets in {(DateTime.Now - startAsset)}");
-
-                Log.WriteLine("Serializing assets...");
-                OpenedProject.Serialize(); // Call to serialize the asset list and chunk list
 
                 Log.WriteLine("Post processing assets...");
                 var assetsToPostProcess = OpenedProject.AssetManager.GetAssets();
@@ -317,7 +272,7 @@ namespace TT_Lab.Project
                 IsCreatingProject = false;
                 _eventAggregator.PublishOnUIThreadAsync(new ProjectManagerMessage(nameof(ProjectOpened)));
                 _eventAggregator.PublishOnUIThreadAsync(new ProjectManagerMessage(nameof(ProjectTitle)));
-                GC.Collect();
+                MiscUtils.CollectReleasedMemory();
                 Log.WriteLine($"Project created in {DateTime.Now - projCreateStart}");
 #if !DEBUG
                 }
@@ -327,6 +282,14 @@ namespace TT_Lab.Project
                 }
 #endif
             });
+        }
+
+        // The variants of assets that only differ in values become the chunks' overrides of the first chunk's asset
+        private void MergeVariants()
+        {
+            var start = DateTime.Now;
+            var merged = new VariantMerger(OpenedProject!.AssetManager, Path.Combine(OpenedProject.ProjectPath, "assets")).Merge();
+            Log.WriteLine($"Merged {merged} variants into their assets as chunks' overrides in {DateTime.Now - start}");
         }
 
         public void OpenProject(string path)
@@ -344,12 +307,14 @@ namespace TT_Lab.Project
             // Check if path even exists to begin with
             if (!Directory.Exists(path))
             {
+                Log.WriteLine($"Can't open the project, {path} doesn't exist anymore", Log.LogType.Warning);
                 RemoveRecentlyOpened(path);
                 return;
             }
             // Check for PS2 and XBox project root files
             if (Directory.GetFiles(path, "*.tson").Length == 0 && Directory.GetFiles(path, "*.xson").Length == 0)
             {
+                Log.WriteLine($"Can't open the project, there's no TT Lab project in {path}", Log.LogType.Warning);
                 RemoveRecentlyOpened(path);
                 return;
             }
@@ -359,28 +324,31 @@ namespace TT_Lab.Project
                 var prFile = Directory.GetFiles(path, "*.tson")[0];
                 Task.Factory.StartNew(() =>
                 {
+                    try
+                    {
+                        Log.WriteLine($"Opening project {Path.GetFileName(prFile)}...");
+                        var stopwatch = new Stopwatch();
+                        stopwatch.Start();
+                        Project.Deserialize(prFile);
+                        Log.WriteLine($"Building project tree...");
+                        BuildProjectTree();
+                        WorkableProject = true;
+                        _eventAggregator.PublishOnUIThreadAsync(new ProjectManagerMessage(nameof(ProjectOpened)));
+                        _eventAggregator.PublishOnUIThreadAsync(new ProjectManagerMessage(nameof(ProjectTitle)));
+                        // _ogreWindowManager.AddResourceLocation(OpenedProject!.ProjectPath);
+                        Log.WriteLine($"Project opened in {stopwatch.Elapsed}");
+                        MiscUtils.CollectReleasedMemory();
+                    }
+                    // Nothing observes this task, so projects TT Lab can't open have to be reported here even in debug builds
+                    catch (ProjectException ex)
+                    {
+                        ReportOpeningError(ex.Message);
+                    }
 #if !DEBUG
-                        try
-                        {
-#endif
-                    Log.WriteLine($"Opening project {Path.GetFileName(prFile)}...");
-                    var stopwatch = new Stopwatch();
-                    stopwatch.Start();
-                    Project.Deserialize(prFile);
-                    Log.WriteLine($"Building project tree...");
-                    BuildProjectTree();
-                    WorkableProject = true;
-                    _eventAggregator.PublishOnUIThreadAsync(new ProjectManagerMessage(nameof(ProjectOpened)));
-                    _eventAggregator.PublishOnUIThreadAsync(new ProjectManagerMessage(nameof(ProjectTitle)));
-                    // _ogreWindowManager.AddResourceLocation(OpenedProject!.ProjectPath);
-                    Log.WriteLine($"Project opened in {stopwatch.Elapsed}");
-                    GC.Collect();
-#if !DEBUG
-                        }
-                        catch (Exception ex)
-                        {
-                            Log.WriteLine($"Error opening project: {ex.Message}");
-                        }
+                    catch (Exception ex)
+                    {
+                        ReportOpeningError(ex.Message);
+                    }
 #endif
                 });
             }
@@ -393,6 +361,12 @@ namespace TT_Lab.Project
             }
 #endif
             AddRecentlyOpened(path);
+        }
+
+        private static void ReportOpeningError(string message)
+        {
+            Log.WriteLine($"Error opening project: {message}", Log.LogType.Error);
+            Dispatcher.UIThread.Post(() => new MessageDialogue("Can't open the project", message).ShowDialog(MiscUtils.GetMainWindow()));
         }
 
         public void BuildPs2Project()
@@ -435,6 +409,36 @@ namespace TT_Lab.Project
             });
         }
 
+        public void BuildXboxProject()
+        {
+            RunBuild("Error building Xbox project", project => project.PackAssetsXbox());
+        }
+
+        public void BuildXboxImage()
+        {
+            RunBuild("Error putting the Xbox game together", project => project.CreateXboxGame());
+        }
+
+        private void RunBuild(string errorMessage, Action<IProject> build)
+        {
+            WorkableProject = false;
+            Task.Factory.StartNew(() =>
+            {
+                var pr = OpenedProject!;
+#if !DEBUG
+                try {
+#endif
+                build(pr);
+#if !DEBUG
+                } catch (Exception ex)
+                {
+                    Log.WriteLine($"{errorMessage}: {ex.Message}");
+                }
+#endif
+                WorkableProject = true;
+            });
+        }
+
         public void CloseProject()
         {
             OpenedProject = null;
@@ -442,7 +446,7 @@ namespace TT_Lab.Project
             ProjectTree.Clear();
             _internalTree.Clear();
             Log.Clear();
-            GC.Collect();
+            MiscUtils.CollectReleasedMemory();
             _eventAggregator.PublishOnUIThreadAsync(new ProjectManagerMessage(nameof(WorkableProject)));
             _eventAggregator.PublishOnUIThreadAsync(new ProjectManagerMessage(nameof(ProjectOpened)));
             _eventAggregator.PublishOnUIThreadAsync(new ProjectManagerMessage(nameof(ProjectTitle)));
@@ -487,9 +491,12 @@ namespace TT_Lab.Project
             foreach (var fileInfo in directory.GetFiles("*.json"))
             {
                 using var reader = new JsonTextReader(new StreamReader(fileInfo.FullName));
-                var deserialized = (JObject)serializer.Deserialize(reader)!;
-                var assetType = deserialized["Type"]!.ToObject<Type>();
-                var assetUri = deserialized["URI"]!.ToObject<LabURI>()!;
+                // Only asset files matter, anything else like build outputs can live in the project's folders too
+                if (serializer.Deserialize(reader) is not JObject deserialized || deserialized["Type"]?.ToObject<Type>() is not { } assetType
+                    || deserialized["URI"]?.ToObject<LabURI>() is not { } assetUri)
+                {
+                    continue;
+                }
                 if (assetType == typeof(Package))
                 {
                     folder.Mark |= FolderMark.IsPackage;
@@ -529,56 +536,37 @@ namespace TT_Lab.Project
 
         private void AddRecentlyOpened(string path)
         {
-            // var recents = Properties.Settings.Default.RecentProjects;
-            // if (recents == null)
-            // {
-            //     recents = new System.Collections.Specialized.StringCollection();
-            //     Properties.Settings.Default.RecentProjects = recents;
-            // }
-            // if (!recents.Contains(path))
-            // {
-            //     recents.Insert(0, path);
-            //     RecentlyOpened.Insert(0, GenerateRecentMenu(path));
-            //     // Store only last 10 paths
-            //     if (recents.Count > 10)
-            //     {
-            //         recents.RemoveAt(10);
-            //         RecentlyOpened.RemoveAt(10);
-            //     }
-            // }
-            // else
-            // {
-            //     var index = recents.IndexOf(path);
-            //     recents.RemoveAt(index);
-            //     RecentlyOpened.RemoveAt(index);
-            //     recents.Insert(0, path);
-            //     RecentlyOpened.Insert(0, GenerateRecentMenu(path));
-            // }
-            // _eventAggregator.PublishOnUIThreadAsync(new ProjectManagerMessage(nameof(RecentlyOpened)));
-            // _eventAggregator.PublishOnUIThreadAsync(new ProjectManagerMessage(nameof(HasRecents)));
+            SetRecentProjects(WithRecentlyOpened(RecentProjects, path));
         }
 
         private void RemoveRecentlyOpened(string path)
         {
-            // if (Properties.Settings.Default.RecentProjects == null || !Properties.Settings.Default.RecentProjects.Contains(path)) return;
-            //
-            // var recents = Properties.Settings.Default.RecentProjects;
-            // var recentIdx = recents.IndexOf(path);
-            // recents.Remove(path);
-            // RecentlyOpened.RemoveAt(recentIdx);
-            // _eventAggregator.PublishOnUIThreadAsync(new ProjectManagerMessage(nameof(RecentlyOpened)));
-            // _eventAggregator.PublishOnUIThreadAsync(new ProjectManagerMessage(nameof(HasRecents)));
+            SetRecentProjects(RecentProjects.Where(recent => !IsSamePath(recent, path)).ToList());
         }
 
-        private static MenuItem GenerateRecentMenu(String recentPath)
+        // Saved right away, the settings are only saved when TT Lab closes otherwise
+        private void SetRecentProjects(List<string> recents)
         {
-            return new MenuItem
+            if (recents.SequenceEqual(RecentProjects))
             {
-                Header = $"{recentPath}",
-                Command = new OpenProjectCommand(recentPath),
-                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
-                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
-            };
+                return;
+            }
+
+            Preferences.SetPreference(Preferences.RecentProjects, recents);
+            Preferences.Save();
+            RecentProjectsChanged?.Invoke();
+        }
+
+        internal static List<string> WithRecentlyOpened(IEnumerable<string> recents, string path)
+        {
+            path = Path.TrimEndingDirectorySeparator(path);
+            return recents.Where(recent => !IsSamePath(recent, path)).Prepend(path).Take(MaxRecentProjects).ToList();
+        }
+
+        private static bool IsSamePath(string first, string second)
+        {
+            return string.Equals(Path.TrimEndingDirectorySeparator(first), Path.TrimEndingDirectorySeparator(second),
+                OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
         }
     }
 }

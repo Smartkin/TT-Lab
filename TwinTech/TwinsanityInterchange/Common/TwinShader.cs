@@ -326,7 +326,17 @@ namespace Twinsanity.TwinsanityInterchange.Common
             Alpha,
             Zero,
             Destination,
-            Source
+            Source,
+            // Only the Xbox version uses these
+            Preset7,
+            Preset8,
+            Preset9,
+            Preset10,
+            Preset11,
+            Preset12,
+            Preset13,
+            Preset14,
+            Preset15
         }
         public enum TextureFilter
         {
@@ -359,13 +369,10 @@ namespace Twinsanity.TwinsanityInterchange.Common
 
     public static class TwinShaderEnumConverter
     {
+        // Presets the game doesn't have are kept as they are so the material writes back the same
         public static AlphaBlendPresets ToEnum(this Int32 value)
         {
-            if (Enum.IsDefined(typeof(AlphaBlendPresets), value))
-            {
-                return (AlphaBlendPresets)value;
-            }
-            return AlphaBlendPresets.Source;
+            return (AlphaBlendPresets)value;
         }
     }
 }

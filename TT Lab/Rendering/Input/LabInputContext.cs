@@ -10,18 +10,30 @@ namespace TT_Lab.Rendering.Input;
 
 public class LabInputContext : IInputContext
 {
-    private readonly IView _view;
-    private readonly Viewport _renderArea;
+    private readonly ViewportHost _host;
+    private IView? _view;
 
-    public LabInputContext(IView view, Viewport renderArea)
+    public LabInputContext(ViewportHost host)
+    {
+        _host = host;
+        
+        Keyboards = [new LabKeyboard(host.Presenter)];
+        Mice = [new LabMouse(host.Presenter)];
+        
+        _host.PresenterChanged += HostOnPresenterChanged;
+    }
+
+    // The renderer gets made on the render thread, the input has to be hooked to the controls on the UI thread
+    public void SetView(IView view)
     {
         _view = view;
-        _renderArea = renderArea;
-        
-        Keyboards = [new LabKeyboard(renderArea)];
-        Mice = [new LabMouse(renderArea)];
-        
         _view.Update += ViewOnUpdate;
+    }
+
+    private void HostOnPresenterChanged(Viewport? presenter)
+    {
+        ((LabMouse)Mice[0]).Attach(presenter);
+        ((LabKeyboard)Keyboards[0]).Attach(presenter);
     }
 
     private void ViewOnUpdate(double obj)
@@ -34,12 +46,18 @@ public class LabInputContext : IInputContext
 
     public void Dispose()
     {
+        _host.PresenterChanged -= HostOnPresenterChanged;
+        if (_view != null)
+        {
+            _view.Update -= ViewOnUpdate;
+        }
+
         ((LabMouse)Mice[0]).Dispose();
         ((LabKeyboard)Keyboards[0]).Dispose();
         GC.SuppressFinalize(this);
     }
 
-    public IntPtr Handle => _view.Handle;
+    public IntPtr Handle => _view?.Handle ?? IntPtr.Zero;
     public IReadOnlyList<IGamepad> Gamepads { get; } = [];
     public IReadOnlyList<IJoystick> Joysticks { get; } = [];
     public IReadOnlyList<IKeyboard> Keyboards { get; }

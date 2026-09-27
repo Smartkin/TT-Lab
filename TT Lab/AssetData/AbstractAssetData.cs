@@ -39,10 +39,9 @@ public abstract class AbstractAssetData(IAsset owner) : IDocumentModel
 
     public void Load(String dataPath, JsonSerializerSettings? settings = null)
     {
-        var workingDirectory = System.IO.Directory.GetCurrentDirectory();
-        System.IO.Directory.SetCurrentDirectory(Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath);
-        LoadInternal(dataPath, settings);
-        System.IO.Directory.SetCurrentDirectory(workingDirectory);
+        // Resolved up front and the working directory is left alone, assets load and save in parallel
+        var projectPath = Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath;
+        LoadInternal(System.IO.Path.Combine(projectPath, dataPath), settings);
     }
 
     public virtual List<ViewportObject> GetViewportObjects(ViewportContext viewportContext, PropertyNode property) => [];
@@ -51,10 +50,11 @@ public abstract class AbstractAssetData(IAsset owner) : IDocumentModel
     {
         using System.IO.FileStream fs = new(dataPath, System.IO.FileMode.Open, System.IO.FileAccess.Read);
         using System.IO.StreamReader reader = new(fs);
+        // Read as it's parsed, OGIs keep hundreds of megabytes of animations in theirs and the whole text took several times that
+        using var jsonReader = new JsonTextReader(reader);
         settings ??= new JsonSerializerSettings();
         settings.ObjectCreationHandling = ObjectCreationHandling.Replace;
-            
-        JsonConvert.PopulateObject(value: reader.ReadToEnd(), target: this, settings);
+        JsonSerializer.Create(settings).Populate(jsonReader, this);
         DisposedValue = false;
     }
 
@@ -65,15 +65,23 @@ public abstract class AbstractAssetData(IAsset owner) : IDocumentModel
             return;
         }
         
-        var workingDirectory = System.IO.Directory.GetCurrentDirectory();
-        System.IO.Directory.SetCurrentDirectory($"{Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath}/assets");
-        SaveInternal(dataPath, settings);
-        System.IO.Directory.SetCurrentDirectory(workingDirectory);
+        var assetsPath = System.IO.Path.Combine(Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath, "assets");
+        SaveInternal(System.IO.Path.Combine(assetsPath, dataPath), settings);
     }
 
     public virtual string GetStringified()
     {
         return JsonConvert.SerializeObject(this);
+    }
+
+    /// <summary>
+    /// A copy of data kept as JSON for another asset of the owner's type, made the way loading the data makes it
+    /// </summary>
+    public AbstractAssetData CopyFor(IAsset asset)
+    {
+        var copy = (AbstractAssetData)Activator.CreateInstance(GetType(), asset)!;
+        JsonConvert.PopulateObject(JsonConvert.SerializeObject(this), copy, new JsonSerializerSettings { ObjectCreationHandling = ObjectCreationHandling.Replace });
+        return copy;
     }
 
     public void SaveInCurrentDirectory(String dataPath, JsonSerializerSettings? settings = null)

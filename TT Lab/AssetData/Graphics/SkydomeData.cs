@@ -5,7 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using GlmSharp;
-using SharpGLTF.Schema2;
+using TT_Lab.AssetData.Graphics.TlModel;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Attributes;
@@ -42,46 +42,44 @@ public class SkydomeData : AbstractAssetData
         Meshes.Clear();
     }
 
+    public const string TlmAssetType = "Skydome";
+    public const string TlmKind = "skydome";
+    public const string SkydomeMeshKind = "skydome_mesh";
+
     protected override void SaveInternal(string dataPath, JsonSerializerSettings? settings = null)
     {
-        var scene = new SharpGLTF.Scenes.SceneBuilder($"TwinsanitySkydome_{Owner.Name}");
-        var root = new SharpGLTF.Scenes.NodeBuilder("SKYDOME_ROOT");
-
-        var meshesRoot = root.CreateNode("SKYDOME_MESHES");
+        var file = new TlmFile(TlmAssetType, Owner.Name);
+        var materials = new TlmMaterials(file);
+        var root = TlmNodes.Create(TlmKind, Owner.Name);
         var assetManager = AssetManager.Get();
-        var meshIndex = 0;
-        foreach (var meshId in Meshes)
+        for (var i = 0; i < Meshes.Count; i++)
         {
-            var meshData = assetManager.GetAssetData<MeshData>(meshId);
-            meshData.ExportGltf(scene, meshesRoot, meshIndex.ToString());
-            meshIndex++;
+            var node = root.AddChild(TlmNodes.Create(SkydomeMeshKind, $"Skydome Mesh {i}", new System.Text.Json.Nodes.JsonObject { ["Order"] = i }));
+            node[TlmNodes.MeshKey] = assetManager.GetAssetData<MeshData>(Meshes[i]).WriteTlmMesh(file, materials);
         }
-            
-        var resultModel = scene.ToGltf2();
-        resultModel.SaveGLB(dataPath);
+
+        file.Root = root;
+        file.Save(dataPath);
     }
 
+    // Every mesh is one of the skydome's meshes, drawn in the order they were written in
     protected override void LoadInternal(string dataPath, JsonSerializerSettings? settings = null)
     {
-        var model = ModelRoot.Load(dataPath);
+        var file = TlmFile.Load(dataPath);
+        var materials = new TlmMaterials(file, Owner);
         Meshes.Clear();
-        var skydomeRoot = model.DefaultScene.VisualChildren.FirstOrDefault(n => n.Name.Contains("SKYDOME_ROOT"));
-        if (skydomeRoot == null)
+        var nodes = (file.Root == null ? [] : TlmTreeNode.Of(file.Root).Traverse().Where(node => node.Mesh != null))
+            .Select((node, index) => (Node: node, Order: node.HasData ? node.Data.GetInt("Order", Int32.MaxValue) : Int32.MaxValue, Index: index))
+            .OrderBy(n => n.Order).ThenBy(n => n.Index);
+        foreach (var (node, _, index) in nodes)
         {
-            Log.WriteLine($"Misconfigured Skydome {dataPath}! Make sure it contains SKYDOME_ROOT node!", Log.LogType.Error);
-            return;
-        }
-        var meshesNode = skydomeRoot.VisualChildren.FirstOrDefault(n => n.Name.Contains("SKYDOME_MESHES"));
-        if (meshesNode == null)
-        {
-            Log.WriteLine($"Misconfigured Skydome {dataPath}! Make sure SKYDOME_ROOT contains SKYDOME_MESHES node!");
-            return;
+            Meshes.Add(RigidModelData.ReadTlm<Mesh>(Owner, file, node.Mesh!, materials, node.GetBakedTransform(), $"SkydomeMesh_{index}").URI);
         }
 
-        foreach (var meshNode in meshesNode.VisualChildren)
+        DisposedValue = false;
+        if (materials.AddedToProject)
         {
-            var mesh = RigidModelData.ImportGltf<Mesh>(Owner, model, meshNode);
-            Meshes.Add(mesh.URI);
+            SaveInternal(dataPath, settings);
         }
     }
 
@@ -146,6 +144,6 @@ public class SkydomeData : AbstractAssetData
         {
             IsSelectable = false
         };
-        return [new ViewportObject(editableObject, $"SKYDOME_EDITABLE_{property.Path}", property)];
+        return [new ViewportObject(editableObject, $"SKYDOME_EDITABLE_{property.Path}", property) { Category = ViewportObjectCategory.Skydome }];
     }
 }

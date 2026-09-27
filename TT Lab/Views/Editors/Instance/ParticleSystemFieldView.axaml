@@ -1,0 +1,46 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:instance="clr-namespace:TT_Lab.ViewModels.Editors.Instance"
+             x:DataType="instance:ParticleSystemFieldViewModel"
+             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="60"
+             x:Class="TT_Lab.Views.Editors.Instance.ParticleSystemFieldView">
+    <DockPanel>
+        <Button x:Name="GoToSystem" DockPanel.Dock="Right" Content="->" Margin="2,0,0,0" VerticalAlignment="Stretch"
+                IsEnabled="{Binding !IsLinkBroken}" ToolTip.Tip="Show the particle system"/>
+        <Button x:Name="Browse" DockPanel.Dock="Right" Content="..." Margin="2,0,0,0" VerticalAlignment="Stretch"
+                ToolTip.Tip="Pick one of the chunk's particle systems or the default chunk's">
+            <Button.Flyout>
+                <Flyout Placement="BottomEdgeAlignedRight">
+                    <DockPanel Width="300" Height="360">
+                        <TextBox x:Name="SearchBox" DockPanel.Dock="Top" Watermark="Search" Text="{Binding Search}" Margin="0,0,0,4"/>
+                        <ListBox x:Name="Choices" ItemsSource="{Binding ShownChoices}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="instance:ParticleSystemChoice">
+                                    <DockPanel>
+                                        <TextBlock DockPanel.Dock="Right" Text="{Binding Source}" Opacity="0.6" Margin="8,0,0,0"/>
+                                        <TextBlock Text="{Binding Name}"/>
+                                    </DockPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </DockPanel>
+                </Flyout>
+            </Button.Flyout>
+        </Button>
+        <TextBlock DockPanel.Dock="Bottom" Text="{Binding LinkState}" FontSize="11" TextWrapping="Wrap"
+                   Opacity="0.7" Classes.broken="{Binding IsLinkBroken}">
+            <TextBlock.Styles>
+                <Style Selector="TextBlock.broken">
+                    <Setter Property="Foreground" Value="OrangeRed"/>
+                    <Setter Property="Opacity" Value="1"/>
+                </Style>
+            </TextBlock.Styles>
+        </TextBlock>
+        <Panel>
+            <TextBox x:Name="TextField"/>
+            <TextBlock x:Name="TextFieldError" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="Red" FontSize="14"/>
+        </Panel>
+    </DockPanel>
+</UserControl>

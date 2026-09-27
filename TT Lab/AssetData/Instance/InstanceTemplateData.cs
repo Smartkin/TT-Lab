@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using TT_Lab.AssetData.Code.Behaviour;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
 using TT_Lab.Assets.Factory;
@@ -49,6 +50,7 @@ public class InstanceTemplateData : AbstractAssetData
     
     [JsonProperty(Required = Required.Always)]
     [Editable]
+    [OnReferenceDeleted(DeletedReferenceAction.Remove)]
     public List<LabURI> UnkBehaviourIds { get; set; }
     
     [JsonProperty(Required = Required.Always)]
@@ -107,6 +109,7 @@ public class InstanceTemplateData : AbstractAssetData
         Header1 = template.Header1;
         Header2 = template.Header2;
         UnkBehaviourIds = new(template.UnkBehaviourIds.Count);
+        // Templates refer to the starters of the graphs
         foreach (var behaviourId in template.UnkBehaviourIds)
         {
             UnkBehaviourIds.Add(AssetManager.Get().GetUriByTwinId<BehaviourGraph>(Owner, behaviourId + 1U));
@@ -133,7 +136,7 @@ public class InstanceTemplateData : AbstractAssetData
         writer.Write(Header2);
         foreach (var s in UnkBehaviourIds)
         {
-            writer.Write((UInt16)assetManager.GetAsset(s).ExportTwinID);
+            writer.Write((UInt16)(assetManager.GetAsset(s).ExportTwinID - 1));
         }
         writer.Write(UnkByte3);
         writer.Write(UnkByte4);
@@ -174,6 +177,7 @@ public class InstanceTemplateData : AbstractAssetData
         foreach (var behaviour in UnkBehaviourIds)
         {
             assetManager.GetAsset(behaviour).ResolveChunkResources(factory, behavioursSection);
+            assetManager.GetAssetData<BehaviourGraphData>(behaviour).AddStarter(factory, behavioursSection, assetManager.GetAsset(behaviour).ExportTwinID);
         }
 
         return base.ResolveChunkResources(factory, section, id, layoutId);

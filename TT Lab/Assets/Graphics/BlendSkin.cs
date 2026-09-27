@@ -13,7 +13,7 @@ namespace TT_Lab.Assets.Graphics;
 public class BlendSkin : SerializableAsset
 {
     protected override bool SetIdFromDataHash => true;
-    protected override String DataExt => ".glb";
+    protected override String DataExt => ".tlm";
     public override UInt32 Section => Constants.GRAPHICS_BLEND_SKINS_SECTION;
     public override String IconPath => "Blend_Skin.png";
 
@@ -27,23 +27,6 @@ public class BlendSkin : SerializableAsset
     public override Type GetEditorType()
     {
         return typeof(BlendSkinViewModel);
-    }
-
-    public override void PostResolveResources(Factory.ITwinItemFactory factory, ITwinSection section, ITwinItem? item)
-    {
-        if (item == null)
-        {
-            return;
-        }
-
-        var data = (BlendSkinData)GetData();
-        var blendSkinItem = (ITwinBlendSkin)item;
-        if (data.CompileScale != null)
-        {
-            blendSkinItem.CompileScale = data.CompileScale.Value;
-        }
-
-        base.PostResolveResources(factory, section, item);
     }
 
     public override AbstractAssetData GetData()

@@ -50,11 +50,13 @@ public abstract class SerializableAsset : IAsset
     public string DocumentName => Alias;
     public virtual void Save()
     {
-        Serialize(SerializationFlags.SaveData | SerializationFlags.SetDirectoryToAssets);
+        // Open editors keep working on this data after saving, it gets released once no editor uses it anymore
+        Serialize(SerializationFlags.SaveData | SerializationFlags.SetDirectoryToAssets | SerializationFlags.PreserveData | SerializationFlags.FixReferences);
     }
 
     public Boolean Raw { get; set; }
     public virtual String IconPath => "Common_Node.png";
+    public virtual Boolean SupportsViewport => GetType().GetCustomAttribute<SupportsViewportAttribute>() != null;
     public String Data => $"{Name}{DataExt}";
     public bool MarkedForDeletion { get; private set; }
     public String? AdditionalPath { get; set; }
@@ -62,7 +64,10 @@ public abstract class SerializableAsset : IAsset
     public String FullPath => $"{Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath}/{LoadPath}";
     public UInt32 ID { get; set; }
     public string HashSalt { get; set; } = string.Empty;
-    public UInt32 ExportTwinID => SetIdFromDataHash ? GetDataHash() : ID;
+    // Assets identified by their data's hash have the ID of the chunk's view when the chunk being built has values of its own
+    public UInt32 ExportTwinID => SetIdFromDataHash && OverriddenAsset == null && Factory.ChunkOverrides.Current?.GetView(this) is { } view
+        ? view.ExportTwinID
+        : SetIdFromDataHash ? GetDataHash() : ID;
     
     [Editable]
     [EditorParam(DocumentCompositeViewModel.EditorExplicitOrder, -5)]
@@ -70,27 +75,35 @@ public abstract class SerializableAsset : IAsset
     
     [Editable]
     [EditorParam(DocumentCompositeViewModel.EditorExplicitOrder, Int32.MaxValue)]
+    [EditorParam(DocumentCompositeViewModel.EditorInline, true)]
     public AbstractAssetData? AssetData
     {
-        get => _assetData;
+        // Builds work on their scope's data, or on the asset's own when an editor has it loaded
+        get => (IsInternal ? null : AssetDataScope.Current?.GetData(this)) ?? _assetData;
         set => SetData(value);
     }
-    
+
     public String Chunk { get; set; }
-    [Editable(EditorDescType = typeof(TextEditorDesc))]
+    [Editable(EditorDescType = typeof(LayoutEditorDesc))]
     [EditorParam(DocumentCompositeViewModel.EditorExplicitOrder, -4)]
     public Int32? LayoutID { get; set; }
     public Boolean IsLoaded => AssetData is { Disposed: false };
     public bool IsInternal { get; set; } = false;
+    public IAsset? InternalOwner { get; set; }
     public Boolean SkipExport { get; set; } = false;
 
     public Dictionary<String, Object?> Parameters { get; set; } = new();
+
+    /// <summary>
+    /// The asset a chunk's view is of, views have the asset's URI and data file and are never saved as themselves (<see cref="AssetOverrides.CreateView"/>)
+    /// </summary>
+    public IAsset? OverriddenAsset { get; internal set; }
+
     public LabURI URI { get; set; }
     public LabURI Package { get; set; }
     public List<LabURI> References { get; set; } = [];
     public String Variation { get; set; }
 
-    private bool _resolveTraversed = false;
     private bool _hasHashCache = false;
     private UInt32 _hashCache = 0U;
 
@@ -153,6 +166,12 @@ public abstract class SerializableAsset : IAsset
 
     public virtual void Serialize(SerializationFlags serializationFlags = SerializationFlags.None)
     {
+        // Views share the file of the asset they're of
+        if (OverriddenAsset != null)
+        {
+            return;
+        }
+
         var path = FullPath;
         Directory.CreateDirectory(path);
         
@@ -197,7 +216,7 @@ public abstract class SerializableAsset : IAsset
 
     public virtual void PostDeserialize() { }
         
-    public virtual void Delete(bool setDirectoryToAssets = false, bool deleteAllReferencedData = false)
+    public virtual void Delete()
     {
         if (MarkedForDeletion)
         {
@@ -205,39 +224,24 @@ public abstract class SerializableAsset : IAsset
         }
         
         MarkedForDeletion = true;
-
-        var assetManager = AssetManager.Get();
-        if (deleteAllReferencedData)
-        {
-            var refsCopy = References.ToList();
-            foreach (var reference in refsCopy)
-            {
-                if (reference == LabURI.Empty)
-                {
-                    continue;
-                }
-                
-                assetManager.GetAsset(reference).Delete(setDirectoryToAssets, deleteAllReferencedData);
-            }
-        }
-        
         DisposeData(true);
-        assetManager.RemoveAsset(this);
-        
-        if (setDirectoryToAssets)
+        AssetManager.Get().RemoveAsset(this);
+
+        // Internal assets are stored within their owner's data
+        if (IsInternal)
         {
-            Directory.SetCurrentDirectory($"{Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath}/assets");
+            return;
         }
 
-        var path = SavePath;
-        if (File.Exists(Path.Combine(path, $"{Name}.json")))
+        var jsonPath = Path.Combine(FullPath, $"{Name}.json");
+        if (File.Exists(jsonPath))
         {
-            File.Delete(Path.Combine(path, $"{Name}.json"));
+            File.Delete(jsonPath);
         }
 
-        if (File.Exists(Path.Combine(path, Data)))
+        if (File.Exists(FullDataPath))
         {
-            File.Delete(Path.Combine(path, Data));
+            File.Delete(FullDataPath);
         }
     }
 
@@ -258,8 +262,14 @@ public abstract class SerializableAsset : IAsset
 
     public virtual void SetData(AbstractAssetData data)
     {
-        if (data == _assetData || data is null)
+        if (data is null || data == AssetData)
         {
+            return;
+        }
+
+        if (!IsInternal && AssetDataScope.Current is { } scope)
+        {
+            scope.SetData(this, data);
             return;
         }
         
@@ -269,6 +279,17 @@ public abstract class SerializableAsset : IAsset
         {
             InvariantName += $"_{GetDataHash():X}";
         }
+    }
+
+    public void UnloadData()
+    {
+        // Internal assets have no data file of their own to load it back from
+        if (IsInternal)
+        {
+            return;
+        }
+
+        _assetData = null;
     }
 
     public virtual void Import()
@@ -293,12 +314,14 @@ public abstract class SerializableAsset : IAsset
     {
         PreResolveResources();
         var item = Export(factory);
-        using var itemFile = new FileStream($"{InvariantName}.{TwinDataExt}", FileMode.Create, FileAccess.Write);
+        using var itemFile = new FileStream(ExportFileName, FileMode.Create, FileAccess.Write);
         using var binaryWriter = new BinaryWriter(itemFile);
         item.Write(binaryWriter);
         binaryWriter.Flush();
         binaryWriter.Close();
     }
+
+    public string ExportFileName => $"{InvariantName}.{TwinDataExt}";
 
     public virtual void PreResolveResources() { }
 
@@ -319,53 +342,120 @@ public abstract class SerializableAsset : IAsset
         DisposeData();
     }
 
+    // Creating a project keeps internal assets' data in a file once no write uses it and loads it back from there when a write needs it
+    // again (CreationWriter). Setting an internal asset's data the usual way names it after the data, which would move its file
+    internal void KeepInternalData(string path)
+    {
+        AssetData!.Save(path);
+        DisposeData(true);
+    }
+
+    internal void DisposeInternalData()
+    {
+        DisposeData(true);
+    }
+
+    internal void LoadKeptData(Type dataType, string path)
+    {
+        var data = (AbstractAssetData)Activator.CreateInstance(dataType, this)!;
+        data.Load(path);
+        _assetData = data;
+    }
+
     protected void DisposeData(bool force = false)
     {
         if (IsInternal && !force)
         {
             return;
         }
-        
-        if (!IsLoaded)
+
+        // A build only releases what its scope loaded, the asset's own data is an editor's
+        if (!IsInternal && AssetDataScope.Current is { } scope)
         {
-            AssetData = null;
+            scope.ReleaseData(this);
             return;
         }
-            
+        
+        // The field is cleared directly because the AssetData setter ignores nulls, which left every disposed data referenced by its asset
+        if (!IsLoaded)
+        {
+            _assetData = null;
+            return;
+        }
+
         AssetData?.Dispose();
-        AssetData = null;
+        _assetData = null;
     }
 
     public virtual void ResolveChunkResources(Factory.ITwinItemFactory factory, ITwinSection section)
     {
-        if (_resolveTraversed) return;
+        if (OverrideViewOf(factory) is { } view)
+        {
+            view.ResolveChunkResources(factory, section);
+            return;
+        }
 
-        _resolveTraversed = true;
-        AssetData = GetData();
-        PreResolveResources();
-        var item = AssetData.ResolveChunkResources(factory, section, ExportTwinID, LayoutID);
-        PostResolveResources(factory, section, item);
-        section.RemoveDuplicates(ExportTwinID);
+        if (ChunkVersionOf(factory) is { } version)
+        {
+            version.ResolveChunkResources(factory, section);
+            return;
+        }
 
-        DisposeData();
-        _resolveTraversed = false;
-    }
-
-    public void RemoveReference(LabURI reference)
-    {
-        if (!References.Remove(reference))
+        if (!factory.Resolution.Begin(this, section))
         {
             return;
         }
 
-        var serializationFlags = SerializationFlags.SetDirectoryToAssets | SerializationFlags.FixReferences;
-        if (!IsInternal)
+        try
         {
-            RemoveReferencesFromData(GetData(), reference);
-            serializationFlags |= SerializationFlags.SaveData;
+            var data = GetData();
+            PreResolveResources();
+            var item = data.ResolveChunkResources(factory, section, ExportTwinID, LayoutID);
+            PostResolveResources(factory, section, item);
+            section.RemoveDuplicates(ExportTwinID);
+            DisposeData();
+        }
+        finally
+        {
+            factory.Resolution.End(this, section);
+        }
+    }
+
+    /// <summary>
+    /// The asset with the chunk being built's own values when it has some
+    /// </summary>
+    protected IAsset? OverrideViewOf(Factory.ITwinItemFactory factory)
+    {
+        return OverriddenAsset == null ? factory.Overrides?.GetView(this) : null;
+    }
+
+    internal void SetViewData(AbstractAssetData data)
+    {
+        _assetData = data;
+    }
+
+    /// <summary>
+    /// The chunk being built's own version of the item when it differs from this one
+    /// </summary>
+    protected IAsset? ChunkVersionOf(Factory.ITwinItemFactory factory)
+    {
+        if (factory.ChunkVersions == null || !factory.ChunkVersions.TryGetValue((GetType(), ID), out var version) || version == URI)
+        {
+            return null;
         }
 
-        Serialize(serializationFlags);
+        var assetManager = AssetManager.Get();
+        return assetManager.DoesAssetExist(version) ? assetManager.GetAsset(version) : null;
+    }
+
+    public virtual bool IsReferencingAny(IReadOnlySet<LabURI> assets)
+    {
+        return References.Any(assets.Contains);
+    }
+
+    public virtual void FixDeletedReferences(DeletedReferenceFixer fixer)
+    {
+        fixer.FixObject(GetData());
     }
 
     public ResourceTreeElementViewModel GetResourceTreeElement(ResourceTreeElementViewModel? parent = null)
@@ -381,73 +471,9 @@ public abstract class SerializableAsset : IAsset
         return ViewModel;
     }
 
-    protected virtual LabURI GetDefaultReference() => LabURI.Empty;
-
     protected virtual ResourceTreeElementViewModel CreateResourceTreeElement(ResourceTreeElementViewModel? parent = null)
     {
         return new ResourceTreeElementViewModel(URI, parent);
-    }
-
-    private void RemoveReferencesFromData(object? data, LabURI reference)
-    {
-        if (data?.GetType().GetCustomAttribute<ReferencesAssetsAttribute>() is null)
-        {
-            return;
-        }
-        
-        var props = data.GetType().GetProperties();
-        foreach (var prop in props)
-        {
-            if (prop.PropertyType.IsAssignableTo(typeof(LabURI)))
-            {
-                var uri = prop.GetValue(data) as LabURI;
-                if (uri != null && uri == reference)
-                {
-                    prop.SetValue(data, GetDefaultReference());
-                }
-            }
-            else if (prop.PropertyType.IsAssignableTo(typeof(IEnumerable<LabURI>)))
-            {
-                if (prop.GetValue(data) is not IEnumerable<LabURI> refList)
-                {
-                    continue;
-                }
-                    
-                var list = refList.ToList();
-                var referenceRemoved = false;
-                for (var i = 0; i < list.Count; i++)
-                {
-                    if (list[i] != reference)
-                    {
-                        continue;
-                    }
-                    
-                    list[i] = GetDefaultReference();
-                    referenceRemoved = true;
-                }
-
-                if (referenceRemoved)
-                {
-                    prop.SetValue(data, list);
-                }
-            }
-            else if (prop.PropertyType.IsAssignableTo(typeof(IEnumerable)))
-            {
-                if (prop.GetValue(data) is not IEnumerable list)
-                {
-                    continue;
-                }
-
-                foreach (var item in list)
-                {
-                    RemoveReferencesFromData(item, reference);
-                }
-            }
-            else
-            {
-                RemoveReferencesFromData(prop.GetValue(data), reference);
-            }
-        }
     }
 
     private void ExtractReferences(object? data)

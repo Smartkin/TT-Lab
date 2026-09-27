@@ -122,7 +122,7 @@ public class AgentLabParser : IDisposable
             default:
             {
                 var attributes = AttributeList();
-                if (attributes.Children.Any(attrib => attrib is PriorityAttributeNode or StartFromAttributeNode))
+                if (attributes.Children.Any(attrib => attrib is PriorityAttributeNode or GraphPriorityAttributeNode or StartFromAttributeNode))
                 {
                     result = Behaviour(attributes);
                 }
@@ -137,9 +137,34 @@ public class AgentLabParser : IDisposable
         if (_currentToken.Type != AgentLabToken.TokenType.Eof)
         {
             // TODO: Raise parser error instead of throwing an exception
-            throw new Exception($"Unexpected token {_currentToken.Type}");
+            throw Error($"Unexpected token {_currentToken.Type}");
         }
         
+        return result;
+    }
+
+    /// <summary>
+    /// Parses a script that can only be a list of commands, like an object's command pack
+    /// </summary>
+    /// <returns>The commands, null when there aren't any</returns>
+    public IAgentLabTreeNode ParseCommands()
+    {
+        if (_currentToken.Type == AgentLabToken.TokenType.Eof)
+        {
+            return null;
+        }
+
+        if (_currentToken.Type != AgentLabToken.TokenType.Identifier)
+        {
+            throw Error($"Only commands can be written here, found {_currentToken.Type}");
+        }
+
+        var result = ActionList();
+        if (_currentToken.Type != AgentLabToken.TokenType.Eof)
+        {
+            throw Error($"Only commands can be written here, found {_currentToken.Type}");
+        }
+
         return result;
     }
 
@@ -172,7 +197,7 @@ public class AgentLabParser : IDisposable
                 break;
             default:
                 // TODO: Raise type error instead of throwing an exception
-                throw new Exception($"Unsupported parameter type {_currentToken.Type}");
+                throw Error($"Unsupported parameter type {_currentToken.Type}");
         }
 
         var identifier = _currentToken;
@@ -306,6 +331,9 @@ public class AgentLabParser : IDisposable
             case AgentLabToken.TokenType.Priority:
                 node = PriorityAttribute();
                 break;
+            case AgentLabToken.TokenType.GraphPriority:
+                node = GraphPriorityAttribute();
+                break;
             case AgentLabToken.TokenType.NonBlocking:
             case AgentLabToken.TokenType.SkipFirstBody:
             case AgentLabToken.TokenType.UseObjectSlot:
@@ -321,7 +349,7 @@ public class AgentLabParser : IDisposable
                 break;
             default:
                 // TODO: Raise parser error instead of throwing an exception
-                throw new Exception($"Unknown attribute {_currentToken.Value} {_currentToken.Type}");
+                throw Error($"Unknown attribute {_currentToken.Value} {_currentToken.Type}");
         }
         EatToken(AgentLabToken.TokenType.AttributeClose);
 
@@ -341,7 +369,7 @@ public class AgentLabParser : IDisposable
                 break;
             default:
                 // TODO: Raise parser error instead of throwing an exception
-                throw new Exception($"Unexpected token type: {_currentToken.Type} Expected: {AgentLabToken.TokenType.Integer} or {AgentLabToken.TokenType.FloatingPoint}");
+                throw Error($"Unexpected token type: {_currentToken.Type} Expected: {AgentLabToken.TokenType.Integer} or {AgentLabToken.TokenType.FloatingPoint}");
         }
         
         return number;
@@ -472,7 +500,7 @@ public class AgentLabParser : IDisposable
                 break;
             default:
                 // TODO: Raise parser error instead of throwing an exception
-                throw new Exception($"Expected boolean instead got {token.Type}");
+                throw Error($"Expected boolean instead got {token.Type}");
         }
         
         return new BooleanNode(token);
@@ -824,7 +852,7 @@ public class AgentLabParser : IDisposable
                 break;
             default:
                 // TODO: Raise a parser error instead of throwing an exception
-                throw new Exception($"Unexpected attribute type {_currentToken.Type}");
+                throw Error($"Unexpected attribute type {_currentToken.Type}");
         }
 
         return attribute;
@@ -894,7 +922,7 @@ public class AgentLabParser : IDisposable
                 break;
             default:
                 // TODO: Raise parse error without throwing an exception
-                throw new Exception($"Unexpected token type {_currentToken.Type}");
+                throw Error($"Unexpected token type {_currentToken.Type}");
         }
         
         return attribute;
@@ -931,6 +959,16 @@ public class AgentLabParser : IDisposable
         return new PriorityAttributeNode(resultNode);
     }
 
+    private GraphPriorityAttributeNode GraphPriorityAttribute()
+    {
+        EatToken(AgentLabToken.TokenType.GraphPriority);
+        EatToken(AgentLabToken.TokenType.LeftParen);
+        var resultNode = Number();
+        EatToken(AgentLabToken.TokenType.RightParen);
+
+        return new GraphPriorityAttributeNode(resultNode);
+    }
+
     private ConstDeclarationListNode ConstList(ref ConstDeclarationListNode consts)
     {
         while (_currentToken.Type == AgentLabToken.TokenType.Const)
@@ -961,7 +999,7 @@ public class AgentLabParser : IDisposable
                     if (starter != null)
                     {
                         // TODO: Raise parser error instead of throwing an exception
-                        throw new Exception("Only one Starter definition can exist for a given behaviour");
+                        throw Error("Only one Starter definition can exist for a given behaviour");
                     }
                     starter = Starter();
                     break;
@@ -972,7 +1010,7 @@ public class AgentLabParser : IDisposable
                     controlPackets = ControlPacketList(ref controlPackets);
                     break;
                 default:
-                    throw new Exception($"Unexpected token type {_currentToken.Type}");
+                    throw Error($"Unexpected token type {_currentToken.Type}");
             }
         }
         
@@ -989,19 +1027,24 @@ public class AgentLabParser : IDisposable
         EatToken(AgentLabToken.TokenType.CloseBracket);
 
         var priorityAttribute = attributes.Children.FirstOrDefault(attrib => attrib is PriorityAttributeNode, null);
+        var graphPriorityAttribute = attributes.Children.FirstOrDefault(attrib => attrib is GraphPriorityAttributeNode, null);
         var startFrom = attributes.Children.FirstOrDefault(attrib => attrib is StartFromAttributeNode, null);
-        return new BehaviourNode(behaviourNameToken, behaviourBody, priorityAttribute as PriorityAttributeNode, startFrom as StartFromAttributeNode);
+        return new BehaviourNode(behaviourNameToken, behaviourBody, priorityAttribute as PriorityAttributeNode, startFrom as StartFromAttributeNode, graphPriorityAttribute as GraphPriorityAttributeNode);
     }
     
     private void EatToken(AgentLabToken.TokenType tokenType)
     {
         if (_currentToken.Type != tokenType)
         {
-            // TODO: Raise parser error without throwing an exception
-            throw new Exception($"Unexpected token: {_currentToken.Type} (Value: {_currentToken.ToString()}) \n Expected: {tokenType}");
+            throw Error($"Unexpected token {_currentToken.Type} ({_currentToken}), expected {tokenType}");
         }
         
         _currentToken = _lexer.GetNextToken();
+    }
+
+    private AgentLabSyntaxException Error(string message)
+    {
+        return new AgentLabSyntaxException(message, _currentToken.Line, _currentToken.Column);
     }
 
     public void Dispose()

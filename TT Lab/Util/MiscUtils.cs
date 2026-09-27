@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Runtime;
+using System.Runtime.InteropServices;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -37,16 +39,48 @@ public static class MiscUtils
         return _boatguy;
     }
 
-    public static Bitmap GetLabIcon(string iconName)
+    public static void CollectReleasedMemory()
     {
-        if (LabIconStorage.TryGetValue(iconName, out Bitmap? value))
+        // Big vertex and texture arrays live on the large object heap which isn't compacted unless asked to, keeping the freed memory committed
+        GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
+        GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, true, true);
+        // Native resources like bitmaps are only freed by their finalizers
+        GC.WaitForPendingFinalizers();
+        // After allocation heavy work like importing a project the GC otherwise keeps gigabytes of freed regions committed for a long time
+        GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, true, true);
+
+        if (!OperatingSystem.IsLinux())
         {
-            return value;
+            return;
         }
 
-        LabIconStorage.Add(iconName, new Bitmap(ManifestResourceLoader.GetPathInExe($"Media/LabIcons/{iconName}.png")));
+        // glibc keeps freed native memory in its per thread arenas instead of returning it to the OS
+        try
+        {
+            MallocTrim(0);
+        }
+        catch (Exception ex) when (ex is EntryPointNotFoundException or DllNotFoundException)
+        {
+            // Not glibc (e.g. musl), nothing to trim
+        }
+    }
 
-        return LabIconStorage[iconName];
+    [DllImport("libc", EntryPoint = "malloc_trim")]
+    private static extern int MallocTrim(nuint pad);
+
+    public static Bitmap GetLabIcon(string iconName)
+    {
+        lock (LabIconStorage)
+        {
+            if (LabIconStorage.TryGetValue(iconName, out Bitmap? value))
+            {
+                return value;
+            }
+
+            LabIconStorage.Add(iconName, new Bitmap(ManifestResourceLoader.GetPathInExe($"Media/LabIcons/{iconName}.png")));
+
+            return LabIconStorage[iconName];
+        }
     }
 
     public static Bitmap CloneBitmap(this Bitmap bitmap)
@@ -98,6 +132,25 @@ public static class MiscUtils
         }
             
         return string.Empty;
+    }
+
+    public static async Task<string> GetSaveFileFromDialogueAsync(string title, string filterName, IReadOnlyList<string> filters, string suggestedFileName, string defaultExtension)
+    {
+        if (Application.Current!.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime { MainWindow: { } owner })
+        {
+            return string.Empty;
+        }
+
+        var file = await owner.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = title,
+            SuggestedFileName = suggestedFileName,
+            DefaultExtension = defaultExtension,
+            FileTypeChoices = [new FilePickerFileType(filterName) { Patterns = filters }],
+            ShowOverwritePrompt = true
+        });
+
+        return file?.TryGetLocalPath() ?? string.Empty;
     }
 
     public static Enums.InstanceState ChangeFlag(this Enums.InstanceState state, Enums.InstanceState flags, Boolean set)

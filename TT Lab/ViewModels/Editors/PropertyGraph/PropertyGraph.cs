@@ -8,6 +8,11 @@ public class PropertyGraph
     public event Action<PropertyChange>? Changed;
     public PropertyNode Root { get; }
     public PropertyGraphTracker Tracker { get; }
+
+    /// <summary>
+    /// Views of the assets a chunk's document shares with other chunks, other documents don't have any
+    /// </summary>
+    public TT_Lab.Assets.ChunkOverrideSession? Overrides => Tracker.Overrides;
     
     private readonly Dictionary<string, PropertyNode> _properties = new();
     
@@ -19,9 +24,9 @@ public class PropertyGraph
         Root.InitPropertyLinks();
     }
 
-    internal void NotifyChange(PropertyNode node, object? oldValue, object? newValue)
+    internal void NotifyChange(PropertyNode node, object? oldValue, object? newValue, PropertyChangeKind kind = PropertyChangeKind.Value, int index = -1)
     {
-        Changed?.Invoke(new PropertyChange(node, oldValue, newValue));
+        Changed?.Invoke(new PropertyChange(node, oldValue, newValue, kind, index));
     }
 
     internal void Deindex(PropertyNode node)
@@ -48,4 +53,13 @@ public class PropertyGraph
     public PropertyNode? Find(string path) => this[path];
 }
 
-public record PropertyChange(PropertyNode Node, object? OldValue, object? NewValue);
+public enum PropertyChangeKind
+{
+    Value,
+    // An element put into the list at the index, its value is the new value
+    Insert,
+    // The element at the index taken out of the list, its value is the old value
+    Remove,
+}
+
+public record PropertyChange(PropertyNode Node, object? OldValue, object? NewValue, PropertyChangeKind Kind = PropertyChangeKind.Value, int Index = -1);

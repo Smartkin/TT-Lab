@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -7,6 +8,7 @@ using TT_Lab.AssetData.Graphics.SubModels;
 using TT_Lab.Assets.Code.Resolvers.Compiler;
 using TT_Lab.Util;
 using Twinsanity.AgentLab;
+using Twinsanity.AgentLab.AgentLabObjectDescs;
 using Twinsanity.AgentLab.AgentLabObjectDescs.PS2;
 using Twinsanity.AgentLab.Resolvers.Compiler;
 using Twinsanity.TwinsanityInterchange.Common;
@@ -43,10 +45,34 @@ namespace TT_Lab.Assets.Factory
     {
         public Package GlobalPackage { get; set; }
         public bool IsDefaultResolution { get; set; }
+
+        /// <summary>
+        /// Behaviour commands the platform's scripts are compiled against
+        /// </summary>
+        protected virtual String ActionDefinitionsFile => "ActionDefinitionsPs2.lab";
+
+        // The platform's class of an item read from a stream, the Xbox version's items mostly extend the PS2 ones
+        protected virtual T Create<T>() where T : ITwinItem, new()
+        {
+            return new T();
+        }
+
+        protected virtual BaseTwinSection CreateSection<T>() where T : BaseTwinSection, new()
+        {
+            return new T();
+        }
+
+        protected virtual ITwinBehaviourCommandPack CreateCommandPack() => new PS2BehaviourCommandPack();
+        protected virtual CommandDesc NewCommandDesc() => new PS2CommandDesc();
+        protected virtual CommandPackDesc NewCommandPackDesc() => new PS2CommandPackDesc();
+        protected virtual CommandsSequenceDesc NewCommandsSequenceDesc() => new PS2CommandsSequenceDesc();
+        protected virtual StateDesc NewStateDesc() => new PS2StateDesc();
+        protected virtual StateBodyDesc NewStateBodyDesc() => new PS2StateBodyDesc();
+        protected virtual GraphDesc NewGraphDesc() => new PS2GraphDesc();
         
         public ITwinAIPath GenerateAIPath(Stream stream)
         {
-            var aiPath = new PS2AnyAIPath();
+            var aiPath = Create<PS2AnyAIPath>();
             using var reader = new BinaryReader(stream);
             aiPath.Read(reader, (Int32)stream.Length);
             return aiPath;
@@ -54,7 +80,7 @@ namespace TT_Lab.Assets.Factory
 
         public ITwinAIPosition GenerateAIPosition(Stream stream)
         {
-            var aiPosition = new PS2AnyAIPosition();
+            var aiPosition = Create<PS2AnyAIPosition>();
             using var reader = new BinaryReader(stream);
             aiPosition.Read(reader, (Int32)stream.Length);
             return aiPosition;
@@ -62,7 +88,7 @@ namespace TT_Lab.Assets.Factory
 
         public ITwinAnimation GenerateAnimation(Stream stream)
         {
-            var animation = new PS2AnyAnimation();
+            var animation = Create<PS2AnyAnimation>();
             using var reader = new BinaryReader(stream);
             animation.TotalFrames = reader.ReadUInt16();
             animation.DefaultFPS = reader.ReadByte();
@@ -81,10 +107,10 @@ namespace TT_Lab.Assets.Factory
             var script = reader.ReadToEnd();
             var compilerOptions = new AgentLabCompiler.CompilerOptions
             {
-                CommandsSequence = new PS2CommandsSequenceDesc(),
-                CommandPack = new PS2CommandPackDesc(),
-                Command = new PS2CommandDesc(),
-                ActionDefinitionsFile = "ActionDefinitionsPs2.lab",
+                CommandsSequence = NewCommandsSequenceDesc(),
+                CommandPack = NewCommandPackDesc(),
+                Command = NewCommandDesc(),
+                ActionDefinitionsFile = ActionDefinitionsFile,
                 Resolver = new LabCompilerResolver(new DefaultGlobalObjectIdResolver(), new DefaultGraphResolver())
             };
             var compilerResult = AgentLabCompiler.Compile(script, compilerOptions);
@@ -99,12 +125,12 @@ namespace TT_Lab.Assets.Factory
             var script = reader.ReadToEnd();
             var compilerOptions = new AgentLabCompiler.CompilerOptions
             {
-                Command = new PS2CommandDesc(),
-                CommandPack = new PS2CommandPackDesc(),
-                State = new PS2StateDesc(),
-                StateBody = new PS2StateBodyDesc(),
-                Graph = new PS2GraphDesc(),
-                ActionDefinitionsFile = "ActionDefinitionsPs2.lab",
+                Command = NewCommandDesc(),
+                CommandPack = NewCommandPackDesc(),
+                State = NewStateDesc(),
+                StateBody = NewStateBodyDesc(),
+                Graph = NewGraphDesc(),
+                ActionDefinitionsFile = ActionDefinitionsFile,
                 Resolver = new LabCompilerResolver(graphId)
             };
             return AgentLabCompiler.Compile(script, compilerOptions);
@@ -114,136 +140,149 @@ namespace TT_Lab.Assets.Factory
         {
             using var reader = new StreamReader(stream);
             var script = reader.ReadToEnd();
-            if (string.IsNullOrEmpty(script))
-            {
-                return new PS2BehaviourCommandPack();
-            }
-            
             var compilerOptions = new AgentLabCompiler.CompilerOptions
             {
-                Command = new PS2CommandDesc(),
-                CommandPack = new PS2CommandPackDesc(),
-                ActionDefinitionsFile = "ActionDefinitionsPs2.lab"
+                Command = NewCommandDesc(),
+                CommandPack = NewCommandPackDesc(),
+                ActionDefinitionsFile = ActionDefinitionsFile
             };
-            return AgentLabCompiler.Compile(script, compilerOptions).Get<ITwinBehaviourCommandPack>();
+            return AgentLabCompiler.CompileCommands(script, compilerOptions).Get<ITwinBehaviourCommandPack>();
         }
 
         public string ChunkPath { get; set; }
+        public IReadOnlyDictionary<(Type, UInt32), LabURI>? ChunkVersions { get; set; }
+        public ChunkOverrides? Overrides { get; set; }
+        public ChunkResolution Resolution { get; } = new();
+        public ConcurrentDictionary<(LabURI Graph, Int32 Id, String Script), AgentLabCompiler.CompilerResult> CompiledBehaviours { get; protected init; } = new();
 
-        public ITwinBlendSkin GenerateBlendSkin(Int32 blendsAmount, List<SubBlendData> blends, UInt32? compileScale)
+        public virtual ITwinItemFactory ForChunk()
         {
-            var assetManager = AssetManager.Get();
+            return new PS2ItemFactory { GlobalPackage = GlobalPackage, CompiledBehaviours = CompiledBehaviours };
+        }
+
+        public virtual ITwinBlendSkin GenerateBlendSkin(Int32 blendsAmount, List<BlendPartExport> parts)
+        {
             var blendSkin = new PS2AnyBlendSkin
             {
-                BlendsAmount = blendsAmount,
+                BlendsAmount = blendsAmount
             };
-            if (compileScale.HasValue)
-            {
-                blendSkin.CompileScale = compileScale.Value;
-            }
-
-            foreach (var blend in blends)
+            // Parts whose packing doesn't fit anymore share new settings so vertexes shared by the game's models stay in the same place
+            var sharedCompression = parts.Any(p => GetFittingCompression(p.Compression, p.Vertexes) == null)
+                ? TwinSkinCompression.FitTo(parts.SelectMany(p => p.Vertexes).Select(v => v.Position))
+                : null;
+            foreach (var part in parts)
             {
                 var subBlend = new PS2SubBlendSkin(blendsAmount)
                 {
-                    Material = assetManager.GetAsset(blend.Material).ExportTwinID,
+                    Material = part.Material
                 };
-
-                foreach (var model in blend.Models)
+                var compression = GetFittingCompression(part.Compression, part.Vertexes) ?? sharedCompression;
+                foreach (var batch in part.Layout.Batches)
                 {
-                    foreach (var meshlet in model.Mesh.Meshlets)
+                    var blendShape = GetFittingBlendShape(batch, part.ShapeOffsets, blendsAmount);
+                    var model = new PS2BlendSkinModel(blendsAmount)
                     {
-                        var submodel = new PS2BlendSkinModel(blendsAmount)
+                        Vertexes = [],
+                        UVW = [],
+                        Colors = [],
+                        SkinJoints = [],
+                        GroupSizes = [batch.Vertexes.Count],
+                        Faces = [],
+                        BlendShape = blendShape,
+                        Compression = compression?.Clone(),
+                        Padding = part.Layout.Padding
+                    };
+                    AddSkinVertexes(batch, part.Vertexes, model.Vertexes, model.UVW, model.Colors, model.SkinJoints);
+                    for (var shape = 0; shape < blendsAmount; shape++)
+                    {
+                        var offsets = shape < part.ShapeOffsets.Count ? part.ShapeOffsets[shape] : null;
+                        model.Faces.Add(new PS2BlendSkinFace(blendShape)
                         {
-                            Vertexes = new(),
-                            UVW = new(),
-                            Colors = new(),
-                            SkinJoints = new(),
-                            Faces = new(),
-                            BlendShape = new Vector3(model.BlendShape.X, model.BlendShape.Y, model.BlendShape.Z),
-                            GroupSizes = new()
-                        };
-
-                        var j = 0;
-                        var groupCount = 0;
-                        var prevIdx2 = -1;
-                        var prevIdx = -1;
-                        foreach (var idx in meshlet.Strip.Select(v => (Int32)v))
-                        {
-                            // Strip reset encountered
-                            if (idx == 0xFFFF)
+                            Vertices = batch.Vertexes.Select(v => new VertexBlendShape
                             {
-                                j = 0;
-                                continue;
-                            }
-
-                            // Triangle fan encountered
-                            if (idx == prevIdx2)
-                            {
-                                j = 1;
-                            }
-
-                            submodel.Vertexes.Add(new Vector4(meshlet.Vertexes[idx].Position));
-                            submodel.UVW.Add(new Vector4(meshlet.Vertexes[idx].UV));
-                            submodel.Colors.Add(meshlet.Vertexes[idx].Color);
-                            var modelJointInfo = meshlet.Vertexes[idx].JointInfo;
-                            var jointInfo = new VertexJointInfo()
-                            {
-                                JointIndex1 = modelJointInfo.JointIndex1,
-                                JointIndex2 = modelJointInfo.JointIndex2,
-                                JointIndex3 = modelJointInfo.JointIndex3,
-                                Weight1 = modelJointInfo.Weight1,
-                                Weight2 = modelJointInfo.Weight2,
-                                Weight3 = modelJointInfo.Weight3,
-                                Connection = j > 1
-                            };
-                            submodel.SkinJoints.Add(jointInfo);
-
-                            groupCount++;
-                            prevIdx2 = prevIdx;
-                            prevIdx = idx;
-                            j++;
-                        }
-
-                        foreach (var blendFace in meshlet.BlendFaces!)
-                        {
-                            var ps2BlendFace = new PS2BlendSkinFace(submodel.BlendShape)
-                            {
-                                VertexesAmount = (UInt32)submodel.Vertexes.Count,
-                                Vertices = new()
-                            };
-
-                            foreach (Int32 idx in meshlet.Strip.Select(v => (Int32)v))
-                            {
-                                if (idx == 0xFFFF)
-                                {
-                                    continue;
-                                }
-                                
-                                var blendShape = blendFace.BlendShapes[idx];
-                                ps2BlendFace.Vertices.Add(new VertexBlendShape
-                                {
-                                    BlendShape = submodel.BlendShape,
-                                    Offset = blendShape.Offset
-                                });
-                            }
-
-                            submodel.Faces.Add(ps2BlendFace);
-                        }
-
-                        submodel.GroupSizes.Add(groupCount);
-                        subBlend.Models.Add(submodel);
+                                BlendShape = blendShape,
+                                Offset = offsets != null ? new Vector4(offsets[v.Index]) : new Vector4()
+                            }).ToList()
+                        });
                     }
+
+                    subBlend.Models.Add(model);
                 }
+
                 blendSkin.SubBlends.Add(subBlend);
             }
 
             return blendSkin;
         }
 
+        // The stored scale while the batch's offsets still fit into signed bytes with it, the smallest scale fitting them otherwise
+        private static Vector3 GetFittingBlendShape(MeshProcessor.StripBatch batch, List<List<Vector4>> shapeOffsets, Int32 blendsAmount)
+        {
+            var maximum = new Single[3];
+            foreach (var offsets in shapeOffsets.Take(blendsAmount))
+            {
+                foreach (var vertex in batch.Vertexes)
+                {
+                    var offset = offsets[vertex.Index];
+                    maximum[0] = Math.Max(maximum[0], Math.Abs(offset.X));
+                    maximum[1] = Math.Max(maximum[1], Math.Abs(offset.Y));
+                    maximum[2] = Math.Max(maximum[2], Math.Abs(offset.Z));
+                }
+            }
+
+            var stored = batch.BlendShape;
+            var result = new Single[3];
+            for (var axis = 0; axis < 3; axis++)
+            {
+                var storedScale = stored == null ? 0 : axis switch { 0 => stored.X, 1 => stored.Y, _ => stored.Z };
+                if (storedScale > 0 && maximum[axis] / storedScale <= SByte.MaxValue + 0.49f)
+                {
+                    result[axis] = storedScale;
+                    continue;
+                }
+
+                result[axis] = maximum[axis] > 0 ? maximum[axis] / SByte.MaxValue : storedScale > 0 ? storedScale : 1.0f / 1024.0f;
+            }
+
+            return new Vector3(result[0], result[1], result[2]);
+        }
+
+        private static TwinSkinCompression? GetFittingCompression(TwinSkinCompression? compression, List<AssetData.Graphics.SubModels.Vertex> vertexes)
+        {
+            if (compression == null || !compression.Fits(vertexes.Select(v => v.Position), vertexes.Select(v => v.UV)))
+            {
+                return null;
+            }
+
+            return compression;
+        }
+
+        private static void AddSkinVertexes(MeshProcessor.StripBatch batch, List<AssetData.Graphics.SubModels.Vertex> vertexes, List<Vector4> positions, List<Vector4> uvs,
+            List<Vector4> colors, List<VertexJointInfo> joints)
+        {
+            foreach (var stripVertex in batch.Vertexes)
+            {
+                var vertex = vertexes[stripVertex.Index];
+                positions.Add(new Vector4(vertex.Position));
+                uvs.Add(new Vector4(vertex.UV));
+                colors.Add(new Vector4(vertex.Color));
+                joints.Add(new VertexJointInfo
+                {
+                    JointIndex1 = vertex.JointInfo.JointIndex1,
+                    JointIndex2 = vertex.JointInfo.JointIndex2,
+                    JointIndex3 = vertex.JointInfo.JointIndex3,
+                    Weight1 = vertex.JointInfo.Weight1,
+                    Weight2 = vertex.JointInfo.Weight2,
+                    Weight3 = vertex.JointInfo.Weight3,
+                    WeightsAmount = vertex.JointInfo.WeightsAmount,
+                    Connection = stripVertex.Draws
+                });
+            }
+        }
+
         public ITwinCamera GenerateCamera(Stream stream)
         {
-            var camera = new PS2AnyCamera();
+            var camera = Create<PS2AnyCamera>();
             using var reader = new BinaryReader(stream);
             camera.Read(reader, (Int32)stream.Length);
             return camera;
@@ -251,7 +290,7 @@ namespace TT_Lab.Assets.Factory
 
         public ITwinCollision GenerateCollision(Stream stream)
         {
-            var collision = new PS2AnyCollisionData();
+            var collision = Create<PS2AnyCollisionData>();
             using var reader = new BinaryReader(stream);
             collision.Read(reader, (Int32)stream.Length);
             return collision;
@@ -259,7 +298,7 @@ namespace TT_Lab.Assets.Factory
 
         public ITwinDynamicScenery GenerateDynamicScenery(Stream stream)
         {
-            var dynamicScenery = new PS2AnyDynamicScenery();
+            var dynamicScenery = Create<PS2AnyDynamicScenery>();
             using var reader = new BinaryReader(stream);
             dynamicScenery.Read(reader, (Int32)stream.Length);
             return dynamicScenery;
@@ -267,7 +306,7 @@ namespace TT_Lab.Assets.Factory
 
         public ITwinInstance GenerateInstance(Stream stream)
         {
-            var instance = new PS2AnyInstance();
+            var instance = Create<PS2AnyInstance>();
             using var reader = new BinaryReader(stream);
             instance.Read(reader, (Int32)stream.Length);
             return instance;
@@ -275,7 +314,7 @@ namespace TT_Lab.Assets.Factory
 
         public ITwinLink GenerateLink(Stream stream)
         {
-            var link = new PS2AnyLink();
+            var link = Create<PS2AnyLink>();
             using var reader = new BinaryReader(stream);
             var linkAmount = reader.ReadInt32();
             for (var i = 0; i < linkAmount; i++)
@@ -309,7 +348,7 @@ namespace TT_Lab.Assets.Factory
 
         public ITwinLOD GenerateLOD(Stream stream)
         {
-            var lod = new PS2AnyLOD();
+            var lod = Create<PS2AnyLOD>();
             using var reader = new BinaryReader(stream);
             lod.Read(reader, (Int32)stream.Length);
             return lod;
@@ -317,7 +356,7 @@ namespace TT_Lab.Assets.Factory
 
         public ITwinMaterial GenerateMaterial(Stream stream)
         {
-            var material = new PS2AnyMaterial();
+            var material = Create<PS2AnyMaterial>();
             using var reader = new BinaryReader(stream);
             material.Read(reader, (Int32)stream.Length);
             return material;
@@ -325,85 +364,57 @@ namespace TT_Lab.Assets.Factory
 
         public ITwinMesh GenerateMesh(Stream stream)
         {
-            var mesh = new PS2AnyMesh();
+            var mesh = Create<PS2AnyMesh>();
             using var reader = new BinaryReader(stream);
             mesh.Read(reader, (Int32)stream.Length);
             return mesh;
         }
 
-        public ITwinModel GenerateModel(List<MeshProcessor.Mesh> meshes)
+        public virtual ITwinModel GenerateModel(List<RigidPartExport> parts)
         {
             var model = new PS2AnyModel();
-            foreach (var mesh in meshes)
+            foreach (var part in parts)
             {
-                var submodel = new PS2SubModel
+                var hasNormals = part.Vertexes.Any(v => v.HasNormals);
+                var hasEmits = part.Vertexes.Any(v => v.HasEmitColor);
+                var subModel = new PS2SubModel
                 {
                     UnusedBlob = Array.Empty<Byte>(),
-                    Vertexes = new(),
-                    UVW = new(),
-                    Colors = new(),
-                    EmitColor = new(),
-                    Normals = new(),
-                    Connection = new(),
-                    GroupSizes = new()
+                    Vertexes = [],
+                    UVW = [],
+                    Colors = [],
+                    EmitColor = [],
+                    Normals = [],
+                    Connection = [],
+                    GroupSizes = [],
+                    Padding = part.Layout.Padding
                 };
-
-                var groups = new List<List<Int32>>();
-                foreach (var strip in mesh.Meshlets)
+                foreach (var batch in part.Layout.Batches)
                 {
-                    groups.Add(new());
-                    foreach (var node in strip.Strip)
+                    subModel.GroupSizes.Add(batch.Vertexes.Count);
+                    foreach (var stripVertex in batch.Vertexes)
                     {
-                        groups[^1].Add((Int32)node);
+                        var vertex = part.Vertexes[stripVertex.Index];
+                        subModel.Vertexes.Add(new Vector4(vertex.Position));
+                        subModel.UVW.Add(new Vector4(vertex.UV));
+                        subModel.Colors.Add(new Vector4(vertex.Color) { StoresColorWithAlphaBlend = vertex.Color.StoresColorWithAlphaBlend });
+                        if (hasNormals)
+                        {
+                            subModel.Normals.Add(vertex.HasNormals ? new Vector4(vertex.Normal) : vertex.GetUnitNormal());
+                        }
+
+                        if (hasEmits)
+                        {
+                            subModel.EmitColor.Add(vertex.HasEmitColor
+                                ? new Vector4(vertex.EmitColor) { StoresColorWithAlphaBlend = vertex.EmitColor.StoresColorWithAlphaBlend }
+                                : new Vector4(0.5f, 0.5f, 0.5f, 0.5f));
+                        }
+
+                        subModel.Connection.Add(stripVertex.Draws);
                     }
                 }
 
-                var groupIndex = 0;
-                foreach (var group in groups)
-                {
-                    var j = 0;
-                    var prevIdx = -1;
-                    var prevIdx2 = -1;
-                    var groupCount = 0;
-                    var rawModel = mesh.Meshlets[groupIndex];
-                    foreach (var idx in group)
-                    {
-                        // Strip reset encountered
-                        if (idx == 0xFFFF)
-                        {
-                            j = 0;
-                            continue;
-                        }
-
-                        // Triangle fan encountered
-                        if (idx == prevIdx2)
-                        {
-                            j = 1;
-                        }
-
-                        submodel.Vertexes.Add(new Vector4(rawModel.Vertexes[idx].Position));
-                        submodel.UVW.Add(new Vector4(rawModel.Vertexes[idx].UV));
-                        submodel.Colors.Add(rawModel.Vertexes[idx].Color);
-                        if (rawModel.Vertexes[idx].HasEmitColor)
-                        {
-                            submodel.EmitColor.Add(rawModel.Vertexes[idx].EmitColor);
-                        }
-                        if (rawModel.Vertexes[idx].HasNormals)
-                        {
-                            submodel.Normals.Add(new Vector4(rawModel.Normals[idx]));
-                        }
-                        submodel.Connection.Add(j > 1);
-                        j++;
-                        prevIdx2 = prevIdx;
-                        prevIdx = idx;
-                        groupCount++;
-                    }
-
-                    submodel.GroupSizes.Add(groupCount);
-                    groupIndex++;
-                }
-
-                model.SubModels.Add(submodel);
+                model.SubModels.Add(subModel);
             }
 
             return model;
@@ -411,7 +422,7 @@ namespace TT_Lab.Assets.Factory
 
         public ITwinObject GenerateObject(Stream stream)
         {
-            var gameObject = new PS2AnyObject();
+            var gameObject = Create<PS2AnyObject>();
             using var reader = new BinaryReader(stream);
             gameObject.Type = (ITwinObject.ObjectType)reader.ReadInt32();
             gameObject.UnkTypeValue = reader.ReadByte();
@@ -426,6 +437,8 @@ namespace TT_Lab.Assets.Factory
                 triggerBehaviour.TriggerBehaviour = reader.ReadUInt16();
                 triggerBehaviour.MessageID = reader.ReadUInt16();
                 triggerBehaviour.BehaviourCallerIndex = reader.ReadByte();
+                // Both versions of the game set every bit above the caller index
+                triggerBehaviour.UpperBits = 0x7F;
                 gameObject.TriggerBehaviours.Add(triggerBehaviour);
             }
 
@@ -457,7 +470,7 @@ namespace TT_Lab.Assets.Factory
             fillList(gameObject.RefUnknowns, reader.ReadUInt16);
             fillList(gameObject.RefSounds, reader.ReadUInt16);
 
-            gameObject.BehaviourPack = new PS2BehaviourCommandPack();
+            gameObject.BehaviourPack = CreateCommandPack();
             gameObject.BehaviourPack.Read(reader, (Int32)stream.Length);
 
             return gameObject;
@@ -465,7 +478,7 @@ namespace TT_Lab.Assets.Factory
 
         public ITwinOGI GenerateOGI(Stream stream)
         {
-            var ogi = new PS2AnyOGI();
+            var ogi = Create<PS2AnyOGI>();
             using var reader = new BinaryReader(stream);
             ogi.BoundingBox[0].Read(reader, Constants.SIZE_VECTOR4);
             ogi.BoundingBox[1].Read(reader, Constants.SIZE_VECTOR4);
@@ -528,7 +541,7 @@ namespace TT_Lab.Assets.Factory
 
         public ITwinParticle GenerateParticle(Stream stream)
         {
-            var particles = new PS2AnyParticleData();
+            var particles = Create<PS2AnyParticleData>();
             using var reader = new BinaryReader(stream);
             particles.Read(reader, (Int32)stream.Length);
             return particles;
@@ -536,7 +549,7 @@ namespace TT_Lab.Assets.Factory
 
         public ITwinDefaultParticle GenerateDefaultParticle(Stream stream)
         {
-            var particles = new PS2DefaultParticleData();
+            var particles = Create<PS2DefaultParticleData>();
             using var reader = new BinaryReader(stream);
             particles.Read(reader, (Int32)stream.Length);
             return particles;
@@ -544,7 +557,7 @@ namespace TT_Lab.Assets.Factory
 
         public ITwinPath GeneratePath(Stream stream)
         {
-            var path = new PS2AnyPath();
+            var path = Create<PS2AnyPath>();
             using var reader = new BinaryReader(stream);
             path.Read(reader, (Int32)stream.Length);
             return path;
@@ -552,7 +565,7 @@ namespace TT_Lab.Assets.Factory
 
         public ITwinPosition GeneratePosition(Stream stream)
         {
-            var position = new PS2AnyPosition();
+            var position = Create<PS2AnyPosition>();
             using var reader = new BinaryReader(stream);
             position.Read(reader, (Int32)stream.Length);
             return position;
@@ -560,7 +573,7 @@ namespace TT_Lab.Assets.Factory
 
         public ITwinRigidModel GenerateRigidModel(Stream stream)
         {
-            var rigidModel = new PS2AnyRigidModel();
+            var rigidModel = Create<PS2AnyRigidModel>();
             using var reader = new BinaryReader(stream);
             rigidModel.Read(reader, (Int32)stream.Length);
             return rigidModel;
@@ -568,7 +581,7 @@ namespace TT_Lab.Assets.Factory
 
         public ITwinScenery GenerateScenery(Stream stream)
         {
-            var scenery = new PS2AnyScenery();
+            var scenery = Create<PS2AnyScenery>();
             using var reader = new BinaryReader(stream);
             scenery.Name = reader.ReadString();
             scenery.FogColor = reader.ReadUInt32();
@@ -608,6 +621,12 @@ namespace TT_Lab.Assets.Factory
                     negative.Read(reader, negative.GetLength());
                     scenery.NegativeLights.Add(negative);
                 }
+
+                var lightOrder = reader.ReadInt32();
+                for (var i = 0; i < lightOrder; ++i)
+                {
+                    scenery.LightOrder.Add(reader.ReadInt32());
+                }
             }
 
             var sceneries = reader.ReadInt32();
@@ -631,102 +650,50 @@ namespace TT_Lab.Assets.Factory
             return scenery;
         }
 
-        public ITwinSkin GenerateSkin(List<SubSkinData> subskins)
+        public virtual ITwinSkin GenerateSkin(List<SkinPartExport> parts)
         {
-            PS2AnySkin skin = new();
-
-            foreach (var subskin in subskins)
+            var skin = new PS2AnySkin();
+            foreach (var part in parts)
             {
-                var submodel = new PS2SubSkin
+                var subSkin = new PS2SubSkin
                 {
-                    Vertexes = new(),
-                    UVW = new(),
-                    Colors = new(),
-                    SkinJoints = new(),
-                    Material = AssetManager.Get().GetAsset(subskin.Material).ExportTwinID,
-                    GroupSizes = new()
+                    Vertexes = [],
+                    UVW = [],
+                    Colors = [],
+                    SkinJoints = [],
+                    Material = part.Material,
+                    GroupSizes = [],
+                    Compression = GetFittingCompression(part.Compression, part.Vertexes)?.Clone(),
+                    Padding = part.Layout.Padding
                 };
-
-                var mesh = subskin.Mesh;
-                var groups = new List<List<Int32>>();
-                foreach (var strip in mesh.Meshlets)
+                foreach (var batch in part.Layout.Batches)
                 {
-                    groups.Add(new());
-                    foreach (var node in strip.Strip)
-                    {
-                        groups[^1].Add((Int32)node);
-                    }
+                    subSkin.GroupSizes.Add(batch.Vertexes.Count);
+                    AddSkinVertexes(batch, part.Vertexes, subSkin.Vertexes, subSkin.UVW, subSkin.Colors, subSkin.SkinJoints);
                 }
 
-                var groupIndex = 0;
-                foreach (var group in groups)
-                {
-                    var j = 0;
-                    var prevIdx2 = -1;
-                    var prevIdx = -1;
-                    var groupCount = 0;
-                    var rawModel = mesh.Meshlets[groupIndex];
-                    foreach (var idx in group)
-                    {
-                        // Strip reset encountered
-                        if (idx == 0xFFFF)
-                        {
-                            j = 0;
-                            continue;
-                        }
-
-                        // Triangle fan encountered
-                        if (idx == prevIdx2)
-                        {
-                            j = 1;
-                        }
-
-                        submodel.Vertexes.Add(new Vector4(rawModel.Vertexes[idx].Position));
-                        submodel.UVW.Add(new Vector4(rawModel.Vertexes[idx].UV));
-                        submodel.Colors.Add(rawModel.Vertexes[idx].Color);
-                        var modelJointInfo = rawModel.Vertexes[idx].JointInfo;
-                        var jointInfo = new VertexJointInfo()
-                        {
-                            JointIndex1 = modelJointInfo.JointIndex1,
-                            JointIndex2 = modelJointInfo.JointIndex2,
-                            JointIndex3 = modelJointInfo.JointIndex3,
-                            Weight1 = modelJointInfo.Weight1,
-                            Weight2 = modelJointInfo.Weight2,
-                            Weight3 = modelJointInfo.Weight3,
-                            Connection = j > 1
-                        };
-                        submodel.SkinJoints.Add(jointInfo);
-                        groupCount++;
-                        j++;
-                        prevIdx2 = prevIdx;
-                        prevIdx = idx;
-                    }
-
-                    submodel.GroupSizes.Add(groupCount);
-                    groupIndex++;
-                }
-
-                skin.SubSkins.Add(submodel);
+                skin.SubSkins.Add(subSkin);
             }
+
             return skin;
         }
 
         public ITwinSkydome GenerateSkydome(Stream stream)
         {
-            var skydome = new PS2AnySkydome();
+            var skydome = Create<PS2AnySkydome>();
             using var reader = new BinaryReader(stream);
             skydome.Read(reader, (Int32)stream.Length);
             return skydome;
         }
 
-        public ITwinSound GenerateSound()
+        public virtual ITwinSound GenerateSound()
         {
             return new PS2AnySound();
         }
 
         public ITwinSurface GenerateSurface(Stream stream)
         {
-            var surface = new PS2AnyCollisionSurface();
+            var surface = Create<PS2AnyCollisionSurface>();
             using var reader = new BinaryReader(stream);
             surface.Read(reader, (Int32)stream.Length);
             return surface;
@@ -734,33 +701,33 @@ namespace TT_Lab.Assets.Factory
 
         public ITwinTemplate GenerateTemplate(Stream stream)
         {
-            var template = new PS2AnyTemplate();
+            var template = Create<PS2AnyTemplate>();
             using var reader = new BinaryReader(stream);
             template.Read(reader, (Int32)stream.Length);
             return template;
         }
 
-        public ITwinTexture GenerateTexture()
+        public virtual ITwinTexture GenerateTexture()
         {
             return new PS2AnyTexture();
         }
 
         public ITwinTrigger GenerateTrigger(Stream stream)
         {
-            var trigger = new PS2AnyTrigger();
+            var trigger = Create<PS2AnyTrigger>();
             using var reader = new BinaryReader(stream);
             trigger.Read(reader, (Int32)stream.Length);
             return trigger;
         }
 
-        public ITwinSection GenerateFrontend(List<ITwinSound> sounds)
+        public virtual ITwinSection GenerateFrontend(List<ITwinSound> sounds)
         {
             var frontend = new PS2Frontend();
 
             return frontend;
         }
 
-        public ITwinPSF GenerateFont(List<ITwinPTC> pages, List<VectorCharacterData> characterData, Int32 spaceIdentifier)
+        public virtual ITwinPSF GenerateFont(List<ITwinPTC> pages, List<VectorCharacterData> characterData, Int32 spaceIdentifier)
         {
             var font = new PS2PSF();
 
@@ -775,7 +742,7 @@ namespace TT_Lab.Assets.Factory
             return font;
         }
 
-        public ITwinPTC GeneratePTC(UInt32 texID, UInt32 matID, ITwinTexture texture, ITwinMaterial material)
+        public virtual ITwinPTC GeneratePTC(UInt32 texID, UInt32 matID, ITwinTexture texture, ITwinMaterial material)
         {
             var ptc = new PS2PTC
             {
@@ -787,7 +754,7 @@ namespace TT_Lab.Assets.Factory
             return ptc;
         }
 
-        public ITwinPSM GeneratePSM(List<ITwinPTC> ptcs)
+        public virtual ITwinPSM GeneratePSM(List<ITwinPTC> ptcs)
         {
             var psm = new PS2PSM();
             foreach (var ptc in ptcs)
@@ -800,51 +767,51 @@ namespace TT_Lab.Assets.Factory
 
         public ITwinSection GenerateDefault()
         {
-            var @default = new PS2Default();
+            var @default = CreateSection<PS2Default>();
             @default.SetRoot(@default);
 
-            var graphics = new PS2AnyGraphicsSection();
+            var graphics = CreateSection<PS2AnyGraphicsSection>();
             graphics.SetID(Constants.LEVEL_GRAPHICS_SECTION);
             FillGraphicsSection(graphics, @default);
 
-            var code = new PS2AnyCodeSection();
+            var code = CreateSection<PS2AnyCodeSection>();
             FillCodeSection(code, @default);
 
-            var layout1 = new PS2AnyLayoutSection();
+            var layout1 = CreateSection<PS2AnyLayoutSection>();
             layout1.SetID(Constants.LEVEL_LAYOUT_1_SECTION);
             FillLayoutSection(layout1, @default);
 
-            var layout2 = new PS2AnyLayoutSection();
+            var layout2 = CreateSection<PS2AnyLayoutSection>();
             layout2.SetID(Constants.LEVEL_LAYOUT_2_SECTION);
             layout2.SetRoot(@default);
             layout2.SetParent(@default);
 
-            var layout3 = new PS2AnyLayoutSection();
+            var layout3 = CreateSection<PS2AnyLayoutSection>();
             layout3.SetID(Constants.LEVEL_LAYOUT_3_SECTION);
             layout3.SetRoot(@default);
             layout3.SetParent(@default);
 
-            var layout4 = new PS2AnyLayoutSection();
+            var layout4 = CreateSection<PS2AnyLayoutSection>();
             layout4.SetID(Constants.LEVEL_LAYOUT_4_SECTION);
             layout4.SetRoot(@default);
             layout4.SetParent(@default);
 
-            var layout5 = new PS2AnyLayoutSection();
+            var layout5 = CreateSection<PS2AnyLayoutSection>();
             layout5.SetID(Constants.LEVEL_LAYOUT_5_SECTION);
             layout5.SetRoot(@default);
             layout5.SetParent(@default);
 
-            var layout6 = new PS2AnyLayoutSection();
+            var layout6 = CreateSection<PS2AnyLayoutSection>();
             layout6.SetID(Constants.LEVEL_LAYOUT_6_SECTION);
             layout6.SetRoot(@default);
             layout6.SetParent(@default);
 
-            var layout7 = new PS2AnyLayoutSection();
+            var layout7 = CreateSection<PS2AnyLayoutSection>();
             layout7.SetID(Constants.LEVEL_LAYOUT_7_SECTION);
             layout7.SetRoot(@default);
             layout7.SetParent(@default);
 
-            var layout8 = new PS2AnyLayoutSection();
+            var layout8 = CreateSection<PS2AnyLayoutSection>();
             layout8.SetID(Constants.LEVEL_LAYOUT_8_SECTION);
             FillLayoutSection(layout8, @default);
 
@@ -871,12 +838,12 @@ namespace TT_Lab.Assets.Factory
 
         public ITwinSection GenerateRM()
         {
-            var rm2 = new PS2AnyTwinsanityRM2();
-            var graphics = new PS2AnyGraphicsSection();
+            var rm2 = CreateSection<PS2AnyTwinsanityRM2>();
+            var graphics = CreateSection<PS2AnyGraphicsSection>();
             graphics.SetID(Constants.LEVEL_GRAPHICS_SECTION);
             FillGraphicsSection(graphics, rm2);
 
-            var code = new PS2AnyCodeSection();
+            var code = CreateSection<PS2AnyCodeSection>();
             FillCodeSection(code, rm2);
 
             rm2.AddItem(graphics);
@@ -884,7 +851,7 @@ namespace TT_Lab.Assets.Factory
 
             for (UInt32 i = 0; i < 7; ++i)
             {
-                var layout = new PS2AnyLayoutSection();
+                var layout = CreateSection<PS2AnyLayoutSection>();
                 layout.SetID(Constants.LEVEL_LAYOUT_1_SECTION + i);
                 FillLayoutSection(layout, rm2);
                 rm2.AddItem(layout);
@@ -903,8 +870,8 @@ namespace TT_Lab.Assets.Factory
 
         public ITwinSection GenerateSM()
         {
-            var sm2 = new PS2AnyTwinsanitySM2();
-            var graphics = new PS2AnyGraphicsSection();
+            var sm2 = CreateSection<PS2AnyTwinsanitySM2>();
+            var graphics = CreateSection<PS2AnyGraphicsSection>();
             graphics.SetID(Constants.SCENERY_GRAPHICS_SECTION);
             FillGraphicsSection(graphics, sm2);
 
@@ -930,44 +897,44 @@ namespace TT_Lab.Assets.Factory
             return sm2;
         }
 
-        private static void FillLayoutSection(PS2AnyLayoutSection layout, ITwinSection root)
+        private void FillLayoutSection(BaseTwinSection layout, ITwinSection root)
         {
             layout.SetRoot(root);
             layout.SetParent(root);
             {
-                var templates = new PS2AnyTemplatesSection();
+                var templates = CreateSection<PS2AnyTemplatesSection>();
                 templates.SetID(Constants.LAYOUT_TEMPLATES_SECTION);
                 templates.SetRoot(root);
                 templates.SetParent(layout);
-                var aiPositions = new PS2AnyAIPositionsSection();
+                var aiPositions = CreateSection<PS2AnyAIPositionsSection>();
                 aiPositions.SetID(Constants.LAYOUT_AI_POSITIONS_SECTION);
                 aiPositions.SetRoot(root);
                 aiPositions.SetParent(layout);
-                var aiPaths = new PS2AnyAIPathsSection();
+                var aiPaths = CreateSection<PS2AnyAIPathsSection>();
                 aiPaths.SetID(Constants.LAYOUT_AI_PATHS_SECTION);
                 aiPaths.SetRoot(root);
                 aiPaths.SetParent(layout);
-                var positions = new PS2AnyPositionsSection();
+                var positions = CreateSection<PS2AnyPositionsSection>();
                 positions.SetID(Constants.LAYOUT_POSITIONS_SECTION);
                 positions.SetRoot(root);
                 positions.SetParent(layout);
-                var paths = new PS2AnyPathsSection();
+                var paths = CreateSection<PS2AnyPathsSection>();
                 paths.SetID(Constants.LAYOUT_PATHS_SECTION);
                 paths.SetRoot(root);
                 paths.SetParent(layout);
-                var surfaces = new PS2AnySurfacesSection();
+                var surfaces = CreateSection<PS2AnySurfacesSection>();
                 surfaces.SetID(Constants.LAYOUT_SURFACES_SECTION);
                 surfaces.SetRoot(root);
                 surfaces.SetParent(layout);
-                var instances = new PS2AnyInstancesSection();
+                var instances = CreateSection<PS2AnyInstancesSection>();
                 instances.SetID(Constants.LAYOUT_INSTANCES_SECTION);
                 instances.SetRoot(root);
                 instances.SetParent(layout);
-                var triggers = new PS2AnyTriggersSection();
+                var triggers = CreateSection<PS2AnyTriggersSection>();
                 triggers.SetID(Constants.LAYOUT_TRIGGERS_SECTION);
                 triggers.SetRoot(root);
                 triggers.SetParent(layout);
-                var cameras = new PS2AnyCamerasSection();
+                var cameras = CreateSection<PS2AnyCamerasSection>();
                 cameras.SetID(Constants.LAYOUT_CAMERAS_SECTION);
                 cameras.SetRoot(root);
                 cameras.SetParent(layout);
@@ -984,44 +951,44 @@ namespace TT_Lab.Assets.Factory
             }
         }
 
-        private static void FillGraphicsSection(PS2AnyGraphicsSection graphics, ITwinSection root)
+        private void FillGraphicsSection(BaseTwinSection graphics, ITwinSection root)
         {
             graphics.SetRoot(root);
             graphics.SetParent(root);
             {
-                var textures = new PS2AnyTexturesSection();
+                var textures = CreateSection<PS2AnyTexturesSection>();
                 textures.SetID(Constants.GRAPHICS_TEXTURES_SECTION);
                 textures.SetRoot(root);
                 textures.SetParent(graphics);
-                var materials = new PS2AnyMaterialsSection();
+                var materials = CreateSection<PS2AnyMaterialsSection>();
                 materials.SetID(Constants.GRAPHICS_MATERIALS_SECTION);
                 materials.SetRoot(root);
                 materials.SetParent(graphics);
-                var models = new PS2AnyModelsSection();
+                var models = CreateSection<PS2AnyModelsSection>();
                 models.SetID(Constants.GRAPHICS_MODELS_SECTION);
                 models.SetRoot(root);
                 models.SetParent(graphics);
-                var rigids = new PS2AnyRigidModelsSection();
+                var rigids = CreateSection<PS2AnyRigidModelsSection>();
                 rigids.SetID(Constants.GRAPHICS_RIGID_MODELS_SECTION);
                 rigids.SetRoot(root);
                 rigids.SetParent(graphics);
-                var skins = new PS2AnySkinsSection();
+                var skins = CreateSection<PS2AnySkinsSection>();
                 skins.SetID(Constants.GRAPHICS_SKINS_SECTION);
                 skins.SetRoot(root);
                 skins.SetParent(graphics);
-                var blendSkins = new PS2AnyBlendSkinsSection();
+                var blendSkins = CreateSection<PS2AnyBlendSkinsSection>();
                 blendSkins.SetID(Constants.GRAPHICS_BLEND_SKINS_SECTION);
                 blendSkins.SetRoot(root);
                 blendSkins.SetParent(graphics);
-                var meshes = new PS2AnyMeshesSection();
+                var meshes = CreateSection<PS2AnyMeshesSection>();
                 meshes.SetID(Constants.GRAPHICS_MESHES_SECTION);
                 meshes.SetRoot(root);
                 meshes.SetParent(graphics);
-                var lods = new PS2AnyLODsSection();
+                var lods = CreateSection<PS2AnyLODsSection>();
                 lods.SetID(Constants.GRAPHICS_LODS_SECTION);
                 lods.SetRoot(root);
                 lods.SetParent(graphics);
-                var skydomes = new PS2AnySkydomesSection();
+                var skydomes = CreateSection<PS2AnySkydomesSection>();
                 skydomes.SetID(Constants.GRAPHICS_SKYDOMES_SECTION);
                 skydomes.SetRoot(root);
                 skydomes.SetParent(graphics);
@@ -1038,29 +1005,29 @@ namespace TT_Lab.Assets.Factory
             }
         }
 
-        private static void FillCodeSection(PS2AnyCodeSection code, ITwinSection root)
+        private void FillCodeSection(BaseTwinSection code, ITwinSection root)
         {
             code.SetID(Constants.LEVEL_CODE_SECTION);
             code.SetRoot(root);
             code.SetParent(root);
             {
-                var objects = new PS2AnyGameObjectsSection();
+                var objects = CreateSection<PS2AnyGameObjectsSection>();
                 objects.SetID(Constants.CODE_GAME_OBJECTS_SECTION);
                 objects.SetRoot(root);
                 objects.SetParent(code);
-                var behaviours = new PS2AnyBehavioursSection();
+                var behaviours = CreateSection<PS2AnyBehavioursSection>();
                 behaviours.SetID(Constants.CODE_BEHAVIOURS_SECTION);
                 behaviours.SetRoot(root);
                 behaviours.SetParent(code);
-                var animations = new PS2AnyAnimationsSection();
+                var animations = CreateSection<PS2AnyAnimationsSection>();
                 animations.SetID(Constants.CODE_ANIMATIONS_SECTION);
                 animations.SetRoot(root);
                 animations.SetParent(code);
-                var ogis = new PS2AnyOGIsSection();
+                var ogis = CreateSection<PS2AnyOGIsSection>();
                 ogis.SetID(Constants.CODE_OGIS_SECTION);
                 ogis.SetRoot(root);
                 ogis.SetParent(code);
-                var behaviourSequences = new PS2AnyBehaviourCommandsSequencesSection();
+                var behaviourSequences = CreateSection<PS2AnyBehaviourCommandsSequencesSection>();
                 behaviourSequences.SetID(Constants.CODE_BEHAVIOUR_COMMANDS_SEQUENCES_SECTION);
                 behaviourSequences.SetRoot(root);
                 behaviourSequences.SetParent(code);
@@ -1068,31 +1035,31 @@ namespace TT_Lab.Assets.Factory
                 unknowns.SetID(Constants.CODE_UNK_ITEM);
                 unknowns.SetRoot(root);
                 unknowns.SetParent(code);
-                var sfxs = new PS2AnySoundsSection();
+                var sfxs = CreateSection<PS2AnySoundsSection>();
                 sfxs.SetID(Constants.CODE_SOUND_EFFECTS_SECTION);
                 sfxs.SetRoot(root);
                 sfxs.SetParent(code);
-                var sfxsEn = new PS2AnySoundsSection();
+                var sfxsEn = CreateSection<PS2AnySoundsSection>();
                 sfxsEn.SetID(Constants.CODE_LANG_ENG_SECTION);
                 sfxsEn.SetRoot(root);
                 sfxsEn.SetParent(code);
-                var sfxsFr = new PS2AnySoundsSection();
+                var sfxsFr = CreateSection<PS2AnySoundsSection>();
                 sfxsFr.SetID(Constants.CODE_LANG_FRE_SECTION);
                 sfxsFr.SetRoot(root);
                 sfxsFr.SetParent(code);
-                var sfxsGr = new PS2AnySoundsSection();
+                var sfxsGr = CreateSection<PS2AnySoundsSection>();
                 sfxsGr.SetID(Constants.CODE_LANG_GER_SECTION);
                 sfxsGr.SetRoot(root);
                 sfxsGr.SetParent(code);
-                var sfxsSp = new PS2AnySoundsSection();
+                var sfxsSp = CreateSection<PS2AnySoundsSection>();
                 sfxsSp.SetID(Constants.CODE_LANG_SPA_SECTION);
                 sfxsSp.SetRoot(root);
                 sfxsSp.SetParent(code);
-                var sfxsIt = new PS2AnySoundsSection();
+                var sfxsIt = CreateSection<PS2AnySoundsSection>();
                 sfxsIt.SetID(Constants.CODE_LANG_ITA_SECTION);
                 sfxsIt.SetRoot(root);
                 sfxsIt.SetParent(code);
-                var sfxsJp = new PS2AnySoundsSection();
+                var sfxsJp = CreateSection<PS2AnySoundsSection>();
                 sfxsJp.SetID(Constants.CODE_LANG_JPN_SECTION);
                 sfxsJp.SetRoot(root);
                 sfxsJp.SetParent(code);

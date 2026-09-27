@@ -20,28 +20,26 @@ import bpy
 from bpy.types import PropertyGroup
 
 
-class ObjectAsBoneSettings(PropertyGroup):
-    animationLink: bpy.props.PointerProperty(type=bpy.types.Action)
-    independentScaling: bpy.props.BoolProperty(name="Independent scaling", default=False)
+def _flags_changed(self, context):
+    from .animator import apply_to_all_armatures
 
-class NodeHasIndependentScaling(PropertyGroup):
-    links: bpy.props.CollectionProperty(type=ObjectAsBoneSettings)
+    apply_to_all_armatures(context.scene)
 
-    def as_dict(self):
-        return {item.animationLink.name: item.independentScaling for item in self.items}
 
-    def from_dict(self, data):
-        self.links.clear()
-        for k, v in data.items():
-            if k != "NodeHasIndependentScaling":
-                continue
-
-            animationPairs: dict[str, bool] = v.to_dict()
-            for action_name, enabled in animationPairs.items():
-                action = bpy.data.actions.get(action_name)
-                if action is None:
-                    continue
-                
-                entry = self.links.add()
-                entry.animationLink = action
-                entry.independentScaling = enabled
+class TTT_AnimationFlags(PropertyGroup):
+    action: bpy.props.PointerProperty(type=bpy.types.Action, name="Animation")
+    independent_scaling: bpy.props.BoolProperty(
+        name="Independent scaling",
+        description="The bone doesn't inherit its parent's scale while this animation plays",
+        default=False,
+        update=_flags_changed,
+    )
+    uses_additional_rotation: bpy.props.BoolProperty(
+        name="Additional rotation",
+        description="The joint's additional rotation from the model is applied on top of this animation's rotation",
+        default=False,
+    )
+    # What the imported file had, resetting the flags goes back to it
+    imported: bpy.props.BoolProperty(options={"HIDDEN"})
+    imported_independent_scaling: bpy.props.BoolProperty(options={"HIDDEN"})
+    imported_uses_additional_rotation: bpy.props.BoolProperty(options={"HIDDEN"})

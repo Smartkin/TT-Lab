@@ -5,7 +5,7 @@ using System.Text;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Attributes;
-using TT_Lab.ViewModels.Editors;
+using TT_Lab.ViewModels.Editors.Descs;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 
 namespace TT_Lab.AssetData.Global;
@@ -22,7 +22,7 @@ public class TextFileData : AbstractAssetData
         Text = $"{text}";
     }
 
-    [Editable(EditorDescType = typeof(CodeEditorViewModel))]
+    [Editable(EditorDescType = typeof(TextFileEditorDesc), EditorOrientation = Avalonia.Controls.Dock.Top)]
     public String Text { get; set; }
 
     public override ITwinItem Export(ITwinItemFactory factory)

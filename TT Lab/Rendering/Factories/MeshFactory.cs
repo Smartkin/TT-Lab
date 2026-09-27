@@ -1,18 +1,19 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using GlmSharp;
-using Newtonsoft.Json.Linq;
 using Silk.NET.OpenGL;
 using TT_Lab.AssetData;
 using TT_Lab.AssetData.Graphics;
+using TT_Lab.AssetData.Graphics.Shaders;
 using TT_Lab.AssetData.Graphics.SubModels;
 using TT_Lab.AssetData.Instance;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Instance;
 using TT_Lab.Rendering.Buffers;
 using TT_Lab.Rendering.Objects;
+using TT_Lab.Rendering.Services;
 using Twinsanity.TwinsanityInterchange.Common;
 using BlendSkin = TT_Lab.Assets.Graphics.BlendSkin;
 using Collision = TT_Lab.Assets.Instance.Collision;
@@ -46,6 +47,7 @@ public class MeshFactory
         
         _builtInConstructors.Add(LabURI.Plane, CreatePlane);
         _builtInConstructors.Add(LabURI.Box, CreateCube);
+        _builtInConstructors.Add(LabURI.Volume, CreateVolume);
         _builtInConstructors.Add(LabURI.Circle, CreateCircle);
     }
     
@@ -124,6 +126,29 @@ public class MeshFactory
         material.Shaders[0].ShaderType = TwinShader.Type.ColorOnly;
         material.Shaders[0].ABlending = TwinShader.AlphaBlending.ON;
         var buffer = new ModelBuffer(_renderContext, _meshBuilder.BuildRigidVaoFromVertexes(vectors.Select((v, i) => new Vertex(new Vector4(v.x, v.y, v.z, 1.0f), new Vector4(1.0f, 1.0f, 1.0f, 1.0f))).ToList(), faces), _materialFactory, material);
+        return new Mesh(_renderContext, [buffer]);
+    }
+
+    // Culled by facing, so unlike the other built in meshes it's wound counter-clockwise seen from outside, like the primitive renderer's box
+    private Mesh CreateVolume()
+    {
+        var box = new List<float>();
+        PrimitiveMeshes.AddBox(box);
+        var vertexes = box.Chunk(PrimitiveMeshes.VertexFloats)
+            .Select(vertex => new Vertex(new Vector4(vertex[0], vertex[1], vertex[2], 1.0f), new Vector4(1.0f, 1.0f, 1.0f, 1.0f))).ToList();
+        var faces = Enumerable.Range(0, vertexes.Count / 3).Select(face => new IndexedFace { Indexes = [face * 3, face * 3 + 1, face * 3 + 2] }).ToList();
+        var material = new MaterialData(null);
+        material.Shaders.Add(new LabShader());
+        foreach (var (shader, pass) in material.Shaders.Zip([PassService.VolumeInsidesPass, PassService.VolumeOutsidesPass]))
+        {
+            shader.TxtMapping = TwinShader.TextureMapping.OFF;
+            shader.ShaderType = TwinShader.Type.ColorOnly;
+            shader.ABlending = TwinShader.AlphaBlending.ON;
+            shader.ZValueDrawingMask = TwinShader.ZValueDrawMask.NOT_UPDATE;
+            shader.ForcedShaderName = pass;
+        }
+
+        var buffer = new ModelBuffer(_renderContext, _meshBuilder.BuildRigidVaoFromVertexes(vertexes, faces), _materialFactory, material);
         return new Mesh(_renderContext, [buffer]);
     }
 
@@ -245,13 +270,7 @@ public class MeshFactory
                 i =>
                 {
                     var surface = assetManager.GetAsset(collisionData.Triangles[i].Surface);
-
-                    var surfColor = CollisionSurface.DefaultColor;
-                    if (surface.Parameters["editor_surface_color"] is JObject colorJson)
-                    {
-                        surfColor = colorJson.ToObject<Color>()!;
-                    }
-                    return surfColor.GetVector();
+                    return CollisionSurface.GetEditorColor(surface).GetVector();
                 }),
             _materialFactory, material)];
         
@@ -270,67 +289,41 @@ public class MeshFactory
         return new SkinnedMesh(_renderContext, buffers);
     }
 
+    // Every triangle corner gets the offset of its vertex for every shape in a float texture the vertex shader fetches them from
     private BlendSkinnedMesh CreateBlendSkinnedMesh(BlendSkinData blendSkin)
     {
+        const int offsetTextureWidth = 1024;
         var assetManager = AssetManager.Get();
         var buffers = new List<ModelBufferBlendSkin>();
-        var offsetData = new byte[256 * 256 * 4];
-        var blendShape = vec3.Ones;
-        var offsetDataIndex = 0;
-        var facesAmount = 0;
+        var offsets = new List<float>();
+        var shapesAmount = blendSkin.BlendsAmount;
         foreach (var blend in blendSkin.Blends)
         {
             var material = blend.Material == LabURI.Empty ? MaterialData.GetEmptyMaterial() : assetManager.GetAssetData<MaterialData>(blend.Material);
-            foreach (var blendModel in blend.Models)
+            var corners = blend.Faces.SelectMany(face => face.Indexes!).ToList();
+            var shapeStart = offsets.Count / 4;
+            var shapeOffsets = new int[shapesAmount];
+            for (var shape = 0; shape < shapesAmount; shape++)
             {
-                var indices = new List<Int32>();
-                foreach (var face in blendModel.Faces)
+                shapeOffsets[shape] = shape * corners.Count;
+                var shapeVertexes = shape < blend.ShapeOffsets.Count ? blend.ShapeOffsets[shape] : null;
+                foreach (var corner in corners)
                 {
-                    indices.Add(face.Indexes![0]);
-                    indices.Add(face.Indexes[1]);
-                    indices.Add(face.Indexes[2]);
+                    var offset = shapeVertexes != null ? shapeVertexes[corner] : new Vector4();
+                    offsets.AddRange([offset.X, offset.Y, offset.Z, 0]);
                 }
-
-                var shapeId = 0;
-                var shapeOffset = 0;
-                var shapeOffsets = new int[blendModel.BlendFaces.Count];
-                var startOffset = offsetDataIndex / 4;
-                foreach (var blendFace in blendModel.BlendFaces)
-                {
-                    shapeOffsets[shapeId++] = shapeOffset;
-                    foreach (var converted in indices.Select(index => new VertexBlendShape
-                             {
-                                 Offset = blendFace.BlendShapes[index].Offset,
-                                 BlendShape = blendModel.BlendShape
-                             }).Select(twinVertex => twinVertex.GetVector4()))
-                    {
-                        offsetData[offsetDataIndex++] = (Byte)converted.GetBinaryX();
-                        offsetData[offsetDataIndex++] = (Byte)converted.GetBinaryY();
-                        offsetData[offsetDataIndex++] = (Byte)converted.GetBinaryZ();
-                        offsetData[offsetDataIndex++] = (Byte)converted.GetBinaryW();
-                    }
-                    
-                    shapeOffset += indices.Count;
-                }
-                if (blendShape == vec3.Ones)
-                {
-                    blendShape = new vec3(blendModel.BlendShape.X,  blendModel.BlendShape.Y, blendModel.BlendShape.Z);
-                }
-
-                if (facesAmount == 0)
-                {
-                    facesAmount = blendModel.BlendFaces.Count;
-                }
-                var skin = _meshBuilder.BuildSkinnedVaoFromVertexes(blendModel.Vertexes, blendModel.Faces);
-                var shapeBuild = new BlendSkinShapeBuild(shapeOffsets, startOffset);
-                var bufferBuild = new BlendSkinModelBufferBuild(skin, shapeBuild, blendShape);
-                buffers.Add(new ModelBufferBlendSkin(_renderContext, bufferBuild, _materialFactory, material));
             }
+
+            var skin = _meshBuilder.BuildSkinnedVaoFromVertexes(blend.Vertexes, blend.Faces);
+            var bufferBuild = new BlendSkinModelBufferBuild(skin, new BlendSkinShapeBuild(shapeOffsets, shapeStart), vec3.Ones);
+            buffers.Add(new ModelBufferBlendSkin(_renderContext, bufferBuild, _materialFactory, material));
         }
-        
-        var weights = new float[facesAmount];
-        var vertexOffset = new TextureBuffer(_renderContext, offsetData, 256, 256, InternalFormat.Rgba8SNorm, PixelFormat.Rgba,
-            PixelType.Byte);
-        return new BlendSkinnedMesh(_renderContext, buffers, vertexOffset, blendShape, blendSkin.BlendsAmount, weights);
+
+        var height = Math.Max(1, (offsets.Count / 4 + offsetTextureWidth - 1) / offsetTextureWidth);
+        var texels = new float[offsetTextureWidth * height * 4];
+        offsets.CopyTo(texels);
+        var vertexOffsets = new TextureBuffer(_renderContext, System.Runtime.InteropServices.MemoryMarshal.AsBytes(texels.AsSpan()).ToArray(), offsetTextureWidth, (uint)height,
+            InternalFormat.Rgba32f, PixelFormat.Rgba, PixelType.Float);
+        return new BlendSkinnedMesh(_renderContext, buffers, vertexOffsets, vec3.Ones, shapesAmount, new float[shapesAmount]);
     }
 }

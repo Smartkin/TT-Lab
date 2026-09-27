@@ -17,6 +17,8 @@ public class ModelBuffer(RenderContext context, ModelBufferBuild build, Material
     public event Action? MaterialReplaced;
     
     private readonly Dictionary<LabShader, TwinMaterial> _materials = [];
+    // Shader names get built on every access, looking them up for every draw adds up
+    private readonly Dictionary<string, LabShader?> _passShaders = [];
     private TwinMaterial? _currentRenderMaterial;
     private MaterialData _material = material;
     
@@ -28,6 +30,7 @@ public class ModelBuffer(RenderContext context, ModelBufferBuild build, Material
     private void InvalidateMaterials()
     {
         _materials.Clear();
+        _passShaders.Clear();
     }
 
     public void ReplaceMaterial(MaterialData newMaterial)
@@ -78,6 +81,13 @@ public class ModelBuffer(RenderContext context, ModelBufferBuild build, Material
     private LabShader? GetShaderFromPass(RenderPass renderPass)
     {
         var passName = renderPass.Name;
-        return _material.Shaders.FirstOrDefault(s => s.ShaderName == passName);
+        if (_passShaders.TryGetValue(passName, out var shader))
+        {
+            return shader;
+        }
+
+        shader = _material.Shaders.FirstOrDefault(s => s.ShaderName == passName);
+        _passShaders[passName] = shader;
+        return shader;
     }
 }

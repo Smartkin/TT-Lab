@@ -27,6 +27,16 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
 
         bool ITwinBehaviourState.HasNext { get; set; }
 
+        protected virtual PS2BehaviourState CreateState()
+        {
+            return new PS2BehaviourState();
+        }
+
+        protected virtual PS2BehaviourStateBody CreateStateBody()
+        {
+            return new PS2BehaviourStateBody();
+        }
+
         public PS2BehaviourState()
         {
             Bodies = new List<ITwinBehaviourStateBody>(0x1F);
@@ -114,7 +124,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
             var hasNext = (Bitfield & 0x8000) != 0;
             if (hasNext)
             {
-                var state = new PS2BehaviourState();
+                var state = CreateState();
                 scriptStates.Add(state);
                 state.Read(reader, length, scriptStates);
             }
@@ -211,7 +221,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
                 }
                 if (line.StartsWith("Body"))
                 {
-                    PS2BehaviourStateBody body = new();
+                    var body = CreateStateBody();
                     while (!line.EndsWith("{"))
                     {
                         line = reader.ReadLine().Trim();

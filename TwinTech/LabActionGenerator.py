@@ -1,6 +1,16 @@
-import json5 as json
+try:
+    import json5 as json
+except ImportError:
+    # The definitions only have line comments, which plain JSON can't read
+    import json as plain_json
+    import re
 
-def generateFile(labDefs):
+    class json:
+        @staticmethod
+        def load(f):
+            return plain_json.loads(re.sub(r'//.*', '', f.read()))
+
+def generateFile(labDefs, outputPath):
     commandSizes = labDefs['CommandSizes']
     parametersPerFunc = []
     actionDefinitionResultText = "// Generated using LabActionGenerator.py Edit at your own risk!\n\n"
@@ -31,12 +41,13 @@ def generateFile(labDefs):
                 if paramIndex != int(parametersPerFunc[index] - 1):
                     actionDefinition += typeStr + "param" + str(paramIndex + 1) + ", "
                 else:
-                    actionDefinition += typeStr + " param" + str(paramIndex + 1)
+                    actionDefinition += typeStr + "param" + str(paramIndex + 1)
         actionDefinition += ") : " + str(index) + ";"
         actionDefinitionResultText += actionDefinition + "\n"
-    with open('AgentLab/ActionDefinitionsPs2.lab', 'w') as res:
+    with open(outputPath, 'w', newline='\r\n') as res:
         res.write(actionDefinitionResultText)
 
-with open('AgentLabDefsPS2.json', 'r') as f:
-    agentLabDefs = json.load(f)
-    generateFile(agentLabDefs)
+for definitions, output in (('AgentLabDefsPS2.json', 'AgentLab/ActionDefinitionsPs2.lab'), ('AgentLabDefsXbox.json', 'AgentLab/ActionDefinitionsXbox.lab')):
+    with open(definitions, 'r', encoding='utf-8-sig') as f:
+        agentLabDefs = json.load(f)
+        generateFile(agentLabDefs, output)

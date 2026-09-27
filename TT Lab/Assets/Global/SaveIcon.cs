@@ -40,7 +40,7 @@ public class SaveIcon : GlobalAsset
 
     public override void ExportToFile(ITwinItemFactory factory)
     {
-        GetData().SaveInCurrentDirectory($"{InvariantName}.{TwinDataExt}");
+        GetData().SaveInCurrentDirectory(ExportFileName);
     }
 
     public override Type GetEditorType()

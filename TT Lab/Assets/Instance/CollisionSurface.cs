@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using Newtonsoft.Json.Linq;
 using TT_Lab.AssetData;
 using TT_Lab.AssetData.Instance;
 using TT_Lab.ViewModels.Editors.Instance;
@@ -50,14 +52,41 @@ public class CollisionSurface : SerializableInstance
     public CollisionSurface(LabURI package, UInt32 id, String name, String chunk, Int32 layId, ITwinSurface surface) : base(package, id, name, chunk, layId)
     {
         AssetData = new CollisionSurfaceData(this, surface);
-        if (id < DefaultColors.Length)
+        Parameters.Add(EditorColorParameter, id < DefaultColors.Length ? DefaultColors[id] : GenerateColor(id));
+    }
+
+    public const string EditorColorParameter = "editor_surface_color";
+
+    /// <summary>
+    /// Color the editor and Blender show the surface's collision in
+    /// </summary>
+    public static Color GetEditorColor(IAsset? surface)
+    {
+        // Surfaces loaded from the project hold the color as JSON, freshly imported ones as the color itself
+        return surface?.Parameters.GetValueOrDefault(EditorColorParameter) switch
         {
-            Parameters.Add("editor_surface_color", DefaultColors[id]);
-        }
-        else
+            Color color => color,
+            JObject json => json.ToObject<Color>() ?? DefaultColor,
+            _ => DefaultColor
+        };
+    }
+
+    // Spreads the hues of surfaces past the default colors so they tell apart
+    private static Color GenerateColor(UInt32 id)
+    {
+        var hue = id * 0.618034 % 1.0 * 6;
+        var sector = (Int32)hue;
+        var fraction = hue - sector;
+        var (r, g, b) = sector switch
         {
-            Parameters.Add("editor_surface_color", DefaultColors);
-        }
+            0 => (1.0, fraction, 0.0),
+            1 => (1.0 - fraction, 1.0, 0.0),
+            2 => (0.0, 1.0, fraction),
+            3 => (0.0, 1.0 - fraction, 1.0),
+            4 => (fraction, 0.0, 1.0),
+            _ => (1.0, 0.0, 1.0 - fraction)
+        };
+        return new Color((Byte)(64 + r * 191), (Byte)(64 + g * 191), (Byte)(64 + b * 191));
     }
 
     public CollisionSurface()

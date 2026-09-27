@@ -9,7 +9,6 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Threading;
-using ImGuiNET;
 using Silk.NET.Input;
 using Splat;
 using TT_Lab.AssetData;
@@ -190,7 +189,7 @@ public class ChunkEditorViewModel :
         {
             foreach (var addedAsset in _addedAssets)
             {
-                addedAsset.Asset.Delete(true);
+                addedAsset.Asset.Delete();
             }
         }
 
@@ -793,39 +792,6 @@ public class ChunkEditorViewModel :
                 _sceneInstances.Add(cam.GetEditableObject().Name, cam);
             }
 
-            renderer.RenderImgui += () =>
-            {
-                ImGui.Begin("Chunk Render Settings");
-                ImGui.SetWindowPos(new Vector2(renderer.GetFrameBufferSize().x - 300, 5), ImGuiCond.Appearing);
-                ImGui.SetWindowSize(new Vector2(295, 200),  ImGuiCond.Appearing);
-                if (_collisionRender != null)
-                {
-                    ImguiRenderFilterCheckbox("Render Collision", _collisionRender, DrawFilter.Collision);
-                }
-                if (_dynamicSceneryRender != null)
-                {
-                    ImguiRenderFilterCheckbox("Render Dynamic Scenery", _dynamicSceneryRender, DrawFilter.DynamicScenery);
-                }
-                ImguiRenderFilterCheckbox("Render Scenery", _sceneryRender, DrawFilter.Scenery);
-                if (_skydomeRender != null)
-                {
-                    ImguiRenderFilterCheckbox("Render Skydome", _skydomeRender, DrawFilter.Skybox);
-                }
-                ImguiRenderFilterCheckbox("Render Positions", _editingContext.GetPositionBillboards(), DrawFilter.Positions);
-                ImguiRenderFilterCheckbox("Render Triggers", _triggersNode, DrawFilter.Triggers);
-                ImguiRenderFilterCheckbox("Render Cameras", _camerasNode, DrawFilter.Cameras);
-                ImguiRenderFilterCheckbox("Render AI Positions", _editingContext.GetAiPositionsBillboards(), DrawFilter.AiPositions);
-                ImguiRenderFilterCheckbox("Render Instances", _instancesNode, DrawFilter.Instances);
-                ImguiRenderFilterCheckbox("Render Linked Scenery", _linkedScenery, DrawFilter.LinkedScenery);
-                ImGui.End();
-
-                if (_editingContext.IsInstanceSelected())
-                {
-                    ImguiRenderControls(renderer);
-                    _editingContext.SelectedRenderable?.RenderUpdate();
-                }
-            };
-
             _isChunkReady = true;
 
             // SceneEditor.SceneHeaderModel = "Chunk Viewer";
@@ -839,41 +805,6 @@ public class ChunkEditorViewModel :
         _dirtyTracker.MarkDirty();
     }
 
-    private void ImguiRenderControls(Renderer renderer)
-    {
-        ImGui.Begin("Editor Info");
-        ImGui.SetWindowPos(new Vector2(5, renderer.GetFrameBufferSize().y - 400), ImGuiCond.FirstUseEver);
-        ImGui.SetWindowSize(new Vector2(300, 395), ImGuiCond.FirstUseEver);
-        ImGui.Text($"Editing mode: {_editingContext.TransformMode}");
-        ImGui.Text("U - Unselect");
-        ImGui.Text("T - Toggle translate");
-        ImGui.Text("R - Toggle rotate");
-        ImGui.Text("E - Toggle scale");
-        ImGui.Text("X - Edit on X axis");
-        ImGui.Text("Y - Edit on Y axis");
-        ImGui.Text("Z - Edit on Z axis");
-        ImGui.Text("G - Move edit cursor on a grid");
-        ImGui.Text("P - Create duplicate at cursor's position");
-        ImGui.Text("K - Add current selection to palette");
-        ImGui.End();
-    }
-
-    private void ImguiRenderFilterCheckbox(string label, Renderable renderObject, DrawFilter filter, Action<bool>? toggleCallback = null)
-    {
-        var renderEnabled = IsDrawFilterEnabled(filter);
-        if (ImGui.Checkbox(label, ref renderEnabled) && !renderObject.IsVisible)
-        {
-            renderObject.IsVisible = true;
-            EnableDrawFilter(filter);
-            toggleCallback?.Invoke(true);
-        }
-        else if (!renderEnabled && renderObject.IsVisible)
-        {
-            renderObject.IsVisible = false;
-            DisableDrawFilter(filter);
-            toggleCallback?.Invoke(false);
-        }
-    }
     
     private void EditorChangesHappened()
     {

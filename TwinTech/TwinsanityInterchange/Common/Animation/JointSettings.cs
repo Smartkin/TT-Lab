@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Linq;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using static Twinsanity.TwinsanityInterchange.Common.Animation.Enums;
 
@@ -8,7 +9,6 @@ namespace Twinsanity.TwinsanityInterchange.Common.Animation
     public class JointSettings : ITwinSerializable
     {
         UInt16 flags;
-        public Byte FacialShapesAmount { get; set; }
         public Boolean IndependentScaling { get; set; }
         public Boolean UseAdditionalRotation { get; set; }
 
@@ -26,6 +26,10 @@ namespace Twinsanity.TwinsanityInterchange.Common.Animation
         public UInt16 TransformationIndex { get; set; }
         public UInt16 AnimationTransformationIndex { get; set; }
 
+        /// <summary>
+        /// Amount of transformation channels of every joint, the game keeps it in each joint's and in the animation's flags
+        /// </summary>
+        public const Byte ChannelsAmount = 9;
 
         public Int32 GetLength()
         {
@@ -41,7 +45,6 @@ namespace Twinsanity.TwinsanityInterchange.Common.Animation
         {
             flags = reader.ReadUInt16();
             {
-                FacialShapesAmount = (Byte)((flags >> 0x8) & 0xF);
                 IndependentScaling = ((flags >> 0xD) & 0x1) != 0;
                 UseAdditionalRotation = ((flags >> 0xC) & 0x1) != 0;
             }
@@ -63,11 +66,13 @@ namespace Twinsanity.TwinsanityInterchange.Common.Animation
 
         public void Write(BinaryWriter writer)
         {
-            UInt16 newFlags = (UInt16)(FacialShapesAmount << 0x8);
+            var channels = new[] { TranslateX, TranslateY, TranslateZ, RotateX, RotateY, RotateZ, ScaleX, ScaleY, ScaleZ };
+            UInt16 newFlags = (UInt16)(ChannelsAmount << 0x8);
             var hasUseParentJointScale = IndependentScaling ? 1 : 0;
             newFlags |= (UInt16)(hasUseParentJointScale << 0xD);
             var hasUseAdditionalRotation = UseAdditionalRotation ? 1 : 0;
             newFlags |= (UInt16)(hasUseAdditionalRotation << 0xC);
+            newFlags |= CountChannels(channels);
             flags = newFlags;
             writer.Write(flags);
 
@@ -85,6 +90,15 @@ namespace Twinsanity.TwinsanityInterchange.Common.Animation
 
             writer.Write(TransformationIndex);
             writer.Write(AnimationTransformationIndex);
+        }
+
+        /// <summary>
+        /// The low byte of a joint's flags, the amount of animated channels in the upper nibble and of static ones in the lower
+        /// </summary>
+        internal static UInt16 CountChannels(TransformType[] channels)
+        {
+            var animated = channels.Count(channel => channel == TransformType.Animated);
+            return (UInt16)((animated << 0x4) | (channels.Length - animated));
         }
     }
 }

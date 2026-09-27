@@ -1,6 +1,7 @@
 ﻿using Caliburn.Micro;
 using Newtonsoft.Json;
 using System;
+using System.Diagnostics;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -37,7 +38,9 @@ using Twinsanity.TwinsanityInterchange.Implementations.PS2.Sections.Graphics;
 using Twinsanity.TwinsanityInterchange.Implementations.PS2.Sections.RM2;
 using Twinsanity.TwinsanityInterchange.Implementations.PS2.Sections.RM2.Code;
 using Twinsanity.TwinsanityInterchange.Implementations.PS2.Sections.RM2.Layout;
+using Twinsanity.TwinsanityInterchange.Implementations.Xbox;
 using Twinsanity.TwinsanityInterchange.Interfaces;
+using Twinsanity.TwinsanityInterchange.Interfaces.Items;
 using Path = TT_Lab.Assets.Instance.Path;
 using ReactiveUI;
 
@@ -48,7 +51,8 @@ namespace TT_Lab.Project;
 /// </summary>
 public class Project : IProject
 {
-    private const string CURRENT_VERSION = "0.5.0";
+    // 0.6.0 changed how models, scenery and every other glb asset are stored
+    private const string CURRENT_VERSION = "0.10.0";
 
     public AssetManager AssetManager { get; private set; }
 
@@ -101,7 +105,7 @@ public class Project : IProject
         System.IO.Directory.CreateDirectory("disc");
     }
 
-    public void Serialize()
+    public void Serialize(Func<IAsset, bool>? isWritten = null)
     {
         var path = ProjectPath;
 
@@ -114,94 +118,67 @@ public class Project : IProject
         {
             writer.Write(JsonConvert.SerializeObject(this, Formatting.Indented).ToCharArray());
         }
-        // Serialize all the assets
+        // Serialize all the assets, every asset writes to its own absolute path so they can all be written in parallel
         System.IO.Directory.SetCurrentDirectory("assets");
-        var query = from asset in AssetManager.GetAssets()
-            group asset by asset.Type;
-        var assetTypesQuery = query as IGrouping<Type, IAsset>[] ?? query.ToArray();
-        var tasks = new Task[assetTypesQuery.Length];
-        var index = 0;
+        var assetsToSerialize = AssetManager.GetAssets().Where(asset => !asset.IsInternal && isWritten?.Invoke(asset) != true).ToList();
         var startAsset = DateTime.Now;
-        foreach (var group in assetTypesQuery)
+        Parallel.ForEach(assetsToSerialize, asset =>
         {
-            tasks[index++] = Task.Factory.StartNew(() =>
+#if !DEBUG
+            try
             {
-                Log.WriteLine($"Serializing {group.Key.Name}...");
-                var now = DateTime.Now;
-#if !DEBUG
-                    try
-                    {
 #endif
-                foreach (var asset in group)
-                {
-                    if (asset.IsInternal)
-                    {
-                        continue;
-                    }
-                    
-                    asset.Serialize(SerializationFlags.SaveData | SerializationFlags.PreserveData);
-                }
+            asset.Serialize(SerializationFlags.SaveData | SerializationFlags.PreserveData);
 #if !DEBUG
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.WriteLine($"Error serializing: {ex.Message}");
-                    }
+            }
+            catch (Exception ex)
+            {
+                Log.WriteLine($"Error serializing {asset.Name}: {ex.Message}");
+            }
 #endif
-                var span = DateTime.Now - now;
-                Log.WriteLine($"Finished serializing {group.Key.Name} in {span}");
-            });
-        }
-        Task.WaitAll(tasks);
-        foreach (var task in tasks)
-        {
-            task.Dispose();
-        }
+        });
 
         Log.WriteLine($"Serialized assets in {(DateTime.Now - startAsset)}");
         
+        // Data is kept until everything is written since exporting an asset can read the data of the ones it references
         var startUnload = DateTime.Now;
         Log.WriteLine($"Unloading all the loaded data...");
-        foreach (var asset in AssetManager.GetAssets())
+        Parallel.ForEach(assetsToSerialize, asset => asset.Serialize(SerializationFlags.FixReferences));
+
+        // Internal assets were either temporary import assets that are merged into their owners by now or were recreated by loading
+        // their owners above. They're never serialized so a reopened project doesn't have them either
+        var internalAssets = AssetManager.GetAssets().Where(asset => asset.IsInternal).ToList();
+        foreach (var internalAsset in internalAssets)
         {
-            if (asset.IsInternal)
-            {
-                continue;
-            }
-            
-            asset.Serialize(SerializationFlags.FixReferences);
+            AssetManager.RemoveAsset(internalAsset);
         }
-        Log.WriteLine($"Finished unloading the data in {(DateTime.Now - startUnload)}");
+        Log.WriteLine($"Finished unloading the data in {(DateTime.Now - startUnload)}, removed {internalAssets.Count} internal assets");
         
         Log.WriteLine("Deleting empty folders...");
         System.IO.Directory.SetCurrentDirectory(path);
         System.IO.Directory.SetCurrentDirectory("assets");
         var dirInfo = new System.IO.DirectoryInfo($"{path}/assets");
-        DeleteEmptyFolders(dirInfo);
+        foreach (var packageDirectory in dirInfo.GetDirectories())
+        {
+            DeleteEmptyFolders(packageDirectory);
+        }
+
         Log.WriteLine("Finished deleting empty folders...");
         
         System.IO.Directory.SetCurrentDirectory(path);
     }
 
-    private void DeleteEmptyFolders(System.IO.DirectoryInfo root)
+    // Folders of the kinds of assets that ended up internal (models, skins and meshes are kept in the files of what they're parts of) are
+    // left empty. Their folders go first, a folder that only had empty folders is empty then too. Packages' folders have their package's file
+    internal static void DeleteEmptyFolders(System.IO.DirectoryInfo directory)
     {
-        var dirsToDelete = new List<System.IO.DirectoryInfo>();
-        foreach (var dir in root.GetDirectories())
+        foreach (var child in directory.GetDirectories())
         {
-            if (!dir.GetFileSystemInfos().Any())
+            DeleteEmptyFolders(child);
+            if (!child.EnumerateFileSystemInfos().Any())
             {
-                dirsToDelete.Add(dir);
+                child.Delete();
             }
-
-            foreach (var childDir in dir.GetDirectories())
-            {
-                DeleteEmptyFolders(childDir);
-            }
-        }
-
-        foreach (var dirToDelete in dirsToDelete)
-        {
-            dirToDelete.Delete();
         }
     }
 
@@ -212,7 +189,14 @@ public class Project : IProject
         using (System.IO.BinaryReader reader = new(fs))
         {
             var prText = new string(reader.ReadChars((Int32)fs.Length));
-            pr = JsonConvert.DeserializeObject<Project>(prText);
+            try
+            {
+                pr = JsonConvert.DeserializeObject<Project>(prText);
+            }
+            catch (JsonException ex)
+            {
+                throw new ProjectException($"Failed to read the project file: {ex.Message}", ex);
+            }
         }
         if (pr == null)
         {
@@ -220,7 +204,8 @@ public class Project : IProject
         }
         if (pr.Version != CURRENT_VERSION)
         {
-            throw new ProjectException("The provided version of the project is not supported!");
+            throw new ProjectException($"The project was made with project version {pr.Version} but this version of TT Lab only opens version {CURRENT_VERSION}. " +
+                                       "Create the project again from the game's files to use it with this version.");
         }
         System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetDirectoryName(projectPath)!);
         Locator.Current.GetService<ProjectManager>()!.OpenedProject = pr;
@@ -342,6 +327,7 @@ public class Project : IProject
         {
             Enabled = false
         };
+        GlobalPackageXbox.RegenerateLinks();
         Ps2Package = new Package("PS2", Name);
         Ps2Package.RegenerateLinks();
         Ps2Package.AddDependency(GlobalPackagePS2.URI);
@@ -361,78 +347,100 @@ public class Project : IProject
         BasePackage.AddDependency(XboxPackage.URI);
     }
 
-    public void UnpackAssetsPS2()
+    public void UnpackAssetsPS2(MemoryGate gate)
     {
         if (string.IsNullOrEmpty(DiscContentPathPS2))
         {
             Log.WriteLine("No PS2 assets provided, skipped...");
             return;
         }
-        
+
+        var archivePath = System.IO.Directory.GetFiles(System.IO.Path.Combine(DiscContentPathPS2, "Crash6"), "*.BD", System.IO.SearchOption.TopDirectoryOnly)[0];
+        Log.WriteLine("Reading game archives...");
+        // Files are read from the archive when they're needed, all of it at once takes as much memory as the disc
+        var records = PS2BD.ReadRecords(archivePath.Replace(".BD", ".BH"));
+        UnpackAssets(GamePlatform.PS2, records.Select(record => new DiscFile(record.Path, () => PS2BD.ReadFile(archivePath, record))).ToList(), GlobalPackagePS2, Ps2Package, gate);
+    }
+
+    public void UnpackAssetsXbox(MemoryGate gate)
+    {
+        if (string.IsNullOrEmpty(DiscContentPathXbox))
+        {
+            Log.WriteLine("No XBox assets provided, skipped...");
+            return;
+        }
+
+        GlobalPackageXbox.Enabled = true;
+        XboxPackage.Enabled = true;
+        UnpackAssets(GamePlatform.Xbox, GetXboxDiscFiles(DiscContentPathXbox), GlobalPackageXbox, XboxPackage, gate);
+    }
+
+    /// <summary>
+    /// The Xbox version keeps its files loose on the disc, the folders the PS2 version packs into its archive hold the game's data
+    /// </summary>
+    internal static List<DiscFile> GetXboxDiscFiles(string discPath)
+    {
+        return XboxDataFolders.Select(folder => System.IO.Path.Combine(discPath, folder))
+            .Where(System.IO.Directory.Exists)
+            .SelectMany(folder => System.IO.Directory.EnumerateFiles(folder, "*", System.IO.SearchOption.AllDirectories))
+            .OrderBy(file => file, StringComparer.OrdinalIgnoreCase)
+            .Select(file => new DiscFile(System.IO.Path.GetRelativePath(discPath, file).Replace(System.IO.Path.DirectorySeparatorChar, '\\'),
+                () => System.IO.File.ReadAllBytes(file)))
+            .ToList();
+    }
+
+    private static readonly String[] XboxDataFolders = ["Startup", "Levels", "Extras", "Language"];
+
+    internal readonly record struct DiscFile(string Path, Func<Byte[]> Read);
+
+    internal enum GamePlatform
+    {
+        PS2,
+        Xbox
+    }
+
+    private void UnpackAssets(GamePlatform platform, List<DiscFile> files, Package globalPackage, Package platformPackage, MemoryGate gate)
+    {
         ResolverManager.Start();
 
         Dictionary<LabURI, IAsset> assets = new();
+        var (resourceExtension, sceneryExtension) = platform == GamePlatform.PS2 ? (".rm2", ".sm2") : (".rmx", ".smx");
 
-        var archivePaths = System.IO.Directory.GetFiles(System.IO.Path.Combine(DiscContentPathPS2, "Crash6"), "*.BD", System.IO.SearchOption.TopDirectoryOnly);
-        var archive = new PS2BD(archivePaths[0].Replace(".BD", ".BH"), "");
-        Log.WriteLine("Reading game archives...");
-        using (System.IO.FileStream fs = new(archivePaths[0], System.IO.FileMode.Open, System.IO.FileAccess.Read))
-        using (System.IO.BinaryReader reader = new(fs))
-        {
-            archive.Read(reader, (int)fs.Length);
-        }
-        
-        // Maps graph ID to behaviour starter
-        var starterMap = new Dictionary<string, TwinBehaviourStarter>();
+        // Maps graph ID to behaviour starter. Chunks are read for their starters in parallel and dropped, all of the game's chunks read
+        // at once take gigabytes. Resolving below reads them again one after another
         Log.WriteLine("Creating behaviour starter map...");
-        foreach (var item in archive.Items)
+        var resourceFiles = files.Where(file => file.Path.ToLower().EndsWith(resourceExtension)).ToList();
+        var chunkStarters = new List<TwinBehaviourStarter>[resourceFiles.Count];
+        Parallel.For(0, resourceFiles.Count, i =>
         {
-            var pathLow = item.Header.Path.ToLower();
-            var isRm2 = pathLow.EndsWith(".rm2");
-            var isDefault = pathLow.EndsWith("default.rm2");
-            if (!isRm2)
+            gate.Enter();
+            try
             {
-                continue;
+                chunkStarters[i] = GetStarters(ReadChunk(platform, resourceFiles[i].Path, resourceFiles[i].Read()));
             }
-                
-            ITwinSection? chunk = null;
-            if (isDefault)
+            finally
             {
-                chunk = new PS2Default();
+                gate.Exit();
             }
-            else if (isRm2)
-            {
-                chunk = new PS2AnyTwinsanityRM2();
-            }
-            using System.IO.MemoryStream ms = new(item.Data);
-            using System.IO.BinaryReader reader = new(ms);
+        });
 
-            // Fill chunk data
-            chunk!.Read(reader, (Int32)ms.Length);
-            
-            Log.WriteLine($"Collecting {System.IO.Path.GetFileName(pathLow[..^4])} behaviour starters...");
-            
-            var code = chunk.GetItem<PS2AnyCodeSection>(Constants.LEVEL_CODE_SECTION);
-            var items = code.GetItem<PS2AnyBehavioursSection>(Constants.CODE_BEHAVIOURS_SECTION);
-                
-            for (var i = 0; i < items.GetItemsAmount(); ++i)
+        var starterMap = new Dictionary<string, TwinBehaviourStarter>();
+        for (var i = 0; i < resourceFiles.Count; i++)
+        {
+            var pathLow = resourceFiles[i].Path.ToLower();
+            foreach (var starter in chunkStarters[i])
             {
-                var asset = items.GetItem<TwinBehaviourWrapper>(items.GetItem(i).GetID());
-                var isStarter = asset.GetID() % 2 == 0;
-                if (!isStarter)
-                {
-                    continue;
-                }
-
-                var starter = (TwinBehaviourStarter)asset;
                 var starterStr = (starter.Assigners[0].Behaviour - 1).ToString();
                 if (starterMap.ContainsKey(starterStr))
                 {
                     starterStr += pathLow;
                 }
-                starterMap.Add(starterStr, (TwinBehaviourStarter)asset);
+                starterMap.Add(starterStr, starter);
             }
         }
+
+        Log.WriteLine("Reading chunks...");
+        var chunks = new ChunkReader(platform, files.Where(file => IsChunkPath(file.Path, resourceExtension, sceneryExtension)).ToList(), gate);
 
         var gameObjectResolver = new GameObjectResolver(starterMap);
         var behaviourResolver = new BehaviourResolver(starterMap);
@@ -442,24 +450,24 @@ public class Project : IProject
         var chunkResolvers = new List<IAssetResolver>();
 
         // Unpack all assets from chunks
-        foreach (var item in archive.Items)
+        foreach (var file in files)
         {
-            var path = item.Header.Path.Replace('\\', System.IO.Path.DirectorySeparatorChar);
-            var pathLow = item.Header.Path.Replace('\\', System.IO.Path.DirectorySeparatorChar).ToLower();
-            var isRm2 = pathLow.EndsWith(".rm2");
-            var isSm2 = pathLow.EndsWith(".sm2");
-            var isDefault = pathLow.EndsWith("default.rm2");
+            var path = file.Path.Replace('\\', System.IO.Path.DirectorySeparatorChar);
+            var pathLow = path.ToLower();
+            var isRm = pathLow.EndsWith(resourceExtension);
+            var isSm = pathLow.EndsWith(sceneryExtension);
+            var isDefault = pathLow.EndsWith("default" + resourceExtension);
             var isTxt = pathLow.EndsWith(".txt");
             var isFrontend = pathLow.EndsWith("frontend.bin");
             var isPsm = pathLow.EndsWith(".psm");
             var isFont = pathLow.EndsWith(".psf");
             var isPtc = pathLow.EndsWith(".ptc");
             var isIco = pathLow.EndsWith(".ico");
-            Log.WriteLine($"Unpacking {System.IO.Path.GetFileName(pathLow)}...");
-            using System.IO.MemoryStream ms = new(item.Data);
-
             if (isTxt || isFont || isPsm || isPtc || isFrontend || isIco)
             {
+                Log.WriteLine($"Unpacking {System.IO.Path.GetFileName(pathLow)}...");
+                var data = file.Read();
+                using System.IO.MemoryStream ms = new(data);
                 var resourceName = System.IO.Path.GetFileName(path)[..^4];
                 path = path[..^4];
                 var otherFolders = path.Split(System.IO.Path.DirectorySeparatorChar);
@@ -470,7 +478,7 @@ public class Project : IProject
                 {
                     using System.IO.BinaryReader textReader = new(ms, Encoding.Latin1);
                     var text = textReader.ReadChars((int)ms.Length);
-                    var textFile = new TextFile(GlobalPackagePS2.URI, true, pathLow, resourceName, new String(text))
+                    var textFile = new TextFile(globalPackage.URI, true, pathLow, resourceName, new String(text))
                     {
                         GlobalPath = resourcePath
                     };
@@ -484,9 +492,9 @@ public class Project : IProject
                 // Check for fonts
                 if (isFont)
                 {
-                    var font = new PS2PSF();
+                    ITwinPSF font = platform == GamePlatform.PS2 ? new PS2PSF() : new XboxPSF();
                     font.Read(globalReader, (Int32)globalReader.BaseStream.Length);
-                    var fontAsset = new Font(GlobalPackagePS2.URI, true, pathLow, resourceName, font)
+                    var fontAsset = new Font(globalPackage.URI, true, pathLow, resourceName, font)
                     {
                         GlobalPath = resourcePath
                     };
@@ -498,9 +506,9 @@ public class Project : IProject
                 // Check for PSM
                 if (isPsm)
                 {
-                    var psm = new PS2PSM();
+                    ITwinPSM psm = platform == GamePlatform.PS2 ? new PS2PSM() : new XboxPSM();
                     psm.Read(globalReader, (Int32)globalReader.BaseStream.Length);
-                    var psmAsset = new PSM(GlobalPackagePS2.URI, true, pathLow, resourceName, psm)
+                    var psmAsset = new PSM(globalPackage.URI, true, pathLow, resourceName, psm)
                     {
                         GlobalPath = resourcePath
                     };
@@ -512,9 +520,9 @@ public class Project : IProject
                 // Check for PTC
                 if (isPtc)
                 {
-                    var ptc = new PS2PTC();
+                    ITwinPTC ptc = platform == GamePlatform.PS2 ? new PS2PTC() : new XboxPTC();
                     ptc.Read(globalReader, (Int32)globalReader.BaseStream.Length);
-                    var ptcAsset = new PTC(GlobalPackagePS2.URI, true, pathLow, resourceName, ptc)
+                    var ptcAsset = new PTC(globalPackage.URI, true, pathLow, resourceName, ptc)
                     {
                         GlobalPath = resourcePath
                     };
@@ -526,7 +534,7 @@ public class Project : IProject
                 // Check for Save Icon
                 if (isIco)
                 {
-                    var ico = new SaveIcon(GlobalPackagePS2.URI, false, "", resourceName, item.Data)
+                    var ico = new SaveIcon(globalPackage.URI, false, "", resourceName, data)
                     {
                         GlobalPath = resourcePath
                     };
@@ -538,9 +546,9 @@ public class Project : IProject
                 // Check for frontend (UI sound effects library)
                 if (isFrontend)
                 {
-                    var frontend = new PS2Frontend();
+                    ITwinSection frontend = platform == GamePlatform.PS2 ? new PS2Frontend() : new XboxFrontend();
                     frontend.Read(globalReader, (Int32)globalReader.BaseStream.Length);
-                    var uiLibrary = new UiSoundLibrary(GlobalPackagePS2.URI, false, "", "Frontend", frontend)
+                    var uiLibrary = new UiSoundLibrary(globalPackage.URI, false, "", "Frontend", frontend)
                     {
                         Alias = "UI Sound Library",
                         GlobalPath = resourcePath
@@ -551,37 +559,29 @@ public class Project : IProject
                 }
             }
 
-            using System.IO.BinaryReader reader = new(ms);
-
             // Check for chunk file
-            if (!isRm2 && !isSm2)
+            if (!isRm && !isSm)
             {
                 continue;
             }
-            
-            ITwinSection? chunk = null;
+
+            Log.WriteLine($"Unpacking {System.IO.Path.GetFileName(pathLow)}...");
+            var chunk = chunks.Take(file.Path);
             IAssetResolver? assetResolver = null;
             if (isDefault)
             {
-                chunk = new PS2Default();
                 assetResolver = new DefaultChunkResolver(gameObjectResolver, behaviourResolver, behaviourSequenceResolver);
             }
-            else if (isRm2)
+            else if (isRm)
             {
-                chunk = new PS2AnyTwinsanityRM2();
                 assetResolver = new ResourceChunkResolver(gameObjectResolver, behaviourResolver, behaviourSequenceResolver);
             }
-            else if (isSm2)
+            else if (isSm)
             {
-                chunk = new PS2AnyTwinsanitySM2();
                 assetResolver = new SceneryChunkResolver(skydomeResolver);
             }
 
-            // Fill chunk data
-            chunk!.Read(reader, (Int32)ms.Length);
-            
-            // assetResolver!.CreateAssetsFromChunk(chunk, isDefault ? GlobalPackagePS2 : Ps2Package);
-            ResolverManager.PerformResolve(isDefault ? GlobalPackagePS2 : Ps2Package, pathLow[..^4], chunk, assetResolver!);
+            ResolverManager.PerformResolve(isDefault ? globalPackage : platformPackage, pathLow[..^4], chunk, assetResolver!);
 
             // For default, we just gonna dump everything instantly because it can't cross-reference resources
             if (isDefault)
@@ -611,133 +611,263 @@ public class Project : IProject
         ResolverManager.Stop();
     }
 
-    public void UnpackAssetsXbox()
+    private static List<TwinBehaviourStarter> GetStarters(ITwinSection chunk)
     {
-        if (string.IsNullOrEmpty(DiscContentPathXbox))
+        var starters = new List<TwinBehaviourStarter>();
+        var behaviours = chunk.GetItem<ITwinSection>(Constants.LEVEL_CODE_SECTION).GetItem<ITwinSection>(Constants.CODE_BEHAVIOURS_SECTION);
+        for (var i = 0; i < behaviours.GetItemsAmount(); ++i)
         {
-            Log.WriteLine("No XBox assets provided, skipped...");
-            return;
+            var behaviour = behaviours.GetItem<TwinBehaviourWrapper>(behaviours.GetItem(i).GetID());
+            if (behaviour.GetID() % 2 == 0)
+            {
+                starters.Add((TwinBehaviourStarter)behaviour);
+            }
         }
-            
-        throw new NotImplementedException();
+
+        return starters;
+    }
+
+    // Reads the chunks in the order they get resolved, a few of them ahead in the background, and lets go of each once it's taken
+    private sealed class ChunkReader(GamePlatform platform, List<DiscFile> files, MemoryGate gate)
+    {
+        private readonly int _ahead = Math.Clamp(Environment.ProcessorCount / 2, 1, 4);
+        private readonly Task<ITwinSection>?[] _reads = new Task<ITwinSection>?[files.Count];
+        private int _started;
+
+        public ITwinSection Take(string path)
+        {
+            var index = files.FindIndex(file => file.Path == path);
+            while (_started < files.Count && _started <= index + _ahead)
+            {
+                var file = files[_started];
+                _reads[_started] = Task.Run(() =>
+                {
+                    gate.Enter();
+                    try
+                    {
+                        return ReadChunk(platform, file.Path, file.Read());
+                    }
+                    finally
+                    {
+                        gate.Exit();
+                    }
+                });
+                _started++;
+            }
+
+            var chunk = _reads[index]!.Result;
+            _reads[index] = null;
+            return chunk;
+        }
+    }
+
+    private static bool IsChunkPath(string path, string resourceExtension, string sceneryExtension)
+    {
+        var pathLow = path.ToLower();
+        return pathLow.EndsWith(resourceExtension) || pathLow.EndsWith(sceneryExtension);
+    }
+
+    private static ITwinSection ReadChunk(GamePlatform platform, string path, Byte[] data)
+    {
+        var pathLow = path.ToLower();
+        ITwinSection chunk = platform switch
+        {
+            GamePlatform.PS2 => pathLow.EndsWith("default.rm2") ? new PS2Default() : pathLow.EndsWith(".rm2") ? new PS2AnyTwinsanityRM2() : new PS2AnyTwinsanitySM2(),
+            _ => pathLow.EndsWith("default.rmx") ? new XboxDefault() : pathLow.EndsWith(".rmx") ? new XboxAnyTwinsanityRMX() : new XboxAnyTwinsanitySMX()
+        };
+        using var ms = new System.IO.MemoryStream(data);
+        using var reader = new System.IO.BinaryReader(ms);
+        chunk.Read(reader, (Int32)ms.Length);
+        return chunk;
     }
 
     public void PackChunk(LabURI chunkUri, ITwinItemFactory? itemFactory = null)
     {
-        var factory = itemFactory ?? new PS2ItemFactory();
-        factory.GlobalPackage = GlobalPackagePS2;
-        var assetManager = AssetManager.Get();
-        var chunk = assetManager.GetAsset<LevelChunk>(chunkUri);
-        factory.ChunkPath = chunk.AdditionalPath!;
-        
-        System.IO.Directory.SetCurrentDirectory(ProjectPath);
-        System.IO.Directory.CreateDirectory("build");
-        System.IO.Directory.SetCurrentDirectory("build");
-        System.IO.Directory.CreateDirectory("archives");
-        System.IO.Directory.SetCurrentDirectory("archives");
+        var chunk = AssetManager.GetAsset<LevelChunk>(chunkUri);
+        var platform = GetPlatform(chunk.Package);
+        var factory = itemFactory ?? CreateFactory(platform);
+        factory.GlobalPackage = GetGlobalPackage(platform);
+        var cache = BuildCache.Load(ProjectPath, AssetManager);
+
+        var archivesPath = GetBuildFilesPath(platform);
         if (chunk.Name == "default")
         {
-            factory.IsDefaultResolution = true;
-            Log.WriteLine("Writing Default chunk...");
-            System.IO.Directory.CreateDirectory("Startup");
-            System.IO.Directory.SetCurrentDirectory("Startup");
-            var @default = factory.GenerateDefault();
-            
-            foreach (var asset in chunk.ChunkResources.Select(child => assetManager.GetAsset(child)))
-            {
-                Log.WriteLine($"Writing {asset.Name}...");
-                asset.ResolveChunkResources(factory, @default);
-            }
-            
-            ((BaseTwinSection)@default).ChangeItemPosition(Constants.LEVEL_COLLISION_ITEM, 2);
-            ((BaseTwinSection)@default).ChangeItemPosition(Constants.LEVEL_PARTICLES_ITEM, 2);
-            
-            using var defaultFile = new System.IO.FileStream($"Default.rm2", System.IO.FileMode.Create, System.IO.FileAccess.Write);
-            using var defaultWriter = new System.IO.BinaryWriter(defaultFile);
-            @default.Write(defaultWriter);
-            defaultWriter.Flush();
-            defaultWriter.Close();
-            Log.WriteLine("Finished writing Default chunk!");
+            BuildChunk(factory, cache, chunk, System.IO.Path.Combine(archivesPath, "Startup"), true, platform);
+        }
+        else
+        {
+            // The first folder of a chunk's path is the levels folder and the last one is the chunk's own
+            var levelFolders = chunk.AdditionalPath!.Split(System.IO.Path.DirectorySeparatorChar).Skip(1).SkipLast(1);
+            BuildChunk(factory, cache, chunk, System.IO.Path.Combine([archivesPath, "Levels", ..levelFolders]), false, platform);
+        }
+
+        cache.Save();
+    }
+
+    // Packages of the Xbox version depend on its global package, every other one is the PS2 version's
+    internal GamePlatform GetPlatform(LabURI package)
+    {
+        var xbox = package == GlobalPackageXbox.URI || package == XboxPackage.URI;
+        return xbox || (AssetManager.IsRelated(package, GlobalPackageXbox.URI) && !AssetManager.IsRelated(package, GlobalPackagePS2.URI))
+            ? GamePlatform.Xbox
+            : GamePlatform.PS2;
+    }
+
+    /// <summary>
+    /// Behaviour commands of the version of the game the asset belongs to
+    /// </summary>
+    public static string GetActionDefinitionsFile(IAsset? asset)
+    {
+        var project = Locator.Current.GetService<ProjectManager>()?.OpenedProject as Project;
+        return asset != null && project != null && project.GetPlatform(asset.Package) == GamePlatform.Xbox ? "ActionDefinitionsXbox.lab" : "ActionDefinitionsPs2.lab";
+    }
+
+    private Package GetGlobalPackage(GamePlatform platform) => platform == GamePlatform.Xbox ? GlobalPackageXbox : GlobalPackagePS2;
+
+    private Package GetPlatformPackage(GamePlatform platform) => platform == GamePlatform.Xbox ? XboxPackage : Ps2Package;
+
+    private ITwinItemFactory CreateFactory(GamePlatform platform)
+    {
+        return platform == GamePlatform.Xbox ? new XboxItemFactory { GlobalPackage = GlobalPackageXbox } : new PS2ItemFactory { GlobalPackage = GlobalPackagePS2 };
+    }
+
+    // The PS2 version's files get packed into its archive, the Xbox version's are written as they're on the disc
+    private string GetBuildFilesPath(GamePlatform platform)
+    {
+        return platform == GamePlatform.Xbox
+            ? System.IO.Path.Combine(ProjectPath, "build", "xbox", "files")
+            : System.IO.Path.Combine(ProjectPath, "build", "archives");
+    }
+
+    private static string[] GetChunkOutputs(LevelChunk chunk, string outputDirectory, bool isDefault, GamePlatform platform)
+    {
+        var (resourceExtension, sceneryExtension) = platform == GamePlatform.PS2 ? (".rm2", ".sm2") : (".rmx", ".smx");
+        var rm2Path = System.IO.Path.Combine(outputDirectory, isDefault ? StringExtensions.CapitalizeFirstChar($"{chunk.Name}{resourceExtension}") : $"{chunk.Name}{resourceExtension}");
+        return isDefault ? [rm2Path] : [rm2Path, System.IO.Path.Combine(outputDirectory, $"{chunk.Name}{sceneryExtension}")];
+    }
+
+    // Keeps the chunk's archives from a previous build when nothing they were made from changed
+    private void BuildChunk(ITwinItemFactory buildFactory, BuildCache cache, LevelChunk chunk, string outputDirectory, bool isDefault, GamePlatform platform)
+    {
+        var outputs = GetChunkOutputs(chunk, outputDirectory, isDefault, platform);
+        var cacheKey = $"chunk:{chunk.URI}";
+        if (cache.IsUpToDate(cacheKey, outputs))
+        {
+            Log.WriteLine($"{chunk.Alias} didn't change since the last build, keeping it");
             return;
         }
-        System.IO.Directory.CreateDirectory("Levels");
-        System.IO.Directory.SetCurrentDirectory("Levels");
-        var chunkLevelPath = chunk.AdditionalPath!;
-        foreach (var pathToken in chunkLevelPath.Split(System.IO.Path.DirectorySeparatorChar).Skip(1).SkipLast(1))
-        {
-            System.IO.Directory.CreateDirectory(pathToken.Replace(System.IO.Path.DirectorySeparatorChar.ToString(), ""));
-            System.IO.Directory.SetCurrentDirectory(pathToken.Replace(System.IO.Path.DirectorySeparatorChar.ToString(), ""));
-        }
-        Log.WriteLine($"Writing Level {chunk.Alias}...");
-        var rm2 = factory.GenerateRM();
-        var sm2 = factory.GenerateSM();
 
-        foreach (var asset in chunk.ChunkResources.Select(child => assetManager.GetAsset(child)))
+        WriteChunk(buildFactory, cache, chunk, outputs, isDefault);
+    }
+
+    // Chunks build in parallel. Each gets a factory of its own, which keeps track of what went into the chunk, and a scope for
+    // the asset data it loads, which is released once the chunk is written
+    private void WriteChunk(ITwinItemFactory buildFactory, BuildCache cache, LevelChunk chunk, string[] outputs, bool isDefault)
+    {
+        Log.WriteLine($"Writing {chunk.Alias}...");
+        System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(outputs[0])!);
+        var factory = buildFactory.ForChunk();
+        factory.ChunkPath = chunk.AdditionalPath!;
+        factory.IsDefaultResolution = isDefault;
+        var accessedAssets = new System.Collections.Concurrent.ConcurrentDictionary<IAsset, byte>();
+        accessedAssets.TryAdd(chunk, 0);
+        using (AssetManager.RecordAccessedAssets(accessedAssets))
+        using (new AssetDataScope())
         {
-            Log.WriteLine($"Writing {asset.Name}...");
-            if (asset is Scenery or ChunkLinks)
+            // References to objects and sounds that differ between chunks get this chunk's versions
+            factory.ChunkVersions = chunk.ItemVersions.Where(AssetManager.DoesAssetExist).Select(AssetManager.GetAsset)
+                .GroupBy(asset => (asset.GetType(), asset.ID)).ToDictionary(group => group.Key, group => group.First().URI);
+            factory.Overrides = new ChunkOverrides(chunk.Overrides);
+            using var overrides = factory.Overrides.Use();
+            var rm2 = isDefault ? factory.GenerateDefault() : factory.GenerateRM();
+            var sm2 = factory.GenerateSM();
+            foreach (var asset in chunk.ChunkResources.Select(AssetManager.GetAsset))
             {
-                if (asset is Scenery scenery)
+                Log.WriteLine($"Writing {asset.Name} of {chunk.Alias}...", Log.LogType.Debug);
+                if (!isDefault && asset is Scenery or ChunkLinks)
                 {
-                    var sceneryData = ((IAsset)scenery).GetData<SceneryData>();
-                    sceneryData.SkydomeID = chunk.Skydome;
-                    
-                    var collision = assetManager.GetAsset(sceneryData.Collision);
-                    collision.ResolveChunkResources(factory, rm2);
+                    if (asset is Scenery scenery)
+                    {
+                        var sceneryData = ((IAsset)scenery).GetData<SceneryData>();
+                        sceneryData.SkydomeID = chunk.Skydome;
+
+                        var collision = AssetManager.GetAsset(sceneryData.Collision);
+                        collision.ResolveChunkResources(factory, rm2);
+                    }
+
+                    asset.ResolveChunkResources(factory, sm2);
                 }
-                
-                asset.ResolveChunkResources(factory, sm2);
+                else if (asset is SoundEffect)
+                {
+                    asset.ResolveChunkResources(factory, rm2.GetItem<ITwinSection>(Constants.LEVEL_CODE_SECTION).GetItem<ITwinSection>(asset.Section));
+                }
+                else
+                {
+                    asset.ResolveChunkResources(factory, rm2);
+                }
             }
-            else
+
+            ((BaseTwinSection)rm2).ChangeItemPosition(Constants.LEVEL_COLLISION_ITEM, 2);
+            ((BaseTwinSection)rm2).ChangeItemPosition(Constants.LEVEL_PARTICLES_ITEM, 2);
+            // Written before the scope ends, the items can still use the data they were made from
+            WriteSection(rm2, outputs[0]);
+            if (!isDefault)
             {
-                asset.ResolveChunkResources(factory, rm2);
+                ((BaseTwinSection)sm2).ChangeItemPosition(Constants.SCENERY_SECENERY_ITEM, 1);
+                WriteSection(sm2, outputs[1]);
             }
         }
 
-        ((BaseTwinSection)rm2).ChangeItemPosition(Constants.LEVEL_COLLISION_ITEM, 2);
-        ((BaseTwinSection)rm2).ChangeItemPosition(Constants.LEVEL_PARTICLES_ITEM, 2);
-
-        ((BaseTwinSection)sm2).ChangeItemPosition(Constants.SCENERY_SECENERY_ITEM, 1);
-
-        using var rm2File = new System.IO.FileStream($"{chunk.Name}.rm2", System.IO.FileMode.Create, System.IO.FileAccess.Write);
-        using var rm2Writer = new System.IO.BinaryWriter(rm2File);
-        rm2.Write(rm2Writer);
-        rm2Writer.Flush();
-        rm2Writer.Close();
-
-        using var sm2File = new System.IO.FileStream($"{chunk.Name}.sm2", System.IO.FileMode.Create, System.IO.FileAccess.Write);
-        using var sm2Writer = new System.IO.BinaryWriter(sm2File);
-        sm2.Write(sm2Writer);
-        sm2Writer.Flush();
-        sm2Writer.Close();
-            
+        cache.Record($"chunk:{chunk.URI}", accessedAssets.Keys, outputs);
         Log.WriteLine($"Finished writing {chunk.Alias}");
+    }
+
+    private static void WriteSection(ITwinSection section, string path)
+    {
+        using var file = new System.IO.FileStream(path, System.IO.FileMode.Create, System.IO.FileAccess.Write);
+        using var writer = new System.IO.BinaryWriter(file);
+        section.Write(writer);
     }
 
     public void PackAssetsPS2()
     {
-        System.IO.Directory.SetCurrentDirectory(ProjectPath);
-
-        if (!GlobalPackagePS2.Enabled)
+        if (PackAssets(GamePlatform.PS2))
         {
-            Log.WriteLine("Global PS2 package MUST be enabled to compile the project", Log.LogType.Error);
-            return;
+            CreatePs2ArchivesAndIso();
+        }
+    }
+
+    public void PackAssetsXbox()
+    {
+        if (PackAssets(GamePlatform.Xbox))
+        {
+            CreateXboxGame();
+        }
+    }
+
+    // Writes the platform's chunks and global files, the files that didn't change since the last build are kept
+    private bool PackAssets(GamePlatform platform)
+    {
+        System.IO.Directory.SetCurrentDirectory(ProjectPath);
+        var globalPackage = GetGlobalPackage(platform);
+        var platformPackage = GetPlatformPackage(platform);
+        if (!globalPackage.Enabled)
+        {
+            Log.WriteLine($"{globalPackage.Name} package MUST be enabled to compile the project", Log.LogType.Error);
+            return false;
         }
 
-        var factory = new PS2ItemFactory
-        {
-            GlobalPackage = GlobalPackagePS2
-        };
+        var factory = CreateFactory(platform);
         var assetManager = AssetManager;
+        using var memoryGate = new MemoryGate((long)(Preferences.GetPreference<Double>(Preferences.BuildMemoryBudget) * 1024 * 1024));
 
         Log.WriteLine("Creating build directories...");
-        System.IO.Directory.CreateDirectory("build");
-        System.IO.Directory.SetCurrentDirectory("build");
-        System.IO.Directory.CreateDirectory("archives");
-        System.IO.Directory.CreateDirectory("image");
+        var filesPath = GetBuildFilesPath(platform);
+        System.IO.Directory.CreateDirectory(filesPath);
+        System.IO.Directory.CreateDirectory(System.IO.Path.Combine(ProjectPath, "build", "image"));
 
         Log.WriteLine("Building archives...");
-        System.IO.Directory.SetCurrentDirectory("archives");
+        System.IO.Directory.SetCurrentDirectory(filesPath);
         System.IO.Directory.CreateDirectory("Extras");
         System.IO.Directory.CreateDirectory("Language");
         System.IO.Directory.CreateDirectory("Levels");
@@ -747,7 +877,10 @@ public class Project : IProject
         UInt32 currentGlobalsCount = 0;
         System.IO.Directory.SetCurrentDirectory("Levels");
         Log.WriteLine("Writing Levels...");
+        var phaseTimer = Stopwatch.StartNew();
+        // Only the platform's own packages, the other version's chunks are built for it
         var chunksFolder = (from dependencyUri in BasePackage.Dependencies
+                            where dependencyUri == globalPackage.URI || dependencyUri == platformPackage.URI
                             let dependency = assetManager.GetAsset<Package>(dependencyUri)
                             where dependency.Enabled
                             let packageFolder = dependency.GetPackageFolder()
@@ -755,42 +888,155 @@ public class Project : IProject
                             where folder != LabURI.Empty
                             select assetManager.GetAsset<Folder>(folder)).ToList();
 
+        var cache = BuildCache.Load(ProjectPath, AssetManager);
+        var levelsPath = System.IO.Path.Combine(filesPath, "Levels");
+        var jobs = new List<(LevelChunk Chunk, string[] Outputs)>();
+        var createdDirectories = new List<string>();
         foreach (var folder in chunksFolder)
         {
-            ResolveAndWriteChunks(factory, folder, ref totalGlobals, ref currentGlobalsCount);
+            CollectChunks(cache, folder, levelsPath, platform, jobs, createdDirectories);
         }
 
-        Log.WriteLine("Writing Extras...");
-        System.IO.Directory.SetCurrentDirectory("../Extras");
-        
-        var extrasFolder = assetManager.GetAsset<Folder>(GlobalPackagePS2.GetPackageFolder().FindChild<Folder>("Extras"));
-        ResolveGlobalAssets(factory, extrasFolder.Children, ref totalGlobals, ref currentGlobalsCount);
-        
-        System.IO.Directory.SetCurrentDirectory("../Language");
-        Log.WriteLine("Writing Language...");
-        var languageFolder = assetManager.GetAsset<Folder>(GlobalPackagePS2.GetPackageFolder().FindChild<Folder>("Language"));
-        ResolveGlobalAssets(factory, languageFolder.Children, ref totalGlobals, ref currentGlobalsCount);
+        WriteChunks(factory, cache, jobs, memoryGate);
+        // Chunk folders only held their chunk's own assets, levels are written next to them
+        foreach (var directory in Enumerable.Reverse(createdDirectories).Where(directory => !System.IO.Directory.EnumerateFileSystemEntries(directory).Any()))
+        {
+            System.IO.Directory.Delete(directory);
+        }
+
+        cache.Save();
+
+        Log.WriteLine($"Finished writing Levels in {phaseTimer.Elapsed}");
+        foreach (var globalFolder in new[] { "Extras", "Language" })
+        {
+            Log.WriteLine($"Writing {globalFolder}...");
+            phaseTimer.Restart();
+            System.IO.Directory.SetCurrentDirectory($"../{globalFolder}");
+            var folderUri = globalPackage.GetPackageFolder().FindChild<Folder>(globalFolder);
+            if (folderUri != LabURI.Empty)
+            {
+                ResolveGlobalAssets(factory, cache, assetManager.GetAsset<Folder>(folderUri).Children, ref totalGlobals, ref currentGlobalsCount);
+            }
+
+            Log.WriteLine($"Finished writing {globalFolder} in {phaseTimer.Elapsed}");
+        }
 
         System.IO.Directory.SetCurrentDirectory("../Startup");
         Log.WriteLine("Writing Startup...");
-        var startupUri = GlobalPackagePS2.GetPackageFolder().FindChild<Folder>("Startup");
-        if (startupUri == LabURI.Empty)
-        {
-            startupUri = GlobalPackagePS2.GetPackageFolder().FindChild<Folder>("startup");
-        }
-        var startupFolder = assetManager.GetAsset<Folder>(startupUri);
-        ResolveAndWriteChunks(factory, new Folder("temp") { Children = [startupFolder.FindAndGetChild<Folder>("default")
-            .FindChild<LevelChunk>("default")] }, ref totalGlobals, ref currentGlobalsCount, true);
-        var childrenCopy = startupFolder.Children.Where(e => !e.GetUri().EndsWith("/default")).ToList();
-        ResolveGlobalAssets(factory, childrenCopy, ref totalGlobals, ref currentGlobalsCount);
+        phaseTimer.Restart();
+        // Startup and startup are the same folder on Windows but two separate ones on case sensitive file systems
+        var startupFolders = globalPackage.GetPackageFolder().Children.Select(assetManager.GetAsset).OfType<Folder>()
+            .Where(folder => folder.Name.Equals("Startup", StringComparison.OrdinalIgnoreCase)).ToList();
+        var defaultChunk = startupFolders.Select(folder => folder.FindChild<LevelChunk>("default")).First(uri => uri != LabURI.Empty);
+        BuildChunk(factory, cache, assetManager.GetAsset<LevelChunk>(defaultChunk), System.IO.Path.Combine(filesPath, "Startup"), true, platform);
+        cache.Save();
+        // Startup's other files were always exported right after the default chunk, which leaves the factory resolving for it
+        factory.IsDefaultResolution = true;
+        var childrenCopy = startupFolders.SelectMany(folder => folder.Children).Where(e => !e.GetUri().EndsWith("/default")).ToList();
+        ResolveGlobalAssets(factory, cache, childrenCopy, ref totalGlobals, ref currentGlobalsCount);
+        cache.Save();
 
-        System.IO.Directory.SetCurrentDirectory("../..");
+        Log.WriteLine($"Finished writing Startup in {phaseTimer.Elapsed}");
+        System.IO.Directory.SetCurrentDirectory(ProjectPath);
         Log.WriteLine("Finished writing main archive files!");
-        CreatePs2ArchivesAndIso();
+        return true;
+    }
+
+    /// <summary>
+    /// Puts the Xbox game together in the build folder: the disc's files with the ones the build wrote in place of theirs
+    /// </summary>
+    /// <remarks>
+    /// The Xbox's file system doesn't tell names apart by case, the build's files replace the disc's ones whatever case their names have.
+    /// Files that are already the same as their source are left alone so building again doesn't copy the whole disc
+    /// </remarks>
+    public void CreateXboxGame()
+    {
+        if (string.IsNullOrEmpty(DiscContentPathXbox) || !System.IO.Directory.Exists(DiscContentPathXbox))
+        {
+            Log.WriteLine("The Xbox disc content wasn't found, the game can't be put together", Log.LogType.Error);
+            return;
+        }
+
+        var phaseTimer = Stopwatch.StartNew();
+        var gamePath = GetXboxGamePath();
+        var filesPath = GetBuildFilesPath(GamePlatform.Xbox);
+        Log.WriteLine("Putting the Xbox game together...");
+        var built = System.IO.Directory.Exists(filesPath)
+            ? System.IO.Directory.EnumerateFiles(filesPath, "*", System.IO.SearchOption.AllDirectories).ToList()
+            : [];
+        var builtPaths = built.Select(file => System.IO.Path.GetRelativePath(filesPath, file)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var copied = 0;
+        foreach (var file in System.IO.Directory.EnumerateFiles(DiscContentPathXbox, "*", System.IO.SearchOption.AllDirectories))
+        {
+            var relativePath = System.IO.Path.GetRelativePath(DiscContentPathXbox, file);
+            if (builtPaths.Contains(relativePath))
+            {
+                continue;
+            }
+
+            copied += SyncFile(file, System.IO.Path.Combine(gamePath, relativePath)) ? 1 : 0;
+        }
+
+        var replaced = 0;
+        foreach (var file in built)
+        {
+            replaced += SyncFile(file, ResolveCaseInsensitive(gamePath, System.IO.Path.GetRelativePath(filesPath, file))) ? 1 : 0;
+        }
+
+        Log.WriteLine($"Copied {copied} files of the disc and {replaced} built files in {phaseTimer.Elapsed}. The game is in {gamePath}");
+
+        phaseTimer.Restart();
+        var imagePath = System.IO.Path.Combine(ProjectPath, "build", "image", $"{Name} (Xbox).iso");
+        Log.WriteLine("Creating Xbox ISO image...");
+        var reported = 0;
+        XboxImageMaker.Make(gamePath, imagePath, progress =>
+        {
+            // Every tenth of the way is enough to see it moving
+            var tenth = (Int32)(progress * 10);
+            if (tenth > reported)
+            {
+                reported = tenth;
+                Log.WriteLine($"ISO creating progress {progress * 100:F0}%...");
+            }
+        });
+        Log.WriteLine($"Finished creating the ISO in {phaseTimer.Elapsed}! Check the {System.IO.Path.GetDirectoryName(imagePath)} folder!");
+    }
+
+    public string GetXboxGamePath() => System.IO.Path.Combine(ProjectPath, "build", "xbox", "game");
+
+    private static bool SyncFile(string source, string destination)
+    {
+        var sourceInfo = new System.IO.FileInfo(source);
+        var destinationInfo = new System.IO.FileInfo(destination);
+        if (destinationInfo.Exists && destinationInfo.Length == sourceInfo.Length && destinationInfo.LastWriteTimeUtc == sourceInfo.LastWriteTimeUtc)
+        {
+            return false;
+        }
+
+        System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(destination)!);
+        System.IO.File.Copy(source, destination, true);
+        System.IO.File.SetLastWriteTimeUtc(destination, sourceInfo.LastWriteTimeUtc);
+        return true;
+    }
+
+    // The path under the root with every folder and file that already exists in some case taking that case
+    private static string ResolveCaseInsensitive(string root, string relativePath)
+    {
+        var current = root;
+        foreach (var part in relativePath.Split(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar))
+        {
+            var existing = System.IO.Directory.Exists(current)
+                ? System.IO.Directory.EnumerateFileSystemEntries(current).FirstOrDefault(entry => System.IO.Path.GetFileName(entry).Equals(part, StringComparison.OrdinalIgnoreCase))
+                : null;
+            current = existing ?? System.IO.Path.Combine(current, part);
+        }
+
+        return current;
     }
 
     public void CreatePs2ArchivesAndIso()
     {
+        var phaseTimer = Stopwatch.StartNew();
         Log.WriteLine("Packing into BD/BH archives...");
         {
             var bd = new PS2BD("", $"{DiscContentPathPS2}/Crash6/Crash.BH");
@@ -804,6 +1050,8 @@ public class Project : IProject
         }
         GC.Collect();
 
+        Log.WriteLine($"Finished packing the archives in {phaseTimer.Elapsed}");
+        phaseTimer.Restart();
         Log.WriteLine("Creating PS2 ISO image...");
         if (!System.IO.Directory.Exists($"{ProjectPath}/build/image"))
         {
@@ -818,26 +1066,43 @@ public class Project : IProject
             progress = Ps2ImageMaker.PollProgress();
             Log.WriteLine($"ISO creating progress {progress.ProgressPercentage * 100:F2}%...");
         }
-        Log.WriteLine($"Finished creating the ISO! Check the {ProjectPath}/build/image folder!");
+        Log.WriteLine($"Finished creating the ISO in {phaseTimer.Elapsed}! Check the {ProjectPath}/build/image folder!");
     }
 
-    public void PackAssetsXbox()
-    {
-        Log.WriteLine("Packing XBox assets is not supported yet :(");
-    }
-
-    private void ResolveGlobalAssets(ITwinItemFactory factory, List<LabURI> assets, ref UInt32 totalGlobals, ref UInt32 currentGlobalsCount)
+    private void ResolveGlobalAssets(ITwinItemFactory factory, BuildCache cache, List<LabURI> assets, ref UInt32 totalGlobals, ref UInt32 currentGlobalsCount)
     {
         var assetManager = AssetManager.Get();
-        totalGlobals += (UInt32)assets.Select(assetManager.GetAsset).Count(a => a is not Folder);
+        totalGlobals += (UInt32)assets.Select(assetManager.GetAsset).Count(a => a is not Folder && !a.SkipExport);
         foreach (var item in assets)
         {
             var asset = assetManager.GetAsset(item);
+            // Assets embedded in others (a PSM's PTCs) are written by their owner
+            if (asset is not Folder && asset.SkipExport)
+            {
+                continue;
+            }
+
             if (asset is not Folder folder)
             {
                 currentGlobalsCount++;
+                var output = System.IO.Path.GetFullPath(asset.ExportFileName);
+                var cacheKey = $"file:{asset.URI}";
+                if (cache.IsUpToDate(cacheKey, [output]))
+                {
+                    Log.WriteLine($"({currentGlobalsCount}/{totalGlobals}) {asset.Name} didn't change since the last build, keeping it", Log.LogType.Debug);
+                    continue;
+                }
+
                 Log.WriteLine($"Writing ({currentGlobalsCount}/{totalGlobals}) {asset.Name}...");
-                asset.ExportToFile(factory);
+                var accessedAssets = new System.Collections.Concurrent.ConcurrentDictionary<IAsset, byte>();
+                accessedAssets.TryAdd(asset, 0);
+                using (assetManager.RecordAccessedAssets(accessedAssets))
+                using (new AssetDataScope())
+                {
+                    asset.ExportToFile(factory);
+                }
+
+                cache.Record(cacheKey, accessedAssets.Keys, [output]);
                 continue;
             }
 
@@ -848,95 +1113,62 @@ public class Project : IProject
 
             System.IO.Directory.CreateDirectory(asset.Name);
             System.IO.Directory.SetCurrentDirectory(asset.Name);
-            ResolveGlobalAssets(factory, folder.Children, ref totalGlobals, ref currentGlobalsCount);
+            ResolveGlobalAssets(factory, cache, folder.Children, ref totalGlobals, ref currentGlobalsCount);
             System.IO.Directory.SetCurrentDirectory("..");
         }
     }
 
-    private void ResolveAndWriteChunks(ITwinItemFactory factory, Folder currentFolder, ref UInt32 scenesTotal, ref UInt32 currentSceneCount, bool isDefault = false)
+    // The chunks that changed since the last build with the files they're written to. A level is written next to its chunk's folder
+    private void CollectChunks(BuildCache cache, Folder currentFolder, string directory, GamePlatform platform, List<(LevelChunk Chunk, string[] Outputs)> jobs,
+        List<string> createdDirectories)
     {
-        factory.IsDefaultResolution = isDefault;
-        var assetManager = AssetManager.Get();
-        scenesTotal += (UInt32)currentFolder.Children.Select(assetManager.GetAsset).Count(a => a is LevelChunk);
         foreach (var item in currentFolder.Children)
         {
-            var folder = assetManager.GetAsset(item);
-            if (folder is LevelChunk chunk)
+            var asset = AssetManager.GetAsset(item);
+            if (asset is LevelChunk chunk)
             {
-                currentSceneCount++;
-                factory.ChunkPath = chunk.AdditionalPath!;
-                Log.WriteLine($"Writing level ({currentSceneCount}/{scenesTotal}) {chunk.Name}...");
-                var rm2 = isDefault ? factory.GenerateDefault() : factory.GenerateRM();
-                var sm2 = factory.GenerateSM();
-
-                foreach (var asset in chunk.ChunkResources.Select(child => assetManager.GetAsset(child)))
+                var outputs = GetChunkOutputs(chunk, System.IO.Path.GetDirectoryName(directory)!, false, platform);
+                if (cache.IsUpToDate($"chunk:{chunk.URI}", outputs))
                 {
-                    Log.WriteLine($"Writing {asset.Name}...");
-                    if (!isDefault && asset is Scenery or ChunkLinks)
-                    {
-                        if (asset is Scenery scenery)
-                        {
-                            var sceneryData = ((IAsset)scenery).GetData<SceneryData>();
-                            sceneryData.SkydomeID = chunk.Skydome;
-                            
-                            var collision = assetManager.GetAsset(sceneryData.Collision);
-                            collision.ResolveChunkResources(factory, rm2);
-                        }
-                        
-                        asset.ResolveChunkResources(factory, sm2);
-                    }
-                    else
-                    {
-                        asset.ResolveChunkResources(factory, rm2);
-                    }
-                }
-                
-                ((BaseTwinSection)rm2).ChangeItemPosition(Constants.LEVEL_COLLISION_ITEM, 2);
-                ((BaseTwinSection)rm2).ChangeItemPosition(Constants.LEVEL_PARTICLES_ITEM, 2);
-
-                if (!isDefault)
-                {
-                    ((BaseTwinSection)sm2).ChangeItemPosition(Constants.SCENERY_SECENERY_ITEM, 1);
-                    
-                    using var rm2File = new System.IO.FileStream($"..{System.IO.Path.DirectorySeparatorChar}{chunk.Name}.rm2", System.IO.FileMode.Create, System.IO.FileAccess.Write);
-                    using var rm2Writer = new System.IO.BinaryWriter(rm2File);
-                    rm2.Write(rm2Writer);
-                    rm2Writer.Flush();
-                    rm2Writer.Close();
-                    
-                    using var sm2File = new System.IO.FileStream(
-                        $"..{System.IO.Path.DirectorySeparatorChar}{chunk.Name}.sm2", System.IO.FileMode.Create,
-                        System.IO.FileAccess.Write);
-                    using var sm2Writer = new System.IO.BinaryWriter(sm2File);
-                    sm2.Write(sm2Writer);
-                    sm2Writer.Flush();
-                    sm2Writer.Close();
+                    Log.WriteLine($"{chunk.Alias} didn't change since the last build, keeping it");
                 }
                 else
                 {
-                    using var rm2File = new System.IO.FileStream(StringExtensions.CapitalizeFirstChar($"{chunk.Name}.rm2"), System.IO.FileMode.Create, System.IO.FileAccess.Write);
-                    using var rm2Writer = new System.IO.BinaryWriter(rm2File);
-                    rm2.Write(rm2Writer);
-                    rm2Writer.Flush();
-                    rm2Writer.Close();
+                    jobs.Add((chunk, outputs));
                 }
 
                 // Only one level chunk file can exist per folder
                 break;
             }
-            
-            if (folder is Folder innerFolder)
+
+            if (asset is Folder innerFolder)
             {
-                System.IO.Directory.CreateDirectory(folder.Name);
-                System.IO.Directory.SetCurrentDirectory(folder.Name);
-                ResolveAndWriteChunks(factory, innerFolder, ref scenesTotal, ref currentSceneCount);
-                System.IO.Directory.SetCurrentDirectory("..");
-                
-                if (!System.IO.Directory.EnumerateFileSystemEntries(folder.Name).Any())
-                {
-                    System.IO.Directory.Delete(folder.Name);
-                }
+                var innerDirectory = System.IO.Path.Combine(directory, innerFolder.Name);
+                System.IO.Directory.CreateDirectory(innerDirectory);
+                createdDirectories.Add(innerDirectory);
+                CollectChunks(cache, innerFolder, innerDirectory, platform, jobs, createdDirectories);
             }
         }
+    }
+
+    // Chunks build in parallel while the build stays within its memory budget, only writing their files waits on the disk
+    private void WriteChunks(ITwinItemFactory factory, BuildCache cache, List<(LevelChunk Chunk, string[] Outputs)> jobs, MemoryGate gate)
+    {
+        var started = 0;
+        var options = new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount };
+        // Chunks take them one at a time, the heavy ones would otherwise end up waiting behind each other
+        Parallel.ForEach(System.Collections.Concurrent.Partitioner.Create(jobs, System.Collections.Concurrent.EnumerablePartitionerOptions.NoBuffering), options, job =>
+        {
+            gate.Enter();
+            try
+            {
+                Log.WriteLine($"Level ({Interlocked.Increment(ref started)}/{jobs.Count}) {job.Chunk.Name}...");
+                WriteChunk(factory, cache, job.Chunk, job.Outputs, false);
+            }
+            finally
+            {
+                gate.Exit();
+            }
+        });
     }
 }

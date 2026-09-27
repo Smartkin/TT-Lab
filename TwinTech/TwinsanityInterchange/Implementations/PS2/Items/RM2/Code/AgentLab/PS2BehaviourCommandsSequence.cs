@@ -23,6 +23,18 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
 
         Boolean ITwinBehaviourCommandsSequence.HasNext { get; set; }
 
+        protected virtual String Marker => "PS2";
+
+        protected virtual PS2BehaviourCommandPack CreatePack()
+        {
+            return new PS2BehaviourCommandPack();
+        }
+
+        protected virtual PS2BehaviourCommand CreateCommand()
+        {
+            return new PS2BehaviourCommand();
+        }
+
         public PS2BehaviourCommandsSequence()
         {
             BehaviourPacks = new List<KeyValuePair<UInt16, ITwinBehaviourCommandPack>>();
@@ -64,14 +76,14 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
             var packs = (Byte)(header >> 16 & 0xFF);
             for (var i = 0; i < packs; ++i)
             {
-                var pack = new PS2BehaviourCommandPack();
+                var pack = CreatePack();
                 pack.Read(reader, length);
                 var scriptId = reader.ReadUInt16();
                 var pair = new KeyValuePair<UInt16, ITwinBehaviourCommandPack>(scriptId, pack);
                 BehaviourPacks.Add(pair);
             }
             Commands.Clear();
-            var com = new PS2BehaviourCommand();
+            var com = CreateCommand();
             Commands.Add(com);
             com.Read(reader, length, Commands);
         }
@@ -94,7 +106,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
 
         public void WriteText(StreamWriter writer, Int32 tabs = 0)
         {
-            StringUtils.WriteLineTabulated(writer, "@PS2 Sequence", tabs);
+            StringUtils.WriteLineTabulated(writer, $"@{Marker} Sequence", tabs);
             StringUtils.WriteLineTabulated(writer, $"BehaviourCommandsSequence() {"{"}", tabs);
             StringUtils.WriteLineTabulated(writer, $"Key = {Key}", tabs + 1);
             StringUtils.WriteLineTabulated(writer, $"IndexInGlobalStorage = {IndexInGlobalStorage}", tabs + 1);
@@ -116,7 +128,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
             String line = reader.ReadLine().Trim();
             BehaviourPacks.Clear();
             Commands.Clear();
-            Debug.Assert(line == "@PS2 Sequence", "Trying to parse PS2 commands sequence as different version");
+            Debug.Assert(line == $"@{Marker} Sequence", "Trying to parse a commands sequence of a different version");
             while (!line.StartsWith("BehaviourCommandsSequence"))
             {
                 line = reader.ReadLine().Trim();
@@ -150,7 +162,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
                 if (line.StartsWith("Pack"))
                 {
                     UInt16 arg = ushort.Parse(StringUtils.GetStringInBetween(line, "(", ")"));
-                    PS2BehaviourCommandPack pack = new();
+                    var pack = CreatePack();
                     BehaviourPacks.Add(new KeyValuePair<UInt16, ITwinBehaviourCommandPack>(arg, pack));
                     while (!line.EndsWith("{"))
                     {
@@ -160,7 +172,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
                 }
                 else
                 {
-                    PS2BehaviourCommand cmd = new();
+                    var cmd = CreateCommand();
                     Commands.Add(cmd);
                     cmd.ReadText(line);
                 }

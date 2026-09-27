@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
@@ -32,84 +33,168 @@ public class TextureData : AbstractAssetData
         SetTwinItem(texture);
     }
 
-    public Bitmap? Bitmap;
+    private Bitmap? _bitmap;
+    // The exact pixels (ARGB) the bitmap shows. Avalonia's bitmaps lose the color of fully transparent pixels, which filtering blends into
+    // the edges of what the texture draws
+    private UInt32[]? _pixels;
 
-    public static TextureData LoadFromGltf(IAsset owner, SharpGLTF.Schema2.Texture gltfTexture)
+    public Bitmap? Bitmap
     {
-        var textureOwner = (Texture)owner;
-        var textureData = new TextureData(textureOwner);
-
-        var gltfImage = gltfTexture.PrimaryImage;
-        using var imageDataStream = new MemoryStream(gltfImage.Content.Content.ToArray());
-        textureData.Bitmap = new Bitmap(imageDataStream);
-        imageDataStream.Position = 0;
-        
-        var imageInfo = new SKImageInfo(textureData.Bitmap.PixelSize.Width, textureData.Bitmap.PixelSize.Height, SKColorType.Bgra8888, SKAlphaType.Unpremul);
-        var skBitmap = SKBitmap.Decode(imageDataStream, imageInfo);
-        var bits = new UInt32[imageInfo.Width * imageInfo.Height];
-        var bitsHandle = GCHandle.Alloc(bits, GCHandleType.Pinned);
-        for (var x = 0; x < imageInfo.Width; ++x)
+        get => _bitmap;
+        set
         {
-            for (var y = 0; y < imageInfo.Height; ++y)
+            _bitmap = value;
+            _pixels = null;
+        }
+    }
+
+    public Byte[] GetPngBytes()
+    {
+        return EncodePng(GetPixels(), Bitmap!.PixelSize.Width, Bitmap.PixelSize.Height);
+    }
+
+    public static TextureData FromPng(IAsset owner, Stream png)
+    {
+        var textureData = new TextureData(owner);
+        var (pixels, width, height) = DecodePng(png);
+        textureData.SetPixels(pixels, width, height);
+        return textureData;
+    }
+
+    public static TextureData Copy(IAsset owner, TextureData source)
+    {
+        var textureData = new TextureData(owner);
+        textureData.SetPixels((UInt32[])source.GetPixels().Clone(), source.Bitmap!.PixelSize.Width, source.Bitmap.PixelSize.Height);
+        return textureData;
+    }
+
+    private void SetPixels(UInt32[] pixels, Int32 width, Int32 height)
+    {
+        var handle = GCHandle.Alloc(pixels, GCHandleType.Pinned);
+        try
+        {
+            Bitmap = new Bitmap(PixelFormat.Bgra8888, AlphaFormat.Unpremul, handle.AddrOfPinnedObject(), new PixelSize(width, height), new Vector(96, 96), width * 4);
+        }
+        finally
+        {
+            handle.Free();
+        }
+
+        _pixels = pixels;
+    }
+
+    // ARGB, top row first
+    internal UInt32[] GetPixels()
+    {
+        if (_pixels != null)
+        {
+            return _pixels;
+        }
+
+        var bitmap = Bitmap!;
+        var pixels = new UInt32[bitmap.PixelSize.Width * bitmap.PixelSize.Height];
+        var handle = GCHandle.Alloc(pixels, GCHandleType.Pinned);
+        try
+        {
+            bitmap.CopyPixels(new PixelRect(0, 0, bitmap.PixelSize.Width, bitmap.PixelSize.Height), handle.AddrOfPinnedObject(), pixels.Length * 4, bitmap.PixelSize.Width * 4);
+        }
+        finally
+        {
+            handle.Free();
+        }
+
+        return pixels;
+    }
+
+    // PNGs go through Skia as they are, Avalonia premultiplies the alpha of the ones it loads and saves which darkens every partly transparent pixel
+    private static (UInt32[] Pixels, Int32 Width, Int32 Height) DecodePng(Stream stream)
+    {
+        using var codec = SKCodec.Create(stream) ?? throw new InvalidDataException("Not an image");
+        var info = new SKImageInfo(codec.Info.Width, codec.Info.Height, SKColorType.Bgra8888, SKAlphaType.Unpremul);
+        var pixels = new UInt32[info.Width * info.Height];
+        var handle = GCHandle.Alloc(pixels, GCHandleType.Pinned);
+        try
+        {
+            var result = codec.GetPixels(info, handle.AddrOfPinnedObject());
+            if (result is not (SKCodecResult.Success or SKCodecResult.IncompleteInput))
             {
-                var dstx = x;
-                var dsty = y;
-                var pixel = skBitmap.GetPixel(x, y);
-                bits[dstx + dsty * imageInfo.Width] = (uint)((pixel.Alpha << 24) | (pixel.Red << 16) | (pixel.Green << 8) | (pixel.Blue));
+                throw new InvalidDataException($"Couldn't decode the image: {result}");
             }
         }
-        
-        textureData.Bitmap = new Bitmap(PixelFormat.Bgra8888, AlphaFormat.Unpremul, bitsHandle.AddrOfPinnedObject(),
-            new PixelSize(imageInfo.Width, imageInfo.Height), new Vector(96, 96), imageInfo.Width * 4);
-        bitsHandle.Free();
-        
-        var isHd = textureData.Bitmap.Size.Width >= 256 || textureData.Bitmap.Size.Height >= 256;
-        textureOwner.PixelFormat = isHd ? ITwinTexture.TexturePixelFormat.PSMCT32 : ITwinTexture.TexturePixelFormat.PSMT8;
-        textureOwner.TextureFunction = ITwinTexture.TextureFunction.MODULATE;
-        textureOwner.GenerateMipmaps = !isHd;
-        
+        finally
+        {
+            handle.Free();
+        }
+
+        return (pixels, info.Width, info.Height);
+    }
+
+    private static Byte[] EncodePng(UInt32[] pixels, Int32 width, Int32 height)
+    {
+        var info = new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Unpremul);
+        var handle = GCHandle.Alloc(pixels, GCHandleType.Pinned);
+        try
+        {
+            using var skBitmap = new SKBitmap();
+            skBitmap.InstallPixels(info, handle.AddrOfPinnedObject(), info.RowBytes);
+            using var data = skBitmap.Encode(SKEncodedImageFormat.Png, 100);
+            return data.ToArray();
+        }
+        finally
+        {
+            handle.Free();
+        }
+    }
+
+    public static TextureData CreateSolidColor(IAsset owner, Int32 size, UInt32 argb)
+    {
+        var textureData = new TextureData(owner);
+        var bits = new UInt32[size * size];
+        Array.Fill(bits, argb);
+        textureData.SetPixels(bits, size, size);
         return textureData;
     }
 
     public override String GetStringified()
     {
-        using var ms = new MemoryStream();
         if (Bitmap == null && IsTwinItemValid())
         {
             Import(LabURI.Empty, null, null);
         }
-        Bitmap!.Save(ms, 100);
-        ms.Position = 0;
+        using var ms = new MemoryStream(EncodePng(GetPixels(), Bitmap!.PixelSize.Width, Bitmap.PixelSize.Height));
         using var br = new BinaryReader(ms);
         return new String(br.ReadChars((int)ms.Length));
     }
 
     protected override void Dispose(Boolean disposing)
     {
-        if (Bitmap != null && !Disposed)
-        {
-            Bitmap.Dispose();
-        }
+        // Disposed is already set by the time this runs, the bitmap's pixels live in native memory so they have to be freed explicitly
+        Bitmap?.Dispose();
+        Bitmap = null;
     }
         
     protected override void SaveInternal(string dataPath, JsonSerializerSettings? settings = null)
     {
         if (Bitmap != null && !Disposed)
         {
-            Bitmap.Save(dataPath, 100);
+            File.WriteAllBytes(dataPath, EncodePng(GetPixels(), Bitmap.PixelSize.Width, Bitmap.PixelSize.Height));
         }
     }
 
     protected override void LoadInternal(String dataPath, JsonSerializerSettings? settings = null)
     {
-        Bitmap = new Bitmap(dataPath);
+        Bitmap?.Dispose();
+        using var stream = new FileStream(dataPath, FileMode.Open, FileAccess.Read);
+        var (pixels, width, height) = DecodePng(stream);
+        SetPixels(pixels, width, height);
     }
 
     public override void Import(LabURI package, String? variant, Int32? layoutId)
     {
         var texture = GetTwinItem<ITwinTexture>();
-        if (texture.TextureFormat != ITwinTexture.TexturePixelFormat.PSMCT32 &&
-            texture.TextureFormat != ITwinTexture.TexturePixelFormat.PSMT8)
+        // The Xbox version's textures are compressed or kept as they are
+        if (texture.TextureFormat is not (ITwinTexture.TexturePixelFormat.PSMCT32 or ITwinTexture.TexturePixelFormat.PSMT8
+            or ITwinTexture.TexturePixelFormat.DXT5 or ITwinTexture.TexturePixelFormat.Raw))
         {
             return;
         }
@@ -119,21 +204,13 @@ public class TextureData : AbstractAssetData
         texture.CalculateData();
         
         var bits = new UInt32[width * height];
-        var bitsHandle = GCHandle.Alloc(bits, GCHandleType.Pinned);
-        
-        for (var x = 0; x < width; ++x)
+        for (var i = 0; i < bits.Length; ++i)
         {
-            for (var y = 0; y < height; ++y)
-            {
-                var dstx = x;
-                var dsty = y;
-                bits[dstx + dsty * width] = texture.Colors[x + y * width].ToARGB();
-            }
+            bits[i] = texture.Colors[i].ToARGB();
         }
 
-        Bitmap = new Bitmap(PixelFormat.Bgra8888, AlphaFormat.Unpremul, bitsHandle.AddrOfPinnedObject(),
-            new PixelSize(width, height), new Vector(96, 96), width * 4);
-        bitsHandle.Free();
+        Bitmap?.Dispose();
+        SetPixels(bits, width, height);
     }
 
     public override ITwinItem Export(ITwinItemFactory factory)
@@ -147,31 +224,17 @@ public class TextureData : AbstractAssetData
         var textureOwner = (Texture)Owner;
         var fun = textureOwner.TextureFunction;
         var format = textureOwner.PixelFormat;
-        var tex = new List<Twinsanity.TwinsanityInterchange.Common.Color>();
-        var bits = new byte[(int)Bitmap.Size.Width * (int)Bitmap.Size.Height * 4];
-        var bitsHandle = GCHandle.Alloc(bits, GCHandleType.Pinned);
-        Bitmap.CopyPixels(new PixelRect(0, 0, Bitmap.PixelSize.Width, Bitmap.PixelSize.Height), bitsHandle.AddrOfPinnedObject(), bits.Length, Bitmap.PixelSize.Width * 4);
-        unsafe
-        {
-            fixed(byte* source = &bits[0])
-            {
-                var sourceAddr = source;
-                for (var i = 0; i < Bitmap.PixelSize.Height; i++)
-                {
-                    for (var j = 0; j < Bitmap.PixelSize.Width; j++)
-                    {
-                        var b = sourceAddr[0];
-                        var g = sourceAddr[1];
-                        var r = sourceAddr[2];
-                        var a = sourceAddr[3];
-                        tex.Add(new Twinsanity.TwinsanityInterchange.Common.Color(r, g, b, a));
-                        sourceAddr += 4;
-                    }
-                }
-            }
-        }
+        var tex = GetPixels().Select(argb => new Twinsanity.TwinsanityInterchange.Common.Color((Byte)(argb >> 16), (Byte)(argb >> 8), (Byte)argb, (Byte)(argb >> 24))).ToList();
         texture.FromBitmap(tex, Bitmap.PixelSize.Width, fun, format, textureOwner.GenerateMipmaps);
-        bitsHandle.Free();
+        if (!textureOwner.ReservesMemory && format is ITwinTexture.TexturePixelFormat.PSMT8 or ITwinTexture.TexturePixelFormat.PSMCT32)
+        {
+            texture.UnkBytes3 = new Byte[2];
+        }
+
+        if (textureOwner.Leftovers != null)
+        {
+            texture.Leftovers = textureOwner.Leftovers;
+        }
 
         return texture;
     }

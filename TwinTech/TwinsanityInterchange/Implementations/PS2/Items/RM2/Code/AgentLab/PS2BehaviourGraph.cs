@@ -41,6 +41,16 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
         public Int32 StartState { get; set; }
         public List<ITwinBehaviourState> ScriptStates { get; set; }
 
+        protected virtual PS2BehaviourState CreateState()
+        {
+            return new PS2BehaviourState();
+        }
+
+        protected virtual PS2BehaviourStateBody CreateStateBody()
+        {
+            return new PS2BehaviourStateBody();
+        }
+
         public PS2BehaviourGraph()
         {
             ScriptStates = new List<ITwinBehaviourState>();
@@ -71,6 +81,11 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
             StringUtils.WriteLineTabulated(writer, $"[StartFrom(State_{StartState})]", tabs);
             var priority = starter?.Priority ?? Priority;
             StringUtils.WriteLineTabulated(writer, $"[Priority({priority})]", tabs);
+            // The graph has a priority of its own next to its starter's
+            if (starter != null && Priority != 0)
+            {
+                StringUtils.WriteLineTabulated(writer, $"[GraphPriority({Priority})]", tabs);
+            }
             StringUtils.WriteLineTabulated(writer, $"behaviour {Name} {{", tabs);
 
             if (starter != null)
@@ -98,7 +113,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
             ScriptStates.Clear();
             for (int i = 0; i < statesAmt; ++i)
             {
-                PS2BehaviourState state = new();
+                var state = CreateState();
                 state.Index = i;
                 state.Read(reader, length);
                 ScriptStates.Add(state);
@@ -109,7 +124,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
                 var bodiesAmt = state.Bitfield & 0x1F;
                 for (var i = 0; i < bodiesAmt; ++i)
                 {
-                    PS2BehaviourStateBody stateBody = new();
+                    var stateBody = CreateStateBody();
                     state.Bodies.Add(stateBody);
                     stateBody.Read(reader, length);
                 }
@@ -187,7 +202,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
                     Int32 index = int.Parse(StringUtils.GetStringInBetween(line, "_", "("));
                     while (ScriptStates.Count <= index)
                     {
-                        ScriptStates.Add(new PS2BehaviourState());
+                        ScriptStates.Add(CreateState());
                     }
                     var state = ScriptStates[index];
                     if (string.IsNullOrWhiteSpace(arg))

@@ -34,7 +34,7 @@ public class Shader : IDisposable
             ProcessSwitches(ref source, switches);
         }
         
-        source = "#version 450 core\r\n" + source;
+        source = "#version 460 core\r\n" + source;
         ProcessIncludes(ref source, initialShaderPath);
         
         ShaderType = shaderType;

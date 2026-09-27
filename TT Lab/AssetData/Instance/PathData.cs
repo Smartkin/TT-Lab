@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.Serialization;
 using GlmSharp;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
@@ -21,6 +22,10 @@ namespace TT_Lab.AssetData.Instance;
 
 public class PathData : AbstractAssetData
 {
+    private readonly object _parametersLock = new();
+    private vec3[] _parametersPoints = [];
+    private float? _stepLength;
+
     public PathData(IAsset asset) : base(asset)
     {
         Points = [];
@@ -36,9 +41,43 @@ public class PathData : AbstractAssetData
     [Editable]
     public List<Vector3> Points { get; set; }
     
+    /// <summary>
+    /// Made from the points (<see cref="PathParameters"/>), the game's are kept until the points change
+    /// </summary>
     [JsonProperty(Required = Required.Always)]
-    [Editable]
     public List<Vector2> Parameters { get; set; }
+
+    // Points get edited in place by the inspector and the viewport, so the parameters catch up whenever they're saved or built
+    [OnSerializing]
+    private void OnSerializing(StreamingContext context) => UpdateParameters();
+
+    [OnDeserialized]
+    private void OnDeserialized(StreamingContext context) => KeepParameters();
+
+    internal void UpdateParameters()
+    {
+        lock (_parametersLock)
+        {
+            var points = Points.Select(point => point.ToGlm()).ToArray();
+            if (points.AsSpan().SequenceEqual(_parametersPoints))
+            {
+                return;
+            }
+
+            _stepLength ??= PathParameters.FindStepLength(Parameters, _parametersPoints.Length - 3) ?? PathParameters.DefaultStepLength;
+            Parameters = PathParameters.Create(points, _stepLength.Value);
+            _parametersPoints = points;
+        }
+    }
+
+    private void KeepParameters()
+    {
+        lock (_parametersLock)
+        {
+            _parametersPoints = Points.Select(point => point.ToGlm()).ToArray();
+            _stepLength = null;
+        }
+    }
 
     protected override void Dispose(Boolean disposing)
     {
@@ -55,10 +94,12 @@ public class PathData : AbstractAssetData
             Points.Add(new Vector3(point.X, point.Y, point.Z));
         }
         Parameters = CloneUtils.CloneList(path.ParameterList);
+        KeepParameters();
     }
 
     public override ITwinItem Export(ITwinItemFactory factory)
     {
+        UpdateParameters();
         using var ms = new MemoryStream();
         using var writer = new BinaryWriter(ms);
         writer.Write(Points.Count);
@@ -88,8 +129,9 @@ public class PathData : AbstractAssetData
             var color = System.Drawing.Color.FromKnownColor(System.Drawing.KnownColor.Blue);
             visual.Diffuse = new vec4(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f,  color.A / 255.0f * 0.5f);
         
-            var size = vec3.Ones;
-            var offset = -vec3.Ones * 0.5f;
+            // Same size as the billboard
+            var size = vec3.Ones * 2.0f;
+            var offset = -vec3.Ones;
             var editableObject = new EditableObject(viewportContext.RenderContext, visual, $"{Owner.FullDataPath}{pointIdx}", offset, size);
             color = System.Drawing.Color.FromKnownColor(System.Drawing.KnownColor.LightBlue);
             editableObject.SelectedColor = new vec4(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f,  color.A / 255.0f * 0.25f);
@@ -100,8 +142,37 @@ public class PathData : AbstractAssetData
             viewportObjects.Add(new ViewportObject(editableObject, pointProperty.Path, property)
             {
                 Position = pointProperty,
+                Category = ViewportObjectCategory.Paths,
+                InspectorFocus = pointProperty,
+                DuplicatedElement = pointProperty,
             });
         }
+
+        var pointsProperty = property.Find($"[data].AssetData.{nameof(Points)}");
+        if (pointsProperty == null)
+        {
+            return viewportObjects;
+        }
+
+        var spline = new PolylineVisual(viewportContext.RenderContext, $"{Owner.FullDataPath}_SPLINE");
+        spline.SetGeometry(PathGeometry.CreatePath(Points));
+        var pointCount = Points.Count;
+        viewportObjects.Add(new ViewportObject(spline, $"PATH_{property.Path}", property)
+        {
+            Category = ViewportObjectCategory.Paths,
+            RenderDependencies = [pointsProperty],
+            Refresh = () =>
+            {
+                // Every point is an object of its own, they have to be made again when points get added or removed
+                if (Points.Count != pointCount)
+                {
+                    return false;
+                }
+
+                spline.SetGeometry(PathGeometry.CreatePath(Points));
+                return true;
+            }
+        });
         
         return viewportObjects;
     }

@@ -15,9 +15,6 @@ public sealed class BehaviourGraph : Behaviour
 
     protected override String DataExt => ".lab";
 
-    public event Action<IReadOnlyList<LabURI>>? ResolvedObjects;
-    public event Action<IReadOnlyList<LabURI>>? ResolvedGraphs; 
-
     public BehaviourGraph() { }
 
     public BehaviourGraph(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinBehaviourGraph script, TwinBehaviourStarter? starter = null) : base(package, needVariant, variant, id, name)
@@ -38,16 +35,6 @@ public sealed class BehaviourGraph : Behaviour
         }
 
         return -1;
-    }
-
-    public void FireResolvedObjects(IReadOnlyList<LabURI> objects)
-    {
-        ResolvedObjects?.Invoke(objects);
-    }
-
-    public void FireResolvedGraphs(IReadOnlyList<LabURI> graphs)
-    {
-        ResolvedGraphs?.Invoke(graphs);
     }
 
     public override Type GetEditorType()

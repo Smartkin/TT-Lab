@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -15,8 +15,6 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SubItems
 
         public UInt32 VertexesAmount { get; set; }
         public List<VertexBlendShape> Vertices { get; set; }
-
-        UInt16 qwcAmount { get => (UInt16)(faceData.Length >> 4); }
 
         public PS2BlendSkinFace(Vector3 blendShape)
         {
@@ -35,34 +33,19 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SubItems
             faceData = reader.ReadBytes(blobSize << 4);
         }
 
+        // Every vertex of the model gets 4 signed bytes, the offset in blend shape units and an unused zero
         public void CalculateData()
         {
-            var dma = new DMATag
-            {
-                QWC = qwcAmount,
-                Extra = (0x0) | ((VertexesAmount + 1) << 0x10) | 0x6E000000 // Unpack vectors with V4_8 format
-            };
-
-            using var ms = new MemoryStream();
-            using var writer = new BinaryWriter(ms);
-            dma.Write(writer);
-            writer.Write(faceData);
-            ms.Position = 0;
-
-            using var reader = new BinaryReader(ms);
-            var interpreter = VIFInterpreter.InterpretCode(reader);
-            var data = interpreter.GetMem();
             Vertices = new((Int32)VertexesAmount);
-            for (Int32 i = 0; i < VertexesAmount; i++)
+            for (var i = 0; i < VertexesAmount; i++)
             {
-                var vec = data[0][i + 1];
-                var xComp = (Int32)vec.GetBinaryX();
-                var yComp = (Int32)vec.GetBinaryY();
-                var zComp = (Int32)vec.GetBinaryZ();
+                var x = (SByte)faceData[i * 4];
+                var y = (SByte)faceData[i * 4 + 1];
+                var z = (SByte)faceData[i * 4 + 2];
                 Vertices.Add(new VertexBlendShape
                 {
                     BlendShape = blendShape,
-                    Offset = new Vector4(xComp * blendShape.X, yComp * blendShape.Y, zComp * blendShape.Z, 1.0f)
+                    Offset = new Vector4(x * blendShape.X, y * blendShape.Y, z * blendShape.Z, 1.0f)
                 });
             }
         }
@@ -76,13 +59,8 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SubItems
 
         public void Compile()
         {
-            var vertexData = Vertices.Select(v => v.GetVector4()).ToList();
-            var data = new List<List<Vector4>>()
-            {
-                vertexData
-            };
-            var compiler = new TwinVIFCompiler(TwinVIFCompiler.ModelFormat.BlendFace, data, null, 0);
-            faceData = compiler.Compile();
+            VertexesAmount = (UInt32)Vertices.Count;
+            faceData = TwinVIFCompiler.CompileBlendFace(Vertices.Select(v => v.GetPackedOffset()).ToList());
         }
     }
 }

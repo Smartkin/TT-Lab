@@ -28,8 +28,7 @@ public class OGI : Renderable
             return;
         }
 
-        var transform = mat4.Translate(position) * rotation.ToMat4 * mat4.Scale(scale);
-        jointNode.SetLocalTransform(transform);
+        jointNode.SetPose(position, rotation, scale);
         skinBuffer?.SetBoneMatrix(jointIndex, defaultSkeleton.Bones[jointIndex].GetBoneMatrix());
         blendSkinBuffer?.SetBoneMatrix(jointIndex, defaultSkeleton.Bones[jointIndex].GetBoneMatrix());
     }
@@ -40,6 +39,22 @@ public class OGI : Renderable
         {
             value.SetInheritScale(inherit);
         }
+    }
+
+    public void ResetPose()
+    {
+        foreach (var bone in defaultSkeleton.Bones.Values)
+        {
+            bone.ResetPose();
+        }
+
+        foreach (var (jointIndex, bone) in defaultSkeleton.Bones)
+        {
+            skinBuffer?.SetBoneMatrix(jointIndex, bone.GetBoneMatrix());
+            blendSkinBuffer?.SetBoneMatrix(jointIndex, bone.GetBoneMatrix());
+        }
+
+        blendSkinBuffer?.ResetShapeWeights();
     }
 
     public void ApplyWeightsToBlendSkin(float[] weights)

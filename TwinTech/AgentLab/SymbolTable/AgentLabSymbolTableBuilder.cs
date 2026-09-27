@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.IO;
 using System.Reflection;
 using Twinsanity.AgentLab.AbstractSyntaxTree;
@@ -7,6 +8,9 @@ namespace Twinsanity.AgentLab.SymbolTable;
 
 public class AgentLabSymbolTableBuilder
 {
+    // Definition files never change while running and parsing them took most of every compile, their trees are only read so they can be shared
+    private static readonly ConcurrentDictionary<string, IAgentLabTreeNode> ParsedDefinitions = new();
+
     private readonly AgentLabSymbolTableNodeVisitor _visitor = new();
 
     public AgentLabSymbolTableBuilder()
@@ -28,12 +32,7 @@ public class AgentLabSymbolTableBuilder
 
     public AgentLabSymbolTableBuilder BuildConditions()
     {
-        string path = AppContext.BaseDirectory;
-        using FileStream fs = new(Path.Combine(Path.GetDirectoryName(path), $"AgentLab{Path.DirectorySeparatorChar}ConditionDefinitions.lab"), FileMode.Open, FileAccess.Read);
-        using StreamReader sr = new StreamReader(fs);
-        using StringReader reader = new StringReader(sr.ReadToEnd());
-        var parser = new AgentLabParser(new AgentLabLexer(reader));
-        _visitor.Visit(parser.Parse());
+        _visitor.Visit(GetDefinitions("ConditionDefinitions.lab"));
         
         return this;
     }
@@ -42,15 +41,21 @@ public class AgentLabSymbolTableBuilder
     {
         if (actionDefinitionFile != "")
         {
-            string path = AppContext.BaseDirectory;
-            using FileStream fs = new(Path.Combine(Path.GetDirectoryName(path), $"AgentLab{Path.DirectorySeparatorChar}{actionDefinitionFile}"), FileMode.Open, FileAccess.Read);
-            using StreamReader sr = new StreamReader(fs);
-            using StringReader reader = new StringReader(sr.ReadToEnd());
-            var parser = new AgentLabParser(new AgentLabLexer(reader));
-            _visitor.Visit(parser.Parse());
+            _visitor.Visit(GetDefinitions(actionDefinitionFile));
         }
 
         return this;
+    }
+
+    private static IAgentLabTreeNode GetDefinitions(string definitionFile)
+    {
+        var path = Path.Combine(Path.GetDirectoryName(AppContext.BaseDirectory), "AgentLab", definitionFile);
+        return ParsedDefinitions.GetOrAdd(path, definitionsPath =>
+        {
+            using var reader = new StringReader(File.ReadAllText(definitionsPath));
+            var parser = new AgentLabParser(new AgentLabLexer(reader));
+            return parser.Parse();
+        });
     }
 
     public AgentLabSymbolTableBuilder BuildFromAst(IAgentLabTreeNode tree)

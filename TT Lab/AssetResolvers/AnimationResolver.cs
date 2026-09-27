@@ -1,20 +1,24 @@
+using System;
 using System.Collections.Generic;
-using TT_Lab.Assets;
-using TT_Lab.Assets.Code;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code;
 
 namespace TT_Lab.AssetResolvers;
 
-public class AnimationResolver : AssetResolver<ITwinAnimation>
+/// <summary>
+/// Collects the animations game objects use, the OGIs they're played on keep them once those are known
+/// </summary>
+public class AnimationResolver
 {
-    public override void CreateAssetsFromChunk(ITwinSection chunk, Package package)
+    private readonly Dictionary<UInt32, ITwinAnimation> _animations = new();
+
+    public void Collect(ITwinSection animationSection, UInt32 id)
     {
-        throw new System.NotImplementedException();
+        if (!_animations.ContainsKey(id) && animationSection.ContainsItem(id))
+        {
+            _animations[id] = animationSection.GetItem<ITwinAnimation>(id);
+        }
     }
 
-    protected override IAsset CreateAsset(ITwinSection chunk, Package package, ITwinAnimation item, bool needVariant, string variant)
-    {
-        return new Animation(package.URI, needVariant, variant, item.GetID(), item.GetName(), item);
-    }
+    public ITwinAnimation? Get(UInt32 id) => _animations.GetValueOrDefault(id);
 }

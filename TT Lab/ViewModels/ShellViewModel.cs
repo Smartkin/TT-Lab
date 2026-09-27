@@ -1,65 +1,79 @@
-﻿using Caliburn.Micro;
+using Caliburn.Micro;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Diagnostics;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Input;
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Platform;
-using Dock.Model.Core;
+using Dock.Model.Controls;
 using ReactiveUI;
-using ReactiveUI.SourceGenerators;
-using SharpGLTF.Schema2;
-using Splat;
 using TT_Lab.Assets;
 using TT_Lab.Command;
-using TT_Lab.Controls;
 using TT_Lab.Project;
 using TT_Lab.Project.Messages;
-using TT_Lab.Rendering;
 using TT_Lab.Util;
-using TT_Lab.ViewModels.Composite;
-using TT_Lab.ViewModels.Editors;
 using TT_Lab.ViewModels.Interfaces;
-using TT_Lab.ViewModels.ResourceTree;
 
 namespace TT_Lab.ViewModels;
 
-public class ShellViewModel : Conductor<EditorsViewModel>, ILabManager
+public record RecentlyClosedEditorEntry(string Name, System.Windows.Input.ICommand Reopen);
+
+public record RecentProjectEntry(string Name, string Path, System.Windows.Input.ICommand Open)
 {
+    public string Location => System.IO.Path.GetDirectoryName(Path) ?? Path;
+}
+
+public class ShellViewModel : Screen, ILabManager
+{
+    private const string LayoutFileFilterName = "TT Lab Layout Files";
+    private static readonly string[] LayoutFileFilters = ["*.json"];
+    private static readonly string AutoSavedLayoutPath = ManifestResourceLoader.GetPathInExe("layout.json");
+
     private readonly IWindowManager _windowManager;
     private readonly IEventAggregator _eventAggregator;
     private readonly ProjectManager _projectManager;
+    private readonly ProjectTreeViewModel _projectTree;
+    private readonly ChunkResourcesViewModel _chunkResources;
+    private readonly ChunkInspectorViewModel _chunkInspector;
+    private readonly HistoryViewModel _history;
     private readonly Dictionary<String, List<String>> _managerPropsToShellProps = new();
-    private Boolean _dontRemind = false;
 
     public ShellViewModel(IWindowManager windowManager, LogViewModel logViewModel, EditorsViewModel editors,
-        IFactory dockFactory, IEventAggregator eventAggregator, ProjectManager projectManager)
+        ProjectTreeViewModel projectTree, ChunkResourcesViewModel chunkResources, ChunkInspectorViewModel chunkInspector, HistoryViewModel history, DockFactory dockFactory,
+        IEventAggregator eventAggregator, ProjectManager projectManager)
     {
+        _chunkResources = chunkResources;
+        _chunkInspector = chunkInspector;
+        _history = history;
         Logger = logViewModel;
         DockFactory = dockFactory;
         _windowManager = windowManager;
         EditorsViewModel = editors;
+        _projectTree = projectTree;
         _projectManager = projectManager;
         _eventAggregator = eventAggregator;
         _eventAggregator.SubscribeOnUIThread(this);
 
+        // The log panel can now be closed so logging can't depend on its view having been shown
+        Log.SetViewModel(logViewModel);
+        if (Log.SessionLogPath != null)
+        {
+            Log.WriteLine($"Session log is saved to {Log.SessionLogPath}");
+        }
+
         _managerPropsToShellProps.Add(nameof(ProjectManager.ProjectTitle), [nameof(WindowTitle)]);
         _managerPropsToShellProps.Add(nameof(ProjectManager.ProjectOpened), [nameof(ProjectOpened), nameof(TreeOptionsVisibility)]);
-        _managerPropsToShellProps.Add(nameof(ProjectManager.RecentlyOpened), [nameof(RecentlyOpened)]);
-        _managerPropsToShellProps.Add(nameof(ProjectManager.ProjectTree), [nameof(ProjectTree)]);
-        _managerPropsToShellProps.Add(nameof(ProjectManager.HasRecents), [nameof(HasRecents)]);
-        _managerPropsToShellProps.Add(nameof(ProjectManager.SearchAsset), [nameof(SearchAsset)]);
         _managerPropsToShellProps.Add(nameof(ProjectManager.IsCreatingProject), [nameof(IsCreatingProject)]);
 
+        EditorsViewModel.RecentlyClosedChanged += UpdateRecentlyClosedEditors;
+
         Preferences.Load();
+        _projectManager.RecentProjectsChanged += UpdateRecentProjects;
+        UpdateRecentProjects();
+        Layout = LoadAutoSavedLayout() ?? DockFactory.CreateLayout();
     }
 
     public void SaveProject()
@@ -71,7 +85,7 @@ public class ShellViewModel : Conductor<EditorsViewModel>, ILabManager
         {
             Log.WriteLine($"Saving {_projectManager.OpenedProject!.Name}...");
             var now = DateTime.Now;
-            ActiveItem.Save();
+            EditorsViewModel.Save();
             Log.WriteLine($"Saved project in {DateTime.Now - now}");
         }
         catch (Exception ex)
@@ -103,19 +117,13 @@ public class ShellViewModel : Conductor<EditorsViewModel>, ILabManager
                 }
             }
 
-            var editorsViewModel = EditorsViewModel;
-            if (openedAsset.Type == typeof(LevelChunk))
+            DockFactory.ShowPanel(EditorsViewModel.GetViewerFor(openedAsset));
+            EditorsViewModel.OpenEditor(openedAsset);
+            // Scene tabs only have the viewport, the chunk's resources are in their own panel
+            if (openedAsset is LevelChunk && !DockFactory.IsInLayout(_chunkResources))
             {
-                // Automatically switch to Scenes Viewer tab
-                // editorsViewModel.Factory?.SetActiveDockable(editorsViewModel.ScenesEditorsViewModel);
-                DockFactory.SetActiveDockable(DockFactory.VisibleDockableControls.Keys.First(k => k.Id == "ScenesPane"));
-                editorsViewModel.ScenesEditorsViewModel.OpenTab(new TabbedEditorViewModel(DockFactory, openedAsset));
-                return;
+                DockFactory.ShowPanel(_chunkResources);
             }
-            
-            // Automatically switch to Resources Editor tab
-            DockFactory.SetActiveDockable(DockFactory.VisibleDockableControls.Keys.First(k => k.Id == "ResourcesPane"));
-            editorsViewModel.ResourcesEditorsViewModel.OpenTab(new TabbedEditorViewModel(DockFactory, openedAsset));
         }
         catch (Exception ex)
         {
@@ -148,16 +156,24 @@ public class ShellViewModel : Conductor<EditorsViewModel>, ILabManager
         _projectManager.BuildPs2Iso();
     }
 
-    public void CloseProject()
+    public void BuildXbox()
     {
-        var canClose = ActiveItem.CanClose;
-        if (!canClose)
+        _projectManager.BuildXboxProject();
+    }
+
+    public void BuildXboxImage()
+    {
+        _projectManager.BuildXboxImage();
+    }
+
+    public async Task CloseProject()
+    {
+        if (!await EditorsViewModel.CloseAllEditors())
         {
             return;
         }
-        
-        ActiveItem.ResourcesEditorsViewModel.Clear();
-        ActiveItem.ScenesEditorsViewModel.Clear();
+
+        EditorsViewModel.ClearRecentlyClosed();
         _projectManager.CloseProject();
     }
 
@@ -166,19 +182,100 @@ public class ShellViewModel : Conductor<EditorsViewModel>, ILabManager
         var proj = await MiscUtils.GetFileFromDialogueAsync("Choose TT Lab Project...", "TT Lab Project Files", ["*.tson", "*.xson"], Preferences.GetPreference<string>(Preferences.ProjectsPath));
         if (proj != string.Empty)
         {
-            var open = new OpenProjectCommand(System.IO.Path.GetDirectoryName(proj)!);
-            open.Execute();
+            await OpenProjectAt(System.IO.Path.GetDirectoryName(proj)!);
         }
     }
 
-    public override async Task<Boolean> CanCloseAsync(CancellationToken cancellationToken = new CancellationToken())
+    // The editors of the project that's open close first, like closing the project, they ask to save their changes
+    private async Task OpenProjectAt(string path)
     {
-        if (_dontRemind)
+        if (!await EditorsViewModel.CloseAllEditors())
         {
-            return true;
+            return;
         }
 
-        return await Task.FromResult(ActiveItem.CanClose);
+        EditorsViewModel.ClearRecentlyClosed();
+        new OpenProjectCommand(path).Execute();
+    }
+
+    public void ShowProjectTree() => DockFactory.ShowPanel(_projectTree);
+
+    public void ShowScenes() => DockFactory.ShowPanel(EditorsViewModel.ScenesEditorsViewModel);
+
+    public void ShowResources() => DockFactory.ShowPanel(EditorsViewModel.ResourcesEditorsViewModel);
+
+    public void ShowLog() => DockFactory.ShowPanel(Logger);
+
+    public void ShowChunkResources() => DockFactory.ShowPanel(_chunkResources);
+
+    public void ShowChunkInspector() => DockFactory.ShowPanel(_chunkInspector);
+
+    public void ShowHistory() => DockFactory.ShowPanel(_history);
+
+    public void ReopenClosedEditor()
+    {
+        var closedEditor = EditorsViewModel.RecentlyClosed.FirstOrDefault();
+        if (closedEditor != null)
+        {
+            ReopenEditor(closedEditor);
+        }
+    }
+
+    public async Task SaveLayoutAs()
+    {
+        var path = await MiscUtils.GetSaveFileFromDialogueAsync("Save Layout...", LayoutFileFilterName, LayoutFileFilters, "Custom.layout.json", "json");
+        if (path == string.Empty)
+        {
+            return;
+        }
+
+        try
+        {
+            await File.WriteAllTextAsync(path, DockFactory.SerializeLayout());
+            Log.WriteLine($"Saved layout to {path}");
+        }
+        catch (Exception ex)
+        {
+            Log.WriteLine($"Failed to save layout: {ex.Message}", Log.LogType.Error);
+        }
+    }
+
+    public async Task LoadLayoutFrom()
+    {
+        var path = await MiscUtils.GetFileFromDialogueAsync("Load Layout...", LayoutFileFilterName, LayoutFileFilters);
+        if (path == string.Empty)
+        {
+            return;
+        }
+
+        try
+        {
+            var json = await File.ReadAllTextAsync(path);
+            DockFactory.ValidateLayout(json);
+            ApplyLayout(() => DockFactory.DeserializeLayout(json));
+            Log.WriteLine($"Loaded layout from {path}");
+        }
+        catch (Exception ex)
+        {
+            Log.WriteLine($"Failed to load layout: {ex.Message}", Log.LogType.Error);
+        }
+    }
+
+    public void ResetLayout()
+    {
+        ApplyLayout(DockFactory.CreateLayout);
+    }
+
+    public void SaveLayoutOnExit()
+    {
+        try
+        {
+            File.WriteAllText(AutoSavedLayoutPath, DockFactory.SerializeLayout());
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to save layout: {ex.Message}");
+        }
     }
 
     public Task HandleAsync(ProjectManagerMessage message, CancellationToken cancellationToken)
@@ -202,41 +299,96 @@ public class ShellViewModel : Conductor<EditorsViewModel>, ILabManager
     {
         if (close)
         {
-            // Properties.Settings.Default.Save();
             Preferences.Save();
         }
-            
+
         await base.OnDeactivateAsync(close, cancellationToken);
-
-        if (!cancellationToken.IsCancellationRequested && close)
-        {
-            _dontRemind = true;
-        }
-
-        await Task.CompletedTask;
     }
 
-    public BindableCollection<MenuItem> RecentlyOpened => _projectManager.RecentlyOpened;
+    private void ApplyLayout(Func<IRootDock> createLayout)
+    {
+        // Floating windows have to be closed while their panels still belong to the old layout
+        if (Layout.ExitWindows.CanExecute(null))
+        {
+            Layout.ExitWindows.Execute(null);
+        }
+
+        Layout = createLayout();
+        NotifyOfPropertyChange(nameof(Layout));
+    }
+
+    private IRootDock? LoadAutoSavedLayout()
+    {
+        if (!File.Exists(AutoSavedLayoutPath))
+        {
+            return null;
+        }
+
+        try
+        {
+            return DockFactory.DeserializeLayout(File.ReadAllText(AutoSavedLayoutPath));
+        }
+        catch (Exception ex)
+        {
+            Log.WriteLine($"Failed to restore the previous layout, using the default one: {ex.Message}", Log.LogType.Warning);
+            return null;
+        }
+    }
+
+    private void ReopenEditor(ClosedEditor closedEditor)
+    {
+        var assetManager = AssetManager.Get();
+        if (!_projectManager.ProjectOpened || !assetManager.DoesAssetExist(closedEditor.Uri))
+        {
+            Log.WriteLine($"Can't reopen {closedEditor.Name}, the asset no longer exists", Log.LogType.Warning);
+            EditorsViewModel.ForgetRecentlyClosed(closedEditor);
+            return;
+        }
+
+        OpenEditor(assetManager.GetAsset(closedEditor.Uri));
+    }
+
+    private void UpdateRecentProjects()
+    {
+        RecentProjects.Clear();
+        foreach (var path in _projectManager.RecentProjects)
+        {
+            RecentProjects.Add(new RecentProjectEntry(System.IO.Path.GetFileName(path), path, ReactiveCommand.CreateFromTask(() => OpenProjectAt(path))));
+        }
+
+        NotifyOfPropertyChange(nameof(HasRecents));
+    }
+
+    private void UpdateRecentlyClosedEditors()
+    {
+        RecentlyClosedEditors.Clear();
+        foreach (var closedEditor in EditorsViewModel.RecentlyClosed)
+        {
+            RecentlyClosedEditors.Add(new RecentlyClosedEditorEntry(closedEditor.Name, ReactiveCommand.Create(() => ReopenEditor(closedEditor))));
+        }
+
+        NotifyOfPropertyChange(nameof(HasRecentlyClosedEditors));
+    }
+
+    public IRootDock Layout { get; private set; }
+
+    public ObservableCollection<RecentlyClosedEditorEntry> RecentlyClosedEditors { get; } = [];
+
+    public bool HasRecentlyClosedEditors => RecentlyClosedEditors.Count > 0;
+
+    public ObservableCollection<RecentProjectEntry> RecentProjects { get; } = [];
 
     public Boolean TreeOptionsVisibility => ProjectOpened;
 
     public String WindowTitle => _projectManager.ProjectTitle;
 
-    public String SearchAsset
-    {
-        get => _projectManager.SearchAsset;
-        set => _projectManager.SearchAsset = value;
-    }
-
     public LogViewModel Logger { get; }
 
-    public IFactory DockFactory { get; }
+    public DockFactory DockFactory { get; }
 
     public EditorsViewModel EditorsViewModel { get; }
 
-    public Boolean HasRecents => _projectManager.HasRecents;
-
-    public BindableCollection<ResourceTreeElementViewModel> ProjectTree => _projectManager.ProjectTree;
+    public bool HasRecents => RecentProjects.Count > 0;
 
     public Boolean ProjectOpened => _projectManager.ProjectOpened;
 

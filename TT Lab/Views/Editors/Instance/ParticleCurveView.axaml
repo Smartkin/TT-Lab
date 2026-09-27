@@ -1,0 +1,23 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:instance="clr-namespace:TT_Lab.ViewModels.Editors.Instance"
+             xmlns:labControls="clr-namespace:TT_Lab.Controls"
+             x:DataType="instance:ParticleCurveViewModel"
+             mc:Ignorable="d" d:DesignWidth="320" d:DesignHeight="180"
+             x:Class="TT_Lab.Views.Editors.Instance.ParticleCurveView">
+    <!-- The inspector scrolls sideways, the graph takes the width it has -->
+    <labControls:FitToScrollViewport>
+        <StackPanel Spacing="4" Margin="0,2">
+            <labControls:CurveGraph x:Name="Graph" Height="120" MinWidth="200" ToolTip.Tip="{Binding Hint}"
+                                    Keys="{Binding Points}" SelectedIndex="{Binding SelectedIndex}"/>
+            <Grid ColumnDefinitions="Auto,*,8,Auto,*">
+                <TextBlock Text="Time" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <TextBox Grid.Column="1" Text="{Binding SelectedTime}"/>
+                <TextBlock Grid.Column="3" Text="Value" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <TextBox Grid.Column="4" Text="{Binding SelectedValue}"/>
+            </Grid>
+        </StackPanel>
+    </labControls:FitToScrollViewport>
+</UserControl>

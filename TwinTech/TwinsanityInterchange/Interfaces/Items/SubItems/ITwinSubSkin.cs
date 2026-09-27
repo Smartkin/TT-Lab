@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using Twinsanity.PS2Hardware;
 using Twinsanity.TwinsanityInterchange.Common;
 
 namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.SubItems
@@ -11,11 +12,11 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.SubItems
         /// </summary>
         UInt32 Material { get; set; }
         /// <summary>
-        /// Vertex positions
+        /// Vertex positions, W is the X of the vertex's normal
         /// </summary>
         List<Vector4> Vertexes { get; set; }
         /// <summary>
-        /// UV map
+        /// UV map, Z and W are the Y and Z of the vertex's normal
         /// </summary>
         List<Vector4> UVW { get; set; }
         /// <summary>
@@ -30,8 +31,14 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.SubItems
         /// The amount of verticies in the batch that form triangle strip/strips
         /// </summary>
         List<Int32> GroupSizes { get; set; }
-
-        UInt32 GetMinSkinCoord();
+        /// <summary>
+        /// How positions and UVs get packed, null lets compiling pick settings that fit
+        /// </summary>
+        TwinSkinCompression Compression { get; set; }
+        /// <summary>
+        /// How the compiled packet gets padded
+        /// </summary>
+        TwinVifPadding Padding { get; set; }
 
 
         /// <summary>

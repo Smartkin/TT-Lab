@@ -11,7 +11,7 @@ namespace TT_Lab.Rendering.Input;
 
 public class LabMouse : IMouse, IDisposable
 {
-    private readonly Viewport _renderArea;
+    private Viewport? _renderArea;
     private bool _scrollModified = false;
     private Pointer _mouse;
     private Dictionary<MouseButton, bool> _pressedMouseButtons = new();
@@ -20,22 +20,37 @@ public class LabMouse : IMouse, IDisposable
     public int Index => 0;
     public bool IsConnected => true;
 
-    public LabMouse(Viewport renderArea)
+    public LabMouse(Viewport? renderArea)
     {
         _mouse = new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, true);
+        Attach(renderArea);
+    }
+
+    // The viewport's input comes from whichever control shows it, buttons let go of while none did would stay pressed
+    public void Attach(Viewport? renderArea)
+    {
+        if (_renderArea != null)
+        {
+            _renderArea.PointerEntered      -= MouseEnterHandler;
+            _renderArea.PointerMoved        -= MouseMoveHandler;
+            _renderArea.PointerPressed      -= MouseDownHandler;
+            _renderArea.PointerReleased     -= MouseUpHandler;
+            _renderArea.PointerWheelChanged -= MouseWheelHandler;
+        }
+
+        _pressedMouseButtons.Clear();
+        _renderArea = renderArea;
         _mouse.Capture(renderArea);
+        if (renderArea == null)
+        {
+            return;
+        }
+
         renderArea.PointerEntered      += MouseEnterHandler;
         renderArea.PointerMoved        += MouseMoveHandler;
         renderArea.PointerPressed      += MouseDownHandler;
         renderArea.PointerReleased     += MouseUpHandler;
         renderArea.PointerWheelChanged += MouseWheelHandler;
-        // Mouse.AddMouseMoveHandler(renderArea, MouseMoveHandler);
-        // Mouse.AddMouseDownHandler(renderArea, MouseDownHandler);
-        // Mouse.AddMouseUpHandler(renderArea, MouseUpHandler);
-        // Mouse.AddMouseWheelHandler(renderArea, MouseWheelHandler);
-        // Mouse.AddMouseEnterHandler(renderArea, MouseEnterHandler);
-        
-        _renderArea = renderArea;
     }
 
     public void Update()
@@ -51,7 +66,6 @@ public class LabMouse : IMouse, IDisposable
     private void MouseEnterHandler(object? sender, PointerEventArgs e)
     {
         _mouse.Capture(_renderArea);
-        _renderArea.Focus(NavigationMethod.Directional);
     }
 
     private void MouseWheelHandler(object? sender, PointerWheelEventArgs e)
@@ -75,6 +89,7 @@ public class LabMouse : IMouse, IDisposable
         }
 
         _pressedMouseButtons[button.Value] = false;
+        UpdatePosition(e);
         
         MouseUp?.Invoke(this, button.Value);
     }
@@ -88,6 +103,10 @@ public class LabMouse : IMouse, IDisposable
         }
 
         _pressedMouseButtons[button.Value] = true;
+        // Taking the focus on hover used to pull it out of the inspector, keys meant for a text field then edited the scene
+        _renderArea?.Focus(NavigationMethod.Pointer);
+        // Presses pick what's under the mouse, which may have moved without a move event before it
+        UpdatePosition(e);
         
         MouseDown?.Invoke(this, button.Value);
 
@@ -110,24 +129,19 @@ public class LabMouse : IMouse, IDisposable
     
     private void MouseMoveHandler(object? sender, PointerEventArgs e)
     {
+        UpdatePosition(e);
+        MouseMove?.Invoke(this, Position);
+    }
+
+    private void UpdatePosition(PointerEventArgs e)
+    {
         var position = e.GetPosition(_renderArea);
         Position = new Vector2((float)position.X, (float)position.Y);
-        MouseMove?.Invoke(this, Position);
     }
 
     public void Dispose()
     {
-        // Mouse.RemoveMouseMoveHandler(_renderArea, MouseMoveHandler);
-        // Mouse.RemoveMouseDownHandler(_renderArea, MouseDownHandler);
-        // Mouse.RemoveMouseUpHandler(_renderArea, MouseUpHandler);
-        // Mouse.RemoveMouseWheelHandler(_renderArea, MouseWheelHandler);
-        // Mouse.RemoveMouseEnterHandler(_renderArea, MouseEnterHandler);
-        _renderArea.PointerEntered      -= MouseEnterHandler;
-        _renderArea.PointerMoved        -= MouseMoveHandler;
-        _renderArea.PointerPressed      -= MouseDownHandler;
-        _renderArea.PointerReleased     -= MouseUpHandler;
-        _renderArea.PointerWheelChanged -= MouseWheelHandler;
-        
+        Attach(null);
         ((LabCursor)Cursor).Dispose();
         GC.SuppressFinalize(this);
     }

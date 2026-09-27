@@ -1,10 +1,12 @@
-﻿using Newtonsoft.Json;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using SharpGLTF.Schema2;
+using System.Text.Json.Nodes;
+using TT_Lab.AssetData.Graphics.TlModel;
+using TT_Lab.AssetData.Graphics.SubModels;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Assets.Graphics;
@@ -17,9 +19,14 @@ using Mesh = TT_Lab.Assets.Graphics.Mesh;
 
 namespace TT_Lab.AssetData.Graphics;
 
+/// <summary>
+/// A model and the materials its submodels are drawn with
+/// </summary>
 [ReferencesAssets]
 public class RigidModelData : AbstractAssetData
 {
+    public const string TlmAssetType = "RigidModel";
+
     public RigidModelData(IAsset asset) : base(asset)
     {
         Materials = new List<LabURI>();
@@ -33,6 +40,9 @@ public class RigidModelData : AbstractAssetData
 
     public List<LabURI> Materials { get; set; }
     public LabURI Model { get; set; }
+
+    protected virtual string AssetTlmType => TlmAssetType;
+    protected virtual Int32 ExportHeader => 257;
 
     protected override void Dispose(Boolean disposing)
     {
@@ -48,208 +58,92 @@ public class RigidModelData : AbstractAssetData
         {
             result.AppendLine(assetManager.GetAsset(mat).GetDataHash().ToString());
         }
-        
+
         return result.ToString();
     }
-    
+
+    protected virtual string TlmKind => "rigid_model";
+
     protected override void SaveInternal(string dataPath, JsonSerializerSettings? settings = null)
     {
-        var scene = new SharpGLTF.Scenes.SceneBuilder($"TwinsanitySkydome_{Owner.Name}");
-        var root = new SharpGLTF.Scenes.NodeBuilder("RIGID_MODEL_ROOT");
-
-        ExportGltf(scene, root, "_EXTERNAL_FILE");
-        
-        var resultModel = scene.ToGltf2();
-        resultModel.SaveGLB(dataPath);
+        var file = new TlmFile(AssetTlmType, Owner.Name);
+        var root = TlmNodes.Create(TlmKind, Owner.Name);
+        root[TlmNodes.MeshKey] = WriteTlmMesh(file, new TlmMaterials(file));
+        file.Root = root;
+        file.Save(dataPath);
     }
 
     protected override void LoadInternal(string dataPath, JsonSerializerSettings? settings = null)
     {
-        var model = ModelRoot.Load(dataPath);
-        var rigidModelRoot = model.DefaultScene.VisualChildren.FirstOrDefault(n => n.Name.Contains("RIGID_MODEL_ROOT"));
-        if (rigidModelRoot == null)
+        var file = TlmFile.Load(dataPath);
+        var materials = new TlmMaterials(file, Owner);
+        var parts = TlmMeshes.ReadMesh(file, file.Root?[TlmNodes.MeshKey] as JsonObject, false, file.Root?.GetTransform());
+        SetFromParts(Owner, parts.Select(p => (p.Part, materials.Get(p.Material))).ToList(), Owner.Name);
+        DisposedValue = false;
+        if (materials.AddedToProject)
         {
-            Log.WriteLine($"Misconfigured Rigid Model {dataPath}! Make sure it contains RIGID_MODEL_ROOT node!", Log.LogType.Error);
-            return;
-        }
-
-        var rigidModel = ImportGltf<RigidModel>(Owner, model, rigidModelRoot);
-        var data = (RigidModelData)rigidModel.GetData();
-        Model = data.Model;
-        Materials.Clear();
-        foreach (var material in data.Materials)
-        {
-            Materials.Add(material);
+            SaveInternal(dataPath, settings);
         }
     }
-    
-    /// <summary>
-    /// Creates the needed internal Mesh/RigidModel asset, Model asset, Material assets and Texture assets needed for RigidModel or Mesh
-    /// </summary>
-    /// <param name="requester">Asset requesting the creation</param>
-    /// <param name="gltfModel">Loaded GLB file with all the data</param>
-    /// <param name="containerNode">GLTF node that stores all the meshes and material descs</param>
-    /// <typeparam name="T">Mesh or RigidModel</typeparam>
-    /// <returns>Newly created Mesh or RigidModel asset</returns>
-    public static T ImportGltf<T>(IAsset requester, ModelRoot gltfModel, Node containerNode) where T : RigidModel, new()
-    {
-        var meshesNode = containerNode.VisualChildren.FirstOrDefault(n => n.Name.StartsWith($"{containerNode.Name}_MESHES"));
-        var isFromExternalFile = false;
-        if (meshesNode == null)
-        {
-            meshesNode = containerNode.VisualChildren.FirstOrDefault(n =>
-                n.Name.StartsWith($"{containerNode.Name}_RIGID_MODEL__EXTERNAL_FILE"));
-            isFromExternalFile = meshesNode != null;
-        }
-        if (meshesNode == null)
-        {
-            Log.WriteLine($"Imported Rigid Model {containerNode.Name} does not contain any meshes! Returning empty mesh...", Log.LogType.Error);
-        }
 
-        var meshesGltf = CollectMeshes(gltfModel, meshesNode);
-        var assetManager = AssetManager.Get();
-        var saltName = string.IsNullOrEmpty(requester.Chunk) ? requester.Name : requester.Chunk;
+    /// <summary>
+    /// The model's submodels as the parts of one mesh with the materials they're drawn with
+    /// </summary>
+    public JsonObject WriteTlmMesh(TlmFile file, TlmMaterials materials)
+    {
+        var modelData = AssetManager.Get().GetAssetData<ModelData>(Model);
+        return TlmMeshes.WriteMesh(file, modelData.GetParts().Select((part, i) => (part, materials.Use(i < Materials.Count ? Materials[i] : LabURI.Empty))), false);
+    }
+
+    /// <summary>
+    /// Creates an internal rigid model or mesh out of the parts of a mesh
+    /// </summary>
+    /// <param name="owner">Asset whose data the new asset is part of</param>
+    /// <param name="file">File the mesh is in</param>
+    /// <param name="mesh">The mesh</param>
+    /// <param name="materials">Materials of the file</param>
+    /// <param name="transform">Where the mesh's node was moved to, baked into the vertexes</param>
+    /// <param name="name">Name of the new asset</param>
+    public static T ReadTlm<T>(IAsset owner, TlmFile file, JsonObject mesh, TlmMaterials materials, System.Numerics.Matrix4x4? transform, string name) where T : RigidModel, new()
+    {
+        var asset = new T
+        {
+            Package = owner.Package,
+            InvariantName = $"{owner.Name}_{SanitizeName(name)}",
+            Alias = name,
+            IsInternal = true,
+            InternalOwner = owner
+        };
+        RigidModelData data = typeof(T) == typeof(Mesh) ? new MeshData(asset) : new RigidModelData(asset);
+        data.SetFromParts(owner, TlmMeshes.ReadMesh(file, mesh, false, transform).Select(p => (p.Part, materials.Get(p.Material))).ToList(), name);
+        asset.SetData(data);
+        AssetManager.Get().TryAddAsset(asset);
+        return asset;
+    }
+
+    public static string SanitizeName(string name)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        return new string(name.Select(c => invalid.Contains(c) || c == '/' ? '_' : c).ToArray());
+    }
+
+    public void SetFromParts(IAsset owner, List<(ModelPart Part, LabURI Material)> parts, string name)
+    {
         var model = new Model
         {
-            Package = requester.Package,
-            InvariantName = $"{saltName}_{containerNode.Name}_MODEL",
-            Alias = $"{saltName}_{containerNode.Name}_MODEL",
-            IsInternal = true
+            Package = owner.Package,
+            InvariantName = $"{owner.Name}_{SanitizeName(name)}_Model",
+            Alias = $"{name} Model",
+            IsInternal = true,
+            InternalOwner = owner
         };
-        
         var modelData = new ModelData(model);
-        modelData.LoadFromGltfMeshes(meshesGltf);
+        modelData.SetParts(parts.Select(p => p.Part));
         model.SetData(modelData);
-        
-        assetManager.TryAddAsset(model);
-        
-        var mesh = new T
-        {
-            Package = requester.Package,
-            InvariantName = $"{saltName}_{containerNode.Name}_MESH",
-            Alias = $"{saltName}_{containerNode.Name}_MESH",
-            IsInternal = true
-        };
+        AssetManager.Get().TryAddAsset(model);
 
-        var materialDescs = containerNode.VisualChildren.FirstOrDefault(n => n.Name.StartsWith($"{containerNode.Name}_MATERIAL_DESCS"));
-        if (isFromExternalFile)
-        {
-            materialDescs = meshesNode.VisualChildren.FirstOrDefault(n => n.Name.StartsWith($"{containerNode.Name}_RIGID_MODEL__EXTERNAL_FILE_MATERIAL_DESCS"));
-        }
-        if (materialDescs == null)
-        {
-            Log.WriteLine($"No material descriptors found for Rigid Model {containerNode.Name}! Empty ones will be used...", Log.LogType.Warning);
-        }
-        var materialsGltf = meshesGltf.SelectMany(m => m.Primitives).Select(prim => prim.Material).Distinct().ToList();
-        var materials = materialsGltf.Select(_ => LabURI.Empty).ToList();
-        if (materialDescs != null)
-        {
-            var modelIndex = 0;
-            foreach (var vertex in modelData.Vertexes)
-            {
-                var materialDescNameMask =
-                    $"{containerNode.Name}_MATERIAL_DESC_{modelIndex}_";
-                if (isFromExternalFile)
-                {
-                    materialDescNameMask = $"{containerNode.Name}_RIGID_MODEL__EXTERNAL_FILE_MATERIAL_DESC_{modelIndex}_";
-                }
-                var materialDesc =
-                    materialDescs.VisualChildren.FirstOrDefault(n =>
-                        n.Name.StartsWith(materialDescNameMask))!;
-                var materialName = materialDesc.Name.Replace(materialDescNameMask, "");
-                
-                var material = new Material
-                {
-                    Package = requester.Package,
-                    InvariantName = $"{meshesNode.VisualParent.Name}_{materialName}_MATERIAL",
-                    Alias = $"{meshesNode.VisualParent.Name}_{materialName}_MATERIAL",
-                    IsInternal = true
-                };
-
-                var materialData = MaterialData.LoadFromGltf(material, materialDesc,
-                    materialsGltf.Where(m => m.Name.Contains($"RIGID{GraphicsHelpers.MaterialTokenDivider}MATERIAL{GraphicsHelpers.MaterialTokenDivider}{materialName}{GraphicsHelpers.MaterialTokenDivider}{modelIndex}{GraphicsHelpers.MaterialTokenDivider}"))
-                        .ToList());
-                material.SetData(materialData);
-                
-                assetManager.TryAddAsset(material);
-
-                materials[modelIndex] = material.URI;
-                
-                modelIndex++;
-            }
-            
-            materials = materials[..modelIndex];
-        }
-
-        if (typeof(T) == typeof(Mesh))
-        {
-            var meshData = new MeshData(mesh);
-            meshData.Model = model.URI;
-            meshData.Materials = materials;
-
-            mesh.SetData(meshData);
-        }
-        else
-        {
-            var rigidModelData = new RigidModelData(mesh);
-            rigidModelData.Model = model.URI;
-            rigidModelData.Materials = materials;
-            
-            mesh.SetData(rigidModelData);
-        }
-
-        assetManager.TryAddAsset(mesh);
-
-        return mesh;
-    }
-
-    private static List<SharpGLTF.Schema2.Mesh> CollectMeshes(ModelRoot model, Node node)
-    {
-        var result = new List<SharpGLTF.Schema2.Mesh>();
-        if (node.Mesh != null)
-        {
-            result.Add(node.Mesh);
-        }
-
-        foreach (var child in node.VisualChildren.ToList())
-        {
-            result.AddRange(CollectMeshes(model, child));
-        }
-        
-        return result;
-    }
-
-    public SharpGLTF.Scenes.NodeBuilder ExportGltf(SharpGLTF.Scenes.SceneBuilder scene, SharpGLTF.Scenes.NodeBuilder parentNode, string id)
-    {
-        var assetManager = AssetManager.Get();
-        var rigidModelData = this;
-        var model = assetManager.GetAssetData<ModelData>(rigidModelData.Model);
-        var proxyNode = parentNode.CreateNode($"{parentNode.Name}_RIGID_MODEL_{id}");
-        var meshesNode = proxyNode.CreateNode($"{proxyNode.Name}_MESHES");
-        var meshes = model.GetMeshes(meshesNode, rigidModelData.Materials.Select(matUri => assetManager.GetAssetData<MaterialData>(matUri)).ToList());
-        foreach (var mesh in meshes)
-        {
-            mesh.Mesh.Name = mesh.Mesh.Name.Replace("RIGIDIDPLACEHOLDER", id);
-            scene.AddRigidMesh(mesh.Mesh, meshesNode);
-        }
-        
-        var subModelId = 0;
-        var rigidMaterialDescs = proxyNode.CreateNode($"{proxyNode.Name}_MATERIAL_DESCS");
-        foreach (var vertex in model.Vertexes)
-        {
-            var material = assetManager.GetAssetData<MaterialData>(rigidModelData.Materials[subModelId]);
-            var materialDescNode = new SharpGLTF.Scenes.NodeBuilder
-            {
-                Extras = material.GetJsonFormat(),
-                Name = $"{proxyNode.Name}_MATERIAL_DESC_{subModelId}_{material.Name}"
-            };
-        
-            rigidMaterialDescs.AddNode(materialDescNode);
-
-            subModelId++;
-        }
-
-        return proxyNode;
+        Model = model.URI;
+        Materials = parts.Select(p => p.Material).ToList();
     }
 
     public override void Import(LabURI package, String? variant, Int32? layoutId)
@@ -268,7 +162,7 @@ public class RigidModelData : AbstractAssetData
         var assetManager = AssetManager.Get();
         using var ms = new MemoryStream();
         using var writer = new BinaryWriter(ms);
-        writer.Write(257); // Unused header
+        writer.Write(ExportHeader);
         writer.Write(Materials.Count);
         foreach (var mat in Materials)
         {
@@ -278,7 +172,12 @@ public class RigidModelData : AbstractAssetData
 
         writer.Flush();
         ms.Position = 0;
-        return factory.GenerateRigidModel(ms);
+        return CreateItem(factory, ms);
+    }
+
+    protected virtual ITwinItem CreateItem(ITwinItemFactory factory, Stream stream)
+    {
+        return factory.GenerateRigidModel(stream);
     }
 
     protected virtual void ResolveResources(ITwinItemFactory factory, ITwinSection section)

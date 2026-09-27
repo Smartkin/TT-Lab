@@ -60,15 +60,15 @@ namespace TT_Lab.Project
         string Path { get; set; }
 
         /// <summary>
-        /// PS2's disc content path
+        /// PS2's disc content path, null for projects of only the Xbox version
         /// </summary>
-        [JsonProperty(Required = Required.Always)]
+        [JsonProperty(Required = Required.AllowNull)]
         string? DiscContentPathPS2 { get; set; }
 
         /// <summary>
-        /// XBox's disc content path
+        /// XBox's disc content path, null for projects of only the PS2 version
         /// </summary>
-        [JsonProperty(Required = Required.Always)]
+        [JsonProperty(Required = Required.AllowNull)]
         string? DiscContentPathXbox { get; set; }
 
         /// <summary>
@@ -95,12 +95,14 @@ namespace TT_Lab.Project
         /// <summary>
         /// Unpacks PS2 assets data into project readable format
         /// </summary>
-        void UnpackAssetsPS2();
+        /// <param name="gate">Keeps reading the chunks within the memory budget</param>
+        void UnpackAssetsPS2(MemoryGate gate);
 
         /// <summary>
         /// Unpacks XBox assets data into project readable format
         /// </summary>
-        void UnpackAssetsXbox();
+        /// <param name="gate">Keeps reading the chunks within the memory budget</param>
+        void UnpackAssetsXbox(MemoryGate gate);
 
         /// <summary>
         /// Generates a specifically given chunk
@@ -125,9 +127,15 @@ namespace TT_Lab.Project
         void CreatePs2ArchivesAndIso();
 
         /// <summary>
+        /// Puts the Xbox game together from the disc's files and the ones the last build wrote
+        /// </summary>
+        void CreateXboxGame();
+
+        /// <summary>
         /// Dump on disk in JSON format
         /// </summary>
-        void Serialize();
+        /// <param name="isWritten">Assets written already, creating a project writes them as they get imported</param>
+        void Serialize(Func<IAsset, bool>? isWritten = null);
 
         /// <summary>
         /// Initializes project directories

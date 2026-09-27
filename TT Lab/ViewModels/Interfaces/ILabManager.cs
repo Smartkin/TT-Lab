@@ -10,4 +10,6 @@ public interface ILabManager : IHandle<ProjectManagerMessage>
     void OpenEditor(IAsset asset);
     void BuildPs2();
     void BuildPs2Iso();
+    void BuildXbox();
+    void BuildXboxImage();
 }

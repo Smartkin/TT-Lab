@@ -242,7 +242,7 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
         NotifyOfPropertyChange(nameof(IsNotRenaming));
     }
 
-    private async void StartDeletingAsset()
+    protected async void StartDeletingAsset()
     {
         var result = new OpenDialogueCommand.DialogueResult();
         var showCommandDialogue = new DeleteAssetDialogue(result, this);
@@ -257,7 +257,14 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
             return;
         }
         
-        DeleteAsset();
+        Log.WriteLine($"Deleting asset {Alias}...");
+        if (!await AssetDeletion.DeleteAsync(Asset))
+        {
+            return;
+        }
+
+        _internalChildren?.Clear();
+        _children?.Clear();
         _parent?.RemoveChild(this);
         _parent?.ClearChildren();
         _parent?.LoadChildrenBack();
@@ -265,15 +272,6 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
         
         Deleted();
    }
-
-    private void DeleteAsset()
-    {
-        _internalChildren?.ForEach(a => a.DeleteAsset());
-        Log.WriteLine($"Deleting asset {Alias}");
-        Asset.Delete(true);
-        _internalChildren?.Clear();
-        _children?.Clear();
-    }
 
     public List<ResourceTreeElementViewModel>? GetInternalChildren()
     {
@@ -297,7 +295,7 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
 
     public Boolean IsNotRenaming => !_isRenaming;
 
-    public Bitmap IconPath => new(ManifestResourceLoader.GetPathInExe($"Media/LabIcons/{Asset.IconPath}"));
+    public Bitmap IconPath => MiscUtils.GetLabIcon(System.IO.Path.GetFileNameWithoutExtension(Asset.IconPath));
 
     public Boolean IsSelected
     {

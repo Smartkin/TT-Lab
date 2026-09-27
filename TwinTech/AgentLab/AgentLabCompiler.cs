@@ -27,6 +27,26 @@ public static class AgentLabCompiler
         /// Error message
         /// </summary>
         public string Message { get; internal set; }
+        /// <summary>
+        /// Line where the error happened, starting from 1. 0 if it's unknown
+        /// </summary>
+        public int Line { get; internal set; }
+        /// <summary>
+        /// Column where the error happened, starting from 1. 0 if it's unknown
+        /// </summary>
+        public int Column { get; internal set; }
+
+        internal void SetError(Exception exception)
+        {
+            IsError = true;
+            Message = exception.Message;
+            if (exception is AgentLabSyntaxException syntaxException)
+            {
+                Line = syntaxException.Line;
+                Column = syntaxException.Column;
+                Message = syntaxException.ToString();
+            }
+        }
     }
 
     /// <summary>
@@ -122,10 +142,87 @@ public static class AgentLabCompiler
         }
         catch (Exception ex)
         {
-            result.CompilerStatus.IsError = true;
-            result.CompilerStatus.Message = ex.Message;
+            result.CompilerStatus.SetError(ex);
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Compiles a list of commands, like an object's command pack, into a command pack. No commands at all make an empty pack
+    /// </summary>
+    /// <param name="script">AgentLab code</param>
+    /// <param name="options">Compiler settings</param>
+    /// <returns>Command pack in bytecode</returns>
+    public static CompilerResult CompileCommands(string script, CompilerOptions options)
+    {
+        var result = new CompilerResult() { CompilerOptions = options };
+        try
+        {
+            var tree = new AgentLabParser(new AgentLabLexer(script)).ParseCommands();
+            if (tree == null)
+            {
+                result.Add(options.CommandPack.Construct());
+                return result;
+            }
+
+            var symbolTable = new AgentLabSymbolTableBuilder();
+            symbolTable.BuildBuiltInTypes().BuildActions(options.ActionDefinitionsFile).BuildConditions().BuildFromAst(tree);
+            new AgentLabCompilerNodeVisitor(result, options, symbolTable.GetSymbolTable()).Visit(tree);
+        }
+        catch (Exception ex)
+        {
+            result.CompilerStatus.SetError(ex);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Checks a list of commands, like an object's command pack, for syntax and semantic errors. No commands at all are a valid list
+    /// </summary>
+    /// <param name="script">AgentLab code</param>
+    /// <param name="actionDefinitionsFile">Name of the AgentLab file that contains action definitions</param>
+    /// <returns>Status with the first found error</returns>
+    public static CompilerStatus CheckCommands(string script, string actionDefinitionsFile)
+    {
+        var status = new CompilerStatus();
+        try
+        {
+            var tree = new AgentLabParser(new AgentLabLexer(script)).ParseCommands();
+            if (tree != null)
+            {
+                new AgentLabSymbolTableBuilder().BuildBuiltInTypes().BuildActions(actionDefinitionsFile).BuildConditions().BuildFromAst(tree);
+            }
+        }
+        catch (Exception ex)
+        {
+            status.SetError(ex);
+        }
+
+        return status;
+    }
+
+    /// <summary>
+    /// Checks the script for syntax and semantic errors without compiling it, so resource references don't need to be resolved
+    /// </summary>
+    /// <param name="script">AgentLab code</param>
+    /// <param name="actionDefinitionsFile">Name of the AgentLab file that contains action definitions</param>
+    /// <returns>Status with the first found error</returns>
+    public static CompilerStatus Check(string script, string actionDefinitionsFile)
+    {
+        var status = new CompilerStatus();
+        try
+        {
+            var parser = new AgentLabParser(new AgentLabLexer(script));
+            var tree = parser.Parse();
+            new AgentLabSymbolTableBuilder().BuildBuiltInTypes().BuildActions(actionDefinitionsFile).BuildConditions().BuildFromAst(tree);
+        }
+        catch (Exception ex)
+        {
+            status.SetError(ex);
+        }
+
+        return status;
     }
 }

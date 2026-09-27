@@ -29,21 +29,56 @@ public partial class DocumentCollectionViewModel : DocumentCompositeViewModel
     [ReactiveCommand]
     private void CreateNewItem()
     {
-        var itemIndex = Nodes.Count;
-        var itemCaption = GetItemCaption(itemIndex);
-
+        _isAddingItem = true;
         var data = Property.AddElement();
+        _isAddingItem = false;
         if (data == null)
         {
             return;
         }
-        
+
+        AddItem(data);
+    }
+
+    private void AddItem(PropertyNode data)
+    {
         var editor = EditorDescRegistry.GetDesc(Document, data).Construct();
-        editor.Caption = itemCaption;
+        editor.Caption = GetItemCaption(data.Index ?? Nodes.Count);
         editor.Orientation = Avalonia.Controls.Dock.Left;
         editor.Closed += () => ItemClosed(editor);
         
         AddNode(editor);
+    }
+
+    // Elements can get added or removed from elsewhere, like instances placed or deleted in the viewport
+    protected override void PropertyOnChanged()
+    {
+        base.PropertyOnChanged();
+
+        if (_isAddingItem || !_actuallyRemoved)
+        {
+            return;
+        }
+
+        var elements = Property.Children.ToHashSet();
+        var removed = Nodes.Where(node => !elements.Contains(node.Property)).ToList();
+        foreach (var node in removed)
+        {
+            RemoveNode(node);
+        }
+
+        var shown = Nodes.Select(node => node.Property).ToHashSet();
+        var added = Property.Children.Where(child => !shown.Contains(child)).ToList();
+        foreach (var child in added)
+        {
+            AddItem(child);
+        }
+
+        // Elements put in between move the ones after them to other paths
+        if (removed.Count != 0 || added.Count != 0)
+        {
+            ReindexNodes(0);
+        }
     }
 
     protected override void ApplyEditorAttributes()
@@ -80,6 +115,7 @@ public partial class DocumentCollectionViewModel : DocumentCompositeViewModel
     }
 
     private bool _actuallyRemoved = false;
+    private bool _isAddingItem;
     private bool _indexItemsAsChars;
     private string? _itemPrefix;
 

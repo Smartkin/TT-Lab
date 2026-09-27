@@ -5,8 +5,10 @@ using System.IO;
 using System.Linq;
 using System.Numerics;
 using System.Text.Json;
-using SharpGLTF.Schema2;
+using System.Text.Json.Nodes;
 using TT_Lab.AssetData.Graphics;
+using TT_Lab.AssetData.Graphics.TlModel;
+using TT_Lab.AssetData.Instance.DynamicScenery;
 using TT_Lab.AssetData.Instance.Scenery;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
@@ -20,6 +22,7 @@ using TT_Lab.ViewModels;
 using TT_Lab.ViewModels.Editors;
 using TT_Lab.ViewModels.Editors.PropertyGraph;
 using TT_Lab.ViewModels.Interfaces;
+using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Common.Lights;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces;
@@ -74,6 +77,12 @@ public class SceneryData : AbstractAssetData
     public Byte UnkByte { get; set; }
     
     public Boolean HasLighting { get; set; }
+
+    /// <summary>
+    /// Index and kind of every light in the order the scenery lists them, empty when they're listed kind by kind. Only the Xbox version
+    /// lists them in other orders, which its tree nodes' lights refer to
+    /// </summary>
+    public List<Int32> LightOrder { get; set; } = [];
     
     public List<AmbientLight> AmbientLights { get; set; }
     
@@ -87,8 +96,17 @@ public class SceneryData : AbstractAssetData
 
     protected override void Dispose(Boolean disposing)
     {
-        AssetManager.Get().GetAsset(DynamicScenery).Delete();
-        AssetManager.Get().GetAsset(Collision).Delete();
+        var assetManager = AssetManager.Get();
+        if (DynamicScenery != LabURI.Empty)
+        {
+            assetManager.GetAsset(DynamicScenery).Delete();
+        }
+
+        if (Collision != LabURI.Empty)
+        {
+            assetManager.GetAsset(Collision).Delete();
+        }
+
         AmbientLights.Clear();
         DirectionalLights.Clear();
         PointLights.Clear();
@@ -96,223 +114,239 @@ public class SceneryData : AbstractAssetData
         Sceneries.Clear();
     }
     
-    private const string SCENERY_ROOT_NAME = "SCENERY_ROOT";
-    private const string SCENERY_NODE_START_NAME = "SCENERY_NODE_";
-    private const string SCENERY_LEAF_START_NAME = "SCENERY_LEAF_";
-    private const string LIGHTING_ROOT_NODE_NAME = "LIGHTING_ROOT";
-    private const string DYNAMIC_SCENERY_ROOT_NODE_NAME = "DYNAMIC_SCENERY_ROOT";
-    private const string COLLISION_ROOT_NODE_NAME = "COLLISION_ROOT";
-    private const string AMBIENT_LIGHTS_NODE_NAME = "AMBIENT_LIGHTS";
-    private const string DIRECTIONAL_LIGHTS_NODE_NAME = "DIRECTIONAL_LIGHTS";
-    private const string POINTS_LIGHTS_NODE_NAME = "POINT_LIGHTS";
-    private const string NEGATIVE_LIGHTS_NODE_NAME = "NEGATIVE_LIGHTS";
+    public const string TlmAssetType = "Scenery";
+    public const string TlmKind = "scenery";
+    public const string TreeNodeKind = "tree_node";
+    public const string MeshInstanceKind = "scenery_mesh";
+    public const string LodInstanceKind = "scenery_lod";
+    public const string LodMeshKind = "lod_mesh";
+    public const string LightsKind = "lights";
+    public const string AmbientLightKind = "ambient_light";
+    public const string DirectionalLightKind = "directional_light";
+    public const string PointLightKind = "point_light";
+    public const string NegativeLightKind = "negative_light";
 
-    private void ExportGltf(string path)
-    {
-        var scene = new SharpGLTF.Scenes.SceneBuilder($"TwinsanityScenery_{Owner.Name}");
-        var root = new SharpGLTF.Scenes.NodeBuilder(SCENERY_ROOT_NAME);
-        scene.AddNode(root);
-
-        var dynamicScenery = AssetManager.Get().GetAssetData<DynamicSceneryData>(DynamicScenery).GetInGltfFormat(scene);
-        scene.AddNode(dynamicScenery);
-
-        var collisionNode = new SharpGLTF.Scenes.NodeBuilder(COLLISION_ROOT_NODE_NAME);
-        var collision = AssetManager.Get().GetAssetData<CollisionData>(Collision).GetMesh(collisionNode);
-        scene.AddRigidMesh(collision.Mesh, collisionNode);
-
-        // TODO: Try to use GLTF lights, maybe
-        if (HasLighting)
-        {
-            var lightingRoot = new SharpGLTF.Scenes.NodeBuilder(LIGHTING_ROOT_NODE_NAME);
-            scene.AddNode(lightingRoot);
-
-            if (AmbientLights.Count > 0)
-            {
-                var ambients = lightingRoot.CreateNode(AMBIENT_LIGHTS_NODE_NAME);
-                var ambientIndex = 0;
-                foreach (var ambientLight in AmbientLights)
-                {
-                    var ambientLightNode = ambients.CreateNode($"AMBIENT_{ambientIndex++}")
-                        .WithLocalTranslation(new Vector3(ambientLight.Position.X, ambientLight.Position.Y,
-                            ambientLight.Position.Z));
-                    var ambientJson = new AmbientLightJsonFormat(ambientLight);
-                    ambientLightNode.Extras = System.Text.Json.JsonSerializer.SerializeToNode(ambientJson);
-                }
-            }
-
-            if (DirectionalLights.Count > 0)
-            {
-                var directionals = lightingRoot.CreateNode(DIRECTIONAL_LIGHTS_NODE_NAME);
-                var directionalIndex = 0;
-                foreach (var directionalLight in DirectionalLights)
-                {
-                    var directionalLightNode = directionals.CreateNode($"DIRECTIONAL_{directionalIndex++}")
-                        .WithLocalTranslation(new Vector3(directionalLight.Position.X, directionalLight.Position.Y,
-                            directionalLight.Position.Z))
-                        .WithLocalRotation(new Quaternion(directionalLight.Direction.X,  directionalLight.Direction.Y, directionalLight.Direction.Z, directionalLight.Direction.W));
-                    var directionalJson = new DirectionalLightJsonFormat(directionalLight);
-                    directionalLightNode.Extras = System.Text.Json.JsonSerializer.SerializeToNode(directionalJson);
-                }
-            }
-
-            if (PointLights.Count > 0)
-            {
-                var points = lightingRoot.CreateNode(POINTS_LIGHTS_NODE_NAME);
-                var pointIndex = 0;
-                foreach (var pointLight in PointLights)
-                {
-                    var pointLightNode = points.CreateNode($"POINT_{pointIndex++}")
-                        .WithLocalTranslation(new Vector3(pointLight.Position.X, pointLight.Position.Y,
-                            pointLight.Position.Z));
-                    var pointJson = new PointLightJsonFormat(pointLight);
-                    pointLightNode.Extras = System.Text.Json.JsonSerializer.SerializeToNode(pointJson);
-                }
-            }
-
-            if (NegativeLights.Count > 0)
-            {
-                var negatives = lightingRoot.CreateNode(NEGATIVE_LIGHTS_NODE_NAME);
-                var negativeIndex = 0;
-                foreach (var negativeLight in NegativeLights)
-                {
-                    var negativeLightNode = negatives.CreateNode($"NEGATIVE_{negativeIndex++}")
-                        .WithLocalTranslation(new Vector3(negativeLight.Position.X, negativeLight.Position.Y,
-                            negativeLight.Position.Z));
-                    var negativeJson = new NegativeLightJsonFormat(negativeLight);
-                    negativeLightNode.Extras = System.Text.Json.JsonSerializer.SerializeToNode(negativeJson);
-                }
-            }
-
-            // lightingRoot.WithLocalScale(new Vector3(-1, 1, 1));
-        }
-
-        var sceneryRoot = (SceneryRootData)Sceneries[0];
-        var sceneryList = Sceneries.Skip(1).ToList();
-        BuildSceneryRenderTreeForNode(scene, root, sceneryRoot, ref sceneryList);
-        ExportSceneryNodesToGltf(scene, root, sceneryRoot);
-
-        // root.WithLocalScale(new Vector3(-1, 1, 1));
-        root.Extras = System.Text.Json.JsonSerializer.SerializeToNode(new SceneryRootJsonFormat
-        {
-            FogColor = FogColor,
-            UnkByte = UnkByte,
-            RootData = sceneryRoot
-        });
-        
-        var resultModel = scene.ToGltf2();
-        resultModel.SaveGLB(path);
-    }
-    
-    private void BuildSceneryRenderTreeForNode(SharpGLTF.Scenes.SceneBuilder scene, SharpGLTF.Scenes.NodeBuilder parentNode, SceneryNodeData sceneryNode, ref List<SceneryBaseData> sceneryTree)
-    {
-        foreach (var sceneryType in sceneryNode.SceneryTypes)
-        {
-            if (sceneryType == ITwinScenery.SceneryType.Node)
-            {
-                var childNode = parentNode.CreateNode($"{SCENERY_NODE_START_NAME}{sceneryTree.Count}");
-                var data = (SceneryNodeData)sceneryTree[0];
-                childNode.Extras = System.Text.Json.JsonSerializer.SerializeToNode(data);
-                sceneryTree = sceneryTree.Skip(1).ToList();
-                ExportSceneryNodesToGltf(scene, childNode, data);
-                BuildSceneryRenderTreeForNode(scene, childNode, data, ref sceneryTree);
-            }
-            else if (sceneryType == ITwinScenery.SceneryType.Leaf)
-            {
-                var childNode = parentNode.CreateNode($"{SCENERY_LEAF_START_NAME}{sceneryTree.Count}");
-                var data = sceneryTree[0];
-                childNode.Extras = System.Text.Json.JsonSerializer.SerializeToNode(data);
-                sceneryTree = sceneryTree.Skip(1).ToList();
-                ExportSceneryNodesToGltf(scene, childNode, data);
-            }
-        }
-    }
-
-    private void ExportSceneryNodesToGltf(SharpGLTF.Scenes.SceneBuilder scene, SharpGLTF.Scenes.NodeBuilder parentNode, SceneryBaseData sceneryData)
+    /// <summary>
+    /// Writes the scenery with the tree the game culls it by as a hierarchy of nodes, every placed mesh and LOD under the node that
+    /// culls it. Placed meshes that leave their node's box or aren't under any node get the node they're in when it's read
+    /// </summary>
+    internal TlmFile WriteTlm()
     {
         var assetManager = AssetManager.Get();
-        if (sceneryData.MeshIDs.Count > 0)
+        var file = new TlmFile(TlmAssetType, Owner.Name);
+        var materials = new TlmMaterials(file);
+        var (parents, slots) = GetTreeLinks();
+        var rootData = new JsonObject
         {
-            var index = 0;
-            var meshesNode = parentNode.CreateNode($"{parentNode.Name}_MESHES");
-            foreach (var meshId in sceneryData.MeshIDs)
+            ["FogColor"] = (Int32)FogColor,
+            ["UnkByte"] = (Int32)UnkByte,
+            ["HasLighting"] = HasLighting
+        };
+        if (LightOrder.Count > 0)
+        {
+            rootData["LightOrder"] = TlmJson.ToJson(LightOrder.ToArray());
+        }
+
+        var root = TlmNodes.Create(TlmKind, Owner.Name, rootData);
+        var treeNodes = new JsonObject[Sceneries.Count];
+        for (var treeIndex = 0; treeIndex < Sceneries.Count; treeIndex++)
+        {
+            var treeNode = Sceneries[treeIndex];
+            var parent = parents[treeIndex];
+            var kind = treeNode.GetSceneryType();
+            var sceneryNode = TlmNodes.Create(TreeNodeKind, treeIndex == 0 ? "Scenery Tree" : $"{kind} {treeIndex}", WriteTreeNode(treeNode, slots[treeIndex]));
+            (parent < 0 ? root : treeNodes[parent]).AddChild(sceneryNode);
+            treeNodes[treeIndex] = sceneryNode;
+            for (var i = 0; i < treeNode.MeshIDs.Count; i++)
             {
-                var meshData = assetManager.GetAssetData<MeshData>(meshId);
-                var meshMatrix = sceneryData.MeshModelMatrices[index];
-                var meshNode = meshData.ExportGltf(scene, meshesNode, index.ToString());
-                meshNode.LocalMatrix = meshMatrix.ToSystem();
-                index++;
+                var node = sceneryNode.AddChild(TlmNodes.Create(MeshInstanceKind, $"Mesh {treeIndex}.{i}", new JsonObject
+                {
+                    ["Order"] = i,
+                    ["Matrix"] = TlmJson.ToJson(TlmNodes.ToArray(treeNode.MeshModelMatrices[i].ToSystem())),
+                    ["BoundingBox"] = WriteBoundingBox(treeNode.BoundingBoxes.ElementAtOrDefault(i))
+                }));
+                node.SetTransform(treeNode.MeshModelMatrices[i].ToSystem());
+                if (assetManager.DoesAssetExist(treeNode.MeshIDs[i]))
+                {
+                    node[TlmNodes.MeshKey] = assetManager.GetAssetData<MeshData>(treeNode.MeshIDs[i]).WriteTlmMesh(file, materials);
+                }
+            }
+
+            for (var i = 0; i < treeNode.LodIDs.Count; i++)
+            {
+                var lodData = assetManager.GetAssetData<LodModelData>(treeNode.LodIDs[i]);
+                var node = sceneryNode.AddChild(TlmNodes.Create(LodInstanceKind, $"LOD {treeIndex}.{i}", new JsonObject
+                {
+                    ["Order"] = i,
+                    ["Matrix"] = TlmJson.ToJson(TlmNodes.ToArray(treeNode.LodModelMatrices[i].ToSystem())),
+                    ["BoundingBox"] = WriteBoundingBox(treeNode.BoundingBoxes.ElementAtOrDefault(treeNode.MeshIDs.Count + i)),
+                    ["LodType"] = lodData.Type.ToString(),
+                    ["MinDrawDistance"] = lodData.MinDrawDistance,
+                    ["MaxDrawDistance"] = lodData.MaxDrawDistance,
+                    ["ModelsDrawDistances"] = TlmJson.ToJson(lodData.ModelsDrawDistances)
+                }));
+                node.SetTransform(treeNode.LodModelMatrices[i].ToSystem());
+                for (var level = 0; level < lodData.Meshes.Count; level++)
+                {
+                    var levelNode = node.AddChild(TlmNodes.Create(LodMeshKind, $"LOD {treeIndex}.{i} Level {level}", new JsonObject { ["Level"] = level }));
+                    levelNode[TlmNodes.MeshKey] = assetManager.GetAssetData<MeshData>(lodData.Meshes[level]).WriteTlmMesh(file, materials);
+                }
             }
         }
 
-        if (sceneryData.LodIDs.Count > 0)
+        if (HasLighting)
         {
-            var index = 0;
-            var lodsNode = parentNode.CreateNode($"{parentNode.Name}_LODS");
-            foreach (var lodId in sceneryData.LodIDs)
+            var lights = root.AddChild(TlmNodes.Create(LightsKind, "Lights"));
+            WriteLights(lights, AmbientLights, AmbientLightKind, (light, json) => { });
+            WriteLights(lights, DirectionalLights, DirectionalLightKind, (light, json) =>
             {
-                var lodData = assetManager.GetAssetData<LodModelData>(lodId);
-                var lodNode = lodsNode.CreateNode($"{lodsNode.Name}_LOD_{index}");
-                var lodMatrix = sceneryData.LodModelMatrices[index];
-                lodNode.LocalMatrix = lodMatrix.ToSystem();
-                lodNode.Extras = System.Text.Json.JsonSerializer.SerializeToNode(lodData);
-                var meshIdx = 0;
-                foreach (var meshId in lodData.Meshes)
+                json["UnkShort"] = (Int32)light.UnkShort;
+                json["Direction"] = TlmJson.ToJson(light.Direction);
+            });
+            WriteLights(lights, PointLights, PointLightKind, (light, json) => json["UnkShort"] = (Int32)light.UnkShort);
+            WriteLights(lights, NegativeLights, NegativeLightKind, (light, json) =>
+            {
+                json["UnkVec3"] = TlmJson.ToJson(light.UnkVec3);
+                json["UnkFloat1"] = light.UnkFloat1;
+                json["UnkFloat2"] = light.UnkFloat2;
+                json["UnkUInt1"] = TlmJson.ToJson(light.UnkUInt1);
+                json["UnkUInt2"] = TlmJson.ToJson(light.UnkUInt2);
+                json["UnkUShort1"] = (Int32)light.UnkUShort1;
+                json["UnkUShort2"] = (Int32)light.UnkUShort2;
+            });
+        }
+
+        if (Collision != LabURI.Empty && assetManager.DoesAssetExist(Collision))
+        {
+            root.AddChild(assetManager.GetAssetData<CollisionData>(Collision).WriteTlmNode(file));
+        }
+
+        if (DynamicScenery != LabURI.Empty && assetManager.DoesAssetExist(DynamicScenery))
+        {
+            root.AddChild(assetManager.GetAssetData<DynamicSceneryData>(DynamicScenery).WriteTlmNode(file, materials));
+        }
+
+        file.Root = root;
+        return file;
+    }
+
+    // Parent and child slot of every node of the tree, which is stored with every node's children right after it
+    private (Int32[] Parents, Int32[] Slots) GetTreeLinks()
+    {
+        var parents = Enumerable.Repeat(-1, Sceneries.Count).ToArray();
+        var slots = new Int32[Sceneries.Count];
+        var next = 1;
+        Walk(0);
+        return (parents, slots);
+
+        void Walk(Int32 index)
+        {
+            if (index >= Sceneries.Count || Sceneries[index] is not SceneryNodeData node)
+            {
+                return;
+            }
+
+            for (var slot = 0; slot < node.SceneryTypes.Length && next < Sceneries.Count; slot++)
+            {
+                if (node.SceneryTypes[slot] != ITwinScenery.SceneryType.Node && node.SceneryTypes[slot] != ITwinScenery.SceneryType.Leaf)
                 {
-                    var meshData = assetManager.GetAssetData<MeshData>(meshId);
-                    meshData.ExportGltf(scene, lodNode, $"lod_{meshIdx}");
-                    meshIdx++;
+                    continue;
                 }
 
-                index++;
+                var child = next++;
+                parents[child] = index;
+                slots[child] = slot;
+                Walk(child);
             }
         }
     }
 
-    private void ImportGltf(string path)
+    private static JsonObject WriteTreeNode(SceneryBaseData node, Int32 slot)
     {
-        var importErrored = false;
-        
-        Sceneries.Clear();
-        AmbientLights.Clear();
-        PointLights.Clear();
-        DirectionalLights.Clear();
-        NegativeLights.Clear();
-        var model = ModelRoot.Load(path);
-        var scene = model.DefaultScene;
-
-        var lightsNode = scene.VisualChildren.FirstOrDefault(n => n is { Name: LIGHTING_ROOT_NODE_NAME });
-        HasLighting = lightsNode != null;
-        if (HasLighting)
+        var json = new JsonObject
         {
-            ImportGltfLights(lightsNode!);
+            ["Kind"] = node.GetSceneryType().ToString(),
+            ["Slot"] = slot,
+            ["UnkVec1"] = TlmJson.ToJson(node.UnkVec1),
+            ["UnkVec2"] = TlmJson.ToJson(node.UnkVec2),
+            ["UnkVec3"] = TlmJson.ToJson(node.UnkVec3),
+            ["UnkVec4"] = TlmJson.ToJson(node.UnkVec4),
+            ["LightsEnabler"] = TlmJson.ToJson(node.LightsEnabler)
+        };
+        if (node is SceneryNodeData treeNode)
+        {
+            json["SceneryTypes"] = TlmJson.ToJson(treeNode.SceneryTypes.Select(t => (Int32)t));
         }
 
-        var dynamicSceneryNode = scene.VisualChildren.FirstOrDefault(n => n is { Name: DYNAMIC_SCENERY_ROOT_NODE_NAME });
-        if (dynamicSceneryNode == null)
+        if (node is SceneryRootData root)
         {
-            Log.WriteLine($"Scene {path} does not have {DYNAMIC_SCENERY_ROOT_NODE_NAME} node. No Dynamic Scenery will be loaded.");
+            json["UnkUInt"] = TlmJson.ToJson(root.UnkUInt);
         }
 
-        var sceneryRoot = scene.VisualChildren.FirstOrDefault(n => n is { Name: SCENERY_ROOT_NAME });
-        if (sceneryRoot == null)
-        {
-            Log.WriteLine($"Misconfigured scenery {path}! No root found. Make sure you have {SCENERY_ROOT_NAME} node in your scene!", Log.LogType.Error);
-            importErrored = true;
-        }
+        return json;
+    }
 
-        var collisionRoot = scene.VisualChildren.FirstOrDefault(n => n is { Name: COLLISION_ROOT_NODE_NAME });
-        if (collisionRoot == null)
-        {
-            Log.WriteLine($"Misconfigured scenery {path}! No collision found. Make sure you have {COLLISION_ROOT_NODE_NAME} node in your scene!", Log.LogType.Error);
-            importErrored = true;
-        }
+    private static JsonArray WriteBoundingBox(BoundingBox? box)
+    {
+        return box == null ? [] : TlmJson.ToJson(new[] { box.V1.X, box.V1.Y, box.V1.Z, box.V1.W, box.V2.X, box.V2.Y, box.V2.Z, box.V2.W });
+    }
 
-        if (importErrored)
+    private static void WriteLights<T>(JsonObject parent, List<T> lights, string kind, Action<T, JsonObject> writeExtra) where T : Light
+    {
+        for (var i = 0; i < lights.Count; i++)
         {
-            return;
+            var light = lights[i];
+            var json = new JsonObject
+            {
+                ["Order"] = i,
+                ["PositionW"] = light.Position.W,
+                ["UnkData"] = TlmJson.ToJson(light.UnkData),
+                ["Radius"] = light.Radius,
+                ["Color"] = TlmJson.ToJson(light.Color),
+                ["UnkVec1"] = TlmJson.ToJson(light.UnkVec1),
+                ["UnkVec2"] = TlmJson.ToJson(light.UnkVec2)
+            };
+            writeExtra(light, json);
+            var node = parent.AddChild(TlmNodes.Create(kind, $"{kind} {i}", json));
+            var rotation = light is DirectionalLight directional
+                ? new Quaternion(directional.Direction.X, directional.Direction.Y, directional.Direction.Z, directional.Direction.W)
+                : Quaternion.Identity;
+            node.SetTransform(Matrix4x4.CreateFromQuaternion(rotation) * Matrix4x4.CreateTranslation(light.Position.X, light.Position.Y, light.Position.Z));
         }
+    }
 
-        if (dynamicSceneryNode != null)
+    /// <returns>Whether the file has to be written again: materials made in Blender became the project's</returns>
+    internal Boolean ReadTlm(TlmFile file)
+    {
+        var root = TlmTreeNode.Of(file.Root ?? new JsonObject());
+        var materials = new TlmMaterials(file, Owner);
+        var data = root.Data;
+        FogColor = (UInt32)data.GetInt("FogColor", (Int32)FogColor);
+        UnkByte = (Byte)data.GetInt("UnkByte", UnkByte);
+        LightOrder = data.GetInts("LightOrder").ToList();
+        var nodes = root.Traverse().Skip(1).ToList();
+        var treeIndexes = ReadTree(nodes);
+        ReadLights(nodes);
+        HasLighting = data.GetBool("HasLighting", AmbientLights.Count + DirectionalLights.Count + PointLights.Count + NegativeLights.Count > 0);
+
+        var collisionNodes = nodes.Where(n => n.Kind == CollisionData.TlmKind).ToList();
+        var collision = new Assets.Instance.Collision
+        {
+            Package = Owner.Package,
+            Chunk = Owner.Chunk,
+            InvariantName = $"{Owner.Chunk}_COLLISION",
+            Alias = "Collision",
+            IsInternal = true,
+            InternalOwner = Owner
+        };
+        var collisionData = new CollisionData(collision);
+        collisionData.ReadTlmNodes(file, collisionNodes);
+        collision.SetData(collisionData);
+        AssetManager.Get().AddAsset(collision);
+        Collision = collision.URI;
+
+        var dynamicModels = nodes.Where(n => n.Kind == DynamicSceneryModelData.TlmKind).ToList();
+        if (dynamicModels.Count > 0 || nodes.Any(n => n.Kind == DynamicSceneryData.TlmKind))
         {
             var dynamicScenery = new Assets.Instance.DynamicScenery
             {
@@ -320,270 +354,481 @@ public class SceneryData : AbstractAssetData
                 Chunk = Owner.Chunk,
                 InvariantName = $"{Owner.Chunk}_DYNAMIC_SCENERY",
                 Alias = "Dynamic Scenery",
-                IsInternal = true
+                IsInternal = true,
+                InternalOwner = Owner
             };
-
             var dynamicSceneryData = new DynamicSceneryData(dynamicScenery);
-            dynamicSceneryData.LoadFromGltf(model, dynamicSceneryNode!);
-
+            dynamicSceneryData.ReadTlmNodes(file, materials, dynamicModels);
             dynamicScenery.SetData(dynamicSceneryData);
             AssetManager.Get().AddAsset(dynamicScenery);
-            
             DynamicScenery = dynamicScenery.URI;
         }
+        else
+        {
+            DynamicScenery = LabURI.Empty;
+        }
 
-        var collision = new Assets.Instance.Collision
+        ReadInstances(file, materials, nodes, collisionNodes, dynamicModels, treeIndexes);
+        FixEmptyTreeNodes();
+        return materials.AddedToProject;
+    }
+
+    // The tree is made of the nodes marked as tree nodes, each one a child of the tree node above it. Nodes the game's tree can't
+    // hold (a second root, a ninth child) are left out, what's under them gets placed like anything outside of the tree
+    private Dictionary<TlmTreeNode, Int32> ReadTree(List<TlmTreeNode> nodes)
+    {
+        Sceneries = [];
+        var indexes = new Dictionary<TlmTreeNode, Int32>();
+        var treeNodes = nodes.Where(node => node.Kind == TreeNodeKind).ToList();
+        var isTreeNode = treeNodes.ToHashSet();
+        var root = treeNodes.FirstOrDefault(node => FindAncestor(node.Parent, isTreeNode.Contains) == null);
+        if (root == null)
+        {
+            Sceneries.Add(CreateTreeNode(null, new JsonObject(), ITwinScenery.SceneryType.Root, new Dictionary<Int32, ITwinScenery.SceneryType>()));
+            return indexes;
+        }
+
+        var children = treeNodes.Where(node => node != root)
+            .GroupBy(node => FindAncestor(node.Parent, isTreeNode.Contains))
+            .Where(group => group.Key != null)
+            .ToDictionary(group => group.Key!, group => AssignSlots(group.Key!, group.ToList()));
+        Add(root, true);
+        return indexes;
+
+        void Add(TlmTreeNode node, Boolean isRoot)
+        {
+            var nodeChildren = children.GetValueOrDefault(node) ?? [];
+            var childKinds = nodeChildren.ToDictionary(child => child.Value, child => KindOf(child.Key));
+            indexes[node] = Sceneries.Count;
+            Sceneries.Add(CreateTreeNode(node, node.Data, isRoot ? ITwinScenery.SceneryType.Root : KindOf(node), childKinds));
+            foreach (var child in nodeChildren.OrderBy(child => child.Value))
+            {
+                Add(child.Key, false);
+            }
+        }
+
+        ITwinScenery.SceneryType KindOf(TlmTreeNode node)
+        {
+            return children.GetValueOrDefault(node)?.Count > 0 || node.Data.GetEnum("Kind", ITwinScenery.SceneryType.Leaf) == ITwinScenery.SceneryType.Node
+                ? ITwinScenery.SceneryType.Node
+                : ITwinScenery.SceneryType.Leaf;
+        }
+    }
+
+    private static TlmTreeNode? FindAncestor(TlmTreeNode? node, Func<TlmTreeNode, Boolean> predicate)
+    {
+        while (node != null && !predicate(node))
+        {
+            node = node.Parent;
+        }
+
+        return node;
+    }
+
+    // Children keep the slot they had, the others take the one of the octant they're in or the first free one
+    private static Dictionary<TlmTreeNode, Int32> AssignSlots(TlmTreeNode parent, List<TlmTreeNode> children)
+    {
+        var slots = new Dictionary<TlmTreeNode, Int32>();
+        var used = new Boolean[8];
+        foreach (var child in children)
+        {
+            var slot = child.Data.GetInt("Slot", -1);
+            if (slot is >= 0 and < 8 && !used[slot])
+            {
+                used[slot] = true;
+                slots[child] = slot;
+            }
+        }
+
+        var parentCenter = parent.Data.GetFloats("UnkVec1");
+        foreach (var child in children.Where(child => !slots.ContainsKey(child)))
+        {
+            var center = child.Data.GetFloats("UnkVec1");
+            var octant = parentCenter.Length >= 3 && center.Length >= 3
+                ? (center[0] >= parentCenter[0] ? 1 : 0) | (center[1] >= parentCenter[1] ? 2 : 0) | (center[2] >= parentCenter[2] ? 4 : 0)
+                : -1;
+            var slot = octant >= 0 && !used[octant] ? octant : Array.IndexOf(used, false);
+            if (slot < 0)
+            {
+                continue;
+            }
+
+            used[slot] = true;
+            slots[child] = slot;
+        }
+
+        return slots;
+    }
+
+    private static SceneryBaseData CreateTreeNode(TlmTreeNode? node, JsonObject json, ITwinScenery.SceneryType kind, Dictionary<Int32, ITwinScenery.SceneryType> childKinds)
+    {
+        SceneryBaseData data = kind switch
+        {
+            ITwinScenery.SceneryType.Root => new SceneryRootData { UnkUInt = json.GetUInt("UnkUInt") },
+            ITwinScenery.SceneryType.Node => new SceneryNodeData(),
+            _ => new SceneryLeafData()
+        };
+        if (json["UnkVec2"] != null && json["UnkVec3"] != null)
+        {
+            data.UnkVec1 = json.GetVector4("UnkVec1");
+            data.UnkVec2 = json.GetVector4("UnkVec2");
+            data.UnkVec3 = json.GetVector4("UnkVec3");
+            data.UnkVec4 = json.GetVector4("UnkVec4");
+            var world = node?.WorldMatrix ?? Matrix4x4.Identity;
+            if (!TlmNodes.IsIdentity(world))
+            {
+                // The node was moved with everything under it, its box goes along
+                var corners = Corners(new Vector3(data.UnkVec2.X, data.UnkVec2.Y, data.UnkVec2.Z), new Vector3(data.UnkVec3.X, data.UnkVec3.Y, data.UnkVec3.Z))
+                    .Select(corner => Vector3.Transform(corner, world)).ToList();
+                SetTreeBounds(data, corners.Aggregate(Vector3.Min), corners.Aggregate(Vector3.Max));
+            }
+        }
+        else
+        {
+            // Nodes made outside of TT Lab get the bounds of what gets placed in them
+            data.UnkVec1 = new Vector4(0, 0, 0, 0);
+            data.UnkVec2 = new Vector4(Single.PositiveInfinity, Single.PositiveInfinity, Single.PositiveInfinity, 1);
+            data.UnkVec3 = new Vector4(Single.NegativeInfinity, Single.NegativeInfinity, Single.NegativeInfinity, 1);
+            data.UnkVec4 = new Vector4(0, 0, 0, 0);
+        }
+
+        var lights = json.GetBools("LightsEnabler");
+        data.LightsEnabler = lights.Length == 0 ? Enumerable.Repeat(true, 128).ToArray() : new Boolean[128];
+        Array.Copy(lights, data.LightsEnabler, Math.Min(lights.Length, 128));
+        if (data is SceneryNodeData treeNode)
+        {
+            var types = json.GetInts("SceneryTypes");
+            treeNode.SceneryTypes = Enumerable.Range(0, 8).Select(slot => childKinds.TryGetValue(slot, out var childKind)
+                ? childKind
+                : slot < types.Length && types[slot] != (Int32)ITwinScenery.SceneryType.Node && types[slot] != (Int32)ITwinScenery.SceneryType.Leaf
+                    ? (ITwinScenery.SceneryType)types[slot]
+                    : ITwinScenery.SceneryType.None).ToArray();
+        }
+
+        data.MeshIDs = [];
+        data.LodIDs = [];
+        data.MeshModelMatrices = [];
+        data.LodModelMatrices = [];
+        data.BoundingBoxes = [];
+        return data;
+    }
+
+    // Nodes that got nothing placed in them take a box at their parent's center
+    private void FixEmptyTreeNodes()
+    {
+        var (parents, _) = GetTreeLinks();
+        for (var index = 0; index < Sceneries.Count; index++)
+        {
+            var node = Sceneries[index];
+            if (Single.IsFinite(node.UnkVec2.X))
+            {
+                continue;
+            }
+
+            var center = parents[index] >= 0 ? new Vector3(Sceneries[parents[index]].UnkVec1.X, Sceneries[parents[index]].UnkVec1.Y, Sceneries[parents[index]].UnkVec1.Z) : Vector3.Zero;
+            SetTreeBounds(node, center, center);
+        }
+    }
+
+    private static void SetTreeBounds(SceneryBaseData node, Vector3 min, Vector3 max)
+    {
+        var half = (max - min) / 2;
+        var center = (max + min) / 2;
+        node.UnkVec2 = new Vector4(min.X, min.Y, min.Z, node.UnkVec2.W);
+        node.UnkVec3 = new Vector4(max.X, max.Y, max.Z, node.UnkVec3.W);
+        node.UnkVec4 = new Vector4(half.X, half.Y, half.Z, node.UnkVec4.W);
+        node.UnkVec1 = new Vector4(center.X, center.Y, center.Z, half.Length());
+    }
+
+    private static Vector3[] Corners(Vector3 min, Vector3 max)
+    {
+        return
+        [
+            new Vector3(min.X, min.Y, min.Z), new Vector3(max.X, min.Y, min.Z), new Vector3(min.X, max.Y, min.Z), new Vector3(min.X, min.Y, max.Z),
+            new Vector3(max.X, max.Y, min.Z), new Vector3(max.X, min.Y, max.Z), new Vector3(min.X, max.Y, max.Z), new Vector3(max.X, max.Y, max.Z)
+        ];
+    }
+
+    private void ReadLights(List<TlmTreeNode> nodes)
+    {
+        AmbientLights = ReadLights(nodes, AmbientLightKind, (node, json) => new AmbientLight());
+        PointLights = ReadLights(nodes, PointLightKind, (node, json) => new PointLight { UnkShort = (Int16)json.GetInt("UnkShort") });
+        DirectionalLights = ReadLights(nodes, DirectionalLightKind, (node, json) =>
+        {
+            Matrix4x4.Decompose(node.LocalMatrix, out _, out var rotation, out _);
+            var stored = json.GetVector4("Direction", new Vector4(rotation.X, rotation.Y, rotation.Z, rotation.W));
+            var unchanged = Math.Abs(Quaternion.Dot(rotation, new Quaternion(stored.X, stored.Y, stored.Z, stored.W))) > 0.99999f;
+            return new DirectionalLight
+            {
+                UnkShort = (Int16)json.GetInt("UnkShort"),
+                Direction = unchanged ? stored : new Vector4(rotation.X, rotation.Y, rotation.Z, rotation.W)
+            };
+        });
+        NegativeLights = ReadLights(nodes, NegativeLightKind, (node, json) => new NegativeLight
+        {
+            UnkVec3 = json.GetVector4("UnkVec3"),
+            UnkFloat1 = json.GetFloat("UnkFloat1"),
+            UnkFloat2 = json.GetFloat("UnkFloat2"),
+            UnkUInt1 = json.GetUInt("UnkUInt1"),
+            UnkUInt2 = json.GetUInt("UnkUInt2"),
+            UnkUShort1 = (UInt16)json.GetInt("UnkUShort1"),
+            UnkUShort2 = (UInt16)json.GetInt("UnkUShort2")
+        });
+    }
+
+    private static List<T> ReadLights<T>(List<TlmTreeNode> nodes, string kind, Func<TlmTreeNode, JsonObject, T> create) where T : Light
+    {
+        return nodes.Where(n => n.Kind == kind)
+            .Select((node, index) => (Node: node, Json: node.Data, Index: index))
+            .OrderBy(n => n.Json.GetInt("Order", Int32.MaxValue)).ThenBy(n => n.Index)
+            .Select(n =>
+            {
+                var light = create(n.Node, n.Json);
+                var translation = n.Node.WorldMatrix.Translation;
+                light.Position = new Vector4(translation.X, translation.Y, translation.Z, n.Json.GetFloat("PositionW", 1.0f));
+                light.UnkData = n.Json.GetUInt("UnkData");
+                light.Radius = n.Json.GetFloat("Radius");
+                light.Color = n.Json.GetVector4("Color", new Vector4(1, 1, 1, 1));
+                light.UnkVec1 = n.Json.GetVector4("UnkVec1", new Vector4(0, 0, 0, 1));
+                light.UnkVec2 = n.Json.GetVector4("UnkVec2", new Vector4(0, 0, 0, 1));
+                return light;
+            }).ToList();
+    }
+
+    // Meshes and LODs placed in the scenery. Meshes TT Lab doesn't know are placed meshes too, so new ones can simply be added.
+    // Each stays in the tree node it's under while it wasn't moved or still is in that node's box, the others go to the deepest
+    // node they're in
+    private void ReadInstances(TlmFile file, TlmMaterials materials, List<TlmTreeNode> nodes, List<TlmTreeNode> collisionNodes, List<TlmTreeNode> dynamicModels,
+        Dictionary<TlmTreeNode, Int32> treeIndexes)
+    {
+        var claimed = new HashSet<TlmTreeNode>(collisionNodes.Concat(dynamicModels).SelectMany(node => node.Traverse()));
+        var instances = new List<(TlmTreeNode Node, JsonObject Json, Boolean IsLod, Int32 Index)>();
+        foreach (var node in nodes)
+        {
+            if (claimed.Contains(node))
+            {
+                continue;
+            }
+
+            if (node.Kind == LodInstanceKind)
+            {
+                instances.Add((node, node.Data, true, instances.Count));
+                claimed.UnionWith(node.Traverse());
+            }
+            else if (node.Kind == MeshInstanceKind || node.Mesh != null && node.Kind != LodMeshKind)
+            {
+                instances.Add((node, node.Data, false, instances.Count));
+            }
+        }
+
+        foreach (var (node, json, isLod, index) in instances.OrderBy(i => i.Json.GetInt("Order", Int32.MaxValue)).ThenBy(i => i.Index))
+        {
+            var matrix = TlmNodes.KeepStored(json.GetFloats("Matrix"), GetInstanceMatrix(node), out var unmoved);
+            LodModel? lod = null;
+            Mesh? mesh = null;
+            (Vector3 Min, Vector3 Max)? bounds;
+            if (isLod)
+            {
+                (lod, bounds) = ReadLod(file, materials, node, json, index);
+            }
+            else
+            {
+                if (node.Mesh == null)
+                {
+                    continue;
+                }
+
+                mesh = RigidModelData.ReadTlm<Mesh>(Owner, file, node.Mesh, materials, null, $"SceneryMesh_{index}");
+                bounds = GetBounds(((IAsset)mesh).GetData<MeshData>());
+            }
+
+            var box = GetInstanceBox(json, bounds);
+            var corners = Corners(new Vector3(box.V1.X, box.V1.Y, box.V1.Z), new Vector3(box.V2.X, box.V2.Y, box.V2.Z)).Select(corner => Vector3.Transform(corner, matrix)).ToList();
+            var (min, max) = (corners.Aggregate(Vector3.Min), corners.Aggregate(Vector3.Max));
+            var owner = FindAncestor(node.Parent, treeIndexes.ContainsKey);
+            var treeIndex = owner != null && (unmoved || !HasBounds(treeIndexes[owner]) || Holds(treeIndexes[owner], min, max)) ? treeIndexes[owner] : FindTreeNode(min, max);
+            var treeNode = Sceneries[treeIndex];
+            if (lod != null)
+            {
+                treeNode.LodIDs.Add(lod.URI);
+                treeNode.LodModelMatrices.Add(matrix.ToTwin());
+                treeNode.BoundingBoxes.Add(box);
+            }
+            else
+            {
+                treeNode.MeshIDs.Add(mesh!.URI);
+                treeNode.MeshModelMatrices.Add(matrix.ToTwin());
+                // Meshes come before LODs in the list of boxes
+                treeNode.BoundingBoxes.Insert(treeNode.MeshIDs.Count - 1, box);
+            }
+
+            GrowTreeBounds(treeIndex, min, max);
+        }
+    }
+
+    // Placed meshes keep the exact matrix they were written with while nothing above them moved
+    private static Matrix4x4 GetInstanceMatrix(TlmTreeNode node)
+    {
+        var parent = node.Parent;
+        while (parent != null && TlmNodes.IsIdentity(parent.LocalMatrix))
+        {
+            parent = parent.Parent;
+        }
+
+        return parent == null ? node.LocalMatrix : node.WorldMatrix;
+    }
+
+    private (LodModel Lod, (Vector3 Min, Vector3 Max)? Bounds) ReadLod(TlmFile file, TlmMaterials materials, TlmTreeNode node, JsonObject json, Int32 index)
+    {
+        var lod = new LodModel
         {
             Package = Owner.Package,
-            Chunk = Owner.Chunk,
-            InvariantName = $"{Owner.Chunk}_COLLISION",
-            Alias = "Collision",
-            IsInternal = true
+            InvariantName = $"{Owner.Name}_LOD_{index}",
+            Alias = $"LOD {index}",
+            IsInternal = true,
+            InternalOwner = Owner
         };
-        var collisionData = new CollisionData(collision);
-        collisionData.LoadFromGltf(model.LogicalMeshes.Where(m => m is {Name: "STATIC_COLLISION_MESH"}).ToList());
-        
-        collision.SetData(collisionData);
-        AssetManager.Get().AddAsset(collision);
+        var lodData = new LodModelData(lod)
+        {
+            Type = json.GetEnum("LodType", Enums.LodType.COMPRESSED),
+            MinDrawDistance = json.GetInt("MinDrawDistance"),
+            MaxDrawDistance = json.GetInt("MaxDrawDistance", UInt16.MaxValue),
+            Meshes = []
+        };
+        var distances = json.GetInts("ModelsDrawDistances");
+        lodData.ModelsDrawDistances = distances.Length == 3 ? distances : new Int32[3];
+        (Vector3 Min, Vector3 Max)? bounds = null;
+        var levels = node.Traverse().Where(n => n != node && n.Mesh != null)
+            .Select((levelNode, levelIndex) => (Node: levelNode, Level: levelNode.HasData ? levelNode.Data.GetInt("Level", Int32.MaxValue) : Int32.MaxValue, Index: levelIndex))
+            .OrderBy(l => l.Level).ThenBy(l => l.Index);
+        foreach (var (levelNode, _, levelIndex) in levels)
+        {
+            var mesh = RigidModelData.ReadTlm<Mesh>(Owner, file, levelNode.Mesh!, materials, levelNode.GetBakedTransform(node), $"LOD_{index}_{levelIndex}");
+            lodData.Meshes.Add(mesh.URI);
+            bounds ??= GetBounds(((IAsset)mesh).GetData<MeshData>());
+        }
 
-        Collision = collision.URI;
-        
-        ImportGltfSceneryRootData(sceneryRoot!, model);
+        lod.SetData(lodData);
+        AssetManager.Get().TryAddAsset(lod);
+        return (lod, bounds);
     }
 
-    private void ImportGltfLights(Node lightsRoot)
+    private static (Vector3 Min, Vector3 Max)? GetBounds(MeshData mesh)
     {
-        var ambientLights = lightsRoot.VisualChildren.FirstOrDefault(n => n is { Name : AMBIENT_LIGHTS_NODE_NAME });
-        if (ambientLights != null)
+        var modelData = AssetManager.Get().GetAssetData<ModelData>(mesh.Model);
+        var positions = modelData.Vertexes.SelectMany(v => v).Select(v => new Vector3(v.Position.X, v.Position.Y, v.Position.Z)).ToList();
+        if (positions.Count == 0)
         {
-            foreach (var ambientLightNode in ambientLights.VisualChildren)
-            {
-                var ambientLightJson = ambientLightNode.Extras.Deserialize<AmbientLightJsonFormat>()!;
-                var ambientLight = new AmbientLight
-                {
-                    Position = ambientLightNode.LocalTransform.Translation.ToTwin(),
-                    Color = ambientLightJson.Color,
-                    UnkData = ambientLightJson.UnkData,
-                    Radius = ambientLightJson.Radius,
-                    UnkVec1 = ambientLightJson.UnkVec1,
-                    UnkVec2 = ambientLightJson.UnkVec2
-                };
-                AmbientLights.Add(ambientLight);
-            }
+            return null;
         }
 
-        var pointLights = lightsRoot.VisualChildren.FirstOrDefault(n => n is { Name : POINTS_LIGHTS_NODE_NAME });
-        if (pointLights != null)
+        return (positions.Aggregate(Vector3.Min), positions.Aggregate(Vector3.Max));
+    }
+
+    // The instance's box is the mesh's box, kept as stored while it still holds the mesh
+    private static BoundingBox GetInstanceBox(JsonObject json, (Vector3 Min, Vector3 Max)? meshBounds)
+    {
+        var stored = json.GetFloats("BoundingBox");
+        if (stored.Length == 8 && (meshBounds == null || Contains(stored, meshBounds.Value)))
         {
-            foreach (var pointLightNode in pointLights.VisualChildren)
-            {
-                var pointLightJson = pointLightNode.Extras.Deserialize<PointLightJsonFormat>()!;
-                var pointLight = new PointLight
-                {
-                    Position = pointLightNode.LocalTransform.Translation.ToTwin(),
-                    Color = pointLightJson.Color,
-                    UnkData = pointLightJson.UnkData,
-                    Radius = pointLightJson.Radius,
-                    UnkVec1 = pointLightJson.UnkVec1,
-                    UnkVec2 = pointLightJson.UnkVec2,
-                    UnkShort = pointLightJson.UnkShort
-                };
-                PointLights.Add(pointLight);
-            }
+            return new BoundingBox { V1 = new Vector4(stored[0], stored[1], stored[2], stored[3]), V2 = new Vector4(stored[4], stored[5], stored[6], stored[7]) };
         }
-        
-        var directionalLights = lightsRoot.VisualChildren.FirstOrDefault(n => n is { Name : DIRECTIONAL_LIGHTS_NODE_NAME });
-        if (directionalLights != null)
+
+        var (min, max) = meshBounds ?? (Vector3.Zero, Vector3.Zero);
+        var radius = Vector3.Max(Vector3.Abs(min), Vector3.Abs(max)).Length();
+        return new BoundingBox { V1 = new Vector4(min.X, min.Y, min.Z, radius), V2 = new Vector4(max.X, max.Y, max.Z, 0) };
+    }
+
+    // The game's boxes can be a hair smaller than their meshes
+    private static Boolean Contains(Single[] box, (Vector3 Min, Vector3 Max) bounds)
+    {
+        var min = new Vector3(box[0], box[1], box[2]);
+        var max = new Vector3(box[4], box[5], box[6]);
+        var tolerance = Vector3.Max(new Vector3(1e-4f), (max - min) * 1e-4f);
+        return Vector3.Min(min, bounds.Min + tolerance) == min && Vector3.Max(max, bounds.Max - tolerance) == max;
+    }
+
+    private Boolean HasBounds(Int32 treeIndex) => Single.IsFinite(Sceneries[treeIndex].UnkVec2.X);
+
+    // Whether the tree node's bounds hold the box, give or take the rounding of placing it again
+    private Boolean Holds(Int32 treeIndex, Vector3 min, Vector3 max)
+    {
+        if (!HasBounds(treeIndex))
         {
-            foreach (var directionalLightNode in directionalLights.VisualChildren)
-            {
-                var directionalLightJson = directionalLightNode.Extras.Deserialize<DirectionalLightJsonFormat>()!;
-                var directionalLight = new DirectionalLight
-                {
-                    Position = directionalLightNode.LocalTransform.Translation.ToTwin(),
-                    Color = directionalLightJson.Color,
-                    UnkData = directionalLightJson.UnkData,
-                    Radius = directionalLightJson.Radius,
-                    UnkVec1 = directionalLightJson.UnkVec1,
-                    UnkVec2 = directionalLightJson.UnkVec2,
-                    UnkShort = directionalLightJson.UnkShort,
-                    Direction = directionalLightNode.LocalTransform.Rotation.ToTwin()
-                };
-                DirectionalLights.Add(directionalLight);
-            }
+            return false;
         }
-        
-        var negativeLights = lightsRoot.VisualChildren.FirstOrDefault(n => n is { Name : NEGATIVE_LIGHTS_NODE_NAME });
-        if (negativeLights != null)
+
+        var node = Sceneries[treeIndex];
+        var nodeMin = new Vector3(node.UnkVec2.X, node.UnkVec2.Y, node.UnkVec2.Z);
+        var nodeMax = new Vector3(node.UnkVec3.X, node.UnkVec3.Y, node.UnkVec3.Z);
+
+        var slack = Vector3.Max(new Vector3(1e-4f), Vector3.Max(Vector3.Abs(nodeMin), Vector3.Abs(nodeMax)) * 1e-5f);
+        return Vector3.Min(nodeMin, min + slack) == nodeMin && Vector3.Max(nodeMax, max - slack) == nodeMax;
+    }
+
+    // UnkVec2 and UnkVec3 are a tree node's bounds, UnkVec4 its half size and UnkVec1 its center with the radius of its bounds.
+    // Bounds that don't hold what the node draws anymore grow, up to the root, so nothing gets culled while it's on screen.
+    // Placing the box again isn't exact, it has to stick out by more than that
+    private void GrowTreeBounds(Int32 treeIndex, Vector3 min, Vector3 max)
+    {
+        var (parents, _) = GetTreeLinks();
+        for (var index = treeIndex; index >= 0; index = parents[index])
         {
-            foreach (var negativeLightNode in negativeLights.VisualChildren)
+            var node = Sceneries[index];
+            if (Holds(index, min, max))
             {
-                var negativeLightJson = negativeLightNode.Extras.Deserialize<NegativeLightJsonFormat>()!;
-                var negativeLight = new NegativeLight
-                {
-                    Position = negativeLightNode.LocalTransform.Translation.ToTwin(),
-                    Color = negativeLightJson.Color,
-                    UnkData = negativeLightJson.UnkData,
-                    Radius = negativeLightJson.Radius,
-                    UnkVec1 = negativeLightJson.UnkVec1,
-                    UnkVec2 = negativeLightJson.UnkVec2,
-                    UnkFloat1 = negativeLightJson.UnkFloat1,
-                    UnkFloat2 = negativeLightJson.UnkFloat2,
-                };
-                NegativeLights.Add(negativeLight);
+                return;
             }
+
+            var oldMin = new Vector3(node.UnkVec2.X, node.UnkVec2.Y, node.UnkVec2.Z);
+            var oldMax = new Vector3(node.UnkVec3.X, node.UnkVec3.Y, node.UnkVec3.Z);
+            SetTreeBounds(node, Vector3.Min(oldMin, min), Vector3.Max(oldMax, max));
         }
     }
 
-    private void ImportGltfSceneryRootData(Node sceneryRoot, ModelRoot model)
+    // The deepest node of the tree whose bounds hold the box, or its center when no node holds all of it, the root when none do
+    private Int32 FindTreeNode(Vector3 min, Vector3 max)
     {
-        var initialData = sceneryRoot.Extras.Deserialize<SceneryRootJsonFormat>()!;
-        UnkByte = initialData.UnkByte;
-        FogColor = initialData.FogColor;
-
-        initialData.RootData.SceneryTypes = [
-            ITwinScenery.SceneryType.None,
-            ITwinScenery.SceneryType.None,
-            ITwinScenery.SceneryType.None,
-            ITwinScenery.SceneryType.None,
-            ITwinScenery.SceneryType.None,
-            ITwinScenery.SceneryType.None,
-            ITwinScenery.SceneryType.None,
-            ITwinScenery.SceneryType.None
-        ];
-        initialData.RootData.MeshIDs = [];
-        initialData.RootData.LodIDs = [];
-        initialData.RootData.MeshModelMatrices = [];
-        initialData.RootData.LodModelMatrices = [];
-        Sceneries.Add(initialData.RootData);
-        var sceneryTree = Sceneries;
-        ImportGltfSceneryNodeData(sceneryRoot, (SceneryNodeData)Sceneries[0], ref sceneryTree, model);
-        ImportGltfMeshesAndLods(sceneryRoot, Sceneries[0], model);
-    }
-
-    private void ImportGltfSceneryNodeData(Node sceneryNode, SceneryNodeData parentNodeData, ref List<SceneryBaseData> sceneryTree, ModelRoot model)
-    {
-        var sceneryTypeIndex = 0;
-        foreach (var sceneryNodeChild in sceneryNode.VisualChildren)
+        var (parents, _) = GetTreeLinks();
+        var center = (min + max) / 2;
+        var best = (Index: 0, Depth: -1, Whole: false);
+        for (var index = 0; index < Sceneries.Count; index++)
         {
-            if (sceneryNodeChild.Name.EndsWith("_LODS") ||
-                sceneryNodeChild.Name.EndsWith("_MESHES"))
+            var whole = Holds(index, min, max);
+            if (!whole && !Holds(index, center, center))
             {
                 continue;
             }
-            
-            if (sceneryNodeChild.Name.StartsWith(SCENERY_NODE_START_NAME))
+
+            var depth = 0;
+            for (var parent = parents[index]; parent >= 0; parent = parents[parent])
             {
-                parentNodeData.SceneryTypes[sceneryTypeIndex] = ITwinScenery.SceneryType.Node;
-                var nodeData = sceneryNodeChild.Extras.Deserialize<SceneryNodeData>()!;
-                nodeData.MeshIDs = [];
-                nodeData.LodIDs = [];
-                nodeData.MeshModelMatrices = [];
-                nodeData.LodModelMatrices = [];
-                nodeData.SceneryTypes = [
-                    ITwinScenery.SceneryType.None,
-                    ITwinScenery.SceneryType.None,
-                    ITwinScenery.SceneryType.None,
-                    ITwinScenery.SceneryType.None,
-                    ITwinScenery.SceneryType.None,
-                    ITwinScenery.SceneryType.None,
-                    ITwinScenery.SceneryType.None,
-                    ITwinScenery.SceneryType.None
-                ];
-                sceneryTree.Add(nodeData);
-                ImportGltfSceneryNodeData(sceneryNodeChild, nodeData, ref sceneryTree, model);
-                ImportGltfMeshesAndLods(sceneryNodeChild, nodeData, model);
+                depth++;
             }
-            else if (sceneryNodeChild.Name.StartsWith(SCENERY_LEAF_START_NAME))
+
+            if (whole && !best.Whole || whole == best.Whole && depth > best.Depth)
             {
-                parentNodeData.SceneryTypes[sceneryTypeIndex] = ITwinScenery.SceneryType.Leaf;
-                var leafData = sceneryNodeChild.Extras.Deserialize<SceneryLeafData>()!;
-                leafData.MeshIDs = [];
-                leafData.LodIDs = [];
-                leafData.MeshModelMatrices = [];
-                leafData.LodModelMatrices = [];
-                sceneryTree.Add(leafData);
-                ImportGltfMeshesAndLods(sceneryNodeChild, leafData, model);
+                best = (index, depth, whole);
             }
-            
-            sceneryTypeIndex++;
-            if (sceneryTypeIndex <= 8)
-            {
-                continue;
-            }
-            
-            Log.WriteLine($"Scenery node {sceneryNode.Name} has more than 8 child nodes! Aborting its processing...", Log.LogType.Warning);
-            break;
         }
-    }
 
-    private void ImportGltfMeshesAndLods(Node sceneryNode, SceneryBaseData sceneryData, ModelRoot model)
-    {
-        var meshesNode = sceneryNode.VisualChildren.FirstOrDefault(n => n.Name == $"{sceneryNode.Name}_MESHES");
-        if (meshesNode != null)
-        {
-            ImportGltfMeshes(meshesNode, sceneryData, model);
-        }
-        
-        var lodsNode = sceneryNode.VisualChildren.FirstOrDefault(n => n.Name == $"{sceneryNode.Name}_LODS");
-        if (lodsNode != null)
-        {
-            ImportGltfLods(lodsNode, sceneryData, model);
-        }
-    }
-
-    private void ImportGltfMeshes(Node meshesNode, SceneryBaseData sceneryData, ModelRoot sceneryModel)
-    {
-        foreach (var meshNode in meshesNode.VisualChildren)
-        {
-            sceneryData.MeshModelMatrices.Add(meshNode.LocalMatrix.ToTwin());
-            var mesh = RigidModelData.ImportGltf<Mesh>(Owner, sceneryModel, meshNode);
-            sceneryData.MeshIDs.Add(mesh.URI);
-        }
-    }
-
-    private void ImportGltfLods(Node lodsNode, SceneryBaseData sceneryData, ModelRoot model)
-    {
-        var assetManager = AssetManager.Get();
-
-        foreach (var lodNode in lodsNode.VisualChildren)
-        {
-            sceneryData.LodModelMatrices.Add(lodNode.LocalMatrix.ToTwin());
-
-            var lod = new LodModel
-            {
-                Package = Owner.Package,
-                InvariantName = $"{lodNode.Name}_LOD_MODEL",
-                Alias = $"{lodNode.Name}_LOD_MODEL",
-                IsInternal = true
-            };
-            
-            var lodData = lodNode.Extras.Deserialize<LodModelData>()!;
-            lodData.Meshes = [];
-            lodData.SetOwner(Owner);
-
-            foreach (var meshNode in lodNode.VisualChildren)
-            {
-                var labMesh = RigidModelData.ImportGltf<Mesh>(Owner, model, meshNode);
-                lodData.Meshes.Add(labMesh.URI);
-            }
-            
-            lod.SetData(lodData);
-            
-            assetManager.TryAddAsset(lod);
-            
-            sceneryData.LodIDs.Add(lod.URI);
-        }
+        return best.Index;
     }
 
     protected override void SaveInternal(String dataPath, JsonSerializerSettings? settings = null)
     {
-        ExportGltf(dataPath);
+        WriteTlm().Save(dataPath);
     }
 
     protected override void LoadInternal(String dataPath, JsonSerializerSettings? settings = null)
     {
-        ImportGltf(dataPath);
+        var addedMaterials = ReadTlm(TlmFile.Load(dataPath));
+        DisposedValue = false;
+        if (addedMaterials)
+        {
+            // Materials made in Blender are referred to from now on
+            SaveInternal(dataPath, settings);
+        }
     }
 
     public override void Import(LabURI package, String? variant, Int32? layoutId)
@@ -599,6 +844,7 @@ public class SceneryData : AbstractAssetData
             DirectionalLights = CloneUtils.DeepClone(scenery.DirectionalLights);
             PointLights = CloneUtils.DeepClone(scenery.PointLights);
             NegativeLights = CloneUtils.DeepClone(scenery.NegativeLights);
+            LightOrder = [..scenery.LightOrder];
         }
         
         Sceneries = new List<SceneryBaseData>();
@@ -642,6 +888,12 @@ public class SceneryData : AbstractAssetData
             foreach (var negative in NegativeLights)
             {
                 negative.Write(writer);
+            }
+
+            writer.Write(LightOrder.Count);
+            foreach (var value in LightOrder)
+            {
+                writer.Write(value);
             }
         }
         writer.Write(Sceneries.Count);
@@ -695,7 +947,7 @@ public class SceneryData : AbstractAssetData
         {
             IsSelectable = false
         };
-        result.Add(new ViewportObject(editingObject, $"SCENERY_{property.Path}", property));
+        result.Add(new ViewportObject(editingObject, $"SCENERY_{property.Path}", property) { Category = ViewportObjectCategory.Scenery });
         
         if (DynamicScenery != LabURI.Empty)
         {
@@ -705,7 +957,7 @@ public class SceneryData : AbstractAssetData
             {
                 IsSelectable = false
             };
-            result.Add(new ViewportObject(dynamicSceneryEditingObject, $"DYNAMIC_SCENERY_{property.Path}", property));
+            result.Add(new ViewportObject(dynamicSceneryEditingObject, $"DYNAMIC_SCENERY_{property.Path}", property) { Category = ViewportObjectCategory.DynamicScenery });
         }
 
         if (Collision != LabURI.Empty)
@@ -716,104 +968,10 @@ public class SceneryData : AbstractAssetData
                 {
                     IsSelectable = false
                 };
-            result.Add(new ViewportObject(collisionEditing, $"COLLISION_{property.Path}", property, AssetManager.Get().GetAssetData(Collision)));
+            result.Add(new ViewportObject(collisionEditing, $"COLLISION_{property.Path}", property, AssetManager.Get().GetAssetData(Collision)) { Category = ViewportObjectCategory.Collision });
             collisionEditing.IsVisible = false;
         }
         
         return result;
     }
-}
-
-public abstract class LightJsonFormat
-{
-    [System.Text.Json.Serialization.JsonConstructor]
-    protected LightJsonFormat() { }
-
-    protected LightJsonFormat(Light light)
-    {
-        UnkData = light.UnkData;
-        Radius = light.Radius;
-        Color = light.Color;
-        UnkVec1 = light.UnkVec1;
-        UnkVec2 = light.UnkVec2;
-    }
-
-    public UInt32 UnkData { get; set; }
-    public Single Radius  { get; set; }
-
-    [System.Text.Json.Serialization.JsonConverter(typeof(JsonVector4Converter))]
-    public Vector4 Color { get; set; } = new(1, 1, 1, 1);
-
-    [System.Text.Json.Serialization.JsonConverter(typeof(JsonVector4Converter))]
-    public Vector4 UnkVec1 { get; set; } = new(0, 0, 0, 1);
-
-    [System.Text.Json.Serialization.JsonConverter(typeof(JsonVector4Converter))]
-    public Vector4 UnkVec2 { get; set; } = new(0, 0, 0, 1);
-}
-
-public class AmbientLightJsonFormat : LightJsonFormat
-{
-    [System.Text.Json.Serialization.JsonConstructor]
-    private AmbientLightJsonFormat() { }
-
-    public AmbientLightJsonFormat(AmbientLight light) : base(light) { }
-}
-
-public class DirectionalLightJsonFormat : LightJsonFormat
-{
-    [System.Text.Json.Serialization.JsonConstructor]
-    private DirectionalLightJsonFormat() { }
-
-    public DirectionalLightJsonFormat(DirectionalLight light) : base(light)
-    {
-        UnkShort = light.UnkShort;
-    }
-
-    public Int16 UnkShort { get; set; }
-}
-
-public class PointLightJsonFormat : LightJsonFormat
-{
-    [System.Text.Json.Serialization.JsonConstructor]
-    private PointLightJsonFormat() { }
-
-    public PointLightJsonFormat(PointLight light) : base(light)
-    {
-        UnkShort = light.UnkShort;
-    }
-    
-    public Int16 UnkShort { get; set; }
-}
-
-public class NegativeLightJsonFormat : LightJsonFormat
-{
-    [System.Text.Json.Serialization.JsonConstructor]
-    private NegativeLightJsonFormat() { }
-
-    public NegativeLightJsonFormat(NegativeLight light) : base(light)
-    {
-        UnkVec3 = light.UnkVec3;
-        UnkFloat1 = light.UnkFloat1;
-        UnkFloat2 = light.UnkFloat2;
-        UnkUInt1 = light.UnkUInt1;
-        UnkUInt2 = light.UnkUInt2;
-        UnkUShort1 = light.UnkUShort1;
-        UnkUShort2 = light.UnkUShort2;
-    }
-    
-    [System.Text.Json.Serialization.JsonConverter(typeof(JsonVector4Converter))]
-    public Vector4 UnkVec3 { get; set; } = new(0, 0, 0, 1);
-    public Single UnkFloat1 { get; set; }
-    public Single UnkFloat2 { get; set; }
-    public UInt32 UnkUInt1 { get; set; }
-    public UInt32 UnkUInt2 { get; set; }
-    public UInt16 UnkUShort1 { get; set; }
-    public UInt16 UnkUShort2 { get; set; }
-}
-
-public class SceneryRootJsonFormat
-{
-    public SceneryRootData RootData { get; set; }
-    public UInt32 FogColor { get; set; }
-    public Byte UnkByte { get; set; }
 }

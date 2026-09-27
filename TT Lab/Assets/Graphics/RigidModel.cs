@@ -12,7 +12,7 @@ namespace TT_Lab.Assets.Graphics;
 public class RigidModel : SerializableAsset
 {
     protected override bool SetIdFromDataHash => true;
-    protected override string DataExt => ".glb";
+    protected override string DataExt => ".tlm";
     
     public override UInt32 Section => Constants.GRAPHICS_RIGID_MODELS_SECTION;
     public override String IconPath => "Mesh.png";

@@ -12,7 +12,7 @@ namespace TT_Lab.Assets.Graphics;
 public class Skin : SerializableAsset
 {
     protected override bool SetIdFromDataHash => true;
-    protected override String DataExt => ".glb";
+    protected override String DataExt => ".tlm";
     public override UInt32 Section => Constants.GRAPHICS_SKINS_SECTION;
     public override String IconPath => "Skin_Mesh.png";
 

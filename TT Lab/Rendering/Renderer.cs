@@ -9,17 +9,16 @@ using Avalonia;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using GlmSharp;
-using ImGuiNET;
 using Silk.NET.Core.Contexts;
 using Silk.NET.Input;
 using Silk.NET.Maths;
 using Silk.NET.OpenGL;
 using Silk.NET.Windowing;
 using TT_Lab.Rendering.Buffers;
-using TT_Lab.Rendering.ImGuiUtil;
 using TT_Lab.Rendering.Objects;
 using TT_Lab.Rendering.Passes;
 using TT_Lab.Rendering.Services;
+using TT_Lab.Rendering.Shaders;
 using Action = System.Action;
 using Buffer = System.Buffer;
 
@@ -32,19 +31,20 @@ public class Renderer : IView
     private readonly PassService _passService;
     private readonly BatchStorage _batchStorage;
     private readonly List<Renderable> _updaters = [];
+    private readonly List<IInstancedRenderable> _instancedRenderables = [];
+    private readonly List<IPrimitiveRenderable> _primitiveRenderables = [];
+    private readonly object _renderablesLock = new();
     private VertexArrayObject<float, float> _emptyVao;
     private IInputContext? _inputContext;
     private FrameBuffer[] _pongBuffers;
     private FrameBuffer _screenBuffer;
     private ivec2 _frameBufferSize => new((int)_renderContext.ViewportSize.x, (int)_renderContext.ViewportSize.y);
-    private ImGuiController? _imgui;
     private readonly Stopwatch _renderTime = new();
     private readonly Stopwatch _updateWatch = new();
     private bool _isInitialized;
     private byte[] _framebufferData = [];
     private object _updatersLock = new();
     private object _framebufferWriteLock = new();
-    private static object _imguiLock = new();
     private int _readBuffer = 0;
     private int _writeBuffer = 1;
 
@@ -64,12 +64,25 @@ public class Renderer : IView
 
     private void RenderContextOnResizeFramebuffer()
     {
+        RecreateRenderBuffers();
+    }
+
+    private void RecreateRenderBuffers()
+    {
         DeleteRenderBuffer();
         SetupRenderBuffer();
+
+        Resize?.Invoke(new Vector2D<Int32>(_frameBufferSize.x, _frameBufferSize.y));
+        FramebufferResize?.Invoke(new Vector2D<Int32>(_frameBufferSize.x, _frameBufferSize.y));
     }
 
     private void BatchStorageOnNewBatchCreated(RenderBatch renderBatch)
     {
+        lock (_renderablesLock)
+        {
+            _instancedRenderables.Add(renderBatch);
+        }
+
         _passService.RegisterRenderableInPasses(renderBatch, renderBatch.GetPriorityPasses());
         renderBatch.RequestPassSwitch += () =>
         {
@@ -78,35 +91,16 @@ public class Renderer : IView
         };
     }
 
-    public void InitInput(IInputContext inputContext, bool useImgui = true)
+    public void InitInput(IInputContext inputContext)
     {
         _inputContext = inputContext;
-        if (!useImgui)
-        {
-            return;
-        }
-        
-        _renderContext.QueueRenderAction(() =>
-        {
-            lock (_imguiLock)
-            {
-                _imgui = new ImGuiController(_renderContext, this, _inputContext);
-            }
-        });
     }
     
     public ivec2 GetFrameBufferSize() => _frameBufferSize;
 
     public void SetFrameBufferSize(ivec2 frameBufferSize)
     {
-        _renderContext.QueueRenderAction(() =>
-        {
-            DeleteRenderBuffer();
-            SetupRenderBuffer();
-            
-            Resize?.Invoke(new Vector2D<Int32>(_frameBufferSize.x, _frameBufferSize.y));
-            FramebufferResize?.Invoke(new Vector2D<Int32>(_frameBufferSize.x, _frameBufferSize.y));
-        });
+        _renderContext.QueueRenderAction(RecreateRenderBuffers);
     }
 
     private void SubscribeToRenderableEvents(Renderable renderable)
@@ -121,18 +115,17 @@ public class Renderer : IView
         renderable.ChildRemoved -= RenderableOnChildRemoved;
     }
 
+    // Registering subscribes to the renderable's events itself, subscribing here as well used to register the grandchildren twice
     private void RenderableOnChildAdded(Renderable child)
     {
         RegisterForRendering(child);
         RegisterForUpdating(child);
-        SubscribeToRenderableEvents(child);
     }
     
     private void RenderableOnChildRemoved(Renderable child)
     {
         UnregisterFromRendering(child);
         UnregisterForUpdating(child);
-        UnsubscribeFromRenderableEvents(child);
     }
 
     public void RegisterForRendering(Renderable renderable, bool initBatchStorage = false)
@@ -147,6 +140,19 @@ public class Renderer : IView
             _passService.RegisterRenderableInPasses(renderable, renderable.GetPriorityPasses());
         }
 
+        lock (_renderablesLock)
+        {
+            if (renderable is IInstancedRenderable instanced && renderable is not RenderBatch)
+            {
+                _instancedRenderables.Add(instanced);
+            }
+
+            if (renderable is IPrimitiveRenderable primitives)
+            {
+                _primitiveRenderables.Add(primitives);
+            }
+        }
+
         foreach (var renderChild in renderable.Children)
         {
             RegisterForRendering(renderChild);
@@ -155,6 +161,7 @@ public class Renderer : IView
 
     private void UnregisterFromRendering(Renderable renderable)
     {
+        UnsubscribeFromRenderableEvents(renderable);
         if (renderable is Mesh mesh)
         {
             _batchStorage.RemoveMeshFromBatch(mesh);
@@ -162,6 +169,19 @@ public class Renderer : IView
         else
         {
             _passService.UnregisterRenderableInPasses(renderable);
+        }
+
+        lock (_renderablesLock)
+        {
+            if (renderable is IInstancedRenderable instanced && renderable is not RenderBatch)
+            {
+                _instancedRenderables.Remove(instanced);
+            }
+
+            if (renderable is IPrimitiveRenderable primitives)
+            {
+                _primitiveRenderables.Remove(primitives);
+            }
         }
 
         foreach (var renderChild in renderable.Children)
@@ -219,16 +239,21 @@ public class Renderer : IView
         {
             _isInitialized = true;
             _renderTime.Start();
-            SetupRenderBuffer();
         }
         
         if (_frameBufferSize == ivec2.Ones)
         {
             return;
         }
-        
-        _renderContext.Gl.ClearColor(Color.DimGray);
-        _renderContext.Gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit | ClearBufferMask.StencilBufferBit);
+
+        var gl = _renderContext.Gl;
+        _renderContext.State.Reset();
+        gl.ClearColor(Color.DimGray);
+        gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit | ClearBufferMask.StencilBufferBit);
+        _renderContext.FrameCamera = Camera?.GetFrameCamera(true) ?? default;
+        _pongBuffers[_readBuffer].TextureAttachment!.Bind(TextureUnit.Texture5);
+
+        PrepareInstances();
         
         // Opaque skydome pass
         PerformPassChain((float)delta, _passService.GetSkydomeOpaquePasses);
@@ -246,50 +271,64 @@ public class Renderer : IView
         PerformPassChain((float)delta, _passService.GetBillboardPasses);
         
         // Primitives pass
-        foreach (var primitivePass in _passService.GetPrimitivePasses())
-        {
-            if (primitivePass.StartPass())
-            {
-                var program = _renderContext.CurrentPass.Program;
-                var timeLoc = program.GetUniformLocation("Time");
-                var resolutionLoc = program.GetUniformLocation("Resolution");
-                _renderContext.Gl.Uniform1(timeLoc, (float)Time);
-                _renderContext.Gl.Uniform2(resolutionLoc, new Vector2(_frameBufferSize.x, _frameBufferSize.y));
-            }
-            var renderables = _passService.GetRenderablesInPass(primitivePass.Name);
-            renderables[0].Render((float)delta);
-            _primitiveRenderer.Render();
-            //_renderContext.GetPrimitiveRenderer().DrawSphere(new vec3(10, 10.0f, 0), 5.0f, new vec4(1.0f, 0.0f, 0.0f, 0.5f));
-            primitivePass.EndPass();
-        }
+        RenderPrimitives();
         
-        _renderContext.Gl.BindFramebuffer(FramebufferTarget.DrawFramebuffer, _screenBuffer.Handler);
-        _renderContext.Gl.BindFramebuffer(FramebufferTarget.ReadFramebuffer, _renderContext.GetOutputBuffer());
-        _renderContext.Gl.BlitFramebuffer(0, 0, _frameBufferSize.x, _frameBufferSize.y, 0, 0, _frameBufferSize.x, _frameBufferSize.y, ClearBufferMask.ColorBufferBit, BlitFramebufferFilter.Linear);
-        _renderContext.Gl.BindFramebuffer(FramebufferTarget.DrawFramebuffer, _renderContext.GetOutputBuffer());
+        _renderContext.State.SetDepthTest(false);
+        _renderContext.State.SetBlend(false);
+        gl.BindFramebuffer(FramebufferTarget.DrawFramebuffer, _screenBuffer.Handler);
+        gl.BindFramebuffer(FramebufferTarget.ReadFramebuffer, _renderContext.GetOutputBuffer());
+        gl.BlitFramebuffer(0, 0, _frameBufferSize.x, _frameBufferSize.y, 0, 0, _frameBufferSize.x, _frameBufferSize.y, ClearBufferMask.ColorBufferBit, BlitFramebufferFilter.Linear);
+        gl.BindFramebuffer(FramebufferTarget.DrawFramebuffer, _renderContext.GetOutputBuffer());
         
-        _renderContext.Gl.Disable(EnableCap.Blend);
         var screenFlipProgram = _renderContext.GetProgram("ScreenFlipX");
         screenFlipProgram.Use();
         _screenBuffer.TextureAttachment!.Bind(TextureUnit.Texture5);
         _emptyVao.Bind();
-        _renderContext.Gl.DrawArrays(PrimitiveType.TriangleFan, 0, 4);
-        _renderContext.Gl.Enable(EnableCap.Blend);
+        gl.DrawArrays(PrimitiveType.TriangleFan, 0, 4);
+        _renderContext.State.SetBlend(true);
+        _renderContext.State.SetDepthTest(true);
         
         Render?.Invoke(delta);
-        if (_imgui != null)
-        {
-            lock (_imguiLock)
-            {
-                _imgui.StartFrame((float)delta);
-                RenderImgui?.Invoke();
-        
-                _imgui.Render();
-            }
-        }
-        
         _renderContext.Invalidate();
         FinishRender?.Invoke();
+    }
+
+    private void PrepareInstances()
+    {
+        var instances = _renderContext.Instances;
+        instances.Clear();
+        lock (_renderablesLock)
+        {
+            foreach (var instancedRenderable in _instancedRenderables)
+            {
+                instancedRenderable.PrepareInstances(instances);
+            }
+        }
+
+        instances.Upload();
+    }
+
+    private void RenderPrimitives()
+    {
+        var camera = _renderContext.FrameCamera;
+        if (!camera.IsValid)
+        {
+            return;
+        }
+
+        lock (_renderablesLock)
+        {
+            foreach (var primitiveRenderable in _primitiveRenderables)
+            {
+                if (((Renderable)primitiveRenderable).IsVisible)
+                {
+                    primitiveRenderable.DrawPrimitives(_primitiveRenderer, camera);
+                }
+            }
+        }
+
+        DrawPrimitives?.Invoke(_primitiveRenderer, camera);
+        _primitiveRenderer.Render(camera);
     }
 
     private void PerformPassChain(float delta, Func<IList<RenderPass>> passGetter)
@@ -311,12 +350,9 @@ public class Renderer : IView
 
         if (pass.StartPass())
         {
-            _pongBuffers[_readBuffer].TextureAttachment!.Bind(TextureUnit.Texture5);
             var program = _renderContext.CurrentPass.Program;
-            var timeLoc = program.GetUniformLocation("Time");
-            var resolutionLoc = program.GetUniformLocation("Resolution");
-            _renderContext.Gl.Uniform1(timeLoc, (float)Time);
-            _renderContext.Gl.Uniform2(resolutionLoc, new Vector2(_frameBufferSize.x, _frameBufferSize.y));
+            program.SetUniform(KnownUniform.Time, (float)Time);
+            program.SetUniform(KnownUniform.Resolution, new vec2(_frameBufferSize.x, _frameBufferSize.y));
         }
 
         foreach (var renderable in renderables)
@@ -331,14 +367,6 @@ public class Renderer : IView
     {
         var delta = _updateWatch.ElapsedMilliseconds / 1000.0;
         _updateWatch.Restart();
-        if (_imgui != null)
-        {
-            lock (_imguiLock)
-            {
-                _imgui.Update((float)delta);
-            }
-        }
-
         lock (_updatersLock)
         {
             foreach (var updater in _updaters)
@@ -458,7 +486,6 @@ public class Renderer : IView
         _renderContext.Render -= DoRender;
         _renderContext.ResizeFramebuffer -= RenderContextOnResizeFramebuffer;
         _renderContext.Destroy -= Dispose;
-        _imgui?.Dispose();
         DeleteRenderBuffer();
         
         GC.SuppressFinalize(this);
@@ -470,10 +497,14 @@ public class Renderer : IView
     public event Action<Boolean>? FocusChanged;
     public event Action? Load;
     public event Action<Double>? Update;
-    public event Action? RenderImgui;
     public event Action<Double>? Render;
     public event Action? FinishRender;
     public event Action? SceneInitialized;
+    /// <summary>
+    /// Raised on the render thread every frame to collect primitives from things that aren't part of the scene
+    /// </summary>
+    public event Action<PrimitiveRenderer, FrameCamera>? DrawPrimitives;
+    public Scene.Camera? Camera { get; set; }
     public bool ShouldSwapAutomatically { get; set; }
     public bool IsEventDriven { get; set; }
     public bool IsContextControlDisabled { get; set; }

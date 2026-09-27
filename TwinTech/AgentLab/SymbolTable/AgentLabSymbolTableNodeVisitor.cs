@@ -50,6 +50,7 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
         Visitors.Add(typeof(ConditionNode), VisitConditionNode);
         Visitors.Add(typeof(AttributeListNode), VisitAttributeListNode);
         Visitors.Add(typeof(PriorityAttributeNode), VisitPriorityAttributeNode);
+        Visitors.Add(typeof(GraphPriorityAttributeNode), VisitGraphPriorityAttributeNode);
         Visitors.Add(typeof(StartFromAttributeNode), VisitStartFromAttributeNode);
         Visitors.Add(typeof(UseObjectSlotAttributeNode), VisitUseObjectSlotAttribute);
         Visitors.Add(typeof(ObjectSlotNameNode), VisitObjectSlotName);
@@ -116,6 +117,15 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
     private Object VisitPriorityAttributeNode(IAgentLabTreeNode node)
     {
         var priority = (PriorityAttributeNode)node;
+        var type = Visit(priority.Priority) as AgentLabSymbol;
+        AssertType(SymbolTable.Lookup(nameof(AgentLabToken.TokenType.IntegerType)), type);
+        
+        return null;
+    }
+
+    private Object VisitGraphPriorityAttributeNode(IAgentLabTreeNode node)
+    {
+        var priority = (GraphPriorityAttributeNode)node;
         var type = Visit(priority.Priority) as AgentLabSymbol;
         AssertType(SymbolTable.Lookup(nameof(AgentLabToken.TokenType.IntegerType)), type);
         
@@ -828,6 +838,7 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
         SymbolTable = behaviourSymbol.BehaviourSymbolTable;
         Visit(behaviour.Body);
         Visit(behaviour.Priority);
+        Visit(behaviour.GraphPriority);
         Visit(behaviour.StartFrom);
         SymbolTable = oldSymbolTable;
         return null;

@@ -1,0 +1,33 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewmodels="clr-namespace:TT_Lab.ViewModels"
+             xmlns:composite="clr-namespace:TT_Lab.ViewModels.Composite"
+             x:DataType="viewmodels:EditorsViewerViewModel"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             Focusable="True"
+             x:Class="TT_Lab.Views.EditorsViewerView">
+    <!-- Catches the shortcuts when the focus is on the editors' tab strip instead of within an editor -->
+    <UserControl.KeyBindings>
+        <KeyBinding Command="{Binding SaveActiveEditorCommand}" Gesture="Ctrl+S"/>
+        <KeyBinding Command="{Binding CloseActiveEditorCommand}" Gesture="Ctrl+W"/>
+        <KeyBinding Command="{Binding UndoActiveEditorCommand}" Gesture="Ctrl+Z"/>
+        <KeyBinding Command="{Binding RedoActiveEditorCommand}" Gesture="Ctrl+Y"/>
+        <KeyBinding Command="{Binding RedoActiveEditorCommand}" Gesture="Ctrl+Shift+Z"/>
+    </UserControl.KeyBindings>
+    <UserControl.Styles>
+        <Style Selector="DocumentControl">
+            <Setter Property="HeaderTemplate">
+                <DataTemplate DataType="composite:TabbedEditorViewModel">
+                    <StackPanel Orientation="Horizontal">
+                        <Image Source="{Binding IconPath}" VerticalAlignment="Center" HorizontalAlignment="Center" Width="24" Height="24" Margin="0,0,3,0" Stretch="Uniform"/>
+                        <TextBlock VerticalAlignment="Center" Text="{Binding Title, Mode=OneWay}" Margin="0,0,10,0"/>
+                    </StackPanel>
+                </DataTemplate>
+            </Setter>
+        </Style>
+    </UserControl.Styles>
+    <!-- The layout is initialized by the view model so re-creating this view doesn't close floating editor windows -->
+    <DockControl Factory="{Binding TabsFactory}" Layout="{Binding EditorsLayout}" InitializeFactory="True" InitializeLayout="False"/>
+</UserControl>

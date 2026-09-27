@@ -147,6 +147,11 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code
             stream.Position = startPos;
         }
 
+        protected virtual ITwinBehaviourCommandPack CreateCommandPack()
+        {
+            return new PS2BehaviourCommandPack();
+        }
+
         public override void Read(BinaryReader reader, int length)
         {
             var bitfield = reader.ReadUInt32();
@@ -227,7 +232,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code
                     FillResourceList(reader, RefSounds);
                 }
             }
-            BehaviourPack = new PS2BehaviourCommandPack();
+            BehaviourPack = CreateCommandPack();
             BehaviourPack.Read(reader, length);
         }
 

@@ -57,7 +57,19 @@ public class TextureViewModel(DocumentViewModel document, PropertyNode data, par
     {
         if (!string.IsNullOrEmpty(e.File))
         {
-            Bitmap image = new(e.File);
+            TextureData data;
+            try
+            {
+                using var stream = new FileStream(e.File, FileMode.Open, FileAccess.Read);
+                data = TextureData.FromPng((IAsset)Document.DocumentModel, stream);
+            }
+            catch (Exception exception) when (exception is IOException or InvalidDataException)
+            {
+                Log.WriteLine($"Couldn't read the image: {exception.Message}");
+                return;
+            }
+
+            var image = data.Bitmap!;
             if (image.Size.Width > 256 || image.Size.Height > 256 || !MathExtension.IsPowerOfTwo((long)image.Size.Width)
                 || !MathExtension.IsPowerOfTwo((long)image.Size.Height)
                 || image.Size.Width < 8 || image.Size.Height < 8)
@@ -70,8 +82,7 @@ public class TextureViewModel(DocumentViewModel document, PropertyNode data, par
                 return;
             }
 
-            SetValueCommand.Execute(new TextureData((IAsset)Document.DocumentModel));
-            CurrentValue!.Bitmap = image.CloneBitmap();
+            SetValueCommand.Execute(data);
             this.RaisePropertyChanged(nameof(Texture));
         }
         else if (e.Data != null)
@@ -79,8 +90,8 @@ public class TextureViewModel(DocumentViewModel document, PropertyNode data, par
             try
             {
                 var texAsset = AssetManager.Get().GetAsset((LabURI)e.Data.Data);
-                SetValueCommand.Execute(new TextureData((IAsset)Document.DocumentModel));
-                CurrentValue!.Bitmap = texAsset.GetData<TextureData>().Bitmap?.CloneBitmap();
+                var source = texAsset.GetData<TextureData>();
+                SetValueCommand.Execute(source.Bitmap == null ? new TextureData((IAsset)Document.DocumentModel) : TextureData.Copy((IAsset)Document.DocumentModel, source));
                 this.RaisePropertyChanged(nameof(Texture));
                 Log.WriteLine($"Replacing with texture: {texAsset.Alias}");
             }

@@ -1,25 +1,27 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using GlmSharp;
 using Silk.NET.OpenGL;
 using TT_Lab.AssetData.Graphics;
 using TT_Lab.Assets;
 using TT_Lab.Rendering.Buffers;
 using TT_Lab.Rendering.Factories;
+using TT_Lab.Rendering.Shaders;
 using Twinsanity.TwinsanityInterchange.Common;
 
 namespace TT_Lab.Rendering.Scene;
 
-public class BillboardSet : Renderable
+public class BillboardSet : Renderable, IInstancedRenderable
 {
+    private static readonly vec4 HighlightColor = new(1.0f, 0.85f, 0.1f, 1.0f);
+
     private readonly bool _useDiffuseOnly;
     private readonly MaterialData _renderMaterial;
     private readonly ModelBuffer _planeBuffer;
     private readonly List<Billboard> _billboards = [];
-    private readonly List<mat4> _billboardMatrices = [];
-    private readonly BufferObject<float> _modelMatricesView;
-    
+    private int _baseInstance;
+    private int _instanceCount;
+
     public BillboardSet(RenderContext context, MeshFactory meshFactory, string labIconName, string name = "", bool useDiffuseOnly = true) : base(context, name)
     {
         _useDiffuseOnly = useDiffuseOnly;
@@ -32,17 +34,8 @@ public class BillboardSet : Renderable
         _renderMaterial.Shaders[0].AlphaValueToBeComparedTo = 128;
         _renderMaterial.Shaders[0].ForcedShaderName = "CUSTOM_BILLBOARDS";
 
-        _modelMatricesView = new BufferObject<float>(context, Span<Single>.Empty, BufferTargetARB.ArrayBuffer, BufferUsageARB.DynamicDraw);
-        
         var plane = meshFactory.CreateMesh(LabURI.Plane);
         _planeBuffer = plane!.GetModels()[0];
-        var planeVao = _planeBuffer.GetVertexArrayObject();
-        planeVao.Bind();
-        _modelMatricesView.Bind();
-        for (uint i = 0; i < 4; ++i)
-        {
-            planeVao.VertexAttributePointerInstanced(7 + i, 4, VertexAttribPointerType.Float, 16, (int)i * 4);
-        }
         _planeBuffer.ReplaceMaterial(_renderMaterial);
     }
 
@@ -53,18 +46,18 @@ public class BillboardSet : Renderable
 
     public Billboard CreateBillboard(float x, float y, float z)
     {
-        var billboard = new Billboard(Context);
+        var billboard = new Billboard(Context)
+        {
+            Set = this
+        };
         billboard.SetPosition(new vec3(x, y, z));
         _billboards.Add(billboard);
-        _billboardMatrices.Add(mat4.Identity);
         return billboard;
     }
 
     public void RemoveBillboard(Billboard billboard)
     {
-        var index = _billboards.IndexOf(billboard);
         _billboards.Remove(billboard);
-        _billboardMatrices.RemoveAt(index);
     }
 
     public override void UpdateRenderTransform()
@@ -77,38 +70,41 @@ public class BillboardSet : Renderable
         }
     }
 
-    protected override void RenderSelf(float delta)
+    public void PrepareInstances(InstanceBuffer instances)
     {
-        base.RenderSelf(delta);
-
-        if (_billboards.Count <= 0 || !_planeBuffer.Bind())
+        _baseInstance = instances.Count;
+        _instanceCount = 0;
+        if (!IsVisible)
         {
             return;
         }
 
-        var modelLoc = Context.CurrentPass.Program.GetUniformLocation("StartModel");
-        Context.Gl.UniformMatrix4(modelLoc, false, RenderTransform.Values1D);
-        
-        var flipYLoc = Context.CurrentPass.Program.GetUniformLocation("FlipY");
-        Context.Gl.Uniform1(flipYLoc, 1.0f);
-        
-        var diffuseOnlyLoc = Context.CurrentPass.Program.GetUniformLocation("DiffuseOnly");
-        Context.Gl.Uniform1(diffuseOnlyLoc, _useDiffuseOnly ? 1.0f : 0.0f);
-        
-        for (uint i = 0; i < 4; ++i)
+        foreach (var billboard in _billboards)
         {
-            Context.Gl.EnableVertexAttribArray(7 + i);
+            // Billboards are owned by what they represent, which hides them along with itself
+            if (!billboard.IsVisible)
+            {
+                continue;
+            }
+
+            instances.Add(billboard.RenderTransform, billboard.IsHighlighted ? HighlightColor : Diffuse);
+            _instanceCount++;
         }
-        for (var i = 0; i < _billboards.Count; ++i)
+    }
+
+    protected override void RenderSelf(float delta)
+    {
+        if (_instanceCount == 0 || !_planeBuffer.Bind())
         {
-            _billboardMatrices[i] = _billboards[i].RenderTransform;
+            return;
         }
-        _modelMatricesView.BufferData(_billboardMatrices.SelectMany(m => m.Values1D).ToArray());
-        Context.Gl.DrawArraysInstanced(PrimitiveType.Triangles, 0, _planeBuffer.IndexCount, (uint)_billboards.Count);
-        for (uint i = 0; i < 4; ++i)
-        {
-            Context.Gl.DisableVertexAttribArray(7 + i);
-        }
+
+        var program = Context.CurrentPass.Program;
+        program.SetUniform(KnownUniform.FlipY, 1.0f);
+        program.SetUniform(KnownUniform.DiffuseOnly, _useDiffuseOnly ? 1.0f : 0.0f);
+        Context.Gl.DrawArraysInstancedBaseInstance(PrimitiveType.Triangles, 0, _planeBuffer.IndexCount, (uint)_instanceCount, (uint)_baseInstance);
+        program.SetUniform(KnownUniform.FlipY, 0.0f);
+        program.SetUniform(KnownUniform.DiffuseOnly, 0.0f);
         _planeBuffer.Unbind();
     }
 }

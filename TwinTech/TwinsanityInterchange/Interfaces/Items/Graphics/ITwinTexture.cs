@@ -83,6 +83,10 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items
         /// </summary>
         Byte[] UnusedMetadata { get; set; }
         /// <summary>
+        /// What the game's tools left in the header (the signature's low half, the reserved words and the unused metadata), for writing a texture back the way it was read
+        /// </summary>
+        TwinTextureLeftovers Leftovers { get; set; }
+        /// <summary>
         /// Texture's raw compressed data. DO NOT EDIT. Prefer using FromBitmap function
         /// </summary>
         Byte[] TextureData { get; set; }

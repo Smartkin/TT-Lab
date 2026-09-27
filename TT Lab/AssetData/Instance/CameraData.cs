@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using GlmSharp;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
@@ -242,26 +243,52 @@ public class CameraData : AbstractAssetData
     public override List<ViewportObject> GetViewportObjects(ViewportContext viewportContext,
         PropertyNode property)
     {
-        var visual = BufferGeneration.GetCubeBuffer(viewportContext.RenderContext).Model!;
+        var visual = BufferGeneration.GetVolumeBuffer(viewportContext.RenderContext).Model!;
         var color = System.Drawing.Color.FromKnownColor(System.Drawing.KnownColor.Blue);
-        visual.Diffuse = new vec4(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f,  color.A / 255.0f * 0.5f);
+        visual.Diffuse = new vec4(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f,  color.A / 255.0f * BufferGeneration.VolumeOpacity);
         
-        var size = vec3.Ones;
-        var offset = -vec3.Ones * 0.5f;
+        // The cube goes from -1 to 1 before the trigger's scale
+        var size = vec3.Ones * 2.0f;
+        var offset = -vec3.Ones;
         var editableObject = new EditableObject(viewportContext.RenderContext, visual, Owner.FullDataPath, offset, size);
         color = System.Drawing.Color.FromKnownColor(System.Drawing.KnownColor.LightBlue);
-        editableObject.SelectedColor = new vec4(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f,  color.A / 255.0f * 0.25f);
+        editableObject.SelectedColor = new vec4(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f,  color.A / 255.0f * BufferGeneration.SelectedVolumeOpacity);
         editableObject.UnselectedColor = visual.Diffuse;
         editableObject.SetPosition(Trigger.Position.ToGlm());
         editableObject.SetRotation(new quat(Trigger.Rotation.ToRadiansGlm()));
         editableObject.SetScale(Trigger.Scale.ToGlm());
         editableObject.AddChild(viewportContext.EditingContext.CreateCameraBillboard());
         
+        var cameraPaths = new PolylineVisual(viewportContext.RenderContext, $"{Owner.FullDataPath}_PATHS");
+        UpdateCameraPaths(cameraPaths);
+        var positionProperty = property.Find($"[data].AssetData.{nameof(Trigger)}.{nameof(Trigger.Position)}");
+        var dependencies = new[] { property.Find($"[data].AssetData.{nameof(MainCamera1)}"), property.Find($"[data].AssetData.{nameof(MainCamera2)}"), positionProperty }
+            .OfType<PropertyNode>().ToList();
         return [new ViewportObject(editableObject, $"CAMERA_{property.Path}", property)
         {
-            Position = property.Find($"[data].AssetData.{nameof(Trigger)}.{nameof(Trigger.Position)}"),
+            Position = positionProperty,
             Rotation = property.Find($"[data].AssetData.{nameof(Trigger)}.{nameof(Trigger.Rotation)}"),
             Scale = property.Find($"[data].AssetData.{nameof(Trigger)}.{nameof(Trigger.Scale)}"),
+            Category = ViewportObjectCategory.Cameras,
+        }, new ViewportObject(cameraPaths, $"CAMERA_PATHS_{property.Path}", property)
+        {
+            Category = ViewportObjectCategory.CameraPaths,
+            RenderDependencies = dependencies,
+            Refresh = () =>
+            {
+                UpdateCameraPaths(cameraPaths);
+                return true;
+            }
         }];
+    }
+
+    private void UpdateCameraPaths(PolylineVisual visual)
+    {
+        var strokes = new List<PolylineStroke>();
+        var markers = new List<PolylineMarker>();
+        var trigger = Trigger.Position.ToGlm();
+        PathGeometry.AddCamera(strokes, markers, MainCamera1, trigger, PathGeometry.MainCamera1Color);
+        PathGeometry.AddCamera(strokes, markers, MainCamera2, trigger, PathGeometry.MainCamera2Color);
+        visual.SetGeometry(strokes, markers);
     }
 }

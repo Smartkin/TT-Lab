@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Linq;
 using GlmSharp;
@@ -23,6 +22,8 @@ public abstract class Renderable
     private vec3 _initialScale = vec3.Ones;
     private Renderable? _parent = null;
     private readonly Dictionary<string, Renderable> _children = [];
+    // The scene graph is walked every frame, the children only get copied when they change
+    private Renderable[]? _childrenSnapshot;
     private bool _isVisible = true;
     private bool _canUpdate = true;
     private vec4 _diffuse = vec4.Ones;
@@ -108,8 +109,6 @@ public abstract class Renderable
             return;
         }
         
-        var diffuseLoc = Context.CurrentPass.Program.GetUniformLocation("Diffuse");
-        Context.Gl.Uniform4(diffuseLoc, Diffuse.Values);
         RenderSelf(delta);
     }
 
@@ -264,6 +263,7 @@ public abstract class Renderable
     public void AddChild(Renderable child)
     {
         _children.Add(child.Name, child);
+        _childrenSnapshot = null;
         child.Parent = this;
         child.UpdateTransform();
         ChildAdded?.Invoke(child);
@@ -271,7 +271,12 @@ public abstract class Renderable
 
     public void RemoveChild(Renderable child)
     {
-        _children.Remove(child.Name);
+        if (!_children.Remove(child.Name))
+        {
+            return;
+        }
+
+        _childrenSnapshot = null;
         child.Parent = null;
         child.UpdateTransform();
         ChildRemoved?.Invoke(child);
@@ -282,11 +287,8 @@ public abstract class Renderable
     /// </summary>
     public void KillChildren()
     {
-        var childNames = _children.Keys.ToList();
-        foreach (var child in childNames)
-        {
-            _children.Remove(child);
-        }
+        _children.Clear();
+        _childrenSnapshot = null;
     }
 
     protected virtual void RenderSelf(float delta) {}
@@ -311,46 +313,47 @@ public abstract class Renderable
     
     private void UpdateTransform()
     {
-        // This is some horrible logic and nesting but trust me this is for optimization purposes to reduce matrix decomposition
-        if (_inheritScale && _inheritRotation)
-        {
-            _cachedWorldTransform = (_parent != null) ? _parent.WorldTransform * _localTransform : _localTransform;
-        }
-        else
-        {
-            if (_parent != null)
-            {
-                var parentTranslation = mat4.Translate(_parent.GetPosition());
-                if (!_inheritRotation && !_inheritScale)
-                {
-                    _cachedWorldTransform = parentTranslation * _localTransform;
-                }
-                else
-                {
-                    var rotation = quat.Identity;
-                    if (_inheritRotation)
-                    {
-                        rotation = _parent.GetRotationQuat();
-                    }
-
-                    var scale = vec3.Ones;
-                    if (_inheritScale)
-                    {
-                        scale = _parent.GetScale();
-                    }
-
-                    _cachedWorldTransform = parentTranslation * rotation.ToMat4 * mat4.Scale(scale) * _localTransform;
-                }
-            }
-            else
-            {
-                _cachedWorldTransform = _localTransform;
-            }
-        }
+        _cachedWorldTransform = CalculateWorldTransform();
         foreach (var child in _children.Values)
         {
             child.UpdateTransform();
         }
+    }
+
+    protected bool InheritsScale => _inheritScale;
+
+    protected virtual mat4 CalculateWorldTransform()
+    {
+        // This is some horrible logic and nesting but trust me this is for optimization purposes to reduce matrix decomposition
+        if (_inheritScale && _inheritRotation)
+        {
+            return _parent != null ? _parent.WorldTransform * _localTransform : _localTransform;
+        }
+
+        if (_parent == null)
+        {
+            return _localTransform;
+        }
+
+        var parentTranslation = mat4.Translate(_parent.GetPosition());
+        if (!_inheritRotation && !_inheritScale)
+        {
+            return parentTranslation * _localTransform;
+        }
+
+        var rotation = quat.Identity;
+        if (_inheritRotation)
+        {
+            rotation = _parent.GetRotationQuat();
+        }
+
+        var scale = vec3.Ones;
+        if (_inheritScale)
+        {
+            scale = _parent.GetScale();
+        }
+
+        return parentTranslation * rotation.ToMat4 * mat4.Scale(scale) * _localTransform;
     }
 
     public vec4 Diffuse
@@ -368,7 +371,7 @@ public abstract class Renderable
     }
 
     public mat4 RenderTransform => _cachedRenderTransform;
-    public IReadOnlyList<Renderable> Children => _children.Values.ToImmutableList();
+    public IReadOnlyList<Renderable> Children => _childrenSnapshot ??= _children.Values.ToArray();
     public string Name { get; }
 
     public virtual bool DoesUpdates => false;

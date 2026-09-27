@@ -56,6 +56,7 @@ public class ResourceChunkResolver : AssetResolver<ITwinSection>
         _behaviourResolver.CreateAssetsFromChunk(chunk, package);
         _behaviourSequenceResolver.CreateAssetsFromChunk(chunk, package);
         _gameObjectResolver.CreateAssetsFromChunk(chunk, package);
+        _levelChunk.ItemVersions = _gameObjectResolver.GetChunkVersions(chunk);
         foreach (var instanceSectionResolver in _instanceSectionResolvers)
         {
             instanceSectionResolver.CreateAssetsFromChunk(chunk, package);

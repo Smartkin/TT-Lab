@@ -1,20 +1,24 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 
 namespace TT_Lab.Assets;
 
 /// <summary>
 /// Wrapper for the dictionary of assets for extending the interface and making it asset only
 /// </summary>
+/// <remarks>
+/// Chunks build in parallel, so every access takes the lock and collections are handed out as copies
+/// </remarks>
 public class AssetStorage : IEnumerable<KeyValuePair<string, IAsset>>
 {
     private readonly object _dictLock = new();
     private readonly Dictionary<string, IAsset> _storage = new();
     private readonly Dictionary<Type, Dictionary<string, IAsset>> _typeStorage = new();
-
-    public static implicit operator Dictionary<string, IAsset>(AssetStorage storage) => storage._storage;
+    // Built on demand and dropped whenever assets of the type change, asset IDs are always set before the asset is added
+    private readonly Dictionary<Type, ILookup<UInt32, IAsset>> _idIndex = new();
 
     public void Add(LabURI key, IAsset asset)
     {
@@ -32,6 +36,7 @@ public class AssetStorage : IEnumerable<KeyValuePair<string, IAsset>>
             }
 
             typedStorage.Add(key, asset);
+            _idIndex.Remove(asset.Type);
         }
     }
 
@@ -44,67 +49,135 @@ public class AssetStorage : IEnumerable<KeyValuePair<string, IAsset>>
                 typeStorage.Value.Remove(key);
             }
 
+            if (_storage.TryGetValue(key, out var asset))
+            {
+                _idIndex.Remove(asset.Type);
+            }
+
             return _storage.Remove(key);
         }
     }
 
     public bool ContainsKey(LabURI key)
     {
-        return _storage.ContainsKey(key);
+        lock (_dictLock)
+        {
+            return _storage.ContainsKey(key);
+        }
     }
 
     public Boolean TryGetValue(String key, [MaybeNullWhen(false)] out IAsset value)
     {
-        return _storage.TryGetValue(key, out value);
+        lock (_dictLock)
+        {
+            return _storage.TryGetValue(key, out value);
+        }
     }
 
     public void Add(KeyValuePair<String, IAsset> item)
     {
-        _storage.Add((LabURI)item.Key, item.Value);
+        lock (_dictLock)
+        {
+            _storage.Add((LabURI)item.Key, item.Value);
+            _idIndex.Clear();
+        }
     }
 
     public void Clear()
     {
-        _typeStorage.Clear();
-        _storage.Clear();
+        lock (_dictLock)
+        {
+            _typeStorage.Clear();
+            _storage.Clear();
+            _idIndex.Clear();
+        }
+    }
+
+    public IEnumerable<IAsset> GetValuesByTypeAndId(Type type, UInt32 id)
+    {
+        lock (_dictLock)
+        {
+            if (!_idIndex.TryGetValue(type, out var index))
+            {
+                index = (_typeStorage.TryGetValue(type, out var typed) ? typed.Values : Enumerable.Empty<IAsset>()).ToLookup(asset => asset.ID);
+                _idIndex.Add(type, index);
+            }
+
+            return index[id];
+        }
     }
 
     public IEnumerator<KeyValuePair<String, IAsset>> GetEnumerator()
     {
-        return _storage.GetEnumerator();
+        lock (_dictLock)
+        {
+            return _storage.ToList().GetEnumerator();
+        }
     }
 
     IEnumerator IEnumerable.GetEnumerator()
     {
-        return _storage.GetEnumerator();
+        return GetEnumerator();
     }
 
-    public Dictionary<string, IAsset>.ValueCollection GetValuesByType(Type type) => !_typeStorage.TryGetValue(type, out var result) ? new Dictionary<string, IAsset>().Values : result.Values;
+    public IReadOnlyList<IAsset> GetValuesByType(Type type)
+    {
+        lock (_dictLock)
+        {
+            return _typeStorage.TryGetValue(type, out var result) ? result.Values.ToList() : [];
+        }
+    }
 
-    public Dictionary<string, IAsset>.ValueCollection Values => _storage.Values;
+    public IReadOnlyList<IAsset> Values
+    {
+        get
+        {
+            lock (_dictLock)
+            {
+                return _storage.Values.ToList();
+            }
+        }
+    }
 
-    public Dictionary<string, IAsset>.KeyCollection Keys => _storage.Keys;
+    public IReadOnlyList<string> Keys
+    {
+        get
+        {
+            lock (_dictLock)
+            {
+                return _storage.Keys.ToList();
+            }
+        }
+    }
 
     public IAsset this[LabURI key]
     {
         get
         {
-            if (!_storage.TryGetValue(key, out var result))
+            lock (_dictLock)
             {
-                throw new Exception($"Provided URI doesn't exist for {key}");
+                if (!_storage.TryGetValue(key, out var result))
+                {
+                    throw new Exception($"Provided URI doesn't exist for {key}");
+                }
+
+                return result;
             }
-            return result;
         }
-        
+
         set
         {
-            if (!_storage.ContainsKey(key))
+            lock (_dictLock)
             {
-                Add(key, value);
-                return;
+                if (!_storage.ContainsKey(key))
+                {
+                    Add(key, value);
+                    return;
+                }
+
+                _storage[key] = value;
+                _idIndex.Clear();
             }
-            _storage[key] = value;
         }
     }
-
 }

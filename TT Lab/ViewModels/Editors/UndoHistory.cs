@@ -1,0 +1,452 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using TT_Lab.AssetData;
+using TT_Lab.Assets;
+using TT_Lab.ViewModels.Editors.PropertyGraph;
+
+namespace TT_Lab.ViewModels.Editors;
+
+/// <summary>
+/// What a document's editors changed, as a tree to undo and redo along. Every editor keeps its own
+/// </summary>
+/// <remarks>
+/// Changing something after undoing starts a branch next to the one undone, which stays to go back to. Steps are kept by the paths of
+/// what they changed, nodes get made again when links and lists change. Replacing a whole asset's data (a texture's picture, a sound) or
+/// what a value is made of can't be undone, the history starts over after it
+/// </remarks>
+public sealed class UndoHistory
+{
+    // Changes of one value this close to each other, like typing or dragging, are one step
+    private static readonly TimeSpan MergeTime = TimeSpan.FromSeconds(1);
+    private const int MaxEntries = 2000;
+
+    /// <summary>
+    /// A state of the document, reached by the step from its parent's
+    /// </summary>
+    public sealed class Entry
+    {
+        internal Entry(Entry? parent, Step? step, string description, int number, int branch)
+        {
+            Parent = parent;
+            Step = step;
+            Description = description;
+            Number = number;
+            Branch = branch;
+        }
+
+        public Entry? Parent { get; internal set; }
+
+        public List<Entry> Children { get; } = [];
+
+        internal Step? Step { get; set; }
+
+        public string Description { get; internal set; }
+
+        public DateTime Time { get; internal set; } = DateTime.Now;
+
+        /// <summary>
+        /// Order the entries got made in
+        /// </summary>
+        public int Number { get; }
+
+        /// <summary>
+        /// Entries continuing their parent's first branch are on its branch, later ones start new branches
+        /// </summary>
+        public int Branch { get; }
+
+        // The branch redoing goes along, the one last taken
+        internal Entry? RedoChild { get; set; }
+
+        // Typing or dragging on changes a single change's step, a group's step is done
+        internal bool IsOpen { get; set; }
+
+        public bool IsAncestorOf(Entry entry)
+        {
+            for (var current = entry.Parent; current != null; current = current.Parent)
+            {
+                if (current == this)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
+    private readonly PropertyGraph.PropertyGraph _graph;
+    private GroupStep? _group;
+    private string? _groupDescription;
+    private int _groupDepth;
+    private Entry? _saved;
+    private int _entries;
+    private int _branches;
+
+    public event Action? Changed;
+
+    public UndoHistory(PropertyGraph.PropertyGraph graph)
+    {
+        _graph = graph;
+        Root = new Entry(null, null, "Opened", 0, 0);
+        Current = Root;
+        _saved = Root;
+    }
+
+    public Entry Root { get; private set; }
+
+    public Entry Current { get; private set; }
+
+    /// <summary>
+    /// Whether the changes being made are an undo or a redo, which aren't steps of their own
+    /// </summary>
+    public bool IsApplying { get; private set; }
+
+    public bool CanUndo => Current != Root;
+
+    public bool CanRedo => Current.Children.Count > 0;
+
+    /// <summary>
+    /// Whether the document is the way it was saved
+    /// </summary>
+    public bool IsAtSavePoint => Current == _saved;
+
+    /// <summary>
+    /// Where the document was saved, none when it can't be gotten back to
+    /// </summary>
+    public Entry? Saved => _saved;
+
+    public void Record(PropertyChange change)
+    {
+        if (IsApplying)
+        {
+            return;
+        }
+
+        if (!CanUndoChange(change))
+        {
+            Clear();
+            return;
+        }
+
+        var step = change.Kind switch
+        {
+            PropertyChangeKind.Insert => new InsertStep(change.Node.Path, change.Index, change.NewValue),
+            PropertyChangeKind.Remove => (Step)new RemoveStep(change.Node.Path, change.Index, change.OldValue),
+            _ => new ValueStep(change.Node.Path, change.OldValue, change.NewValue),
+        };
+        Add(step, Describe(change), true);
+    }
+
+    private static bool CanUndoChange(PropertyChange change)
+    {
+        if (change.OldValue is AbstractAssetData || change.NewValue is AbstractAssetData)
+        {
+            return false;
+        }
+
+        // Nodes of a value made of other values only follow along when the new one is made the same way
+        return change.Kind != PropertyChangeKind.Value || change.OldValue == null || change.NewValue == null ||
+               change.OldValue.GetType() == change.NewValue.GetType() || change.Node.Children.Count == 0;
+    }
+
+    private void Add(Step step, string description, bool isOpen)
+    {
+        if (_group != null)
+        {
+            _groupDescription ??= description;
+            if (!_group.Merge(step))
+            {
+                _group.Steps.Add(step);
+            }
+
+            return;
+        }
+
+        // Typing or dragging on keeps changing the last step, unless it got saved or undone to since
+        if (Current.IsOpen && Current.Step is ValueStep previous && step is ValueStep value && Current != _saved && Current.Children.Count == 0 && previous.Merge(value))
+        {
+            Current.Description = description;
+            Current.Time = DateTime.Now;
+            Changed?.Invoke();
+            return;
+        }
+
+        var branch = Current.Children.Count == 0 ? Current.Branch : ++_branches;
+        var entry = new Entry(Current, step, description, ++_entries, branch) { IsOpen = isOpen };
+        Current.Children.Add(entry);
+        Current.RedoChild = entry;
+        Current = entry;
+        Trim();
+        Changed?.Invoke();
+    }
+
+    // The oldest branches away from where the document is go first, then the oldest steps
+    private void Trim()
+    {
+        while (Count(Root) > MaxEntries)
+        {
+            var old = Root.Children.FirstOrDefault(child => child != Current && !child.IsAncestorOf(Current));
+            if (old != null)
+            {
+                Root.Children.Remove(old);
+                continue;
+            }
+
+            var next = Root.Children.Single();
+            next.Parent = null;
+            next.Step = null;
+            if (_saved == Root)
+            {
+                _saved = null;
+            }
+
+            Root = next;
+        }
+    }
+
+    private static int Count(Entry entry) => 1 + entry.Children.Sum(Count);
+
+    /// <summary>
+    /// Makes everything changed until it's disposed one step, like placing an instance and moving it to the cursor
+    /// </summary>
+    public IDisposable BeginGroup(string? description = null)
+    {
+        if (_groupDepth++ == 0)
+        {
+            _group = new GroupStep();
+            _groupDescription = description;
+        }
+
+        return new GroupEnd(this);
+    }
+
+    private void EndGroup()
+    {
+        if (--_groupDepth > 0 || _group == null)
+        {
+            return;
+        }
+
+        var group = _group;
+        var description = _groupDescription;
+        _group = null;
+        _groupDescription = null;
+        // Like a drag given up on, which put back what it started from
+        group.Steps.RemoveAll(step => step is ValueStep { IsUnchanged: true });
+        if (group.Steps.Count > 0)
+        {
+            Add(group.Steps.Count == 1 ? group.Steps[0] : group, description ?? "Changes", false);
+        }
+    }
+
+    public void Undo()
+    {
+        if (Current.Parent == null)
+        {
+            return;
+        }
+
+        var entry = Current;
+        Apply(() => entry.Step!.Undo(_graph));
+        entry.Parent!.RedoChild = entry;
+        Current = entry.Parent;
+        Changed?.Invoke();
+    }
+
+    public void Redo()
+    {
+        var entry = Current.RedoChild ?? Current.Children.LastOrDefault();
+        if (entry == null)
+        {
+            return;
+        }
+
+        Apply(() => entry.Step!.Redo(_graph));
+        Current = entry;
+        Changed?.Invoke();
+    }
+
+    /// <summary>
+    /// Undoes back to where the entry's branch left the current one and redoes along it to the entry
+    /// </summary>
+    public void GoTo(Entry target)
+    {
+        while (Current != target && !Current.IsAncestorOf(target) && Current.Parent != null)
+        {
+            Undo();
+        }
+
+        var path = new Stack<Entry>();
+        for (var entry = target; entry != null && entry != Current; entry = entry.Parent)
+        {
+            path.Push(entry);
+        }
+
+        while (path.Count > 0)
+        {
+            Current.RedoChild = path.Pop();
+            Redo();
+        }
+    }
+
+    private void Apply(Action apply)
+    {
+        IsApplying = true;
+        try
+        {
+            apply();
+        }
+        finally
+        {
+            IsApplying = false;
+        }
+    }
+
+    public void MarkSaved()
+    {
+        _saved = Current;
+        Changed?.Invoke();
+    }
+
+    // What got changed can't be undone, so the document can't get back to how it was saved either
+    public void Clear()
+    {
+        Root = new Entry(null, null, "Couldn't be undone past here", ++_entries, 0);
+        Current = Root;
+        _saved = null;
+        _branches = 0;
+        Changed?.Invoke();
+    }
+
+    // What the change is to the one looking at the history, the asset it's in and what of it changed
+    private static string Describe(PropertyChange change)
+    {
+        var node = change.Node;
+        var owner = node;
+        while (owner.Parent != null && owner.Target is not IAsset)
+        {
+            owner = owner.Parent;
+        }
+
+        var property = node.Path.Length > owner.Path.Length ? node.Path[owner.Path.Length..].TrimStart('.') : string.Empty;
+        property = property.Replace("AssetData.", string.Empty).Replace("[data]", " › ").Replace(".", " › ");
+        var what = owner.Target is IAsset asset ? string.IsNullOrEmpty(property) ? asset.Alias : $"{asset.Alias} › {property}" : property;
+        return change.Kind switch
+        {
+            PropertyChangeKind.Insert => $"Added {what} [{change.Index}]",
+            PropertyChangeKind.Remove => $"Removed {what} [{change.Index}]",
+            _ => $"{what} = {Short(change.NewValue)}",
+        };
+    }
+
+    private static string Short(object? value)
+    {
+        var text = value switch
+        {
+            null => "nothing",
+            LabURI uri => uri == LabURI.Empty ? "nothing" : AssetManager.Get().DoesAssetExist(uri) ? AssetManager.Get().GetAsset(uri).Alias : uri.ToString(),
+            string text1 => $"\"{text1.ReplaceLineEndings(" ")}\"",
+            _ => value.ToString() ?? string.Empty,
+        };
+        return text.Length > 40 ? $"{text[..40]}…" : text;
+    }
+
+    private sealed class GroupEnd(UndoHistory history) : IDisposable
+    {
+        private bool _ended;
+
+        public void Dispose()
+        {
+            if (_ended)
+            {
+                return;
+            }
+
+            _ended = true;
+            history.EndGroup();
+        }
+    }
+
+    internal abstract class Step
+    {
+        public abstract void Undo(PropertyGraph.PropertyGraph graph);
+
+        public abstract void Redo(PropertyGraph.PropertyGraph graph);
+    }
+
+    private sealed class ValueStep(string path, object? oldValue, object? newValue) : Step
+    {
+        private object? _newValue = newValue;
+        private DateTime _time = DateTime.UtcNow;
+
+        public bool Merge(ValueStep next)
+        {
+            if (next._path != _path || next._time - _time > MergeTime)
+            {
+                return false;
+            }
+
+            _newValue = next._newValue;
+            _time = next._time;
+            return true;
+        }
+
+        private readonly string _path = path;
+
+        public bool IsUnchanged => Equals(oldValue, _newValue);
+
+        public override void Undo(PropertyGraph.PropertyGraph graph) => graph.Find(_path)?.SetValue(oldValue);
+
+        public override void Redo(PropertyGraph.PropertyGraph graph) => graph.Find(_path)?.SetValue(_newValue);
+    }
+
+    private sealed class InsertStep(string list, int index, object? value) : Step
+    {
+        public override void Undo(PropertyGraph.PropertyGraph graph) => Remove(graph, list, index);
+
+        public override void Redo(PropertyGraph.PropertyGraph graph) => graph.Find(list)?.InsertElement(index, value!);
+    }
+
+    private sealed class RemoveStep(string list, int index, object? value) : Step
+    {
+        public override void Undo(PropertyGraph.PropertyGraph graph) => graph.Find(list)?.InsertElement(index, value!);
+
+        public override void Redo(PropertyGraph.PropertyGraph graph) => Remove(graph, list, index);
+    }
+
+    private static void Remove(PropertyGraph.PropertyGraph graph, string list, int index)
+    {
+        if (graph.Find(list) is { } node && index < node.Children.Count)
+        {
+            node.RemoveElement(node.Children[index]);
+        }
+    }
+
+    private sealed class GroupStep : Step
+    {
+        public List<Step> Steps { get; } = [];
+
+        // Moving what the group placed keeps being part of placing it
+        public bool Merge(Step step)
+        {
+            return step is ValueStep value && Steps.LastOrDefault() is ValueStep last && last.Merge(value);
+        }
+
+        public override void Undo(PropertyGraph.PropertyGraph graph)
+        {
+            for (var i = Steps.Count - 1; i >= 0; i--)
+            {
+                Steps[i].Undo(graph);
+            }
+        }
+
+        public override void Redo(PropertyGraph.PropertyGraph graph)
+        {
+            foreach (var step in Steps)
+            {
+                step.Redo(graph);
+            }
+        }
+    }
+}

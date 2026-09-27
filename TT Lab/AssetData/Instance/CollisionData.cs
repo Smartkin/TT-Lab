@@ -6,10 +6,10 @@ using System.IO;
 using System.Linq;
 using System.Numerics;
 using GlmSharp;
-using Newtonsoft.Json.Linq;
-using SharpGLTF.Schema2;
 using TT_Lab.AssetData.Code;
+using System.Text.Json.Nodes;
 using TT_Lab.AssetData.Graphics;
+using TT_Lab.AssetData.Graphics.TlModel;
 using TT_Lab.AssetData.Graphics.SubModels;
 using TT_Lab.AssetData.Instance.Collision;
 using TT_Lab.Assets;
@@ -26,8 +26,6 @@ using Vector4 = Twinsanity.TwinsanityInterchange.Common.Vector4;
 
 namespace TT_Lab.AssetData.Instance;
 
-using VERTEX = SharpGLTF.Geometry.VertexTypes.VertexPosition;
-using VERTEX_BUILDER = SharpGLTF.Geometry.VertexBuilder<SharpGLTF.Geometry.VertexTypes.VertexPosition, SharpGLTF.Geometry.VertexTypes.VertexEmpty, SharpGLTF.Geometry.VertexTypes.VertexEmpty>;
 
 [ReferencesAssets]
 public class CollisionData : AbstractAssetData
@@ -55,80 +53,212 @@ public class CollisionData : AbstractAssetData
         Vectors.Clear();
     }
 
+    public const string TlmAssetType = "Collision";
+    public const string TlmKind = "collision";
+
     protected override void SaveInternal(string dataPath, JsonSerializerSettings? settings = null)
     {
-        var scene = new SharpGLTF.Scenes.SceneBuilder("TwinsanityStaticCollision");
-        var root = new SharpGLTF.Scenes.NodeBuilder("static_collision_root");
-        scene.AddNode(root);
-        var mesh = GetMesh(root);
-        scene.AddRigidMesh(mesh.Mesh, root);
-
-        var model = scene.ToGltf2();
-        model.SaveGLB(dataPath);
+        var file = new TlmFile(TlmAssetType, Owner.Name);
+        file.Root = WriteTlmNode(file);
+        file.Save(dataPath);
     }
 
     protected override void LoadInternal(string dataPath, JsonSerializerSettings? settings = null)
     {
-        Vectors.Clear();
-        Triangles.Clear();
-
-        var model = ModelRoot.Load(dataPath);
-        LoadFromGltf(model.LogicalMeshes);
+        var file = TlmFile.Load(dataPath);
+        ReadTlmNodes(file, file.Root == null ? [] : TlmTreeNode.Of(file.Root).Traverse().Where(node => node.Kind == TlmKind).ToList());
+        DisposedValue = false;
     }
 
-    public void LoadFromGltf(IReadOnlyList<Mesh> meshes)
+    /// <summary>
+    /// The collision as a node, the triangles of every surface as their own part
+    /// </summary>
+    public JsonObject WriteTlmNode(TlmFile file)
     {
-        var indexOffset = 0;
-        var assetManager = AssetManager.Get();
-        var surfaces = assetManager.GetAllAssetsOf<CollisionSurface>();
-        var defaultSurface = surfaces.First();
-        foreach (var mesh in meshes)
+        // Vertexes no triangle uses have nowhere else to go
+        var used = Triangles.SelectMany(t => t.Face.Indexes!).ToHashSet();
+        var unused = Enumerable.Range(0, Vectors.Count).Where(i => !used.Contains(i)).ToList();
+        var node = TlmNodes.Create(TlmKind, "Collision", new JsonObject
         {
-            foreach (var prim in mesh.Primitives)
+            ["UnusedVertexes"] = TlmJson.ToJson(unused),
+            ["UnusedPositions"] = TlmJson.ToJson(unused.SelectMany(i => new[] { Vectors[i].X, Vectors[i].Y, Vectors[i].Z }))
+        });
+        var assetManager = AssetManager.Get();
+        var parts = new JsonArray();
+        foreach (var surfaceTriangles in Triangles.Select((triangle, index) => (Triangle: triangle, Index: index)).GroupBy(t => t.Triangle.Surface))
+        {
+            var positions = new List<Single>();
+            var vectorIndexes = new List<Int32>();
+            var indices = new List<UInt32>();
+            var remap = new Dictionary<Int32, Int32>();
+            foreach (var (triangle, _) in surfaceTriangles)
             {
-                var columns = prim.GetVertexColumns();
-                foreach (var position in columns.Positions)
+                foreach (var index in triangle.Face.Indexes!)
                 {
-                    Vectors.Add(position.ToTwin());
+                    if (!remap.TryGetValue(index, out var local))
+                    {
+                        local = vectorIndexes.Count;
+                        remap.Add(index, local);
+                        var vector = Vectors[index];
+                        positions.AddRange([vector.X, vector.Y, vector.Z]);
+                        vectorIndexes.Add(index);
+                    }
+
+                    indices.Add((UInt32)local);
+                }
+            }
+
+            var surface = assetManager.DoesAssetExist(surfaceTriangles.Key) ? assetManager.GetAsset<CollisionSurface>(surfaceTriangles.Key) : null;
+            var color = CollisionSurface.GetEditorColor(surface);
+            // Where the triangles and vertexes were in the collision, which the game's tree gets built from
+            parts.Add(new JsonObject
+            {
+                ["surface"] = surfaceTriangles.Key.ToString(),
+                ["name"] = surface?.Name ?? "Surface",
+                ["color"] = TlmJson.ToJson(new[] { color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, color.A / 255.0f }),
+                ["vertices"] = vectorIndexes.Count,
+                ["position"] = file.Write(positions),
+                ["faces"] = file.Write(indices),
+                ["triangles"] = file.Write(surfaceTriangles.Select(t => t.Index).ToList()),
+                ["vertexes"] = file.Write(vectorIndexes)
+            });
+        }
+
+        node["surfaces"] = parts;
+        return node;
+    }
+
+    /// <summary>
+    /// Reads the collision from the nodes. Surfaces are the ones their parts name, or the surface with the part's name
+    /// </summary>
+    public void ReadTlmNodes(TlmFile file, IEnumerable<TlmTreeNode> nodes)
+    {
+        Vectors.Clear();
+        Triangles.Clear();
+        var assetManager = AssetManager.Get();
+        var surfaces = assetManager.GetRelatedAssetsOf<CollisionSurface>(Owner.Package);
+        var parts = new List<CollisionPart>();
+        var unused = new List<(Int32 Index, System.Numerics.Vector3 Position)>();
+        foreach (var node in nodes)
+        {
+            var transform = node.GetBakedTransform();
+            var data = node.Data;
+            var unusedIndexes = data.GetInts("UnusedVertexes");
+            var unusedPositions = data.GetFloats("UnusedPositions");
+            for (var i = 0; i < unusedIndexes.Length && i * 3 + 2 < unusedPositions.Length; i++)
+            {
+                unused.Add((unusedIndexes[i], Transform(new System.Numerics.Vector3(unusedPositions[i * 3], unusedPositions[i * 3 + 1], unusedPositions[i * 3 + 2]), transform)));
+            }
+
+            foreach (var part in node.Json["surfaces"] as JsonArray ?? [])
+            {
+                if (part is not JsonObject json)
+                {
+                    continue;
                 }
 
-                var materialName = prim.Material.Name;
-                foreach (var (idx1, idx2, idx3) in prim.GetTriangleIndices())
+                var surfaceUri = json.GetString("surface") is { } uriText && uriText.StartsWith("res://") && assetManager.DoesAssetExist(new LabURI(uriText))
+                    ? new LabURI(uriText)
+                    : (surfaces.FirstOrDefault(surface => surface.Name == json.GetString("name")) ?? surfaces.First()).URI;
+                var positions = file.Read<Single>(json["position"]);
+                var faces = file.Read<UInt32>(json["faces"]);
+                parts.Add(new CollisionPart(surfaceUri,
+                    Enumerable.Range(0, positions.Length / 3).Select(i => Transform(new System.Numerics.Vector3(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]), transform)).ToList(),
+                    Enumerable.Range(0, faces.Length / 3).Select(i => ((Int32)faces[i * 3], (Int32)faces[i * 3 + 1], (Int32)faces[i * 3 + 2])).ToList(),
+                    file.Read<Int32>(json["triangles"]),
+                    file.Read<Int32>(json["vertexes"])));
+            }
+        }
+
+        if (RestoreOrder(parts, unused))
+        {
+            return;
+        }
+
+        var vertexIndexes = new Dictionary<(UInt32, UInt32, UInt32), Int32>();
+        foreach (var part in parts)
+        {
+            var indexes = new Int32[part.Positions.Count];
+            for (var i = 0; i < part.Positions.Count; i++)
+            {
+                var position = part.Positions[i];
+                var key = (BitConverter.SingleToUInt32Bits(position.X), BitConverter.SingleToUInt32Bits(position.Y), BitConverter.SingleToUInt32Bits(position.Z));
+                if (!vertexIndexes.TryGetValue(key, out var index))
                 {
-                    var triangle = new CollisionTriangle();
-                    triangle.Face = new IndexedFace(idx1 + indexOffset, idx2 + indexOffset, idx3 + indexOffset);
-                    var surfaceUri = surfaces.FirstOrDefault(surf => surf.Name == materialName, defaultSurface).URI;
-                    triangle.Surface = surfaceUri;
-                    Triangles.Add(triangle);
+                    index = Vectors.Count;
+                    vertexIndexes.Add(key, index);
+                    Vectors.Add(new Vector4(position.X, position.Y, position.Z, 1.0f));
                 }
 
-                indexOffset += columns.Positions.Count;
+                indexes[i] = index;
+            }
+
+            foreach (var (a, b, c) in part.Triangles)
+            {
+                Triangles.Add(new CollisionTriangle
+                {
+                    Face = new IndexedFace(indexes[a], indexes[b], indexes[c]),
+                    Surface = part.Surface
+                });
             }
         }
     }
 
-    public GltfGeometryWrapper GetMesh(SharpGLTF.Scenes.NodeBuilder root)
+    private sealed record CollisionPart(LabURI Surface, List<System.Numerics.Vector3> Positions, List<(Int32, Int32, Int32)> Triangles, Int32[] TriangleOrder, Int32[] VertexOrder);
+
+    private static System.Numerics.Vector3 Transform(System.Numerics.Vector3 position, System.Numerics.Matrix4x4? transform)
     {
-        var materials = GetMaterials();
-        var builder = new SharpGLTF.Geometry.MeshBuilder<VERTEX>
+        return transform != null ? System.Numerics.Vector3.Transform(position, transform.Value) : position;
+    }
+
+    // The triangles and vertexes go back where they were when the mesh still has all of them, the game's tree comes out the same then
+    private Boolean RestoreOrder(List<CollisionPart> parts, List<(Int32 Index, System.Numerics.Vector3 Position)> unused)
+    {
+        if (parts.Count == 0 || parts.Any(part => part.TriangleOrder.Length != part.Triangles.Count || part.VertexOrder.Length != part.Positions.Count))
         {
-            Name = "STATIC_COLLISION_MESH"
-        };
-        foreach (var collisionTriangle in Triangles)
-        {
-            var v1 = Vectors[collisionTriangle.Face.Indexes![0]];
-            var v2 = Vectors[collisionTriangle.Face.Indexes[1]];
-            var v3 = Vectors[collisionTriangle.Face.Indexes[2]];
-            var primitive = builder.UsePrimitive(materials[collisionTriangle.Surface]);
-            primitive.AddTriangle(new VERTEX_BUILDER(new VERTEX(v1.X, v1.Y, v1.Z)),
-                new VERTEX_BUILDER(new VERTEX(v2.X, v2.Y, v2.Z)),
-                new VERTEX_BUILDER(new VERTEX(v3.X, v3.Y, v3.Z)));
+            return false;
         }
-        return new GltfGeometryWrapper(builder, [new GltfBone
+
+        var vectorsAmount = parts.SelectMany(part => part.VertexOrder).Concat(unused.Select(u => u.Index)).DefaultIfEmpty(-1).Max() + 1;
+        var vectors = new System.Numerics.Vector3?[vectorsAmount];
+        foreach (var (index, position) in parts.SelectMany(part => part.VertexOrder.Zip(part.Positions)).Concat(unused))
         {
-            Node = root,
-            InverseBindMatrix = Matrix4x4.Identity
-        }]);
+            if (index < 0 || vectors[index] != null && vectors[index] != position)
+            {
+                return false;
+            }
+
+            vectors[index] = position;
+        }
+
+        var triangles = new CollisionTriangle?[parts.Sum(part => part.Triangles.Count)];
+        foreach (var part in parts)
+        {
+            for (var i = 0; i < part.Triangles.Count; i++)
+            {
+                var slot = part.TriangleOrder[i];
+                var (a, b, c) = part.Triangles[i];
+                if (slot < 0 || slot >= triangles.Length || triangles[slot] != null || Math.Max(a, Math.Max(b, c)) >= part.VertexOrder.Length)
+                {
+                    return false;
+                }
+
+                triangles[slot] = new CollisionTriangle
+                {
+                    Face = new IndexedFace(part.VertexOrder[a], part.VertexOrder[b], part.VertexOrder[c]),
+                    Surface = part.Surface
+                };
+            }
+        }
+
+        if (vectors.Any(v => v == null) || triangles.Any(t => t == null))
+        {
+            return false;
+        }
+
+        Vectors = vectors.Select(v => new Vector4(v!.Value.X, v.Value.Y, v.Value.Z, 1.0f)).ToList();
+        Triangles = triangles.Select(t => t!).ToList();
+        return true;
     }
 
     public void RebuildBvh()
@@ -150,7 +280,7 @@ public class CollisionData : AbstractAssetData
             Groups.Add(new GroupInformation(group));
         }
         var assetManager = AssetManager.Get();
-        var surfaces = assetManager.GetAllAssetsOf<CollisionSurface>();
+        var surfaces = assetManager.GetRelatedAssetsOf<CollisionSurface>(Owner.Package);
         foreach (var triangle in collision.Triangles)
         {
             Triangles.Add(new CollisionTriangle(triangle, surfaces));
@@ -161,14 +291,18 @@ public class CollisionData : AbstractAssetData
 
     public override ITwinItem Export(ITwinItemFactory factory)
     {
+        // The tree puts the triangles in its own order, the data keeps its order so building it again comes out the same
+        var triangles = Triangles;
         RebuildBvh();
-        
+        var treeTriangles = Triangles;
+        Triangles = triangles;
+
         using var ms = new MemoryStream();
         using var writer = new BinaryWriter(ms);
         writer.Write(0xBB9); // Collision header
         writer.Write(Triggers.Count);
         writer.Write(Groups.Count);
-        writer.Write(Triangles.Count);
+        writer.Write(treeTriangles.Count);
         writer.Write(Vectors.Count);
 
         foreach (var trigger in Triggers)
@@ -186,7 +320,7 @@ public class CollisionData : AbstractAssetData
         }
 
         var assetManager = AssetManager.Get();
-        foreach (var tri in Triangles)
+        foreach (var tri in treeTriangles)
         {
             var twinTri = new TwinCollisionTriangle()
             {
@@ -206,29 +340,5 @@ public class CollisionData : AbstractAssetData
         writer.Flush();
         ms.Position = 0;
         return factory.GenerateCollision(ms);
-    }
-
-    private Dictionary<LabURI, SharpGLTF.Materials.MaterialBuilder> GetMaterials()
-    {
-        var result = new Dictionary<LabURI, SharpGLTF.Materials.MaterialBuilder>();
-        var assetManager = AssetManager.Get();
-        var surfaces = assetManager.GetAllAssetsOf<CollisionSurface>();
-        foreach (var surface in surfaces)
-        {
-            var surfColor = CollisionSurface.DefaultColor;
-            if (surface.Parameters["editor_surface_color"] is JObject colorJson)
-            {
-                surfColor = colorJson.ToObject<Color>()!;
-            }
-            var surfaceMaterial = new SharpGLTF.Materials.MaterialBuilder().WithDoubleSide(true)
-                .WithBaseColor(new System.Numerics.Vector4(surfColor.R / 255.0f, surfColor.G / 255.0f, surfColor.B / 255.0f, surfColor.A / 255.0f));
-            surfaceMaterial.Name = surface.Name;
-            if (surfColor.A < 255)
-            {
-                surfaceMaterial.WithAlpha(SharpGLTF.Materials.AlphaMode.BLEND);
-            }
-            result.Add(surface.URI, surfaceMaterial);
-        }
-        return result;
     }
 }

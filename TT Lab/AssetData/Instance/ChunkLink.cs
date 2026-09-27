@@ -26,6 +26,9 @@ public class ChunkLink : IDocumentModel
     [JsonProperty(Required = Required.Always)]
     [Editable(MaxLinkGraphDepth = 4)]
     [EditorParam(DocumentCompositeViewModel.EditorExplicitOrder, -1)]
+    [EditorParam(UriLinkViewModel.BrowseType, typeof(LevelChunk))]
+    [EditorParam(UriLinkViewModel.BrowseExcludeWhen, nameof(LevelChunk.IsGlobalDefaultChunk))]
+    [EditorParam(UriLinkViewModel.BrowseExcludeOwnerChunk, true)]
     public LabURI Path { get; set; }
     
     [JsonProperty(Required = Required.Always)]
@@ -81,11 +84,12 @@ public class ChunkLink : IDocumentModel
         ChunkLinksCollisionData = [];
     }
 
-    public ChunkLink(TwinChunkLink link)
+    // The linked chunk is the one of the same version of the game, both have chunks at the same paths
+    public ChunkLink(TwinChunkLink link, LabURI package)
     {
         var assetManager = AssetManager.Get();
         UnkFlag = link.UnkFlag;
-        Path = assetManager.GetAllAssetsOf<LevelChunk>().First(c => c.GetChunkPath().Equals(link.Path.Replace('\\', System.IO.Path.DirectorySeparatorChar), StringComparison.InvariantCultureIgnoreCase)).URI;
+        Path = assetManager.GetRelatedAssetsOf<LevelChunk>(package).First(c => c.GetChunkPath().Equals(link.Path.Replace('\\', System.IO.Path.DirectorySeparatorChar), StringComparison.InvariantCultureIgnoreCase)).URI;
         IsAlwaysVisible = link.IsAlwaysVisible;
         IsVisibleInCameraFrustum = link.IsVisibleInCameraFrustum;
         UnkNum = link.UnkNum;

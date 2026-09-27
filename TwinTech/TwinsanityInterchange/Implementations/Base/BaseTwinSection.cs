@@ -100,7 +100,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Base
         {
             if (length > 0)
             {
-                ComputeHash(reader.BaseStream);
+                ComputeHash(reader.BaseStream, (UInt32)length);
                 Int64 baseOffset = reader.BaseStream.Position;
                 var magicNumber = reader.ReadUInt32();
                 if ((magicNumber >> 0x10) >= 2 || (magicNumber & 0xFFFF) != GetMagicNumber())

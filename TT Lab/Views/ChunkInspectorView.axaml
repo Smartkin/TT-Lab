@@ -1,0 +1,23 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewModels="clr-namespace:TT_Lab.ViewModels"
+             x:DataType="viewModels:ChunkInspectorViewModel"
+             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="600"
+             Focusable="True"
+             x:Class="TT_Lab.Views.ChunkInspectorView">
+    <UserControl.KeyBindings>
+        <KeyBinding Command="{Binding SaveCommand}" Gesture="Ctrl+S"/>
+        <KeyBinding Command="{Binding UndoCommand}" Gesture="Ctrl+Z"/>
+        <KeyBinding Command="{Binding RedoCommand}" Gesture="Ctrl+Y"/>
+        <KeyBinding Command="{Binding RedoCommand}" Gesture="Ctrl+Shift+Z"/>
+    </UserControl.KeyBindings>
+    <Grid>
+        <TextBlock Text="Select something in a chunk's scene or open one of its resources to inspect it" TextWrapping="Wrap" Margin="10" Opacity="0.7"
+                   IsVisible="{Binding Inspected, Converter={x:Static ObjectConverters.IsNull}}"/>
+        <DockPanel IsVisible="{Binding Inspected, Converter={x:Static ObjectConverters.IsNotNull}}">
+            <ContentControl Content="{Binding Inspected}"/>
+        </DockPanel>
+    </Grid>
+</UserControl>

@@ -42,9 +42,9 @@ public partial class App : Application
                 resolver.RegisterConstant(new AutoDataTemplateBindingHook(), typeof(IPropertyBindingHook));
                 RxApp.MainThreadScheduler = AvaloniaScheduler.Instance;
 
-                services.AddSingleton<IDockState, DockState>();
-                services.AddSingleton<IFactory, DockFactory>();
-                services.AddSingleton<IDockSerializer, Dock.Serializer.DockSerializer>();
+                // Deserialized layouts resolve their panels from the container so they come back as the same singletons
+                services.AddSingleton<IDockSerializer>(provider => new Dock.Serializer.DockSerializer(provider));
+                services.AddSingleton<DockFactory>();
 
                 services
                     .AddLabServices()

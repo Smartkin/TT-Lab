@@ -131,11 +131,19 @@ public class BehaviourGraphData : AbstractAssetData
         Graph = AgentLabDecompiler.Decompile(graph, resolver);
     }
 
+    // A build compiles a behaviour for every chunk using it and again when writing objects' slots. Compiling only depends on the
+    // script and its ID, so the chunks of a build share the results
     public AgentLabCompiler.CompilerResult GetCompiledBehaviour(ITwinItemFactory factory)
+    {
+        var graphId = _graphId >= 0 ? _graphId : (int)Owner.ExportTwinID;
+        return factory.CompiledBehaviours.GetOrAdd((Owner.URI, graphId, Graph), _ => Compile(factory, graphId));
+    }
+
+    private AgentLabCompiler.CompilerResult Compile(ITwinItemFactory factory, int graphId)
     {
         using var ms = new MemoryStream();
         using var binaryWriter = new BinaryWriter(ms);
-        binaryWriter.Write(_graphId);
+        binaryWriter.Write(graphId);
         using var writer = new StreamWriter(ms);
         writer.Write(Graph);
         writer.Flush();
@@ -149,30 +157,7 @@ public class BehaviourGraphData : AbstractAssetData
     {
         _graphId = (int)id;
         var compiledBehaviour = GetCompiledBehaviour(factory);
-
-        var objIdResolver = (LabGlobalObjectIdResolver)compiledBehaviour.CompilerOptions.Resolver.GetObjectIdResolver();
-        if (objIdResolver.ResolvedObjects.Count > 0)
-        {
-            ((BehaviourGraph)Owner).FireResolvedObjects(objIdResolver.ResolvedObjects);
-        }
-
-        var graphResolver = (LabStateGraphResolver)compiledBehaviour.CompilerOptions.Resolver.GetStateGraphResolver();
-        if (graphResolver.ResolvedGraphs.Count > 0)
-        {
-            ((BehaviourGraph)Owner).FireResolvedGraphs(graphResolver.ResolvedGraphs);
-        }
-
-        if (compiledBehaviour.Contains<TwinBehaviourStarter>())
-        {
-            var starterId = id - 1;
-            var starter = compiledBehaviour.Get<TwinBehaviourStarter>();
-            starter.SetID(starterId);
-            if (!section.ContainsItem(starterId))
-            {
-                section.AddItem(starter);
-            }
-        }
-            
+        factory.Resolution.GraphReferences[Owner.URI] = GetReferences(factory);
         if (section.ContainsItem(id))
         {
             return null;
@@ -187,6 +172,31 @@ public class BehaviourGraphData : AbstractAssetData
     public override ITwinItem Export(ITwinItemFactory factory)
     {
         return GetCompiledBehaviour(factory).Get<ITwinBehaviourGraph>();
+    }
+
+    /// <summary>
+    /// The objects and graphs the graph's code refers to
+    /// </summary>
+    public (IReadOnlyList<LabURI> Objects, IReadOnlyList<LabURI> Graphs) GetReferences(ITwinItemFactory factory)
+    {
+        var resolver = GetCompiledBehaviour(factory).CompilerOptions.Resolver;
+        return (((LabGlobalObjectIdResolver)resolver.GetObjectIdResolver()).ResolvedObjects, ((LabStateGraphResolver)resolver.GetStateGraphResolver()).ResolvedGraphs);
+    }
+
+    // The game only has a graph's starter in the chunks with objects referencing it, so the objects put it there
+    public void AddStarter(ITwinItemFactory factory, ITwinSection section, UInt32 graphId)
+    {
+        var compiledBehaviour = GetCompiledBehaviour(factory);
+        if (!compiledBehaviour.Contains<TwinBehaviourStarter>() || section.ContainsItem(graphId - 1))
+        {
+            return;
+        }
+
+        var starter = compiledBehaviour.Get<TwinBehaviourStarter>();
+        starter.SetID(graphId - 1);
+        // Writes the ID into the starter's header
+        starter.Compile();
+        section.AddItem(starter);
     }
 
     private void SetStarter(TwinBehaviourStarter? starter)

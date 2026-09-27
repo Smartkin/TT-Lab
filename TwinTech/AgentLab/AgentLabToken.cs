@@ -30,6 +30,7 @@ public struct AgentLabToken
         Assign, // '='
         Identifier, // (any identifier including reserved keywords)
         Priority, // "Priority"
+        GraphPriority, // "GraphPriority"
         StartFrom, // "StartFrom"
         NonBlocking, // "NonBlocking"
         SkipFirstBody, // "SkipFirstBody"
@@ -82,9 +83,25 @@ public struct AgentLabToken
         _value = value;
     }
     
-    // TODO: Add line and column members to display in errors/warnings later
-    
     public TokenType Type { get; }
+
+    /// <summary>
+    /// Line in the script where the token starts, starting from 1. 0 if the token doesn't come from a script
+    /// </summary>
+    public int Line { get; private set; }
+
+    /// <summary>
+    /// Column in the script where the token starts, starting from 1. 0 if the token doesn't come from a script
+    /// </summary>
+    public int Column { get; private set; }
+
+    internal AgentLabToken WithPosition(int line, int column)
+    {
+        var token = this;
+        token.Line = line;
+        token.Column = column;
+        return token;
+    }
     internal object Value => _value;
 
     public T GetValue<T>()

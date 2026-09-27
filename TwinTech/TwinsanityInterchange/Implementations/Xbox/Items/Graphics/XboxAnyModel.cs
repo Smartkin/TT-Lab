@@ -45,11 +45,6 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.Graphics
             }
         }
 
-        public UInt32 GetMinSkinCoord()
-        {
-            return 0;
-        }
-
         public override String GetName()
         {
             return $"Model {id:X}";

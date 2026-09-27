@@ -20,7 +20,12 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
         public UInt16 CommandIndex { get; set; }
         public List<UInt32> Arguments { get;
             set; }
-        public AgentLabVersion Version { get => AgentLabVersion.PS2; }
+        public virtual AgentLabVersion Version => AgentLabVersion.PS2;
+
+        /// <summary>
+        /// Commands of the platform, the Xbox version gave some of them more arguments
+        /// </summary>
+        protected virtual AgentLabDefs Defs => PS2BehaviourGraph.GetAgentLabDefs();
 
         Boolean ITwinBehaviourCommand.HasNext { get; set; }
 
@@ -28,8 +33,18 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
         {
             get
             {
-                return GetCommandSize(CommandIndex);
+                return GetSize(CommandIndex);
             }
+        }
+
+        protected virtual UInt32 GetSize(UInt16 index)
+        {
+            return GetCommandSize(index);
+        }
+
+        protected virtual PS2BehaviourCommand CreateNext()
+        {
+            return new PS2BehaviourCommand();
         }
 
         public PS2BehaviourCommand()
@@ -73,7 +88,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
             var hasNext = (Bitfield & 0x1000000) != 0;
             if (hasNext)
             {
-                var com = new PS2BehaviourCommand();
+                var com = CreateNext();
                 commands.Add(com);
                 com.Read(reader, length, commands);
             }
@@ -100,7 +115,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
 
         public void WriteText(StreamWriter writer, Int32 tabs = 0)
         {
-            AgentLabDefs defs = PS2BehaviourGraph.GetAgentLabDefs();
+            AgentLabDefs defs = Defs;
             StringUtils.WriteTabulated(writer, $"{MapCommand(CommandIndex, defs)}(", tabs);
             for (Int32 i = 0; i < Arguments.Count; ++i)
             {
@@ -200,7 +215,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
 
         public void ReadText(String line)
         {
-            AgentLabDefs defs = PS2BehaviourGraph.GetAgentLabDefs();
+            AgentLabDefs defs = Defs;
             Arguments.Clear();
             Debug.Assert(line.StartsWith($"@{Version}"), "Trying to parse PS2 command as a different version");
             if (line.StartsWith($"@{Version} ById_"))
@@ -225,21 +240,22 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
 
         public static UInt32 GetCommandSize(UInt16 index)
         {
-            if (commandSizeMap == null)
+            // Filled before being published since chunks get read from multiple threads
+            commandSizeMap ??= BuildSizeMap(PS2BehaviourGraph.GetAgentLabDefs());
+            return index < commandSizeMap.Length ? commandSizeMap[index] : 0;
+        }
+
+        protected static UInt32[] BuildSizeMap(AgentLabDefs defs)
+        {
+            var sizes = new UInt32[1024];
+            var commandSizes = defs.CommandSizes;
+            Debug.Assert(commandSizes.Count == 1024, "Command sizes table must contain 1024 entries");
+            for (Int32 i = 0; i < commandSizes.Count; i++)
             {
-                commandSizeMap = new UInt32[1024];
-                var commandSizes = PS2BehaviourGraph.GetAgentLabDefs().CommandSizes;
-                Debug.Assert(commandSizes.Count == 1024, "Command sizes table must contain 1024 entries");
-                for (Int32 i = 0; i < commandSizes.Count; i++)
-                {
-                    commandSizeMap[i] = Convert.ToUInt32(commandSizes[i][2..], 16);
-                }
+                sizes[i] = Convert.ToUInt32(commandSizes[i][2..], 16);
             }
-            if (index < 0 || index >= commandSizeMap.Length)
-            {
-                return 0;
-            }
-            return commandSizeMap[index];
+
+            return sizes;
         }
 
         static UInt32[] commandSizeMap = null;

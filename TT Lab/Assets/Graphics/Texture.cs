@@ -5,6 +5,7 @@ using TT_Lab.AssetData.Graphics;
 using TT_Lab.Attributes;
 using TT_Lab.ViewModels.Editors;
 using TT_Lab.ViewModels.Editors.Graphics;
+using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items;
 
@@ -28,6 +29,15 @@ public class Texture : SerializableAsset
     [Editable]
     public Boolean GenerateMipmaps { get; set; }
 
+    // The header has the texture's size twice. The game leaves the second one at 0 for Crash's textures every chunk has and for one of the
+    // startup fonts, which likely means it doesn't reserve memory for them in the chunk
+    [JsonProperty]
+    public Boolean ReservesMemory { get; set; } = true;
+
+    // Written back as read. The icons of PSM files have zeros where the textures of chunks have an address of the tools' memory
+    [JsonProperty]
+    public TwinTextureLeftovers? Leftovers { get; set; }
+
     public Texture(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinTexture texture) : base(id, name, package, needVariant, variant)
     {
         AssetData = new TextureData(this, texture);
@@ -35,6 +45,9 @@ public class Texture : SerializableAsset
         TextureFunction = texture.TexFun;
         PixelFormat = texture.TextureFormat;
         GenerateMipmaps = texture.MipLevels > 1;
+        ReservesMemory = texture.TextureFormat is not (ITwinTexture.TexturePixelFormat.PSMT8 or ITwinTexture.TexturePixelFormat.PSMCT32)
+            || texture.UnkBytes3 is not { Length: 2 } || texture.UnkBytes3[0] != 0 || texture.UnkBytes3[1] != 0;
+        Leftovers = texture.Leftovers;
     }
 
     public Texture()

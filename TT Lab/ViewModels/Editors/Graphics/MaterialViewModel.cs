@@ -38,7 +38,6 @@ public class MaterialViewModel : ResourceEditorViewModel
     {
         DirtyTracker.AddBindableCollection(Shaders);
         _materialViewer = Locator.Current.GetService<ViewportViewModel>()!;
-        _materialViewer.UseImgui = false;
         InitMaterialViewer();
     }
 

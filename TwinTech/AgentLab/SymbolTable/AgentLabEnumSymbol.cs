@@ -10,7 +10,7 @@ internal class AgentLabEnumSymbol : AgentLabSymbol
     
     public AgentLabEnumSymbol(string name, AgentLabSymbol type, params string[] enumNames) : base(name, type)
     {
-        Enums = new AgentLabSymbolTable();
+        Enums = new AgentLabSymbolTable(false);
 
         var enumIndex = 0;
         foreach (var enumName in enumNames)

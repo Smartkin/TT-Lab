@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using GlmSharp;
-using SharpGLTF.Schema2;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Attributes;
@@ -34,57 +33,35 @@ public struct MorphAnimationSample
     public float[] Weights;
 }
 
-[Editable(Caption = "Animation Editor", EditorDescType = typeof(AnimationEditorDesc), EditorOrientation = Avalonia.Controls.Dock.Top)]
-public class AnimationData : AbstractAssetData
+/// <summary>
+/// One of an OGI's animations, kept the way the game stores it
+/// </summary>
+public class AnimationData
 {
-    private class GltfAnimation
+    public AnimationData()
     {
-        public int TotalFrames { get; private set; }
-        public int JointIndex { get; private set; }
-        public List<vec3> Translations = [];
-        public List<quat> Rotations = [];
-        public List<vec3> Scales = [];
-
-        public static GltfAnimation GenerateFromGltfSamplers(
-            int jointIndex,
-            IEnumerable<(float key, System.Numerics.Vector3 translation)> translations,
-            IEnumerable<(float key, System.Numerics.Quaternion rotation)> rotations,
-            IEnumerable<(float key, System.Numerics.Vector3 scale)> scales)
-        {
-            var translationList = translations.ToList();
-            var rotationList = rotations.ToList();
-            var scalesList = scales.ToList();
-
-            var maxTime = Math.Max(translationList.Max(tr => tr.key), Math.Max(rotationList.Max(r => r.key), scalesList.Max(s => s.key)));
-            const float sampleRate = 1.0f / 25.0f;
-            var framesAmount = (int)Math.Floor(maxTime / sampleRate) + 1;
-            var result = new GltfAnimation
-            {
-                JointIndex = jointIndex,
-                TotalFrames = framesAmount,
-            };
-            var time = 0.0f;
-            do
-            {
-                
-                time += sampleRate;
-            } while (time < maxTime);
-            
-            return result;
-        }
-    }
-    
-    public AnimationData(IAsset asset) : base(asset)
-    {
+        Name = string.Empty;
         MainAnimation = new TwinAnimation();
         FacialAnimation = new TwinMorphAnimation();
     }
 
-    public AnimationData(IAsset asset, ITwinAnimation animation) : this(asset)
+    public AnimationData(ITwinAnimation animation) : this()
     {
-        SetTwinItem(animation);
+        ID = animation.GetID();
+        Name = animation.GetName();
+        TotalFrames = animation.TotalFrames;
+        DefaultFPS = animation.DefaultFPS;
+        MainAnimation = CloneUtils.DeepClone(animation.MainAnimation);
+        FacialAnimation = CloneUtils.DeepClone(animation.FacialAnimation);
     }
 
+    /// <summary>
+    /// The game's ID of the animation, game objects pick it by it in their OGI
+    /// </summary>
+    [JsonProperty(Required = Required.Always)]
+    public UInt32 ID { get; set; }
+    [JsonProperty(Required = Required.Always)]
+    public String Name { get; set; }
     [JsonProperty(Required = Required.Always)]
     public UInt16 TotalFrames { get; set; }
     [JsonProperty(Required = Required.Always)]
@@ -285,285 +262,7 @@ public class AnimationData : AbstractAssetData
         return keyframes;
     }
 
-    public void LoadFromGltf(Animation gltfAnim)
-    {
-        DefaultFPS = 25;
-        var jointList = gltfAnim.Channels.ToList();
-        jointList.Sort((ac1, ac2) => ac1.TargetNode.LogicalIndex - ac2.TargetNode.LogicalIndex);
-        var mainAnimation = new TwinAnimation();
-        var jointSettings = new List<JointSettings>(jointList.Count);
-        var staticTransforms = new List<Transformation>();
-        var animatedTransforms = new List<AnimatedTransformation>();
-        mainAnimation.JointSettings = jointSettings;
-        mainAnimation.StaticTransformations = staticTransforms;
-        mainAnimation.AnimatedTransformations = animatedTransforms;
-        for (var i = 0; i < jointList.Count; i++)
-        {
-            jointSettings[i] = new JointSettings
-            {
-                TranslateX = Enums.TransformType.Static,
-                TranslateY = Enums.TransformType.Static,
-                TranslateZ = Enums.TransformType.Static,
-                RotateX = Enums.TransformType.Static,
-                RotateY = Enums.TransformType.Static,
-                RotateZ = Enums.TransformType.Static,
-                ScaleX = Enums.TransformType.Static,
-                ScaleY = Enums.TransformType.Static,
-                ScaleZ = Enums.TransformType.Static,
-                UseAdditionalRotation = false,
-                IndependentScaling = false,
-            };
-        }
-
-        TotalFrames = (ushort)gltfAnim.Channels.Max(c => Math.Max(c.GetScaleSampler().GetLinearKeys().Count(), Math.Max(c.GetTranslationSampler().GetLinearKeys().Count(), c.GetRotationSampler().GetLinearKeys().Count())));
-        
-        for (var i = 0; i < jointList.Count; ++i)
-        {
-            var channel = jointList[i];
-            var jointSetting = jointSettings[i];
-            jointSetting.TransformationIndex = (ushort)staticTransforms.Count;
-            jointSetting.AnimationTransformationIndex = (ushort)animatedTransforms.Count;
-            var translationSampler = channel.GetTranslationSampler().GetLinearKeys().ToList();
-            var rotationSampler = channel.GetRotationSampler().GetLinearKeys().ToList();
-            var scaleSampler = channel.GetScaleSampler().GetLinearKeys().ToList();
-            var initialTranslation = translationSampler[0].Value;
-            var translationX = initialTranslation.X;
-            var translationY = initialTranslation.Y;
-            var translationZ = initialTranslation.Z;
-            foreach (var kv in translationSampler.Skip(1))
-            {
-                var newTranslationX = kv.Value.X;
-                if (!(Math.Abs(translationX - newTranslationX) > 0.0001f))
-                {
-                    continue;
-                }
-                
-                jointSetting.TranslateX = Enums.TransformType.Animated;
-                break;
-            }
-            
-            foreach (var kv in translationSampler.Skip(1))
-            {
-                var newTranslationY = kv.Value.Y;
-                if (!(Math.Abs(translationY - newTranslationY) > 0.0001f))
-                {
-                    continue;
-                }
-                
-                jointSetting.TranslateY = Enums.TransformType.Animated;
-                break;
-            }
-            
-            foreach (var kv in translationSampler.Skip(1))
-            {
-                var newTranslationZ = kv.Value.Z;
-                if (!(Math.Abs(translationZ - newTranslationZ) > 0.0001f))
-                {
-                    continue;
-                }
-                
-                jointSetting.TranslateZ = Enums.TransformType.Animated;
-                break;
-            }
-
-            var rotationEuler = rotationSampler[0].Value.ToTwinEulerAngles();
-            var rotationX = rotationEuler.X;
-            var rotationY = rotationEuler.Y;
-            var rotationZ = rotationEuler.Z;
-            foreach (var kv in rotationSampler.Skip(1))
-            {
-                var newRotationEuler = kv.Value.ToTwin().ToEulerAngles();
-                if (Math.Abs(rotationX - newRotationEuler.X) > 0.0001f)
-                {
-                    jointSetting.RotateX = Enums.TransformType.Animated;
-                }
-                if (Math.Abs(rotationY - newRotationEuler.Y) > 0.0001f)
-                {
-                    jointSetting.RotateY = Enums.TransformType.Animated;
-                }
-                if (Math.Abs(rotationZ - newRotationEuler.Z) > 0.0001f)
-                {
-                    jointSetting.RotateZ = Enums.TransformType.Animated;
-                }
-            }
-            
-            var initialScale = scaleSampler[0].Value;
-            var scaleX = initialScale.X;
-            var scaleY = initialScale.Y;
-            var scaleZ = initialScale.Z;
-            foreach (var kv in scaleSampler.Skip(1))
-            {
-                var newScaleX = kv.Value.X;
-                if (!(Math.Abs(scaleX - newScaleX) > 0.0001f))
-                {
-                    continue;
-                }
-                
-                jointSetting.ScaleX = Enums.TransformType.Animated;
-                break;
-            }
-            
-            foreach (var kv in scaleSampler.Skip(1))
-            {
-                var newScaleY = kv.Value.Y;
-                if (!(Math.Abs(scaleY - newScaleY) > 0.0001f))
-                {
-                    continue;
-                }
-                
-                jointSetting.ScaleY = Enums.TransformType.Animated;
-                break;
-            }
-            
-            foreach (var kv in scaleSampler.Skip(1))
-            {
-                var newScaleZ = kv.Value.Z;
-                if (!(Math.Abs(scaleZ - newScaleZ) > 0.0001f))
-                {
-                    continue;
-                }
-                
-                jointSetting.ScaleZ = Enums.TransformType.Animated;
-                break;
-            }
-
-            if (jointSetting.TranslateX == Enums.TransformType.Static)
-            {
-                var transformation = new Transformation
-                {
-                    Value = initialTranslation.X
-                };
-                staticTransforms.Add(transformation);
-            }
-            else
-            {
-                var animatedTransform = new AnimatedTransformation((ushort)translationSampler.Count);
-                foreach (var sample in translationSampler)
-                {
-                }
-            }
-            
-            if (jointSetting.TranslateY == Enums.TransformType.Static)
-            {
-                var transformation = new Transformation
-                {
-                    Value = initialTranslation.Y
-                };
-                staticTransforms.Add(transformation);
-            }
-            else
-            {
-                
-            }
-            
-            if (jointSetting.TranslateZ == Enums.TransformType.Static)
-            {
-                var transformation = new Transformation
-                {
-                    Value = initialTranslation.Z
-                };
-                staticTransforms.Add(transformation);
-            }
-            else
-            {
-                
-            }
-
-            if (jointSetting.RotateX == Enums.TransformType.Static)
-            {
-                var transformation = new Transformation
-                {
-                    RotationValue = rotationEuler.X
-                };
-                staticTransforms.Add(transformation);
-            }
-            else
-            {
-                
-            }
-            
-            if (jointSetting.RotateY == Enums.TransformType.Static)
-            {
-                var transformation = new Transformation
-                {
-                    RotationValue = rotationEuler.Y
-                };
-                staticTransforms.Add(transformation);
-            }
-            else
-            {
-                
-            }
-            
-            if (jointSetting.RotateZ == Enums.TransformType.Static)
-            {
-                var transformation = new Transformation
-                {
-                    RotationValue = rotationEuler.Z
-                };
-                staticTransforms.Add(transformation);
-            }
-            else
-            {
-                
-            }
-            
-            if (jointSetting.ScaleX == Enums.TransformType.Static)
-            {
-                var transformation = new Transformation
-                {
-                    Value = initialScale.X
-                };
-                staticTransforms.Add(transformation);
-            }
-            else
-            {
-                
-            }
-            
-            if (jointSetting.ScaleY == Enums.TransformType.Static)
-            {
-                var transformation = new Transformation
-                {
-                    Value = initialScale.Y
-                };
-                staticTransforms.Add(transformation);
-            }
-            else
-            {
-                
-            }
-            
-            if (jointSetting.ScaleZ == Enums.TransformType.Static)
-            {
-                var transformation = new Transformation
-                {
-                    Value = initialScale.Z
-                };
-                staticTransforms.Add(transformation);
-            }
-            else
-            {
-                
-            }
-        }
-    }
-    
-    protected override void Dispose(Boolean disposing)
-    {
-        return;
-    }
-
-    public override void Import(LabURI package, String? variant, Int32? layoutId)
-    {
-        var twinAnimation = GetTwinItem<ITwinAnimation>();
-        TotalFrames = twinAnimation.TotalFrames;
-        DefaultFPS = twinAnimation.DefaultFPS;
-        MainAnimation = CloneUtils.DeepClone(twinAnimation.MainAnimation);
-        FacialAnimation = CloneUtils.DeepClone(twinAnimation.FacialAnimation);
-    }
-
-    public override ITwinItem Export(ITwinItemFactory factory)
+    public ITwinAnimation Export(ITwinItemFactory factory)
     {
         using var ms = new MemoryStream();
         using var writer = new BinaryWriter(ms);
@@ -574,19 +273,8 @@ public class AnimationData : AbstractAssetData
 
         writer.Flush();
         ms.Position = 0;
-        return factory.GenerateAnimation(ms);
-    }
-
-    public override List<ViewportObject> GetViewportObjects(ViewportContext viewportContext, PropertyNode property)
-    {
-        var context = viewportContext.RenderContext;
-        var allOgis = AssetManager.Get().GetAllAssetsOf<Assets.Code.OGI>().Where(ogi =>
-            ogi.GetData().To<OGIData>().Joints.Count >= MainAnimation.JointSettings.Count).ToList();
-        var allOgiUris = allOgis.Select(ogi => ogi.URI).ToList();
-        var bestFitIndex = allOgis.FindIndex(ogi => ogi.GetData().To<OGIData>().Joints.Count == MainAnimation.JointSettings.Count);
-        var bestOgi = allOgiUris[bestFitIndex == -1 ? 0 : bestFitIndex];
-        var ogiRender = new OGI(context, context.SkeletonManager, context.MeshService, AssetManager.Get().GetAssetData<OGIData>(bestOgi));
-        var viewportObject = new ViewportObject(new EditableObject(context, ogiRender, "AnimationRender"), property.Name, property);
-        return [viewportObject];
+        var animation = factory.GenerateAnimation(ms);
+        animation.SetID(ID);
+        return animation;
     }
 }

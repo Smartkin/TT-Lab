@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
-using ImGuiNET;
 using TT_Lab.AssetData;
 using TT_Lab.AssetData.Code;
 using TT_Lab.AssetData.Graphics;
@@ -12,6 +11,8 @@ using TT_Lab.AssetData.Instance;
 using TT_Lab.Assets;
 using TT_Lab.Extensions;
 using TT_Lab.Rendering.Buffers;
+using TT_Lab.Rendering.Objects.Gizmo;
+using TT_Lab.Rendering.Scene;
 
 namespace TT_Lab.Rendering.Objects;
 
@@ -25,10 +26,12 @@ public class EditableObject : Renderable
     public vec3 Size;
     public vec3 Offset;
     protected bool Selected;
+    private quat _orientation = quat.Identity;
+    public bool IsSelected => Selected;
     public vec4 SelectedColor { get; set; } = new(0.3f, 0.3f, 0.3f, 1.0f);
     public vec4 UnselectedColor { get; set; } = new(1.0f, 1.0f, 1.0f, 1.0f);
 
-    public EditableObject(RenderContext context, Renderable visual, string name, vec3 offset = new(), vec3 size = new()) : base(context, name)
+    public EditableObject(RenderContext context, Renderable? visual, string name, vec3 offset = new(), vec3 size = new()) : base(context, name)
     {
         if (size == vec3.Zero)
         {
@@ -38,17 +41,31 @@ public class EditableObject : Renderable
         Size = size;
         Offset = offset;
         Scl = vec3.Ones;
-        
-        AddChild(visual);
+
+        if (visual != null)
+        {
+            AddChild(visual);
+        }
     }
 
     public void Init()
     {
         InitSceneTransform();
+        _orientation = new quat(Rot);
         SetInitialPosition(Pos);
-        SetInitialRotation(new quat(Rot));
+        SetInitialRotation(_orientation);
         SetInitialScale(Scl);
         UpdateSceneTransform();
+    }
+
+    public quat Orientation => _orientation;
+
+    /// <summary>
+    /// Where the object's box used for picking and outlining its selection is, maps the cube from -1 to 1 onto it
+    /// </summary>
+    public mat4 GetBoundsTransform()
+    {
+        return WorldTransform * mat4.Translate(Offset + Size * 0.5f) * mat4.Scale(Size * 0.5f);
     }
 
     protected virtual void InitSceneTransform()
@@ -64,12 +81,26 @@ public class EditableObject : Renderable
     {
         Selected = true;
         Diffuse = SelectedColor;
+        HighlightBillboards(true);
     }
 
     public virtual void Deselect()
     {
         Selected = false;
         Diffuse = UnselectedColor;
+        HighlightBillboards(false);
+    }
+
+    // Billboards are drawn by their set in its own color, the tint doesn't reach them
+    private void HighlightBillboards(bool highlight)
+    {
+        foreach (var child in Children)
+        {
+            if (child is Billboard billboard)
+            {
+                billboard.IsHighlighted = highlight;
+            }
+        }
     }
 
     public override void SetPosition(vec3 position)
@@ -88,6 +119,7 @@ public class EditableObject : Renderable
 
     public void SetRotation(quat rotation)
     {
+        _orientation = rotation;
         Rot = (vec3)rotation.EulerAngles;
         SetInitialRotation(rotation);
         UpdateSceneTransform();
@@ -134,6 +166,7 @@ public class EditableObject : Renderable
 
     public override void Rotate(quat rotation, bool inLocalSpace = false)
     {
+        _orientation = inLocalSpace ? _orientation * rotation : rotation * _orientation;
         var eulerAngles = rotation.EulerAngles;
         Rot += new vec3((float)eulerAngles.x, (float)eulerAngles.y, (float)eulerAngles.z);
         Rot = (vec3.Degrees(Rot) % 360 + 360) % 360;
@@ -149,35 +182,14 @@ public class EditableObject : Renderable
         base.Scale(scale, inLocalSpace);
     }
 
-    public void RenderUpdate()
+    /// <summary>
+    /// What the viewport shows about the selection in its corner
+    /// </summary>
+    public string Describe()
     {
-        if (!Selected)
-        {
-            return;
-        }
-            
-        DrawImGui();
-    }
-
-    private void DrawImGui()
-    {
-        ImGui.Begin(Name);
-        ImGui.SetWindowPos(new Vector2(5, 5), ImGuiCond.FirstUseEver);
-        ImGui.SetWindowSize(new Vector2(400, 100),  ImGuiCond.FirstUseEver);
-        DrawImGuiInternal();
-        ImGui.End();
-    }
-
-    protected virtual void DrawImGuiInternal()
-    {
-        var rotation = GetRotation();
-        rotation.x = glm.Degrees(rotation.x);
-        rotation.y = glm.Degrees(rotation.y);
-        rotation.z = glm.Degrees(rotation.z);
+        // GetRotation doesn't take out the scale first, which skews the angles of anything scaled unevenly
+        var rotation = vec3.Degrees(GetRotationQuat().ToEulerAngles());
         var position = GetPosition();
-        ImGui.Text($"Position: {position}");
-        ImGui.Text($"Rotation: {rotation}");
-        ImGui.Text($"Scale: {GetScale()}");
-        ImGui.Text($"Bounding Box Size: {Size}");
+        return $"{Name}\nPosition: {position}\nRotation: {rotation}\nScale: {GetScale()}\nBounding box size: {Size}";
     }
 }

@@ -1,13 +1,8 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using Avalonia.Utilities;
-using GlmSharp;
 using Silk.NET.OpenGL;
 using TT_Lab.Rendering.Buffers;
 using TT_Lab.Rendering.Materials;
-using PrimitiveType = Silk.NET.OpenGL.PrimitiveType;
 
 namespace TT_Lab.Rendering.Objects;
 
@@ -15,7 +10,7 @@ public class Mesh(RenderContext context, List<ModelBuffer> models) : Renderable(
 {
     private readonly IReadOnlyList<ModelBuffer> _models = models;
     private PolygonMode _renderMode = PolygonMode.Fill;
-    private List<MaterialPropertyOverrider> _materialOverrides = [];
+    private readonly List<MaterialPropertyOverrider> _materialOverrides = [];
 
     public void SetRenderMode(PolygonMode mode)
     {
@@ -31,7 +26,7 @@ public class Mesh(RenderContext context, List<ModelBuffer> models) : Renderable(
     {
         _materialOverrides.Remove(overrider);
     }
-    
+
     public IReadOnlyList<ModelBuffer> GetModels() => _models;
 
     public virtual Mesh Clone()
@@ -51,36 +46,38 @@ public class Mesh(RenderContext context, List<ModelBuffer> models) : Renderable(
         return result.ToArray();
     }
 
-    private int _currentRenderMode;
-    protected override void RenderSelf(float delta)
+    /// <summary>
+    /// Meshes that need their own uniforms or state can't be drawn in the same draw as the other meshes using their model
+    /// </summary>
+    public virtual bool RequiresIndividualDraw => _renderMode != PolygonMode.Fill || _materialOverrides.Count > 0;
+
+    public virtual void BeginIndividualDraw(ModelBuffer model)
     {
-        _currentRenderMode = Context.Gl.GetInteger(GetPName.PolygonMode);
-        if (_currentRenderMode != (int)_renderMode)
+        Context.State.SetPolygonMode(_renderMode);
+        var material = model.GetMaterial();
+        if (material == null)
         {
-            Context.Gl.PolygonMode(TriangleFace.FrontAndBack, _renderMode);
+            return;
         }
-        
-        var modelLoc = Context.CurrentPass.Program.GetUniformLocation("StartModel");
-        Context.Gl.UniformMatrix4(modelLoc, false, RenderTransform.Values1D);
 
         foreach (var materialPropertyOverrider in _materialOverrides)
         {
-            materialPropertyOverrider.Override(_models[0].GetMaterial()!);
+            materialPropertyOverrider.Override(material);
         }
     }
 
-    public override void EndRender()
+    public virtual void EndIndividualDraw(ModelBuffer model)
     {
-        if (_currentRenderMode != (int)PolygonMode.Fill)
+        Context.State.SetPolygonMode(PolygonMode.Fill);
+        var material = model.GetMaterial();
+        if (material == null)
         {
-            Context.Gl.PolygonMode(TriangleFace.FrontAndBack, PolygonMode.Fill);
+            return;
         }
 
         foreach (var materialPropertyOverrider in _materialOverrides)
         {
-            materialPropertyOverrider.UnOverride(_models[0].GetMaterial()!);
+            materialPropertyOverrider.UnOverride(material);
         }
-
-        base.EndRender();
     }
 }

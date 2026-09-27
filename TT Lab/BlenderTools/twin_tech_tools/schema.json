@@ -1,0 +1,52 @@
+{
+  "comment": "Twinsanity's enums and the keys of every TwinTech type as TT Lab writes them into the data of TT Lab model files' nodes. TT Lab's tests (SchemaTests, TlmSceneryTests) and the add-on's tests keep both sides in sync with it",
+  "enums": {
+    "LodType": [["FULL", 4097], ["COMPRESSED", 4098]],
+    "SceneryType": [["None", 3], ["Node", 5632], ["Leaf", 5637], ["Root", 5642]]
+  },
+  "types": {
+    "Scene": {},
+    "Object": {
+      "Ogi": ["BoundingBoxMin", "BoundingBoxMax", "Collisions"],
+      "Scenery": ["FogColor", "HasLighting", "UnkByte", "LightOrder"],
+      "Skydome": [],
+      "Skin": [],
+      "BlendSkin": ["BlendsAmount"],
+      "Body": ["Order"],
+      "Model": [],
+      "RigidModel": [],
+      "Mesh": [],
+      "SceneryMesh": ["Order", "Matrix", "BoundingBox"],
+      "SceneryLod": ["Order", "Matrix", "LodType", "MinDrawDistance", "MaxDrawDistance", "ModelsDrawDistances", "BoundingBox"],
+      "LodMesh": ["Level"],
+      "AmbientLight": ["Order", "Color", "Radius", "PositionW", "UnkData", "UnkVec1", "UnkVec2"],
+      "DirectionalLight": ["Order", "Color", "Radius", "PositionW", "UnkData", "UnkVec1", "UnkVec2", "UnkShort", "Direction"],
+      "PointLight": ["Order", "Color", "Radius", "PositionW", "UnkData", "UnkVec1", "UnkVec2", "UnkShort"],
+      "NegativeLight": ["Order", "Color", "Radius", "PositionW", "UnkData", "UnkVec1", "UnkVec2", "UnkVec3", "UnkFloat1", "UnkFloat2", "UnkUInt1", "UnkUInt2", "UnkUShort1", "UnkUShort2"],
+      "ExitPoint": ["Id", "Matrix"],
+      "DynamicScenery": [],
+      "DynamicSceneryModel": ["Order", "LodFlag", "BoundingBoxMin", "BoundingBoxMax", "Collisions"],
+      "SkydomeMesh": ["Order"],
+      "Collision": ["UnusedVertexes", "UnusedPositions"],
+      "SceneryTreeNode": ["LightsEnabler", "Kind", "Slot", "UnkVec2", "UnkVec3", "UnkVec1", "UnkVec4", "UnkUInt", "SceneryTypes"]
+    },
+    "Bone": {
+      "Joint": ["Index", "ReactId", "AdditionalAnimationRotation", "ChildrenAmt2", "UnusedRotation", "LocalTranslation", "LocalRotation", "WorldTranslation", "InverseBindMatrix"]
+    },
+    "Material": {
+      "CollisionSurface": ["Surface"]
+    },
+    "Items": {
+      "OgiCollision": ["Joint", "Points", "UnkVectors1", "UnkVectors2", "UnkVectors3", "UnkShorts", "UnkBytes1", "UnkBytes2"],
+      "Collision": ["Points", "UnkVectors1", "UnkVectors2", "UnkVectors3", "UnkShorts", "UnkBytes1", "UnkBytes2"]
+    }
+  },
+  "fogColors": [
+    ["Purple", [128, 0, 128, 255]],
+    ["No color", [0, 0, 0, 0]],
+    ["Light blue", [173, 216, 230, 255]],
+    ["Green", [0, 255, 0, 255]],
+    ["Grey", [127, 127, 127, 255]],
+    ["Beige", [245, 245, 220, 255]]
+  ]
+}

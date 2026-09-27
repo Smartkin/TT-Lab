@@ -26,7 +26,7 @@ public class AssetCreationPreviewModel
         DataCreatorAsync = dataCreator;
     }
     
-    public Bitmap IconPath => new(ManifestResourceLoader.GetPathInExe($"Media/LabIcons/{_asset.IconPath}"));
+    public Bitmap IconPath => MiscUtils.GetLabIcon(System.IO.Path.GetFileNameWithoutExtension(_asset.IconPath));
     public string DisplayName { get; }
     public Func<IAsset, AssetCreationStatus>? DataCreator { get; }
     public Func<IAsset, Task<AssetCreationStatus>>? DataCreatorAsync { get; }

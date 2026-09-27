@@ -5,7 +5,6 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.SubItems
 {
     public interface ITwinSubBlendSkin : ITwinSerializable
     {
-        UInt32 CompileScale { get; set; }
         /// <summary>
         /// Material to render model with
         /// </summary>

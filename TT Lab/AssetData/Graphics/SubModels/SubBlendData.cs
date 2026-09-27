@@ -1,107 +1,78 @@
-﻿using SharpGLTF.Schema2;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.Json;
-using System.Text.Json.Nodes;
 using TT_Lab.Assets;
 using TT_Lab.Attributes;
-using TT_Lab.Util;
-using Twinsanity.PS2Hardware;
+using TT_Lab.MeshProcessor;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.SubItems;
 
-namespace TT_Lab.AssetData.Graphics.SubModels
+namespace TT_Lab.AssetData.Graphics.SubModels;
+
+/// <summary>
+/// The part of a blend skin drawn with one material. The game splits it into models of one batch each, every one of them packing
+/// the offsets of the shapes with its own scale
+/// </summary>
+[ReferencesAssets]
+public class SubBlendData : IDisposable
 {
-    [ReferencesAssets]
-    public class SubBlendData : IDisposable
+    public LabURI Material { get; set; }
+    public List<Vertex> Vertexes { get; set; } = [];
+    public List<IndexedFace> Faces { get; set; } = [];
+    /// <summary>
+    /// Offset of every vertex for every shape
+    /// </summary>
+    public List<List<Vector4>> ShapeOffsets { get; set; } = [];
+    /// <summary>
+    /// The strips of the part, every batch being one of the game's models
+    /// </summary>
+    public StripLayout? Layout { get; set; }
+    public TwinSkinCompression? Compression { get; set; }
+
+    public SubBlendData(IAsset owner, ITwinSubBlendSkin blend, Int32 blendsAmount)
     {
-        public LabURI Material { get; set; }
-        public List<SubBlendModelData> Models { get; set; } = [];
-
-        public SubBlendData(IAsset owner, ITwinSubBlendSkin blend)
+        Material = AssetManager.Get().GetUriByTwinId<Assets.Graphics.Material>(owner, blend.Material);
+        if (Material == LabURI.Empty)
         {
-            Material = AssetManager.Get().GetUriByTwinId<Assets.Graphics.Material>(owner, blend.Material);
-            if (Material == LabURI.Empty)
-            {
-                var allMaterials = AssetManager.Get().GetAssets().FindAll(a => a is Assets.Graphics.Material).ConvertAll(a => a.URI);
-                var actuallyHasTheMaterial = allMaterials.FindAll(uri => uri.ToString().Contains(blend.Material.ToString()));
-                throw new Exception($"Couldn't find requested material 0x{blend.Material:X}!");
-            }
-
-            foreach (var model in blend.Models)
-            {
-                Models.Add(new SubBlendModelData(model));
-            }
+            throw new Exception($"Couldn't find requested material 0x{blend.Material:X}!");
         }
 
-        public SubBlendData(LabURI material, IEnumerable<SharpGLTF.Schema2.Mesh> meshes, Int32 blendsAmount)
+        var part = StripParts.FromBlend(blend.Models, blendsAmount, out var shapeOffsets);
+        Vertexes = part.Vertexes;
+        Faces = part.Faces;
+        Layout = part.Layout;
+        ShapeOffsets = shapeOffsets;
+        Compression = blend.Models.FirstOrDefault()?.Compression;
+    }
+
+    public SubBlendData(LabURI material, ModelPart part)
+    {
+        Material = material;
+        Vertexes = part.Vertexes;
+        Faces = part.Faces;
+        Layout = part.Layout;
+        ShapeOffsets = part.ShapeOffsets;
+        Compression = part.Compression;
+    }
+
+    public ModelPart ToModelPart()
+    {
+        return new ModelPart
         {
-            Material = material;
+            Vertexes = Vertexes,
+            Faces = Faces,
+            Layout = Layout,
+            Compression = Compression,
+            ShapeOffsets = ShapeOffsets
+        };
+    }
 
-            foreach (var mesh in meshes)
-            {
-                var allVertexes = new List<Vertex>();
-                var allIndices = new List<IndexedFace>();
-                var blendShape = mesh.Extras.Deserialize<MeshExtraInfo>()!.BlendShape;
-                var primitive = mesh.Primitives[0];
-                var vertexes = primitive.GetVertexColumns();
-                var indices = primitive.GetTriangleIndices();
+    public void Dispose()
+    {
+        Vertexes.Clear();
+        Faces.Clear();
+        ShapeOffsets.Clear();
 
-                for (var i = 0; i < vertexes.Positions.Count; i++)
-                {
-                    var pos = vertexes.Positions[i].ToTwin();
-                    pos.W = vertexes.Colors1[i].X;
-                    var ver = new Vertex(
-                        pos,
-                        vertexes.Colors0[i].ToTwin(),
-                        vertexes.TexCoords0[i].ToTwin());
-                    ver.UV.Z = vertexes.TexCoords1[i].X;
-                    ver.UV.W = vertexes.TexCoords1[i].Y;
-                    ver.Color = new Vector4(ver.Color.X, ver.Color.Y, ver.Color.Z, ver.Color.W);
-                    ver.JointInfo.JointIndex1 = (Int32)vertexes.Joints0[i].X;
-                    ver.JointInfo.JointIndex2 = (Int32)vertexes.Joints0[i].Y;
-                    ver.JointInfo.JointIndex3 = (Int32)vertexes.Joints0[i].Z;
-                    ver.JointInfo.Weight1 = vertexes.Weights0[i].X;
-                    ver.JointInfo.Weight2 = vertexes.Weights0[i].Y;
-                    ver.JointInfo.Weight3 = vertexes.Weights0[i].Z;
-
-                    allVertexes.Add(ver);
-                }
-
-                foreach (var (idx1, idx2, idx3) in indices)
-                {
-                    allIndices.Add(new IndexedFace(idx1, idx2, idx3));
-                }
-
-                if (vertexes.MorphTargets.Count == 0)
-                {
-                    var zeros = new List<List<System.Numerics.Vector3>>();
-                    for (var j = 0; j < blendsAmount; j++)
-                    {
-                        zeros.Add([]);
-                        for (var i = 0; i < vertexes.Positions.Count; i++)
-                        {
-                            zeros[^1].Add(System.Numerics.Vector3.Zero);
-                        }
-                    }
-                    Models.Add(new SubBlendModelData(blendShape, allVertexes, allIndices, zeros, true));
-                    continue;
-                }
-
-                Models.Add(new SubBlendModelData(blendShape, allVertexes, allIndices, vertexes.MorphTargets));
-            }
-        }
-
-        public void Dispose()
-        {
-            foreach (var model in Models)
-            {
-                model.Dispose();
-            }
-            Models.Clear();
-
-            GC.SuppressFinalize(this);
-        }
+        GC.SuppressFinalize(this);
     }
 }

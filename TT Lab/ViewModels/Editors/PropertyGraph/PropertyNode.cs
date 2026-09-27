@@ -60,6 +60,22 @@ public class PropertyNode
         Graph = graph;
     }
 
+    // Everything below is addressed through this node's path, so it has to move along with it
+    internal void SetPath(string path)
+    {
+        var previousPath = Path;
+        Path = path;
+        if (previousPath == path)
+        {
+            return;
+        }
+
+        foreach (var child in Children)
+        {
+            child.SetPath(child.Path.StartsWith(previousPath, StringComparison.Ordinal) ? path + child.Path[previousPath.Length..] : child.Path);
+        }
+    }
+
     internal void InitPropertyLinks()
     {
         foreach (var childNode in Children)
@@ -132,26 +148,57 @@ public class PropertyNode
         {
             nodeMetadata = nodeMetadata with { ContainedTypeConstructor = null };
         }
-        var node = PropertyGraphBuilder.BuildNode(list, nodeMetadata, childPath, Graph!.Tracker, innerType: addedValue.GetType(), index: Children.Count);
+        var index = Children.Count;
+        var node = PropertyGraphBuilder.BuildNode(list, nodeMetadata, childPath, Graph!.Tracker, innerType: addedValue.GetType(), index: index);
         AddChild(node);
         Graph.Index(node);
-        RaiseGraphChange(null, addedValue);
+        RaiseStructureChange(PropertyChangeKind.Insert, index, addedValue);
         return node;
     }
 
+    /// <summary>
+    /// Puts the value into the list at the index, the elements after it move along with their nodes
+    /// </summary>
+    public PropertyNode? InsertElement(int index, object value)
+    {
+        if (GetValue() is not IList list || list.IsFixedSize)
+        {
+            return null;
+        }
+
+        Graph!.Deindex(this);
+        list.Insert(index, value);
+        var nodeMetadata = Metadata;
+        if (nodeMetadata != null)
+        {
+            nodeMetadata = nodeMetadata with { ContainedTypeConstructor = null };
+        }
+
+        var node = PropertyGraphBuilder.BuildNode(list, nodeMetadata, $"{Path}[{index}]", Graph.Tracker, innerType: value.GetType(), index: index);
+        node.Parent = this;
+        Children.Insert(index, node);
+        PropertyGraphBuilder.RebuildCollection(this);
+        Graph.Index(this);
+        RaiseStructureChange(PropertyChangeKind.Insert, index, value);
+        return node;
+    }
+
+    // By its place, the list can have equal elements before it
     public void RemoveElement(PropertyNode value)
     {
-        if (GetValue() is not IList list)
+        var index = Children.IndexOf(value);
+        if (GetValue() is not IList list || index < 0)
         {
             return;
         }
         
+        var removed = value.GetValue();
         Graph!.Deindex(this);
-        list.Remove(value.GetValue());
-        Children.Remove(value);
+        list.RemoveAt(index);
+        Children.RemoveAt(index);
         PropertyGraphBuilder.RebuildCollection(this);
         Graph.Index(this);
-        RaiseGraphChange(value, null);
+        RaiseStructureChange(PropertyChangeKind.Remove, index, removed);
     }
 
     public T? GetValue<T>()
@@ -264,6 +311,13 @@ public class PropertyNode
     {
         Debug.Assert(Graph != null, "PropertyGraph must not be null!");
         Graph.NotifyChange(this, oldValue, newValue);
+        Changed?.Invoke();
+    }
+
+    private void RaiseStructureChange(PropertyChangeKind kind, int index, object? element)
+    {
+        Debug.Assert(Graph != null, "PropertyGraph must not be null!");
+        Graph.NotifyChange(this, kind == PropertyChangeKind.Remove ? element : null, kind == PropertyChangeKind.Insert ? element : null, kind, index);
         Changed?.Invoke();
     }
 }

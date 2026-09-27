@@ -63,8 +63,9 @@ public class PositionData : AbstractAssetData
         var color = System.Drawing.Color.FromKnownColor(System.Drawing.KnownColor.Blue);
         visual.Diffuse = new vec4(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f,  color.A / 255.0f * 0.5f);
         
-        var size = vec3.Ones;
-        var offset = -vec3.Ones * 0.5f;
+        // Same size as the billboard
+        var size = vec3.Ones * 2.0f;
+        var offset = -vec3.Ones;
         var editableObject = new EditableObject(viewportContext.RenderContext, visual, Owner.FullDataPath, offset, size);
         color = System.Drawing.Color.FromKnownColor(System.Drawing.KnownColor.LightBlue);
         editableObject.SelectedColor = new vec4(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f,  color.A / 255.0f * 0.25f);
@@ -74,6 +75,7 @@ public class PositionData : AbstractAssetData
         return [new ViewportObject(editableObject, property.Path, property)
         {
             Position = property.Find($"[data].AssetData.{nameof(Coords)}"),
+            Category = ViewportObjectCategory.Positions,
         }];
     }
 }

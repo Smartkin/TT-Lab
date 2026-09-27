@@ -18,7 +18,6 @@ public static class TwinIdGeneratorServiceProvider
     
     static TwinIdGeneratorServiceProvider()
     {
-        RegisterGeneratorService<Animation>();
         RegisterGeneratorService<BehaviourCommandsSequence>();
         RegisterGeneratorService<BehaviourGraph>(new TwinIdGeneratorServiceBehaviour());
         RegisterGeneratorService<GameObject>();
@@ -40,6 +39,7 @@ public static class TwinIdGeneratorServiceProvider
         RegisterGeneratorService<Texture>();
         RegisterGeneratorService<Folder>(new TwinIdGeneratorServiceFolder());
         RegisterGeneratorService<Package>(GetGenerator<Folder>());
+        RegisterGeneratorService<LevelChunk>(GetGenerator<Folder>());
     }
 
     public static void RegisterGeneratorService<T>() where T : IAsset

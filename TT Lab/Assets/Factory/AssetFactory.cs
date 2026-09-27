@@ -31,19 +31,40 @@ public static class AssetFactory
         }
         
         AssetManager.Get().AddAsset(newAsset);
-        folder.AddChild(newAsset);
+        var containingFolder = GetContainingFolder(folder, newAsset);
+        containingFolder.AddChild(newAsset);
         if (type != typeof(Folder) && layout is null)
         {
             newAsset.Serialize(SerializationFlags.SetDirectoryToAssets | SerializationFlags.SaveData);
         }
 
         var parent = folder.GetResourceTreeElement();
-        parent.AddNewChild(newAsset.GetResourceTreeElement(parent));
+        IAsset treeAsset = containingFolder == folder ? newAsset : containingFolder;
+        parent.AddNewChild(treeAsset.GetResourceTreeElement(parent));
         parent.ClearChildren();
         parent.LoadChildrenBack();
         parent.NotifyOfPropertyChange(nameof(parent.Children));
         
         return newAsset;
+    }
+    
+    // Chunks live in their own folder named after them, the same way the project tree gets built from the disk
+    private static Folder GetContainingFolder(Folder folder, IAsset asset)
+    {
+        if (asset is not LevelChunk)
+        {
+            return folder;
+        }
+
+        var chunkFolder = new Folder(asset.Name)
+        {
+            Parent = folder.URI,
+            Package = folder.Package,
+            Mark = FolderMark.Normal | FolderMark.IsChunk
+        };
+        AssetManager.Get().AddAsset(chunkFolder);
+        folder.AddChild(chunkFolder);
+        return chunkFolder;
     }
     
     public static async Task<IAsset?> CreateAsset(Type type, Folder folder, string name, string variation, ITwinIdGeneratorService idGenerator, Func<IAsset, Task<AssetCreationStatus>>? dataCreator = null, Enums.Layouts? layout = null)

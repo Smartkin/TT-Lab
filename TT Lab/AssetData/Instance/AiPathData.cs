@@ -1,11 +1,18 @@
 ﻿using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Assets.Instance;
 using TT_Lab.Attributes;
+using TT_Lab.Rendering.Objects;
+using AiPosition = TT_Lab.Assets.Instance.AiPosition;
+using TT_Lab.ViewModels;
 using TT_Lab.ViewModels.Editors;
+using TT_Lab.ViewModels.Editors.PropertyGraph;
+using TT_Lab.ViewModels.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout;
 
@@ -67,5 +74,39 @@ public class AiPathData : AbstractAssetData
         writer.Flush();
         ms.Position = 0;
         return factory.GenerateAIPath(ms);
+    }
+
+    public override List<ViewportObject> GetViewportObjects(ViewportContext viewportContext, PropertyNode property)
+    {
+        var visual = new AiPathVisual(viewportContext.RenderContext, $"{Owner.FullDataPath}_AI_PATH");
+        UpdateEnds(visual);
+        var dependencies = new[] { property.Find($"[data].AssetData.{nameof(PathBegin)}"), property.Find($"[data].AssetData.{nameof(PathEnd)}") }
+            .OfType<PropertyNode>().ToList();
+        return [new ViewportObject(visual, $"AI_PATH_{property.Path}", property)
+        {
+            Category = ViewportObjectCategory.AiPaths,
+            RenderDependencies = dependencies,
+            Refresh = () =>
+            {
+                UpdateEnds(visual);
+                return true;
+            }
+        }];
+    }
+
+    private void UpdateEnds(AiPathVisual visual)
+    {
+        visual.SetEnds(GetPosition(PathBegin), GetPosition(PathEnd));
+    }
+
+    private static AiPositionData? GetPosition(LabURI uri)
+    {
+        var assetManager = AssetManager.Get();
+        if (uri == LabURI.Empty || !assetManager.DoesAssetExist(uri))
+        {
+            return null;
+        }
+
+        return assetManager.GetAssetData<AiPositionData>(uri);
     }
 }

@@ -57,20 +57,5 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.Graphics
         {
             return $"Skin {id:X}";
         }
-
-        public UInt32 GetMinSkinCoord()
-        {
-            var minSkinCoord = UInt32.MaxValue;
-            foreach (var subSkin in SubSkins)
-            {
-                var skinCoord = subSkin.GetMinSkinCoord();
-                if (skinCoord < minSkinCoord && skinCoord > 0x358637BF)
-                {
-                    minSkinCoord = skinCoord;
-                }
-            }
-
-            return minSkinCoord;
-        }
     }
 }

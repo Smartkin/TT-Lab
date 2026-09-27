@@ -68,7 +68,7 @@ public class Package : SerializableAsset
             Directory.SetCurrentDirectory($"{Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath}/assets");
         }
         
-        var path = SavePath;
+        var path = Path.Combine(Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath, "assets", SavePath);
         Directory.CreateDirectory(path);
         
         using FileStream fs = new(Path.Combine(path, $"{Name}.json"), FileMode.Create, FileAccess.Write);

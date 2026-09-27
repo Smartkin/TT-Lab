@@ -157,14 +157,17 @@ public class LabShader : IDocumentModel
     public Boolean UnkFlag3 { get; set; }
     
     [System.Text.Json.Serialization.JsonConverter(typeof(ShaderBinaryVector4Converter))]
+    [Newtonsoft.Json.JsonConverter(typeof(BitsVector4Converter))]
     [Editable]
     public Vector4 UnkVector1 { get; set; } = new();
     
     [System.Text.Json.Serialization.JsonConverter(typeof(ShaderBinaryVector4Converter))]
+    [Newtonsoft.Json.JsonConverter(typeof(BitsVector4Converter))]
     [Editable]
     public Vector4 UnkVector2 { get; set; } = new();
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonVector4Converter))]
+    [Newtonsoft.Json.JsonConverter(typeof(BitsVector4Converter))]
     [Editable]
     public Vector4 UvScrollSpeed { get; set; } = new();
     
@@ -260,16 +263,6 @@ public class LabShader : IDocumentModel
         result.AppendLine(UvScrollSpeed.ToString());
 
         return result.ToString();
-    }
-
-    public JsonNode GetJsonFormat()  
-    {
-        return JsonSerializer.SerializeToNode(this)!;
-    }
-
-    public static LabShader? GetShaderFromGltf(SharpGLTF.Schema2.Material gltfMaterial)
-    {
-        return gltfMaterial.Extras.Deserialize<LabShader>();
     }
 
     public void Write(BinaryWriter writer)
@@ -388,6 +381,39 @@ public class LabShader : IDocumentModel
             writer.WriteNumberValue(value.GetBinaryZ());
             writer.WriteNumberValue(value.GetBinaryW());
             writer.WriteEndArray();
+        }
+    }
+
+    // The UI's shaders keep bytes in their vectors, many of them NaNs JSON can't keep, so the asset data stores their bits. The HUD's clock
+    // came out upside down once its material lost them
+    internal class BitsVector4Converter : Newtonsoft.Json.JsonConverter<Vector4>
+    {
+        public override void WriteJson(Newtonsoft.Json.JsonWriter writer, Vector4? value, Newtonsoft.Json.JsonSerializer serializer)
+        {
+            value ??= new Vector4();
+            writer.WriteStartArray();
+            writer.WriteValue(value.GetBinaryX());
+            writer.WriteValue(value.GetBinaryY());
+            writer.WriteValue(value.GetBinaryZ());
+            writer.WriteValue(value.GetBinaryW());
+            writer.WriteEndArray();
+        }
+
+        public override Vector4? ReadJson(Newtonsoft.Json.JsonReader reader, Type objectType, Vector4? existingValue, Boolean hasExistingValue, Newtonsoft.Json.JsonSerializer serializer)
+        {
+            if (reader.TokenType != Newtonsoft.Json.JsonToken.StartArray)
+            {
+                // Projects saved before kept the floats
+                return Newtonsoft.Json.Linq.JToken.Load(reader).ToObject<Vector4>();
+            }
+
+            var bits = serializer.Deserialize<UInt32[]>(reader)!;
+            var vector = new Vector4();
+            vector.SetBinaryX(bits[0]);
+            vector.SetBinaryY(bits[1]);
+            vector.SetBinaryZ(bits[2]);
+            vector.SetBinaryW(bits[3]);
+            return vector;
         }
     }
 

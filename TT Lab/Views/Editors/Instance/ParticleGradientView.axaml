@@ -1,0 +1,24 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:instance="clr-namespace:TT_Lab.ViewModels.Editors.Instance"
+             xmlns:labControls="clr-namespace:TT_Lab.Controls"
+             x:DataType="instance:ParticleGradientViewModel"
+             mc:Ignorable="d" d:DesignWidth="320" d:DesignHeight="120"
+             x:Class="TT_Lab.Views.Editors.Instance.ParticleGradientView">
+    <!-- The inspector scrolls sideways, the bar takes the width it has -->
+    <labControls:FitToScrollViewport>
+        <StackPanel Spacing="4" Margin="0,2">
+            <labControls:GradientBar x:Name="Bar" Height="48" MinWidth="200" ToolTip.Tip="{Binding Hint}"
+                                     Stops="{Binding Stops}" SelectedIndex="{Binding SelectedIndex}"/>
+            <Grid ColumnDefinitions="Auto,*,8,Auto,Auto">
+                <TextBlock Text="Time" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <TextBox Grid.Column="1" Text="{Binding SelectedTime}"/>
+                <TextBlock Grid.Column="3" Text="Color" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <ColorPicker Grid.Column="4" Color="{Binding SelectedColor}" IsAlphaEnabled="False" IsAlphaVisible="False"
+                             ToolTip.Tip="Red, green and blue from 0 to 255, 128 keeps the texture's own color"/>
+            </Grid>
+        </StackPanel>
+    </labControls:FitToScrollViewport>
+</UserControl>

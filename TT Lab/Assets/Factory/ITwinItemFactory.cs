@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using TT_Lab.AssetData.Graphics.SubModels;
@@ -20,14 +21,35 @@ namespace TT_Lab.Assets.Factory
         public Package GlobalPackage { get; set; }
         public bool IsDefaultResolution { get; set; }
         public string ChunkPath { get; set; }
-        
-        ITwinBlendSkin GenerateBlendSkin(Int32 blendsAmount, List<SubBlendData> blends, UInt32? compileScale);
+        /// <summary>
+        /// The versions of the items that differ between chunks the chunk being built has, by their type and ID
+        /// </summary>
+        public IReadOnlyDictionary<(Type, UInt32), LabURI>? ChunkVersions { get; set; }
+        /// <summary>
+        /// The chunk being built's own values of the assets it shares with other chunks
+        /// </summary>
+        public ChunkOverrides? Overrides { get; set; }
+        /// <summary>
+        /// What the chunk being built has resolved so far
+        /// </summary>
+        public ChunkResolution Resolution { get; }
+        /// <summary>
+        /// Behaviours compiled by this build, shared by the factories of its chunks
+        /// </summary>
+        public ConcurrentDictionary<(LabURI Graph, Int32 Id, String Script), AgentLabCompiler.CompilerResult> CompiledBehaviours { get; }
+
+        /// <summary>
+        /// A factory of the same build for a chunk, chunks build in parallel with a factory each
+        /// </summary>
+        ITwinItemFactory ForChunk();
+
+        ITwinBlendSkin GenerateBlendSkin(Int32 blendsAmount, List<BlendPartExport> parts);
         ITwinLOD GenerateLOD(Stream stream);
         ITwinMaterial GenerateMaterial(Stream stream);
         ITwinMesh GenerateMesh(Stream stream);
-        ITwinModel GenerateModel(List<MeshProcessor.Mesh> meshes);
+        ITwinModel GenerateModel(List<RigidPartExport> parts);
         ITwinRigidModel GenerateRigidModel(Stream stream);
-        ITwinSkin GenerateSkin(List<SubSkinData> subskins);
+        ITwinSkin GenerateSkin(List<SkinPartExport> parts);
         ITwinSkydome GenerateSkydome(Stream stream);
         ITwinTexture GenerateTexture();
         ITwinAnimation GenerateAnimation(Stream stream);

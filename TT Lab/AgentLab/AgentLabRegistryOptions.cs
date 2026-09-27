@@ -1,31 +1,45 @@
-using System;
 using System.Collections.Generic;
+using System.IO;
 using TextMateSharp.Grammars;
+using TextMateSharp.Internal.Grammars.Reader;
 using TextMateSharp.Internal.Types;
 using TextMateSharp.Registry;
 using TextMateSharp.Themes;
 
 namespace TT_Lab.AgentLab;
 
-public class AgentLabRegistryOptions : IRegistryOptions
+/// <summary>
+/// Registry with the built-in grammars and themes plus the AgentLab grammar
+/// </summary>
+public class AgentLabRegistryOptions(ThemeName theme) : IRegistryOptions
 {
-    public IRawTheme GetTheme(string scopeName)
-    {
-        throw new NotImplementedException();
-    }
+    public const string ScopeName = "source.agentlab";
+    private const string GrammarResource = "TT_Lab.AgentLab.agentlab.tmLanguage.json";
+
+    private static IRawGrammar? _grammar;
+    private readonly RegistryOptions _builtInOptions = new(theme);
+
+    public IRawTheme GetTheme(string scopeName) => _builtInOptions.GetTheme(scopeName);
 
     public IRawGrammar GetGrammar(string scopeName)
     {
-        throw new NotImplementedException();
+        return scopeName == ScopeName ? LoadGrammar() : _builtInOptions.GetGrammar(scopeName);
     }
 
-    public ICollection<String> GetInjections(string scopeName)
-    {
-        throw new NotImplementedException();
-    }
+    public ICollection<string> GetInjections(string scopeName) => _builtInOptions.GetInjections(scopeName);
 
-    public IRawTheme GetDefaultTheme()
+    public IRawTheme GetDefaultTheme() => _builtInOptions.GetDefaultTheme();
+
+    private static IRawGrammar LoadGrammar()
     {
-        throw new NotImplementedException();
+        if (_grammar != null)
+        {
+            return _grammar;
+        }
+
+        using var stream = typeof(AgentLabRegistryOptions).Assembly.GetManifestResourceStream(GrammarResource)!;
+        using var reader = new StreamReader(stream);
+        _grammar = GrammarReader.ReadGrammarSync(reader);
+        return _grammar;
     }
 }

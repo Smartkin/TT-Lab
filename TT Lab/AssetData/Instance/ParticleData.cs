@@ -2,11 +2,14 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using GlmSharp;
 using TT_Lab.AssetData.Instance.Particle;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
+using TT_Lab.Assets.Instance;
 using TT_Lab.Attributes;
+using TT_Lab.Attributes.EditorParamWrappers;
 using TT_Lab.Extensions;
 using TT_Lab.Rendering.Objects;
 using TT_Lab.Util;
@@ -41,7 +44,54 @@ public class ParticleData : AbstractAssetData
     [JsonProperty(Required = Required.Always)]
     [Editable]
     [EditorParam(DocumentModelViewModel.EditorExplicitOrder, -10)]
+    [EditorHiddenWhen(nameof(CannotHaveEmitters))]
     public List<ParticleSystemInstance> ParticleInstances { get; set; }
+
+    // The default chunk's particles only hold the systems every chunk can use
+    protected virtual bool CannotHaveEmitters => false;
+
+    /// <summary>
+    /// Systems the chunk's emitters can play, emitters name theirs. The chunk's own come before the default chunk's, a few names are in both
+    /// </summary>
+    public IEnumerable<(ParticleSystem System, bool IsDefault)> GetUsableSystems()
+    {
+        foreach (var system in ParticleSystems)
+        {
+            yield return (system, false);
+        }
+
+        if (this is DefaultParticleData)
+        {
+            yield break;
+        }
+
+        foreach (var defaults in AssetManager.Get().GetRelatedAssetsOf<DefaultParticles>(Owner.Package))
+        {
+            foreach (var system in ((IAsset)defaults).GetData<DefaultParticleData>().ParticleSystems)
+            {
+                yield return (system, true);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Textures of the pages particle systems take their pictures from, only the default chunk's particles have them
+    /// </summary>
+    public IReadOnlyList<LabURI> GetTexturePages()
+    {
+        if (this is DefaultParticleData defaultData)
+        {
+            return defaultData.TextureIDs;
+        }
+
+        var defaults = AssetManager.Get().GetRelatedAssetsOf<DefaultParticles>(Owner.Package).FirstOrDefault();
+        return defaults == null ? [] : ((IAsset)defaults).GetData<DefaultParticleData>().TextureIDs;
+    }
+
+    public (ParticleSystem System, bool IsDefault)? FindSystem(string name)
+    {
+        return GetUsableSystems().Where(usable => usable.System.Name == name).Select(usable => ((ParticleSystem, bool)?)usable).FirstOrDefault();
+    }
 
     protected override void Dispose(Boolean disposing)
     {
@@ -99,6 +149,7 @@ public class ParticleData : AbstractAssetData
             return viewportObjects;
         }
         
+        var pages = GetTexturePages();
         var instIdx = 0;
         foreach (var inst in ParticleInstances)
         {
@@ -106,18 +157,35 @@ public class ParticleData : AbstractAssetData
             var color = System.Drawing.Color.FromKnownColor(System.Drawing.KnownColor.Blue);
             visual.Diffuse = new vec4(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f,  color.A / 255.0f * 0.5f);
         
-            var size = vec3.Ones;
-            var offset = -vec3.Ones * 0.5f;
+            // Same size as the billboard
+            var size = vec3.Ones * 2.0f;
+            var offset = -vec3.Ones;
             var editableObject = new EditableObject(viewportContext.RenderContext, visual, $"{Owner.FullDataPath}{instIdx}", offset, size);
             color = System.Drawing.Color.FromKnownColor(System.Drawing.KnownColor.LightBlue);
             editableObject.SelectedColor = new vec4(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f,  color.A / 255.0f * 0.25f);
             editableObject.UnselectedColor = visual.Diffuse;
             editableObject.SetPosition(inst.Position.ToGlm());
 
+            var emitter = new ParticleEmitter(viewportContext.RenderContext, $"{Owner.FullDataPath}{instIdx} particles", pages, instIdx);
+            emitter.Configure(FindSystem(inst.Name)?.System, inst);
+            editableObject.AddChild(emitter);
+
             var particleProp = property.Find($"[data].AssetData.{nameof(ParticleInstances)}[{instIdx++}].{nameof(ParticleSystemInstance.Position)}")!;
+            var systems = property.Find($"[data].AssetData.{nameof(ParticleSystems)}")!;
+            var emitterData = inst;
             viewportObjects.Add(new ViewportObject(editableObject, particleProp.Path, property)
             {
-                Position = particleProp
+                Position = particleProp,
+                Category = ViewportObjectCategory.Particles,
+                InspectorFocus = particleProp.Parent,
+                DuplicatedElement = particleProp.Parent,
+                // The emitter's system can be renamed or edited, or it can be pointed at another one
+                RenderDependencies = [particleProp.Parent!, systems],
+                Refresh = () =>
+                {
+                    emitter.Configure(FindSystem(emitterData.Name)?.System, emitterData);
+                    return true;
+                },
             });
         }
         

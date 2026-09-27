@@ -15,10 +15,19 @@ public class AgentLabSymbolTable
     public AgentLabSymbolTable Parent { get; init; }
     public List<AgentLabSymbolTable> Children { get; } = new();
 
-    public AgentLabSymbolTable()
+    public AgentLabSymbolTable() : this(true)
+    {
+    }
+
+    // Tables that only hold an action's parameters or an enum's values never look up types, and there's one for each of
+    // the thousand actions so defining the primitives in them took most of the time spent building symbol tables
+    internal AgentLabSymbolTable(bool withBuiltInPrimitives)
     {
         constIdGenerator = GetIdGenerator();
-        InitBuiltInPrimitives();
+        if (withBuiltInPrimitives)
+        {
+            InitBuiltInPrimitives();
+        }
     }
 
     internal int GenerateConstId()

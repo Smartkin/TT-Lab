@@ -1,19 +1,20 @@
-﻿using System.IO;
-using System.Linq;
-using Newtonsoft.Json;
-using SharpGLTF.Schema2;
+using System.IO;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Assets.Graphics;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items;
-using Mesh = TT_Lab.Assets.Graphics.Mesh;
 
 namespace TT_Lab.AssetData.Graphics;
 
+/// <summary>
+/// A rigid model placed by scenery, LODs and skydomes
+/// </summary>
 public class MeshData : RigidModelData
 {
+    public new const string TlmAssetType = "Mesh";
+
     public MeshData(IAsset asset) : base(asset)
     {
     }
@@ -22,42 +23,13 @@ public class MeshData : RigidModelData
     {
     }
 
-    public override ITwinItem Export(ITwinItemFactory factory)
-    {
-        var assetManager = AssetManager.Get();
-        using var ms = new MemoryStream();
-        using var writer = new BinaryWriter(ms);
-        writer.Write(260); // Unused header
-        writer.Write(Materials.Count);
-        foreach (var mat in Materials)
-        {
-            writer.Write(assetManager.GetAsset(mat).ExportTwinID);
-        }
-        writer.Write(assetManager.GetAsset(Model).ExportTwinID);
+    protected override string AssetTlmType => TlmAssetType;
+    protected override string TlmKind => "mesh";
+    protected override int ExportHeader => 260;
 
-        writer.Flush();
-        ms.Position = 0;
-        return factory.GenerateMesh(ms);
-    }
-    
-    protected override void LoadInternal(string dataPath, JsonSerializerSettings? settings = null)
+    protected override ITwinItem CreateItem(ITwinItemFactory factory, Stream stream)
     {
-        var model = ModelRoot.Load(dataPath);
-        var rigidModelRoot = model.DefaultScene.VisualChildren.FirstOrDefault(n => n.Name.Contains("RIGID_MODEL_ROOT"));
-        if (rigidModelRoot == null)
-        {
-            Log.WriteLine($"Misconfigured Mesh {dataPath}! Make sure it contains RIGID_MODEL_ROOT node!", Log.LogType.Error);
-            return;
-        }
-
-        var rigidModel = ImportGltf<Mesh>(Owner, model, rigidModelRoot);
-        var data = (MeshData)rigidModel.GetData();
-        Model = data.Model;
-        Materials.Clear();
-        foreach (var material in data.Materials)
-        {
-            Materials.Add(material);
-        }
+        return factory.GenerateMesh(stream);
     }
 
     protected override void ResolveResources(ITwinItemFactory factory, ITwinSection section)
@@ -72,11 +44,7 @@ public class MeshData : RigidModelData
             assetManager.GetAsset(material).ResolveChunkResources(factory, materialsSection);
         }
 
-        
-        var model = assetManager.GetAsset<Model>(Model);
-        // HACK: Default meshes are shadows which HATE the optimized strips and render very incorrectly otherwise!
-        model.UseOptimalStrips = !factory.IsDefaultResolution;
-        model.ResolveChunkResources(factory, modelsSection);
+        assetManager.GetAsset<Model>(Model).ResolveChunkResources(factory, modelsSection);
     }
 
     public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, uint id,

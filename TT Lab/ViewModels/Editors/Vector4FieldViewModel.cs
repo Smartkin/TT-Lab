@@ -10,28 +10,31 @@ using Twinsanity.TwinsanityInterchange.Common;
 
 namespace TT_Lab.ViewModels.Editors;
 
-public class Vector4FieldViewModel : DocumentDataViewModel<Vector4>
+public class Vector4FieldViewModel(DocumentViewModel document, PropertyNode data, params DocumentNodeViewModel[] dependencies)
+    : DocumentDataViewModel<Vector4>(document, data, dependencies)
 {
-    public TextFieldViewModel X { get; }
-    public TextFieldViewModel Y { get; }
-    public TextFieldViewModel Z { get; }
-    public TextFieldViewModel W { get; }
+    private TextFieldViewModel? _x;
+    private TextFieldViewModel? _y;
+    private TextFieldViewModel? _z;
+    private TextFieldViewModel? _w;
 
-    public Vector4FieldViewModel(DocumentViewModel document, PropertyNode data, params DocumentNodeViewModel[] dependencies)
-        : base(document, data, dependencies)
+    // Components are made once shown, a long list of vectors mostly consists of editors that never are
+    public TextFieldViewModel X => _x ??= CreateComponent("X");
+    public TextFieldViewModel Y => _y ??= CreateComponent("Y");
+    public TextFieldViewModel Z => _z ??= CreateComponent("Z");
+    public TextFieldViewModel W => _w ??= CreateComponent("W");
+
+    private TextFieldViewModel CreateComponent(string name)
     {
-        X = new TextFieldViewModel(document, Property.Find("X")!, this) { Caption = "X" };
-        Y = new TextFieldViewModel(document, Property.Find("Y")!, this) { Caption = "Y" };
-        Z = new TextFieldViewModel(document, Property.Find("Z")!, this) { Caption = "Z" };
-        W = new TextFieldViewModel(document, Property.Find("W")!, this) { Caption = "W" };
+        return new TextFieldViewModel(Document, Property.Find(name)!, this) { Caption = name };
     }
 
     protected override void OnCurrentValueChanged()
     {
-        X.SetValueCommand.Execute(Property.Find("X")!.GetValue());
-        Y.SetValueCommand.Execute(Property.Find("Y")!.GetValue());
-        Z.SetValueCommand.Execute(Property.Find("Z")!.GetValue());
-        W.SetValueCommand.Execute(Property.Find("W")!.GetValue());
+        _x?.SetValueCommand.Execute(Property.Find("X")!.GetValue());
+        _y?.SetValueCommand.Execute(Property.Find("Y")!.GetValue());
+        _z?.SetValueCommand.Execute(Property.Find("Z")!.GetValue());
+        _w?.SetValueCommand.Execute(Property.Find("W")!.GetValue());
         
         base.OnCurrentValueChanged();
     }

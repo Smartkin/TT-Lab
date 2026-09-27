@@ -16,7 +16,7 @@ public class LabKeyboard : IKeyboard, IDisposable
     private static readonly Key[] Keys = Enum.GetValues<Avalonia.Input.Key>().Select(ConvertKey)
         .Where(static x => x != Key.Unknown).Distinct().ToArray();
 
-    private readonly Viewport _renderArea;
+    private Viewport? _renderArea;
     private readonly Dictionary<Key, bool> _keysPressed = new();
     private readonly Dictionary<int, bool> _scancodesPressed = new();
     
@@ -24,22 +24,33 @@ public class LabKeyboard : IKeyboard, IDisposable
     public int Index => 0;
     public bool IsConnected => true;
 
-    public LabKeyboard(Viewport renderArea)
+    public LabKeyboard(Viewport? renderArea)
     {
-        renderArea.KeyDown += KeyDownHandler;
-        renderArea.KeyUp += KeyUpHandler;
-        // InputElement.KeyDownEvent.Raised.Subscribe(this);
-        // Keyboard.AddKeyDownHandler(renderArea, KeyDownHandler);
-        // Keyboard.AddKeyUpHandler(renderArea, KeyUpHandler);
+        Attach(renderArea);
+    }
+
+    // The viewport's input comes from whichever control shows it, keys let go of while none did would stay pressed
+    public void Attach(Viewport? renderArea)
+    {
+        if (_renderArea != null)
+        {
+            _renderArea.KeyDown -= KeyDownHandler;
+            _renderArea.KeyUp -= KeyUpHandler;
+        }
+
+        _keysPressed.Clear();
+        _scancodesPressed.Clear();
         _renderArea = renderArea;
+        if (renderArea != null)
+        {
+            renderArea.KeyDown += KeyDownHandler;
+            renderArea.KeyUp += KeyUpHandler;
+        }
     }
 
     public void Dispose()
     {
-        _renderArea.KeyDown -= KeyDownHandler;
-        _renderArea.KeyUp -= KeyUpHandler;
-        // Keyboard.RemoveKeyDownHandler(_renderArea, KeyDownHandler);
-        // Keyboard.RemoveKeyUpHandler(_renderArea, KeyUpHandler);
+        Attach(null);
         GC.SuppressFinalize(this);
     }
 
@@ -49,7 +60,7 @@ public class LabKeyboard : IKeyboard, IDisposable
         _keysPressed[key] = false;
         _scancodesPressed[(int)e.PhysicalKey] = false;
         KeyUp?.Invoke(this, key, (int)e.PhysicalKey);
-        e.Handled = true;
+        e.Handled = !IsShortcut(e);
     }
 
     private void KeyDownHandler(object? sender, KeyEventArgs e)
@@ -63,7 +74,13 @@ public class LabKeyboard : IKeyboard, IDisposable
             KeyChar?.Invoke(this, e.KeySymbol.ToCharArray()[0]);
         }
 
-        e.Handled = true;
+        // Shortcuts like saving the editor have to reach the key bindings of the views around
+        e.Handled = !IsShortcut(e);
+    }
+
+    private static bool IsShortcut(KeyEventArgs e)
+    {
+        return (e.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Alt | KeyModifiers.Meta)) != 0;
     }
 
     public Boolean IsKeyPressed(Key key) => _keysPressed.ContainsKey(key) && _keysPressed[key];

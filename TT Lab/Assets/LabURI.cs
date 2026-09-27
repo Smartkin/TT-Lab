@@ -76,6 +76,7 @@ public class LabURI : IEquatable<LabURI>, IComparable
     public static LabURI BoatGuy => new($"{_prefix}{_global}/BoatGuy", true);
     public static LabURI Plane => new($"{_prefix}{_global}/Plane", true);
     public static LabURI Box => new($"{_prefix}{_global}/Box", true);
+    public static LabURI Volume => new($"{_prefix}{_global}/Volume", true);
     public static LabURI Sphere => new($"{_prefix}{_global}/Sphere", true);
     public static LabURI Circle => new($"{_prefix}{_global}/Circle", true);
 

@@ -1,9 +1,12 @@
 ﻿using Caliburn.Micro;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Linq;
+using System.Reactive.Disposables;
+using System.Threading;
 using Splat;
 using TT_Lab.AssetData;
 using TT_Lab.Project;
@@ -20,6 +23,49 @@ public class AssetManager
 
     // TODO: Check if locks are required to access assets for thread-safety
     private readonly object _assetAccessLock = new();
+
+    // Builds record every asset they look up to know what their outputs depend on, it flows into tasks started while recording
+    private readonly AsyncLocal<ConcurrentDictionary<IAsset, byte>?> _accessedAssets = new();
+
+    // Creating a project imports internal assets when a write first looks them up (CreationWriter), it flows the same way
+    private readonly AsyncLocal<Action<IAsset>?> _lookupHook = new();
+
+    public IDisposable RecordAccessedAssets(ConcurrentDictionary<IAsset, byte> accessedAssets)
+    {
+        var previous = _accessedAssets.Value;
+        _accessedAssets.Value = accessedAssets;
+        return Disposable.Create(() => _accessedAssets.Value = previous);
+    }
+
+    internal IDisposable HookLookups(Action<IAsset> hook)
+    {
+        var previous = _lookupHook.Value;
+        _lookupHook.Value = hook;
+        return Disposable.Create(() => _lookupHook.Value = previous);
+    }
+
+    private T RecordAccess<T>(T asset) where T : IAsset
+    {
+        _accessedAssets.Value?.TryAdd(asset, 0);
+        _lookupHook.Value?.Invoke(asset);
+        return asset;
+    }
+
+    private ImmutableList<T> RecordAccess<T>(ImmutableList<T> assets) where T : IAsset
+    {
+        var accessedAssets = _accessedAssets.Value;
+        if (accessedAssets == null)
+        {
+            return assets;
+        }
+
+        foreach (var asset in assets)
+        {
+            accessedAssets.TryAdd(asset, 0);
+        }
+
+        return assets;
+    }
 
     public AssetManager() { }
 
@@ -47,6 +93,11 @@ public class AssetManager
     /// </remarks>
     public void TryAddAsset(LabURI uri, IAsset asset)
     {
+        if (KeepInScope(asset))
+        {
+            return;
+        }
+
         if (_assets.ContainsKey(uri))
         {
             return;
@@ -62,6 +113,11 @@ public class AssetManager
     /// <param name="asset">Asset to add</param>
     public void AddAsset(LabURI uri, IAsset asset)
     {
+        if (KeepInScope(asset))
+        {
+            return;
+        }
+
         if (_assets.ContainsKey(uri))
         {
             Log.WriteLine($"Attempted to add already existing asset {asset.Name} at {uri}! The asset was not added.", Log.LogType.Warning);
@@ -71,6 +127,18 @@ public class AssetManager
         _assets.Add(uri, asset);
     }
     
+    // Internal assets the data loaded by a build makes belong to its scope, the chunks building in parallel make their own
+    private static bool KeepInScope(IAsset asset)
+    {
+        if (!asset.IsInternal || AssetDataScope.Current is not { } scope)
+        {
+            return false;
+        }
+
+        scope.AddInternalAsset(asset);
+        return true;
+    }
+
     /// <summary>
     /// Adds the asset to the manager with a specified URI
     /// </summary>
@@ -110,26 +178,56 @@ public class AssetManager
     }
 
     /// <summary>
+    /// Removes internal assets whose owner's data is no longer loaded, the owner recreates them when its data gets loaded again
+    /// </summary>
+    /// <param name="keep">Assets that must stay even if their owner isn't loaded</param>
+    /// <returns>Amount of removed assets</returns>
+    public int RemoveOrphanedInternalAssets(IReadOnlySet<LabURI> keep)
+    {
+        var removedAssets = 0;
+        bool removedAny;
+        // Internal assets can own other internal assets so removing an owner can orphan more of them
+        do
+        {
+            removedAny = false;
+            foreach (var asset in GetAssets())
+            {
+                if (!asset.IsInternal || asset.InternalOwner == null || keep.Contains(asset.URI))
+                {
+                    continue;
+                }
+
+                var owner = asset.InternalOwner;
+                if (owner.URI != null && DoesAssetExist(owner.URI) && owner.IsLoaded)
+                {
+                    continue;
+                }
+
+                RemoveAsset(asset);
+                removedAssets++;
+                removedAny = true;
+            }
+        } while (removedAny);
+
+        return removedAssets;
+    }
+
+    /// <summary>
     /// Removes the asset from the manager
     /// </summary>
     /// <param name="uri">Asset's unique resource identifier</param>
     public void RemoveAsset(IAsset asset)
     {
+        // The internal assets a build's data makes are its scope's
+        if (asset.IsInternal && AssetDataScope.Current is { } scope && scope.RemoveInternalAsset(asset))
+        {
+            return;
+        }
+
         if (!_assets.ContainsKey(asset.URI))
         {
             Log.WriteLine($"Unable to remove unexisting asset {asset.Name} at {asset.URI}!", Log.LogType.Warning);
             return;
-        }
-
-        if (asset.IsInternal)
-        {
-            _assets.Remove(asset.URI);
-            return;
-        }
-
-        foreach (var pair in _assets)
-        {
-            pair.Value.RemoveReference(asset.URI);
         }
 
         _assets.Remove(asset.URI);
@@ -146,65 +244,73 @@ public class AssetManager
 
     private LabURI GetUriByTwinId(LabURI package, Type type, IAsset requester, UInt32 id, int? layoutId = null)
     {
-        var filteredAssets = GetAllAssetsOf(type);
-        var variation = requester.Variation;
-        var savePathFolders = requester.SavePath.Replace('/', '\\').Split('\\');
-        var result = LabURI.Empty;
-        var matchedAssets = filteredAssets.Where(f => f.ID == id
-                                                      && (!string.IsNullOrEmpty(variation) || f.Variation == variation)
-                                                      && (layoutId != null || f.LayoutID == layoutId)).ToList();
-        if (matchedAssets.Count > 1)
+        // Items that differ between chunks become a variant for each chunk after the first one. A requester finds the variants of its
+        // chunk and the items without a variant, instances belong to their chunk without being variants
+        var variation = !string.IsNullOrEmpty(requester.Variation) ? requester.Variation : ChunkVariation(requester.Chunk);
+        var candidates = _assets.GetValuesByTypeAndId(type, id).Where(f => (string.IsNullOrEmpty(f.Variation) || f.Variation == variation)
+                                                                          && (layoutId != null || f.LayoutID == layoutId)).ToList();
+        // The PS2 and Xbox versions' assets share IDs, only the ones of packages the requester's package depends on count. Packages
+        // depending on the requester's are the last resort
+        var matchedAssets = candidates.Where(f => f.Package == package || DependsOn(package, f.Package)).ToList();
+        if (matchedAssets.Count == 0)
         {
-            matchedAssets.Sort((a1, a2) =>
-            {
-                var asset1SavePathFolders = a1.SavePath.Replace('/', '\\').Split('\\');
-                var asset2SavePathFolders = a2.SavePath.Replace('/', '\\').Split('\\');
-                var asset1Matches = 0;
-                var asset2Matches = 0;
-                var searchDepth = Math.Min(savePathFolders.Length, asset1SavePathFolders.Length);
-                for (var i = 0; i < searchDepth; i++)
-                {
-                    if (savePathFolders[i] == asset1SavePathFolders[i])
-                    {
-                        asset1Matches++;
-                    }
-                }
-                
-                searchDepth = Math.Min(savePathFolders.Length, asset2SavePathFolders.Length);
-                for (var i = 0; i < searchDepth; i++)
-                {
-                    if (savePathFolders[i] == asset2SavePathFolders[i])
-                    {
-                        asset2Matches++;
-                    }
-                }
-                
-                return asset2Matches - asset1Matches;
-            });
+            matchedAssets = candidates.Where(f => DependsOn(f.Package, package)).ToList();
+        }
 
-            result = matchedAssets[0].URI;
-        }
-        else if (matchedAssets.Count == 1)
+        if (matchedAssets.Count == 0)
         {
-            result = matchedAssets[0].URI;
+            return LabURI.Empty;
         }
-        
-        if (result != LabURI.Empty)
+
+        var savePathFolders = requester.SavePath.Replace('/', '\\').Split('\\');
+        return matchedAssets
+            .OrderByDescending(f => !string.IsNullOrEmpty(f.Variation))
+            .ThenByDescending(f => SavePathMatches(f))
+            .First().URI;
+
+        Int32 SavePathMatches(IAsset asset)
         {
-            return result;
+            var folders = asset.SavePath.Replace('/', '\\').Split('\\');
+            return folders.Zip(savePathFolders).Count(pair => pair.First == pair.Second);
         }
-        
-        var packageAsset = GetAsset<Package>(package);
-        foreach (var dependency in packageAsset.Dependencies)
+    }
+
+    private static String ChunkVariation(String? chunk)
+    {
+        return string.IsNullOrEmpty(chunk) ? string.Empty : chunk.Replace('\\', '_').Replace('/', '_');
+    }
+
+    private Boolean DependsOn(LabURI? package, LabURI? dependency)
+    {
+        // Assets being created during a project's creation don't have their package yet
+        if (package == null || dependency == null)
         {
-            result = GetUriByTwinId(dependency, type, requester, id, layoutId);
-            if (result != LabURI.Empty)
+            return false;
+        }
+
+        var visited = new HashSet<LabURI>();
+        var pending = new Stack<LabURI>();
+        pending.Push(package);
+        while (pending.Count > 0)
+        {
+            var current = pending.Pop();
+            if (!visited.Add(current) || !_assets.ContainsKey(current) || _assets[current] is not Package packageAsset)
             {
-                break;
+                continue;
+            }
+
+            foreach (var next in packageAsset.Dependencies)
+            {
+                if (next == dependency)
+                {
+                    return true;
+                }
+
+                pending.Push(next);
             }
         }
-        
-        return result;
+
+        return false;
     }
 
     public LabURI GetUriByTwinId<T>(IAsset requester, UInt32 id, int? layoutId = null) where T : IAsset
@@ -221,7 +327,7 @@ public class AssetManager
 
     public bool DoesAssetExist(LabURI uri)
     {
-        return _assets.ContainsKey(uri);
+        return (AssetDataScope.Current?.TryGetInternalAsset(uri, out _) ?? false) || _assets.ContainsKey(uri);
     }
 
     /// <summary>
@@ -234,7 +340,7 @@ public class AssetManager
     /// <returns>Any asset</returns>
     private IAsset GetAsset(LabURI package, Type type, IAsset requester, uint id)
     {
-        return _assets[GetUriByTwinId(package, type, requester, id)];
+        return RecordAccess(_assets[GetUriByTwinId(package, type, requester, id)]);
     }
 
     /// <summary>
@@ -244,7 +350,12 @@ public class AssetManager
     /// <returns>Any asset</returns>
     public IAsset GetAsset(LabURI labURI)
     {
-        return _assets[labURI];
+        if (AssetDataScope.Current is { } scope && scope.TryGetInternalAsset(labURI, out var internalAsset))
+        {
+            return RecordAccess(internalAsset);
+        }
+
+        return RecordAccess(_assets[labURI]);
     }
 
     /// <summary>
@@ -314,13 +425,26 @@ public class AssetManager
     /// <returns></returns>
     public ImmutableList<T> GetAllAssetsOf<T>() where T : IAsset
     {
-        return _assets.GetValuesByType(typeof(T)).Cast<T>().ToImmutableList();
+        return RecordAccess(_assets.GetValuesByType(typeof(T)).Cast<T>().ToImmutableList());
+    }
+
+    /// <summary>
+    /// Assets of a type in the package, the packages it depends on and the ones depending on it, which keeps the PS2 and Xbox versions' apart
+    /// </summary>
+    public ImmutableList<T> GetRelatedAssetsOf<T>(LabURI package) where T : IAsset
+    {
+        return RecordAccess(_assets.GetValuesByType(typeof(T)).Where(asset => IsRelated(package, asset.Package)).Cast<T>().ToImmutableList());
+    }
+
+    public Boolean IsRelated(LabURI? package, LabURI? other)
+    {
+        return package == other || DependsOn(package, other) || DependsOn(other, package);
     }
 
     public ImmutableList<IAsset> GetAllAssetsOf(Type type)
     {
         Debug.Assert(type.IsAssignableTo(typeof(IAsset)), $"Given type {type.Name} must implement IAsset");
-        return _assets.GetValuesByType(type).ToImmutableList();
+        return RecordAccess(_assets.GetValuesByType(type).ToImmutableList());
     }
 
     public ImmutableList<LabURI> GetAllAssetUrisOf<T>() where T : IAsset

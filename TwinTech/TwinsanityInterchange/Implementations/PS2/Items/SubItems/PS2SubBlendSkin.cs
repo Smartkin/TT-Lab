@@ -11,7 +11,6 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SubItems
     {
         Int32 blendsAmount;
 
-        public UInt32 CompileScale { get; set; }
         public UInt32 Material { get; set; }
         public List<ITwinBlendSkinModel> Models { get; set; }
 
@@ -52,7 +51,6 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SubItems
         {
             foreach (var model in Models)
             {
-                model.CompileScale = CompileScale;
                 model.Compile();
             }
         }

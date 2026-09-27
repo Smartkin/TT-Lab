@@ -37,6 +37,16 @@ namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
             return base.GetLength() + 4 + Assigners.Count * (Constants.SIZE_UINT32 + Constants.SIZE_UINT32);
         }
 
+        public override void Compile()
+        {
+            base.Compile();
+            // The game's first assigner has the ID two past its starter's, the others 0
+            for (var i = 0; i < Assigners.Count; i++)
+            {
+                Assigners[i].Behaviour = i == 0 ? (Int32)GetID() + 2 : 0;
+            }
+        }
+
         public override String GetName()
         {
             return $"Behaviour Starter {id:X}";

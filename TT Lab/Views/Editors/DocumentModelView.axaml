@@ -8,13 +8,23 @@
              x:DataType="viewmodels:DocumentModelViewModel"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="TT_Lab.Views.Editors.DocumentModelView">
+    <UserControl.Styles>
+        <Style Selector="DockPanel.highlighted">
+            <Setter Property="Background" Value="#40FFB21E"/>
+        </Style>
+        <!-- The chunk's own value of an asset it shares with other chunks -->
+        <Style Selector="TextBlock.overridden">
+            <Setter Property="Foreground" Value="#FF6FB4FF"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+    </UserControl.Styles>
     <Border BorderBrush="DimGray" BorderThickness="1">
         <ScrollViewer BringIntoViewOnFocusChange="False" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
             <Expander ContentTransition="{x:Null}" IsExpanded="{Binding IsExpanded}" HorizontalAlignment="Stretch">
                 <Expander.Header>
                     <Panel>
                         <DockPanel LastChildFill="True">
-                            <TextBlock VerticalAlignment="Center" DockPanel.Dock="Left" Text="{Binding Caption}"/>
+                            <TextBlock VerticalAlignment="Center" DockPanel.Dock="Left" Text="{Binding Caption}" Classes.overridden="{Binding IsOverridden}" ContextRequested="Caption_OnContextRequested"/>
                             <Button Margin="10" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" IsVisible="{Binding IsConstructible}" x:Name="ConstructNewInstance">
                                 <Button.Content>
                                     <TextBlock Text="{Binding TypeConstructed}"/>
@@ -40,16 +50,14 @@
                         </DockPanel>
                     </Panel>
                 </Expander.Header>
+                <!-- Not virtualized unlike lists. A model has few properties that differ a lot in size, a virtualizing panel's estimates of them
+                     made it drop editors that were in sight and those lost the scroll positions of the lists inside them -->
                 <ItemsControl HorizontalAlignment="Stretch" VerticalAlignment="Stretch" DockPanel.Dock="Top" x:Name="EditorsContainer">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <StackPanel Orientation="Vertical"/>
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="viewmodels:DocumentNodeViewModel">
-                            <DockPanel IsVisible="{Binding IsVisible}" HorizontalSpacing="15" LastChildFill="True" Background="Transparent" ToolTip.Tip="{Binding Hint}">
-                                <TextBlock IsVisible="{Binding IsCaptionVisible}" Margin="5, 0, 0, 0" MinWidth="80" DockPanel.Dock="{Binding Orientation}" VerticalAlignment="Center" Text="{Binding Caption}"/>
+                            <DockPanel Classes.highlighted="{Binding IsHighlighted}" IsVisible="{Binding IsVisible}" HorizontalSpacing="15" LastChildFill="True" Background="Transparent" ToolTip.Tip="{Binding Hint}">
+                                <TextBlock IsVisible="{Binding IsCaptionVisible}" Margin="5, 0, 0, 0" MinWidth="80" DockPanel.Dock="{Binding Orientation}" VerticalAlignment="Center" Text="{Binding Caption}"
+                                           Classes.overridden="{Binding IsOverridden}" ContextRequested="Caption_OnContextRequested"/>
                                 <ScrollViewer DockPanel.Dock="{Binding EditorOrientation}" BringIntoViewOnFocusChange="False" MaxHeight="800" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
                                     <ContentControl HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Content="{Binding}"/>
                                 </ScrollViewer>

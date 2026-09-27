@@ -114,10 +114,6 @@ public class GameObjectViewModel : ResourceEditorViewModel
         {
             _ogiSlots.Add(new PrimitiveWrapperViewModel<LabURI>(ogiSlot, true));
         }
-        foreach (var animSlot in data.AnimationSlots)
-        {
-            _animationSlots.Add(new PrimitiveWrapperViewModel<LabURI>(animSlot, true));
-        }
         foreach (var behaviourSlot in data.BehaviourSlots)
         {
             _behaviourSlots.Add(new PrimitiveWrapperViewModel<LabURI>(behaviourSlot, true));
@@ -162,19 +158,11 @@ public class GameObjectViewModel : ResourceEditorViewModel
         data.InstanceStateFlags = (Enums.InstanceState)_instanceStateFlags.StateFlags;
         data.BehaviourPack = _commandPack.Code.Text;
         
-        data.OGISlots.Clear();
-        data.AnimationSlots.Clear();
+        // Animations are the OGIs' now, the slots keep the ones they had
+        data.ModelSlots = _ogiSlots.Select((ogiSlot, i) => new ModelSlot { Ogi = ogiSlot.Value, Animation = data.ModelSlots.ElementAtOrDefault(i)?.Animation ?? ModelSlot.NoAnimation }).ToList();
         data.BehaviourSlots.Clear();
         data.ObjectSlots.Clear();
         data.SoundSlots.Clear();
-        foreach (var ogiSlot in _ogiSlots)
-        {
-            data.OGISlots.Add(ogiSlot.Value);
-        }
-        foreach (var animSlot in _animationSlots)
-        {
-            data.AnimationSlots.Add(animSlot.Value);
-        }
         foreach (var behaviourSlot in _behaviourSlots)
         {
             data.BehaviourSlots.Add(behaviourSlot.Value);

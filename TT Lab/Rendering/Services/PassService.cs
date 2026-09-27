@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using Silk.NET.OpenGL;
 using TT_Lab.AssetData.Graphics;
 using TT_Lab.Rendering.Passes;
 using Twinsanity.TwinsanityInterchange.Common;
@@ -14,6 +15,9 @@ public enum PassPriority
     SkydomeTransparent = -8,
     Opaque = 1,
     Transparent = 10000,
+    VolumeInsides = 40000,
+    VolumeOutsides = 40001,
+    Particles = 50000,
     Billboards = 100000,
     Primitive = int.MaxValue
 }
@@ -21,10 +25,19 @@ public enum PassPriority
 public class PassService
 {
     public const string EVERY_PASS = "EveryPass";
+    public const string ParticlesPass = "PARTICLES";
+    public const string VolumeInsidesPass = "VOLUME_INSIDES";
+    public const string VolumeOutsidesPass = "VOLUME_OUTSIDES";
     
     private readonly Dictionary<string, RenderPass> _passes = [];
     private readonly SortedList<PassPriority, RenderPass> _sortedPasses = new(new DuplicateKeyComparer<PassPriority>());
     private readonly Dictionary<string, SortedList<int, Renderable>> _passRenderables = [];
+    private readonly IList<RenderPass> _skydomeOpaquePasses;
+    private readonly IList<RenderPass> _skydomeTransparentPasses;
+    private readonly IList<RenderPass> _opaquePasses;
+    private readonly IList<RenderPass> _transparentPasses;
+    private readonly IList<RenderPass> _billboardPasses;
+    private readonly IList<RenderPass> _primitivePasses;
 
     public PassService(RenderContext context)
     {
@@ -89,7 +102,22 @@ public class PassService
             RegisterPass(passType + "Transparent", renderPassTransparent, passPriorityTransparent);
         }
         
-        RegisterPass("CUSTOM_BILLBOARDS", new BillboardPass(context, "CUSTOM_BILLBOARDS", context.GetProgram("GenericInstanced")), PassPriority.Billboards);
+        RegisterPass("CUSTOM_BILLBOARDS", new BillboardPass(context, "CUSTOM_BILLBOARDS", context.GetProgram("Generic")), PassPriority.Billboards);
+        RegisterPass(ParticlesPass, new ParticlePass(context, ParticlesPass, context.GetProgram("Particle")), PassPriority.Particles);
+        RegisterPass(VolumeInsidesPass, new VolumePass(context, VolumeInsidesPass, context.GetProgram("Generic"), TriangleFace.Front), PassPriority.VolumeInsides);
+        RegisterPass(VolumeOutsidesPass, new VolumePass(context, VolumeOutsidesPass, context.GetProgram("Generic"), TriangleFace.Back), PassPriority.VolumeOutsides);
+
+        _skydomeOpaquePasses = GetPassesWith(priority => priority == PassPriority.SkydomeOpaque);
+        _skydomeTransparentPasses = GetPassesWith(priority => priority == PassPriority.SkydomeTransparent);
+        _opaquePasses = GetPassesWith(priority => priority == PassPriority.Opaque);
+        _transparentPasses = GetPassesWith(priority => priority is >= PassPriority.Transparent and < PassPriority.Billboards);
+        _billboardPasses = GetPassesWith(priority => priority == PassPriority.Billboards);
+        _primitivePasses = GetPassesWith(priority => priority == PassPriority.Primitive);
+    }
+
+    private IList<RenderPass> GetPassesWith(Func<PassPriority, bool> predicate)
+    {
+        return _sortedPasses.Where(kv => predicate(kv.Key)).Select(kv => kv.Value).ToArray();
     }
 
     public void RegisterRenderableInPasses(Renderable renderable, (string, int)[] passPriorities)
@@ -128,35 +156,18 @@ public class PassService
         }
     }
 
-    public IList<RenderPass> GetSkydomeOpaquePasses()
-    {
-        return _sortedPasses.Where(kv => kv.Key == PassPriority.SkydomeOpaque).Select(kv => kv.Value).ToList();
-    }
+    public IList<RenderPass> GetSkydomeOpaquePasses() => _skydomeOpaquePasses;
 
-    public IList<RenderPass> GetSkydomeTransparentPasses()
-    {
-        return _sortedPasses.Where(kv => kv.Key == PassPriority.SkydomeTransparent).Select(kv => kv.Value).ToList();
-    }
+    public IList<RenderPass> GetSkydomeTransparentPasses() => _skydomeTransparentPasses;
 
-    public IList<RenderPass> GetTransparentPasses()
-    {
-        return _sortedPasses.Where(kv => kv.Key is >= PassPriority.Transparent and < PassPriority.Billboards).Select(kv => kv.Value).ToList();
-    }
+    public IList<RenderPass> GetTransparentPasses() => _transparentPasses;
 
-    public IList<RenderPass> GetPasses()
-    {
-        return _sortedPasses.Where(kv => kv.Key is > PassPriority.SkydomeTransparent and < PassPriority.Billboards).Select(kv => kv.Value).ToList();
-    }
+    // Transparent passes used to be included here too which drew everything transparent twice
+    public IList<RenderPass> GetPasses() => _opaquePasses;
 
-    public IList<RenderPass> GetBillboardPasses()
-    {
-        return _sortedPasses.Where(kv => kv.Key == PassPriority.Billboards).Select(kv => kv.Value).ToList();
-    }
+    public IList<RenderPass> GetBillboardPasses() => _billboardPasses;
 
-    public IList<RenderPass> GetPrimitivePasses()
-    {
-        return _sortedPasses.Where(kv => kv.Key == PassPriority.Primitive).Select(kv => kv.Value).ToList();
-    }
+    public IList<RenderPass> GetPrimitivePasses() => _primitivePasses;
 
     public RenderPass GetRenderPass(string name)
     {

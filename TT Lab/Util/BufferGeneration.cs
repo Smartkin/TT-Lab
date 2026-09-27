@@ -54,6 +54,18 @@ public static class BufferGeneration
         return renderContext.MeshService.GetMesh(LabURI.Box);
     }
 
+    // A volume's inside and outside each blend this much of its color in, together about half like a single face would
+    public const float VolumeOpacity = 0.3f;
+    public const float SelectedVolumeOpacity = 0.15f;
+
+    /// <summary>
+    /// A box from -1 to 1 that's seen through, drawn after the scene
+    /// </summary>
+    public static MeshInfo GetVolumeBuffer(RenderContext renderContext)
+    {
+        return renderContext.MeshService.GetMesh(LabURI.Volume);
+    }
+
     public static MeshInfo GetCircleBuffer(RenderContext renderContext, float segmentPart = 1.0f, float thickness = 0.1f, int resolution = 16)
     {
         return renderContext.MeshService.GetMesh(LabURI.Circle);

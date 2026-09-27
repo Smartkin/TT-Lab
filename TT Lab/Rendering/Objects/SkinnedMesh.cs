@@ -1,25 +1,27 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using GlmSharp;
 using TT_Lab.Rendering.Buffers;
+using TT_Lab.Rendering.Shaders;
 
 namespace TT_Lab.Rendering.Objects;
 
 public class SkinnedMesh : Mesh
 {
-    private readonly RenderContext _context;
-    private readonly mat4[] _boneMatrices = new mat4[64];
-    private readonly mat4[] _renderBoneMatrices = new mat4[64];
+    private const int MaxBones = 64;
+
+    private readonly mat4[] _boneMatrices = new mat4[MaxBones];
+    private readonly float[] _renderBoneMatrices = new float[MaxBones * 16];
 
     public SkinnedMesh(RenderContext context, List<ModelBuffer> models) : base(context, models)
     {
-        _context = context;
-        
-        for (var i = 0; i < 64; i++)
+        for (var i = 0; i < MaxBones; i++)
         {
             _boneMatrices[i] = mat4.Identity;
-            _renderBoneMatrices[i] = mat4.Identity;
         }
+
+        CopyBoneMatrices();
     }
 
     public override Mesh Clone()
@@ -28,13 +30,12 @@ public class SkinnedMesh : Mesh
         return mesh;
     }
 
+    public override bool RequiresIndividualDraw => true;
+
     public override void UpdateRenderTransform()
     {
-        for (var i = 0; i < 64; i++)
-        {
-            _renderBoneMatrices[i] = _boneMatrices[i];
-        }
-        
+        CopyBoneMatrices();
+
         base.UpdateRenderTransform();
     }
 
@@ -42,12 +43,28 @@ public class SkinnedMesh : Mesh
     {
         _boneMatrices[boneIndex] = boneMatrix;
     }
-    
-    protected override void RenderSelf(float delta)
+
+    public override void BeginIndividualDraw(ModelBuffer model)
     {
-        var program = _context.CurrentPass.Program;
-        var boneMatrixLoc = program.GetUniformLocation("BoneMatrices");
-        _context.Gl.UniformMatrix4(boneMatrixLoc, false, _renderBoneMatrices.SelectMany(m => m.Values1D).ToArray());
-        base.RenderSelf(delta);
+        var program = Context.CurrentPass.Program;
+        Context.Gl.UniformMatrix4(program[KnownUniform.BoneMatrices], false, _renderBoneMatrices);
+        program.SetUniform(KnownUniform.UseSkinning, true);
+
+        base.BeginIndividualDraw(model);
+    }
+
+    public override void EndIndividualDraw(ModelBuffer model)
+    {
+        Context.CurrentPass.Program.SetUniform(KnownUniform.UseSkinning, false);
+
+        base.EndIndividualDraw(model);
+    }
+
+    private void CopyBoneMatrices()
+    {
+        for (var i = 0; i < MaxBones; i++)
+        {
+            StreamStorageBuffer.Write(_renderBoneMatrices.AsSpan(i * 16, 16), _boneMatrices[i]);
+        }
     }
 }

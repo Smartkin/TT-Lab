@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using Caliburn.Micro;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using Splat;
 using TT_Lab.AssetData;
 using TT_Lab.Assets.Graphics;
@@ -27,18 +28,30 @@ public class LevelChunk : SerializableAsset
     
     public override string IconPath => "Scene.png";
 
+
     [JsonProperty(Required = Required.Always, ObjectCreationHandling = ObjectCreationHandling.Replace)]
     [Editable]
     [EditorParam(UriLinkViewModel.BrowseScope, UriLinkViewModel.Scope.Document)]
     [EditorParam(UriLinkViewModel.OpenInInspector, true)]
     [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
+    [OnReferenceDeleted(DeletedReferenceAction.Remove)]
     public List<LabURI> ChunkResources { get; set; } = [];
+
+    // The chunk's versions of the objects and sounds that differ between chunks, the build puts them in whatever references them
+    [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
+    [OnReferenceDeleted(DeletedReferenceAction.Remove)]
+    public List<LabURI> ItemVersions { get; set; } = [];
+
+    // The chunk's own values of assets it shares with other chunks, applied when it gets built
+    [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
+    public List<AssetOverride> Overrides { get; set; } = [];
 
     [JsonProperty(Required = Required.Always)]
     [Editable]
     [EditorParam(DocumentCompositeViewModel.EditorExplicitOrder, -4)]
     [EditorParam(UriLinkViewModel.BrowseType, typeof(Skydome))]
-    [EditorHiddenIn("default", false)]
+    [EditorHiddenWhen(nameof(IsGlobalDefaultChunk))]
+    [OnReferenceDeleted(DeletedReferenceAction.Clear)]
     public LabURI Skydome { get; set; } = LabURI.Empty;
 
     public LevelChunk()
@@ -53,6 +66,20 @@ public class LevelChunk : SerializableAsset
 
     public string GetChunkPath() => SavePathInPackage;
 
+    public bool IsGlobalDefaultChunk
+    {
+        get
+        {
+            var project = Locator.Current.GetService<ProjectManager>()?.OpenedProject;
+            if (project == null || !Name.Equals("default", StringComparison.InvariantCultureIgnoreCase))
+            {
+                return false;
+            }
+
+            return Package == project.GlobalPackagePS2.URI || Package == project.GlobalPackageXbox.URI;
+        }
+    }
+
     public override void Dispose()
     {
         var assetManager = AssetManager.Get();
@@ -63,6 +90,44 @@ public class LevelChunk : SerializableAsset
         
         base.Dispose();
     }
+
+    // Chunk's resources are kept by the chunk itself rather than its data
+    public override bool IsReferencingAny(IReadOnlySet<LabURI> assets)
+    {
+        return base.IsReferencingAny(assets) || assets.Contains(Skydome) || ChunkResources.Any(assets.Contains) || ItemVersions.Any(assets.Contains)
+               || Overrides.Any(@override => assets.Contains(@override.Asset) || @override.GetLinkedAssets().Any(assets.Contains));
+    }
+
+    public override void FixDeletedReferences(DeletedReferenceFixer fixer)
+    {
+        base.FixDeletedReferences(fixer);
+        fixer.FixProperties(this, nameof(ChunkResources), nameof(Skydome), nameof(ItemVersions), nameof(Overrides));
+        Overrides.RemoveAll(@override => @override.Asset == LabURI.Empty);
+        FixOverrideValues(fixer);
+    }
+
+    // The chunk's own values are fixed the way the asset's are, each member of its data the way it's marked, and they stay where they
+    // still differ from the asset's. Fixing a copy of the asset as well makes it not matter whether the asset got fixed already
+    private void FixOverrideValues(DeletedReferenceFixer fixer)
+    {
+        var assetManager = AssetManager.Get();
+        foreach (var @override in Overrides.Where(@override => @override.GetLinkedAssets().Any(fixer.IsDeleted)).ToList())
+        {
+            var asset = assetManager.GetAsset(@override.Asset);
+            var view = AssetOverrides.CreateView(asset, @override.Values);
+            var shared = AssetOverrides.CreateView(asset, new Dictionary<string, JToken>());
+            view.FixDeletedReferences(fixer);
+            shared.FixDeletedReferences(fixer);
+            if (!fixer.IsDryRun)
+            {
+                @override.Values = AssetOverrides.Diff(AssetOverrides.GetDocument(shared, shared.GetData()), AssetOverrides.GetDocument(view, view.GetData()));
+            }
+        }
+
+        Overrides.RemoveAll(@override => @override.Values.Count == 0);
+    }
+
+    public AssetOverride? GetOverride(LabURI asset) => Overrides.FirstOrDefault(@override => @override.Asset == asset);
 
     public override void Save()
     {
@@ -97,7 +162,7 @@ public class LevelChunk : SerializableAsset
             Directory.SetCurrentDirectory($"{Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath}/assets");
         }
         
-        var path = SavePath;
+        var path = Path.Combine(Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath, "assets", SavePath);
         Directory.CreateDirectory(path);
         
         using FileStream fs = new(Path.Combine(path, $"{Name}.json"), FileMode.Create, FileAccess.Write);

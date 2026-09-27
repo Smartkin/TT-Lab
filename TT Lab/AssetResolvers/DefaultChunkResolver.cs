@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using TT_Lab.Assets;
 using Twinsanity.TwinsanityInterchange.Interfaces;
@@ -14,6 +15,7 @@ public class DefaultChunkResolver : AssetResolver<ITwinSection>
     private readonly InstanceSectionResolver[] _instanceSectionResolvers;
     
     private LevelChunk _levelChunk;
+    private List<MetaAsset> _unreferencedSounds = [];
     
     private string ChunkName => ChunkPath.Split(System.IO.Path.DirectorySeparatorChar)[^1];
     
@@ -59,6 +61,8 @@ public class DefaultChunkResolver : AssetResolver<ITwinSection>
         _behaviourResolver.CreateAssetsFromChunk(chunk, package);
         _behaviourSequenceResolver.CreateAssetsFromChunk(chunk, package);
         _gameObjectResolver.CreateAssetsFromChunk(chunk, package);
+        _unreferencedSounds = _gameObjectResolver.CreateUnreferencedSounds(chunk, package);
+        _levelChunk.ItemVersions = _gameObjectResolver.GetChunkVersions(chunk);
         foreach (var instanceSectionResolver in _instanceSectionResolvers)
         {
             instanceSectionResolver.CreateAssetsFromChunk(chunk, package);
@@ -76,6 +80,7 @@ public class DefaultChunkResolver : AssetResolver<ITwinSection>
         _levelChunk.ChunkResources.AddRange(_meshResolver.GetAssets().Select(m => m.Uri));
         _particleResolver.FinalizeResolve();
         _levelChunk.ChunkResources.AddRange(_particleResolver.GetAssets().Select(m => m.Uri));
+        _levelChunk.ChunkResources.AddRange(_unreferencedSounds.Select(m => m.Uri).Distinct());
         foreach (var instanceSectionResolver in _instanceSectionResolvers)
         {
             instanceSectionResolver.FinalizeResolve();

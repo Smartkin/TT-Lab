@@ -10,7 +10,5 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items
         /// Subskins the model consists of
         /// </summary>
         List<ITwinSubSkin> SubSkins { get; set; }
-
-        UInt32 GetMinSkinCoord();
     }
 }

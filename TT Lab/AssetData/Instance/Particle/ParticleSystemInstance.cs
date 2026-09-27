@@ -4,6 +4,7 @@ using TT_Lab.Attributes;
 using TT_Lab.Attributes.EditorParamWrappers;
 using TT_Lab.Util;
 using TT_Lab.ViewModels.Editors;
+using TT_Lab.ViewModels.Editors.Descs;
 using TT_Lab.ViewModels.Interfaces;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Common.Particles;
@@ -85,7 +86,8 @@ public class ParticleSystemInstance : IDocumentModel
     [Editable] public Int16 UnkShort5 { get; set; }
     [Editable] public Int32 Offset { get; set; }
 
-    [Editable]
+    // Name of the particle system it plays, the chunk's own or the default chunk's
+    [Editable(Caption = "Particle System", EditorDescType = typeof(ParticleSystemEditorDesc))]
     [EditorParam(TextFieldViewModel.TextFieldStringLength, 16U)]
     public string Name { get; set; } = "Particle Inst";
 

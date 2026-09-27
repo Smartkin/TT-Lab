@@ -82,6 +82,15 @@ public class FolderElementViewModel : ResourceTreeElementViewModel
                 Header = "Build with neighbouring chunks",
                 Action = RebuildChunkAndLinks
             });
+            if (GetFirstChild() is LevelChunk { IsGlobalDefaultChunk: false })
+            {
+                RegisterMenuItem(new MenuItemSettings
+                {
+                    Header = "Delete",
+                    Action = StartDeletingAsset
+                });
+            }
+
             return;
         }
         
@@ -166,7 +175,7 @@ public class FolderElementViewModel : ResourceTreeElementViewModel
 
     private void ListNormalFolderCreatableAssets(CreateAssetViewModel createAssetViewModel)
     {
-        createAssetViewModel.RegisterAssetToCreate<LevelChunk>("Chunk", AssetDataFactory.CreateChunkData);
+        createAssetViewModel.RegisterAssetToCreate<LevelChunk>("Chunk", asset => AssetDataFactory.CreateChunkData(Asset, asset));
         createAssetViewModel.RegisterAssetToCreate<GameObject>("Game Object", AssetDataFactory.CreateGameObjectData);
         createAssetViewModel.RegisterAssetToCreate<OGI>("Game Model", AssetDataFactory.CreateOgiData);
         createAssetViewModel.RegisterAssetToCreate<BehaviourGraph>("Behaviour", AssetDataFactory.CreateBehaviourData);
@@ -198,7 +207,7 @@ public class FolderElementViewModel : ResourceTreeElementViewModel
         var mark = ((Folder)Asset).Mark;
         if (mark.HasFlag(FolderMark.ChunksOnly))
         {
-            createAssetViewModel.RegisterAssetToCreate<LevelChunk>("Chunk");
+            createAssetViewModel.RegisterAssetToCreate<LevelChunk>("Chunk", asset => AssetDataFactory.CreateChunkData(Asset, asset));
             return;
         }
 
