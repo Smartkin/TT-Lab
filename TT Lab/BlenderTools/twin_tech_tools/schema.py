@@ -380,32 +380,17 @@ def parse_ranges(text: str) -> typing.List[int]:
 
 # The types TT Lab writes
 
-def _collision_fields() -> typing.List[Field]:
-    return [
-        Field("Points", "vec4s", description="Points of the collision's box"),
-        Field("UnkVectors1", "vec4s", advanced=True),
-        Field("UnkVectors2", "vec4s", advanced=True),
-        Field("UnkVectors3", "vec4s", advanced=True),
-        Field("UnkShorts", "ints", description="Numbers separated by commas", advanced=True),
-        Field("UnkBytes1", "ints", description="Numbers separated by commas", advanced=True),
-        Field("UnkBytes2", "ints", description="Numbers separated by commas", advanced=True),
-    ]
-
-
-OGI_COLLISION = TwinType("OgiCollision", "Collision", [Field("Joint", "byte", description="Index of the joint the collision moves with")] + _collision_fields())
-COLLISION = TwinType("Collision", "Collision", _collision_fields())
-
 TREE_NODE = TwinType("SceneryTreeNode", "Tree node", [
     Field("LightsEnabler", "lights", label="Lights", description="Lights that light what the node holds, like 0-3, 7"),
     Field("Kind", "enum", enum="SceneryType", default="Leaf", description="TT Lab works it out from the tree nodes under this one", advanced=True),
     Field("Slot", "int", minimum=0, maximum=7, description="Which of its parent's 8 children this node is", advanced=True),
-    Field("UnkVec2", "vec4", label="Bounds Min", description="Smallest corner of what the node holds, grows to hold what's placed in it",
+    Field("BoundsMin", "vec4", label="Bounds Min", description="Smallest corner of the node's cell, the game finds the node holding a box by it. Grows to hold what's placed in it",
           advanced=True),
-    Field("UnkVec3", "vec4", label="Bounds Max", description="Biggest corner of what the node holds, grows to hold what's placed in it",
+    Field("BoundsMax", "vec4", label="Bounds Max", description="Biggest corner of the node's cell, grows to hold what's placed in it",
           advanced=True),
-    Field("UnkVec1", "vec4", label="Center And Radius", description="Center of the bounds, W is the radius of the bounds", advanced=True),
-    Field("UnkVec4", "vec4", label="Half Size", description="Half the size of the bounds", advanced=True),
-    Field("UnkUInt", "uint", description="Only used by the root", advanced=True),
+    Field("BoundsCenter", "vec4", label="Center And Radius", description="Center of the cell with its radius in W, the game never reads it", advanced=True),
+    Field("BoundsHalfSize", "vec4", label="Half Size", description="Half the size of the cell, the game never reads it", advanced=True),
+    Field("TreeDepth", "uint", description="The tools' depth of the tree, only the root has it and the game never uses it", advanced=True),
     Field("SceneryTypes", "ints", description="Kinds of the node's children, TT Lab works them out from the tree", advanced=True),
 ], "A box of the tree the game culls the scenery with. What's under it is culled with it, TT Lab moves meshes that left its box to the "
    "node they're in")
@@ -415,11 +400,11 @@ def _light_fields() -> typing.List[Field]:
     return [
         Field("Order", "int", description="Position among the lights of its kind"),
         Field("Color", "color"),
-        Field("Radius", "float"),
+        Field("Intensity", "float", default=1.0, description="Multiplies the color"),
+        Field("Enabled", "bool", default=True, description="Set on every light of the game, which never reads it", advanced=True),
         Field("PositionW", "float", default=1.0, advanced=True),
-        Field("UnkData", "uint", advanced=True),
-        Field("UnkVec1", "vec4", default=(0.0, 0.0, 0.0, 1.0), advanced=True),
-        Field("UnkVec2", "vec4", default=(0.0, 0.0, 0.0, 1.0), advanced=True),
+        Field("BoundsMin", "vec4", default=(0.0, 0.0, 0.0, 1.0), description="Bounds the tools kept, the game works them out again", advanced=True),
+        Field("BoundsMax", "vec4", default=(0.0, 0.0, 0.0, 1.0), description="Bounds the tools kept, the game works them out again", advanced=True),
     ]
 
 
@@ -441,18 +426,15 @@ OBJECT_TYPES = [
     TwinType("Ogi", "OGI", [
         Field("BoundingBoxMin", "vec4", default=(0.0, 0.0, 0.0, 1.0)),
         Field("BoundingBoxMax", "vec4", default=(1.0, 1.0, 1.0, 1.0)),
-        Field("Collisions", "list", item=OGI_COLLISION),
-    ], "A model with a skeleton: its armature, skin, shape, rigid bodies and exit points are under it"),
+    ], "A model with a skeleton: its armature, skin, shape, rigid bodies, exit points and collision hulls are under it"),
     TwinType("Skin", "Skin", [], "A mesh the armature deforms"),
-    TwinType("BlendSkin", "Blend skin", [
-        Field("BlendsAmount", "int", minimum=0, maximum=15, description="Amount of shapes every part has", advanced=True),
-    ], "A mesh the armature deforms, whose shape keys the facial animations blend"),
+    TwinType("BlendSkin", "Blend skin", [], "A mesh the armature deforms, whose shape keys are the shapes the facial animations blend"),
     TwinType("Body", "Rigid body", [Field("Order", "int", description="Position among the model's rigid bodies")],
              "A mesh following the bone its Child Of constraint targets"),
     TwinType("Scenery", "Scenery", [
         Field("FogColor", "fog"),
         Field("HasLighting", "bool"),
-        Field("UnkByte", "byte", advanced=True),
+        Field("UnusedByte", "byte", description="Read into the chunk and never used, 0 on every level but one", advanced=True),
         Field("LightOrder", "ints", description="Index and kind of every light in the order the Xbox version lists them", advanced=True),
     ], "A level's scenery: the tree it's culled with, the lights, the collision and the dynamic scenery are under it"),
     TwinType("Skydome", "Skydome", [], "The sky of a level, its meshes are under it"),
@@ -474,33 +456,34 @@ OBJECT_TYPES = [
         Field("BoundingBox", "box", description="Box the game culls the LOD with, TT Lab works it out when it doesn't hold the LOD", advanced=True),
     ], "Meshes the game switches between by distance, every mesh under the LOD's object is a level"),
     TwinType("LodMesh", "LOD level", [Field("Level", "int", description="Which of the LOD's meshes this is, 0 is the closest")]),
-    TwinType("AmbientLight", "Ambient light", _light_fields()),
+    TwinType("AmbientLight", "Ambient light", _light_fields(), "Lights everything with its color times its intensity"),
     TwinType("DirectionalLight", "Directional light", _light_fields() + [
-        Field("UnkShort", "short", advanced=True),
+        Field("Leftover", "short", description="Never read by the game", advanced=True),
         Field("Direction", "vec4", description="Direction as the game has it, the object's rotation replaces it once turned", advanced=True),
-    ]),
-    TwinType("PointLight", "Point light", _light_fields() + [Field("UnkShort", "short", advanced=True)]),
-    TwinType("NegativeLight", "Negative light", _light_fields() + [
-        Field("UnkVec3", "vec4", advanced=True),
-        Field("UnkFloat1", "float", advanced=True),
-        Field("UnkFloat2", "float", advanced=True),
-        Field("UnkUInt1", "uint", advanced=True),
-        Field("UnkUInt2", "uint", advanced=True),
-        Field("UnkUShort1", "ushort", advanced=True),
-        Field("UnkUShort2", "ushort", advanced=True),
-    ]),
-    TwinType("ExitPoint", "Exit point", [
-        Field("Id", "uint", label="ID"),
-        Field("Matrix", "matrix", description="Transform as the game has it, the object's replaces it once moved", advanced=True),
-    ], "A point other objects attach to, following the bone its Child Of constraint targets"),
+    ], "Lights from one direction: the arrow points at where the light comes from"),
+    TwinType("PointLight", "Point light", _light_fields() + [
+        Field("AttenuationPower", "short", description="How many times the distance attenuation 25 / (d² + 25) multiplies the intensity, 0 to 2 in the game's levels"),
+    ], "Lights what's around it, fading with the distance"),
+    TwinType("NegativeLight", "Spot light", _light_fields() + [
+        Field("ConeAngle", "uint", default=16384, description="Angle of the whole cone lit at full intensity, in 65536ths of a turn (182 per degree)"),
+        Field("FalloffAngle", "uint", default=910, description="Angle the light fades out over past the cone, in 65536ths of a turn (182 per degree)"),
+        Field("AttenuationPower", "ushort", description="How many times the distance attenuation 25 / (d² + 25) multiplies the intensity"),
+        Field("SpotExponent", "ushort", description="Power the cosine of the angle to the axis is raised to within the cone, 0 in the game's levels"),
+        Field("Direction", "vec4", description="Direction as the game has it, the object's rotation replaces it once turned", advanced=True),
+        Field("InnerConeCosine", "float", description="Cosine the game lights with, made from the cone angle when it changed", advanced=True),
+        Field("OuterConeCosine", "float", description="Cosine the game lights with, made from the angles when they changed", advanced=True),
+    ], "A spot light (the tools' negative light): the arrow points where it shines"),
+    TwinType("ExitPoint", "Exit point", [Field("Id", "uint", label="ID")],
+             "A point other objects attach to, following the bone its Child Of constraint targets"),
+    TwinType("CollisionHull", "Collision hull", [], "A convex mesh the game collides the model with, following the bone its Child Of constraint targets or "
+                                                    "the model when it has none. The planes and axes the game reads are worked out from its faces"),
     TwinType("DynamicScenery", "Dynamic scenery", [], "Holds the dynamic models"),
     TwinType("DynamicSceneryModel", "Dynamic model", [
         Field("Order", "int", description="Position among the dynamic models"),
         Field("LodFlag", "byte"),
         Field("BoundingBoxMin", "vec4", default=(0.0, 0.0, 0.0, 1.0)),
         Field("BoundingBoxMax", "vec4", default=(1.0, 1.0, 1.0, 1.0)),
-        Field("Collisions", "list", item=COLLISION),
-    ], "A scenery mesh moving by its animation"),
+    ], "A scenery mesh moving by its animation, its collision hulls are under it"),
     TwinType("SkydomeMesh", "Skydome mesh", [Field("Order", "int", description="Position among the skydome's meshes")]),
     TwinType("Collision", "Collision", [
         Field("UnusedVertexes", "ints", advanced=True),
@@ -519,7 +502,7 @@ MATERIAL_TYPES = [
     ]),
 ]
 
-SUBTYPES = [OGI_COLLISION, COLLISION]
+SUBTYPES: typing.List[TwinType] = []
 
 
 def find_type(types: typing.List[TwinType], name: typing.Any) -> typing.Optional[TwinType]:

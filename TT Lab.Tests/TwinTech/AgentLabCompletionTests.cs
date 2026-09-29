@@ -24,12 +24,12 @@ public class AgentLabCompletionTests
         "         <assigner>\n" +
         "      }\n" +
         "   }\n" +
-        "   [NonBlocking]\n" +
+        "   [Interrupting]\n" +
         "   <attribute>\n" +
         "   state State_0() {\n" +
         "      <state>\n" +
-        "      if Else(0) >= 0.5 {\n" +
-        "         interval = 0;\n" +
+        "      if Else(0) > 0.5 {\n" +
+        "         window = 0;\n" +
         "         <body>\n" +
         "      }\n" +
         "   }\n" +
@@ -66,9 +66,10 @@ public class AgentLabCompletionTests
 
         Assert.Contains(items, item => item is { Text: "DestroyMe", Kind: AgentLabCompletionKind.Action });
         Assert.Contains("execute", Texts(items));
-        Assert.Contains("unknown", Texts(items));
-        // Interval was already set in this body
-        Assert.DoesNotContain("interval", Texts(items));
+        Assert.Contains("restart", Texts(items));
+        Assert.Contains("weight", Texts(items));
+        // The window was already set in this body
+        Assert.DoesNotContain("window", Texts(items));
         Assert.DoesNotContain(items, item => item.Kind == AgentLabCompletionKind.Condition);
     }
 
@@ -77,7 +78,54 @@ public class AgentLabCompletionTests
     {
         var doAnimation = Complete("<body>", "|").Single(item => item.Text == "DoAnimation");
 
-        Assert.Equal("action DoAnimation(int param1, float param2, int param3, int param4, int param5, int param6)", doAnimation.Description);
+        Assert.Equal("action DoAnimation(flags {slotCount, layer, unused, blendTimeGiven, speedGiven, speedIsDuration, speedRandomGiven, startPositionGiven, unused2}, tfloat blendTime, tfloat speed, tfloat speedRandom, float startPosition, animSlots {slot1, slot2, slot3, slot4})", doAnimation.Description);
+    }
+
+    // Inside the braces of a packed argument the parameter's fields are suggested, the ones already given left out
+    [Fact]
+    public void FieldsAreSuggestedInsidePackedArguments()
+    {
+        Assert.Equal(["slotCount", "layer", "unused", "blendTimeGiven", "speedGiven", "speedIsDuration", "speedRandomGiven", "startPositionGiven", "unused2"], Texts(Complete("<body>", "DoAnimation({|")));
+        Assert.DoesNotContain("slotCount", Texts(Complete("<body>", "DoAnimation({slotCount = 1, |")));
+        Assert.Contains("layer", Texts(Complete("<body>", "DoAnimation({slotCount = 1, |")));
+        Assert.All(Complete("<body>", "DoAnimation({|"), item => Assert.Equal(AgentLabCompletionKind.Field, item.Kind));
+        Assert.Equal(["slot1", "slot2", "slot3", "slot4"], Texts(Complete("<body>", "DoAnimation({slotCount = 1}, 1, 1, 1, 1, {|")));
+    }
+
+    // Inside a call the literal helpers of tagged arguments are offered next to the constants
+    [Fact]
+    public void LiteralHelpersAreSuggestedInsideCalls()
+    {
+        var texts = Texts(Complete("<body>", "DoAnimation({slotCount = 1}, |"));
+
+        Assert.Contains("Prop", texts);
+        Assert.Contains("Raw", texts);
+        Assert.Equal(AgentLabCompletionKind.Literal, Complete("<body>", "DoAnimation({slotCount = 1}, |").Single(item => item.Text == "Prop").Kind);
+        Assert.DoesNotContain("Prop", Texts(Complete("<body>", "|")));
+    }
+
+    private static AgentLabHover? Hover(string marker, string code)
+    {
+        var (script, offset) = At(marker, code);
+        return AgentLabCompletion.GetHover(script, offset, ActionDefinitions);
+    }
+
+    [Fact]
+    public void HoverDescribesWhatIsUnderThePointer()
+    {
+        Assert.StartsWith("action DoAnimation(", Hover("<body>", "DoAni|mation(1, 2, 3, 4, 5, 6);")!.Title);
+        Assert.StartsWith("condition Else(", Hover("<state>", "if El|se(0) > 0.5 { }")!.Title);
+        Assert.Equal("int slotCount : 4", Hover("<body>", "DoAnimation({slotCo|unt = 1}, 2, 3, 4, 5, 6);")!.Title);
+        Assert.Contains("parameter 1 of DoAnimation", Hover("<body>", "DoAnimation({slotCo|unt = 1}, 2, 3, 4, 5, 6);")!.Description);
+        Assert.Equal("bool slot1", Hover("<body>", "DoAnimation({slotCount = 1}, 2, 3, 4, 5, {slot1| = 8});")!.Title.Replace("int slot1 : 8", "bool slot1"));
+        Assert.Contains("Prop(n)", Hover("<body>", "DoAnimation({slotCount = 1}, Pr|op(3), 3, 4, 5, 6);")!.Description);
+        Assert.Contains("switches", Hover("<body>", "exec|ute State_1;")!.Description.ToLower().Replace("jumps", "switches"));
+        Assert.Contains("state the behaviour starts", Hover("<attribute>", "[StartFr|om(State_0)]")!.Description);
+        Assert.Equal("state State_1", Hover("<body>", "execute State_|1;")!.Title);
+        Assert.Equal("Value of Space", Hover("<settings>", "Space = WORLD_S|PACE;")!.Description);
+        Assert.StartsWith("Motion = ", Hover("<settings>", "Mot|ion = NO_MOTION;")!.Title);
+        Assert.Null(Hover("<body>", "// DoAni|mation"));
+        Assert.Null(Hover("<body>", "DoAnimation(1|2, 2, 3, 4, 5, 6);"));
     }
 
     [Fact]
@@ -111,7 +159,7 @@ public class AgentLabCompletionTests
     [Fact]
     public void StateSuggestsIf()
     {
-        Assert.Equal(["if"], Texts(Complete("<state>", "|")));
+        Assert.Equal(["if", "else", "completion"], Texts(Complete("<state>", "|")));
     }
 
     [Fact]
@@ -123,7 +171,7 @@ public class AgentLabCompletionTests
     [Fact]
     public void AttributesDependOnWhatTheyAreFor()
     {
-        Assert.Equal(["NonBlocking", "SkipFirstBody", "UseObjectSlot", "ControlPacket", "Unknown"], Texts(Complete("<attribute>", "[|")));
+        Assert.Equal(["Interrupting", "SkipFirstBody", "UseObjectSlot", "ControlPacket"], Texts(Complete("<attribute>", "[|")));
 
         var topLevel = AgentLabCompletion.GetCompletions("[", 1, ActionDefinitions).Items;
         Assert.Equal(["StartFrom", "Priority", "GraphPriority", "GlobalIndex", "InstanceType"], Texts(topLevel));
@@ -141,7 +189,7 @@ public class AgentLabCompletionTests
     [Fact]
     public void AttributeAfterItsClosingBracketIsDone()
     {
-        Assert.Equal(["state", "packet", "const", "starter"], Texts(Complete("<attribute>", "[Unknown(0x40)] |")));
+        Assert.Equal(["state", "packet", "const", "starter"], Texts(Complete("<attribute>", "[UseObjectSlot(OnSpawn)] |")));
     }
 
     [Fact]
@@ -247,5 +295,49 @@ public class AgentLabCompletionTests
         var (script, offset) = At("<body>", "DestroyMe(2); |");
 
         Assert.Null(AgentLabCompletion.GetSignature(script, offset, ActionDefinitions));
+    }
+
+    // A state's parentheses take the behaviour it runs, which only the editor knows
+    [Fact]
+    public void StatesSuggestTheBehavioursTheyCanRun()
+    {
+        var behaviours = new[]
+        {
+            new AgentLabCompletionItem("COM_A", AgentLabCompletionKind.Behaviour, "behaviour COM_A"),
+            new AgentLabCompletionItem("COM_B", AgentLabCompletionKind.Behaviour, "behaviour COM_B")
+        };
+        var (script, offset) = At("<behaviour>", "state State_2(|");
+        Assert.Equal(["COM_A", "COM_B"], Texts(AgentLabCompletion.GetCompletions(script, offset, ActionDefinitions, false, () => behaviours).Items));
+        (script, offset) = At("<behaviour>", "state State_2(COM|");
+        Assert.Equal(["COM_A", "COM_B"], Texts(AgentLabCompletion.GetCompletions(script, offset, ActionDefinitions, false, () => behaviours).Items));
+        Assert.Empty(Complete("<behaviour>", "state State_2(|"));
+        var body = At("<body>", "DestroyMe(|");
+        Assert.DoesNotContain("COM_A", Texts(AgentLabCompletion.GetCompletions(body.Script, body.Offset, ActionDefinitions, false, () => behaviours).Items));
+    }
+
+    [Fact]
+    public void StatesBehaviourIsFoundUnderThePointer()
+    {
+        var (script, offset) = At("<behaviour>", "state State_2(COM_|A) {\n   }");
+        var reference = AgentLabCompletion.GetBehaviourReference(script, offset)!;
+        Assert.Equal("COM_A", reference.Reference);
+        Assert.True(reference.IsName);
+        Assert.Equal("COM_A", script.Substring(reference.Start, reference.End - reference.Start));
+        var hover = AgentLabCompletion.GetHover(script, offset, ActionDefinitions)!;
+        Assert.Equal("behaviour COM_A", hover.Title);
+        Assert.True(hover.IsBehaviourReference);
+
+        (script, offset) = At("<behaviour>", "state State_2(\"res://Global PS2/Beha|viourGraph/COM_A\") {\n   }");
+        reference = AgentLabCompletion.GetBehaviourReference(script, offset)!;
+        Assert.Equal("res://Global PS2/BehaviourGraph/COM_A", reference.Reference);
+        Assert.False(reference.IsName);
+        Assert.Equal(reference.Reference, script.Substring(reference.Start, reference.End - reference.Start));
+        Assert.Equal(reference.Reference, AgentLabCompletion.GetHover(script, offset, ActionDefinitions)!.Title);
+
+        var execute = At("<body>", "execute Sta|te_1;");
+        Assert.Null(AgentLabCompletion.GetBehaviourReference(execute.Script, execute.Offset));
+        var name = At("<behaviour>", "state Sta|te_2(COM_A) {\n   }");
+        Assert.Null(AgentLabCompletion.GetBehaviourReference(name.Script, name.Offset));
+        Assert.False(AgentLabCompletion.GetHover(name.Script, name.Offset, ActionDefinitions)!.IsBehaviourReference);
     }
 }

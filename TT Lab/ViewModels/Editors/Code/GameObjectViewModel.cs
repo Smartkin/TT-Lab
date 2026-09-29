@@ -23,7 +23,7 @@ public class GameObjectViewModel : ResourceEditorViewModel
 {
     private string _name;
     private ITwinObject.ObjectType _type;
-    private byte _unkTypeValue;
+    private byte _subType;
     private byte _cameraReactJointAmount;
     private byte _exitPointAmount;
     private BindableCollection<PrimitiveWrapperViewModel<LabURI>> _ogiSlots;
@@ -92,7 +92,7 @@ public class GameObjectViewModel : ResourceEditorViewModel
         var data = AssetManager.Get().GetAssetData<GameObjectData>(EditableResource);
         _name = data.Name;
         _type = data.Type;
-        _unkTypeValue = data.UnkTypeValue;
+        _subType = data.SubType;
         _cameraReactJointAmount = data.CameraReactJointAmount;
         _exitPointAmount = data.ExitPointAmount;
         _instanceStateFlags = new InstanceStateFlagsViewModel(data.InstanceStateFlags);
@@ -152,7 +152,7 @@ public class GameObjectViewModel : ResourceEditorViewModel
         var assetManager = AssetManager.Get();
         var data = assetManager.GetAssetData<GameObjectData>(EditableResource);
         data.Name = _name;
-        data.UnkTypeValue = _unkTypeValue;
+        data.SubType = _subType;
         data.CameraReactJointAmount = _cameraReactJointAmount;
         data.ExitPointAmount = _exitPointAmount;
         data.InstanceStateFlags = (Enums.InstanceState)_instanceStateFlags.StateFlags;
@@ -228,20 +228,20 @@ public class GameObjectViewModel : ResourceEditorViewModel
     public ObservableCollection<LabURI> BehaviourReferencesBrowser => new(AssetManager.Get().GetAllAssetUrisOf<Assets.Code.Behaviour>().AddRange(AssetManager.Get().GetAllAssetUrisOf<BehaviourCommandsSequence>()));
 
     [MarkDirty]
-    public byte UnkTypeValue
+    public byte SubType
     {
-        get => _unkTypeValue;
+        get => _subType;
         set
         {
-            if (_unkTypeValue != value)
+            if (_subType != value)
             {
-                _unkTypeValue = value;
+                _subType = value;
                 NotifyOfPropertyChange();
             }
         }
     }
     
-    public string UnkTypeHintString => """
+    public string SubTypeHintString => """
                                        CHANGE THIS AT YOUR OWN RISK!
                                        For Pickup type objects this value must be 16 or 17
                                        For the rest it is unknown so look at other object types!

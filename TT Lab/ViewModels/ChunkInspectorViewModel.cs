@@ -17,6 +17,10 @@ public partial class ChunkInspectorViewModel : Document
     [Reactive(SetModifier = AccessModifier.Private)]
     private DocumentNodeViewModel? _inspected;
 
+    // The scene's document, its view keeps the inspector's views while the scene's tab is open
+    [Reactive(SetModifier = AccessModifier.Private)]
+    private DocumentViewModel? _document;
+
     public ReactiveCommand<Unit, Unit> SaveCommand { get; }
     public ReactiveCommand<Unit, Unit> UndoCommand { get; }
     public ReactiveCommand<Unit, Unit> RedoCommand { get; }
@@ -39,13 +43,11 @@ public partial class ChunkInspectorViewModel : Document
             .Subscribe(Show);
     }
 
-    private DocumentViewModel? _document;
-
     // Picking something to inspect brings the panel to the front, switching to another scene only shows what that one inspects
     private void Show((DocumentViewModel? Document, DocumentNodeViewModel? Inspector) inspected)
     {
-        var isPicked = inspected.Document != null && inspected.Document == _document && inspected.Inspector != null && inspected.Inspector != Inspected;
-        _document = inspected.Document;
+        var isPicked = inspected.Document != null && inspected.Document == Document && inspected.Inspector != null && inspected.Inspector != Inspected;
+        Document = inspected.Document;
         Inspected = inspected.Inspector;
         if (isPicked)
         {

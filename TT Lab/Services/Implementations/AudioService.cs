@@ -20,8 +20,18 @@ public class AudioService : IAudioService, IDisposable
     public AudioService()
     {
         _audioEngine = new MiniAudioEngine();
-        var playbackDevice = _audioEngine.PlaybackDevices.FirstOrDefault(d => d.IsDefault);
-        Debug.Assert(playbackDevice.Id != IntPtr.Zero, "No default playback device found!");
+        var devices = _audioEngine.PlaybackDevices;
+        var playbackDevice = devices.FirstOrDefault(d => d.IsDefault);
+        if (playbackDevice.Id == IntPtr.Zero)
+        {
+            playbackDevice = devices.FirstOrDefault();
+        }
+
+        if (playbackDevice.Id == IntPtr.Zero)
+        {
+            _audioEngine.Dispose();
+            throw new InvalidOperationException("there's no playback device");
+        }
         
         var audioFormat = new AudioFormat
         {

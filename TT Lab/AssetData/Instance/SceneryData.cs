@@ -74,7 +74,7 @@ public class SceneryData : AbstractAssetData
     
     public UInt32 FogColor { get; set; }
     
-    public Byte UnkByte { get; set; }
+    public Byte UnusedByte { get; set; }
     
     public Boolean HasLighting { get; set; }
 
@@ -139,7 +139,7 @@ public class SceneryData : AbstractAssetData
         var rootData = new JsonObject
         {
             ["FogColor"] = (Int32)FogColor,
-            ["UnkByte"] = (Int32)UnkByte,
+            ["UnusedByte"] = (Int32)UnusedByte,
             ["HasLighting"] = HasLighting
         };
         if (LightOrder.Count > 0)
@@ -200,19 +200,19 @@ public class SceneryData : AbstractAssetData
             WriteLights(lights, AmbientLights, AmbientLightKind, (light, json) => { });
             WriteLights(lights, DirectionalLights, DirectionalLightKind, (light, json) =>
             {
-                json["UnkShort"] = (Int32)light.UnkShort;
+                json["Leftover"] = (Int32)light.Leftover;
                 json["Direction"] = TlmJson.ToJson(light.Direction);
             });
-            WriteLights(lights, PointLights, PointLightKind, (light, json) => json["UnkShort"] = (Int32)light.UnkShort);
+            WriteLights(lights, PointLights, PointLightKind, (light, json) => json["AttenuationPower"] = (Int32)light.AttenuationPower);
             WriteLights(lights, NegativeLights, NegativeLightKind, (light, json) =>
             {
-                json["UnkVec3"] = TlmJson.ToJson(light.UnkVec3);
-                json["UnkFloat1"] = light.UnkFloat1;
-                json["UnkFloat2"] = light.UnkFloat2;
-                json["UnkUInt1"] = TlmJson.ToJson(light.UnkUInt1);
-                json["UnkUInt2"] = TlmJson.ToJson(light.UnkUInt2);
-                json["UnkUShort1"] = (Int32)light.UnkUShort1;
-                json["UnkUShort2"] = (Int32)light.UnkUShort2;
+                json["Direction"] = TlmJson.ToJson(light.Direction);
+                json["ConeAngle"] = TlmJson.ToJson(light.ConeAngle);
+                json["FalloffAngle"] = TlmJson.ToJson(light.FalloffAngle);
+                json["InnerConeCosine"] = light.InnerConeCosine;
+                json["OuterConeCosine"] = light.OuterConeCosine;
+                json["AttenuationPower"] = (Int32)light.AttenuationPower;
+                json["SpotExponent"] = (Int32)light.SpotExponent;
             });
         }
 
@@ -267,10 +267,10 @@ public class SceneryData : AbstractAssetData
         {
             ["Kind"] = node.GetSceneryType().ToString(),
             ["Slot"] = slot,
-            ["UnkVec1"] = TlmJson.ToJson(node.UnkVec1),
-            ["UnkVec2"] = TlmJson.ToJson(node.UnkVec2),
-            ["UnkVec3"] = TlmJson.ToJson(node.UnkVec3),
-            ["UnkVec4"] = TlmJson.ToJson(node.UnkVec4),
+            ["BoundsCenter"] = TlmJson.ToJson(node.BoundsCenter),
+            ["BoundsMin"] = TlmJson.ToJson(node.BoundsMin),
+            ["BoundsMax"] = TlmJson.ToJson(node.BoundsMax),
+            ["BoundsHalfSize"] = TlmJson.ToJson(node.BoundsHalfSize),
             ["LightsEnabler"] = TlmJson.ToJson(node.LightsEnabler)
         };
         if (node is SceneryNodeData treeNode)
@@ -280,7 +280,7 @@ public class SceneryData : AbstractAssetData
 
         if (node is SceneryRootData root)
         {
-            json["UnkUInt"] = TlmJson.ToJson(root.UnkUInt);
+            json["TreeDepth"] = TlmJson.ToJson(root.TreeDepth);
         }
 
         return json;
@@ -300,19 +300,69 @@ public class SceneryData : AbstractAssetData
             {
                 ["Order"] = i,
                 ["PositionW"] = light.Position.W,
-                ["UnkData"] = TlmJson.ToJson(light.UnkData),
-                ["Radius"] = light.Radius,
+                ["Enabled"] = light.Enabled,
+                ["Intensity"] = light.Intensity,
                 ["Color"] = TlmJson.ToJson(light.Color),
-                ["UnkVec1"] = TlmJson.ToJson(light.UnkVec1),
-                ["UnkVec2"] = TlmJson.ToJson(light.UnkVec2)
+                ["BoundsMin"] = TlmJson.ToJson(light.BoundsMin),
+                ["BoundsMax"] = TlmJson.ToJson(light.BoundsMax)
             };
             writeExtra(light, json);
             var node = parent.AddChild(TlmNodes.Create(kind, $"{kind} {i}", json));
-            var rotation = light is DirectionalLight directional
-                ? new Quaternion(directional.Direction.X, directional.Direction.Y, directional.Direction.Z, directional.Direction.W)
-                : Quaternion.Identity;
+            var direction = light switch
+            {
+                DirectionalLight directional => directional.Direction,
+                NegativeLight spot => spot.Direction,
+                _ => null
+            };
+            var rotation = direction == null ? Quaternion.Identity : RotationTowards(new Vector3(direction.X, direction.Y, direction.Z));
             node.SetTransform(Matrix4x4.CreateFromQuaternion(rotation) * Matrix4x4.CreateTranslation(light.Position.X, light.Position.Y, light.Position.Z));
         }
+    }
+
+    // A light's node points its Z axis along the light's direction (a directional light's points at where the light comes from, a
+    // spot light's at where it shines), which Blender shows as the empty's arrow
+    private static Quaternion RotationTowards(Vector3 direction)
+    {
+        if (direction.LengthSquared() < 1e-12f)
+        {
+            return Quaternion.Identity;
+        }
+
+        direction = Vector3.Normalize(direction);
+        var dot = Vector3.Dot(Vector3.UnitZ, direction);
+        if (dot > 0.999999f)
+        {
+            return Quaternion.Identity;
+        }
+
+        if (dot < -0.999999f)
+        {
+            return Quaternion.CreateFromAxisAngle(Vector3.UnitY, MathF.PI);
+        }
+
+        var axis = Vector3.Normalize(Vector3.Cross(Vector3.UnitZ, direction));
+        return Quaternion.CreateFromAxisAngle(axis, MathF.Acos(Math.Clamp(dot, -1, 1)));
+    }
+
+    // The stored direction is kept while the node still points along it, so unedited lights round-trip exactly
+    private static Vector4 DirectionOf(TlmTreeNode node, JsonObject json)
+    {
+        Matrix4x4.Decompose(node.WorldMatrix, out _, out var rotation, out _);
+        var pointed = Vector3.Transform(Vector3.UnitZ, rotation);
+        if (json["Direction"] != null)
+        {
+            var stored = json.GetVector4("Direction");
+            var storedDirection = new Vector3(stored.X, stored.Y, stored.Z);
+            // A direction of no length (a light made in Blender, whose node the add-on writes with none) stays while the node isn't
+            // turned, which is how a game file's would be written
+            var along = storedDirection.LengthSquared() < 1e-12f ? Vector3.UnitZ : Vector3.Normalize(storedDirection);
+            if (Vector3.Dot(along, pointed) > 0.99999f)
+            {
+                return stored;
+            }
+        }
+
+        return new Vector4(pointed.X, pointed.Y, pointed.Z, 0);
     }
 
     /// <returns>Whether the file has to be written again: materials made in Blender became the project's</returns>
@@ -322,7 +372,7 @@ public class SceneryData : AbstractAssetData
         var materials = new TlmMaterials(file, Owner);
         var data = root.Data;
         FogColor = (UInt32)data.GetInt("FogColor", (Int32)FogColor);
-        UnkByte = (Byte)data.GetInt("UnkByte", UnkByte);
+        UnusedByte = (Byte)data.GetInt("UnusedByte", UnusedByte);
         LightOrder = data.GetInts("LightOrder").ToList();
         var nodes = root.Traverse().Skip(1).ToList();
         var treeIndexes = ReadTree(nodes);
@@ -440,10 +490,10 @@ public class SceneryData : AbstractAssetData
             }
         }
 
-        var parentCenter = parent.Data.GetFloats("UnkVec1");
+        var parentCenter = parent.Data.GetFloats("BoundsCenter");
         foreach (var child in children.Where(child => !slots.ContainsKey(child)))
         {
-            var center = child.Data.GetFloats("UnkVec1");
+            var center = child.Data.GetFloats("BoundsCenter");
             var octant = parentCenter.Length >= 3 && center.Length >= 3
                 ? (center[0] >= parentCenter[0] ? 1 : 0) | (center[1] >= parentCenter[1] ? 2 : 0) | (center[2] >= parentCenter[2] ? 4 : 0)
                 : -1;
@@ -464,21 +514,21 @@ public class SceneryData : AbstractAssetData
     {
         SceneryBaseData data = kind switch
         {
-            ITwinScenery.SceneryType.Root => new SceneryRootData { UnkUInt = json.GetUInt("UnkUInt") },
+            ITwinScenery.SceneryType.Root => new SceneryRootData { TreeDepth = json.GetUInt("TreeDepth") },
             ITwinScenery.SceneryType.Node => new SceneryNodeData(),
             _ => new SceneryLeafData()
         };
-        if (json["UnkVec2"] != null && json["UnkVec3"] != null)
+        if (json["BoundsMin"] != null && json["BoundsMax"] != null)
         {
-            data.UnkVec1 = json.GetVector4("UnkVec1");
-            data.UnkVec2 = json.GetVector4("UnkVec2");
-            data.UnkVec3 = json.GetVector4("UnkVec3");
-            data.UnkVec4 = json.GetVector4("UnkVec4");
+            data.BoundsCenter = json.GetVector4("BoundsCenter");
+            data.BoundsMin = json.GetVector4("BoundsMin");
+            data.BoundsMax = json.GetVector4("BoundsMax");
+            data.BoundsHalfSize = json.GetVector4("BoundsHalfSize");
             var world = node?.WorldMatrix ?? Matrix4x4.Identity;
             if (!TlmNodes.IsIdentity(world))
             {
                 // The node was moved with everything under it, its box goes along
-                var corners = Corners(new Vector3(data.UnkVec2.X, data.UnkVec2.Y, data.UnkVec2.Z), new Vector3(data.UnkVec3.X, data.UnkVec3.Y, data.UnkVec3.Z))
+                var corners = Corners(new Vector3(data.BoundsMin.X, data.BoundsMin.Y, data.BoundsMin.Z), new Vector3(data.BoundsMax.X, data.BoundsMax.Y, data.BoundsMax.Z))
                     .Select(corner => Vector3.Transform(corner, world)).ToList();
                 SetTreeBounds(data, corners.Aggregate(Vector3.Min), corners.Aggregate(Vector3.Max));
             }
@@ -486,10 +536,10 @@ public class SceneryData : AbstractAssetData
         else
         {
             // Nodes made outside of TT Lab get the bounds of what gets placed in them
-            data.UnkVec1 = new Vector4(0, 0, 0, 0);
-            data.UnkVec2 = new Vector4(Single.PositiveInfinity, Single.PositiveInfinity, Single.PositiveInfinity, 1);
-            data.UnkVec3 = new Vector4(Single.NegativeInfinity, Single.NegativeInfinity, Single.NegativeInfinity, 1);
-            data.UnkVec4 = new Vector4(0, 0, 0, 0);
+            data.BoundsCenter = new Vector4(0, 0, 0, 0);
+            data.BoundsMin = new Vector4(Single.PositiveInfinity, Single.PositiveInfinity, Single.PositiveInfinity, 1);
+            data.BoundsMax = new Vector4(Single.NegativeInfinity, Single.NegativeInfinity, Single.NegativeInfinity, 1);
+            data.BoundsHalfSize = new Vector4(0, 0, 0, 0);
         }
 
         var lights = json.GetBools("LightsEnabler");
@@ -520,12 +570,12 @@ public class SceneryData : AbstractAssetData
         for (var index = 0; index < Sceneries.Count; index++)
         {
             var node = Sceneries[index];
-            if (Single.IsFinite(node.UnkVec2.X))
+            if (Single.IsFinite(node.BoundsMin.X))
             {
                 continue;
             }
 
-            var center = parents[index] >= 0 ? new Vector3(Sceneries[parents[index]].UnkVec1.X, Sceneries[parents[index]].UnkVec1.Y, Sceneries[parents[index]].UnkVec1.Z) : Vector3.Zero;
+            var center = parents[index] >= 0 ? new Vector3(Sceneries[parents[index]].BoundsCenter.X, Sceneries[parents[index]].BoundsCenter.Y, Sceneries[parents[index]].BoundsCenter.Z) : Vector3.Zero;
             SetTreeBounds(node, center, center);
         }
     }
@@ -534,10 +584,10 @@ public class SceneryData : AbstractAssetData
     {
         var half = (max - min) / 2;
         var center = (max + min) / 2;
-        node.UnkVec2 = new Vector4(min.X, min.Y, min.Z, node.UnkVec2.W);
-        node.UnkVec3 = new Vector4(max.X, max.Y, max.Z, node.UnkVec3.W);
-        node.UnkVec4 = new Vector4(half.X, half.Y, half.Z, node.UnkVec4.W);
-        node.UnkVec1 = new Vector4(center.X, center.Y, center.Z, half.Length());
+        node.BoundsMin = new Vector4(min.X, min.Y, min.Z, node.BoundsMin.W);
+        node.BoundsMax = new Vector4(max.X, max.Y, max.Z, node.BoundsMax.W);
+        node.BoundsHalfSize = new Vector4(half.X, half.Y, half.Z, node.BoundsHalfSize.W);
+        node.BoundsCenter = new Vector4(center.X, center.Y, center.Z, half.Length());
     }
 
     private static Vector3[] Corners(Vector3 min, Vector3 max)
@@ -552,27 +602,29 @@ public class SceneryData : AbstractAssetData
     private void ReadLights(List<TlmTreeNode> nodes)
     {
         AmbientLights = ReadLights(nodes, AmbientLightKind, (node, json) => new AmbientLight());
-        PointLights = ReadLights(nodes, PointLightKind, (node, json) => new PointLight { UnkShort = (Int16)json.GetInt("UnkShort") });
-        DirectionalLights = ReadLights(nodes, DirectionalLightKind, (node, json) =>
+        PointLights = ReadLights(nodes, PointLightKind, (node, json) => new PointLight { AttenuationPower = (Int16)json.GetInt("AttenuationPower") });
+        DirectionalLights = ReadLights(nodes, DirectionalLightKind, (node, json) => new DirectionalLight
         {
-            Matrix4x4.Decompose(node.LocalMatrix, out _, out var rotation, out _);
-            var stored = json.GetVector4("Direction", new Vector4(rotation.X, rotation.Y, rotation.Z, rotation.W));
-            var unchanged = Math.Abs(Quaternion.Dot(rotation, new Quaternion(stored.X, stored.Y, stored.Z, stored.W))) > 0.99999f;
-            return new DirectionalLight
-            {
-                UnkShort = (Int16)json.GetInt("UnkShort"),
-                Direction = unchanged ? stored : new Vector4(rotation.X, rotation.Y, rotation.Z, rotation.W)
-            };
+            Leftover = (Int16)json.GetInt("Leftover"),
+            Direction = DirectionOf(node, json)
         });
-        NegativeLights = ReadLights(nodes, NegativeLightKind, (node, json) => new NegativeLight
+        NegativeLights = ReadLights(nodes, NegativeLightKind, (node, json) =>
         {
-            UnkVec3 = json.GetVector4("UnkVec3"),
-            UnkFloat1 = json.GetFloat("UnkFloat1"),
-            UnkFloat2 = json.GetFloat("UnkFloat2"),
-            UnkUInt1 = json.GetUInt("UnkUInt1"),
-            UnkUInt2 = json.GetUInt("UnkUInt2"),
-            UnkUShort1 = (UInt16)json.GetInt("UnkUShort1"),
-            UnkUShort2 = (UInt16)json.GetInt("UnkUShort2")
+            var light = new NegativeLight
+            {
+                Direction = DirectionOf(node, json),
+                AttenuationPower = (UInt16)json.GetInt("AttenuationPower"),
+                SpotExponent = (UInt16)json.GetInt("SpotExponent"),
+                ConeAngle = json.GetUInt("ConeAngle"),
+                FalloffAngle = json.GetUInt("FalloffAngle")
+            };
+            // The cosines the game lights with are kept while they're still the angles', edited angles get new ones
+            var (inner, outer) = NegativeLight.ConeCosines(light.ConeAngle, light.FalloffAngle);
+            var stored = (Inner: json.GetFloat("InnerConeCosine", Single.NaN), Outer: json.GetFloat("OuterConeCosine", Single.NaN));
+            var kept = Math.Abs(stored.Inner - inner) < 0.005f && Math.Abs(stored.Outer - outer) < 0.005f;
+            light.InnerConeCosine = kept ? stored.Inner : inner;
+            light.OuterConeCosine = kept ? stored.Outer : outer;
+            return light;
         });
     }
 
@@ -586,11 +638,19 @@ public class SceneryData : AbstractAssetData
                 var light = create(n.Node, n.Json);
                 var translation = n.Node.WorldMatrix.Translation;
                 light.Position = new Vector4(translation.X, translation.Y, translation.Z, n.Json.GetFloat("PositionW", 1.0f));
-                light.UnkData = n.Json.GetUInt("UnkData");
-                light.Radius = n.Json.GetFloat("Radius");
+                light.Enabled = n.Json.GetBool("Enabled", true);
+                light.Intensity = n.Json.GetFloat("Intensity");
                 light.Color = n.Json.GetVector4("Color", new Vector4(1, 1, 1, 1));
-                light.UnkVec1 = n.Json.GetVector4("UnkVec1", new Vector4(0, 0, 0, 1));
-                light.UnkVec2 = n.Json.GetVector4("UnkVec2", new Vector4(0, 0, 0, 1));
+                if (n.Json["BoundsMin"] != null && n.Json["BoundsMax"] != null)
+                {
+                    light.BoundsMin = n.Json.GetVector4("BoundsMin");
+                    light.BoundsMax = n.Json.GetVector4("BoundsMax");
+                }
+                else
+                {
+                    light.ComputeBounds();
+                }
+
                 return light;
             }).ToList();
     }
@@ -748,7 +808,7 @@ public class SceneryData : AbstractAssetData
         return Vector3.Min(min, bounds.Min + tolerance) == min && Vector3.Max(max, bounds.Max - tolerance) == max;
     }
 
-    private Boolean HasBounds(Int32 treeIndex) => Single.IsFinite(Sceneries[treeIndex].UnkVec2.X);
+    private Boolean HasBounds(Int32 treeIndex) => Single.IsFinite(Sceneries[treeIndex].BoundsMin.X);
 
     // Whether the tree node's bounds hold the box, give or take the rounding of placing it again
     private Boolean Holds(Int32 treeIndex, Vector3 min, Vector3 max)
@@ -759,14 +819,14 @@ public class SceneryData : AbstractAssetData
         }
 
         var node = Sceneries[treeIndex];
-        var nodeMin = new Vector3(node.UnkVec2.X, node.UnkVec2.Y, node.UnkVec2.Z);
-        var nodeMax = new Vector3(node.UnkVec3.X, node.UnkVec3.Y, node.UnkVec3.Z);
+        var nodeMin = new Vector3(node.BoundsMin.X, node.BoundsMin.Y, node.BoundsMin.Z);
+        var nodeMax = new Vector3(node.BoundsMax.X, node.BoundsMax.Y, node.BoundsMax.Z);
 
         var slack = Vector3.Max(new Vector3(1e-4f), Vector3.Max(Vector3.Abs(nodeMin), Vector3.Abs(nodeMax)) * 1e-5f);
         return Vector3.Min(nodeMin, min + slack) == nodeMin && Vector3.Max(nodeMax, max - slack) == nodeMax;
     }
 
-    // UnkVec2 and UnkVec3 are a tree node's bounds, UnkVec4 its half size and UnkVec1 its center with the radius of its bounds.
+    // BoundsMin and BoundsMax are a tree node's bounds, BoundsHalfSize its half size and BoundsCenter its center with the radius of its bounds.
     // Bounds that don't hold what the node draws anymore grow, up to the root, so nothing gets culled while it's on screen.
     // Placing the box again isn't exact, it has to stick out by more than that
     private void GrowTreeBounds(Int32 treeIndex, Vector3 min, Vector3 max)
@@ -780,8 +840,8 @@ public class SceneryData : AbstractAssetData
                 return;
             }
 
-            var oldMin = new Vector3(node.UnkVec2.X, node.UnkVec2.Y, node.UnkVec2.Z);
-            var oldMax = new Vector3(node.UnkVec3.X, node.UnkVec3.Y, node.UnkVec3.Z);
+            var oldMin = new Vector3(node.BoundsMin.X, node.BoundsMin.Y, node.BoundsMin.Z);
+            var oldMax = new Vector3(node.BoundsMax.X, node.BoundsMax.Y, node.BoundsMax.Z);
             SetTreeBounds(node, Vector3.Min(oldMin, min), Vector3.Max(oldMax, max));
         }
     }
@@ -835,7 +895,7 @@ public class SceneryData : AbstractAssetData
     {
         var scenery = GetTwinItem<ITwinScenery>();
         FogColor = scenery.FogColor;
-        UnkByte = scenery.UnkByte;
+        UnusedByte = scenery.UnusedByte;
         
         HasLighting = scenery.HasLighting;
         if (HasLighting)
@@ -861,7 +921,7 @@ public class SceneryData : AbstractAssetData
         using var writer = new BinaryWriter(ms);
         writer.Write(factory.ChunkPath.Replace('/', '\\'));
         writer.Write(FogColor);
-        writer.Write(UnkByte);
+        writer.Write(UnusedByte);
         writer.Write(SkydomeID == LabURI.Empty ? 0 : assetManager.GetAsset(SkydomeID).ExportTwinID);
         writer.Write(HasLighting);
         if (HasLighting)
@@ -942,6 +1002,8 @@ public class SceneryData : AbstractAssetData
         PropertyNode property)
     {
         var result = new List<ViewportObject>();
+        // The chunk's strongest lights are what its environment mapped materials look up by
+        viewportContext.RenderContext.EnvLights = Rendering.EnvLights.Of(DirectionalLights);
         var sceneryVisual = new Rendering.Objects.Scenery(viewportContext.RenderContext, viewportContext.RenderContext.MeshService, this);
         var editingObject = new EditableObject(viewportContext.RenderContext, sceneryVisual, $"SCENERY_{Owner.FullDataPath}")
         {

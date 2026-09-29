@@ -69,7 +69,7 @@ class FileTests(unittest.TestCase):
         file = tlm.TlmFile.load(FIXTURE)
 
         self.assertEqual(file.asset_type, "Ogi")
-        self.assertEqual([child["kind"] for child in tlm.children(file.root)], ["armature", "skin", "shape", "rigid_bodies", "exit_points"])
+        self.assertEqual([child["kind"] for child in tlm.children(file.root)], ["armature", "skin", "shape", "rigid_bodies", "exit_points", "collision_hulls"])
         armature = tlm.find_child(file.root, "armature")
         self.assertEqual([joint["parent"] for joint in armature["joints"]], [-1, 0, 1])
         self.assertEqual([animation["name"] for animation in armature["animations"]], ["Walk", "Wave"])
@@ -347,3 +347,112 @@ class ProjectTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RetargetTests(unittest.TestCase):
+    """A new armature's bones find the original's joints by index, name, then their place in the hierarchy."""
+
+    def setUp(self):
+        self.retarget = load_addon_module("retarget")
+        # The original: a root joint with a spine and a leg, the spine holds a head
+        self.original = [("Joint 0", None, 0), ("Joint 1", "Joint 0", 1), ("Joint 2", "Joint 1", 2), ("Joint 3", "Joint 0", 3)]
+
+    def test_bones_named_like_the_original_are_its_joints(self):
+        matches = self.retarget.match_joints(self.original, [("Joint 3", "Hips", None), ("Hips", None, None), ("Joint 1", "Hips", None)])
+
+        self.assertEqual((3, "Joint 3", "name"), matches["Joint 3"])
+        self.assertEqual((1, "Joint 1", "name"), matches["Joint 1"])
+        self.assertEqual((0, "Joint 0", "order"), matches["Hips"])
+
+    def test_bones_follow_the_hierarchy_in_order_and_the_rest_are_new(self):
+        incoming = [("Hips", None, None), ("Spine", "Hips", None), ("Head", "Spine", None), ("Leg", "Hips", None), ("Tail", "Hips", None), ("Hair", "Head", None)]
+
+        matches = self.retarget.match_joints(self.original, incoming)
+
+        self.assertEqual({"Hips": (0, "Joint 0", "order"), "Spine": (1, "Joint 1", "order"), "Head": (2, "Joint 2", "order"), "Leg": (3, "Joint 3", "order"),
+                          "Tail": (4, None, "new"), "Hair": (5, None, "new")}, matches)
+        self.assertEqual("Joint 0", self.retarget.joint_name(matches["Hips"]))
+        self.assertEqual("Joint 4", self.retarget.joint_name(matches["Tail"]))
+
+    def test_a_joint_index_a_bone_already_has_wins_over_names_and_order(self):
+        incoming = [("Joint 1", None, 2), ("Neck", "Joint 1", None)]
+
+        matches = self.retarget.match_joints(self.original, incoming)
+
+        self.assertEqual((2, "Joint 2", "index"), matches["Joint 1"])
+        # The original's Joint 2 has no children, the neck is new
+        self.assertEqual((4, None, "new"), matches["Neck"])
+
+    def test_original_bones_without_indexes_count_by_position(self):
+        matches = self.retarget.match_joints([("Root", None, None), ("Arm", "Root", None)], [("Base", None, None), ("Arm", "Base", None)])
+
+        self.assertEqual({"Base": (0, "Root", "order"), "Arm": (1, "Arm", "name")}, matches)
+
+
+class RetargetPoseTests(unittest.TestCase):
+    """A retargeted pose turns every matched bone from its own rest as much as the original's turned, whatever way its axes point,
+    and moves it as far, scaled to the skeleton's size."""
+
+    def setUp(self):
+        self.retarget = load_addon_module("retarget")
+        identity = (1.0, 0.0, 0.0, 0.0)
+        # The original: a root, a spine above it and a head above that, all with the same axes
+        self.original = {"J0": (None, ((0.0, 0.0, 0.0), identity)), "J1": ("J0", ((0.0, 1.0, 0.0), identity)), "J2": ("J1", ((0.0, 2.0, 0.0), _axis_angle((1.0, 0.0, 0.0), 30.0)))}
+        # The new skeleton: twice as big, every bone with other axes, and an unmatched bone between the spine and the head
+        self.incoming = {"A": (None, ((0.0, 0.0, 0.0), _axis_angle((0.0, 0.0, 1.0), 90.0))), "T": ("A", ((0.0, 1.0, 0.0), _axis_angle((0.0, 1.0, 0.0), 40.0))),
+                         "B": ("T", ((0.0, 2.0, 0.0), _axis_angle((0.0, 0.0, 1.0), 90.0))), "C": ("B", ((0.0, 4.0, 0.0), _axis_angle((1.0, 1.0, 0.0), 70.0)))}
+        self.bones = {"A": "J0", "B": "J1", "C": "J2"}
+        self.poses = {"J0": ((0.3, 0.0, 0.0), _axis_angle((1.0, 0.0, 0.0), 90.0), (1.0, 1.0, 1.0)), "J1": ((0.0, 0.5, 0.0), _axis_angle((0.0, 1.0, 0.0), 45.0), (1.0, 1.0, 1.0)),
+                      "J2": ((0.0, 0.0, 0.0), _axis_angle((0.0, 0.0, 1.0), 20.0), (2.0, 2.0, 2.0))}
+
+    def test_the_size_ratio_is_the_extent_of_the_matched_bones(self):
+        self.assertAlmostEqual(2.0, self.retarget.size_ratio(self.original, self.incoming, self.bones))
+        self.assertAlmostEqual(1.0, self.retarget.size_ratio(self.original, self.incoming, {"A": "J0"}))
+
+    def test_the_bones_turn_like_the_originals_in_the_world(self):
+        result = self.retarget.retarget_pose(self.original, self.incoming, self.bones, self.poses, 2.0)
+
+        original_deltas = self.retarget.world_deltas(self.original, self.poses)
+        deltas = self.retarget.world_deltas(self.incoming, result)
+        for name, original_name in self.bones.items():
+            dot = sum(a * b for a, b in zip(original_deltas[original_name][0], deltas[name][0]))
+            self.assertAlmostEqual(1.0, abs(dot), places=9, msg=name)
+
+        self.assertEqual((2.0, 2.0, 2.0), result["C"][2])
+        self.assertNotIn("T", result)
+
+    def test_the_bones_move_as_far_as_the_originals_scaled(self):
+        result = self.retarget.retarget_pose(self.original, self.incoming, self.bones, self.poses, 2.0)
+
+        positions = {name: delta[1] for name, delta in self.retarget.world_deltas(self.incoming, result).items()}
+        # The root moved 0.3 along X, twice as far here
+        self.assertEqual([0.6, 0.0, 0.0], [round(value, 6) for value in positions["A"]])
+        # The spine's offset turned up by the root's 90 degrees about X, plus the 0.5 it rose by (1.5 above where the original's
+        # root put it, 1 for its rest offset), twice as far
+        self.assertEqual([0.6, 0.0, 3.0], [round(value, 6) for value in positions["B"]])
+        # The head keeps its rest offset from the spine, turned by the spine's turn, whatever the bone between them rests like
+        self.assertEqual([0.6, 0.0, 5.0], [round(value, 6) for value in positions["C"]])
+
+    def test_a_pose_of_the_same_skeleton_comes_back_as_it_is(self):
+        result = self.retarget.retarget_pose(self.original, self.original, {name: name for name in self.original}, self.poses, 1.0)
+
+        for name, pose in self.poses.items():
+            for expected, actual in zip(pose, result[name]):
+                self.assertEqual([round(value, 6) for value in expected], [round(value, 6) for value in actual], name)
+
+    def test_a_bone_the_original_lacks_stays_at_rest_and_turns_what_is_under_it(self):
+        # The original's spine isn't in the new skeleton, the head is a root there
+        incoming = {"C": (None, ((0.0, 2.0, 0.0), _axis_angle((1.0, 1.0, 0.0), 70.0)))}
+
+        result = self.retarget.retarget_pose(self.original, incoming, {"C": "J2"}, self.poses, 1.0)
+
+        original_deltas = self.retarget.world_deltas(self.original, self.poses)
+        deltas = self.retarget.world_deltas(incoming, result)
+        self.assertAlmostEqual(1.0, abs(sum(a * b for a, b in zip(original_deltas["J2"][0], deltas["C"][0]))), places=9)
+        self.assertEqual([round(value, 6) for value in original_deltas["J2"][1]], [round(value, 6) for value in deltas["C"][1]])
+
+
+def _axis_angle(axis, degrees):
+    half = math.radians(degrees) / 2.0
+    length = math.sqrt(sum(value * value for value in axis))
+    return (math.cos(half),) + tuple(value / length * math.sin(half) for value in axis)

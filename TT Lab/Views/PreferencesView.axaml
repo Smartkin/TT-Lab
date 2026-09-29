@@ -8,27 +8,54 @@
         x:DataType="viewModels:PreferencesViewModel"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="TT_Lab.Views.PreferencesView"
-        Title="Preferences" Height="500" Width="400" WindowStartupLocation="CenterScreen">
-    <controls1:GroupBox>
-        <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-            <StackPanel>
-                <controls:LabeledCheckBox Checked="{Binding AreEasterEggsEnabled}" LayoutOrientation="Horizontal" VerticalAlignment="Top" CheckBoxName="Enable Easter Eggs"/>
-                <Grid Margin="5" ColumnDefinitions="Auto,2*,30">
-                    <Label VerticalAlignment="Center" Grid.Column="0" Content="Projects path"/>
-                    <TextBox Grid.Column="1" Margin="5, 0, 0, 0" HorizontalAlignment="Stretch" Watermark="Projects path..." Height="30" TextWrapping="NoWrap" VerticalAlignment="Center" Text="{Binding ProjectsPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="True"/>
-                    <Button Command="{Binding SetProjectsPathCommand}" Grid.Column="2" Content="..."/>
-                </Grid>
-                <Grid Margin="5" ColumnDefinitions="Auto,2*,30">
-                    <Label VerticalAlignment="Center" Grid.Column="0" Content="PS2 Disc Content path"/>
-                    <TextBox Grid.Column="1" Margin="5, 0, 0, 0" HorizontalAlignment="Stretch" Watermark="PS2 unpacked ISO contents path..." Height="30" TextWrapping="NoWrap" VerticalAlignment="Center" Text="{Binding Ps2ContentPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="True"/>
-                    <Button Command="{Binding SetPs2DiscContentPathCommand}" Grid.Column="2" Content="..."/>
-                </Grid>
-                <Grid Margin="5" ColumnDefinitions="Auto,2*,30">
-                    <Label VerticalAlignment="Center" Grid.Column="0" Content="Xbox Disc Content path"/>
-                    <TextBox Grid.Column="1" Margin="5, 0, 0, 0" HorizontalAlignment="Stretch" Watermark="Xbox unpacked ISO contents path..." Height="30" TextWrapping="NoWrap" VerticalAlignment="Center" Text="{Binding XboxContentPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="True"/>
-                    <Button Command="{Binding SetXboxDiscContentPathCommand}" Grid.Column="2" Content="..."/>
-                </Grid>
-            </StackPanel>
-        </ScrollViewer>
-    </controls1:GroupBox>
+        Title="Preferences" Height="560" Width="460" WindowStartupLocation="CenterScreen">
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="5" Spacing="5">
+            <controls1:GroupBox>
+                <controls1:GroupBox.Header>
+                    <TextBlock Text="General" Padding="5"/>
+                </controls1:GroupBox.Header>
+                <StackPanel>
+                    <controls:LabeledCheckBox Checked="{Binding AreEasterEggsEnabled}" LayoutOrientation="Horizontal" VerticalAlignment="Top" CheckBoxName="Enable Easter Eggs"/>
+                    <Grid Margin="5" ColumnDefinitions="Auto,2*,30">
+                        <Label VerticalAlignment="Center" Grid.Column="0" Content="Projects path"/>
+                        <TextBox Grid.Column="1" Margin="5, 0, 0, 0" HorizontalAlignment="Stretch" Watermark="Projects path..." Height="30" TextWrapping="NoWrap" VerticalAlignment="Center" Text="{Binding ProjectsPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="True"/>
+                        <Button Command="{Binding SetProjectsPathCommand}" Grid.Column="2" Content="..."/>
+                    </Grid>
+                    <Grid Margin="5" ColumnDefinitions="Auto,2*,30">
+                        <Label VerticalAlignment="Center" Grid.Column="0" Content="PS2 Disc Content path"/>
+                        <TextBox Grid.Column="1" Margin="5, 0, 0, 0" HorizontalAlignment="Stretch" Watermark="PS2 unpacked ISO contents path..." Height="30" TextWrapping="NoWrap" VerticalAlignment="Center" Text="{Binding Ps2ContentPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="True"/>
+                        <Button Command="{Binding SetPs2DiscContentPathCommand}" Grid.Column="2" Content="..."/>
+                    </Grid>
+                    <Grid Margin="5" ColumnDefinitions="Auto,2*,30">
+                        <Label VerticalAlignment="Center" Grid.Column="0" Content="Xbox Disc Content path"/>
+                        <TextBox Grid.Column="1" Margin="5, 0, 0, 0" HorizontalAlignment="Stretch" Watermark="Xbox unpacked ISO contents path..." Height="30" TextWrapping="NoWrap" VerticalAlignment="Center" Text="{Binding XboxContentPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="True"/>
+                        <Button Command="{Binding SetXboxDiscContentPathCommand}" Grid.Column="2" Content="..."/>
+                    </Grid>
+                </StackPanel>
+            </controls1:GroupBox>
+            <controls1:GroupBox>
+                <controls1:GroupBox.Header>
+                    <TextBlock Text="Direct Game Launch" Padding="5"/>
+                </controls1:GroupBox.Header>
+                <StackPanel>
+                    <TextBlock Margin="5" TextWrapping="Wrap" Opacity="0.8"
+                               Text="The Play button of a chunk's scene plays it in PCSX2, in a window of its own (the PS2 version's PAL 1.01, NTSC 1.00 and NTSC 2.00 releases). Saving while it plays reloads the chunks in the game."/>
+                    <Grid Margin="5" ColumnDefinitions="Auto,2*,30,30">
+                        <Label VerticalAlignment="Center" Grid.Column="0" Content="PCSX2"/>
+                        <TextBox x:Name="Pcsx2Path" Grid.Column="1" Margin="5, 0, 0, 0" HorizontalAlignment="Stretch" Watermark="{Binding FoundPcsx2}" Height="30" TextWrapping="NoWrap" VerticalAlignment="Center" Text="{Binding Pcsx2Path}" IsReadOnly="True"/>
+                        <Button Command="{Binding ChoosePcsx2}" Grid.Column="2" Content="..." ToolTip.Tip="Pick PCSX2's executable"/>
+                        <Button Command="{Binding ForgetPcsx2}" Grid.Column="3" Content="×" ToolTip.Tip="Find PCSX2 on its own: its Flatpak on Linux, its install in Program Files on Windows, or pcsx2-qt on the path"/>
+                    </Grid>
+                    <Grid Margin="5" ColumnDefinitions="Auto,2*,30,30">
+                        <Label VerticalAlignment="Center" Grid.Column="0" Content="Disc image"/>
+                        <TextBox x:Name="Pcsx2DiscImage" Grid.Column="1" Margin="5, 0, 0, 0" HorizontalAlignment="Stretch" Watermark="The project's built ISO (build/image)" Height="30" TextWrapping="NoWrap" VerticalAlignment="Center" Text="{Binding Pcsx2DiscImage}" IsReadOnly="True"/>
+                        <Button Command="{Binding ChooseDiscImage}" Grid.Column="2" Content="..." ToolTip.Tip="Pick a disc image of the game, it plays its videos from it (the chunks come from the project whatever release the image is)"/>
+                        <Button Command="{Binding ForgetDiscImage}" Grid.Column="3" Content="×" ToolTip.Tip="Use the project's built ISO"/>
+                    </Grid>
+                    <controls:LabeledCheckBox x:Name="ReloadGameAfterSaving" Checked="{Binding ReloadGameAfterSaving}" LayoutOrientation="Horizontal" VerticalAlignment="Top" CheckBoxName="Reload the game after saving"/>
+                </StackPanel>
+            </controls1:GroupBox>
+        </StackPanel>
+    </ScrollViewer>
 </Window>

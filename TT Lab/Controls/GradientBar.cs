@@ -53,6 +53,8 @@ public class GradientBar : Control
     public event Action<int, double>? StopDragged;
     public event Action<double>? StopAddRequested;
     public event Action<int>? StopRemoveRequested;
+    public event Action? DragStarted;
+    public event Action? DragEnded;
 
     private Rect BarRect => new(Margin, Margin, Math.Max(Bounds.Width - Margin * 2.0, 1.0), Math.Max(Bounds.Height - Margin * 2.0 - MarkerHeight, 1.0));
 
@@ -151,6 +153,7 @@ public class GradientBar : Control
 
         SelectedIndex = hit;
         _dragged = hit;
+        DragStarted?.Invoke();
         e.Pointer.Capture(this);
         e.Handled = true;
     }
@@ -174,11 +177,17 @@ public class GradientBar : Control
 
         _dragged = -1;
         e.Pointer.Capture(null);
+        DragEnded?.Invoke();
     }
 
     protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
     {
         base.OnPointerCaptureLost(e);
+        if (_dragged != -1)
+        {
+            DragEnded?.Invoke();
+        }
+
         _dragged = -1;
     }
 }

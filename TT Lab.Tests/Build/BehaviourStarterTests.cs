@@ -140,7 +140,7 @@ public sealed class BehaviourStarterTests : IDisposable
         crate.SetData(new GameObjectData(crate) { BehaviourSlots = [crateGraph.URI], GraphsWithoutStarter = [crateGraph.URI] });
         crate.Serialize(SerializationFlags.SetDirectoryToAssets | SerializationFlags.SaveData);
         var template = _project.Add(new InstanceTemplate { Chunk = System.IO.Path.Combine("levels", "test"), LayoutID = 0 }, "BASICCRATE", 0x1, _project.Project.Ps2Package);
-        template.SetData(new InstanceTemplateData(template) { TemplateName = "BASICCRATE", ObjectId = crate.URI, UnkBehaviourIds = [crateGraph.URI] });
+        template.SetData(new InstanceTemplateData(template) { TemplateName = "BASICCRATE", ObjectId = crate.URI, BehaviourStarters = [crateGraph.URI] });
         template.Serialize(SerializationFlags.SetDirectoryToAssets | SerializationFlags.SaveData);
         var factory = new PS2ItemFactory { GlobalPackage = _project.Project.GlobalPackagePS2, ChunkPath = "levels/test" };
         var rm = factory.GenerateRM();
@@ -148,7 +148,7 @@ public sealed class BehaviourStarterTests : IDisposable
         template.ResolveChunkResources(factory, rm);
 
         var written = rm.GetItem<ITwinSection>(0).GetItem<ITwinSection>(Constants.LAYOUT_TEMPLATES_SECTION).GetItem<ITwinTemplate>(0x1);
-        Assert.Equal(new UInt16[] { 0x28 }, written.UnkBehaviourIds);
+        Assert.Equal(new UInt16[] { 0x28 }, written.BehaviourStarters);
         Assert.True(rm.GetItem<ITwinSection>(Constants.LEVEL_CODE_SECTION).GetItem<ITwinSection>(Constants.CODE_BEHAVIOURS_SECTION).ContainsItem(0x28));
     }
 

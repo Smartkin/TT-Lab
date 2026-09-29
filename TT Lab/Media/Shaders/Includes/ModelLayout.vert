@@ -29,12 +29,17 @@ out vec4 Emit;
 out vec3 Normal;
 out vec3 ViewPosition;
 out vec4 InstanceColor;
+out vec2 EnvUv;
 
 #include "GlobalUniformsDeclaration.glsl"
 // Vertex shader specific uniforms
 uniform mat4 StartProjection;
 uniform mat4 StartView;
 uniform mat4 InverseView;
+// The scene's three strongest lights, what the environment map looks up by
+uniform vec3 EnvLight0;
+uniform vec3 EnvLight1;
+uniform vec3 EnvLight2;
 uniform mat4 BoneMatrices[MAX_BONES];
 uniform vec3 BlendShape;
 uniform int BlendShapesAmount;
@@ -43,4 +48,6 @@ uniform int ShapeStart;
 uniform float MorphWeights[MAX_BLENDS];
 uniform bool UseSkinning = false;
 uniform bool UseMorphs = false;
+// The skydome, which the game draws around the camera
+uniform bool FollowsCamera = false;
 layout (binding = 6) uniform sampler2D Morphs;

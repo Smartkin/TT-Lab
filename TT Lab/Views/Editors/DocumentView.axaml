@@ -3,9 +3,37 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:viewmodels="clr-namespace:TT_Lab.ViewModels.Editors"
+             xmlns:controls="clr-namespace:TT_Lab.Controls"
              x:Name="Document"
              x:DataType="viewmodels:DocumentViewModel"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="TT_Lab.Views.Editors.DocumentView">
-    <ContentControl Content="{Binding Root}"/>
+    <!-- The one scroll viewer of a document: every editor under it expands downwards, only custom editors that lay out on their own
+         (font pages, animation lists) scroll inside it. Code and text editors get the pane on the right, with all of its height -->
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="2*"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="{Binding SidePaneWidth}"/>
+        </Grid.ColumnDefinitions>
+        <controls:DocumentScrollViewer Grid.Column="0">
+            <ContentControl Content="{Binding Root}"/>
+        </controls:DocumentScrollViewer>
+        <GridSplitter Grid.Column="1" Width="5" IsVisible="{Binding HasSideEditors}" ShowsPreview="True"/>
+        <ItemsControl Grid.Column="2" x:Name="SidePane" IsVisible="{Binding HasSideEditors}" ItemsSource="{Binding SideEditors}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <UniformGrid Columns="1"/>
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="viewmodels:DocumentNodeViewModel">
+                    <DockPanel LastChildFill="True" Margin="5, 0, 0, 0">
+                        <TextBlock DockPanel.Dock="Top" Margin="5, 4" Text="{Binding Caption}" FontWeight="SemiBold" ToolTip.Tip="{Binding Hint}"/>
+                        <ContentControl Content="{Binding}" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
+                    </DockPanel>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </Grid>
 </UserControl>

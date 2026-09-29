@@ -22,16 +22,16 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.Graphics
         public ITwinTexture.TexturePixelFormat TextureFormat { get; set; }
         public ITwinTexture.TexturePixelFormat DestinationTextureFormat { get; set; }
         public ITwinTexture.TextureColorComponent ColorComponent { get; set; }
-        public Byte UnkByte { get; set; }
+        public Byte Reserved1 { get; set; }
         public ITwinTexture.TextureFunction TexFun { get; set; }
-        public Byte[] UnkBytes1 { get; set; }
+        public Byte[] Reserved2 { get; set; }
         public Int32 TextureBasePointer { get; set; }
         public Int32[] MipLevelsTBP { get; set; }
         public Int32 TextureBufferWidth { get; set; }
         public Int32[] MipLevelsTBW { get; set; }
         public Int32 ClutBufferBasePointer { get; set; }
-        public Byte[] UnkBytes2 { get; set; }
-        public Byte[] UnkBytes3 { get; set; }
+        public Byte[] SizeWords { get; set; }
+        public Byte[] ReservedBlocks { get; set; }
         public Byte[] UnusedMetadata { get; set; }
         public Byte[] TextureData { get; set; }
         // Left over from the tools like the unused metadata, see TwinTextureLeftovers
@@ -66,28 +66,20 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.Graphics
 
         public PS2AnyTexture()
         {
-            if (TextureDescriptorHelper == null)
-            {
-                string codeBase = Assembly.GetExecutingAssembly().Location;
-                UriBuilder uri = new($"file://{codeBase}");
-                string path = Uri.UnescapeDataString(uri.Path);
-                using FileStream stream = new(Path.Combine(Path.GetDirectoryName(path), "TextureDescriptionHelper.json"), FileMode.Open, FileAccess.Read);
-                using StreamReader reader = new(stream);
-                TextureDescriptorHelper = JsonSerializer.Deserialize<Dictionary<string, TextureDescriptor>>(reader.ReadToEnd());
-            }
+            LoadTextureDescriptors();
             UnusedMetadata = new byte[32];
             HeaderSignature = 0xbbcccdcd;
             DestinationTextureFormat = ITwinTexture.TexturePixelFormat.PSMCT32;
             ColorComponent = ITwinTexture.TextureColorComponent.RGBA;
-            UnkByte = 0;
+            Reserved1 = 0;
             TextureBasePointer = 0;
             MipLevelsTBP = new int[6];
             TextureBufferWidth = 4;
             MipLevelsTBW = new int[6];
             ClutBufferBasePointer = 0;
-            UnkBytes1 = new byte[2];
-            UnkBytes2 = new byte[4] { 224, 0, 2, 0 };
-            UnkBytes3 = new byte[2] { 0, 2 };
+            Reserved2 = new byte[2];
+            SizeWords = new byte[4] { 224, 0, 2, 0 };
+            ReservedBlocks = new byte[2] { 0, 2 };
             UnusedMetadata = new byte[32];
             UnusedMetadata[0] = 31;
             UnusedMetadata[16] = 64;
@@ -111,9 +103,9 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.Graphics
             TextureFormat = (ITwinTexture.TexturePixelFormat)reader.ReadByte();
             DestinationTextureFormat = (ITwinTexture.TexturePixelFormat)reader.ReadByte();
             ColorComponent = (ITwinTexture.TextureColorComponent)reader.ReadByte();
-            UnkByte = reader.ReadByte();
+            Reserved1 = reader.ReadByte();
             TexFun = (ITwinTexture.TextureFunction)reader.ReadByte();
-            UnkBytes1 = reader.ReadBytes(2);
+            Reserved2 = reader.ReadBytes(2);
             TextureBasePointer = reader.ReadInt32();
             MipLevelsTBP = new int[6];
             for (var i = 0; i < 6; ++i)
@@ -128,10 +120,10 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.Graphics
             }
             ClutBufferBasePointer = reader.ReadInt32();
             reader.ReadInt32(); // CLUT buffer width, always 1 meaning always 64
-            UnkBytes2 = reader.ReadBytes(4);
+            SizeWords = reader.ReadBytes(4);
             reserved1 = reader.ReadUInt32();
             reserved2 = reader.ReadUInt32();
-            UnkBytes3 = reader.ReadBytes(2);
+            ReservedBlocks = reader.ReadBytes(2);
             reserved3 = reader.ReadUInt16();
             reader.Read(UnusedMetadata, 0, UnusedMetadata.Length);
             TextureData = reader.ReadBytes(dataLen - 96 - UnusedMetadata.Length);
@@ -147,9 +139,9 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.Graphics
             writer.Write((Byte)TextureFormat);
             writer.Write((Byte)DestinationTextureFormat);
             writer.Write((Byte)ColorComponent);
-            writer.Write(UnkByte);
+            writer.Write(Reserved1);
             writer.Write((Byte)TexFun);
-            writer.Write(UnkBytes1);
+            writer.Write(Reserved2);
             writer.Write(TextureBasePointer);
             for (var i = 0; i < 6; ++i)
             {
@@ -162,10 +154,10 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.Graphics
             }
             writer.Write(ClutBufferBasePointer);
             writer.Write(1); // CLUT buffer width
-            writer.Write(UnkBytes2);
+            writer.Write(SizeWords);
             writer.Write(reserved1);
             writer.Write(reserved2);
-            writer.Write(UnkBytes3);
+            writer.Write(ReservedBlocks);
             writer.Write(reserved3);
             writer.Write(UnusedMetadata);
             writer.Write(TextureData);
@@ -216,6 +208,31 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.Graphics
                     }
                     break;
             }
+        }
+
+        private static void LoadTextureDescriptors()
+        {
+            if (TextureDescriptorHelper != null)
+            {
+                return;
+            }
+
+            string codeBase = Assembly.GetExecutingAssembly().Location;
+            UriBuilder uri = new($"file://{codeBase}");
+            string path = Uri.UnescapeDataString(uri.Path);
+            using FileStream stream = new(Path.Combine(Path.GetDirectoryName(path), "TextureDescriptionHelper.json"), FileMode.Open, FileAccess.Read);
+            using StreamReader reader = new(stream);
+            TextureDescriptorHelper = JsonSerializer.Deserialize<Dictionary<string, TextureDescriptor>>(reader.ReadToEnd());
+        }
+
+        /// <summary>
+        /// Whether the game's tools laid out palette textures of the size, with their mips. Textures of other sizes only go in with
+        /// every color and without mips
+        /// </summary>
+        public static Boolean HasPaletteLayout(Int32 width, Int32 height)
+        {
+            LoadTextureDescriptors();
+            return TextureDescriptorHelper.ContainsKey($"{width}x{height}");
         }
 
         public void FromBitmap(List<Color> image, Int32 width, ITwinTexture.TextureFunction fun, ITwinTexture.TexturePixelFormat format, bool generateMipmaps = false)
@@ -406,8 +423,8 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.Graphics
         private void SetMemorySize(Int32 uploadedPixels)
         {
             var blocks = uploadedPixels / 64;
-            UnkBytes2 = new Byte[] { 0xE0, (Byte)blocks, (Byte)(blocks >> 8), 0 };
-            UnkBytes3 = new Byte[] { (Byte)blocks, (Byte)(blocks >> 8) };
+            SizeWords = new Byte[] { 0xE0, (Byte)blocks, (Byte)(blocks >> 8), 0 };
+            ReservedBlocks = new Byte[] { (Byte)blocks, (Byte)(blocks >> 8) };
         }
 
         public override String GetName()

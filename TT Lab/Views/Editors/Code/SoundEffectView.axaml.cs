@@ -30,6 +30,11 @@ public partial class SoundEffectView : ReactiveUserControl<SoundEffectViewModel>
     public SoundEffectView()
     {
         InitializeComponent();
+        Waveform.LoopDragStarted += () => ViewModel?.BeginLoopDrag();
+        Waveform.LoopStartDragged += sample => ViewModel?.DragLoopStart(sample);
+        Waveform.LoopEndDragged += sample => ViewModel?.DragLoopEnd(sample);
+        Waveform.LoopDragEnded += () => ViewModel?.EndLoopDrag();
+        Waveform.Seeked += sample => ViewModel?.Seek(sample);
 
         this.WhenActivated(disposables =>
         {

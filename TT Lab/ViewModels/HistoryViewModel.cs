@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Reactive;
 using System.Reactive.Linq;
@@ -37,6 +38,7 @@ public partial class HistoryViewModel : Document
     [Reactive(SetModifier = AccessModifier.Private)]
     private IReadOnlyList<HistoryEntry> _entries = [];
 
+    private ObservableCollection<HistoryEntry> _rows = [];
     private HistoryEntry? _selectedEntry;
     private bool _isShowing;
 
@@ -95,7 +97,8 @@ public partial class HistoryViewModel : Document
             Document = document;
             if (document == null)
             {
-                Entries = [];
+                _rows = [];
+                Entries = _rows;
                 SelectedEntry = null;
                 return;
             }
@@ -111,14 +114,32 @@ public partial class HistoryViewModel : Document
                 done.Add(entry);
             }
 
-            Entries = all.Select(entry => new HistoryEntry(entry,
+            var rows = all.Select(entry => new HistoryEntry(entry,
                 entry.Parent != null && entry.Branch != entry.Parent.Branch ? $"↳ {entry.Description}" : entry.Description,
                 entry.Time.ToString("HH:mm:ss"),
                 columns[entry.Branch] * BranchIndent,
                 done.Contains(entry) ? 1.0 : history.Current.IsAncestorOf(entry) ? 0.6 : 0.4,
                 entry == history.Current,
                 entry == history.Saved)).ToList();
-            SelectedEntry = Entries.FirstOrDefault(entry => entry.IsCurrent);
+
+            // Typing keeps changing the step the document is at, so the same tree only swaps the rows that differ
+            if (rows.Count == _rows.Count && rows.Zip(_rows).All(pair => pair.First.Entry == pair.Second.Entry))
+            {
+                for (var i = 0; i < rows.Count; i++)
+                {
+                    if (rows[i] != _rows[i])
+                    {
+                        _rows[i] = rows[i];
+                    }
+                }
+            }
+            else
+            {
+                _rows = new ObservableCollection<HistoryEntry>(rows);
+                Entries = _rows;
+            }
+
+            SelectedEntry = _rows.FirstOrDefault(entry => entry.IsCurrent);
         }
         finally
         {

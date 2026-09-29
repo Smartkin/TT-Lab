@@ -60,6 +60,8 @@ def _import_node(context: bpy.types.Context, file: tlm.TlmFile, tree_node: typin
     name = tree_node.get("name") or kind
     if kind == "collision":
         blender_object = _import_collision(file, tree_node, parent, collection)
+    elif kind == "hull":
+        blender_object = tlm_blender.add_hull_object(file, tree_node, parent, collection)
     elif "mesh" in tree_node or kind in MESH_KINDS:
         blender_object = tlm_blender._add_mesh_object(name, file, tree_node, parent, collection, materials, False)
     else:
@@ -85,7 +87,7 @@ def _import_node(context: bpy.types.Context, file: tlm.TlmFile, tree_node: typin
 
 def _fit_to_bounds(blender_object: bpy.types.Object, data: typing.Dict[str, typing.Any]) -> None:
     """Shows a tree node as its box. The box is only shown, TT Lab works it out from what's under the node."""
-    low, high = data.get("UnkVec2"), data.get("UnkVec3")
+    low, high = data.get("BoundsMin"), data.get("BoundsMax")
     if not isinstance(low, list) or not isinstance(high, list) or len(low) < 3 or len(high) < 3:
         return
 
@@ -203,6 +205,8 @@ def _export_node(file: tlm.TlmFile, blender_object: bpy.types.Object, materials:
     node = tlm.node(kind, blender_object.name, data if data else None)
     if kind == "collision" and blender_object.type == "MESH":
         _export_collision(file, blender_object, node)
+    elif kind == "hull" and blender_object.type == "MESH":
+        tlm_blender.export_hull(file, blender_object, node)
     elif blender_object.type == "MESH":
         node["mesh"] = tlm_mesh.to_parts(file, tlm_blender._read_mesh(blender_object, materials, False), False)
 

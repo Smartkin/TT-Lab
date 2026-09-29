@@ -13,7 +13,7 @@ namespace TT_Lab.ViewModels.Editors.Instance;
 public class SceneryViewModel : InstanceSectionResourceEditorViewModel
 {
     private UInt32 _unkUInt;
-    private Byte _unkByte;
+    private Byte _unusedByte;
     private SceneryRootViewModel? _sceneryTree;
 
     protected override void Save()
@@ -21,7 +21,7 @@ public class SceneryViewModel : InstanceSectionResourceEditorViewModel
         var asset = AssetManager.Get().GetAsset(EditableResource);
         var data = asset.GetData<SceneryData>();
         data.FogColor = UnkUInt;
-        data.UnkByte = UnkByte;
+        data.UnusedByte = UnusedByte;
         data.Sceneries.Clear();
         if (SceneryTree != null)
         {
@@ -40,7 +40,7 @@ public class SceneryViewModel : InstanceSectionResourceEditorViewModel
         var asset = AssetManager.Get().GetAsset(EditableResource);
         var data = asset.GetData<SceneryData>();
         _unkUInt = data.FogColor;
-        _unkByte = data.UnkByte;
+        _unusedByte = data.UnusedByte;
         if (data.Sceneries.Count != 0)
         {
             _sceneryTree = new SceneryRootViewModel(data.Sceneries[0], data.Sceneries.Skip(1).ToList());
@@ -66,14 +66,14 @@ public class SceneryViewModel : InstanceSectionResourceEditorViewModel
     }
     
     [MarkDirty]
-    public Byte UnkByte
+    public Byte UnusedByte
     {
-        get => _unkByte;
+        get => _unusedByte;
         set
         {
-            if (_unkByte != value)
+            if (_unusedByte != value)
             {
-                _unkByte = value;
+                _unusedByte = value;
                 NotifyOfPropertyChange();
             }
         }

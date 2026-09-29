@@ -114,6 +114,19 @@ public class TlmMeshesTests
         Assert.All(unedited.Vertexes, vertex => Assert.Equal((0.6f, 0.2f), (vertex.JointInfo.Weight1, vertex.JointInfo.Weight2)));
     }
 
+    // Blender scales a vertex's weights to add up to 1 when it deforms it, however much they add up to, the game needs them that way
+    [Fact]
+    public void BlendersWeightsAddUpToOne()
+    {
+        var part = new ModelPart { Vertexes = [SkinVertex(0.6f, 0.2f), SkinVertex(0.6f, 0.2f), SkinVertex(0.6f, 0.2f)], Faces = [new IndexedFace(0, 1, 2)] };
+
+        var heavy = RoundTrip([part], true, (file, json) => Groups(file, json, [3, 4], [0.5f, 1.5f]))[0];
+        var light = RoundTrip([part], true, (file, json) => Groups(file, json, [3, 4, 5], [0.1f, 0.05f, 0.05f]))[0];
+
+        Assert.All(heavy.Vertexes, vertex => Assert.Equal((3, 0.25f, 4, 0.75f), (vertex.JointInfo.JointIndex1, vertex.JointInfo.Weight1, vertex.JointInfo.JointIndex2, vertex.JointInfo.Weight2)));
+        Assert.All(light.Vertexes, vertex => Assert.Equal((0.5f, 0.25f, 0.25f, 3), (vertex.JointInfo.Weight1, vertex.JointInfo.Weight2, vertex.JointInfo.Weight3, vertex.JointInfo.WeightsAmount)));
+    }
+
     // Blender keeps weights by bone, the game's order stays while the weights are the same
     [Fact]
     public void JointsReorderedInBlenderKeepTheGameOrder()
@@ -222,33 +235,6 @@ public class TlmMeshesTests
         Assert.Equal(6, json.GetInt("vertices"));
         Assert.Equal(3, read.Vertexes.Count);
         Assert.Equal([0, 1, 2, 0, 2, 1], read.Faces.SelectMany(face => face.Indexes!));
-    }
-
-    // Files written before skins counted their strips' winding from each strip's start have the faces of strips starting on an odd
-    // vertex turned around. The strips are still the game's, the faces get turned and the file needs writing again
-    [Fact]
-    public void SkinFacesOfOlderFilesKeepTheGamesStrips()
-    {
-        var layout = new StripLayout
-        {
-            Batches = [new StripBatch { Vertexes = [new(0, false), new(1, false), new(2, true), new(3, true), new(4, true), new(5, false), new(6, false), new(7, true)] }]
-        };
-        var part = new ModelPart
-        {
-            Vertexes = Enumerable.Range(0, 8).Select(i => SkinVertex(0.1f * (i + 1), 0)).ToList(),
-            Faces = [new IndexedFace(0, 1, 2), new IndexedFace(2, 1, 3), new IndexedFace(2, 3, 4), new IndexedFace(6, 5, 7)],
-            Layout = layout
-        };
-        var file = new TlmFile("Test", "Test");
-        var json = TlmMeshes.WriteSkinPart(file, part, -1);
-        Assert.False(file.IsOutdated);
-
-        var read = TlmMeshes.ReadSkinPart(file, json);
-
-        Assert.NotNull(read.Layout);
-        Assert.Equal(layout.ToArrays().Vertexes, read.Layout.ToArrays().Vertexes);
-        Assert.Contains(read.Faces, face => face.Indexes!.SequenceEqual([5, 6, 7]));
-        Assert.True(file.IsOutdated);
     }
 
     private static void Groups(TlmFile file, JsonObject json, int[] joints, float[] weights)

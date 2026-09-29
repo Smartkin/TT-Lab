@@ -12,7 +12,14 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2
 {
     public class PS2AnyCollisionData : BaseTwinItem, ITwinCollision
     {
-        public UInt32 UnkInt { get; set; }
+        /// <summary>
+        /// The value the game's collision constructor (FUN_002823c8) gives new data, 3001 on every retail chunk
+        /// </summary>
+        public const UInt32 GameVersion = 0xBB9;
+        /// <summary>
+        /// The data's version word, <see cref="GameVersion"/> everywhere, read and never checked
+        /// </summary>
+        public UInt32 Version { get; set; }
         public List<TwinCollisionTrigger> Triggers { get; set; }
         public List<TwinGroupInformation> Groups { get; set; }
         public List<TwinCollisionTriangle> Triangles { get; set; }
@@ -34,7 +41,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2
 
         public override void Read(BinaryReader reader, Int32 length)
         {
-            UnkInt = reader.ReadUInt32();
+            Version = reader.ReadUInt32();
             var trgAmt = reader.ReadUInt32();
             var grpAmt = reader.ReadUInt32();
             var triAmt = reader.ReadUInt32();
@@ -71,7 +78,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2
 
         public override void Write(BinaryWriter writer)
         {
-            writer.Write(UnkInt);
+            writer.Write(Version);
             writer.Write(Triggers.Count);
             writer.Write(Groups.Count);
             writer.Write(Triangles.Count);

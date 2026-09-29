@@ -28,7 +28,10 @@ class Program
             {
                 GlProfiles = [new GlVersion(GlProfileType.OpenGL, 4, 6)],
                 RenderingMode = [X11RenderingMode.Glx],
-                ShouldRenderOnUIThread = false
+                ShouldRenderOnUIThread = false,
+                // Tooltips and menus drawn in the window itself: every one of them was a window of its own, and hovering across the
+                // inspector's rows opened and closed one after another, which stalled the whole UI
+                OverlayPopups = true
             })
             #endif
             #if _WINDOWS
@@ -36,7 +39,8 @@ class Program
             {
                 WglProfiles = [new GlVersion(GlProfileType.OpenGL, 4, 6)],
                 RenderingMode = [Win32RenderingMode.Wgl],
-                ShouldRenderOnUIThread = false
+                ShouldRenderOnUIThread = false,
+                OverlayPopups = true
             })
             #endif
             #if DEBUG

@@ -94,6 +94,19 @@ public sealed class OgiAnimationEditorTests : IDisposable
 
         Assert.Equal(0x2, slot.Animation);
         Assert.True(document.IsDirty);
+
+        // Undo and redo show the value they put back. The combo box handed its old pick back while its list changed, which became the
+        // value again, back and forth until the stack ran out
+        document.Undo();
+        Pump();
+        Assert.Equal(0x1, slot.Animation);
+        Assert.Equal("Walk", editor.SelectedAnimation!.Name);
+        Assert.Same(document.History.Root, document.History.Current);
+        document.Redo();
+        Pump();
+        Assert.Equal(0x2, slot.Animation);
+        Assert.Equal("Run", editor.SelectedAnimation!.Name);
+        Assert.False(document.CanRedo);
     }
 
     [AvaloniaFact]

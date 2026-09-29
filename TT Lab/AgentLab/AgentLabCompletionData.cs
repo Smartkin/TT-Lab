@@ -25,8 +25,12 @@ public sealed class AgentLabCompletionData(AgentLabCompletionItem item) : ICompl
         [AgentLabCompletionKind.ControlPacket] = ("P", new SolidColorBrush(Color.Parse("#9CDCFE"))),
         [AgentLabCompletionKind.Attribute] = ("@", new SolidColorBrush(Color.Parse("#D7BA7D"))),
         [AgentLabCompletionKind.Constant] = ("V", new SolidColorBrush(Color.Parse("#4FC1FF"))),
-        [AgentLabCompletionKind.EnumValue] = ("E", new SolidColorBrush(Color.Parse("#B5CEA8")))
+        [AgentLabCompletionKind.EnumValue] = ("E", new SolidColorBrush(Color.Parse("#B5CEA8"))),
+        [AgentLabCompletionKind.Field] = ("F", new SolidColorBrush(Color.Parse("#9CDCFE"))),
+        [AgentLabCompletionKind.Literal] = ("L", new SolidColorBrush(Color.Parse("#CE9178"))),
+        [AgentLabCompletionKind.Behaviour] = ("B", new SolidColorBrush(Color.Parse("#4EC9B0")))
     };
+    private static readonly (string Badge, IBrush Brush) DefaultBadge = ("?", Brushes.Gray);
 
     private Control? _content;
 
@@ -50,7 +54,7 @@ public sealed class AgentLabCompletionData(AgentLabCompletionItem item) : ICompl
 
     private Control CreateContent()
     {
-        var (badge, brush) = Badges[item.Kind];
+        var (badge, brush) = Badges.GetValueOrDefault(item.Kind, DefaultBadge);
         return new StackPanel
         {
             Orientation = Orientation.Horizontal,

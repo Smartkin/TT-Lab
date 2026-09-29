@@ -173,9 +173,30 @@ public class FolderElementViewModel : ResourceTreeElementViewModel
         createAssetViewModel.RegisterAssetToCreate<Folder>("Folder", asset => AssetDataFactory.CreateFolderData(Asset, asset));
     }
 
+    private bool CanHoldChunks => ((Folder)Asset).GetPathInLevels() != null;
+
+    // The packages are the project's assets folder's, a package's own assets folder is a folder like the others
+    private bool IsProjectAssetsFolder => Asset is Folder { Alias: "assets" } folder && folder.Parent == LabURI.Empty;
+
+    internal void ListAssetsToCreate(CreateAssetViewModel createAssetViewModel)
+    {
+        if (IsProjectAssetsFolder)
+        {
+            createAssetViewModel.RegisterAssetToCreate<Package>("Package", AssetDataFactory.CreatePackageData);
+            return;
+        }
+
+        DefaultCreatableAssets(createAssetViewModel);
+        ListCreatableAssets(createAssetViewModel);
+    }
+
     private void ListNormalFolderCreatableAssets(CreateAssetViewModel createAssetViewModel)
     {
-        createAssetViewModel.RegisterAssetToCreate<LevelChunk>("Chunk", asset => AssetDataFactory.CreateChunkData(Asset, asset));
+        if (CanHoldChunks)
+        {
+            createAssetViewModel.RegisterAssetToCreate<LevelChunk>("Chunk", asset => AssetDataFactory.CreateChunkData(Asset, asset));
+        }
+
         createAssetViewModel.RegisterAssetToCreate<GameObject>("Game Object", AssetDataFactory.CreateGameObjectData);
         createAssetViewModel.RegisterAssetToCreate<OGI>("Game Model", AssetDataFactory.CreateOgiData);
         createAssetViewModel.RegisterAssetToCreate<BehaviourGraph>("Behaviour", AssetDataFactory.CreateBehaviourData);
@@ -207,7 +228,11 @@ public class FolderElementViewModel : ResourceTreeElementViewModel
         var mark = ((Folder)Asset).Mark;
         if (mark.HasFlag(FolderMark.ChunksOnly))
         {
-            createAssetViewModel.RegisterAssetToCreate<LevelChunk>("Chunk", asset => AssetDataFactory.CreateChunkData(Asset, asset));
+            if (CanHoldChunks)
+            {
+                createAssetViewModel.RegisterAssetToCreate<LevelChunk>("Chunk", asset => AssetDataFactory.CreateChunkData(Asset, asset));
+            }
+
             return;
         }
 
@@ -226,8 +251,7 @@ public class FolderElementViewModel : ResourceTreeElementViewModel
     private async void CreateItem()
     {
         var assetCreatorDialogue = Locator.Current.GetService<CreateAssetViewModel>()!;
-        DefaultCreatableAssets(assetCreatorDialogue);
-        ListCreatableAssets(assetCreatorDialogue);
+        ListAssetsToCreate(assetCreatorDialogue);
         assetCreatorDialogue.AssignFolder(this);
         var dialogue = new CreateAssetView
         {

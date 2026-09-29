@@ -5,6 +5,7 @@ using TT_Lab.Assets;
 using TT_Lab.Extensions;
 using TT_Lab.Rendering.Scene;
 using Twinsanity.TwinsanityInterchange.Enumerations;
+using Twinsanity.TwinsanityInterchange.Common;
 
 namespace TT_Lab.Rendering.Objects;
 
@@ -38,7 +39,7 @@ public class ChunkLink : EditableObject
         var linkedSceneryNode = new Node(Context, this);
         var linkedSceneryRender = new Scenery(Context, Context.MeshService, linkedScenery);
         linkedSceneryNode.AddChild(linkedSceneryRender);
-        if (_chunkLinkData is { IsAlwaysVisible: false, IsVisibleInCameraFrustum: false })
+        if (_chunkLinkData is { Visibility: ChunkLinkVisibility.Hidden })
         {
             linkedSceneryNode.IsVisible = false;
         }

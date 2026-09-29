@@ -21,6 +21,29 @@ namespace Twinsanity.PS2Hardware
         public const Int32 MaxBatchVertexes = 38;
 
         /// <summary>
+        /// The most a packet can hold: its DMA tag sends up to 65535 quad words after itself. A part with more goes into several
+        /// sub models or sub skins, each with a packet of its own
+        /// </summary>
+        public const Int32 MaxPacketBytes = 0xFFFF * 16;
+
+        /// <summary>
+        /// Bytes a skin batch takes in its packet: the codes and registers written around its unpacks, and 36 per vertex
+        /// </summary>
+        public static Int32 SkinBatchBytes(Int32 vertexes)
+        {
+            return 124 + 36 * vertexes;
+        }
+
+        /// <summary>
+        /// Bytes a rigid batch takes in its packet: the codes written around its unpacks, and 28 per vertex plus 12 with normals
+        /// and 4 with emit colors
+        /// </summary>
+        public static Int32 RigidBatchBytes(Int32 vertexes, Boolean hasNormals, Boolean hasEmitColors)
+        {
+            return 56 + (hasNormals ? 4 : 0) + (hasEmitColors ? 4 : 0) + (28 + (hasNormals ? 12 : 0) + (hasEmitColors ? 4 : 0)) * vertexes;
+        }
+
+        /// <summary>
         /// Scale the game's skins pack their UVs with
         /// </summary>
         public const Single SkinUvScale = 1.0f / 2048.0f;

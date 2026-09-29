@@ -32,6 +32,15 @@ public abstract class AbstractAssetData(IAsset owner) : IDocumentModel
         return Owner;
     }
 
+    // A list longer than the game takes fails the build, made before its editor stopped at the limit or edited by hand
+    protected void CheckCount(string what, int count, int max)
+    {
+        if (count > max)
+        {
+            throw new InvalidOperationException($"{Owner.Alias} has {count} {what}, the game takes at most {max}");
+        }
+    }
+
     [System.Text.Json.Serialization.JsonIgnore]
     public virtual Boolean Disposed => DisposedValue;
 
@@ -41,7 +50,15 @@ public abstract class AbstractAssetData(IAsset owner) : IDocumentModel
     {
         // Resolved up front and the working directory is left alone, assets load and save in parallel
         var projectPath = Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath;
-        LoadInternal(System.IO.Path.Combine(projectPath, dataPath), settings);
+        try
+        {
+            LoadInternal(System.IO.Path.Combine(projectPath, dataPath), settings);
+        }
+        catch (JsonException ex)
+        {
+            // Newtonsoft only says where in the file, which of thousands of files it was is what finds it
+            throw new JsonSerializationException($"{dataPath} can't be read: {ex.Message}", ex);
+        }
     }
 
     public virtual List<ViewportObject> GetViewportObjects(ViewportContext viewportContext, PropertyNode property) => [];

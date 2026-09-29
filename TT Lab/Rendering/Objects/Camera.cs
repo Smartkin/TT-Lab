@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using GlmSharp;
 using TT_Lab.AssetData.Instance;

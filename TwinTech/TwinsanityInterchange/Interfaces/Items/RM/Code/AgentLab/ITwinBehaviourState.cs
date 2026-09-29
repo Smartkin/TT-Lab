@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using Twinsanity.AgentLab.AgentLabObjectDescs;
@@ -9,29 +9,28 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code.AgentLab
     public interface ITwinBehaviourState : ITwinAgentLab
     {
         /// <summary>
-        /// Packages unsolved flags
+        /// The flags as read: bits 0-4 body count, 5-9 leftovers of the tools (small numbers the game never reads, written as 0),
+        /// 10 completion body, 11 interrupting, 12 index is an object slot, 13 never read by the game, 14 control packet, 15 has next state
         /// </summary>
         public UInt16 Bitfield { get; set; }
         /// <summary>
-        /// Unknown flags :(
-        /// </summary>
-        public UInt16 Unknown { get; set; }
-        /// <summary>
-        /// This can be a behaviour index or point to a slot(event) in the object
+        /// The child behaviour graph the state runs while it lasts (-1 none), or an object behaviour slot when <see cref="UsesObjectSlot"/>
         /// </summary>
         public Int16 BehaviourIndexOrSlot { get; set; }
         /// <summary>
-        /// If the first state body should be skipped and the next one it points to used
+        /// The first body is the completion body: it runs when the state's control packet or child behaviour finishes and
+        /// jumps where it says, its condition isn't evaluated. The condition bodies start at the second body
         /// </summary>
-        public Boolean SkipsFirstStateBody { get; set; }
+        public Boolean HasCompletionBody { get; set; }
         /// <summary>
         /// If the behaviour index points to a behaviour index or to a slot(event) in the object
         /// </summary>
         public Boolean UsesObjectSlot { get; set; }
         /// <summary>
-        /// If the execution of this state blocks executing any other behaviours in parallel
+        /// The state's conditions keep being evaluated every update while its child behaviour runs, and a passing body ends
+        /// the child behaviour. Without it the conditions wait for the child to finish
         /// </summary>
-        public Boolean NoneBlocking { get; set; }
+        public Boolean Interrupting { get; set; }
         /// <summary>
         /// Control packet for manipulation position, speed, etc. of the object executing the behaviour
         /// </summary>

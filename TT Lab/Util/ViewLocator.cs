@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Dock.Model.Core;
@@ -7,15 +8,37 @@ using Splat;
 
 namespace TT_Lab.Util;
 
-public class ViewLocator : IDataTemplate
+public class ViewLocator : IRecyclingDataTemplate
 {
-    public Control? Build(object? data)
+    // The view type each view model type got, so a view showing another view model of the type can be told apart without resolving it
+    private readonly Dictionary<Type, Type> _viewTypes = new();
+
+    public Control? Build(object? data) => Build(data, null);
+
+    public Control? Build(object? data, Control? existing)
     {
         if (data is null)
         {
             return null;
         }
 
+        if (existing is IRecyclableView { CanBeRecycled: true } recyclable && _viewTypes.TryGetValue(data.GetType(), out var viewType) && existing.GetType() == viewType)
+        {
+            recyclable.Recycle(data);
+            return existing;
+        }
+
+        var control = Resolve(data);
+        if (control is IViewFor)
+        {
+            _viewTypes[data.GetType()] = control.GetType();
+        }
+
+        return control;
+    }
+
+    private static Control Resolve(object data)
+    {
         var view = ReactiveUI.ViewLocator.Current.ResolveView(data);
         
         if (view != null)

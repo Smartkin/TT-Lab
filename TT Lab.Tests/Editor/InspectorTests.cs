@@ -4,6 +4,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using TT_Lab.AssetData;
+using TT_Lab.Controls;
 using TT_Lab.AssetData.Instance;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Instance;
@@ -55,6 +56,35 @@ public sealed class InspectorTests : IDisposable
     private static T GetNode<T>(DocumentCompositeViewModel parent, string name) where T : DocumentNodeViewModel
     {
         return (T)parent.Nodes.Single(node => node.Property.Name == name);
+    }
+
+    private class OrderedBase : IDocumentModel
+    {
+        public string DocumentName => "Ordered";
+
+        [TT_Lab.Attributes.Editable] public int Zebra { get; set; }
+
+        [TT_Lab.Attributes.Editable] public int Apple { get; set; }
+    }
+
+    private sealed class Ordered : OrderedBase
+    {
+        [TT_Lab.Attributes.Editable] public int Mango { get; set; }
+
+        [TT_Lab.Attributes.Editable] public int Banana { get; set; }
+    }
+
+    // Rows go in the order the properties are declared, a base class's first; they went by their paths, alphabetically
+    [AvaloniaFact]
+    public void RowsGoInTheOrderTheirPropertiesAreDeclared()
+    {
+        var document = new DocumentViewModel(new Ordered());
+        document.Initialize();
+        document.Root.IsExpanded = true;
+        var window = Show(new ContentControl { Content = document });
+
+        Assert.Equal(["Zebra", "Apple", "Mango", "Banana"], document.Root.Nodes.Select(node => node.Property.Name));
+        window.Close();
     }
 
     private static List<DockPanel> GetHighlighted(Window window)
@@ -126,7 +156,7 @@ public sealed class InspectorTests : IDisposable
         var target = document.PropertyGraph.Find("Root.AssetData.Points[150]")!;
 
         document.OpenInspector(document.PropertyGraph.Find("Root.AssetData"), target);
-        host.Content = document.Inspector;
+        host.Content = new DocumentScrollViewer { Content = document.Inspector };
         Pump();
 
         var highlighted = Assert.Single(GetHighlighted(window));
@@ -143,7 +173,7 @@ public sealed class InspectorTests : IDisposable
         var window = Show(host);
         var assetData = document.PropertyGraph.Find("Root.AssetData");
         document.OpenInspector(assetData, document.PropertyGraph.Find("Root.AssetData.Points[3]"));
-        host.Content = document.Inspector;
+        host.Content = new DocumentScrollViewer { Content = document.Inspector };
         Pump();
         var inspector = document.Inspector;
 
@@ -156,7 +186,7 @@ public sealed class InspectorTests : IDisposable
         Assert.Same(target, ((DocumentNodeViewModel)highlighted.DataContext!).Property);
     }
 
-    // The list sits in scroll viewers nested in each other, and each of them only scrolls when the ones inside it already show the part
+    // The document's one scroll viewer brings the part into view once the list realized it
     [AvaloniaFact]
     public void FocusingAnotherPartAfterScrollingAwayBringsItIntoView()
     {
@@ -169,7 +199,7 @@ public sealed class InspectorTests : IDisposable
         var window = Show(grid);
         var assetData = document.PropertyGraph.Find("Root.AssetData");
         document.OpenInspector(assetData, document.PropertyGraph.Find("Root.AssetData.Points[150]"));
-        host.Content = document.Inspector;
+        host.Content = new DocumentScrollViewer { Content = document.Inspector };
         Pump();
         var list = GetScrollable(window).MaxBy(viewer => viewer.Extent.Height)!;
         list.Offset = new Vector(0, list.Extent.Height / 2);
@@ -200,7 +230,7 @@ public sealed class InspectorTests : IDisposable
         var window = Show(grid);
         var target = document.PropertyGraph.Find("Root.AssetData.Links[30]")!;
         document.OpenInspector(document.PropertyGraph.Find("Root.AssetData"), target);
-        host.Content = document.Inspector;
+        host.Content = new DocumentScrollViewer { Content = document.Inspector };
         Pump();
         var highlighted = Assert.Single(GetHighlighted(window));
         Assert.Same(target, ((DocumentNodeViewModel)highlighted.DataContext!).Property);
@@ -232,16 +262,17 @@ public sealed class InspectorTests : IDisposable
         var host = new ContentControl();
         var window = Show(host);
         document.OpenInspector(document.PropertyGraph.Find("Root.AssetData"), document.PropertyGraph.Find("Root.AssetData.Points[150]"));
-        host.Content = document.Inspector;
+        var scroll = new DocumentScrollViewer { Content = document.Inspector };
+        host.Content = scroll;
         Pump();
-        Assert.Contains(GetScrollable(window), viewer => viewer.Offset.Y > 0);
+        Assert.True(scroll.Offset.Y > 0);
 
         host.Content = null;
         Pump();
-        host.Content = document.Inspector;
+        host.Content = scroll;
         Pump();
 
-        Assert.All(GetScrollable(window), viewer => Assert.Equal(0, viewer.Offset.Y));
+        Assert.Equal(0, scroll.Offset.Y);
     }
 
     [AvaloniaFact]
@@ -252,7 +283,7 @@ public sealed class InspectorTests : IDisposable
         Show(host);
 
         document.OpenInspector(document.PropertyGraph.Find("Root.AssetData"), document.PropertyGraph.Find("Root.AssetData.Points"));
-        host.Content = document.Inspector;
+        host.Content = new DocumentScrollViewer { Content = document.Inspector };
         Pump();
 
         var points = GetNode<DocumentCompositeViewModel>((DocumentCompositeViewModel)document.Inspector!, "Points");
@@ -269,7 +300,7 @@ public sealed class InspectorTests : IDisposable
         Show(host);
 
         document.OpenInspector(document.PropertyGraph.Find("Root.AssetData"));
-        host.Content = document.Inspector;
+        host.Content = new DocumentScrollViewer { Content = document.Inspector };
         Pump();
 
         var inspector = Assert.IsAssignableFrom<DocumentCompositeViewModel>(document.Inspector);

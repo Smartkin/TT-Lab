@@ -17,6 +17,10 @@ public static class TlmNodes
     public const string ChildrenKey = "children";
     public const string JointKey = "joint";
     public const string MeshKey = "mesh";
+    /// <summary>
+    /// The game's matrix of a node placed by a transform, kept while the transform still is the one written for it
+    /// </summary>
+    public const string MatrixKey = "matrix";
 
     public static JsonObject Create(string kind, string name, JsonObject? data = null)
     {

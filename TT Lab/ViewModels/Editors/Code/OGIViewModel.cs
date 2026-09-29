@@ -25,8 +25,8 @@ public class OGIViewModel : ResourceEditorViewModel
     private BindableCollection<Matrix4ViewModel> _skinInverseMatrices = new();
     private LabURI _skin = LabURI.Empty;
     private LabURI _blendSkin = LabURI.Empty;
-    private BindableCollection<BoundingBoxBuilderViewModel> _boundingBoxBuilders = new();
-    private BindableCollection<PrimitiveWrapperViewModel<Byte>> _boundingBoxBuilderToJoint = new();
+    private BindableCollection<CollisionHullViewModel> _collisionHulls = new();
+    private BindableCollection<PrimitiveWrapperViewModel<Byte>> _collisionHullJoints = new();
     private Rendering.Objects.OGI? _ogiRender;
     private OGIData _ogiData;
 
@@ -86,18 +86,18 @@ public class OGIViewModel : ResourceEditorViewModel
         data.Skin = _skin;
         data.BlendSkin = _blendSkin;
         
-        data.BoundingBoxBuilders.Clear();
-        foreach (var boundingBoxBuilderViewModel in _boundingBoxBuilders)
+        data.CollisionHulls.Clear();
+        foreach (var hullViewModel in _collisionHulls)
         {
-            var bbBuilder = new TwinBoundingBoxBuilder();
-            boundingBoxBuilderViewModel.Save(bbBuilder);
-            data.BoundingBoxBuilders.Add(bbBuilder);
+            var hull = new TwinCollisionHull();
+            hullViewModel.Save(hull);
+            data.CollisionHulls.Add(hull);
         }
         
-        data.BoundingBoxBuilderToJointIndex.Clear();
-        foreach (var bbBuilderToJoint in _boundingBoxBuilderToJoint)
+        data.CollisionHullJoints.Clear();
+        foreach (var hullJoint in _collisionHullJoints)
         {
-            data.BoundingBoxBuilderToJointIndex.Add(bbBuilderToJoint.Value);
+            data.CollisionHullJoints.Add(hullJoint.Value);
         }
         
         base.Save();
@@ -145,17 +145,17 @@ public class OGIViewModel : ResourceEditorViewModel
         _skin = data.Skin;
         _blendSkin = data.BlendSkin;
         
-        foreach (var bbBuilder in data.BoundingBoxBuilders)
+        foreach (var hull in data.CollisionHulls)
         {
-            _boundingBoxBuilders.Add(new BoundingBoxBuilderViewModel(bbBuilder));
+            _collisionHulls.Add(new CollisionHullViewModel(hull));
         }
-        DirtyTracker.AddBindableCollection(_boundingBoxBuilders);
+        DirtyTracker.AddBindableCollection(_collisionHulls);
         
-        foreach (var bbBuilderToJoint in data.BoundingBoxBuilderToJointIndex)
+        foreach (var hullJoint in data.CollisionHullJoints)
         {
-            _boundingBoxBuilderToJoint.Add(new PrimitiveWrapperViewModel<Byte>(bbBuilderToJoint));
+            _collisionHullJoints.Add(new PrimitiveWrapperViewModel<Byte>(hullJoint));
         }
-        DirtyTracker.AddBindableCollection(_boundingBoxBuilderToJoint);
+        DirtyTracker.AddBindableCollection(_collisionHullJoints);
         
         ResetDirty();
     }
@@ -167,8 +167,8 @@ public class OGIViewModel : ResourceEditorViewModel
     public BindableCollection<PrimitiveWrapperViewModel<Byte>> JointIndices => _jointIndices;
     public BindableCollection<PrimitiveWrapperViewModel<LabURI>> RigidModels => _rigidModelIds;
     public BindableCollection<Matrix4ViewModel> SkinInverseMatrices => _skinInverseMatrices;
-    public BindableCollection<BoundingBoxBuilderViewModel> BoundingBoxBuilders => _boundingBoxBuilders;
-    public BindableCollection<PrimitiveWrapperViewModel<Byte>> BoundingBoxBuilderToJoints => _boundingBoxBuilderToJoint;
+    public BindableCollection<CollisionHullViewModel> CollisionHulls => _collisionHulls;
+    public BindableCollection<PrimitiveWrapperViewModel<Byte>> CollisionHullJoints => _collisionHullJoints;
 
     [MarkDirty]
     public LabURI Skin

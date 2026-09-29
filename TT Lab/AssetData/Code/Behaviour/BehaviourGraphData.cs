@@ -7,7 +7,6 @@ using Avalonia.Controls;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
 using TT_Lab.Assets.Code.Resolvers.Compiler;
-using TT_Lab.Assets.Code.Resolvers.Decompiler;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Attributes;
 using TT_Lab.ViewModels.Editors;
@@ -28,48 +27,62 @@ public class BehaviourGraphData : AbstractAssetData
     private TwinBehaviourStarter? _starter;
         
     private static string _behaviourTemplate = """
-                                               [StartFrom(StartingState)] // This attribute is optional. You can remove it and the first declared State will be used as the starting one
-                                               [Priority(20)] // Behaviour's priority. Behaviours with higher priority will take over if they're triggered while another behaviour is running. This attribute is optional and the priority will default to 0
-                                               behaviour COM_RENAME_ME { // Behaviour's name can be anything
-                                                    
-                                                    // This allows for the behaviour to be executed when an object receives some sort of event (gets damaged, created, etc.)
-                                                    // otherwise the behaviour can only be executed/referenced from other scripts.
-                                                    // The provided defaults here indicate that the object itself will always initiate the behaviour during any situation.
-                                                    // Multiple assigners can be provided 
+                                               [StartFrom(StartingState)] // Optional, without it the first state is the starting one
+                                               [Priority(20)] // Priority of the starter: a behaviour started with a higher priority takes over a running one. Optional, 0 without it
+                                               behaviour COM_RENAME_ME { // Any name
+
+                                                    // The starter lets the behaviour start on its own when the object gets an event (spawned, damaged, ...),
+                                                    // without it the behaviour only runs when another script executes it. The first assigner is the object itself
+                                                    // running this behaviour, more assigners name other agents (HUMAN_PLAYER, ORIGINATOR, GLOBAL_AGENT with the
+                                                    // instance's RefListIndex) that commands address by their index
                                                     starter {
                                                         assigner = {
                                                             AssignType = ME;
-                                                            AssignLocality = ANYWHERE;
-                                                            AssignStatus = ANYSTATE;
-                                                            AssignPreference = ANYHOW;
                                                         }
                                                     }
 
-                                                    state StartingState() { // State name can be anything for clarity's sake
-                                                        if Else(0) >= 0.5 { // The compared to value MUST be above 0
-                                                            interval = 0; // Any interval value <= 0 will check the condition every game frame. Mind this for performance
-                                                            unknown = false; // Purpose unknown but it does change the execution flow in some way
-                                                            // After this provide a list of actions in sequence to execute when the condition is met. They will be executed top to bottom
-                                                            MakeInert();
-                                                            
-                                                            execute NextState; // This is optional and you can stay executing the current state if you wish and do a jump in a different condition
+                                                    state StartingState() { // Any name
+                                                        // Every update the conditions of the state's bodies are evaluated. A body passes when its condition's result
+                                                        // is above the threshold (below it with <) and among the passing bodies the one with the largest
+                                                        // (result - threshold) * weight runs its commands top to bottom, then jumps where its execute says.
+                                                        // weight = ...; sets the weight, 1 / threshold without it
+                                                        if IsCollidable(0) > 0.5 {
+                                                            window = 0.2; // Only some conditions read it: the event conditions (touched, spun, got a message) pass when the event happened within this many seconds
+                                                            // Commands come from the action definitions (Ctrl+Space lists them with their parameters). Some arguments are
+                                                            // several fields the game packs into one value, written in braces: any order, the fields left out are 0, {} for none.
+                                                            // A number instead of the braces sets the whole value at once
+                                                            DoAnimation({slotCount = 1, blendTimeGiven = true}, 0.2, 0.0, 0.0, 0.0, {slot1 = 0, slot2 = 255, slot3 = 255, slot4 = 255});
+                                                            // tfloat, tint and tangle arguments (like the blend time above) take a literal or Prop(n), the instance's float, int
+                                                            // or angle property n, read when the command runs. Their low 3 bits hold the tag, so a literal keeps 21 bits of precision
+                                                            execute NextState;
+                                                        }
+                                                        else { // Runs when no other body of the state passes
+                                                            execute NextState;
                                                         }
                                                     }
-                                                    
-                                                    // Notable attributes for states:
-                                                    // [Unknown(0x3E0)] - 0x3E0 are all the bits that are currently either unused or their purpose is unknown. Experiment around and see what results you get :^)
-                                                    // [SkipsFirstBody] - will skip the first condition check
-                                                    // [NonBlocking] - It is still not quite known what this actually enables but in theory this will allow other states to check for conditions in parallel to the state that has this attribute
-                                                    // [UseObjectSlot(SLOT_NAME)] - The state will execute a script that is referenced by an object's event (created, damaged, etc.)
-                                                    // [ControlPacket(CONTROL_PACKET_NAME)] - The state will execute a continuous movement (rotating, translating, etc.) depending on how you setup the referenced control packet 
-                                                    
-                                                    // States can be empty and what is assumingly signifies that the behaviour finishes execution
+
+                                                    // What a state can have:
+                                                    // state Name(COM_OTHER_BEHAVIOUR) - runs that behaviour as a child while the state lasts. Ctrl+Space between the parentheses lists
+                                                    //                                  the behaviours of this package and the packages it depends on, Ctrl+click or F12 on the name opens it
+                                                    // [UseObjectSlot(SLOT_NAME)] - the child behaviour is the one the object has in that event slot
+                                                    // [ControlPacket(PACKET_NAME)] - moves the object the way the packet says while the state lasts
+                                                    // completion { ... } - as the first body: runs when the control packet or child behaviour finishes, its commands and execute apply then
+                                                    // [Interrupting] - the conditions keep being evaluated while the child behaviour runs, a passing body ends it
+                                                    // restart = true; - in a body jumping to its own state: the state is entered again, restarting its child behaviour and timer
+
+                                                    // A state without bodies ends the behaviour
                                                     state NextState() {
                                                     }
-                                                    
-                                                    // For other stuff like ControlPackets and other attribute usage look at game's original scripts
+
+                                                    // Commands renamed since a script was written still compile under their old names (AUnknown_N and the like).
+                                                    // Look at the game's scripts for control packets and the rest
                                                }
                                                """;
+
+    /// <summary>
+    /// The script a new behaviour graph starts with
+    /// </summary>
+    internal static string Template => _behaviourTemplate;
     
     public BehaviourGraphData(IAsset asset) : base(asset)
     {
@@ -109,19 +122,18 @@ public class BehaviourGraphData : AbstractAssetData
     {
         var graph = GetTwinItem<ITwinBehaviourGraph>();
         var starter = _starter;
+        // An assigner's index is an instance's RefListIndex, not an object, so nothing gets resolved for it
         IStarterAssignerGlobalObjectIdResolversList? globalObjectIdResolver = null;
-        if (starter != null)
-        {
-            globalObjectIdResolver = new DefaultStarterAssignerGlobalObjectIdResolversList(starter.Assigners.Select(assigner => new LabStarterAssignerGlobalObjectIdResolver(Owner, assigner.GlobalObjectId)).Cast<IStarterAssignerGlobalObjectIdResolver>().ToArray());
-        }
-            
+
         var stateList = new List<IStateResolver>();
         foreach (var state in graph.ScriptStates)
         {
             string? graphName = null;
             if (state.BehaviourIndexOrSlot != -1 && !state.UsesObjectSlot)
             {
-                graphName = AssetManager.Get().GetUriByTwinId<BehaviourGraph>(Owner, (uint)state.BehaviourIndexOrSlot);
+                // By its name when the name finds it from this graph, by its URI otherwise
+                var uri = AssetManager.Get().GetUriByTwinId<BehaviourGraph>(Owner, (uint)state.BehaviourIndexOrSlot);
+                graphName = uri == LabURI.Empty ? uri : BehaviourReferences.ReferenceTo(Owner, AssetManager.Get().GetAsset<BehaviourGraph>(uri));
             }
 
             stateList.Add(new DefaultStateResolver(graphName));
@@ -149,7 +161,7 @@ public class BehaviourGraphData : AbstractAssetData
         writer.Flush();
 
         ms.Position = 0;
-        return factory.GenerateBehaviourGraph(ms);
+        return factory.GenerateBehaviourGraph(ms, Owner);
     }
 
     public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, uint id,

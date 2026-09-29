@@ -61,6 +61,62 @@ public class TextureData : AbstractAssetData
         return textureData;
     }
 
+    /// <summary>
+    /// The biggest size the game's textures come in
+    /// </summary>
+    public const Int32 MaxGameSize = 256;
+
+    /// <summary>
+    /// The texture at a size the game takes: a power of two of 16 to <see cref="MaxGameSize"/> on each side, the closest to the size it
+    /// has. The texture itself when it already is one
+    /// </summary>
+    public TextureData ResizedForTheGame()
+    {
+        var size = Bitmap!.PixelSize;
+        var width = GameSize(size.Width);
+        var height = GameSize(size.Height);
+        if (width == size.Width && height == size.Height)
+        {
+            return this;
+        }
+
+        var resized = new TextureData(Owner);
+        resized.SetPixels(Resample(GetPixels(), size.Width, size.Height, width, height), width, height);
+        return resized;
+    }
+
+    private static Int32 GameSize(Int32 size)
+    {
+        return Math.Clamp(1 << (Int32)Math.Round(Math.Log2(Math.Max(size, 1))), 16, MaxGameSize);
+    }
+
+    private static UInt32[] Resample(UInt32[] pixels, Int32 width, Int32 height, Int32 newWidth, Int32 newHeight)
+    {
+        var info = new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Unpremul);
+        var result = new UInt32[newWidth * newHeight];
+        var sourceHandle = GCHandle.Alloc(pixels, GCHandleType.Pinned);
+        var resultHandle = GCHandle.Alloc(result, GCHandleType.Pinned);
+        try
+        {
+            using var source = new SKBitmap();
+            source.InstallPixels(info, sourceHandle.AddrOfPinnedObject(), info.RowBytes);
+            var targetInfo = new SKImageInfo(newWidth, newHeight, SKColorType.Bgra8888, SKAlphaType.Unpremul);
+            using var target = new SKBitmap();
+            target.InstallPixels(targetInfo, resultHandle.AddrOfPinnedObject(), targetInfo.RowBytes);
+            if (!source.ScalePixels(target, SKFilterQuality.High))
+            {
+                throw new InvalidOperationException($"Couldn't resize a {width}x{height} texture to {newWidth}x{newHeight}");
+            }
+        }
+        finally
+        {
+            sourceHandle.Free();
+            resultHandle.Free();
+        }
+
+        return result;
+    }
+
     public static TextureData Copy(IAsset owner, TextureData source)
     {
         var textureData = new TextureData(owner);
@@ -228,7 +284,7 @@ public class TextureData : AbstractAssetData
         texture.FromBitmap(tex, Bitmap.PixelSize.Width, fun, format, textureOwner.GenerateMipmaps);
         if (!textureOwner.ReservesMemory && format is ITwinTexture.TexturePixelFormat.PSMT8 or ITwinTexture.TexturePixelFormat.PSMCT32)
         {
-            texture.UnkBytes3 = new Byte[2];
+            texture.ReservedBlocks = new Byte[2];
         }
 
         if (textureOwner.Leftovers != null)

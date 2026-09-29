@@ -57,11 +57,9 @@ internal class AgentLabCompilerNodeVisitor : NodeVisitor
         Visitors.Add(typeof(StateBodyListNode), VisitStateBodyListNode);
         Visitors.Add(typeof(StateExecuteNode), VisitStateExecuteNode);
         Visitors.Add(typeof(StateNode), VisitStateNode);
-        Visitors.Add(typeof(UnknownAttributeNode), VisitUnknownAttribute);
         Visitors.Add(typeof(ControlPacketAttributeNode), VisitControlPacketAttributeNode);
         Visitors.Add(typeof(UseObjectSlotAttributeNode), VisitUseObjectSlotAttributeNode);
         Visitors.Add(typeof(StateBodyNode), VisitStateBodyNode);
-        Visitors.Add(typeof(IntervalNode), VisitIntervalNode);
         Visitors.Add(typeof(ActionListNode), VisitActionListNode);
         Visitors.Add(typeof(ActionNode), VisitActionNode);
         Visitors.Add(typeof(ParamListNode), VisitParamListNode);
@@ -71,12 +69,6 @@ internal class AgentLabCompilerNodeVisitor : NodeVisitor
         Visitors.Add(typeof(GlobalIndexAttributeNode), VisitGlobalIndexAttributeNode);
         Visitors.Add(typeof(InstanceTypeAttributeNode), VisitInstanceTypeAttributeNode);
         Visitors.Add(typeof(LinearBehaviourNode), VisitLinearBehaviourNode);
-    }
-
-    private Object VisitUnknownAttribute(IAgentLabTreeNode node)
-    {
-        var unknownNode = (UnknownAttributeNode)node;
-        return Visit(unknownNode.Number);
     }
 
     private Object VisitBooleanNode(IAgentLabTreeNode node)
@@ -139,12 +131,6 @@ internal class AgentLabCompilerNodeVisitor : NodeVisitor
         return stateListNode.Children.Select(state => (ITwinBehaviourState)Visit(state)).ToList();
     }
 
-    private Object VisitIntervalNode(IAgentLabTreeNode node)
-    {
-        var intervalNode = (IntervalNode)node;
-        return Visit(intervalNode.Value);
-    }
-
     private Object VisitUnaryOperationNode(IAgentLabTreeNode node)
     {
         var unOp = (UnaryOperationNode)node;
@@ -170,14 +156,7 @@ internal class AgentLabCompilerNodeVisitor : NodeVisitor
     private Object VisitParamNode(IAgentLabTreeNode node)
     {
         var paramNode = (ParamNode)node;
-        var value = Visit(paramNode.Value);
-        return value switch
-        {
-            float fValue => BitConverter.SingleToUInt32Bits(fValue),
-            bool bValue => bValue ? 1U : 0U,
-            int iValue => (uint)iValue,
-            _ => value
-        };
+        return EncodeArgument(paramNode.Value, null);
     }
 
     private Object VisitParamListNode(IAgentLabTreeNode node)
@@ -187,13 +166,134 @@ internal class AgentLabCompilerNodeVisitor : NodeVisitor
         return paramsNode.Children.Select(paramNode => (uint)Visit(paramNode)).ToList();
     }
 
+    private static float ToFloat(object value) => value switch
+    {
+        float fValue => fValue,
+        int iValue => iValue,
+        bool bValue => bValue ? 1.0f : 0.0f,
+        _ => throw new Exception($"Expected a number, got {value}")
+    };
+
+    private static int ToInt(object value) => value switch
+    {
+        int iValue => iValue,
+        float fValue => (int)fValue,
+        bool bValue => bValue ? 1 : 0,
+        _ => throw new Exception($"Expected a number, got {value}")
+    };
+
+    /// <summary>
+    /// The bits an argument's value takes in the command, going by the parameter's type. Hex literals are the bits themselves
+    /// </summary>
+    private uint EncodeArgument(IAgentLabTreeNode valueNode, AgentLabParamSymbol parameter)
+    {
+        if (valueNode is FieldGroupNode group)
+        {
+            return PackFields(group, parameter);
+        }
+
+        var parameterType = parameter?.Type?.Name;
+        var taggedType = parameterType switch
+        {
+            nameof(AgentLabToken.TokenType.TaggedFloatType) => TaggedValue.TypeFloat,
+            nameof(AgentLabToken.TokenType.TaggedIntType) => TaggedValue.TypeInt,
+            nameof(AgentLabToken.TokenType.TaggedAngleType) => TaggedValue.TypeAngle,
+            _ => (uint?)null
+        };
+        if (valueNode is TaggedLiteralNode tagged)
+        {
+            var inner = Visit(tagged.Value);
+            return tagged.Name switch
+            {
+                "Prop" => TaggedValue.FromProperty(ToInt(inner), taggedType ?? TaggedValue.TypeFloat),
+                "Raw" => (uint)ToInt(inner),
+                "Float" => TaggedValue.FromFloat(ToFloat(inner)),
+                "Int" => TaggedValue.FromInt(ToInt(inner)),
+                "Angle" => TaggedValue.FromAngle(ToFloat(inner)),
+                _ => throw new Exception($"Unknown literal {tagged.Name}")
+            };
+        }
+
+        var value = Visit(valueNode);
+        if (valueNode is NumberNode { Token.IsHexLiteral: true })
+        {
+            return (uint)(int)value;
+        }
+
+        // Scripts written before the tagged values were known have the bits of a property reference printed as a
+        // denormal float, which no real value is, so those bits are kept as they are
+        if (taggedType != null && value is float tiny && tiny != 0.0f && MathF.Abs(tiny) < 1e-30f)
+        {
+            return BitConverter.SingleToUInt32Bits(tiny);
+        }
+
+        switch (parameterType)
+        {
+            case nameof(AgentLabToken.TokenType.FloatType):
+                return BitConverter.SingleToUInt32Bits(ToFloat(value));
+            case nameof(AgentLabToken.TokenType.IntegerType):
+                return (uint)ToInt(value);
+            case nameof(AgentLabToken.TokenType.TaggedFloatType):
+                return TaggedValue.FromFloat(ToFloat(value));
+            case nameof(AgentLabToken.TokenType.TaggedIntType):
+                return TaggedValue.FromInt(ToInt(value));
+            case nameof(AgentLabToken.TokenType.TaggedAngleType):
+                return TaggedValue.FromAngle(ToFloat(value));
+        }
+
+        return value switch
+        {
+            float fValue => BitConverter.SingleToUInt32Bits(fValue),
+            bool bValue => bValue ? 1U : 0U,
+            int iValue => (uint)iValue,
+            _ => throw new Exception($"Expected a number, got {value}")
+        };
+    }
+
+    // The dword a {name = value, ...} argument stands for: every field at its bits, the ones left out 0
+    private uint PackFields(FieldGroupNode group, AgentLabParamSymbol parameter)
+    {
+        var dword = 0u;
+        foreach (var (name, valueNode) in group.Fields)
+        {
+            var field = parameter?.FindField(name.GetValue<string>()) ?? throw new AgentLabSyntaxException($"No field {name.GetValue<string>()}", name.Line, name.Column);
+            var value = Visit(valueNode) switch
+            {
+                bool b => b ? 1L : 0L,
+                int i => i,
+                float f => (long)f,
+                var other => throw new AgentLabSyntaxException($"Field {field.Name} takes a number, not {other}", name.Line, name.Column)
+            };
+            if (!field.Fits(value))
+            {
+                var range = field.IsBool ? "true or false" : field.IsSigned ? $"{-(1L << (field.Width - 1))} to {(1L << (field.Width - 1)) - 1}" : $"0 to {(field.Width >= 32 ? uint.MaxValue : (1L << field.Width) - 1)}";
+                throw new AgentLabSyntaxException($"Field {field.Name} takes {range}, not {value}", name.Line, name.Column);
+            }
+
+            dword = field.Set(dword, value);
+        }
+
+        return dword;
+    }
+
     private Object VisitActionNode(IAgentLabTreeNode node)
     {
         var actionNode = (ActionNode)node;
         var action = _options.Command.Construct();
         var actionSymbol = _symbolTable.Lookup<AgentLabActionSymbol>(actionNode.Name);
         action.CommandIndex = (ushort)actionSymbol.Id;
-        action.Arguments = (List<uint>)Visit(actionNode.Parameters) ?? new List<uint>();
+        var parameters = actionSymbol.Parameters?.GetSymbols<AgentLabParamSymbol>().ToList() ?? new List<AgentLabParamSymbol>();
+        var arguments = new List<uint>();
+        if (actionNode.Parameters != null)
+        {
+            for (var i = 0; i < actionNode.Parameters.Children.Count; i++)
+            {
+                var paramNode = (ParamNode)actionNode.Parameters.Children[i];
+                arguments.Add(EncodeArgument(paramNode.Value, i < parameters.Count ? parameters[i] : null));
+            }
+        }
+
+        action.Arguments = arguments;
 
         return action;
     }
@@ -255,28 +355,14 @@ internal class AgentLabCompilerNodeVisitor : NodeVisitor
             stateBody.HasStateJump = true;
         }
 
-        var conditionInterval = Visit(stateBodyNode.Interval);
-        var conditionIntervalUnbox = conditionInterval switch
-        {
-            float fValue => fValue,
-            int iValue => iValue
-        };
-        stateBody.Condition.CheckInterval = conditionIntervalUnbox;
-        var returnCheck = Visit(stateBodyNode.Threshold);
-        var returnCheckUnbox = returnCheck switch
-        {
-            float fValue => fValue,
-            int iValue => iValue
-        };
-        stateBody.Condition.ReturnCheck = returnCheckUnbox;
-        stateBody.Condition.ConditionPowerMultiplier = 1.0f / stateBody.Condition.ReturnCheck;
-        stateBody.Condition.NotGate = stateBodyNode.IsNot;
-        var unknown = Visit(stateBodyNode.Unknown);
-        var unknownUnbox = unknown switch
-        {
-            bool bValue => bValue,
-        };
-        stateBody.Unknown = unknownUnbox;
+        var condition = stateBody.Condition;
+        condition.Threshold = stateBodyNode.Threshold != null ? ToFloat(Visit(stateBodyNode.Threshold)) : TwinBehaviourCondition.DefaultThreshold;
+        condition.TimeWindow = stateBodyNode.Window != null ? ToFloat(Visit(stateBodyNode.Window)) : 0.0f;
+        // The game's scripts weigh every body by the inverse of its threshold
+        condition.Weight = stateBodyNode.Weight != null ? ToFloat(Visit(stateBodyNode.Weight)) : TwinBehaviourCondition.DefaultWeight(condition.Threshold);
+        condition.NotGate = stateBodyNode.IsNot;
+        stateBody.RestartsState = stateBodyNode.Restart != null && (bool)Visit(stateBodyNode.Restart);
+        stateBody.IsCompletionBody = stateBodyNode.Kind == StateBodyKind.Completion;
         
         return stateBody;
     }
@@ -290,11 +376,11 @@ internal class AgentLabCompilerNodeVisitor : NodeVisitor
         {
             switch (attribute)
             {
-                case NonBlockingAttributeNode:
-                    state.NoneBlocking = true;
+                case InterruptingAttributeNode:
+                    state.Interrupting = true;
                     break;
                 case SkipFirstBodyAttributeNode:
-                    state.SkipsFirstStateBody = true;
+                    state.HasCompletionBody = true;
                     break;
                 case UseObjectSlotAttributeNode:
                     state.UsesObjectSlot = true;
@@ -303,27 +389,26 @@ internal class AgentLabCompilerNodeVisitor : NodeVisitor
                 case ControlPacketAttributeNode:
                     state.ControlPacket = (TwinBehaviourControlPacket)Visit(attribute);
                     break;
-                case UnknownAttributeNode:
-                {
-                    var unknown = Visit(attribute);
-                    var unknownUnboxed = unknown switch
-                    {
-                        float fValue => BitConverter.SingleToInt32Bits(fValue),
-                        int iValue => iValue
-                    };
-                    state.Unknown = (UInt16)unknownUnboxed;
-                    break;
-                }
             }
         }
         
-        if (stateNode.BehaviourId != null && !state.UsesObjectSlot)
+        if (stateNode.BehaviourId is BehaviourReferenceNode reference && !state.UsesObjectSlot)
         {
-            var behaviourIndex = _options.Resolver.GetStateGraphResolver().ResolveGraphReference((string)Visit(stateNode.BehaviourId));
-            state.BehaviourIndexOrSlot = behaviourIndex;
+            try
+            {
+                state.BehaviourIndexOrSlot = _options.Resolver.GetStateGraphResolver().ResolveGraphReference(reference.Reference);
+            }
+            catch (Exception e) when (e is not AgentLabSyntaxException)
+            {
+                throw new AgentLabSyntaxException($"Behaviour {reference.Reference} couldn't be resolved: {e.Message}", reference.Token.Line, reference.Token.Column, e);
+            }
         }
 
         state.Bodies = (List<ITwinBehaviourStateBody>)Visit(stateNode.Bodies) ?? new List<ITwinBehaviourStateBody>();
+        if (state.Bodies.Count > 0 && state.Bodies[0].IsCompletionBody)
+        {
+            state.HasCompletionBody = true;
+        }
         
         return state;
     }
@@ -486,13 +571,16 @@ internal class AgentLabCompilerNodeVisitor : NodeVisitor
         }
         else
         {
-            var stringValue = Visit(assign.Assign.Right) as string ?? string.Empty;
-            ushort assignedValue = 65535;
-            if (!string.IsNullOrEmpty(stringValue))
+            // GlobalObjectId is the old name, when the index still got resolved as an object
+            var value = Visit(assign.Assign.Right);
+            if (value is string stringValue)
             {
-                assignedValue = _options.Resolver.GetObjectIdResolver().ResolveGlobalObjectId(stringValue);
+                assigner.RefListIndex = string.IsNullOrEmpty(stringValue) ? TwinBehaviourAssigner.NoRefListIndex : _options.Resolver.GetObjectIdResolver().ResolveGlobalObjectId(stringValue);
             }
-            assigner.GetType().GetProperty(constNameNode.Name)!.SetValue(assigner, assignedValue);
+            else
+            {
+                assigner.RefListIndex = (ushort)ToInt(value);
+            }
         }
         
         return null;

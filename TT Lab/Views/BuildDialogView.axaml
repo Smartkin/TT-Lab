@@ -1,0 +1,59 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:viewModels="clr-namespace:TT_Lab.ViewModels"
+        xmlns:build="clr-namespace:TT_Lab.Project.Build"
+        xmlns:controls="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+        x:DataType="viewModels:BuildDialogViewModel"
+        mc:Ignorable="d" d:DesignWidth="520" d:DesignHeight="600"
+        x:Class="TT_Lab.Views.BuildDialogView"
+        Title="Build..." Height="600" Width="520" MinHeight="400" MinWidth="420" WindowStartupLocation="CenterOwner">
+    <controls:GroupBox>
+        <Grid Margin="5" RowDefinitions="Auto,Auto,Auto,*,Auto">
+            <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto" Margin="0,0,0,5">
+                <Label Grid.Column="0" VerticalAlignment="Center" Content="Profile"/>
+                <ComboBox Grid.Column="1" Margin="5,0" HorizontalAlignment="Stretch" ItemsSource="{Binding Profiles}" SelectedItem="{Binding SelectedProfile, Mode=TwoWay}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate DataType="build:BuildProfile">
+                            <TextBlock Text="{Binding Name}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <Button Grid.Column="2" Margin="0,0,5,0" Content="New" Command="{Binding NewProfileCommand}" ToolTip.Tip="A profile with every chunk of the version in it"/>
+                <Button Grid.Column="3" Content="Delete" Command="{Binding DeleteProfileCommand}" ToolTip.Tip="Deletes the profile's file"/>
+            </Grid>
+            <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto,Auto" Margin="0,0,0,5">
+                <Label Grid.Column="0" VerticalAlignment="Center" Content="Name"/>
+                <TextBox Grid.Column="1" Margin="5,0" Text="{Binding ProfileName, Mode=TwoWay}" Watermark="Profile name..."/>
+                <RadioButton Grid.Column="2" Margin="0,0,10,0" GroupName="Platform" Content="PS2" IsChecked="{Binding IsPs2, Mode=TwoWay}"/>
+                <RadioButton Grid.Column="3" GroupName="Platform" Content="Xbox" IsChecked="{Binding IsXbox, Mode=TwoWay}"/>
+            </Grid>
+            <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto,Auto" Margin="0,0,0,5">
+                <Label Grid.Column="0" VerticalAlignment="Center" Content="Chunks"/>
+                <TextBox Grid.Column="1" Margin="5,0" Text="{Binding Filter, Mode=TwoWay}" Watermark="Filter..."/>
+                <Button Grid.Column="2" Margin="0,0,5,0" Content="All" Command="{Binding IncludeAllCommand}"/>
+                <Button Grid.Column="3" Content="None" Command="{Binding ExcludeAllCommand}"/>
+            </Grid>
+            <ListBox Grid.Row="3" ItemsSource="{Binding ShownChunks}" SelectionMode="Toggle">
+                <ListBox.ItemTemplate>
+                    <DataTemplate DataType="viewModels:BuildChunkRow">
+                        <CheckBox IsChecked="{Binding IsIncluded, Mode=TwoWay}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding Package}" Margin="8,0,0,0" VerticalAlignment="Center" Opacity="0.6"/>
+                            </StackPanel>
+                        </CheckBox>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+            <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,5,0,0" Spacing="5">
+                <TextBlock VerticalAlignment="Center" Margin="0,0,10,0" Opacity="0.7" Text="Chunks left out keep the files of their last build, links to them are dropped from the built chunks"
+                           TextWrapping="Wrap" MaxWidth="260"/>
+                <Button Content="Save" Command="{Binding SaveProfileCommand}" ToolTip.Tip="Writes the profile without building"/>
+                <Button Content="Build" Command="{Binding BuildCommand}" IsDefault="True"/>
+                <Button Content="Cancel" Command="{Binding CancelCommand}" IsCancel="True"/>
+            </StackPanel>
+        </Grid>
+    </controls:GroupBox>
+</Window>

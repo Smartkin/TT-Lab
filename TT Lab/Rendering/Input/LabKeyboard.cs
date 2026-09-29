@@ -36,6 +36,7 @@ public class LabKeyboard : IKeyboard, IDisposable
         {
             _renderArea.KeyDown -= KeyDownHandler;
             _renderArea.KeyUp -= KeyUpHandler;
+            _renderArea.LostFocus -= LostFocusHandler;
         }
 
         _keysPressed.Clear();
@@ -45,7 +46,28 @@ public class LabKeyboard : IKeyboard, IDisposable
         {
             renderArea.KeyDown += KeyDownHandler;
             renderArea.KeyUp += KeyUpHandler;
+            renderArea.LostFocus += LostFocusHandler;
         }
+    }
+
+    // A menu, a dialog or another window taking the focus gets the key releases instead, which kept the camera flying
+    private void LostFocusHandler(object? sender, RoutedEventArgs e)
+    {
+        ReleaseAllKeys();
+    }
+
+    public void ReleaseAllKeys()
+    {
+        foreach (var (key, pressed) in _keysPressed.ToList())
+        {
+            if (pressed)
+            {
+                _keysPressed[key] = false;
+                KeyUp?.Invoke(this, key, 0);
+            }
+        }
+
+        _scancodesPressed.Clear();
     }
 
     public void Dispose()

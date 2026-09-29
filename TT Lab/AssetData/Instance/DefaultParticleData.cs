@@ -23,12 +23,13 @@ namespace TT_Lab.AssetData.Instance;
 [ReferencesAssets]
 public class DefaultParticleData : ParticleData
 {
+    // One marker each, the file has 16
+    public const int MaxDecalTypes = 16;
+
 
     public DefaultParticleData(IAsset asset) : base(asset)
     {
-        UnkData = new Byte[4];
-        UnkBlob = new Byte[0x420];
-        UnkInts = new Int32[10];
+        DecalTypeMarkers = new Int32[16];
     }
 
     public DefaultParticleData(IAsset asset, ITwinDefaultParticle particle) : base(asset, particle) { }
@@ -50,6 +51,7 @@ public class DefaultParticleData : ParticleData
         }
 
         var pages = GetTexturePages();
+        var pageBlends = GetPageBlends();
         var columns = Math.Max((int)MathF.Ceiling(MathF.Sqrt(ParticleSystems.Count)), 1);
         var still = new ParticleSystemInstance();
         for (var i = 0; i < ParticleSystems.Count && i < systems.Children.Count; i++)
@@ -63,8 +65,8 @@ public class DefaultParticleData : ParticleData
             editableObject.UnselectedColor = visual.Diffuse;
             editableObject.SetPosition(new vec3((i % columns - (columns - 1) / 2.0f) * PreviewSpacing, 0.0f, -(i / columns + 1) * PreviewSpacing));
 
-            var emitter = new ParticleEmitter(viewportContext.RenderContext, $"{Owner.FullDataPath}_SYSTEM_{i}_PARTICLES", pages, i);
-            emitter.Configure(ParticleSystems[i], still);
+            var emitter = new ParticleEmitter(viewportContext.RenderContext, $"{Owner.FullDataPath}_SYSTEM_{i}_PARTICLES", pages, pageBlends, i);
+            emitter.Configure(ParticleSystems[i], still, true);
             editableObject.AddChild(emitter);
 
             var system = systems.Children[i];
@@ -76,7 +78,7 @@ public class DefaultParticleData : ParticleData
                 RenderDependencies = [system],
                 Refresh = () =>
                 {
-                    emitter.Configure(system.GetValue() as ParticleSystem, still);
+                    emitter.Configure(system.GetValue() as ParticleSystem, still, true);
                     return true;
                 },
             });
@@ -103,20 +105,30 @@ public class DefaultParticleData : ParticleData
     [Editable]
     public LabURI DecalMaterialID { get; set; } = LabURI.Empty;
     
+    // Read into a global the retail game never reads
     [JsonProperty(Required = Required.Always)]
-    public Byte[] UnkData { get; private set; }
-    
+    [Editable]
+    public Int32 UnusedDecalInt { get; set; }
+
     [JsonProperty(Required = Required.Always)]
-    public Byte[] UnkBlob { get; private set; }
-    
+    [Editable]
+    public DecalUvPacket DecalUvPacket { get; set; } = new();
+
+    // A decal type follows for every marker that isn't 0, the tools left their memory's addresses in them
     [JsonProperty(Required = Required.Always)]
-    public Int32[] UnkInts { get; private set; }
-    
+    [Editable]
+    [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
+    public Int32[] DecalTypeMarkers { get; set; }
+
     [JsonProperty(Required = Required.Always)]
-    public List<Byte[]> UnkBlobs { get; private set; } = new();
+    [Editable]
+    [EditorParam(DocumentCollectionViewModel.MaxCount, MaxDecalTypes)]
+    public List<DecalType> DecalTypes { get; set; } = new();
 
     public override ITwinItem Export(ITwinItemFactory factory)
     {
+        CheckCount("decal types", DecalTypes.Count, MaxDecalTypes);
+        CheckLoadedCounts();
         var assetManager = AssetManager.Get();
         using var ms = new MemoryStream();
         using var writer = new BinaryWriter(ms);
@@ -134,16 +146,36 @@ public class DefaultParticleData : ParticleData
         writer.Write(assetManager.GetAsset(DecalTextureID).ExportTwinID);
         writer.Write(assetManager.GetAsset(DecalMaterialID).ExportTwinID);
 
-        writer.Write(UnkData);
-        writer.Write(UnkBlob);
-        foreach (var @int in UnkInts)
+        writer.Write(UnusedDecalInt);
+        DecalUvPacket.ToTwin().Write(writer);
+        // The markers tell the game which types follow, they have to agree with the list
+        var markers = CloneUtils.CloneArray(DecalTypeMarkers);
+        var typesWritten = 0;
+        for (var i = 0; i < markers.Length; i++)
         {
-            writer.Write(@int);
+            if (markers[i] != 0 && typesWritten++ >= DecalTypes.Count)
+            {
+                markers[i] = 0;
+            }
         }
 
-        foreach (var blob in UnkBlobs)
+        for (var i = 0; i < markers.Length && typesWritten < DecalTypes.Count; i++)
         {
-            writer.Write(blob);
+            if (markers[i] == 0)
+            {
+                markers[i] = -1;
+                typesWritten++;
+            }
+        }
+
+        foreach (var marker in markers)
+        {
+            writer.Write(marker);
+        }
+
+        foreach (var type in DecalTypes)
+        {
+            type.ToTwin().Write(writer);
         }
         writer.Flush();
 
@@ -171,13 +203,13 @@ public class DefaultParticleData : ParticleData
         DecalTextureID = assetManager.GetUriByTwinId<Texture>(Owner, particle.DecalTextureID);
         DecalMaterialID = assetManager.GetUriByTwinId<Material>(Owner, particle.DecalMaterialID);
 
-        UnkData = CloneUtils.CloneArray(particle.UnkData);
-        UnkBlob = CloneUtils.CloneArray(particle.UnkBlob);
-        UnkInts = CloneUtils.CloneArray(particle.UnkInts);
-
-        foreach (var blob in particle.UnkBlobs)
+        UnusedDecalInt = particle.UnusedDecalInt;
+        DecalUvPacket = new DecalUvPacket(particle.DecalUvPacket);
+        DecalTypeMarkers = CloneUtils.CloneArray(particle.DecalTypeMarkers);
+        DecalTypes.Clear();
+        foreach (var type in particle.DecalTypes)
         {
-            UnkBlobs.Add(CloneUtils.CloneArray(blob));
+            DecalTypes.Add(new DecalType(type));
         }
     }
 
@@ -209,7 +241,7 @@ public class DefaultParticleData : ParticleData
     {
         TextureIDs.Clear();
         MaterialIDs.Clear();
-        UnkBlobs.Clear();
+        DecalTypes.Clear();
 
         base.Dispose(disposing);
     }

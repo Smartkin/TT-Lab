@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -40,7 +40,7 @@
                 <Grid ColumnDefinitions="164*,315*,186*">
                     <controls:LabeledTextBox Text="{Binding ActivatedShaders, Mode=OneWay}" HorizontalAlignment="Stretch" Margin="2,2,2,2" VerticalAlignment="Stretch" TextBoxName="Activated shaders" Padding="2,0,0,0" IsReadOnly="True"/>
                     <controls:LabeledTextBox Text="{Binding Name}" Grid.Column="1" HorizontalAlignment="Stretch" Margin="2,2,2,2" VerticalAlignment="Stretch" TextBoxName="Name"/>
-                    <controls:LabeledTextBox Text="{Binding DmaChainIndex}" Grid.Column="2" HorizontalAlignment="Stretch" Margin="2,2,2,2" VerticalAlignment="Stretch" TextBoxName="DMA Chain index"/>
+                    <controls:LabeledTextBox Text="{Binding DmaChainIndex}" Grid.Column="2" HorizontalAlignment="Stretch" Margin="2,2,2,2" VerticalAlignment="Stretch" TextBoxName="Render bucket (0-27, drawn in order)"/>
                 </Grid>
             </controls1:GroupBox>
             <controls1:GroupBox x:Name="ShaderSettingsBox" Header="Shader settings" Grid.Row="1" Margin="0,0,0,0">

@@ -31,7 +31,7 @@ namespace TT_Lab.ViewModels.Editors.Instance
             var asset = AssetManager.Get().GetAsset(EditableResource);
             asset.LayoutID = (int)LayoutID;
             var data = asset.GetData<AiPositionData>();
-            data.Arg = Argument;
+            data.Flags = Argument;
             
             base.Save();
         }
@@ -51,7 +51,7 @@ namespace TT_Lab.ViewModels.Editors.Instance
             DirtyTracker.AddChild(_position);
             // TODO: Receive notifications from vector editor to change the position in the scene/chunk renderer
             ActivateItemAsync(_position);
-            _arg = posData.Arg;
+            _arg = posData.Flags;
             _layId = MiscUtils.ConvertEnum<Enums.Layouts>(asset.LayoutID!.Value);
             _eventAggregator.PublishOnUIThreadAsync(new ChangeRenderCameraPositionMessage { NewCameraPosition = posData.Coords.ToGlm().xyz });
         }

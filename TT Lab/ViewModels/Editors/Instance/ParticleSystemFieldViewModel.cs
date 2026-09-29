@@ -125,16 +125,29 @@ public partial class ParticleSystemFieldViewModel(DocumentViewModel document, Pr
             return;
         }
 
-        var assetManager = AssetManager.Get();
         var owner = particles.GetOwner();
+        if (DefaultParticlesOf(owner) is { } defaults)
+        {
+            ShowDefaultSystem(owner, defaults, ((IAsset)defaults).GetData<DefaultParticleData>().ParticleSystems.IndexOf(found.System));
+        }
+    }
+
+    // The default chunk's particles of the asset's version of the game
+    internal static DefaultParticles? DefaultParticlesOf(IAsset asset)
+    {
+        return AssetManager.Get().GetRelatedAssetsOf<DefaultParticles>(asset.Package).FirstOrDefault();
+    }
+
+    // Opens the default chunk and shows one of its particle systems in its inspector
+    internal static void ShowDefaultSystem(IAsset owner, DefaultParticles defaults, int systemIndex)
+    {
+        var assetManager = AssetManager.Get();
         var defaultChunk = assetManager.GetAllAssetsOf<LevelChunk>().FirstOrDefault(chunk => chunk.IsGlobalDefaultChunk && assetManager.IsRelated(chunk.Package, owner.Package));
-        var defaults = assetManager.GetRelatedAssetsOf<DefaultParticles>(owner.Package).FirstOrDefault();
-        if (defaultChunk == null || defaults == null)
+        if (defaultChunk == null)
         {
             return;
         }
 
-        var systemIndex = ((IAsset)defaults).GetData<DefaultParticleData>().ParticleSystems.IndexOf(found.System);
         Locator.Current.GetService<ILabManager>()!.OpenEditor(defaultChunk);
         var tab = Locator.Current.GetService<EditorsViewModel>()!.ScenesEditorsViewModel.Tabs.FirstOrDefault(tab => tab.EditableResource == defaultChunk.URI);
         tab?.WhenAnyValue(x => x.IsLoaded, x => x.Document, (isLoaded, document) => isLoaded ? document : null)

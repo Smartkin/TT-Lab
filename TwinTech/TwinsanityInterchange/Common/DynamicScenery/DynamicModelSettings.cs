@@ -8,8 +8,16 @@ namespace Twinsanity.TwinsanityInterchange.Common.DynamicScenery
     public class DynamicModelSettings : ITwinSerializable
     {
         UInt16 flags;
-        public UInt16 UnknownValue { get; set; }
-        public UInt16 UnusedRotationRelatedParameter { get; set; }
+        /// <summary>
+        /// The low byte of the settings' flags, 22 on every retail model, never read
+        /// </summary>
+        public UInt16 LeftoverByte { get; set; }
+        /// <summary>
+        /// Bits 8-11 of the settings' flags: how many channels the transformations have, 7 (three translations, four rotation
+        /// values) on every retail model. The animation code turns it into a mask it shifts along with the channel choices and
+        /// never tests (DoDynamicSceneryAnimation 0x1fe640)
+        /// </summary>
+        public UInt16 ChannelCount { get; set; }
 
         UInt16 transformationChoice;
         public TransformType TranslateX { get; set; }
@@ -37,8 +45,8 @@ namespace Twinsanity.TwinsanityInterchange.Common.DynamicScenery
         {
             flags = reader.ReadUInt16();
             {
-                UnknownValue = (UInt16)(flags & 0xFF);
-                UnusedRotationRelatedParameter = (UInt16)((flags >> 0x8) & 0xF);
+                LeftoverByte = (UInt16)(flags & 0xFF);
+                ChannelCount = (UInt16)((flags >> 0x8) & 0xF);
             }
             transformationChoice = reader.ReadUInt16();
             {
@@ -56,8 +64,8 @@ namespace Twinsanity.TwinsanityInterchange.Common.DynamicScenery
 
         public void Write(BinaryWriter writer)
         {
-            flags = UnknownValue;
-            flags |= (UInt16)((UnusedRotationRelatedParameter & 0xF) << 0x8);
+            flags = LeftoverByte;
+            flags |= (UInt16)((ChannelCount & 0xF) << 0x8);
             writer.Write(flags);
 
             UInt16 newTransformationChoice = (UInt16)TranslateX;

@@ -78,9 +78,9 @@ public sealed class TextFileEditorTests : IDisposable
     };
 
     // Starts at the space, 'A' is on the first page and '[' on the second one like the game's buttons
-    private Font AddFont(string name, bool withButtons, int extraCharacters = 0)
+    private Font AddFont(string name, bool withButtons, int extraCharacters = 0, string symbols = "")
     {
-        var characters = Enumerable.Range(0, '[' - ' ' + 1).Select(_ => new VectorCharacterData()).ToList();
+        var characters = Enumerable.Range(0, '¦' - ' ' + 1).Select(_ => new VectorCharacterData()).ToList();
         characters[0] = Character(0, 8, 3, 4, 0);
         characters['A' - ' '] = Character(1, 5, 2, 3, 1);
         characters['Z' - ' '] = Character(5, 3, 2, 2, 0);
@@ -92,6 +92,11 @@ public sealed class TextFileEditorTests : IDisposable
         for (var i = 0; i < extraCharacters; i++)
         {
             characters['F' - ' ' + i] = Character(0, 2, 1, 1, 1);
+        }
+
+        foreach (var symbol in symbols)
+        {
+            characters[symbol - ' '] = Character(2, 2, 1, 1, 1);
         }
 
         var font = _project.Add(new Font { GlobalPath = "Startup/Fonts" }, name);
@@ -152,18 +157,62 @@ public sealed class TextFileEditorTests : IDisposable
         Assert.False(glyphs.TryGetGlyph('~', out _));
     }
 
-    private (TextFileEditorViewModel Editor, TextFileEditorView View, TextFileData Data) Open(string text)
+    private (TextFileEditorViewModel Editor, TextFileEditorView View, TextFileData Data) Open(string text) => Open(text, out _);
+
+    private (TextFileEditorViewModel Editor, TextFileEditorView View, TextFileData Data) Open(string text, out DocumentViewModel document)
     {
         var file = _project.Add(new TextFile { GlobalPath = "Language/Code" }, "English");
         var data = new TextFileData(file, text);
         file.SetData(data);
-        var document = new DocumentViewModel(file);
+        document = new DocumentViewModel(file);
         document.Initialize();
         var editor = Assert.IsType<TextFileEditorViewModel>(EditorDescRegistry.GetDesc(document, document.PropertyGraph.Find("Root.AssetData.Text")!).Construct());
         var window = new Window { Content = new ContentControl { Content = editor }, Width = 900, Height = 800 };
         window.Show();
         Pump();
         return (editor, window.GetVisualDescendants().OfType<TextFileEditorView>().Single(), data);
+    }
+
+    // The fonts draw symbols a keyboard has no key for, every one of them is on the toolbar after the controller buttons
+    [AvaloniaFact]
+    public void ToolbarHasEveryButtonAndSymbolGlyph()
+    {
+        AddFont("Crash", withButtons: true, symbols: "%!¦");
+        var (editor, _, _) = Open("go");
+
+        Assert.Equal(['[', '¦', '!', '%'], editor.Buttons.Select(button => button.Character));
+    }
+
+    // The document's history is the editor's undo, typing at one place is one step and the text stays where it is
+    [AvaloniaFact]
+    public void UndoAndRedoGoThroughTheDocumentsHistory()
+    {
+        AddFont("Crash", withButtons: true);
+        var (_, view, data) = Open("go", out var document);
+        view.Editor.CaretOffset = 2;
+        view.Editor.TextArea.PerformTextInput("o");
+        view.Editor.TextArea.PerformTextInput("d");
+        Pump();
+        Assert.Equal("good", data.Text);
+        view.Editor.CaretOffset = 0;
+        Pump();
+        view.Editor.TextArea.PerformTextInput("so ");
+        Pump();
+        Assert.Equal("so good", data.Text);
+
+        document.Undo();
+        Pump();
+        Assert.Equal("good", data.Text);
+        Assert.Equal("good", view.Editor.Text);
+        document.Undo();
+        Pump();
+        Assert.Equal("go", view.Editor.Text);
+        Assert.Equal(2, view.Editor.CaretOffset);
+
+        document.Redo();
+        Pump();
+        Assert.Equal("good", view.Editor.Text);
+        Assert.Equal("good", data.Text);
     }
 
     [AvaloniaFact]

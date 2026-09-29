@@ -27,6 +27,15 @@ An OGI becomes this tree:
 
 Models, rigid models, meshes, skins and blend skins become a root with their mesh under it.
 
+### New models
+
+**Add > Twin Tech** (in the 3D viewport's Add menu) makes a new model laid out the way imported ones are, to build on and export:
+
+- **OGI Model**: a root with the bounding box around a box skin, an armature whose only bone is joint 0, the skin weighted to it, and the empty **Rigid Bodies**, **Exit Points** and **Collision Hulls** holders. Replace the box with the model's mesh (keep it weighted to the bones and deformed by the armature), add bones as needed (they become the next joints), give it actions and keep the root's bounding box around the skin.
+- **Scenery**: a root with lighting on, the tree node the game culls the scenery with holding a 20 unit ground, an ambient and a directional light (the arrow points at where the light comes from), the ground again as the **Collision** with a `SURF_DEFAULT_0` material (the collision surface asset a material is named after is its surface) and an empty **Dynamic scenery**. Build on it, meshes anywhere under the root join the tree.
+
+Exporting a new model asks for a file. Export it over an OGI's or a scenery's `.tlm` in a TT Lab project to make that asset the model, TT Lab reads it the next time it loads the asset.
+
 ### Materials
 
 Meshes are drawn with the project's materials. When the model is in a TT Lab project the add-on finds the project from the file's folder and shows every material with its texture. **Pick Project Material** in the **Twin Tech Project Material** panel of the material properties swaps in another of the project's materials. Many chunks have materials of the same name, so a scenery's materials are listed with their chunk (`lambert1 (levels/school/rooftop/roof01)`) and typing the chunk's name finds them. **Reload Project Materials** reads them again after they were changed in TT Lab.
@@ -50,6 +59,14 @@ Every animation of the OGI is an action, with a slot for the armature and one fo
 - New actions become new animations of the OGI, which game objects can then play. A copy of an action keeps the ID of the one it was copied from, TT Lab gives the copy an ID of its own.
 - An action's frames are its frame range. Keys are sampled on every whole frame.
 - Rotations are stored as Euler angles with 1/4096 of a turn precision.
+
+#### Playing the game's animations on another model
+
+The **Twin Tech Animation Retargeting** panel (Object properties, shown for OGI models) has one button, **Retarget Another TLM And Replace The Current Model**. Pick another TT Lab model file, a game OGI or one exported from Blender (build one from the **OGI Model** template or export a customized model), and the file's model takes the current one's place playing the current model's animations:
+
+1. The file's bones are named like the current model's joints and get their indexes and settings (react ID, additional rotation): a bone that already holds one of the joint indexes is that joint, then bones named like the current model's are those joints, then the hierarchies are walked together (the roots in order, then the children of every matched pair in order) and what's left becomes new joints named `Joint N`. Bones don't have to point the same way, only their rests matter.
+2. Every animation of the current model is retargeted to the file's armature: every matched bone turns from its own rest, in the world, as much as the current model's does on every frame, and moves as far beyond where its nearest matched ancestor's turn leaves its rest offset, scaled by how much bigger the new skeleton is. Bones between matched ones stay at rest under their parents. The shape keys of the mesh it deforms are animated in the order of the current model's. Every animation keeps its ID, so the game objects playing it keep working.
+3. The current model is removed with its own animations, the file's own animations are dropped, and the new model takes the current model's file, name and collection with the retargeted animations under the originals' names. Nothing is left twice. Export the model afterwards.
 
 ### Scenery
 
@@ -87,7 +104,11 @@ cd tests
 blender --background --factory-startup --python blender_roundtrip.py -- fixtures/ogi.tlm fixtures/ogi_from_blender.tlm
 blender --background --factory-startup --python blender_roundtrip.py -- --edit fixtures/ogi.tlm fixtures/ogi_edited_in_blender.tlm
 blender --background --factory-startup --python blender_roundtrip.py -- fixtures/scenery.tlm fixtures/scenery_from_blender.tlm
+blender --background --factory-startup --python blender_retarget.py
+blender --background --factory-startup --python blender_templates.py -- fixtures/ogi_template.tlm fixtures/scenery_template.tlm
 ```
+
+`blender_retarget.py` puts a changed copy of the fixture model in its place through the retargeting panel's operator and prints `RETARGET OK`. `blender_templates.py` makes both templates, checks them, exports them into the fixtures TT Lab's tests read and prints `TEMPLATES OK`.
 
 ## Developing or making an changes
 
@@ -115,3 +136,5 @@ source .venv/bin/activate
 Blender Add-on Template &copy; 2024 Maddison Hellstrom
 
 GNU General Public License v2.0 or later
+
+Meshes with more than 4096 vertexes are exported decimated (the game's biggest skin has 2716), the export says so in its warnings; a mesh with shape keys is left as it is and only warned about.

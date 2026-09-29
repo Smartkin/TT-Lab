@@ -37,6 +37,14 @@ namespace TT_Lab.Assets.Factory
         /// Behaviours compiled by this build, shared by the factories of its chunks
         /// </summary>
         public ConcurrentDictionary<(LabURI Graph, Int32 Id, String Script), AgentLabCompiler.CompilerResult> CompiledBehaviours { get; }
+        /// <summary>
+        /// The chunks the build's profile leaves out, links to them are dropped from the chunks being written
+        /// </summary>
+        public IReadOnlySet<LabURI> ExcludedChunks { get; set; }
+        /// <summary>
+        /// The chunks the chunk being built links to, dropped ones included, for the build cache
+        /// </summary>
+        public List<LabURI> LinkedChunks { get; }
 
         /// <summary>
         /// A factory of the same build for a chunk, chunks build in parallel with a factory each
@@ -53,7 +61,10 @@ namespace TT_Lab.Assets.Factory
         ITwinSkydome GenerateSkydome(Stream stream);
         ITwinTexture GenerateTexture();
         ITwinAnimation GenerateAnimation(Stream stream);
-        AgentLabCompiler.CompilerResult GenerateBehaviourGraph(Stream stream);
+        /// <summary>
+        /// Compiles a graph's script (its ID, then the text). The requester's package tells which behaviours the script's states can name
+        /// </summary>
+        AgentLabCompiler.CompilerResult GenerateBehaviourGraph(Stream stream, IAsset? requester = null);
         ITwinBehaviourCommandsSequence GenerateBehaviourCommandsSequence(Stream stream);
         ITwinBehaviourCommandPack GenerateBehaviourCommandPack(Stream stream);
         ITwinObject GenerateObject(Stream stream);

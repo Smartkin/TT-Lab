@@ -14,22 +14,22 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Layout
         public SurfaceType SurfaceId { get; set; }
         public UInt16 StepSoundId1 { get; set; }
         public UInt16 StepSoundId2 { get; set; }
-        public UInt16 WalkOnParticleSystemId { get; set; }
-        public UInt16 WalkOnParticleSystemId2 { get; set; }
-        public UInt16 LandSoundId1 { get; set; }
-        public UInt16 UnkId3 { get; set; }
-        public UInt16 LandOnParticleSystemId { get; set; }
-        public UInt16 LandSoundId2 { get; set; }
-        public UInt16 UnkSoundId { get; set; }
+        public UInt16 ImpactParticleSystemId { get; set; }
+        public UInt16 HardImpactParticleSystemId { get; set; }
+        public UInt16 ImpactSoundId { get; set; }
+        public UInt16 HardImpactSoundId { get; set; }
+        public UInt16 StepParticleSystemId { get; set; }
+        public UInt16 LandSoundId { get; set; }
+        public UInt16 ScrapeSoundId { get; set; }
         public Single[] PhysicsParameters { get; set; }
-        public Vector4 UnkVec { get; set; }
-        public Vector4[] UnkBoundingBox { get; set; }
+        public Vector4 UnusedVector { get; set; }
+        public Vector4[] ContactMessage { get; set; }
 
         public PS2AnyCollisionSurface()
         {
-            PhysicsParameters = new float[10];
-            UnkVec = new Vector4();
-            UnkBoundingBox = new Vector4[2];
+            PhysicsParameters = new float[SurfacePhysics.Count];
+            UnusedVector = new Vector4();
+            ContactMessage = new Vector4[2];
         }
 
         public override int GetLength()
@@ -43,23 +43,23 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Layout
             SurfaceId = (SurfaceType)reader.ReadUInt16();
             StepSoundId1 = reader.ReadUInt16();
             StepSoundId2 = reader.ReadUInt16();
-            WalkOnParticleSystemId = reader.ReadUInt16();
-            WalkOnParticleSystemId2 = reader.ReadUInt16();
-            LandSoundId1 = reader.ReadUInt16();
-            UnkId3 = reader.ReadUInt16();
-            LandOnParticleSystemId = reader.ReadUInt16();
-            LandSoundId2 = reader.ReadUInt16();
-            UnkSoundId = reader.ReadUInt16();
+            ImpactParticleSystemId = reader.ReadUInt16();
+            HardImpactParticleSystemId = reader.ReadUInt16();
+            ImpactSoundId = reader.ReadUInt16();
+            HardImpactSoundId = reader.ReadUInt16();
+            StepParticleSystemId = reader.ReadUInt16();
+            LandSoundId = reader.ReadUInt16();
+            ScrapeSoundId = reader.ReadUInt16();
             reader.ReadUInt16(); // Unused ID
             for (int i = 0; i < PhysicsParameters.Length; ++i)
             {
                 PhysicsParameters[i] = reader.ReadSingle();
             }
-            UnkVec.Read(reader, Constants.SIZE_VECTOR4);
-            for (int i = 0; i < UnkBoundingBox.Length; ++i)
+            UnusedVector.Read(reader, Constants.SIZE_VECTOR4);
+            for (int i = 0; i < ContactMessage.Length; ++i)
             {
-                UnkBoundingBox[i] = new Vector4();
-                UnkBoundingBox[i].Read(reader, Constants.SIZE_VECTOR4);
+                ContactMessage[i] = new Vector4();
+                ContactMessage[i].Read(reader, Constants.SIZE_VECTOR4);
             }
         }
 
@@ -69,22 +69,22 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Layout
             writer.Write((UInt16)SurfaceId);
             writer.Write(StepSoundId1);
             writer.Write(StepSoundId2);
-            writer.Write(WalkOnParticleSystemId);
-            writer.Write(WalkOnParticleSystemId2);
-            writer.Write(LandSoundId1);
-            writer.Write(UnkId3);
-            writer.Write(LandOnParticleSystemId);
-            writer.Write(LandSoundId2);
-            writer.Write(UnkSoundId);
+            writer.Write(ImpactParticleSystemId);
+            writer.Write(HardImpactParticleSystemId);
+            writer.Write(ImpactSoundId);
+            writer.Write(HardImpactSoundId);
+            writer.Write(StepParticleSystemId);
+            writer.Write(LandSoundId);
+            writer.Write(ScrapeSoundId);
             writer.Write((UInt16)0xFFFF);
             for (int i = 0; i < PhysicsParameters.Length; ++i)
             {
                 writer.Write(PhysicsParameters[i]);
             }
-            UnkVec.Write(writer);
-            for (int i = 0; i < UnkBoundingBox.Length; ++i)
+            UnusedVector.Write(writer);
+            for (int i = 0; i < ContactMessage.Length; ++i)
             {
-                UnkBoundingBox[i].Write(writer);
+                ContactMessage[i].Write(writer);
             }
         }
 

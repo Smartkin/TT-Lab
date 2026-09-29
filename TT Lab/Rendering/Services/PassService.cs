@@ -11,8 +11,7 @@ namespace TT_Lab.Rendering.Services;
 
 public enum PassPriority
 {
-    SkydomeOpaque = -10,
-    SkydomeTransparent = -8,
+    Skydome = -10,
     Opaque = 1,
     Transparent = 10000,
     VolumeInsides = 40000,
@@ -25,6 +24,8 @@ public enum PassPriority
 public class PassService
 {
     public const string EVERY_PASS = "EveryPass";
+    // Every part of the sky draws in this one pass, blended or not
+    public const string SkydomePassName = nameof(TwinShader.Type.UnlitSkydome);
     public const string ParticlesPass = "PARTICLES";
     public const string VolumeInsidesPass = "VOLUME_INSIDES";
     public const string VolumeOutsidesPass = "VOLUME_OUTSIDES";
@@ -32,8 +33,7 @@ public class PassService
     private readonly Dictionary<string, RenderPass> _passes = [];
     private readonly SortedList<PassPriority, RenderPass> _sortedPasses = new(new DuplicateKeyComparer<PassPriority>());
     private readonly Dictionary<string, SortedList<int, Renderable>> _passRenderables = [];
-    private readonly IList<RenderPass> _skydomeOpaquePasses;
-    private readonly IList<RenderPass> _skydomeTransparentPasses;
+    private readonly IList<RenderPass> _skydomePasses;
     private readonly IList<RenderPass> _opaquePasses;
     private readonly IList<RenderPass> _transparentPasses;
     private readonly IList<RenderPass> _billboardPasses;
@@ -55,9 +55,8 @@ public class PassService
                 case TwinShader.Type.LitSkinnedModel:
                     break;
                 case TwinShader.Type.UnlitSkydome:
-                    passPriorityOpaque = PassPriority.SkydomeOpaque;
-                    passPriorityTransparent = PassPriority.SkydomeTransparent;
-                    break;
+                    RegisterPass(SkydomePassName, new SkydomePass(context, SkydomePassName, context.GetProgram("Generic")), PassPriority.Skydome);
+                    continue;
                 case TwinShader.Type.ColorOnly:
                     break;
                 case TwinShader.Type.LitEnvironmentMap:
@@ -107,8 +106,7 @@ public class PassService
         RegisterPass(VolumeInsidesPass, new VolumePass(context, VolumeInsidesPass, context.GetProgram("Generic"), TriangleFace.Front), PassPriority.VolumeInsides);
         RegisterPass(VolumeOutsidesPass, new VolumePass(context, VolumeOutsidesPass, context.GetProgram("Generic"), TriangleFace.Back), PassPriority.VolumeOutsides);
 
-        _skydomeOpaquePasses = GetPassesWith(priority => priority == PassPriority.SkydomeOpaque);
-        _skydomeTransparentPasses = GetPassesWith(priority => priority == PassPriority.SkydomeTransparent);
+        _skydomePasses = GetPassesWith(priority => priority == PassPriority.Skydome);
         _opaquePasses = GetPassesWith(priority => priority == PassPriority.Opaque);
         _transparentPasses = GetPassesWith(priority => priority is >= PassPriority.Transparent and < PassPriority.Billboards);
         _billboardPasses = GetPassesWith(priority => priority == PassPriority.Billboards);
@@ -156,9 +154,7 @@ public class PassService
         }
     }
 
-    public IList<RenderPass> GetSkydomeOpaquePasses() => _skydomeOpaquePasses;
-
-    public IList<RenderPass> GetSkydomeTransparentPasses() => _skydomeTransparentPasses;
+    public IList<RenderPass> GetSkydomePasses() => _skydomePasses;
 
     public IList<RenderPass> GetTransparentPasses() => _transparentPasses;
 

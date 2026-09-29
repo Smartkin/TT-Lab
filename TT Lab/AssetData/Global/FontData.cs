@@ -7,6 +7,7 @@ using TT_Lab.Assets.Global;
 using TT_Lab.Attributes;
 using TT_Lab.Util;
 using TT_Lab.ViewModels.Editors;
+using TT_Lab.ViewModels.Editors.Descs;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 
@@ -15,6 +16,9 @@ namespace TT_Lab.AssetData.Global;
 [ReferencesAssets]
 public class FontData : AbstractAssetData
 {
+    // The game's font has 3 slots for its pages' materials and textures (ReadFont)
+    public const int MaxPages = 3;
+
     public FontData(IAsset asset) : base(asset)
     {
         FontPages = [];
@@ -27,13 +31,16 @@ public class FontData : AbstractAssetData
     }
 
     [JsonProperty(Required = Required.Always)]
-    [Editable(Caption = "Font Pages")]
+    [Editable(Caption = "Font Pages", Hint = "The game's font keeps 3 pages at most")]
+    [EditorParam(DocumentCollectionViewModel.MaxCount, MaxPages)]
     public List<LabURI> FontPages { get; set; }
     
+    /// <summary>
+    /// A box per character from the space on: its page (0 or 1 the first, 2 the second...), its left column and the row under its
+    /// bottom one (the pages are upside down), its size. Edited on the pages with <see cref="FontEditorDesc"/>
+    /// </summary>
     [JsonProperty(Required = Required.Always)]
-    [Editable(Caption = "ASCII Characters Data")]
-    [EditorParam(DocumentCollectionViewModel.ItemIndexAsChars, true)]
-    [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Character")]
+    [Editable(Caption = "Characters", EditorDescType = typeof(FontEditorDesc), EditorOrientation = Avalonia.Controls.Dock.Top)]
     public List<VectorCharacterData> CharacterData { get; set; }
     
     [JsonProperty(Required = Required.Always)]
@@ -42,6 +49,7 @@ public class FontData : AbstractAssetData
 
     public override ITwinItem Export(ITwinItemFactory factory)
     {
+        CheckCount("pages", FontPages.Count, MaxPages);
         var assetManager = AssetManager.Get();
         var pages = new List<ITwinPTC>();
         foreach (var page in FontPages)

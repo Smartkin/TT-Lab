@@ -1,7 +1,8 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Common.CameraSubtypes;
+using Twinsanity.TwinsanityInterchange.Common.ShaderAnimation;
 
 namespace TT_Lab.ViewModels.Editors.PropertyGraph;
 
@@ -31,8 +32,8 @@ public static class DocumentMetadataCache
         Register<Vector4>(true);
         Register<VectorCharacterData>(true);
         Register<Matrix4>(true);
-        Register<TwinBoundingBoxBuilder>(true);
-        Register<TwinChunkLinkBoundingBoxBuilder>(true);
+        Register<TwinCollisionHull>(true);
+        Register<TwinChunkLinkHull>(true);
         Register<BossCamera>(true);
         Register<CameraLine>(true);
         Register<CameraLine2>(true);
@@ -41,5 +42,9 @@ public static class DocumentMetadataCache
         Register<CameraPoint2>(true);
         Register<CameraSpline>(true);
         Register<CameraZone>(true);
+        Register<TwinShaderAnimation>(true);
+        Register<AnimationSettings>(true);
+        Register<Transformation>(true);
+        Register<AnimatedTransformation>(true);
     }
 }

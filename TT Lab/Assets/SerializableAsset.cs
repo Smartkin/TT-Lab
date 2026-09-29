@@ -37,7 +37,7 @@ public abstract class SerializableAsset : IAsset
     protected virtual String TwinDataExt => "bin";
     protected virtual Boolean SetIdFromDataHash => false;
 
-    protected String LoadPath => Path.Combine("assets", Package.GetPackageName(), URI.GetFilePathInPackage().Replace('/', Path.DirectorySeparatorChar));
+    protected virtual String LoadPath => Path.Combine("assets", Package.GetPackageName(), URI.GetFilePathInPackage().Replace('/', Path.DirectorySeparatorChar));
     protected String DataLoadPath => Path.Combine(LoadPath, Data);
     protected ResourceTreeElementViewModel? ViewModel;
     
@@ -101,6 +101,10 @@ public abstract class SerializableAsset : IAsset
 
     public LabURI URI { get; set; }
     public LabURI Package { get; set; }
+
+    // Made in TT Lab and not written yet, like an instance placed in a chunk before the chunk gets saved: the project tree keeps it
+    // while it has no file
+    public bool IsUnsaved { get; internal set; }
     public List<LabURI> References { get; set; } = [];
     public String Variation { get; set; }
 
@@ -204,9 +208,13 @@ public abstract class SerializableAsset : IAsset
             return;
         }
         
-        using FileStream fs = new(Path.Combine(path, $"{Name}.json"), FileMode.Create, FileAccess.Write);
-        using BinaryWriter writer = new(fs);
-        writer.Write(JsonConvert.SerializeObject(this, Formatting.Indented).ToCharArray());
+        using (FileStream fs = new(Path.Combine(path, $"{Name}.json"), FileMode.Create, FileAccess.Write))
+        using (BinaryWriter writer = new(fs))
+        {
+            writer.Write(JsonConvert.SerializeObject(this, Formatting.Indented).ToCharArray());
+        }
+
+        IsUnsaved = false;
     }
 
     public virtual void Deserialize(String json)
@@ -283,8 +291,8 @@ public abstract class SerializableAsset : IAsset
 
     public void UnloadData()
     {
-        // Internal assets have no data file of their own to load it back from
-        if (IsInternal)
+        // Internal assets and ones never saved have no data file of their own to load it back from
+        if (IsInternal || IsUnsaved)
         {
             return;
         }
@@ -456,6 +464,20 @@ public abstract class SerializableAsset : IAsset
     public virtual void FixDeletedReferences(DeletedReferenceFixer fixer)
     {
         fixer.FixObject(GetData());
+    }
+
+    // Only the row the tree has, none gets made for it
+    internal void RemoveFromTree()
+    {
+        if (ViewModel?.Parent is not { } parent)
+        {
+            return;
+        }
+
+        parent.RemoveChild(ViewModel);
+        parent.ClearChildren();
+        parent.LoadChildrenBack();
+        parent.NotifyOfPropertyChange(nameof(parent.Children));
     }
 
     public ResourceTreeElementViewModel GetResourceTreeElement(ResourceTreeElementViewModel? parent = null)

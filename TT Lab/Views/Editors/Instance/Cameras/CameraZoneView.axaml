@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -20,7 +20,7 @@
                     </Grid.RowDefinitions>
                     <controls:GroupBox Grid.Row="0">
                         <ListBox x:Name="UnkVecs1List"
-                                 ItemsSource="{Binding UnkVecs1}">
+                                 ItemsSource="{Binding CameraBoxVectors}">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding DisplayString}"></TextBlock>
@@ -41,7 +41,7 @@
                     </Grid.RowDefinitions>
                     <controls:GroupBox Grid.Row="0">
                         <ListBox x:Name="UnkVecs2List"
-                                 ItemsSource="{Binding UnkVecs2}">
+                                 ItemsSource="{Binding TargetBoxVectors}">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding DisplayString}"></TextBlock>

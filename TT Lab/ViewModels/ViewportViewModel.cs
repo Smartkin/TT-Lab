@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -35,6 +35,7 @@ using Twinsanity.TwinsanityInterchange.Enumerations;
 using Action = System.Action;
 using Vector2 = System.Numerics.Vector2;
 using Vector3 = Twinsanity.TwinsanityInterchange.Common.Vector3;
+using Vector4 = Twinsanity.TwinsanityInterchange.Common.Vector4;
 
 namespace TT_Lab.ViewModels;
 
@@ -152,6 +153,8 @@ public partial class ViewportViewModel : ReactiveObject
     private Renderer? _renderer;
 
     private bool _isChunkViewport = false;
+    // Set while the viewport puts an element into a list itself, it shows and selects the element's objects on its own
+    private bool _isPlacingElement;
     private IInputContext? _inputContext;
     private IKeyboard? _keyboard;
     private IMouse? _mouse;
@@ -182,6 +185,7 @@ public partial class ViewportViewModel : ReactiveObject
             new ViewportLayerToggle("Skydome", ViewportObjectCategory.Skydome, true),
             new ViewportLayerToggle("Linked scenery", ViewportObjectCategory.LinkedScenery, true),
             new ViewportLayerToggle("Load walls", ViewportObjectCategory.LoadWalls, true),
+            new ViewportLayerToggle("Link hulls", ViewportObjectCategory.LinkHulls, true),
             new ViewportLayerToggle("Instances", ViewportObjectCategory.Instances, true),
             new ViewportLayerToggle("Triggers", ViewportObjectCategory.Triggers, true),
             new ViewportLayerToggle("Cameras", ViewportObjectCategory.Cameras, true),
@@ -212,6 +216,8 @@ public partial class ViewportViewModel : ReactiveObject
         ToggleTransformSpaceCommand = ReactiveCommand.Create(ToggleTransformSpace);
         ToggleSnappingCommand = ReactiveCommand.Create(() => { IsSnapping = !IsSnapping; });
         FrameSelectionCommand = ReactiveCommand.Create(FrameSelection);
+        InitPrefabs();
+        InitGameLaunch();
         this.WhenAnyValue(x => x.ActiveTool).Subscribe(_ =>
         {
             this.RaisePropertyChanged(nameof(IsSelectTool));
@@ -273,6 +279,7 @@ public partial class ViewportViewModel : ReactiveObject
         _document = document;
         _isChunkViewport = document.DocumentModel is LevelChunk;
         this.RaisePropertyChanged(nameof(IsChunkViewport));
+        FollowGameLaunch(document);
 
         this.WhenAnyValue(x => x._document!.IsReady)
             .Where(x => x)
@@ -385,10 +392,30 @@ public partial class ViewportViewModel : ReactiveObject
 
     private void OnMouseUp(IMouse mouse, MouseButton button)
     {
-        if (button == MouseButton.Left && _editingContext is { IsDraggingGizmo: true })
+        if (button != MouseButton.Left)
+        {
+            return;
+        }
+
+        if (_editingContext is { IsDraggingGizmo: true })
         {
             _editingContext.EndGizmoDrag();
             EndDragStep();
+            return;
+        }
+
+        var pressed = _leftPress;
+        _leftPress = null;
+        if (IsRubberBanding)
+        {
+            IsRubberBanding = false;
+            SelectInRubberBand();
+            return;
+        }
+
+        if (pressed != null)
+        {
+            MouseSelect(mouse.Position.X, mouse.Position.Y);
         }
     }
 
@@ -445,7 +472,107 @@ public partial class ViewportViewModel : ReactiveObject
             return;
         }
 
-        MouseSelect(pos.X, pos.Y);
+        // A click selects on release, dragging from here on selects everything within the rectangle instead
+        _leftPress = new vec2(pos.X, pos.Y);
+    }
+
+    // Where the left button went down outside the gizmo, until it comes up
+    private vec2? _leftPress;
+    private const float RubberBandThreshold = 4.0f;
+
+    [Reactive(SetModifier = AccessModifier.Private)]
+    private bool _isRubberBanding;
+
+    [Reactive(SetModifier = AccessModifier.Private)]
+    private Rect _rubberBand;
+
+    private void UpdateRubberBand(vec2 pos)
+    {
+        if (_leftPress is not { } press)
+        {
+            return;
+        }
+
+        if (!IsRubberBanding && MathF.Abs(pos.x - press.x) < RubberBandThreshold && MathF.Abs(pos.y - press.y) < RubberBandThreshold)
+        {
+            return;
+        }
+
+        IsRubberBanding = true;
+        RubberBand = new Rect(new Point(MathF.Min(press.x, pos.x), MathF.Min(press.y, pos.y)), new Point(MathF.Max(press.x, pos.x), MathF.Max(press.y, pos.y)));
+    }
+
+    // Selects every visible object whose box's center lies within the rectangle, added to the selection with Shift held
+    private void SelectInRubberBand()
+    {
+        if (_scene == null || _editingContext == null)
+        {
+            return;
+        }
+
+        var camera = _scene.Camera.GetFrameCamera();
+        var rect = RubberBand;
+        var inside = _viewportObjects.Where(viewportObject => viewportObject.Render.IsVisible && viewportObject.Render.IsSelectable
+                                                             && viewportObject.PositionConverter == null
+                                                             && camera.WorldToScreen(viewportObject.Render.GetBoundsTransform().Column3.xyz, out var screen)
+                                                             && rect.Contains(new Point(screen.x, screen.y)))
+            .ToList();
+        if (IsShiftPressed())
+        {
+            inside = _editingContext.Selection.Concat(inside).Distinct().ToList();
+        }
+
+        SelectObjects(inside, false);
+    }
+
+    private bool IsShiftPressed()
+    {
+        return _keyboard != null && (_keyboard.IsKeyPressed(Key.ShiftLeft) || _keyboard.IsKeyPressed(Key.ShiftRight));
+    }
+
+    /// <summary>
+    /// Everything selected, the object the gizmo edits first
+    /// </summary>
+    public IReadOnlyList<ViewportObject> SelectedObjects => _editingContext?.Selection.ToList() ?? [];
+
+    public int SelectionCount => _editingContext?.SelectionCount ?? 0;
+
+    /// <summary>
+    /// Selects the objects together, the first gets the gizmo and is the one shown in the inspector when asked
+    /// </summary>
+    internal void SelectObjects(IReadOnlyList<ViewportObject> objects, bool openInspector)
+    {
+        if (_editingContext == null)
+        {
+            return;
+        }
+
+        if (objects.Count == 0)
+        {
+            _editingContext.Deselect();
+            SelectedObject = null;
+            return;
+        }
+
+        _editingContext.SelectMany(objects);
+        SelectedObject = objects[0];
+        RaiseSelectionChanged();
+        if (openInspector)
+        {
+            OpenInspectorFor(objects[0]);
+        }
+    }
+
+    private void SelectAll()
+    {
+        SelectObjects(_viewportObjects.Where(viewportObject => viewportObject.Render.IsVisible && viewportObject.Render.IsSelectable
+                                                               && viewportObject.PositionConverter == null && viewportObject.Property.Find("[data]")?.GetValue() is SerializableInstance { LayoutID: not null }).ToList(), false);
+    }
+
+    private void RaiseSelectionChanged()
+    {
+        this.RaisePropertyChanged(nameof(SelectedObjects));
+        this.RaisePropertyChanged(nameof(SelectionCount));
     }
 
     private void MouseSelect(float x, float y)
@@ -482,20 +609,45 @@ public partial class ViewportViewModel : ReactiveObject
 
             if (result != null)
             {
-                SelectObject(result, true);
+                if (IsShiftPressed())
+                {
+                    ToggleSelection(result);
+                }
+                else
+                {
+                    SelectObject(result, true);
+                }
+
                 return;
             }
         }
 
-        _editingContext.Deselect();
-        SelectedObject = null;
-        var collision = _viewportObjects.FirstOrDefault(viewportObject => viewportObject.Category == ViewportObjectCategory.Collision);
-        if (collision?.UserData is not CollisionData colData)
+        if (IsShiftPressed())
         {
             return;
         }
 
-        var cursorHit = new vec3();
+        _editingContext.Deselect();
+        SelectedObject = null;
+        if (!TryHitCollision(x, y, out var cursorHit))
+        {
+            return;
+        }
+
+        _editingContext.SetCursorCoordinates(cursorHit);
+    }
+
+    // Where the ray through the viewport point hits the chunk's collision, if it does
+    private bool TryHitCollision(float x, float y, out vec3 hit)
+    {
+        hit = default;
+        var collision = _viewportObjects.FirstOrDefault(viewportObject => viewportObject.Category == ViewportObjectCategory.Collision);
+        if (_scene == null || collision?.UserData is not CollisionData colData)
+        {
+            return false;
+        }
+
+        var ray = _scene.Camera.GetFrameCamera().ScreenRay(new vec2(x, y));
         var closestHit = float.MaxValue;
         foreach (var triangle in colData.Triangles)
         {
@@ -504,43 +656,55 @@ public partial class ViewportViewModel : ReactiveObject
             var p1 = colData.Vectors[triangle.Face.Indexes![0]];
             var p2 = colData.Vectors[triangle.Face.Indexes[1]];
             var p3 = colData.Vectors[triangle.Face.Indexes[2]];
-            if (!MathExtension.IntersectRayTriangle(rayOrigin, rayDirection, new vec3(p1.X, p1.Y, p1.Z),
-                    new vec3(p2.X, p2.Y, p2.Z), new vec3(p3.X, p3.Y, p3.Z), ref distance, ref hitPos))
+            if (!MathExtension.IntersectRayTriangle(ray.Origin, ray.Direction, new vec3(p1.X, p1.Y, p1.Z), new vec3(p2.X, p2.Y, p2.Z), new vec3(p3.X, p3.Y, p3.Z), ref distance, ref hitPos)
+                || !(distance < closestHit))
             {
                 continue;
             }
 
-            if (!(distance < closestHit))
-            {
-                continue;
-            }
-
-            cursorHit = hitPos;
+            hit = hitPos;
             closestHit = distance;
         }
 
-        if (closestHit.Equals(float.MaxValue))
+        return closestHit < float.MaxValue;
+    }
+
+    // Shift+click takes an object into the selection or out of it
+    private void ToggleSelection(ViewportObject viewportObject)
+    {
+        if (_editingContext == null)
         {
             return;
         }
 
-        _editingContext.SetCursorCoordinates(cursorHit);
-        if (_keyboard.IsKeyPressed(Key.ControlLeft))
+        if (_editingContext.IsSelected(viewportObject))
         {
-            CreateNewInstance(_editingContext.SpawnAtCursor());
+            _editingContext.RemoveFromSelection(viewportObject);
+            SelectedObject = _editingContext.SelectedInstance;
         }
+        else
+        {
+            _editingContext.AddToSelection(viewportObject);
+            SelectedObject = _editingContext.SelectedInstance;
+        }
+
+        RaiseSelectionChanged();
     }
 
     internal void SelectObject(ViewportObject viewportObject, bool openInspector)
     {
         _editingContext?.Select(viewportObject);
         SelectedObject = viewportObject;
-        if (!openInspector)
+        RaiseSelectionChanged();
+        if (openInspector)
         {
-            return;
+            OpenInspectorFor(viewportObject);
         }
+    }
 
-        // Parts of something, like a point of a path, open what they belong to and bring themselves into view in it
+    // Parts of something, like a point of a path, open what they belong to and bring themselves into view in it
+    private void OpenInspectorFor(ViewportObject viewportObject)
+    {
         var inspected = viewportObject.Property.PropertyType == typeof(LabURI) ? viewportObject.Property["[data]"] : viewportObject.Property;
         _document?.OpenInspector(inspected, viewportObject.InspectorFocus);
     }
@@ -564,19 +728,127 @@ public partial class ViewportViewModel : ReactiveObject
         return viewportObject.Property == inspected || viewportObject.Property.Find("[data]") == inspected;
     }
 
+    // A path keeps as many points as the game's shortest ones have
+    private const int MinPathPoints = 4;
+
     private void DeleteInstance()
     {
-        if (SelectedObject == null || _renderContext == null)
+        if (SelectedObject == null)
         {
             return;
         }
 
-        var property = SelectedObject.Property;
+        DeleteObjects(SelectedObjects);
+    }
+
+    // Instances go out of the chunk and objects standing for an element of a list (an emitter, a link, a point of a path) take the
+    // element out of its list, as one step. Handles of other parts, like a camera's points, stay: they aren't things of their own. The
+    // selection's resource used to go whole, an emitter's took every emitter of the chunk with it
+    private void DeleteObjects(IReadOnlyList<ViewportObject> objects)
+    {
+        if (_document == null)
+        {
+            return;
+        }
+
+        var resources = objects.Where(viewportObject => viewportObject.DuplicatedElement == null && viewportObject.InspectorFocus == null)
+            .Select(viewportObject => viewportObject.Property).Distinct().ToList();
+        var elements = objects.Select(viewportObject => viewportObject.DuplicatedElement).OfType<PropertyNode>().Distinct()
+            .Where(element => !resources.Any(resource => IsWithin(element, resource)))
+            .ToList();
+        foreach (var points in elements.Where(element => element.Parent?.GetValue() is List<Twinsanity.TwinsanityInterchange.Common.Vector3> && element.Parent.Name == nameof(PathData.Points))
+                     .GroupBy(element => element.Parent).ToList())
+        {
+            if (points.Key!.Children.Count - points.Count() >= MinPathPoints)
+            {
+                continue;
+            }
+
+            elements.RemoveAll(points.Contains);
+            // Every point of it selected is the path itself, fewer would leave it shorter than the game's shortest
+            if (points.Count() == points.Key.Children.Count && objects.FirstOrDefault(viewportObject => points.Contains(viewportObject.DuplicatedElement!))?.Property is { } path)
+            {
+                resources.Add(path);
+            }
+            else
+            {
+                Log.WriteLine($"A path keeps at least {MinPathPoints} points, select all of them to delete the path", Log.LogType.Warning);
+            }
+        }
+
+        if (resources.Count + elements.Count == 0)
+        {
+            return;
+        }
+
         _editingContext?.Deselect();
         SelectedObject = null;
-        _renderContext.QueueRenderAction(() => RemoveViewportObjects(_viewportObjects.Where(viewportObject => viewportObject.Property == property).ToList()));
-        var chunkResources = _document!.PropertyGraph.Root.Find(nameof(LevelChunk.ChunkResources))!;
-        chunkResources.RemoveElement(property);
+        RaiseSelectionChanged();
+        var count = resources.Count + elements.Count;
+        using var step = count > 1 ? _document.History.BeginGroup($"Deleted {count} things") : null;
+        // From the last of each list, the indexes of the others stay what they are
+        foreach (var element in elements.OrderByDescending(element => element.Index ?? 0))
+        {
+            element.Parent?.RemoveElement(element);
+        }
+
+        DeleteResources(resources);
+    }
+
+    /// <summary>
+    /// Takes the chunk's resources out of it, one step to undo
+    /// </summary>
+    internal void DeleteResources(IReadOnlyList<PropertyNode> properties)
+    {
+        if (_document == null || properties.Count == 0)
+        {
+            return;
+        }
+
+        if (SelectedObjects.Any(viewportObject => properties.Contains(viewportObject.Property)))
+        {
+            _editingContext?.Deselect();
+            SelectedObject = null;
+            RaiseSelectionChanged();
+        }
+
+        _renderContext?.QueueRenderAction(() => RemoveViewportObjects(_viewportObjects.Where(viewportObject => properties.Contains(viewportObject.Property)).ToList()));
+        var chunkResources = _document.PropertyGraph.Root.Find(nameof(LevelChunk.ChunkResources))!;
+        using var step = properties.Count > 1 ? _document.History.BeginGroup($"Deleted {properties.Count} resources") : null;
+        foreach (var property in properties)
+        {
+            chunkResources.RemoveElement(property);
+        }
+    }
+
+    /// <summary>
+    /// A copy of the chunk's instance in the same place and layout, selected, one step to undo
+    /// </summary>
+    internal IAsset? DuplicateResource(PropertyNode property)
+    {
+        if (property.GetValue() is not LabURI uri || !AssetManager.Get().DoesAssetExist(uri) || AssetManager.Get().GetAsset(uri) is not SerializableInstance { LayoutID: not null } instance)
+        {
+            return null;
+        }
+
+        var copy = CreateInstanceCopy(instance);
+        PlaceInstances([(copy, null)], $"Duplicated {instance.Alias}");
+        return copy;
+    }
+
+    /// <summary>
+    /// Selects the resource's object and moves the camera back until it's in view
+    /// </summary>
+    internal void ShowResource(PropertyNode property)
+    {
+        var viewportObject = _viewportObjects.FirstOrDefault(viewportObject => viewportObject.Property == property && viewportObject.Render.IsSelectable);
+        if (viewportObject == null)
+        {
+            return;
+        }
+
+        SelectObject(viewportObject, false);
+        FrameSelection();
     }
 
     // Copies the selection where it is and selects the copy, so it can be moved away right after. An object standing for an element of
@@ -586,6 +858,20 @@ public partial class ViewportViewModel : ReactiveObject
         var selected = SelectedObject;
         if (selected == null || _renderContext == null)
         {
+            return;
+        }
+
+        if (SelectionCount > 1)
+        {
+            // Several instances get their copies together, in place, selected in their stead
+            var copies = SelectedObjects.Where(viewportObject => viewportObject.Property.Find("[data]")?.GetValue() is SerializableInstance { LayoutID: not null })
+                .Select(viewportObject => viewportObject.Property).Distinct()
+                .Select(property => (CreateInstanceCopy(property.Find("[data]")!.GetValue<IAsset>()!), (vec3?)null)).ToList();
+            if (copies.Count > 0)
+            {
+                PlaceInstances(copies, $"Duplicated {copies.Count} instances");
+            }
+
             return;
         }
 
@@ -608,9 +894,25 @@ public partial class ViewportViewModel : ReactiveObject
             return;
         }
 
+        if (list.IsFull)
+        {
+            Log.WriteLine($"{list.Name} has {list.MaxElements}, as many as the game takes", Log.LogType.Warning);
+            return;
+        }
+
         _editingContext?.Deselect();
         SelectedObject = null;
-        var copy = list.InsertElement(index + 1, CloneUtils.DeepClone(value, value.GetType()));
+        PropertyNode? copy;
+        _isPlacingElement = true;
+        try
+        {
+            copy = list.InsertElement(index + 1, CloneUtils.DeepClone(value, value.GetType()));
+        }
+        finally
+        {
+            _isPlacingElement = false;
+        }
+
         if (copy == null)
         {
             return;
@@ -633,47 +935,94 @@ public partial class ViewportViewModel : ReactiveObject
             return;
         }
 
+        var newInstance = CreateInstanceCopy(basedOn, atCursor);
+        PlaceInstance(newInstance, atCursor, $"Placed {newInstance.Alias}");
+    }
+
+    // A new instance of the chunk with a copy of the instance's data, in the same layout
+    private IAsset CreateInstanceCopy(IAsset basedOn, bool isNew = false)
+    {
         var chunk = (LevelChunk)_document!.DocumentModel;
-        var name = atCursor ? $"New {basedOn.Type.Name} {(uint)Guid.NewGuid().GetHashCode()}" : $"{basedOn.Name} Copy {(uint)Guid.NewGuid().GetHashCode():X8}";
-        var newInstance = AssetFactory.CreateAsset(basedOn.Type, chunk.GetChunkFolder(),
-            name, "",
-            TwinIdGeneratorServiceProvider.GetGeneratorForChunk(basedOn.Type, chunk.AdditionalPath!, (Enums.Layouts)basedOn.LayoutID!),
-            (asset) =>
+        var name = isNew ? $"New {basedOn.Type.Name} {(uint)Guid.NewGuid().GetHashCode()}" : $"{basedOn.Name} Copy {(uint)Guid.NewGuid().GetHashCode():X8}";
+        return CreateInstance(basedOn.Type, name, (Enums.Layouts)basedOn.LayoutID!, asset =>
+        {
+            asset.SetData(basedOn.GetData<AbstractAssetData>().CopyFor(asset));
+            return AssetCreationStatus.Success;
+        });
+    }
+
+    // A new instance of the chunk's layout with the data the creator gives it, not among the chunk's resources yet
+    private IAsset CreateInstance(Type type, string name, Enums.Layouts layout, Func<IAsset, AssetCreationStatus> createData)
+    {
+        var chunk = (LevelChunk)_document!.DocumentModel;
+        // Scene tabs register their chunk, documents made elsewhere don't
+        TwinIdGeneratorServiceProvider.RegisterGeneratorServiceForChunk(chunk);
+        return AssetFactory.CreateAsset(type, chunk.GetChunkFolder(), name, "",
+            TwinIdGeneratorServiceProvider.GetGeneratorForChunk(type, chunk.AdditionalPath!, layout),
+            asset =>
             {
                 var instanceAsset = (SerializableInstance)asset;
                 instanceAsset.Chunk = chunk.AdditionalPath!;
                 instanceAsset.AdditionalPath = chunk.AdditionalPath;
                 instanceAsset.RegenerateLinks();
-                asset.SetData(basedOn.GetData<AbstractAssetData>().CopyFor(asset));
-                return AssetCreationStatus.Success;
+                return createData(asset);
             },
-            (Enums.Layouts)basedOn.LayoutID)!;
+            layout)!;
+    }
 
-        // Placing it and moving it to the cursor is one step to undo
-        var placing = _document.History.BeginGroup($"Placed {newInstance.Alias}");
-        var chunkResources = _document.PropertyGraph.Root.Find(nameof(LevelChunk.ChunkResources));
-        var newElement = chunkResources!.AddElement()!;
-        newElement.SetValue(newInstance.URI);
-        var cursorCoords = _editingContext!.GetCursorCoordinates();
+    // Puts the new instance among the chunk's resources and shows it, at the cursor when asked, and selects it
+    private void PlaceInstance(IAsset newInstance, bool atCursor, string description)
+    {
+        PlaceInstances([(newInstance, atCursor ? _editingContext!.GetCursorCoordinates() : null)], description);
+    }
+
+    /// <summary>
+    /// Puts the new instances among the chunk's resources and shows them, each at its place when it has one, and selects them all,
+    /// the first shown in the inspector. One step to undo
+    /// </summary>
+    internal void PlaceInstances(IReadOnlyList<(IAsset Instance, vec3? Position)> placements, string description)
+    {
+        var placing = _document!.History.BeginGroup(description);
+        var chunkResources = _document.PropertyGraph.Root.Find(nameof(LevelChunk.ChunkResources))!;
+        var elements = placements.Select(placement =>
+        {
+            var element = chunkResources.AddElement()!;
+            element.SetValue(placement.Instance.URI);
+            return (placement.Instance, placement.Position, Element: element);
+        }).ToList();
         var renderContext = _renderContext;
+        if (renderContext == null)
+        {
+            placing.Dispose();
+            return;
+        }
+
         renderContext.QueueRenderAction(() =>
         {
-            var viewportObjects = newInstance.GetViewportObjects(new ViewportContext(renderContext, _editingContext!, _renderer!), newElement);
-            AddViewportObjects(viewportObjects);
+            var placed = elements.Select(element => (element.Position, Objects: element.Instance.GetViewportObjects(new ViewportContext(renderContext, _editingContext!, _renderer!), element.Element))).ToList();
+            foreach (var (_, objects) in placed)
+            {
+                AddViewportObjects(objects);
+            }
+
             Dispatcher.UIThread.Post(() =>
             {
                 using (placing)
                 {
-                    foreach (var viewportObject in viewportObjects.Where(_ => atCursor))
+                    foreach (var (position, objects) in placed)
                     {
-                        viewportObject.Render.SetPosition(cursorCoords);
-                        viewportObject.Position?.SetValue(new Vector3(cursorCoords.x, cursorCoords.y, cursorCoords.z));
+                        foreach (var viewportObject in objects.Where(viewportObject => position != null && viewportObject.PositionConverter == null))
+                        {
+                            viewportObject.Render.SetPosition(position!.Value);
+                            viewportObject.Position?.SetValue(ViewportObject.PositionValue(viewportObject.Position, position.Value));
+                        }
                     }
                 }
 
-                if (viewportObjects.FirstOrDefault(viewportObject => viewportObject.Render.IsSelectable) is { } selectable)
+                var selectables = placed.Select(entry => entry.Objects.FirstOrDefault(viewportObject => viewportObject.Render.IsSelectable)).OfType<ViewportObject>().ToList();
+                if (selectables.Count > 0)
                 {
-                    SelectObject(selectable, true);
+                    SelectObjects(selectables, true);
                 }
             });
         });
@@ -785,7 +1134,7 @@ public partial class ViewportViewModel : ReactiveObject
             return;
         }
 
-        var changedPath = change.Node.Path;
+        var changed = change.Node;
         List<PropertyNode>? rebuilds = null;
         // Undoing and redoing take instances away and put them back, placing and deleting them here updates the objects right away
         var chunkResources = _document?.PropertyGraph.Root.Find(nameof(LevelChunk.ChunkResources));
@@ -805,6 +1154,7 @@ public partial class ViewportViewModel : ReactiveObject
             }
         }
 
+        List<PropertyNode>? structureRebuilds = null;
         foreach (var viewportObject in _viewportObjects)
         {
             // Links to other resources have their whole data below them, pointing one to another resource replaces it
@@ -814,13 +1164,21 @@ public partial class ViewportViewModel : ReactiveObject
                 continue;
             }
 
-            if (IsWithin(changedPath, viewportObject.Position) || IsWithin(changedPath, viewportObject.Rotation) ||
-                IsWithin(changedPath, viewportObject.Scale) || IsWithin(changedPath, viewportObject.Transform))
+            // Elements put into or taken out of the resource's lists (emitters, links, points) have objects of their own. What the viewport
+            // puts in itself it shows and selects on its own
+            if (change.Kind != PropertyChangeKind.Value && !_isPlacingElement && IsWithin(changed, viewportObject.Property))
+            {
+                AddRebuild(ref structureRebuilds, viewportObject.Property);
+                continue;
+            }
+
+            if (IsWithin(changed, viewportObject.Position) || IsWithin(changed, viewportObject.Rotation) ||
+                IsWithin(changed, viewportObject.Scale) || IsWithin(changed, viewportObject.Transform))
             {
                 ApplyTransformFromData(viewportObject);
             }
 
-            if (viewportObject.Refresh != null && viewportObject.RenderDependencies.Any(dependency => IsWithin(changedPath, dependency)) &&
+            if (viewportObject.Refresh != null && viewportObject.RenderDependencies.Any(dependency => IsWithin(changed, dependency)) &&
                 !viewportObject.Refresh())
             {
                 AddRebuild(ref rebuilds, viewportObject.Property);
@@ -836,12 +1194,25 @@ public partial class ViewportViewModel : ReactiveObject
             ApplyTool();
         }
 
+        foreach (var property in structureRebuilds ?? [])
+        {
+            // The selected element can be gone or somewhere else in its list
+            if (SelectedObjects.Any(viewportObject => viewportObject.Property == property))
+            {
+                _editingContext?.Deselect();
+                SelectedObject = null;
+                RaiseSelectionChanged();
+            }
+
+            RebuildViewportObjects(property, null, false);
+        }
+
         if (rebuilds == null)
         {
             return;
         }
 
-        foreach (var property in rebuilds)
+        foreach (var property in rebuilds.Where(property => structureRebuilds?.Contains(property) != true))
         {
             RebuildViewportObjects(property);
         }
@@ -849,19 +1220,21 @@ public partial class ViewportViewModel : ReactiveObject
 
     private void RemoveObjectsOfGoneResources(PropertyNode chunkResources)
     {
-        var gone = _viewportObjects.Where(viewportObject => viewportObject.Property.Parent == chunkResources && !chunkResources.Children.Contains(viewportObject.Property)).ToList();
-        if (gone.Count == 0 || _renderContext == null)
+        if (_renderContext == null)
         {
             return;
         }
 
-        if (SelectedObject != null && gone.Contains(SelectedObject))
+        if (SelectedObjects.Any(viewportObject => viewportObject.Property.Parent == chunkResources && !chunkResources.Children.Contains(viewportObject.Property)))
         {
             _editingContext?.Deselect();
             SelectedObject = null;
+            RaiseSelectionChanged();
         }
 
-        _renderContext.QueueRenderAction(() => RemoveViewportObjects(gone));
+        // Worked out when it runs, objects of the resource still waiting to be made are gone with it too
+        _renderContext.QueueRenderAction(() => RemoveViewportObjects(_viewportObjects
+            .Where(viewportObject => viewportObject.Property.Parent == chunkResources && !chunkResources.Children.Contains(viewportObject.Property)).ToList()));
     }
 
     private static void AddRebuild(ref List<PropertyNode>? rebuilds, PropertyNode property)
@@ -873,15 +1246,24 @@ public partial class ViewportViewModel : ReactiveObject
         }
     }
 
-    private static bool IsWithin(string path, PropertyNode? node)
+    // Whether the changed node is the node or something under it, by going up from it: paths would have to be worked out again after
+    // every change of the graph's structure
+    private static bool IsWithin(PropertyNode changed, PropertyNode? node)
     {
         if (node == null)
         {
             return false;
         }
 
-        var nodePath = node.Path;
-        return path.StartsWith(nodePath, StringComparison.Ordinal) && (path.Length == nodePath.Length || path[nodePath.Length] is '.' or '[');
+        for (var current = changed; current != null; current = current.Parent)
+        {
+            if (current == node)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static void ApplyTransformFromData(ViewportObject viewportObject)
@@ -893,9 +1275,17 @@ public partial class ViewportViewModel : ReactiveObject
             return;
         }
 
-        if (viewportObject.Position?.GetValue() is Vector3 position)
+        if (viewportObject.PositionConverter != null && viewportObject.Position != null)
+        {
+            render.SetPosition(viewportObject.PositionConverter.ToPosition(viewportObject.Position.GetValue()));
+        }
+        else if (viewportObject.Position?.GetValue() is Vector3 position)
         {
             render.SetPosition(position.ToGlm());
+        }
+        else if (viewportObject.Position?.GetValue() is Vector4 point)
+        {
+            render.SetPosition(new vec3(point.X, point.Y, point.Z));
         }
 
         if (viewportObject.Rotation?.GetValue() is Vector3 rotation)
@@ -914,46 +1304,70 @@ public partial class ViewportViewModel : ReactiveObject
     /// </summary>
     private void RebuildViewportObjects(PropertyNode property, string? selectName = null)
     {
+        var selectedName = selectName ?? (SelectedObject?.Property == property ? SelectedObject.DocumentName : null);
+        RebuildViewportObjects(property, selectedName == null ? null : viewportObject => viewportObject.DocumentName == selectedName, selectName != null);
+    }
+
+    // A rebuild reading the graph while the UI thread changes it, like undoing many steps in a row, is tried again this many times
+    private const int RebuildAttempts = 3;
+
+    // Makes the resource's objects again and selects the one picked among them (a duplicate, what a prefab placed), shown in the
+    // inspector when asked. Placed gets the new objects on the UI thread before the selection, or none when the scene is gone
+    private void RebuildViewportObjects(PropertyNode property, Func<ViewportObject, bool>? select, bool openInspector, Action<List<ViewportObject>>? placed = null, int attempt = 0)
+    {
         var renderContext = _renderContext;
         if (renderContext == null || _editingContext == null || _renderer == null)
         {
+            placed?.Invoke([]);
             return;
         }
 
-        var selectedName = selectName ?? (SelectedObject?.Property == property ? SelectedObject.DocumentName : null);
-        if (selectedName != null)
+        if (select != null)
         {
             _editingContext.Deselect();
             SelectedObject = null;
         }
 
+        // The resource it is now: by the time the render thread gets to it an undo can have taken the node out, which then read another
+        // resource at its index and made that one's objects again next to its own
+        var uri = property.Parent?.Children.Contains(property) != false ? property.GetValue() as LabURI : null;
         renderContext.QueueRenderAction(() =>
         {
-            if (!_renderInit || _renderContext != renderContext)
+            var viewportObjects = new List<ViewportObject>();
+            if (_renderInit && _renderContext == renderContext)
             {
-                return;
+                RemoveViewportObjects(_viewportObjects.Where(viewportObject => viewportObject.Property == property).ToList());
+                // Taken out since, its objects would be read from whatever came to its place
+                if (uri != null && uri != LabURI.Empty && AssetManager.Get().DoesAssetExist(uri) && property.Parent?.Children.Contains(property) != false)
+                {
+                    try
+                    {
+                        viewportObjects = AssetManager.Get().GetAssetData(uri).GetViewportObjects(new ViewportContext(renderContext, _editingContext!, _renderer!), property);
+                    }
+                    catch (Exception ex) when (attempt < RebuildAttempts && ex is InvalidOperationException or NullReferenceException or ArgumentOutOfRangeException)
+                    {
+                        // The graph changed under it, the resource's objects get made once the UI thread is done with it
+                        Dispatcher.UIThread.Post(() => RebuildViewportObjects(property, select, openInspector, placed, attempt + 1), DispatcherPriority.Background);
+                        return;
+                    }
+
+                    AddViewportObjects(viewportObjects);
+                }
             }
 
-            RemoveViewportObjects(_viewportObjects.Where(viewportObject => viewportObject.Property == property).ToList());
-            if (property.GetValue() is not LabURI uri || uri == LabURI.Empty || !AssetManager.Get().DoesAssetExist(uri))
-            {
-                return;
-            }
-
-            var viewportObjects = AssetManager.Get().GetAssetData(uri).GetViewportObjects(new ViewportContext(renderContext, _editingContext!, _renderer!), property);
-            AddViewportObjects(viewportObjects);
-            if (selectedName == null)
+            if (select == null && placed == null)
             {
                 return;
             }
 
             Dispatcher.UIThread.Post(() =>
             {
-                var reselected = viewportObjects.FirstOrDefault(viewportObject => viewportObject.DocumentName == selectedName);
+                placed?.Invoke(viewportObjects);
+                var reselected = select == null ? null : viewportObjects.FirstOrDefault(select);
                 if (reselected != null && SelectedObject == null)
                 {
                     // What got made, like a duplicate, is shown in the inspector as well
-                    SelectObject(reselected, selectName != null);
+                    SelectObject(reselected, openInspector);
                 }
             });
         });
@@ -1117,9 +1531,17 @@ public partial class ViewportViewModel : ReactiveObject
             return;
         }
 
-        var bounds = SelectedObject.Render.GetBoundsTransform();
-        var center = bounds.Column3.xyz;
-        var radius = Math.Max((bounds.Column0.xyz + bounds.Column1.xyz + bounds.Column2.xyz).Length, 0.5f);
+        var min = new vec3(float.MaxValue);
+        var max = new vec3(float.MinValue);
+        foreach (var bounds in SelectedObjects.Select(viewportObject => viewportObject.Render.GetBoundsTransform()))
+        {
+            var extent = vec3.Abs(bounds.Column0.xyz) + vec3.Abs(bounds.Column1.xyz) + vec3.Abs(bounds.Column2.xyz);
+            min = vec3.Min(min, bounds.Column3.xyz - extent);
+            max = vec3.Max(max, bounds.Column3.xyz + extent);
+        }
+
+        var center = (min + max) * 0.5f;
+        var radius = Math.Max(((max - min) * 0.5f).Length, 0.5f);
         var camera = _scene.Camera.GetFrameCamera();
         var distance = radius / MathF.Tan(camera.FovY * 0.5f) * 1.2f;
         _scene.Camera.SetPosition(center - camera.Forward * distance);
@@ -1151,7 +1573,9 @@ public partial class ViewportViewModel : ReactiveObject
             return;
         }
 
-        var selectionInfo = _isChunkViewport && _editingContext?.SelectedRenderable is { IsSelected: true } selected ? selected.Describe() : string.Empty;
+        var selectionInfo = !_isChunkViewport ? string.Empty
+            : _editingContext?.SelectionCount > 1 ? $"{_editingContext.SelectionCount} selected, {_editingContext.SelectedRenderable?.Describe()}"
+            : _editingContext?.SelectedRenderable is { IsSelected: true } selected ? selected.Describe() : string.Empty;
         if (selectionInfo != SelectionInfo)
         {
             SelectionInfo = selectionInfo;
@@ -1228,7 +1652,18 @@ public partial class ViewportViewModel : ReactiveObject
             {
                 DuplicateSelection();
             }
+            else if (key == Key.A)
+            {
+                SelectAll();
+            }
 
+            return;
+        }
+
+        if (key == Key.Escape && IsRubberBanding)
+        {
+            IsRubberBanding = false;
+            _leftPress = null;
             return;
         }
 
@@ -1252,33 +1687,6 @@ public partial class ViewportViewModel : ReactiveObject
             case Key.F:
                 FrameSelection();
                 break;
-            case Key.Left:
-                _editingContext.MoveCursorGrid(-vec3.UnitX);
-                break;
-            case Key.Right:
-                _editingContext.MoveCursorGrid(vec3.UnitX);
-                break;
-            case Key.Up:
-                _editingContext.MoveCursorGrid(vec3.UnitZ);
-                break;
-            case Key.Down:
-                _editingContext.MoveCursorGrid(-vec3.UnitZ);
-                break;
-            case Key.PageUp:
-                _editingContext.MoveCursorGrid(vec3.UnitY);
-                break;
-            case Key.PageDown:
-                _editingContext.MoveCursorGrid(-vec3.UnitY);
-                break;
-            case Key.K when _editingContext.SelectedInstance != null:
-                _editingContext.SetPalette(_editingContext.SelectedInstance);
-                break;
-            case Key.P:
-                CreateNewInstance(_editingContext.SpawnAtCursor());
-                break;
-            case Key.G:
-                _editingContext.SetGrid();
-                break;
             case Key.Escape when _editingContext.IsDraggingGizmo:
                 _editingContext.CancelGizmoDrag();
                 EndDragStep();
@@ -1288,6 +1696,7 @@ public partial class ViewportViewModel : ReactiveObject
                 _document?.OpenInspector(null);
                 _editingContext.Deselect();
                 SelectedObject = null;
+                RaiseSelectionChanged();
                 break;
             case Key.Delete:
                 DeleteInstance();
@@ -1309,6 +1718,13 @@ public partial class ViewportViewModel : ReactiveObject
             // Holding Ctrl snaps when snapping is off and the other way around
             var invertSnapping = IsControlPressed();
             _editingContext.UpdateGizmoDrag(_scene.Camera.GetFrameCamera(), new vec2(mousePos.X, mousePos.Y), invertSnapping);
+            _prevMousePosition = mousePos;
+            return;
+        }
+
+        if (_leftPress != null && mouse.IsButtonPressed(MouseButton.Left))
+        {
+            UpdateRubberBand(new vec2(mousePos.X, mousePos.Y));
             _prevMousePosition = mousePos;
             return;
         }

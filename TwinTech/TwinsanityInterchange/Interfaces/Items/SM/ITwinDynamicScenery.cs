@@ -9,7 +9,10 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.SM
         /// <summary>
         /// Unknown integer parameter
         /// </summary>
-        Int32 UnkInt { get; set; }
+        /// <summary>
+        /// The data's version word (0x10009), never read
+        /// </summary>
+        Int32 Version { get; set; }
         /// <summary>
         /// All the dynamic models for this scenery
         /// </summary>

@@ -25,6 +25,8 @@ public struct AgentLabToken
         Equality, // "=="
         GreaterEqual, // ">="
         LessEqual, // "<="
+        Greater, // ">"
+        Less, // "<"
         Interval, // "interval"
         Unknown, // "unknown"
         Assign, // '='
@@ -32,7 +34,8 @@ public struct AgentLabToken
         Priority, // "Priority"
         GraphPriority, // "GraphPriority"
         StartFrom, // "StartFrom"
-        NonBlocking, // "NonBlocking"
+        NonBlocking, // "NonBlocking", the old name of Interrupting
+        Interrupting, // "Interrupting"
         SkipFirstBody, // "SkipFirstBody"
         UseObjectSlot, // "UseObjectSlot"
         ControlPacket, // "ControlPacket"
@@ -60,6 +63,11 @@ public struct AgentLabToken
         StringType, // "string"
         IntegerType, // "int"
         BooleanType, // "bool"
+        TaggedFloatType, // "tfloat", a float literal or an instance property index
+        TaggedIntType, // "tint", an int literal or an instance property index
+        TaggedAngleType, // "tangle", an angle in degrees or an instance property index
+        SignedIntegerType, // "sint", a signed field of a packed parameter
+        PackedType, // a parameter of named fields packed into one dword, written as {name = value, ...}
         ArrayType, // arrays
         Action, // "action"
         Condition, // "condition"
@@ -94,6 +102,18 @@ public struct AgentLabToken
     /// Column in the script where the token starts, starting from 1. 0 if the token doesn't come from a script
     /// </summary>
     public int Column { get; private set; }
+
+    /// <summary>
+    /// The integer was written in hex, which stands for the argument's bits whatever the parameter's type
+    /// </summary>
+    public bool IsHexLiteral { get; private set; }
+
+    internal AgentLabToken AsHexLiteral()
+    {
+        var token = this;
+        token.IsHexLiteral = true;
+        return token;
+    }
 
     internal AgentLabToken WithPosition(int line, int column)
     {

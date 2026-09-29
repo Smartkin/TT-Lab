@@ -104,25 +104,45 @@ public sealed class TransformGizmoTests
         AssertClose(localX * 1.5f, result.Position);
     }
 
-    // Whatever part of a ring gets grabbed keeps following the mouse along the ring
+    // The mouse going around the gizmo's center on screen turns the ring as far, the way it goes
+    private static vec2 Around(vec2 center, vec2 from, float degrees)
+    {
+        var radial = from - center;
+        var (sin, cos) = MathF.SinCos(glm.Radians(degrees));
+        return center + new vec2(radial.x * cos - radial.y * sin, radial.x * sin + radial.y * cos);
+    }
+
+    private static float Degrees(quat rotation) => glm.Degrees(2.0f * MathF.Acos(Math.Clamp(MathF.Abs(rotation.w), 0.0f, 1.0f)));
+
     [Fact]
-    public void RingsTurnTheWayTheMouseDrags()
+    public void RingsTurnTheWayTheMouseGoesAroundThem()
     {
         var gizmo = CreateGizmo(TransformMode.ROTATE);
         var size = Size(vec3.Zero);
         var grabPoint = new vec3(1, 0, 1).Normalized * size;
         var grab = Screen(grabPoint);
+        var center = Screen(vec3.Zero);
         Assert.Equal(GizmoHandle.RingY, gizmo.HitTest(_camera, Origin, grab));
         Assert.True(gizmo.BeginDrag(_camera, Origin, grab));
+        // Which way around the center the ring's own motion goes on screen
         var along = Screen(quat.FromAxisAngle(0.05f, vec3.UnitY) * grabPoint) - grab;
+        var radial = grab - center;
+        var clockwise = radial.x * along.y - radial.y * along.x > 0.0f ? 1.0f : -1.0f;
 
-        var result = gizmo.Drag(_camera, grab + along.Normalized * 40.0f);
+        var result = gizmo.Drag(_camera, Around(center, grab, clockwise * 90.0f));
 
+        // A quarter turn of the mouse is a quarter turn of the target, the grabbed point going the mouse's way
+        Assert.Equal(90.0f, Degrees(result.Rotation), 0.01f);
         var turned = Screen(result.Rotation * grabPoint);
         Assert.True(vec2.Dot(turned - grab, along) > 0.0f);
         // Only turns around the ring's axis
         AssertClose(vec3.UnitY, result.Rotation * vec3.UnitY, 1e-3f);
         Assert.Equal(Origin.Position, result.Position);
+
+        // Going on around adds up past a half turn instead of flipping
+        gizmo.Drag(_camera, Around(center, grab, clockwise * 170.0f));
+        var further = gizmo.Drag(_camera, Around(center, grab, clockwise * 250.0f));
+        Assert.Equal(110.0f, Degrees(further.Rotation), 0.01f);
     }
 
     [Fact]
@@ -191,13 +211,11 @@ public sealed class TransformGizmoTests
         var grabPoint = new vec3(1, 0, 1).Normalized * Size(vec3.Zero);
         var grab = Screen(grabPoint);
         Assert.True(gizmo.BeginDrag(_camera, Origin, grab));
-        var along = Screen(quat.FromAxisAngle(0.05f, vec3.UnitY) * grabPoint) - grab;
 
-        // About 21 degrees of dragging
-        var result = gizmo.Drag(_camera, grab + along.Normalized * 40.0f);
+        // 21 degrees of the mouse around the center
+        var result = gizmo.Drag(_camera, Around(Screen(vec3.Zero), grab, 21.0f));
 
-        var degrees = glm.Degrees(2.0f * MathF.Acos(Math.Clamp(MathF.Abs(result.Rotation.w), 0.0f, 1.0f)));
-        Assert.Equal(15.0f, degrees, 0.01f);
+        Assert.Equal(15.0f, Degrees(result.Rotation), 0.01f);
     }
 
     [Fact]

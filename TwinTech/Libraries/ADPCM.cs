@@ -1,18 +1,38 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 
 namespace Twinsanity.Libraries
 {
+    /// <summary>
+    /// The flags of an ADPCM block, its second byte
+    /// </summary>
     [Flags]
     public enum SampleLineFlags : byte
     {
+        /// <summary>
+        /// A block like any other
+        /// </summary>
         None = 0,
+        /// <summary>
+        /// The last block the SPU2 plays: the sound stops after it, or goes back to the loop's start with <see cref="Loop"/>
+        /// </summary>
         LoopEnd = 1,
+        /// <summary>
+        /// Repeat: on the last block, play from the loop's start again instead of stopping. The game's loops set it on every block from
+        /// the loop's start on
+        /// </summary>
         Loop = 2,
+        /// <summary>
+        /// Where the loop starts: the SPU2 keeps this block's address as the one to go back to
+        /// </summary>
         LoopStart = 4
     }
-    public class ADPCM
+
+    /// <summary>
+    /// The SPU2's ADPCM: blocks of 16 bytes holding 28 samples of one channel, the second byte flags (bit 0 the sound's or the loop's
+    /// last block, bit 1 repeat from the loop's start after it instead of stopping, bit 2 the loop's first block)
+    /// </summary>
+    public static class ADPCM
     {
         // PCM to ADPCM conversion code is based on PS2's PS2SDK repo
         // https://github.com/ps2dev/ps2sdk/blob/master/tools/ps2adpcm/README
@@ -20,471 +40,250 @@ namespace Twinsanity.Libraries
         // ADPCM to PCM conversion is based on code by bITmASTER and nextvolume
         // https://github.com/simias/psxsdk/blob/master/tools/vag2wav.c
 
-        private class PcmBuffer
+        /// <summary>
+        /// The samples a block holds, so where a loop can start and end
+        /// </summary>
+        public const Int32 SamplesPerBlock = 28;
+        /// <summary>
+        /// The bytes of a block: the shift and filter, the flags and 14 bytes of 4 bit samples
+        /// </summary>
+        public const Int32 BlockSize = 16;
+
+        private static readonly Double[,] F =
         {
-            public int GetPcm(ref double[] output, int len)
-            {
-                int i;
-                for (i = 0; i < len; i++)
-                {
-                    if (Position + i >= SampleCount)
-                    {
-                        break;
-                    }
-                    
-                    output[i] = Sample[((Position + i) * ChannelCount) + Channel];
-                }
-
-                Position += i;
-
-                return i;
-            }
-            
-            public int Position;
-            public int Channel;
-            public int ChannelCount;
-            public List<short> Sample = new();
-            public int SampleCount;
-        }
-
-        private class AdpcmSetup
-        {
-            public AdpcmSetup(BinaryWriter writer, PcmBuffer buffer, int loopStart)
-            {
-                _adpcmWriter = writer;
-                
-                PcmBuffer = buffer;
-                if (loopStart < 0)
-                {
-                    LoopStart = -1;
-                }
-                else
-                {
-                    LoopStart = loopStart;
-                }
-            }
-
-            public void WriteAdpcm(AdpcmBlock block)
-            {
-                _adpcmWriter.Write((byte)(block.Shift | (block.Predict << 4)));
-                _adpcmWriter.Write(block.Flags);
-                _adpcmWriter.Write(block.Sample);
-            }
-
-            public PcmBuffer PcmBuffer;
-            public double S1 = 0.0;
-            public double S2 = 0.0;
-            public double Ps1 = 0.0;
-            public double Ps2 = 0.0;
-            public int CurBlock = 0;
-            public int LoopStart;
-            public bool IsPadding = false;
-
-            private BinaryWriter _adpcmWriter;
-        }
-
-        private class AdpcmBlock
-        {
-            public const byte ADPCM_LOOP_END = 1;
-            public const byte ADPCM_LOOP = 2;
-            public const byte ADPCM_LOOP_START = 4;
-            
-            public byte Shift; // 4 bits long
-            public byte Predict; // 4 bits long
-            public byte Flags;
-            public byte[] Sample = new byte[14]; // 4 bits each
-        }
-
-        private static void PutAdpcm(BinaryWriter writer, ReadOnlySpan<byte> data, int len)
-        {
-            writer.Write(data[..len]);
-        }
-
-        private static readonly int CHUNK_SIZE = 8192;
-        private static readonly int BUFFER_SIZE = CHUNK_SIZE * 28;
-        private static readonly List<KeyValuePair<float, float>> F = new List<KeyValuePair<float, float>>
-        {
-            new(0.0f, 0.0f),
-            new(-0.9375f, 0.0f),
-            new(-1.796875f, 0.8125f),
-            new(-1.53125f, 0.859375f),
-            new(-1.90625f, 0.9375f),
-        };
-        
-        private static readonly List<KeyValuePair<float, float>> RevF = new List<KeyValuePair<float, float>>
-        {
-            new(0.0f, 0.0f),
-            new(0.9375f, 0.0f),
-            new(1.796875f, -0.8125f),
-            new(1.53125f, -0.859375f),
-            new(1.90625f, -0.9375f),
+            { 0.0, 0.0 },
+            { -0.9375, 0.0 },
+            { -1.796875, 0.8125 },
+            { -1.53125, 0.859375 },
+            { -1.90625, 0.9375 },
         };
 
-        private int AdpcmEncode(AdpcmSetup setup, int blocks)
+        private sealed class EncoderState
         {
-            var adpcm = new AdpcmBlock();
-            var samples = new double[28];
-            var procBlocks = 0;
+            public Double S1;
+            public Double S2;
+            public Double Ps1;
+            public Double Ps2;
+        }
 
-            for (procBlocks = 0; procBlocks < blocks; ++procBlocks)
+        /// <summary>
+        /// Where a channel's blocks loop, in samples: from the start of the first block flagged as the loop's start to the end of the
+        /// block ending the sound, when that one repeats (flags 3, or 7 for a loop of one block). -1 for both when the sound plays once
+        /// </summary>
+        public static void FindLoop(ReadOnlySpan<Byte> blocks, out Int32 loopStart, out Int32 loopEnd)
+        {
+            loopStart = -1;
+            loopEnd = -1;
+            var start = -1;
+            for (var block = 0; (block + 1) * BlockSize <= blocks.Length; block++)
             {
-                adpcm.Flags = 0;
-
-                for (var j = 0; j < 28; ++j)
+                var flags = (SampleLineFlags)blocks[block * BlockSize + 1];
+                if ((flags & SampleLineFlags.LoopStart) != 0 && start == -1)
                 {
-                    samples[j] = 0.0;
+                    start = block;
                 }
 
-                var ret = setup.PcmBuffer.GetPcm(ref samples, 28);
-                if (ret < 0)
+                if ((flags & SampleLineFlags.LoopEnd) == 0)
                 {
-                    return -1;
+                    continue;
                 }
 
-                if (ret < 28)
+                if ((flags & SampleLineFlags.Loop) != 0 && start != -1)
                 {
-                    adpcm.Flags = AdpcmBlock.ADPCM_LOOP_END;
+                    loopStart = start * SamplesPerBlock;
+                    loopEnd = (block + 1) * SamplesPerBlock;
                 }
 
-                if (setup.LoopStart >= 0)
+                return;
+            }
+        }
+
+        /// <summary>
+        /// A channel's samples: its blocks up to the one ending the sound or its loop, which holds the last samples (the blocks after
+        /// it are never played, the game's sounds have a silent block there)
+        /// </summary>
+        public static Int16[] Decode(ReadOnlySpan<Byte> blocks)
+        {
+            var samples = new List<Int16>(blocks.Length / BlockSize * SamplesPerBlock);
+            Double s0 = 0;
+            Double s1 = 0;
+            for (var block = 0; (block + 1) * BlockSize <= blocks.Length; block++)
+            {
+                var line = blocks.Slice(block * BlockSize, BlockSize);
+                var shift = line[0] & 0xF;
+                var predict = Math.Min((line[0] >> 4) & 0xF, 4);
+                for (var i = 0; i < 14; i++)
                 {
-                    adpcm.Flags |= AdpcmBlock.ADPCM_LOOP;
-                    if (setup.CurBlock == setup.LoopStart)
-                    {
-                        adpcm.Flags |= AdpcmBlock.ADPCM_LOOP_START;
-                    }
+                    samples.Add(DecodeSample(line[i + 2] & 0xF, shift, predict, ref s0, ref s1));
+                    samples.Add(DecodeSample((line[i + 2] >> 4) & 0xF, shift, predict, ref s0, ref s1));
                 }
-                
-                FindPredict(ref setup, ref adpcm, ref samples);
-                Pack(ref setup, ref adpcm, samples);
-                
-                setup.WriteAdpcm(adpcm);
-                setup.CurBlock++;
-                if (ret < 28)
+
+                if (((SampleLineFlags)line[1] & SampleLineFlags.LoopEnd) != 0)
                 {
                     break;
                 }
             }
 
-            if (setup.LoopStart < 0 && procBlocks < blocks)
-            {
-                adpcm.Predict = 0;
-                adpcm.Shift = 0;
-                adpcm.Flags = AdpcmBlock.ADPCM_LOOP_START | AdpcmBlock.ADPCM_LOOP | AdpcmBlock.ADPCM_LOOP_END;
-                for (var i = 0; i < 14; ++i)
-                {
-                    adpcm.Sample[i] = 0;
-                }
-                
-                setup.WriteAdpcm(adpcm);
-                setup.CurBlock++;
-                procBlocks++;
-            }
-
-            if (procBlocks < blocks && setup.IsPadding)
-            {
-                var padBlocks = blocks - (setup.CurBlock % blocks);
-                
-                adpcm.Predict = 0;
-                adpcm.Shift = 0;
-                adpcm.Flags = AdpcmBlock.ADPCM_LOOP_START | AdpcmBlock.ADPCM_LOOP | AdpcmBlock.ADPCM_LOOP_END;
-                for (var i = 0; i < 14; ++i)
-                {
-                    adpcm.Sample[i] = 0;
-                }
-
-                for (var i = 0; i < padBlocks; ++i)
-                {
-                    setup.WriteAdpcm(adpcm);
-                    setup.CurBlock++;
-                }
-            }
-
-            return procBlocks;
+            return samples.ToArray();
         }
 
-        private void FindPredict(ref AdpcmSetup setup, ref AdpcmBlock adpcm, ref double[] samples)
+        private static Int16 DecodeSample(Int32 nibble, Int32 shift, Int32 predict, ref Double s0, ref Double s1)
         {
-            var max = new double[5];
-            var buffer = new double[28][];
-            for (var i = 0; i < 28; ++i)
-                buffer[i] = new double[5];
-            double s1 = 0.0, s2 = 0.0, min = 1e10;
+            var sample = (Int16)(nibble << 12) >> shift;
+            var value = sample - s0 * F[predict, 0] - s1 * F[predict, 1];
+            s1 = s0;
+            s0 = value;
+            return (Int16)Math.Clamp(Math.Round(value), Int16.MinValue, Int16.MaxValue);
+        }
 
-            for (var i = 0; i < 5; ++i)
+        /// <summary>
+        /// A channel's blocks, laid out like the game's sounds. A sound played once ends on a block flagged 1 and a silent block that
+        /// loops on itself (7) after it. A looping sound's loop starts on a block flagged 6, the blocks after it are flagged 2 and the
+        /// loop's last block 3, which is where the sound stops: the samples after the loop are never played and aren't kept. The loop's
+        /// points (samples, -1 for none) are rounded down to whole blocks of 28 samples, a loop is at least one block long
+        /// </summary>
+        public static Byte[] Encode(ReadOnlySpan<Int16> samples, Int32 loopStart, Int32 loopEnd)
+        {
+            var blocks = (samples.Length + SamplesPerBlock - 1) / SamplesPerBlock;
+            var loopStartBlock = -1;
+            if (loopStart >= 0 && loopEnd > loopStart && loopStart / SamplesPerBlock < blocks)
             {
-                max[i] = 0.0;
-                s1 = setup.S1;
-                s2 = setup.S2;
+                loopStartBlock = loopStart / SamplesPerBlock;
+                blocks = Math.Max(Math.Min(loopEnd, samples.Length) / SamplesPerBlock, loopStartBlock + 1);
+            }
 
-                for (var j = 0; j < 28; ++j)
+            var output = new Byte[(loopStartBlock == -1 ? Math.Max(blocks, 1) + 1 : blocks) * BlockSize];
+            var state = new EncoderState();
+            var block = new Double[SamplesPerBlock];
+            for (var index = 0; index < Math.Max(blocks, 1); index++)
+            {
+                for (var i = 0; i < SamplesPerBlock; i++)
                 {
-                    var s0 = Math.Clamp(samples[j], -30720.0, 30719.0);
-                    var ds = s0 + s1 * F[i].Key + s2 * F[i].Value;
-                    buffer[j][i] = ds;
-                    if (Math.Abs(ds) > max[i])
+                    var sample = index * SamplesPerBlock + i;
+                    block[i] = sample < samples.Length ? samples[sample] : 0.0;
+                }
+
+                var last = index == Math.Max(blocks, 1) - 1;
+                var flags = SampleLineFlags.None;
+                if (loopStartBlock == -1)
+                {
+                    flags = last ? SampleLineFlags.LoopEnd : SampleLineFlags.None;
+                }
+                else if (index >= loopStartBlock)
+                {
+                    flags = SampleLineFlags.Loop;
+                    if (index == loopStartBlock)
                     {
-                        max[i] = Math.Abs(ds);
+                        flags |= SampleLineFlags.LoopStart;
                     }
 
+                    if (last)
+                    {
+                        flags |= SampleLineFlags.LoopEnd;
+                    }
+                }
+
+                EncodeBlock(state, block, flags, output.AsSpan(index * BlockSize, BlockSize));
+            }
+
+            if (loopStartBlock == -1)
+            {
+                output[output.Length - BlockSize + 1] = (Byte)(SampleLineFlags.LoopStart | SampleLineFlags.Loop | SampleLineFlags.LoopEnd);
+            }
+
+            return output;
+        }
+
+        private static void EncodeBlock(EncoderState state, Double[] samples, SampleLineFlags flags, Span<Byte> output)
+        {
+            FindPredict(state, samples, out var predict, out var shift);
+            var nibbles = Pack(state, samples, predict, shift);
+            output[0] = (Byte)(shift | (predict << 4));
+            output[1] = (Byte)flags;
+            for (var i = 0; i < 14; ++i)
+            {
+                output[i + 2] = (Byte)(((nibbles[(i * 2) + 1] >> 8) & 0xF0) | ((nibbles[i * 2] >> 12) & 0xF));
+            }
+        }
+
+        // The filter whose residue is the smallest, the residue replacing the samples, and the shift that fits it into 4 bits
+        private static void FindPredict(EncoderState state, Double[] samples, out Int32 predict, out Int32 shift)
+        {
+            var buffer = new Double[SamplesPerBlock, 5];
+            Double s1 = 0.0;
+            Double s2 = 0.0;
+            var min = 1e10;
+            predict = 0;
+            for (var i = 0; i < 5; ++i)
+            {
+                var max = 0.0;
+                s1 = state.S1;
+                s2 = state.S2;
+                for (var j = 0; j < SamplesPerBlock; ++j)
+                {
+                    var s0 = Math.Clamp(samples[j], -30720.0, 30719.0);
+                    var ds = s0 + s1 * F[i, 0] + s2 * F[i, 1];
+                    buffer[j, i] = ds;
+                    max = Math.Max(max, Math.Abs(ds));
                     s2 = s1;
                     s1 = s0;
                 }
 
-                if (max[i] < min)
+                if (max < min)
                 {
-                    min = max[i];
-                    adpcm.Predict = (byte)i;
+                    min = max;
+                    predict = i;
                 }
 
                 if (min <= 7)
                 {
-                    adpcm.Predict = 0;
+                    predict = 0;
                     break;
                 }
             }
 
-            setup.S1 = s1;
-            setup.S2 = s2;
-
-            for (var i = 0; i < 28; ++i)
+            state.S1 = s1;
+            state.S2 = s2;
+            for (var i = 0; i < SamplesPerBlock; ++i)
             {
-                samples[i] = buffer[i][adpcm.Predict];
+                samples[i] = buffer[i, predict];
             }
 
-            var min2 = (int)min;
+            var min2 = (Int32)min;
             var shiftMask = 0x4000;
-            adpcm.Shift = 0;
-
-            while (adpcm.Shift < 12)
+            shift = 0;
+            while (shift < 12)
             {
                 if ((shiftMask & (min2 + (shiftMask >> 3))) != 0)
                 {
                     break;
                 }
-                
-                adpcm.Shift++;
+
+                shift++;
                 shiftMask >>= 1;
             }
         }
 
-        private void Pack(ref AdpcmSetup setup, ref AdpcmBlock adpcm, double[] samples)
+        private static Int16[] Pack(EncoderState state, Double[] samples, Int32 predict, Int32 shift)
         {
-            var s1 = setup.Ps1;
-            var s2 = setup.Ps2;
-            var fourBit = new short[28];
-
-            for (var i = 0; i < 28; ++i)
+            var s1 = state.Ps1;
+            var s2 = state.Ps2;
+            var nibbles = new Int16[SamplesPerBlock];
+            for (var i = 0; i < SamplesPerBlock; ++i)
             {
-                var s0 = samples[i] + s1 * F[adpcm.Predict].Key + s2 * F[adpcm.Predict].Value;
-                var ds = s0 * (1 << adpcm.Shift);
-                var di = (int)(((int)ds + 0x800) & 0xFFFFF000);
+                var s0 = samples[i] + s1 * F[predict, 0] + s2 * F[predict, 1];
+                var ds = s0 * (1 << shift);
+                var di = (Int32)(((Int32)ds + 0x800) & 0xFFFFF000);
                 di = Math.Clamp(di, -32768, 32767);
-                
-                fourBit[i] = (short)di;
-                
-                di >>= adpcm.Shift;
+                nibbles[i] = (Int16)di;
+                di >>= shift;
                 s2 = s1;
                 s1 = di - s0;
             }
 
-            for (var i = 0; i < 14; ++i)
-            {
-                adpcm.Sample[i] = (byte)(((fourBit[(i * 2) + 1] >> 8) & 0xF0) | ((fourBit[i * 2] >> 12) & 0xF));
-            }
-            
-            setup.Ps1 = s1;
-            setup.Ps2 = s2;
-        }
-
-        private short SampleToPCM(int sample, int factor, int predict, ref float s0, ref float s1)
-        {
-            sample <<= 12;
-            sample = (short)sample;
-            sample >>= factor;
-            float value = sample;
-            value += s0 * RevF[predict].Key;
-            value += s1 * RevF[predict].Value;
-            s1 = s0;
-            s0 = value;
-            return (short)Math.Round(value);
-        }
-        
-        private SampleLineFlags LineToPCM(BinaryReader reader, BinaryWriter writer, ref float s0, ref float s1)
-        {
-            Byte startByte = reader.ReadByte();
-            SampleLineFlags flags = (SampleLineFlags)reader.ReadByte();
-            int factor = startByte & 0xF;
-            int predict = (startByte >> 4) & 0xF;
-            if ((flags & SampleLineFlags.LoopEnd) == 0)
-            {
-                for (int i = 0; i < 14; i++)
-                {
-                    Byte src = reader.ReadByte();
-                    int low = src & 0xF;
-                    int high = (src & 0xF0) >> 4;
-                    short l = SampleToPCM(low, factor, predict, ref s0, ref s1);
-                    short h = SampleToPCM(high, factor, predict, ref s0, ref s1);
-                    writer.Write(l);
-                    writer.Write(h);
-                }
-            }
-            return flags;
-        }
-        
-        public void ToADPCMMono(BinaryReader reader, BinaryWriter writer)
-        {
-            var pcmBuffer = new PcmBuffer
-            {
-                ChannelCount = 1,
-                Channel = 0,
-                Position = 0
-            };
-            var setup = new AdpcmSetup(writer, pcmBuffer, -1);
-            
-            while (reader.BaseStream.Position < reader.BaseStream.Length)
-            {
-                pcmBuffer.Sample.Clear();
-                for (var i = 0; i < BUFFER_SIZE; ++i)
-                {
-                    pcmBuffer.Sample.Add(reader.ReadInt16());
-                    if (reader.BaseStream.Position >= reader.BaseStream.Length)
-                    {
-                        break;
-                    }
-                }
-                pcmBuffer.SampleCount = pcmBuffer.Sample.Count;
-                
-                AdpcmEncode(setup, CHUNK_SIZE);
-            }
-        }
-
-        public void ToADPCMStereo(BinaryReader reader, BinaryWriter writer)
-        {
-            var pcmBuffer = new PcmBuffer
-            {
-                ChannelCount = 2
-            };
-            var setups = new AdpcmSetup[2];
-            setups[0] = new AdpcmSetup(writer, pcmBuffer, -1)
-            {
-                IsPadding = true
-            };
-            setups[1] = new AdpcmSetup(writer, pcmBuffer, -1)
-            {
-                IsPadding = true
-            };
-
-            var bufferSize = (int)reader.BaseStream.Length / 4;
-            var chunkSize = (bufferSize / 28) + 1;
-            
-            while (reader.BaseStream.Position < reader.BaseStream.Length)
-            {
-                pcmBuffer.Sample.Clear();
-                for (var i = 0; i < bufferSize; ++i)
-                {
-                    pcmBuffer.Sample.Add(reader.ReadInt16());
-                    pcmBuffer.Sample.Add(reader.ReadInt16());
-                    if (reader.BaseStream.Position >= reader.BaseStream.Length)
-                    {
-                        break;
-                    }
-                }
-                
-                pcmBuffer.SampleCount = pcmBuffer.Sample.Count / 2;
-                
-                for (var i = 0; i < 2; ++i)
-                {
-                    pcmBuffer.Position = 0;
-                    pcmBuffer.Channel = i;
-                    AdpcmEncode(setups[i], chunkSize);
-                }
-            }
-        }
-
-        public void ToPCMMono(BinaryReader reader, BinaryWriter writer)
-        {
-            float s0 = 0.0f;
-            float s1 = 0.0f;
-            SampleLineFlags flag = 0;
-            while ((flag & SampleLineFlags.LoopEnd) == 0)
-            {
-                flag = LineToPCM(reader, writer, ref s0, ref s1);
-            }
-        }
-        
-        private static short SampleToPCM2(int sample, int factor, int predict, ref double s0, ref double s1)
-        {
-            sample <<= 12;
-            sample = (short)sample; //sign extend
-            sample >>= factor;
-            double value = sample;
-            value += s0 * RevF[predict].Key;
-            value += s1 * RevF[predict].Value;
-            s1 = s0;
-            s0 = value;
-            return (short)Math.Round(value);
-        }
-        
-        private static byte[] LineToPCM2(byte[] input, ref double s0, ref double s1)
-        {
-            if (input.Length != 16)
-                throw new ArgumentException("input");
-            byte[] o = new byte[28 * 2];
-            int factor = input[0] & 0xF;
-            int predict = (input[0] >> 4) & 0xF;
-            for (int i = 0; i < 14; i++)
-            {
-                int adl = input[i+2] & 0xF;
-                int adh = (input[i+2] & 0xF0) >> 4;
-                short l = SampleToPCM2(adl, factor, predict, ref s0, ref s1);
-                short h = SampleToPCM2(adh, factor, predict, ref s0, ref s1);
-                BitConv.ToInt16(o, i * 4 + 0, l);
-                BitConv.ToInt16(o, i * 4 + 2, h);
-            }
-            return o;
-        }
-
-        public void ToPCMStereo(BinaryReader reader, BinaryWriter writer, int interleave)
-        {
-            if ((reader.BaseStream.Length % 32) != 0)
-                throw new ArgumentException("Stereo sample size is not a multiple of 32.");
-            if ((interleave % 16) != 0)
-                throw new ArgumentException("Stereo interleave is not a multiple of 16.");
-            if (interleave <= 0)
-                throw new ArgumentOutOfRangeException("interleave");
-            var size = reader.BaseStream.Length / 32;
-            var data = reader.ReadBytes((int)reader.BaseStream.Length);
-            interleave /= 16;
-            double s0_l = 0, s1_l = 0;
-            double s0_r = 0, s1_r = 0;
-            List<byte> pcm_data = new List<byte>();
-            int interleave_adv = 0;
-            for (int i = 0; i < size; ++i)
-            {
-                if ((i % interleave) == 0)
-                    ++interleave_adv;
-                byte[] line_l = new byte[16];
-                byte[] line_r = new byte[16];
-                Array.Copy(data, (i + interleave * (interleave_adv-1)) * 16, line_l, 0, 16);
-                Array.Copy(data, (i + interleave * interleave_adv) * 16, line_r, 0, 16);
-                if (line_l[1] == 7 || line_r[1] == 7)
-                    break;
-                var l = LineToPCM2(line_l, ref s0_l, ref s1_l);
-                var r = LineToPCM2(line_r, ref s0_r, ref s1_r);
-                for (int j = 0; j < 28; ++j)
-                {
-                    pcm_data.Add(l[0 + j * 2]);
-                    pcm_data.Add(l[1 + j * 2]);
-                    pcm_data.Add(r[0 + j * 2]);
-                    pcm_data.Add(r[1 + j * 2]);
-                }
-                if (line_l[1] == 1 || line_r[1] == 1)
-                    break;
-            }
-            
-            writer.Write(pcm_data.ToArray().AsSpan());
+            state.Ps1 = s1;
+            state.Ps2 = s2;
+            return nibbles;
         }
     }
 }
-

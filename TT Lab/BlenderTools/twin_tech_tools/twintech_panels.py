@@ -56,10 +56,7 @@ def _item_label(twin_type: schema.TwinType, item: typing.Any, index: int) -> str
     if twin_type is schema.TREE_NODE:
         return "%d: %s, parent %d, slot %d" % (index, item.kind, item.parent, item.slot)
 
-    if twin_type is schema.OGI_COLLISION:
-        return "%d: joint %d, %d points" % (index, item.joint, len(item.points))
-
-    return "%d: %d points" % (index, len(getattr(item, "points", [])))
+    return "%d" % index
 
 
 class TTT_UL_Items(bpy.types.UIList):

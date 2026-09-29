@@ -35,6 +35,12 @@ namespace Twinsanity.TwinsanityInterchange.Enumerations
             COMPRESSED = 0x1002
         }
 
+        /// <summary>
+        /// An instance's state flags. What the PAL executable reads of them: bits 0-3 and 8-17 are the object's own states, bit 4 sets
+        /// a context bit, bit 5 gives the instance a node keeping its previous transform, bits 6-7 its persistent flag and where it's
+        /// kept, bit 18 places it on the ground below when created. Bits 19-31 are never read by the engine, scripts can still test
+        /// any bit with CheckInstanceFlagSet.
+        /// </summary>
         [Flags]
         public enum InstanceState : UInt32
         {
@@ -43,9 +49,19 @@ namespace Twinsanity.TwinsanityInterchange.Enumerations
             Visible = 1 << 2,
             ShadowActive = 1 << 3,
             PlayableCharacterCanMoveAlong = 1 << 4,
-            Unknown1 = 1 << 5,
+            /// <summary>
+            /// The instance keeps its transform of the previous frame (dynamic scenery always does), which what stands on it moves by
+            /// </summary>
+            TracksMovement = 1 << 5,
+            /// <summary>
+            /// The instance gets a slot among its chunk's persistent flags, set by scripts (SetPersistentFlag) and the movies it
+            /// played, and tested by CheckPersistentFlagCondition
+            /// </summary>
             SyncCrossChunkState = 1 << 6,
-            Unknown2 = 1 << 7,
+            /// <summary>
+            /// The persistent flag is kept in the chunk's own store, which every instance's flag goes to, instead of the level's
+            /// </summary>
+            PersistentFlagInChunkStore = 1 << 7,
             ReceiveOnTriggerSignals = 1 << 8,
             CanDamageCharacter = 1 << 9,
             SolidToBodySlam = 1 << 10,
@@ -56,7 +72,11 @@ namespace Twinsanity.TwinsanityInterchange.Enumerations
             Targettable = 1 << 15,
             CanAlwaysDamageCharacter = 1 << 16,
             BulletsWillBounceBack = 1 << 17,
-            Unknown3 = 1 << 18,
+            /// <summary>
+            /// Placed on the ground when created: a ray cast from 1 above the instance to 7 below it, the instance goes where it hits
+            /// plus its float property 5
+            /// </summary>
+            SnapToGround = 1 << 18,
             Unknown4 = 1 << 19,
             Unknown5 = 1 << 20,
             Unknown6 = 1 << 21,
@@ -72,6 +92,33 @@ namespace Twinsanity.TwinsanityInterchange.Enumerations
             Unknown16 = 1U << 31,
         }
 
+        /// <summary>
+        /// The bits of a trigger's header the game reads: which messages the trigger sends and whether it gets polled
+        /// </summary>
+        [Flags]
+        public enum TriggerFlags : UInt32
+        {
+            /// <summary>
+            /// Sends its second message every time something enters the box
+            /// </summary>
+            OnEnter = 1 << 8,
+            /// <summary>
+            /// Sends its third message while something stays in the box
+            /// </summary>
+            OnStay = 1 << 9,
+            /// <summary>
+            /// Sends its fourth message when something leaves the box
+            /// </summary>
+            OnExit = 1 << 10,
+            /// <summary>
+            /// Sends its first message the first time something enters the box
+            /// </summary>
+            OnEnterOnce = 1 << 11,
+            /// <summary>
+            /// The trigger's node never checks its box, no retail trigger has it
+            /// </summary>
+            NotPolled = 1 << 12
+        }
         [Flags]
         public enum TriggerActivatorObjects
         {
@@ -133,30 +180,47 @@ namespace Twinsanity.TwinsanityInterchange.Enumerations
             UiShader = 0x10000000,
         }
 
+        /// <summary>
+        /// A collision surface's flags, from the PAL executable. The ray casts test one bit each: the player's probes bit 4, the camera's
+        /// bit 5, objects' ground and movement checks (CanMoveForwards, SnapToGround) bit 6, lines of sight (CanSeePlayer,
+        /// ClearLineOfSightToFocus) bit 7. Bits 12-19 are set on every surface by the surface's constructor and never read.
+        /// </summary>
         [Flags]
         public enum SurfaceCollisionFlags : UInt32
         {
-            Unknown1 = 1 << 0,
-            Unknown2 = 1 << 1,
-            Unknown3 = 1 << 2,
+            /// <summary>The tools' tag of the slightly slippy surfaces, never read: the friction does the sliding</summary>
+            SlightlySlippy = 1 << 0,
+            /// <summary>The tools' tag of the medium slippy surfaces, never read</summary>
+            MediumSlippy = 1 << 1,
+            /// <summary>Set on the liquids and the deadly surfaces, never read</summary>
+            Hazard = 1 << 2,
             Unknown4 = 1 << 3,
-            Unknown5 = 1 << 4,
-            Unknown6 = 1 << 5,
-            Unknown7 = 1 << 6,
-            Unknown8 = 1 << 7,
-            Unknown9 = 1 << 8,
-            Unknown10 = 1 << 9,
-            Unknown11 = 1 << 10,
-            Unknown12 = 1 << 11,
-            Unknown13 = 1 << 12,
-            Unknown14 = 1 << 13,
-            Unknown15 = 1 << 14,
-            Unknown16 = 1 << 15,
-            Unknown17 = 1 << 16,
-            Unknown18 = 1 << 17,
-            Unknown19 = 1 << 18,
-            Unknown20 = 1 << 19,
-            Unknown21 = 1 << 20,
+            /// <summary>The player's ray casts hit it (ground probes, footprints, the spin's reach)</summary>
+            SolidToPlayerProbes = 1 << 4,
+            /// <summary>The camera's ray casts hit it and it keeps the camera out of instances' hulls</summary>
+            BlocksCamera = 1 << 5,
+            /// <summary>Ground for objects: their ray casts hit it, rigid bodies rest on it and instances snap to it</summary>
+            SolidToObjects = 1 << 6,
+            /// <summary>Lines of sight stop at it (CanSeePlayer, ClearLineOfSightToFocus, PlayerVisible)</summary>
+            BlocksLineOfSight = 1 << 7,
+            /// <summary>Set on every deadly surface next to <see cref="SendsContactMessage"/>, never read</summary>
+            Deadly = 1 << 8,
+            /// <summary>The player standing on it gets the surface's contact message (the deadly surfaces' kill)</summary>
+            SendsContactMessage = 1 << 9,
+            /// <summary>Slows the player down like the sticky snow</summary>
+            Sticky = 1 << 10,
+            /// <summary>The player's steps leave footprints on it</summary>
+            LeavesFootprints = 1 << 11,
+            Default12 = 1 << 12,
+            Default13 = 1 << 13,
+            Default14 = 1 << 14,
+            Default15 = 1 << 15,
+            Default16 = 1 << 16,
+            Default17 = 1 << 17,
+            Default18 = 1 << 18,
+            Default19 = 1 << 19,
+            /// <summary>The player's body collides with it, surfaces without it (water, the camera and AI walls) are passed through</summary>
+            SolidToPlayer = 1 << 20,
             Unknown22 = 1 << 21,
             Unknown23 = 1 << 22,
             Unknown24 = 1 << 23,

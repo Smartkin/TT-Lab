@@ -7,6 +7,7 @@ using System.Linq;
 using TT_Lab.AssetData.Graphics.SubModels;
 using TT_Lab.Assets.Code.Resolvers.Compiler;
 using TT_Lab.Util;
+using Twinsanity.PS2Hardware;
 using Twinsanity.AgentLab;
 using Twinsanity.AgentLab.AgentLabObjectDescs;
 using Twinsanity.AgentLab.AgentLabObjectDescs.PS2;
@@ -43,6 +44,9 @@ namespace TT_Lab.Assets.Factory
 {
     public class PS2ItemFactory : ITwinItemFactory
     {
+        // A packet's DMA tag and the padding after its last batch, a word per missing byte at most
+        private const Int32 PacketStartBytes = 80;
+
         public Package GlobalPackage { get; set; }
         public bool IsDefaultResolution { get; set; }
 
@@ -117,7 +121,7 @@ namespace TT_Lab.Assets.Factory
             return compilerResult.Get<ITwinBehaviourCommandsSequence>();
         }
 
-        public AgentLabCompiler.CompilerResult GenerateBehaviourGraph(Stream stream)
+        public AgentLabCompiler.CompilerResult GenerateBehaviourGraph(Stream stream, IAsset? requester = null)
         {
             using var binaryReader = new BinaryReader(stream);
             var graphId = binaryReader.ReadInt32();
@@ -131,7 +135,7 @@ namespace TT_Lab.Assets.Factory
                 StateBody = NewStateBodyDesc(),
                 Graph = NewGraphDesc(),
                 ActionDefinitionsFile = ActionDefinitionsFile,
-                Resolver = new LabCompilerResolver(graphId)
+                Resolver = new LabCompilerResolver(graphId, requester)
             };
             return AgentLabCompiler.Compile(script, compilerOptions);
         }
@@ -154,10 +158,12 @@ namespace TT_Lab.Assets.Factory
         public ChunkOverrides? Overrides { get; set; }
         public ChunkResolution Resolution { get; } = new();
         public ConcurrentDictionary<(LabURI Graph, Int32 Id, String Script), AgentLabCompiler.CompilerResult> CompiledBehaviours { get; protected init; } = new();
+        public IReadOnlySet<LabURI> ExcludedChunks { get; set; } = new HashSet<LabURI>();
+        public List<LabURI> LinkedChunks { get; } = new();
 
         public virtual ITwinItemFactory ForChunk()
         {
-            return new PS2ItemFactory { GlobalPackage = GlobalPackage, CompiledBehaviours = CompiledBehaviours };
+            return new PS2ItemFactory { GlobalPackage = GlobalPackage, CompiledBehaviours = CompiledBehaviours, ExcludedChunks = ExcludedChunks };
         }
 
         public virtual ITwinBlendSkin GenerateBlendSkin(Int32 blendsAmount, List<BlendPartExport> parts)
@@ -320,11 +326,9 @@ namespace TT_Lab.Assets.Factory
             for (var i = 0; i < linkAmount; i++)
             {
                 TwinChunkLink chunkLink = new();
-                chunkLink.UnkFlag = reader.ReadBoolean();
+                chunkLink.LoadsWithoutPlayer = reader.ReadBoolean();
                 chunkLink.Path = reader.ReadString();
-                chunkLink.IsAlwaysVisible = reader.ReadBoolean();
-                chunkLink.IsVisibleInCameraFrustum = reader.ReadBoolean();
-                chunkLink.UnkNum = reader.ReadByte();
+                chunkLink.Visibility = (ChunkLinkVisibility)reader.ReadByte();
                 chunkLink.IsLoadWallActive = reader.ReadBoolean();
                 chunkLink.KeepLoaded = reader.ReadBoolean();
                 chunkLink.ObjectMatrix.Read(reader, Constants.SIZE_MATRIX4);
@@ -337,7 +341,7 @@ namespace TT_Lab.Assets.Factory
                 var buildersAmount = reader.ReadInt32();
                 for (var j = 0; j < buildersAmount; j++)
                 {
-                    var builder = new TwinChunkLinkBoundingBoxBuilder();
+                    var builder = new TwinChunkLinkHull();
                     builder.Read(reader, (Int32)stream.Length);
                     chunkLink.ChunkLinksCollisionData.Add(builder);
                 }
@@ -377,7 +381,7 @@ namespace TT_Lab.Assets.Factory
             {
                 var hasNormals = part.Vertexes.Any(v => v.HasNormals);
                 var hasEmits = part.Vertexes.Any(v => v.HasEmitColor);
-                var subModel = new PS2SubModel
+                PS2SubModel NewSubModel() => new()
                 {
                     UnusedBlob = Array.Empty<Byte>(),
                     Vertexes = [],
@@ -389,8 +393,21 @@ namespace TT_Lab.Assets.Factory
                     GroupSizes = [],
                     Padding = part.Layout.Padding
                 };
+
+                // Like a skin's sub skins, a sub model's packet can't go past what one DMA tag sends
+                var subModel = NewSubModel();
+                var packetBytes = PacketStartBytes;
                 foreach (var batch in part.Layout.Batches)
                 {
+                    var batchBytes = TwinVIFCompiler.RigidBatchBytes(batch.Vertexes.Count, hasNormals, hasEmits);
+                    if (subModel.GroupSizes.Count > 0 && packetBytes + batchBytes > TwinVIFCompiler.MaxPacketBytes)
+                    {
+                        model.SubModels.Add(subModel);
+                        subModel = NewSubModel();
+                        packetBytes = PacketStartBytes;
+                    }
+
+                    packetBytes += batchBytes;
                     subModel.GroupSizes.Add(batch.Vertexes.Count);
                     foreach (var stripVertex in batch.Vertexes)
                     {
@@ -425,7 +442,7 @@ namespace TT_Lab.Assets.Factory
             var gameObject = Create<PS2AnyObject>();
             using var reader = new BinaryReader(stream);
             gameObject.Type = (ITwinObject.ObjectType)reader.ReadInt32();
-            gameObject.UnkTypeValue = reader.ReadByte();
+            gameObject.SubType = reader.ReadByte();
             gameObject.ReactJointAmount = reader.ReadByte();
             gameObject.ExitPointAmount = reader.ReadByte();
             gameObject.Name = reader.ReadString();
@@ -519,12 +536,12 @@ namespace TT_Lab.Assets.Factory
                 ogi.SkinInverseBindMatrices.Add(mat);
             }
 
-            var builders = reader.ReadInt32();
-            for (Int32 i = 0; i < builders; i++)
+            var hulls = reader.ReadInt32();
+            for (Int32 i = 0; i < hulls; i++)
             {
-                var builder = new TwinBoundingBoxBuilder();
-                builder.Read(reader, (Int32)stream.Length);
-                ogi.Collisions.Add(builder);
+                var hull = new TwinCollisionHull();
+                hull.Read(reader, (Int32)stream.Length);
+                ogi.CollisionHulls.Add(hull);
             }
 
             var jointToBuilders = reader.ReadInt32();
@@ -585,7 +602,7 @@ namespace TT_Lab.Assets.Factory
             using var reader = new BinaryReader(stream);
             scenery.Name = reader.ReadString();
             scenery.FogColor = reader.ReadUInt32();
-            scenery.UnkByte = reader.ReadByte();
+            scenery.UnusedByte = reader.ReadByte();
             scenery.SkydomeID = reader.ReadUInt32();
             scenery.HasLighting = reader.ReadBoolean();
             if (scenery.HasLighting)
@@ -655,7 +672,8 @@ namespace TT_Lab.Assets.Factory
             var skin = new PS2AnySkin();
             foreach (var part in parts)
             {
-                var subSkin = new PS2SubSkin
+                var compression = GetFittingCompression(part.Compression, part.Vertexes);
+                PS2SubSkin NewSubSkin() => new()
                 {
                     Vertexes = [],
                     UVW = [],
@@ -663,13 +681,27 @@ namespace TT_Lab.Assets.Factory
                     SkinJoints = [],
                     Material = part.Material,
                     GroupSizes = [],
-                    Compression = GetFittingCompression(part.Compression, part.Vertexes)?.Clone(),
+                    Compression = compression?.Clone(),
                     Padding = part.Layout.Padding
                 };
+
+                // A sub skin's packet goes out with one DMA tag, which sends 65535 quad words at most. Meshes made in Blender can have
+                // many times the vertexes of the game's, their batches are spread over several sub skins of the same material
+                var subSkin = NewSubSkin();
+                var packetBytes = PacketStartBytes;
                 foreach (var batch in part.Layout.Batches)
                 {
+                    var batchBytes = TwinVIFCompiler.SkinBatchBytes(batch.Vertexes.Count);
+                    if (subSkin.GroupSizes.Count > 0 && packetBytes + batchBytes > TwinVIFCompiler.MaxPacketBytes)
+                    {
+                        skin.SubSkins.Add(subSkin);
+                        subSkin = NewSubSkin();
+                        packetBytes = PacketStartBytes;
+                    }
+
                     subSkin.GroupSizes.Add(batch.Vertexes.Count);
                     AddSkinVertexes(batch, part.Vertexes, subSkin.Vertexes, subSkin.UVW, subSkin.Colors, subSkin.SkinJoints);
+                    packetBytes += batchBytes;
                 }
 
                 skin.SubSkins.Add(subSkin);

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
@@ -30,6 +30,9 @@ public static class PropertyGraphBuilder
         node.Children.Clear();
         BuildLink(node, node.Path, node.Graph!.Tracker);
     }
+
+    // Whether values of the type get nodes of their own for what's in them
+    public static bool CanHaveChildren(Type? type) => type != null && !IsLeaf(type) && !IsLink(type);
 
     public static PropertyNode BuildNode(object target, PropertyMetadata? property, string path, PropertyGraphTracker tracker, Type? innerType = null, int? index = null)
     {
@@ -73,6 +76,7 @@ public static class PropertyGraphBuilder
             var childPath = $"{path}.{enumValue}";
             var child = new PropertyNode($"{enumValue}", childPath, enumFlags, node.Metadata, index: shiftIdx)
             {
+                SetsParent = true,
                 SetValueDelegate = (property, value) =>
                 {
                     var currentValue = Convert.ToUInt64(property.Target);
@@ -87,8 +91,8 @@ public static class PropertyGraphBuilder
                         currentValue &= ~shiftValue;
                     }
 
-                    var converted = Convert.ChangeType(currentValue,
-                        Enum.GetUnderlyingType(property.Parent!.PropertyType));
+                    // The flags stay their enum, a bare number would make the history start over as a change of type
+                    var converted = Enum.ToObject(property.Parent!.PropertyType, currentValue);
                     property.Parent?.SetValue(converted);
                 },
                 GetValueDelegate = (property) =>
@@ -176,7 +180,7 @@ public static class PropertyGraphBuilder
         {
             if (node.Children.Count > i)
             {
-                node.Children[i].SetPath($"{path}[{i}]");
+                node.Children[i].SetSegment($"[{i}]");
                 node.Children[i].Index = i;
                 continue;
             }

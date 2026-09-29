@@ -12,6 +12,23 @@ public static class AssetDeletion
     /// Deletes the asset along with everything it contains, and fixes up the references other assets had to them
     /// </summary>
     /// <returns>Whether the asset got deleted</returns>
+    /// <summary>
+    /// Takes an asset that never got saved out of the project, like an instance made for a chunk that the chunk doesn't list anymore
+    /// (its placing undone, the chunk closed without saving): nothing refers to it and it has no files. It stayed in the project tree,
+    /// and once its data got released it couldn't be opened
+    /// </summary>
+    public static void ForgetUnsaved(SerializableAsset asset)
+    {
+        var assetManager = AssetManager.Get();
+        foreach (var folder in assetManager.GetAllAssetsOf<Folder>())
+        {
+            folder.Children.Remove(asset.URI);
+        }
+
+        asset.RemoveFromTree();
+        assetManager.RemoveAsset(asset);
+    }
+
     public static async Task<bool> DeleteAsync(IAsset asset)
     {
         var assetManager = AssetManager.Get();
@@ -83,6 +100,7 @@ public static class AssetDeletion
         }
 
         editors?.ForgetDeletedAssets(deletedAssets);
+        Global.LevelSelect.RemoveChunks(assetsToDelete.OfType<LevelChunk>());
         Log.WriteLine($"Deleted {assetsToDelete.Count} assets and fixed references in {dependents.Count} assets");
         if (placeholders.Count > 0)
         {

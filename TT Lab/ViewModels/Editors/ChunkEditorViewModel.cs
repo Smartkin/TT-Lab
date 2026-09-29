@@ -501,42 +501,6 @@ public class ChunkEditorViewModel :
         {
             _editingContext.SetTransformAxis(TransformAxis.Z);
         }
-        else if (key == Key.Left)
-        {
-            _editingContext.MoveCursorGrid(-vec3.UnitX);
-        }
-        else if (key == Key.Right)
-        {
-            _editingContext.MoveCursorGrid(vec3.UnitX);
-        }
-        else if (key == Key.Up)
-        {
-            _editingContext.MoveCursorGrid(vec3.UnitZ);
-        }
-        else if (key == Key.Down)
-        {
-            _editingContext.MoveCursorGrid(-vec3.UnitZ);
-        }
-        else if (key == Key.PageUp)
-        {
-            _editingContext.MoveCursorGrid(vec3.UnitY);
-        }
-        else if (key == Key.PageDown)
-        {
-            _editingContext.MoveCursorGrid(-vec3.UnitY);
-        }
-        else if (key == Key.K && _editingContext.SelectedInstance != null)
-        {
-            // _editingContext.SetPalette(_editingContext.SelectedInstance);
-        }
-        else if (key == Key.P)
-        {
-            _editingContext.SpawnAtCursor();
-        }
-        else if (key == Key.G)
-        {
-            _editingContext.SetGrid();
-        }
         else if (key == Key.U)
         {
             _editingContext.Deselect();
@@ -618,10 +582,6 @@ public class ChunkEditorViewModel :
             if (!minDistance.Equals(float.MaxValue))
             {
                 _editingContext.SetCursorCoordinates(hit);
-                if (_keyboard.IsKeyPressed(Key.ControlLeft))
-                {
-                    _editingContext.SpawnAtCursor();
-                }
             }
         }
     }

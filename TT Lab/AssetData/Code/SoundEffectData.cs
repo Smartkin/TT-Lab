@@ -91,4 +91,12 @@ public sealed class SoundEffectData : AbstractAssetData
 
         return sound;
     }
+
+    /// <summary>
+    /// The pitch the PS2 plays the wav's sample rate at
+    /// </summary>
+    public UInt16 GetPitch()
+    {
+        return ITwinSound.PitchOf(_frequency);
+    }
 }

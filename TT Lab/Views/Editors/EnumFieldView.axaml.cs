@@ -16,6 +16,9 @@ public partial class EnumFieldView : DocumentBaseView<EnumFieldViewModel>
         InitializeComponent();
     }
 
+    // The combo box drops its selection when its items change
+    protected override bool RebindsOnRecycle => true;
+
     protected override void HandleActivation(CompositeDisposable disposables)
     {
         this.OneWayBind(ViewModel, viewModel => viewModel.EnumValues, view => view.EnumChoices.ItemsSource).DisposeWith(disposables);

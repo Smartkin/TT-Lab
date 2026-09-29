@@ -11,7 +11,14 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SM2
     public class PS2AnyDynamicScenery : BaseTwinItem, ITwinDynamicScenery
     {
 
-        public Int32 UnkInt { get; set; }
+        /// <summary>
+        /// The version word of every retail dynamic scenery
+        /// </summary>
+        public const Int32 GameVersion = 0x10009;
+        /// <summary>
+        /// The data's version word, <see cref="GameVersion"/> everywhere, read into a field nothing reads
+        /// </summary>
+        public Int32 Version { get; set; }
         public List<TwinDynamicSceneryModel> DynamicModels { get; set; }
 
         public PS2AnyDynamicScenery()
@@ -26,7 +33,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SM2
 
         public override void Read(BinaryReader reader, Int32 length)
         {
-            UnkInt = reader.ReadInt32();
+            Version = reader.ReadInt32();
             var models = reader.ReadInt16();
             for (var i = 0; i < models; ++i)
             {
@@ -38,7 +45,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SM2
 
         public override void Write(BinaryWriter writer)
         {
-            writer.Write(UnkInt);
+            writer.Write(Version);
             writer.Write((Int16)DynamicModels.Count);
             foreach (var model in DynamicModels)
             {

@@ -15,6 +15,7 @@ using TT_Lab.Project;
 using TT_Lab.Rendering;
 using TT_Lab.ViewModels;
 using TT_Lab.ViewModels.Editors;
+using TT_Lab.ViewModels.Editors.Descs;
 using TT_Lab.ViewModels.Editors.PropertyGraph;
 using TT_Lab.ViewModels.Interfaces;
 using TT_Lab.ViewModels.ResourceTree;
@@ -29,11 +30,9 @@ public class LevelChunk : SerializableAsset
     public override string IconPath => "Scene.png";
 
 
+    // Shown like the project tree, a folder for each kind of resource
     [JsonProperty(Required = Required.Always, ObjectCreationHandling = ObjectCreationHandling.Replace)]
-    [Editable]
-    [EditorParam(UriLinkViewModel.BrowseScope, UriLinkViewModel.Scope.Document)]
-    [EditorParam(UriLinkViewModel.OpenInInspector, true)]
-    [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
+    [Editable(Caption = "Resources", EditorDescType = typeof(ChunkResourcesEditorDesc), EditorOrientation = Avalonia.Controls.Dock.Top)]
     [OnReferenceDeleted(DeletedReferenceAction.Remove)]
     public List<LabURI> ChunkResources { get; set; } = [];
 
@@ -85,6 +84,13 @@ public class LevelChunk : SerializableAsset
         var assetManager = AssetManager.Get();
         foreach (var chunkResource in ChunkResources)
         {
+            // Closing the chunk's tab disposes what it lists, one that isn't in the project anymore has nothing to release
+            if (!assetManager.DoesAssetExist(chunkResource))
+            {
+                Log.WriteLine($"{Name} lists {chunkResource}, which isn't in the project", Log.LogType.Warning);
+                continue;
+            }
+
             assetManager.GetAsset(chunkResource).Dispose();
         }
         

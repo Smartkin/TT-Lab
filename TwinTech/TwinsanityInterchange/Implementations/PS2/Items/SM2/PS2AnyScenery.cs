@@ -14,7 +14,10 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SM2
         public Boolean HasLighting { get; set; }
         public String Name { get; set; }
         public UInt32 FogColor { get; set; }
-        public Byte UnkByte { get; set; }
+        /// <summary>
+        /// Read into the chunk's data and never read again, 0 on every retail chunk but one
+        /// </summary>
+        public Byte UnusedByte { get; set; }
         public UInt32 SkydomeID { get; set; }
         public List<AmbientLight> AmbientLights { get; set; }
         public List<DirectionalLight> DirectionalLights { get; set; }
@@ -53,7 +56,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SM2
             Name = new String(reader.ReadChars(NameLen));
             FogColor = reader.ReadUInt32();
             var sceneryType = reader.ReadInt32();
-            UnkByte = reader.ReadByte();
+            UnusedByte = reader.ReadByte();
             if ((flags & 0x10000) != 0)
             {
                 SkydomeID = reader.ReadUInt32();
@@ -127,7 +130,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SM2
             writer.Write(Name.ToCharArray());
             writer.Write(FogColor);
             writer.Write(Sceneries.Count != 0 ? 0x160A : 3);
-            writer.Write(UnkByte);
+            writer.Write(UnusedByte);
             if ((newFlags & 0x10000) != 0)
             {
                 writer.Write(SkydomeID);

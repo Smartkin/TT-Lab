@@ -52,14 +52,29 @@
                             <TextBlock Text="Drag the gizmo's arrows, planes, rings or boxes to transform, Esc or right click cancels"/>
                             <TextBlock Text="The magnet snaps moving, rotating and scaling to steps, holding Ctrl while dragging does the opposite"/>
                             <TextBlock Text="Hold the right mouse button to look around, WASD to fly, Shift to go faster, F frames the selection"/>
-                            <TextBlock Text="Click collision to place the cursor, Ctrl+click places the palette's object there"/>
-                            <TextBlock Text="K puts the selection in the palette, P places it at the cursor"/>
-                            <TextBlock Text="G snaps the cursor to the selection, arrow keys and Page Up/Down move it on a grid"/>
+                            <TextBlock Text="Click collision to place the cursor (Ctrl+click places it without selecting), right click makes an instance there"/>
+                            <TextBlock Text="Drag on the scene to select everything within the rectangle, Shift+click adds to or takes from the selection, Ctrl+A selects every instance"/>
                             <TextBlock Text="Ctrl+D duplicates the selection in place, U or Esc deselects, Delete removes the selected resource from the chunk"/>
+                            <TextBlock Text="The Prefabs panel saves the selection for any chunk of the project, drag a prefab from it into the scene to place it"/>
                         </StackPanel>
                     </ToolTip.Tip>
                     <TextBlock Text="?" FontWeight="Bold"/>
                 </Button>
+                <!-- Playing the chunk in PCSX2, what it uses is in Preferences > Direct Game Launch -->
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="2">
+                    <Button x:Name="PlayInGame" Classes="tool" Classes.active="{Binding IsPlayingThisChunk}" Command="{Binding PlayInGameCommand}"
+                            ToolTip.Tip="{Binding PlayInGameHint}" ToolTip.ShowOnDisabled="True">
+                        <PathIcon Data="M7,4 L20,12 L7,20 Z"/>
+                    </Button>
+                    <Button x:Name="ReloadInGame" Classes="tool" Command="{Binding ReloadInGameCommand}"
+                            ToolTip.Tip="Build the chunks the game has again and reload them in it, back at the chunk's start (saving does it as well)">
+                        <PathIcon Data="M12,2 A10,10 0 1 1 2,12 L4.5,12 A7.5,7.5 0 1 0 12,4.5 L12,6.5 L7.5,3.25 L12,0 Z M10,8.5 L15.5,12 L10,15.5 Z"/>
+                    </Button>
+                    <Button x:Name="StopGame" Classes="tool" Command="{Binding StopGameCommand}" ToolTip.Tip="Close PCSX2">
+                        <PathIcon Data="M6,6 L18,6 L18,18 L6,18 Z"/>
+                    </Button>
+                    <Border Classes="separator"/>
+                </StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="2">
                     <Button x:Name="SelectTool" Classes="tool" Classes.active="{Binding IsSelectTool}" Command="{Binding SelectToolCommand}"
                             CommandParameter="{x:Static rendering:TransformMode.SELECTION}" ToolTip.Tip="Select (Q)">
@@ -135,7 +150,12 @@
             </DockPanel>
         </Border>
         <Grid Margin="5">
-            <controls:Viewport Host="{Binding Host}"/>
+            <controls:Viewport x:Name="ViewportControl" Host="{Binding Host}"/>
+            <!-- Dragging on the scene selects everything within the rectangle -->
+            <Canvas IsHitTestVisible="False" IsVisible="{Binding IsRubberBanding}">
+                <Border Canvas.Left="{Binding RubberBand.X}" Canvas.Top="{Binding RubberBand.Y}" Width="{Binding RubberBand.Width}" Height="{Binding RubberBand.Height}"
+                        BorderBrush="#FF5B9BE0" BorderThickness="1" Background="#305B9BE0"/>
+            </Canvas>
             <Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="6" Padding="6,4" CornerRadius="3" Background="#C0202024"
                     IsHitTestVisible="False" IsVisible="{Binding SelectionInfo, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                 <TextBlock Text="{Binding SelectionInfo}" FontSize="12" Foreground="#FFE0E0E0"/>

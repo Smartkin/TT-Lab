@@ -28,14 +28,15 @@
         </BuildDependsOn>
     </PropertyGroup>
     
+    <!-- Combined so an absolute output folder (dotnet build -o) gets them too, they went into a folder of that name inside the project -->
     <Target Name="CopyNativeLibs" AfterTargets="AfterBuild">
         <ItemGroup>
             <NativeLibrariesWindows Include="$(MSBuildProjectDirectory)\Libraries\Native\Windows\*.dll" />
-            <RuntimeCopyPathWindows Include="$(MSBuildProjectDirectory)\$(OutputPath)\runtimes\win-x64\native\" />
+            <RuntimeCopyPathWindows Include="$([System.IO.Path]::Combine($(MSBuildProjectDirectory), $(OutDir)))runtimes\win-x64\native\" />
         </ItemGroup>
         <ItemGroup>
             <NativeLibrariesLinux Include="$(MSBuildProjectDirectory)\Libraries\Native\Linux\*.so" />
-            <RuntimeCopyPathLinux Include="$(MSBuildProjectDirectory)\$(OutputPath)\runtimes\linux-x64\native\" />
+            <RuntimeCopyPathLinux Include="$([System.IO.Path]::Combine($(MSBuildProjectDirectory), $(OutDir)))runtimes\linux-x64\native\" />
         </ItemGroup>
         
         <Message Text="Copying Windows native libraries into resulting executable..." Importance="high" />
@@ -128,6 +129,7 @@
 
     <ItemGroup>
       <EmbeddedResource Include="AgentLab/agentlab.tmLanguage.json" LogicalName="TT_Lab.AgentLab.agentlab.tmLanguage.json" />
+      <EmbeddedResource Include="Tools/Pcsx2/LevelSelectPal.pnach" LogicalName="TT_Lab.Tools.Pcsx2.LevelSelectPal.pnach" />
       <AvaloniaResource Include="Images/AfroGod.png" />
       <AvaloniaResource Include="Images/God_Messenger.png" />
       <AvaloniaResource Include="Images/SadTransparent.gif" />
@@ -140,6 +142,11 @@
       </Content>
       <Content Include="BlenderTools\dist\*">
           <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </Content>
+      <!-- The twinstudio tools, fetched by scripts/fetch_tools.py into their own folders; CI puts them next to the published build.
+           Only their folders, tools\** takes the sources in Tools\ along on Windows -->
+      <Content Include="tools\twinmusic\**\*;tools\twinpss\**\*">
+          <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       </Content>
       <Content Include="Libraries\Native\Windows\PS2ImageMaker.dll">
           <PackagePath>runtimes/win-x64/native</PackagePath>

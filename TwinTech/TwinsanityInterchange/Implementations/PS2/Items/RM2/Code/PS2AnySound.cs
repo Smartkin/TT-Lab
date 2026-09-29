@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Runtime.InteropServices;
 using Twinsanity.Libraries;
 using Twinsanity.TwinsanityInterchange.Implementations.Base;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code;
@@ -11,8 +12,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code
         internal Int32 offset;
 
         public UInt32 Header { get; set; }
-        public Byte UnkFlag { get; set; }
-        public Byte FreqFac { get; set; }
+        public UInt16 Pitch { get; set; }
         public UInt16 Param1 { get; set; }
         public UInt16 Param2 { get; set; }
         public UInt16 Param3 { get; set; }
@@ -27,8 +27,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code
         public override void Read(BinaryReader reader, Int32 length)
         {
             Header = reader.ReadUInt32();
-            UnkFlag = reader.ReadByte();
-            FreqFac = reader.ReadByte();
+            Pitch = reader.ReadUInt16();
             Param1 = reader.ReadUInt16();
             Param2 = reader.ReadUInt16();
             Param3 = reader.ReadUInt16();
@@ -45,8 +44,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code
         public override void Write(BinaryWriter writer)
         {
             writer.Write(Header);
-            writer.Write(UnkFlag);
-            writer.Write(FreqFac);
+            writer.Write(Pitch);
             writer.Write(Param1);
             writer.Write(Param2);
             writer.Write(Param3);
@@ -69,74 +67,78 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code
 
         public void SetFreq(UInt16 freq)
         {
-            FreqFac = freq switch
-            {
-                8000 => 0x2,
-                10000 => 0x3,
-                11025 => 0x4,
-                16000 => 0x5,
-                18000 => 0x6,
-                22050 => 0x7,
-                32000 => 0xA,
-                44100 => 0xE,
-                48000 => 0x10,
-                _ => throw new ArgumentException($"Unsupported sfx frequency. Value was: {freq}", nameof(freq))
-            };
+            Pitch = ITwinSound.PitchOf(freq);
         }
 
         public UInt16 GetFreq()
         {
-            return FreqFac switch
+            return ITwinSound.SampleRateOf(Pitch);
+        }
+
+        // A stereo sound is its left channel's blocks followed by its right channel's, both loop the same
+        private Boolean IsStereo => (Header & 1) == 0;
+
+        /// <inheritdoc/>
+        public Int32 LoopStart
+        {
+            get
             {
-                0x2 => 8000,
-                0x3 => 10000,
-                0x4 => 11025,
-                0x5 => 16000,
-                0x6 => 18000,
-                0x7 => 22050,
-                0xA => 32000,
-                0xE => 44100,
-                0x10 => 48000,
-                _ => throw new ArgumentException($"Unhandled sfx frequency. Value was: {FreqFac}", "freq"),
-            };
+                ADPCM.FindLoop(IsStereo ? Sound.AsSpan(0, Sound.Length / 2) : Sound, out var start, out _);
+                return start;
+            }
+        }
+
+        /// <inheritdoc/>
+        public Int32 LoopEnd
+        {
+            get
+            {
+                ADPCM.FindLoop(IsStereo ? Sound.AsSpan(0, Sound.Length / 2) : Sound, out _, out var end);
+                return end;
+            }
         }
 
         public Byte[] ToPCM()
         {
-            ADPCM adpcm = new();
-            using MemoryStream input = new(Sound);
-            using MemoryStream output = new();
-            BinaryReader reader = new(input);
-            BinaryWriter writer = new(output);
-            if ((Header & 1) == 0)
+            if (!IsStereo)
             {
-                adpcm.ToPCMStereo(reader, writer, Sound.Length / 2);
-            }
-            else
-            {
-                adpcm.ToPCMMono(reader, writer);
+                return MemoryMarshal.AsBytes(ADPCM.Decode(Sound).AsSpan()).ToArray();
             }
 
-            return output.ToArray();
+            var left = ADPCM.Decode(Sound.AsSpan(0, Sound.Length / 2));
+            var right = ADPCM.Decode(Sound.AsSpan(Sound.Length / 2));
+            var samples = new Int16[Math.Min(left.Length, right.Length) * 2];
+            for (var i = 0; i < samples.Length / 2; i++)
+            {
+                samples[i * 2] = left[i];
+                samples[i * 2 + 1] = right[i];
+            }
+
+            return MemoryMarshal.AsBytes(samples.AsSpan()).ToArray();
         }
 
-        public void SetDataFromPCM(Byte[] data)
+        public void SetDataFromPCM(Byte[] data, Int32 loopStart = -1, Int32 loopEnd = -1)
         {
-            ADPCM adpcm = new();
-            using MemoryStream input = new(data);
-            using MemoryStream output = new();
-            BinaryReader reader = new(input);
-            BinaryWriter writer = new(output);
-            if ((Header & 1) == 0)
+            var samples = MemoryMarshal.Cast<Byte, Int16>(data.AsSpan(0, data.Length & ~1));
+            if (!IsStereo)
             {
-                adpcm.ToADPCMStereo(reader, writer);
-            }
-            else
-            {
-                adpcm.ToADPCMMono(reader, writer);
+                Sound = ADPCM.Encode(samples, loopStart, loopEnd);
+                return;
             }
 
-            Sound = output.ToArray();
+            var left = new Int16[samples.Length / 2];
+            var right = new Int16[samples.Length / 2];
+            for (var i = 0; i < left.Length; i++)
+            {
+                left[i] = samples[i * 2];
+                right[i] = samples[i * 2 + 1];
+            }
+
+            var leftBlocks = ADPCM.Encode(left, loopStart, loopEnd);
+            var rightBlocks = ADPCM.Encode(right, loopStart, loopEnd);
+            Sound = new Byte[leftBlocks.Length + rightBlocks.Length];
+            leftBlocks.CopyTo(Sound, 0);
+            rightBlocks.CopyTo(Sound, leftBlocks.Length);
         }
     }
 }

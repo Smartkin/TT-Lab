@@ -12,8 +12,8 @@ namespace TT_Lab.ViewModels.Editors;
 /// </summary>
 /// <remarks>
 /// Changing something after undoing starts a branch next to the one undone, which stays to go back to. Steps are kept by the paths of
-/// what they changed, nodes get made again when links and lists change. Replacing a whole asset's data (a texture's picture, a sound) or
-/// what a value is made of can't be undone, the history starts over after it
+/// what they changed, nodes get made again when links and lists change. Replacing a whole asset's data (a texture's picture, a sound)
+/// can't be undone, the history starts over after it
 /// </remarks>
 public sealed class UndoHistory
 {
@@ -135,19 +135,53 @@ public sealed class UndoHistory
             PropertyChangeKind.Remove => (Step)new RemoveStep(change.Node.Path, change.Index, change.OldValue),
             _ => new ValueStep(change.Node.Path, change.OldValue, change.NewValue),
         };
+        if (change.IsConsequence)
+        {
+            AddConsequence(step);
+            return;
+        }
+
         Add(step, Describe(change), true);
     }
 
-    private static bool CanUndoChange(PropertyChange change)
+    // What linked fields write following a change is part of its step, one edit of a trigger's header was a step for each of its fields.
+    // Undo and redo put it back as it was instead of making it again from the value it follows (the graph runs no linked fields while
+    // they apply): a link's object matrix is its chunk matrix's inverse only up to rounding, undoing gave other floats than the game's
+    private void AddConsequence(Step step)
     {
-        if (change.OldValue is AbstractAssetData || change.NewValue is AbstractAssetData)
+        if (_group != null)
         {
-            return false;
+            if (!_group.Absorb(step))
+            {
+                _group.Steps.Add(step);
+            }
+
+            return;
         }
 
-        // Nodes of a value made of other values only follow along when the new one is made the same way
-        return change.Kind != PropertyChangeKind.Value || change.OldValue == null || change.NewValue == null ||
-               change.OldValue.GetType() == change.NewValue.GetType() || change.Node.Children.Count == 0;
+        // The change it follows couldn't be undone and started the history over
+        if (Current.Step == null)
+        {
+            return;
+        }
+
+        if (Current.Step is not GroupStep group)
+        {
+            group = new GroupStep();
+            group.Steps.Add(Current.Step);
+            Current.Step = group;
+        }
+
+        if (!group.Absorb(step))
+        {
+            group.Steps.Add(step);
+        }
+    }
+
+    // A value of another type is undone too, its node makes its children again for whichever type it has (PropertyNode.SetValue)
+    private static bool CanUndoChange(PropertyChange change)
+    {
+        return change.OldValue is not AbstractAssetData && change.NewValue is not AbstractAssetData;
     }
 
     private void Add(Step step, string description, bool isOpen)
@@ -163,8 +197,10 @@ public sealed class UndoHistory
             return;
         }
 
-        // Typing or dragging on keeps changing the last step, unless it got saved or undone to since
-        if (Current.IsOpen && Current.Step is ValueStep previous && step is ValueStep value && Current != _saved && Current.Children.Count == 0 && previous.Merge(value))
+        // Typing or dragging on keeps changing the last step, unless it got saved or undone to since. What linked fields wrote goes along
+        // with the value they follow
+        if (Current.IsOpen && step is ValueStep value && Current != _saved && Current.Children.Count == 0
+            && (Current.Step is ValueStep previous && previous.Merge(value) || Current.Step is GroupStep { Steps: [ValueStep first, ..] } && first.Merge(value)))
         {
             Current.Description = description;
             Current.Time = DateTime.Now;
@@ -210,6 +246,14 @@ public sealed class UndoHistory
     /// <summary>
     /// Makes everything changed until it's disposed one step, like placing an instance and moving it to the cursor
     /// </summary>
+    /// <summary>
+    /// Ends the step typing or dragging keeps changing, so the next change starts a new one
+    /// </summary>
+    public void CloseStep()
+    {
+        Current.IsOpen = false;
+    }
+
     public IDisposable BeginGroup(string? description = null)
     {
         if (_groupDepth++ == 0)
@@ -263,6 +307,8 @@ public sealed class UndoHistory
         }
 
         Apply(() => entry.Step!.Redo(_graph));
+        // A change after a redo is a step of its own, it would otherwise change the redone one
+        entry.IsOpen = false;
         Current = entry;
         Changed?.Invoke();
     }
@@ -293,6 +339,7 @@ public sealed class UndoHistory
     private void Apply(Action apply)
     {
         IsApplying = true;
+        _graph.IsReplaying = true;
         try
         {
             apply();
@@ -300,6 +347,7 @@ public sealed class UndoHistory
         finally
         {
             IsApplying = false;
+            _graph.IsReplaying = false;
         }
     }
 
@@ -394,7 +442,19 @@ public sealed class UndoHistory
 
         private readonly string _path = path;
 
-        public bool IsUnchanged => Equals(oldValue, _newValue);
+        public bool IsUnchanged => PropertyNode.IsSameValue(oldValue, _newValue);
+
+        // Another change of the same value within the step, whenever it came
+        public bool Absorb(ValueStep next)
+        {
+            if (next._path != _path)
+            {
+                return false;
+            }
+
+            _newValue = next._newValue;
+            return true;
+        }
 
         public override void Undo(PropertyGraph.PropertyGraph graph) => graph.Find(_path)?.SetValue(oldValue);
 
@@ -431,6 +491,12 @@ public sealed class UndoHistory
         public bool Merge(Step step)
         {
             return step is ValueStep value && Steps.LastOrDefault() is ValueStep last && last.Merge(value);
+        }
+
+        // A value the group changed already changes again
+        public bool Absorb(Step step)
+        {
+            return step is ValueStep value && Steps.OfType<ValueStep>().Any(existing => existing.Absorb(value));
         }
 
         public override void Undo(PropertyGraph.PropertyGraph graph)

@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.Serialization;
 using GlmSharp;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
@@ -31,6 +32,10 @@ public class TriggerData : AbstractAssetData
     {
     }
 
+    // What the game's triggers have: kind 50 (0 makes a plain box the sound code tests the player against) and checks every 0.3 seconds
+    private const UInt32 NewHeader = 0x32;
+    private const Single NewCheckInterval = 0.3f;
+
     public TriggerData(IAsset asset) : base(asset)
     {
         Position = new Vector3(0, 0, 0);
@@ -38,6 +43,9 @@ public class TriggerData : AbstractAssetData
         Scale = new Vector3(1, 1, 1);
         Instances = new List<LabURI>();
         InstanceExtensionValue = 10;
+        Header = NewHeader;
+        CheckInterval = NewCheckInterval;
+        DeriveFromHeader();
     }
 
     public TriggerData(IAsset asset, ITwinTrigger trigger) : this(asset)
@@ -57,7 +65,8 @@ public class TriggerData : AbstractAssetData
             Instances.Add(AssetManager.Get().GetUriByTwinId<ObjectInstance>(Owner, inst, layoutId));
         }
         Header = trigger.Header;
-        UnkFloat = trigger.UnkFloat;
+        DeriveFromHeader();
+        CheckInterval = trigger.CheckInterval;
         InstanceExtensionValue = trigger.InstanceExtensionValue;
         TriggerMessage1 = 0;
         TriggerMessage2 = 0;
@@ -83,23 +92,35 @@ public class TriggerData : AbstractAssetData
     
     [JsonProperty(Required = Required.Always)]
     [Editable]
+    [EditorParam(UriLinkViewModel.BrowseType, typeof(ObjectInstance))]
+    [EditorParam(UriLinkViewModel.BrowseScope, UriLinkViewModel.Scope.Chunk)]
     [OnReferenceDeleted(DeletedReferenceAction.Remove)]
     public List<LabURI> Instances { get; set; }
     
     [JsonProperty(Required = Required.Always)]
-    [Editable]
+    [Editable(Caption = "Header (raw)", Hint = "The kind byte, the message bits and the polling bit as one word, edited through the fields below")]
     [EditorLinkedField(typeof(Trigger1HeaderController), nameof(TriggerArgument1Enabled))]
     [EditorLinkedField(typeof(Trigger2HeaderController), nameof(TriggerArgument2Enabled))]
     [EditorLinkedField(typeof(Trigger3HeaderController), nameof(TriggerArgument3Enabled))]
     [EditorLinkedField(typeof(Trigger4HeaderController), nameof(TriggerArgument4Enabled))]
+    [EditorLinkedField(typeof(KindHeaderController), nameof(Kind))]
+    [EditorLinkedField(typeof(NotPolledHeaderController), nameof(NotPolled))]
     public UInt32 Header { get; set; }
+
+    [Editable(Hint = "The kind the game's tools gave the trigger, 50 on most. 0 makes it a plain box the sound code tests the player against instead of a trigger, nothing else of it is read")]
+    [EditorLinkedField(typeof(HeaderKindController), nameof(Header))]
+    public Byte Kind { get; set; }
+
+    [Editable(Caption = "Not polled", Hint = "The trigger never checks its box, no trigger of the game's levels has it")]
+    [EditorLinkedField(typeof(HeaderNotPolledController), nameof(Header))]
+    public Boolean NotPolled { get; set; }
     
     [JsonProperty(Required = Required.Always)]
-    [Editable]
-    public Single UnkFloat { get; set; }
+    [Editable(Caption = "Check interval", Hint = "Seconds between two checks of what's inside the box, 0.3 on nearly every trigger of the game's levels")]
+    public Single CheckInterval { get; set; }
     
     [JsonProperty(Required = Required.Always)]
-    [Editable]
+    [Editable(Hint = "The instance list's growth step from the tools, 10 everywhere and never read")]
     public UInt32 InstanceExtensionValue { get; set; }
     
     [Editable(Caption = "On Enter Once Enabled")]
@@ -149,11 +170,31 @@ public class TriggerData : AbstractAssetData
     protected override void LoadInternal(string dataPath, JsonSerializerSettings? settings = null)
     {
         base.LoadInternal(dataPath, settings);
-        
+        DeriveFromHeader();
+    }
+
+    // Cameras keep their trigger in their own file, which never went through loading the trigger's
+    [OnDeserialized]
+    private void OnDeserialized(StreamingContext context) => DeriveFromHeader();
+
+    /// <summary>
+    /// Sets the header with the fields shown of it
+    /// </summary>
+    internal void SetHeader(UInt32 header)
+    {
+        Header = header;
+        DeriveFromHeader();
+    }
+
+    // The fields the editor shows of the header, which aren't stored: the header is what the game has
+    private void DeriveFromHeader()
+    {
         TriggerArgument1Enabled = (Header >> 0xB & 0x1) != 0;
         TriggerArgument2Enabled = (Header >> 0x8 & 0x1) != 0;
         TriggerArgument3Enabled = (Header >> 0x9 & 0x1) != 0;
         TriggerArgument4Enabled = (Header >> 0xA & 0x1) != 0;
+        Kind = (Byte)Header;
+        NotPolled = (Header >> 0xC & 0x1) != 0;
     }
 
     protected override void Dispose(Boolean disposing)
@@ -174,7 +215,8 @@ public class TriggerData : AbstractAssetData
             Instances.Add(AssetManager.Get().GetUriByTwinId<ObjectInstance>(Owner, inst, layoutId));
         }
         Header = trigger.Trigger.Header;
-        UnkFloat = trigger.Trigger.UnkFloat;
+        DeriveFromHeader();
+        CheckInterval = trigger.Trigger.CheckInterval;
         InstanceExtensionValue = trigger.Trigger.InstanceExtensionValue;
         TriggerMessage1 = trigger.TriggerMessages[0];
         TriggerMessage2 = trigger.TriggerMessages[1];
@@ -193,7 +235,7 @@ public class TriggerData : AbstractAssetData
         {
             Header = Header,
             ObjectActivatorMask = ObjectActivatorMask,
-            UnkFloat = UnkFloat,
+            CheckInterval = CheckInterval,
             Position = new Vector4(Position.X, Position.Y, Position.Z, 1.0f),
             Rotation = new Vector4(quat.x, quat.y, quat.z, quat.w),
             Scale = new Vector4(Scale.X, Scale.Y, Scale.Z, 1.0f),
@@ -241,12 +283,47 @@ public class TriggerData : AbstractAssetData
         }];
     }
 
+    private class KindHeaderController : IFieldChange
+    {
+        public void DataChanged(PropertyNode listener, PropertyNode linkedViewModel)
+        {
+            listener.SetValue(listener.GetValue<UInt32>() & 0xFFFFFF00 | linkedViewModel.GetValue<Byte>());
+        }
+    }
+
+    private class HeaderKindController : IFieldChange
+    {
+        public void DataChanged(PropertyNode listener, PropertyNode linkedViewModel)
+        {
+            listener.SetValue((Byte)linkedViewModel.GetValue<UInt32>());
+        }
+    }
+
+    private class NotPolledHeaderController : IFieldChange
+    {
+        public void DataChanged(PropertyNode listener, PropertyNode linkedViewModel)
+        {
+            var data = listener.GetValue<UInt32>() & ~(1U << 0xC);
+            listener.SetValue(linkedViewModel.GetValue<bool>() ? data | 1U << 0xC : data);
+        }
+    }
+
+    private class HeaderNotPolledController : IFieldChange
+    {
+        public void DataChanged(PropertyNode listener, PropertyNode linkedViewModel)
+        {
+            listener.SetValue((linkedViewModel.GetValue<UInt32>() >> 0xC & 0x1) != 0);
+        }
+    }
+
     private class TriggerArgumentEnabler : IFieldChange
     {
         public void DataChanged(PropertyNode listener, PropertyNode linkedViewModel)
         {
             listener.IsReadOnly = !linkedViewModel.GetValue<bool>();
         }
+
+        public void Linked(PropertyNode listener, PropertyNode linkedViewModel) => DataChanged(listener, linkedViewModel);
     }
 
     private class Trigger1HeaderController : IFieldChange

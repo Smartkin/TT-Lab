@@ -1,6 +1,10 @@
 using System;
 using System.Diagnostics;
+using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
+using Splat;
+using TT_Lab.Project;
 using TT_Lab.Services;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 
@@ -31,15 +35,26 @@ public static class AssetFactory
         }
         
         AssetManager.Get().AddAsset(newAsset);
-        var containingFolder = GetContainingFolder(folder, newAsset);
-        containingFolder.AddChild(newAsset);
+        var (containingFolder, createdFolder, createdIn) = GetContainingFolder(folder, newAsset);
+        // A package's file marks its folder, the folder doesn't list it
+        if (newAsset is not Package)
+        {
+            containingFolder.AddChild(newAsset);
+        }
+
         if (type != typeof(Folder) && layout is null)
         {
             newAsset.Serialize(SerializationFlags.SetDirectoryToAssets | SerializationFlags.SaveData);
         }
+        else if (type != typeof(Folder) && newAsset is SerializableAsset unsaved)
+        {
+            // A layout's instance is written when the chunk it was made for gets saved
+            unsaved.IsUnsaved = true;
+        }
 
-        var parent = folder.GetResourceTreeElement();
-        IAsset treeAsset = containingFolder == folder ? newAsset : containingFolder;
+        // The tree shows the new asset, or the first folder made for it
+        var parent = (createdIn ?? containingFolder).GetResourceTreeElement();
+        IAsset treeAsset = createdFolder ?? newAsset;
         parent.AddNewChild(treeAsset.GetResourceTreeElement(parent));
         parent.ClearChildren();
         parent.LoadChildrenBack();
@@ -48,23 +63,79 @@ public static class AssetFactory
         return newAsset;
     }
     
-    // Chunks live in their own folder named after them, the same way the project tree gets built from the disk
-    private static Folder GetContainingFolder(Folder folder, IAsset asset)
+    // A new asset is listed in the folder of the directory its file is written to, the same way the project tree gets built from the
+    // disk: chunks get a folder of their own, a layout's instances the folders of their type and layout in their chunk's. Instances
+    // used to be listed in the chunk's folder, and the tree following the file system took them out of the project as missing files
+    private static (Folder Containing, Folder? Created, Folder? CreatedIn) GetContainingFolder(Folder folder, IAsset asset)
     {
-        if (asset is not LevelChunk)
+        if (asset is Package package)
         {
-            return folder;
+            var packageFolder = new Folder(package.Name)
+            {
+                Parent = folder.URI,
+                Package = package.URI,
+                Mark = FolderMark.IsPackage | FolderMark.Locked
+            };
+            AssetManager.Get().AddAsset(packageFolder);
+            folder.AddChild(packageFolder);
+            return (packageFolder, packageFolder, folder);
         }
 
-        var chunkFolder = new Folder(asset.Name)
+        if (asset is LevelChunk)
         {
-            Parent = folder.URI,
-            Package = folder.Package,
-            Mark = FolderMark.Normal | FolderMark.IsChunk
-        };
-        AssetManager.Get().AddAsset(chunkFolder);
-        folder.AddChild(chunkFolder);
-        return chunkFolder;
+            var chunkFolder = new Folder(asset.Name)
+            {
+                Parent = folder.URI,
+                Package = folder.Package,
+                Mark = FolderMark.Normal | FolderMark.IsChunk
+            };
+            AssetManager.Get().AddAsset(chunkFolder);
+            folder.AddChild(chunkFolder);
+            return (chunkFolder, chunkFolder, folder);
+        }
+
+        var projectPath = Locator.Current.GetService<ProjectManager>()?.OpenedProject?.ProjectPath;
+        if (asset is Folder || asset is not SerializableAsset serializable || projectPath == null)
+        {
+            return (folder, null, null);
+        }
+
+        var relative = Path.GetRelativePath(Path.Combine(projectPath, folder.GetPath().TrimStart('/')), serializable.FullPath);
+        if (relative == "." || relative.StartsWith("..") || Path.IsPathRooted(relative))
+        {
+            return (folder, null, null);
+        }
+
+        // The directories are made right away, the tree drops folders whose directory it can't find
+        Directory.CreateDirectory(serializable.FullPath);
+        var assetManager = AssetManager.Get();
+        var current = folder;
+        Folder? created = null;
+        Folder? createdIn = null;
+        foreach (var name in relative.Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar], StringSplitOptions.RemoveEmptyEntries))
+        {
+            var existing = current.Children.Where(assetManager.DoesAssetExist).Select(assetManager.GetAsset).OfType<Folder>().FirstOrDefault(child => child.Alias == name);
+            if (existing == null)
+            {
+                existing = new Folder(name)
+                {
+                    Parent = current.URI,
+                    Package = current.Package,
+                    Mark = FolderMark.Normal
+                };
+                assetManager.AddAsset(existing);
+                current.AddChild(existing);
+                if (created == null)
+                {
+                    created = existing;
+                    createdIn = current;
+                }
+            }
+
+            current = existing;
+        }
+
+        return (current, created, createdIn);
     }
     
     public static async Task<IAsset?> CreateAsset(Type type, Folder folder, string name, string variation, ITwinIdGeneratorService idGenerator, Func<IAsset, Task<AssetCreationStatus>>? dataCreator = null, Enums.Layouts? layout = null)
@@ -92,13 +163,19 @@ public static class AssetFactory
             }
         }
 
-        folder.AddChild(newAsset);
         AssetManager.Get().AddAsset(newAsset);
+        var (containingFolder, createdFolder, createdIn) = GetContainingFolder(folder, newAsset);
+        // A package's file marks its folder, the folder doesn't list it
+        if (newAsset is not Package)
+        {
+            containingFolder.AddChild(newAsset);
+        }
+
         newAsset.Serialize(SerializationFlags.SetDirectoryToAssets | SerializationFlags.SaveData);
-        folder.Serialize(SerializationFlags.SetDirectoryToAssets | SerializationFlags.SaveData | SerializationFlags.FixReferences);
         
-        var parent = folder.GetResourceTreeElement();
-        parent.AddNewChild(newAsset.GetResourceTreeElement(parent));
+        var parent = (createdIn ?? containingFolder).GetResourceTreeElement();
+        IAsset treeAsset = createdFolder ?? newAsset;
+        parent.AddNewChild(treeAsset.GetResourceTreeElement(parent));
         parent.ClearChildren();
         parent.LoadChildrenBack();
         parent.NotifyOfPropertyChange(nameof(parent.Children));

@@ -4,6 +4,8 @@ public record CodeEditorDesc : EditorDesc
 {
     public bool ValidateCode { get; set; } = true;
 
+    public override bool ShowsInSidePane => true;
+
     protected override DocumentNodeViewModel ConstructInternal() => new CodeEditorViewModel(Document, Node)
     {
         EditorParameters =

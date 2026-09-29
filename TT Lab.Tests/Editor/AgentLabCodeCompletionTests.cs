@@ -9,7 +9,11 @@ using Avalonia.Input;
 using AvaloniaEdit;
 using AvaloniaEdit.CodeCompletion;
 using AvaloniaEdit.Document;
+using AvaloniaEdit.Rendering;
 using TT_Lab.AgentLab;
+using TT_Lab.Assets;
+using TT_Lab.Assets.Code;
+using Twinsanity.AgentLab;
 using TT_Lab.ViewModels.Editors;
 
 namespace TT_Lab.Tests.Editor;
@@ -19,9 +23,9 @@ public class AgentLabCodeCompletionTests
     private const string Script =
         "behaviour TEST {\n" +
         "   state State_0() {\n" +
-        "      if Else(0) >= 0.5 {\n" +
-        "         interval = 0;\n" +
-        "         unknown = false;\n" +
+        "      if Else(0) > 0.5 {\n" +
+        "         window = 0;\n" +
+        "         restart = false;\n" +
         "         |\n" +
         "      }\n" +
         "   }\n" +
@@ -31,12 +35,12 @@ public class AgentLabCodeCompletionTests
 
     private sealed class Fixture : IDisposable
     {
-        public Fixture(string script = Script)
+        public Fixture(string script = Script, Func<IEnumerable<AgentLabCompletionItem>>? behaviours = null)
         {
             Editor = new TextEditor { Document = new TextDocument(script.Replace("|", string.Empty)) };
             Window = new Window { Content = Editor, Width = 800, Height = 600 };
             Window.Show();
-            Completion = new AgentLabCodeCompletion(Editor, "ActionDefinitionsPs2.lab");
+            Completion = new AgentLabCodeCompletion(Editor, "ActionDefinitionsPs2.lab", false, behaviours);
             Editor.TextArea.Focus();
             Editor.CaretOffset = script.IndexOf('|');
         }
@@ -178,6 +182,124 @@ public class AgentLabCodeCompletionTests
             new PointerPointProperties(RawInputModifiers.LeftMouseButton, PointerUpdateKind.LeftButtonPressed), KeyModifiers.None));
         target.RaiseEvent(new PointerReleasedEventArgs(target, pointer, root, position, 0,
             new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.LeftButtonReleased), KeyModifiers.None, MouseButton.Left));
+    }
+
+    // The fields of a packed argument are suggested inside its braces, and their rows render (the field kind had no badge)
+    [AvaloniaFact]
+    public void FieldsOfPackedArgumentsAreSuggested()
+    {
+        using var fixture = new Fixture(Script.Replace("|", "DoAnimation({|"));
+
+        fixture.Type("s");
+
+        Assert.NotNull(fixture.Completion.CompletionWindow);
+        Assert.Contains("slotCount", fixture.Suggestions);
+        Assert.All(fixture.Completion.CompletionWindow!.CompletionList.CompletionData, data => Assert.NotNull(data.Content));
+    }
+
+    [AvaloniaFact]
+    public void LiteralHelpersAreSuggestedInsideCalls()
+    {
+        using var fixture = new Fixture(Script.Replace("|", "DoAnimation({slotCount = 1}, |"));
+
+        fixture.Type("P");
+
+        Assert.NotNull(fixture.Completion.CompletionWindow);
+        Assert.Contains("Prop", fixture.Suggestions);
+        Assert.All(fixture.Completion.CompletionWindow!.CompletionList.CompletionData, data => Assert.NotNull(data.Content));
+    }
+
+    // Moving the caret into a call that's already written shows which parameter it is at
+    [AvaloniaFact]
+    public void SignatureOpensWhenTheCaretMovesIntoACall()
+    {
+        using var fixture = new Fixture(Script.Replace("|", "DoAnimation(1, 2, 3, 4, 5, 6);|"));
+        Assert.Null(fixture.Completion.SignatureWindow);
+
+        var call = fixture.Editor.Text.IndexOf("DoAnimation(1, 2, 3", StringComparison.Ordinal);
+        fixture.Editor.CaretOffset = call + "DoAnimation(1, 2, ".Length;
+
+        Assert.NotNull(fixture.Completion.SignatureWindow);
+        Assert.Equal("Parameter 3 of 6", fixture.Completion.SignatureWindow!.Provider.CurrentContent);
+
+        fixture.Editor.CaretOffset = call;
+        Assert.Null(fixture.Completion.SignatureWindow);
+    }
+
+    // A state's opening parenthesis lists the behaviours it can run
+    [AvaloniaFact]
+    public void StateParenthesesSuggestBehaviours()
+    {
+        var behaviours = new[]
+        {
+            new AgentLabCompletionItem("COM_A", AgentLabCompletionKind.Behaviour, "behaviour COM_A"),
+            new AgentLabCompletionItem("COM_B", AgentLabCompletionKind.Behaviour, "behaviour COM_B")
+        };
+        using var fixture = new Fixture("behaviour TEST {\n   state State_0|\n}\n", () => behaviours);
+        fixture.Type("(");
+        Assert.NotNull(fixture.Completion.CompletionWindow);
+        Assert.Equal(["COM_A", "COM_B"], fixture.Suggestions);
+        fixture.Type("COM_B");
+        Assert.Equal("COM_B", fixture.Completion.CompletionWindow!.CompletionList.SelectedItem!.Text);
+    }
+
+    // Ctrl+click and F12 on the behaviour a state names open it
+    [AvaloniaFact]
+    public void CtrlClickOnAStatesBehaviourOpensIt()
+    {
+        var editor = new TextEditor { Document = new TextDocument("behaviour A {\n   state S(COM_X) {\n   }\n}\n") };
+        var window = new Window { Content = editor, Width = 800, Height = 600 };
+        window.Show();
+        var target = new BehaviourGraph();
+        var opened = new List<IAsset>();
+        using var navigation = new AgentLabNavigation(editor, reference => reference == "COM_X" ? target : null, opened.Add);
+        Dispatcher.UIThread.RunJobs();
+        var offset = editor.Text.IndexOf("COM_X", StringComparison.Ordinal) + 2;
+        var textView = editor.TextArea.TextView;
+        var point = textView.GetVisualPosition(new TextViewPosition(editor.Document.GetLocation(offset)), VisualYPosition.LineMiddle) - textView.ScrollOffset;
+        var inWindow = textView.TranslatePoint(point, window)!.Value;
+        window.MouseDown(inWindow, MouseButton.Left, RawInputModifiers.Control);
+        window.MouseUp(inWindow, MouseButton.Left, RawInputModifiers.Control);
+        Assert.Equal([target], opened);
+
+        // A plain click doesn't, F12 at the caret does
+        window.MouseDown(inWindow, MouseButton.Left);
+        window.MouseUp(inWindow, MouseButton.Left);
+        Assert.Single(opened);
+        editor.TextArea.Focus();
+        editor.CaretOffset = offset;
+        window.KeyPressQwerty(PhysicalKey.F12, RawInputModifiers.None);
+        Assert.Equal(2, opened.Count);
+        Assert.False(navigation.GoToDefinition(editor.Text.IndexOf("state", StringComparison.Ordinal)));
+        window.Close();
+    }
+
+    // Hovering a word shows what it is
+    [AvaloniaFact]
+    public async Task HoveringAnActionShowsItsSignature()
+    {
+        var editor = new TextEditor { Document = new TextDocument("behaviour A {\n   state S() {\n      if Else(0) > 0.5 {\n         DoAnimation(1, 2, 3, 4, 5, 6);\n      }\n   }\n}\n") };
+        var window = new Window { Content = editor, Width = 800, Height = 600 };
+        window.Show();
+        using var hints = new AgentLabHoverHints(editor, "ActionDefinitionsPs2.lab");
+        Dispatcher.UIThread.RunJobs();
+        var offset = editor.Text.IndexOf("DoAnimation", StringComparison.Ordinal) + 3;
+        Assert.StartsWith("action DoAnimation(", hints.GetHover(offset)!.Title);
+
+        var textView = editor.TextArea.TextView;
+        var location = editor.Document.GetLocation(offset);
+        var point = textView.GetVisualPosition(new TextViewPosition(location), VisualYPosition.LineMiddle) - textView.ScrollOffset;
+        var inWindow = textView.TranslatePoint(point, window)!.Value;
+        window.MouseMove(inWindow);
+        for (var waited = 0; waited < 20 && !ToolTip.GetIsOpen(editor.TextArea); waited++)
+        {
+            await Task.Delay(100);
+            Dispatcher.UIThread.RunJobs();
+        }
+
+        Assert.True(ToolTip.GetIsOpen(editor.TextArea));
+        Assert.StartsWith("action DoAnimation(", ((TextBlock)ToolTip.GetTip(editor.TextArea)!).Inlines!.Text);
+        window.Close();
     }
 
     // Lists opened before anything was typed kept the arrow keys from moving past their first suggestion

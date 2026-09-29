@@ -15,6 +15,7 @@ using TT_Lab.Assets.Graphics;
 using TT_Lab.Attributes;
 using TT_Lab.Attributes.EditorParamWrappers;
 using TT_Lab.ViewModels.Editors;
+using TT_Lab.ViewModels.Editors.Descs;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces;
@@ -26,6 +27,9 @@ namespace TT_Lab.AssetData.Graphics;
 [ReferencesAssets]
 public class MaterialData : AbstractAssetData
 {
+    // The game's material has 4 slots for its shaders' pointers with their count right after them, a 5th overwrote the count
+    public const int MaxShaders = 4;
+
     public MaterialData(IAsset asset) : base(asset)
     {
         Shaders = [new LabShader()];
@@ -46,24 +50,53 @@ public class MaterialData : AbstractAssetData
         return material;
     }
 
+    /// <summary>
+    /// A bit for each type of shader the material has. The game keeps it as the key of the VU1 programs its render bucket has loaded
+    /// (<c>RenderMaterial</c>): a material with the key of the last one drawn in the bucket doesn't load its shaders' programs, and 1
+    /// never does. Building writes what the shaders need (<see cref="DeriveActivatedShaders"/>), which is what every retail material has
+    /// </summary>
     [JsonProperty(Required = Required.Always)]
-    [Editable]
+    [Editable(Hint = "A bit for each type of shader the material has, the game loads the shaders' programs by it. Building writes it from the shaders")]
     [EditorReadOnly]
     public AppliedShaders ActivatedShaders { get; set; }
+
+    /// <summary>
+    /// The shader types' bits, or the stored ones when a shader has a type no retail material has, whose bit isn't known
+    /// </summary>
+    public AppliedShaders DeriveActivatedShaders()
+    {
+        AppliedShaders result = 0;
+        foreach (var shader in Shaders)
+        {
+            if (!Enum.TryParse<AppliedShaders>(shader.ShaderType.ToString(), out var bit))
+            {
+                return ActivatedShaders;
+            }
+
+            result |= bit;
+        }
+
+        return result;
+    }
     
     [JsonProperty(Required = Required.Always)]
     [Editable]
     [EditorParam(DocumentModelViewModel.EditorExplicitOrder, -2)]
     public String Name { get; set; }
     
+    /// <summary>
+    /// Which of the game's 28 render buckets (DMA chain managers) the material's draws go into, drawn in bucket order, see
+    /// <see cref="RenderBuckets"/>. Buckets only order the draws, the look is the shaders' in any of them
+    /// </summary>
     [JsonProperty(Required = Required.Always)]
-    [Editable]
+    [Editable(Caption = "Render bucket", Hint = "Which of the game's 28 render buckets the material's draws go into, drawn in bucket order: 0 skydomes (right after the screen's clear), 2 opaque scenery and objects, 3 opaque global objects, 6-19 alpha-blended (later ones draw over earlier ones), 22 particles, 24 the UI, 26 fonts. A bucket doesn't change how the material looks, only when it's drawn", EditorDescType = typeof(RenderBucketEditorDesc))]
     [EditorParam(DocumentModelViewModel.EditorExplicitOrder, -1)]
     public UInt32 DmaChainIndex { get; set; }
     
     [JsonProperty(Required = Required.Always)]
-    [Editable(Caption = "Shaders")]
+    [Editable(Caption = "Shaders", Hint = "The game keeps a material's shaders in 4 slots, the count comes right after them (ReadMaterialShader)")]
     [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Shader")]
+    [EditorParam(DocumentCollectionViewModel.MaxCount, MaxShaders)]
     [EditorParam(DocumentModelViewModel.EditorExplicitOrder, 1)]
     public List<LabShader> Shaders { get; set; }
 
@@ -102,9 +135,10 @@ public class MaterialData : AbstractAssetData
 
     public override ITwinItem Export(ITwinItemFactory factory)
     {
+        CheckCount("shaders", Shaders.Count, MaxShaders);
         using var ms = new MemoryStream();
         using var writer = new BinaryWriter(ms);
-        writer.Write((UInt64)ActivatedShaders);
+        writer.Write((UInt64)DeriveActivatedShaders());
         writer.Write(DmaChainIndex);
         writer.Write(Name.Length + 1);
         writer.Write((Name + '\0').ToCharArray());

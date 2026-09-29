@@ -37,16 +37,16 @@ public class SceneryBaseData
     public List<Matrix4> LodModelMatrices { get; set; }
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonVector4Converter))]
-    public Vector4 UnkVec1 { get; set; }
+    public Vector4 BoundsCenter { get; set; }
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonVector4Converter))]
-    public Vector4 UnkVec2 { get; set; }
+    public Vector4 BoundsMin { get; set; }
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonVector4Converter))]
-    public Vector4 UnkVec3 { get; set; }
+    public Vector4 BoundsMax { get; set; }
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonVector4Converter))]
-    public Vector4 UnkVec4 { get; set; }
+    public Vector4 BoundsHalfSize { get; set; }
     
     public Boolean[] LightsEnabler { get; set; }
 
@@ -83,10 +83,10 @@ public class SceneryBaseData
         {
             LodModelMatrices.Add(CloneUtils.DeepClone(mat));
         }
-        UnkVec1 = CloneUtils.Clone(baseType.UnkVec1);
-        UnkVec2 = CloneUtils.Clone(baseType.UnkVec2);
-        UnkVec3 = CloneUtils.Clone(baseType.UnkVec3);
-        UnkVec4 = CloneUtils.Clone(baseType.UnkVec4);
+        BoundsCenter = CloneUtils.Clone(baseType.BoundsCenter);
+        BoundsMin = CloneUtils.Clone(baseType.BoundsMin);
+        BoundsMax = CloneUtils.Clone(baseType.BoundsMax);
+        BoundsHalfSize = CloneUtils.Clone(baseType.BoundsHalfSize);
         LightsEnabler = CloneUtils.CloneArray(baseType.LightsEnabler);
     }
 
@@ -193,33 +193,33 @@ public class SceneryBaseData
                 Column4 = V4,
             });
         }
-        UnkVec1 = new Vector4
+        BoundsCenter = new Vector4
         {
-            X = vm.UnkVec1.X,
-            Y = vm.UnkVec1.Y,
-            Z = vm.UnkVec1.Z,
-            W = vm.UnkVec1.W,
+            X = vm.BoundsCenter.X,
+            Y = vm.BoundsCenter.Y,
+            Z = vm.BoundsCenter.Z,
+            W = vm.BoundsCenter.W,
         };
-        UnkVec2 = new Vector4
+        BoundsMin = new Vector4
         {
-            X = vm.UnkVec2.X,
-            Y = vm.UnkVec2.Y,
-            Z = vm.UnkVec2.Z,
-            W = vm.UnkVec2.W,
+            X = vm.BoundsMin.X,
+            Y = vm.BoundsMin.Y,
+            Z = vm.BoundsMin.Z,
+            W = vm.BoundsMin.W,
         };
-        UnkVec3 = new Vector4
+        BoundsMax = new Vector4
         {
-            X = vm.UnkVec3.X,
-            Y = vm.UnkVec3.Y,
-            Z = vm.UnkVec3.Z,
-            W = vm.UnkVec3.W,
+            X = vm.BoundsMax.X,
+            Y = vm.BoundsMax.Y,
+            Z = vm.BoundsMax.Z,
+            W = vm.BoundsMax.W,
         };
-        UnkVec4 = new Vector4
+        BoundsHalfSize = new Vector4
         {
-            X = vm.UnkVec4.X,
-            Y = vm.UnkVec4.Y,
-            Z = vm.UnkVec4.Z,
-            W = vm.UnkVec4.W,
+            X = vm.BoundsHalfSize.X,
+            Y = vm.BoundsHalfSize.Y,
+            Z = vm.BoundsHalfSize.Z,
+            W = vm.BoundsHalfSize.W,
         };
         LightsEnabler = new Boolean[128];
         var index = 0;
@@ -271,10 +271,10 @@ public class SceneryBaseData
             }
         }
 
-        UnkVec1.Write(writer);
-        UnkVec2.Write(writer);
-        UnkVec3.Write(writer);
-        UnkVec4.Write(writer);
+        BoundsCenter.Write(writer);
+        BoundsMin.Write(writer);
+        BoundsMax.Write(writer);
+        BoundsHalfSize.Write(writer);
         var bytes = new Byte[16];
         for (var i = 0; i < 16; ++i)
         {

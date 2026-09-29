@@ -262,10 +262,18 @@ public class AssetManager
             return LabURI.Empty;
         }
 
+        // The game reuses IDs for other pictures in other chunks (a hub's 64x32 texture is a 128x64 one of a Totem scenery), so a
+        // requester finds what's in its own folder first (a scenery's material its scenery's texture, a PSM's its own), then what
+        // the package shares, and another chunk's folder only when nothing else has the ID. The order the assets were added in
+        // decided before, which gave the hub's materials the Totem's textures
+        var requesterFolder = requester.AdditionalPath ?? string.Empty;
         var savePathFolders = requester.SavePath.Replace('/', '\\').Split('\\');
         return matchedAssets
             .OrderByDescending(f => !string.IsNullOrEmpty(f.Variation))
-            .ThenByDescending(f => SavePathMatches(f))
+            .ThenByDescending(f => (f.AdditionalPath ?? string.Empty) == requesterFolder)
+            .ThenByDescending(f => string.IsNullOrEmpty(f.AdditionalPath))
+            .ThenByDescending(SavePathMatches)
+            .ThenBy(f => (string)f.URI, StringComparer.Ordinal)
             .First().URI;
 
         Int32 SavePathMatches(IAsset asset)
@@ -441,6 +449,49 @@ public class AssetManager
         return package == other || DependsOn(package, other) || DependsOn(other, package);
     }
 
+    /// <summary>
+    /// Whether the package's assets can refer to the other package's: it's the same one or one it depends on. The global packages depend
+    /// on nothing, so their assets only refer to their own
+    /// </summary>
+    public Boolean IsOwnOrDependency(LabURI? package, LabURI? other)
+    {
+        return package == other || DependsOn(package, other);
+    }
+
+    /// <summary>
+    /// Assets of a type the requester can refer to: the ones of its package and the packages it depends on, its chunk's variant of an
+    /// asset in place of the asset
+    /// </summary>
+    public ImmutableList<T> GetAssetsInScopeOf<T>(IAsset requester) where T : IAsset
+    {
+        return RecordAccess(AssetsInScopeOf<T>(requester).ToImmutableList());
+    }
+
+    /// <summary>
+    /// The asset of a type the requester can refer to by the name, its own package's when a package it depends on has one of the name
+    /// as well. Null when there's none or several are left
+    /// </summary>
+    public T? FindByName<T>(IAsset requester, string name) where T : class, IAsset
+    {
+        var matches = AssetsInScopeOf<T>(requester).Where(asset => asset.InvariantName == name).ToList();
+        if (matches.Count > 1)
+        {
+            matches = matches.Where(asset => asset.Package == requester.Package).ToList();
+        }
+
+        return matches.Count == 1 ? RecordAccess(matches[0]) : null;
+    }
+
+    private IEnumerable<T> AssetsInScopeOf<T>(IAsset requester) where T : IAsset
+    {
+        var variation = !string.IsNullOrEmpty(requester.Variation) ? requester.Variation : ChunkVariation(requester.Chunk);
+        var candidates = _assets.GetValuesByType(typeof(T))
+            .Where(asset => IsOwnOrDependency(requester.Package, asset.Package) && (string.IsNullOrEmpty(asset.Variation) || asset.Variation == variation))
+            .Cast<T>().ToList();
+        var variants = candidates.Where(asset => !string.IsNullOrEmpty(asset.Variation)).Select(asset => asset.InvariantName).ToHashSet();
+        return candidates.Where(asset => !string.IsNullOrEmpty(asset.Variation) || !variants.Contains(asset.InvariantName));
+    }
+
     public ImmutableList<IAsset> GetAllAssetsOf(Type type)
     {
         Debug.Assert(type.IsAssignableTo(typeof(IAsset)), $"Given type {type.Name} must implement IAsset");
@@ -452,6 +503,11 @@ public class AssetManager
         return _assets.GetValuesByType(typeof(T)).Select(asset => asset.URI).ToImmutableList();
     }
         
+    public ImmutableList<LabURI> GetAllAssetUris()
+    {
+        return _assets.Values.Select(asset => asset.URI).ToImmutableList();
+    }
+
     public ImmutableList<LabURI> GetAllAssetUrisOf(Type type)
     {
         Debug.Assert(type.IsAssignableTo(typeof(IAsset)), $"Given type {type.Name} must implement IAsset");

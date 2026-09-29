@@ -11,7 +11,7 @@ void main()
 {
     vec4 Diffuse = InstanceColor;
     vec2 screenUvs = gl_FragCoord.xy / Resolution;
-    vec2 uvs = twin_material.uv_scroll_speed * vec2(Time) + Texpos;
+    vec2 uvs = twin_material.uv_scroll_speed * vec2(Time) + twin_material.uv_offset + Texpos;
     uvs.y = mix(uvs.y, 1.0 - uvs.y, FlipY);
     vec4 textureColor = twin_material.use_texture > 0.5 ? texture(Texture[0], uvs) : vec4(1.0);
     vec3 resultColor = textureColor.rgb * Color.rgb;
@@ -30,10 +30,10 @@ void main()
     }
     vec3 eyeDirection = normalize(EyePosition - ViewPosition);
 
-    // We have 2 ways either sphere mapping or doing the function BetaM wrote. I personally like doing sphere mapping :^)
+    // The picture read where the game's VU1 program reads it, by the half vector's dot products with the strongest lights (EnvUv)
     if (twin_material.env_map > 0.0)
     {
-        vec4 panoramaTexture = texture(Texture[0], sphereMap(surfaceNormal, EyePosition)); //texturePanorama(normalize(eyeDirection * vec3(-1, -1, 1)), Texture[0]);
+        vec4 panoramaTexture = texture(Texture[0], EnvUv);
         vec3 envMapColor = panoramaTexture.rgb * Color.rgb;
         float envMapAlpha = mix(1.0, panoramaTexture.a * Color.a, twin_material.alpha_blend);
         resultColor = mix(resultColor, envMapColor, twin_material.env_map);
@@ -51,7 +51,8 @@ void main()
     float specular = mix(0.0, specularGaussian(diffuse, 20.0), twin_material.metalic_specular);
     vec4 resultBlend = vec4(resultColor, mix(1.0, resultAlpha, twin_material.alpha_blend));
     resultBlend.rgb *= mix(vec3(1.0), Color.rgb * (specular + diffuse), twin_material.metalic_specular);
-    resultBlend.rgb *= Diffuse.rgb;
+    resultBlend.rgb *= Diffuse.rgb * twin_material.animated_color.rgb;
+    resultBlend.a *= twin_material.animated_color.a;
     resultBlend.a = mix(resultBlend.a, resultBlend.a * Diffuse.a, twin_material.alpha_blend);
 
     // Fog

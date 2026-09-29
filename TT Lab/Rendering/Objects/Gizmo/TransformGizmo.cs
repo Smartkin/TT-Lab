@@ -171,12 +171,21 @@ public sealed class TransformGizmo
                 drag.Direction = isView ? camera.Forward : GetAxis(orientation, handle - GizmoHandle.RingX);
                 GetRingDistance(camera, target.Position, drag.Direction, size * (isView ? ViewRingScale : 1.0f), mouse, out var grabPoint);
                 drag.StartPoint = grabPoint;
-                // Dragging along the ring's tangent where it got grabbed turns it, a full radius on screen is a radian
+                // The ring turns as far as the mouse goes around the gizmo's center on screen, the way it goes. Which way on screen a
+                // positive turn about the axis moves the grabbed point tells the sign
                 var tangent = vec3.Cross(drag.Direction, grabPoint - target.Position).NormalizedSafe;
+                if (camera.WorldToScreen(target.Position, out var centerScreen))
+                {
+                    drag.ScreenCenter = centerScreen;
+                    drag.LastRadial = mouse - centerScreen;
+                }
+
                 if (camera.WorldToScreen(grabPoint, out var grabScreen) &&
                     camera.WorldToScreen(grabPoint + tangent * size * 0.1f, out var tangentScreen))
                 {
                     drag.ScreenDirection = (tangentScreen - grabScreen).NormalizedSafe;
+                    var turn = Cross(grabScreen - drag.ScreenCenter, drag.ScreenDirection);
+                    drag.ScreenSign = turn < 0.0f ? -1.0f : 1.0f;
                 }
 
                 break;
@@ -245,7 +254,16 @@ public sealed class TransformGizmo
             }
             case TransformMode.ROTATE:
             {
-                var angle = Snap(vec2.Dot(mouse - drag.StartMouse, drag.ScreenDirection) / SizeInPixels, glm.Radians(snapping.RotationDegrees));
+                // Turns add up as the mouse goes around, so it can go around more than once
+                var radial = mouse - drag.ScreenCenter;
+                if (radial.Length < MinRadialPixels)
+                {
+                    return drag.Last;
+                }
+
+                drag.RawAngle += MathF.Atan2(Cross(drag.LastRadial, radial), vec2.Dot(drag.LastRadial, radial)) * drag.ScreenSign;
+                drag.LastRadial = radial;
+                var angle = Snap(drag.RawAngle, glm.Radians(snapping.RotationDegrees));
                 drag.Angle = angle;
                 drag.Last = start with { Rotation = (quat.FromAxisAngle(angle, drag.Direction) * start.Rotation).Normalized };
                 break;
@@ -564,5 +582,14 @@ public sealed class TransformGizmo
         public vec2 ScreenDirection { get; set; } = new(1.0f, 0.0f);
         public float ScreenLength { get; set; } = SizeInPixels;
         public float Angle { get; set; }
+        public vec2 ScreenCenter { get; set; }
+        public vec2 LastRadial { get; set; } = new(1.0f, 0.0f);
+        public float ScreenSign { get; set; } = 1.0f;
+        public float RawAngle { get; set; }
     }
+
+    // The mouse right on the center has no direction to go around it
+    private const float MinRadialPixels = 2.0f;
+
+    private static float Cross(vec2 a, vec2 b) => a.x * b.y - a.y * b.x;
 }

@@ -43,13 +43,60 @@ public static class Riff
     /// <returns>The file buffer is returned as a byte array</returns>
     public static byte[] LoadRiff(BinaryReader reader, ref byte[] pcm, ref short channels, ref UInt32 samplerate)
     {
-        reader.BaseStream.Position = 22;
-        channels = reader.ReadInt16();
-        samplerate = reader.ReadUInt32();
-        reader.BaseStream.Position += 12;
-        var len = reader.ReadInt32();
-        pcm = reader.ReadBytes(len);
-        reader.BaseStream.Position = 0;
-        return reader.ReadBytes((int)reader.BaseStream.Length);
+        return LoadRiff(reader, ref pcm, ref channels, ref samplerate, out _, out _);
+    }
+
+    /// <summary>
+    /// Reads the provided WAV like <see cref="LoadRiff(BinaryReader, ref byte[], ref short, ref uint)"/>, and the first loop of its
+    /// sampler chunk ("smpl", written by audio tools): its first sample and the one after its last, -1 for both without one. The chunks
+    /// are read by their headers, so files with other chunks (LIST, fact, a longer fmt) read the same
+    /// </summary>
+    public static byte[] LoadRiff(BinaryReader reader, ref byte[] pcm, ref short channels, ref UInt32 samplerate, out Int32 loopStart, out Int32 loopEnd)
+    {
+        loopStart = -1;
+        loopEnd = -1;
+        var stream = reader.BaseStream;
+        stream.Position = 12;
+        var foundData = false;
+        while (stream.Position + 8 <= stream.Length)
+        {
+            var id = System.Text.Encoding.ASCII.GetString(reader.ReadBytes(4));
+            var size = reader.ReadUInt32();
+            var start = stream.Position;
+            switch (id)
+            {
+                case "fmt ":
+                    reader.ReadUInt16();
+                    channels = reader.ReadInt16();
+                    samplerate = reader.ReadUInt32();
+                    break;
+                case "data":
+                    pcm = reader.ReadBytes((int)Math.Min(size, stream.Length - start));
+                    foundData = true;
+                    break;
+                case "smpl" when size >= 36:
+                    stream.Position = start + 28;
+                    var loops = reader.ReadUInt32();
+                    if (loops > 0 && size >= 60)
+                    {
+                        stream.Position = start + 36 + 8;
+                        loopStart = reader.ReadInt32();
+                        loopEnd = reader.ReadInt32() + 1;
+                    }
+
+                    break;
+            }
+
+            // Chunks are padded to an even size
+            stream.Position = start + size + (size & 1);
+        }
+
+        if (!foundData)
+        {
+            throw new InvalidDataException("The WAV file has no data chunk");
+        }
+
+        stream.Position = 0;
+        return reader.ReadBytes((int)stream.Length);
     }
 }

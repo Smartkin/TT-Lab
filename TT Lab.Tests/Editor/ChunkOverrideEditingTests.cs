@@ -144,12 +144,12 @@ public sealed class ChunkOverrideEditingTests : IDisposable
         Assert.NotNull(document.PropertyGraph.Find(CrashFloat));
     }
 
-    // The game only goes by objects' IDs, chunks' names of them made projects give chunks values of their own for nothing
+    // The game only goes by objects' IDs, their names are never a chunk's own values
     [AvaloniaFact]
     public void ObjectsNamesArentTheChunksOwn()
     {
         var chunk = CreateChunk("hub");
-        chunk.Overrides.Add(new AssetOverride { Asset = _crash.URI, Values = { ["AssetData.Name"] = "Hub's crash", ["AssetData.InstFloats[0]"] = 2.5f } });
+        chunk.Overrides.Add(new AssetOverride { Asset = _crash.URI, Values = { ["AssetData.InstFloats[0]"] = 2.5f } });
         var document = Open(chunk);
 
         var view = Assert.IsAssignableFrom<SerializableAsset>(document.PropertyGraph.Find("Root.ChunkResources[3][data].AssetData.ObjectId[data]")!.Target);

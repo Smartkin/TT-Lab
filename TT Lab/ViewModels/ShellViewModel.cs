@@ -39,15 +39,17 @@ public class ShellViewModel : Screen, ILabManager
     private readonly ChunkResourcesViewModel _chunkResources;
     private readonly ChunkInspectorViewModel _chunkInspector;
     private readonly HistoryViewModel _history;
+    private readonly PrefabsViewModel _prefabs;
     private readonly Dictionary<String, List<String>> _managerPropsToShellProps = new();
 
     public ShellViewModel(IWindowManager windowManager, LogViewModel logViewModel, EditorsViewModel editors,
-        ProjectTreeViewModel projectTree, ChunkResourcesViewModel chunkResources, ChunkInspectorViewModel chunkInspector, HistoryViewModel history, DockFactory dockFactory,
+        ProjectTreeViewModel projectTree, ChunkResourcesViewModel chunkResources, ChunkInspectorViewModel chunkInspector, HistoryViewModel history, PrefabsViewModel prefabs, DockFactory dockFactory,
         IEventAggregator eventAggregator, ProjectManager projectManager)
     {
         _chunkResources = chunkResources;
         _chunkInspector = chunkInspector;
         _history = history;
+        _prefabs = prefabs;
         Logger = logViewModel;
         DockFactory = dockFactory;
         _windowManager = windowManager;
@@ -146,6 +148,40 @@ public class ShellViewModel : Screen, ILabManager
         // DragDrop.DoDragDrop(projectTree, data, DragDropEffects.Copy);
     }
 
+    public void LaunchTwinMusic() => Tools.ExternalTools.Launch(DiscFileTool.Music);
+
+    public void LaunchTwinPss() => Tools.ExternalTools.Launch(DiscFileTool.Video);
+
+    public void OpenToolsFolder()
+    {
+        Directory.CreateDirectory(Tools.ExternalTools.ToolsFolder);
+        Tools.ExternalTools.ShowInFileManager(Tools.ExternalTools.ToolsFolder);
+    }
+
+    // Downloads the tools' latest release for this system into their folders, the log tells how it went
+    public async Task InstallTools()
+    {
+        Log.WriteLine("Installing the twinstudio tools...");
+        var installed = await Task.Run(() => Tools.ExternalTools.InstallAsync());
+        Log.WriteLine(installed ? "The twinstudio tools are installed, the Tools menu and the disc's files use them" : "The twinstudio tools couldn't all be installed, see the messages above", installed ? Log.LogType.Info : Log.LogType.Warning);
+    }
+
+    public async Task OpenBuildDialog()
+    {
+        if (_projectManager.OpenedProject is not TT_Lab.Project.Project project)
+        {
+            return;
+        }
+
+        var viewModel = new BuildDialogViewModel(project);
+        var dialog = new Views.BuildDialogView { DataContext = viewModel };
+        await dialog.ShowDialog(MiscUtils.GetMainWindow());
+        if (viewModel.Result != null)
+        {
+            _projectManager.Build(viewModel.Result);
+        }
+    }
+
     public void BuildPs2()
     {
         _projectManager.BuildPs2Project();
@@ -211,6 +247,8 @@ public class ShellViewModel : Screen, ILabManager
     public void ShowChunkInspector() => DockFactory.ShowPanel(_chunkInspector);
 
     public void ShowHistory() => DockFactory.ShowPanel(_history);
+
+    public void ShowPrefabs() => DockFactory.ShowPanel(_prefabs);
 
     public void ReopenClosedEditor()
     {

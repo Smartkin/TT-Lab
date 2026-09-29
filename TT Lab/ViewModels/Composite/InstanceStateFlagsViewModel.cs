@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Caliburn.Micro;
 using TT_Lab.Attributes;
 using TT_Lab.Util;
@@ -41,9 +41,9 @@ public class InstanceStateFlagsViewModel : Screen, IDirtyMarker
                 NotifyOfPropertyChange(nameof(CanAlwaysDamageCharacter));
                 NotifyOfPropertyChange(nameof(ShadowActive));
                 NotifyOfPropertyChange(nameof(PlayableCharacterCanMoveAlong));
-                NotifyOfPropertyChange(nameof(Unknown3));
+                NotifyOfPropertyChange(nameof(TracksMovement));
                 NotifyOfPropertyChange(nameof(SyncCrossChunkState));
-                NotifyOfPropertyChange(nameof(Unknown5));
+                NotifyOfPropertyChange(nameof(PersistentFlagInChunkStore));
                 NotifyOfPropertyChange(nameof(SolidToBodySlam));
                 NotifyOfPropertyChange(nameof(SolidToSlide));
                 NotifyOfPropertyChange(nameof(SolidToSpin));
@@ -51,7 +51,7 @@ public class InstanceStateFlagsViewModel : Screen, IDirtyMarker
                 NotifyOfPropertyChange(nameof(SolidToThrownCortex));
                 NotifyOfPropertyChange(nameof(Targettable));
                 NotifyOfPropertyChange(nameof(BulletsWillBounceBack));
-                NotifyOfPropertyChange(nameof(Unknown13));
+                NotifyOfPropertyChange(nameof(SnapToGround));
                 NotifyOfPropertyChange(nameof(Unknown14));
                 NotifyOfPropertyChange(nameof(Unknown15));
                 NotifyOfPropertyChange(nameof(Unknown16));
@@ -157,12 +157,12 @@ public class InstanceStateFlagsViewModel : Screen, IDirtyMarker
         }
     }
     [MarkDirty]
-    public Boolean Unknown3
+    public Boolean TracksMovement
     {
-        get => _stateFlags.HasFlag(Enums.InstanceState.Unknown1);
+        get => _stateFlags.HasFlag(Enums.InstanceState.TracksMovement);
         set
         {
-            _stateFlags = _stateFlags.ChangeFlag(Enums.InstanceState.Unknown1, value);
+            _stateFlags = _stateFlags.ChangeFlag(Enums.InstanceState.TracksMovement, value);
                 
             NotifyOfPropertyChange(nameof(StateFlags));
         }
@@ -179,12 +179,12 @@ public class InstanceStateFlagsViewModel : Screen, IDirtyMarker
         }
     }
     [MarkDirty]
-    public Boolean Unknown5
+    public Boolean PersistentFlagInChunkStore
     {
-        get => _stateFlags.HasFlag(Enums.InstanceState.Unknown2);
+        get => _stateFlags.HasFlag(Enums.InstanceState.PersistentFlagInChunkStore);
         set
         {
-            _stateFlags = _stateFlags.ChangeFlag(Enums.InstanceState.Unknown2, value);
+            _stateFlags = _stateFlags.ChangeFlag(Enums.InstanceState.PersistentFlagInChunkStore, value);
                 
             NotifyOfPropertyChange(nameof(StateFlags));
         }
@@ -267,12 +267,12 @@ public class InstanceStateFlagsViewModel : Screen, IDirtyMarker
         }
     }
     [MarkDirty]
-    public Boolean Unknown13
+    public Boolean SnapToGround
     {
-        get => _stateFlags.HasFlag(Enums.InstanceState.Unknown3);
+        get => _stateFlags.HasFlag(Enums.InstanceState.SnapToGround);
         set
         {
-            _stateFlags = _stateFlags.ChangeFlag(Enums.InstanceState.Unknown3, value);
+            _stateFlags = _stateFlags.ChangeFlag(Enums.InstanceState.SnapToGround, value);
                 
             NotifyOfPropertyChange(nameof(StateFlags));
         }

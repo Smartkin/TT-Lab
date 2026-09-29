@@ -17,28 +17,26 @@ def vector(*values):
 
 # Twin Tech values the way TT Lab writes them, one of every type
 SAMPLES = {
-    "Ogi": {"Type": "Ogi", "BoundingBoxMin": vector(-1, 0, -1, 1), "BoundingBoxMax": vector(1, 2, 1, 1), "Collisions": {
-        "0": {"Joint": 2, "Points": vector(0, 0, 0, 1, 1, 1, 1, 1), "UnkVectors1": [], "UnkVectors2": vector(1, 2, 3, 4), "UnkVectors3": [],
-              "UnkShorts": [1, 2], "UnkBytes1": [3], "UnkBytes2": [4]}}},
-    "Scenery": {"Type": "Scenery", "FogColor": 2, "HasLighting": True, "UnkByte": 18, "LightOrder": [0, 0, 0, 2, 1, 0]},
+    "Ogi": {"Type": "Ogi", "BoundingBoxMin": vector(-1, 0, -1, 1), "BoundingBoxMax": vector(1, 2, 1, 1)},
+    "Scenery": {"Type": "Scenery", "FogColor": 2, "HasLighting": True, "UnusedByte": 18, "LightOrder": [0, 0, 0, 2, 1, 0]},
     "SceneryTreeNode": {"Type": "SceneryTreeNode", "LightsEnabler": [index % 3 == 0 for index in range(128)], "Kind": "Root", "Slot": 0,
-                        "UnkVec2": vector(-100, -20, -100, 150), "UnkVec3": vector(100, 20, 100, 150), "UnkVec1": vector(0, 0, 0, 150),
-                        "UnkVec4": vector(100, 20, 100, 150), "UnkUInt": 1, "SceneryTypes": [5632, 3, 5637, 3, 3, 3, 3, 3]},
+                        "BoundsMin": vector(-100, -20, -100, 150), "BoundsMax": vector(100, 20, 100, 150), "BoundsCenter": vector(0, 0, 0, 150),
+                        "BoundsHalfSize": vector(100, 20, 100, 150), "TreeDepth": 1, "SceneryTypes": [5632, 3, 5637, 3, 3, 3, 3, 3]},
     "SceneryMesh": {"Type": "SceneryMesh", "Order": 0, "Matrix": vector(2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 2, 0, 5, -3, 1, 1),
                     "BoundingBox": vector(-1, -2, -3, 4, 1, 2, 3, 0)},
     "SceneryLod": {"Type": "SceneryLod", "Order": 1, "Matrix": vector(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1), "LodType": "FULL", "MinDrawDistance": 10, "MaxDrawDistance": 300,
                    "ModelsDrawDistances": [50, 100, 200], "BoundingBox": []},
     "LodMesh": {"Type": "LodMesh", "Level": 2},
-    "DirectionalLight": {"Type": "DirectionalLight", "Order": 0, "Color": vector(1, 1, 0.5, 1), "Radius": 7.5, "PositionW": 1.0, "UnkData": 5,
-                         "UnkVec1": vector(0, 0, 0, 1), "UnkVec2": vector(0, 0, 0, 1), "UnkShort": -3, "Direction": vector(0, 0.5, 0, 0.5)},
-    "NegativeLight": {"Type": "NegativeLight", "Order": 1, "Color": vector(1, 0, 0, 1), "Radius": 2.0, "PositionW": 1.0, "UnkData": -1,
-                      "UnkVec1": vector(0, 0, 0, 1), "UnkVec2": vector(0, 0, 0, 1), "UnkVec3": vector(1, 2, 3, 4), "UnkFloat1": 0.5, "UnkFloat2": 2.0,
-                      "UnkUInt1": -1, "UnkUInt2": 7, "UnkUShort1": 65535, "UnkUShort2": 3},
-    "ExitPoint": {"Type": "ExitPoint", "Id": 7, "Matrix": vector(1, -0.0, 0, 0, -0.0, 1, 0, 0, 0, 0, 1, 0, 0, 0, -0.0, 1)},
+    "DirectionalLight": {"Type": "DirectionalLight", "Order": 0, "Color": vector(1, 1, 0.5, 1), "Intensity": 7.5, "Enabled": False, "PositionW": 1.0,
+                         "BoundsMin": vector(0, 0, 0, 1), "BoundsMax": vector(0, 0, 0, 1), "Leftover": -3, "Direction": vector(0, 1, 0, 0)},
+    "NegativeLight": {"Type": "NegativeLight", "Order": 1, "Color": vector(1, 0, 0, 1), "Intensity": 2.0, "Enabled": True, "PositionW": 1.0,
+                      "BoundsMin": vector(0, 0, 0, 1), "BoundsMax": vector(0, 0, 0, 1), "ConeAngle": 18956, "FalloffAngle": 917, "AttenuationPower": 65535,
+                      "SpotExponent": 3, "Direction": vector(1, 2, 3, 0), "InnerConeCosine": 0.5, "OuterConeCosine": 0.4},
+    "ExitPoint": {"Type": "ExitPoint", "Id": 7},
     "Body": {"Type": "Body", "Order": 3},
-    "BlendSkin": {"Type": "BlendSkin", "BlendsAmount": 2},
-    "DynamicSceneryModel": {"Type": "DynamicSceneryModel", "Order": 0, "LodFlag": 1, "BoundingBoxMin": vector(-1, -1, -1, 1), "BoundingBoxMax": vector(1, 1, 1, 1),
-                            "Collisions": {}},
+    "BlendSkin": {"Type": "BlendSkin"},
+    "DynamicSceneryModel": {"Type": "DynamicSceneryModel", "Order": 0, "LodFlag": 1, "BoundingBoxMin": vector(-1, -1, -1, 1), "BoundingBoxMax": vector(1, 1, 1, 1)},
+    "CollisionHull": {"Type": "CollisionHull"},
     "Collision": {"Type": "Collision", "UnusedVertexes": [4, 9], "UnusedPositions": vector(99, 99, 99, -1.5, 0, 2)},
     "Joint": {"Type": "Joint", "Index": 2, "ReactId": 255, "AdditionalAnimationRotation": vector(0, 0.25, 0, 0.97), "ChildrenAmt2": 1,
               "UnusedRotation": vector(0.1, 0.2, 0.3, 0.4), "LocalTranslation": vector(0, 0, -0.0, 1), "LocalRotation": vector(0, 0, 0, 0.5),
@@ -90,17 +88,14 @@ class SchemaTests(unittest.TestCase):
         _, values, _ = schema.read_twin(schema.OBJECT_TYPES, IdProperty({schema.KEY: IdProperty(node)}))
         self.assertEqual(schema.write_twin(schema.OBJECT_TYPES, "SceneryTreeNode", values, ""), SAMPLES["SceneryTreeNode"])
 
-        ogi = copy.deepcopy(SAMPLES["Ogi"])
-        ogi["Collisions"] = IdProperty({key: IdProperty(value) for key, value in ogi["Collisions"].items()})
-        _, values, _ = schema.read_twin(schema.OBJECT_TYPES, IdProperty({schema.KEY: IdProperty(ogi)}))
-        self.assertEqual(schema.write_twin(schema.OBJECT_TYPES, "Ogi", values, ""), SAMPLES["Ogi"])
 
     def test_negative_zeros_stay(self):
-        _, values, _ = schema.read_twin(schema.OBJECT_TYPES, extras("ExitPoint"))
+        sample = dict(SAMPLES["SceneryMesh"], Matrix=vector(1, -0.0, 0, 0, -0.0, 1, 0, 0, 0, 0, 1, 0, 0, 0, -0.0, 1))
+        _, values, _ = schema.read_twin(schema.OBJECT_TYPES, {schema.KEY: sample})
 
-        written = schema.write_twin(schema.OBJECT_TYPES, "ExitPoint", values, "")
+        written = schema.write_twin(schema.OBJECT_TYPES, "SceneryMesh", values, "")
 
-        self.assertEqual([math.copysign(1, value) for value in written["Matrix"]], [math.copysign(1, value) for value in SAMPLES["ExitPoint"]["Matrix"]])
+        self.assertEqual([math.copysign(1, value) for value in written["Matrix"]], [math.copysign(1, value) for value in sample["Matrix"]])
 
     def test_what_the_add_on_doesnt_know_is_kept(self):
         sample = dict(SAMPLES["SceneryMesh"], Future=[1, 2])
@@ -124,13 +119,13 @@ class SchemaTests(unittest.TestCase):
         self.assertIsNone(schema.write_twin(schema.OBJECT_TYPES, schema.NONE_TYPE, {}, ""))
 
     def test_missing_fields_get_the_games_defaults(self):
-        _, values, _ = schema.read_twin(schema.OBJECT_TYPES, {schema.KEY: {"Type": "PointLight", "Radius": 3.0}})
+        _, values, _ = schema.read_twin(schema.OBJECT_TYPES, {schema.KEY: {"Type": "PointLight", "Intensity": 3.0}})
 
         written = schema.write_twin(schema.OBJECT_TYPES, "PointLight", values, "")
 
-        self.assertEqual(written["Radius"], 3.0)
+        self.assertEqual(written["Intensity"], 3.0)
         self.assertEqual(written["Color"], vector(1, 1, 1, 1))
-        self.assertEqual(written["UnkVec1"], vector(0, 0, 0, 1))
+        self.assertEqual(written["BoundsMin"], vector(0, 0, 0, 1))
 
     def test_numbers_of_enums_are_their_names(self):
         _, values, _ = schema.read_twin(schema.OBJECT_TYPES, {schema.KEY: {"Type": "SceneryLod", "LodType": 4097}})
@@ -166,19 +161,6 @@ class ContainerTests(unittest.TestCase):
         self.assertEqual(written["LodType"], "COMPRESSED")
         self.assertEqual(written["BoundingBox"], vector(-1, -1, -1, 2, 1, 1, 1, 0))
 
-    def test_lists_are_read_and_edited(self):
-        root = Element(schema.OBJECT_TYPES)
-        twintech.read_container(root.ttt, schema.OBJECT_TYPES, extras("Ogi"))
-        collisions = root.ttt.ogi.collisions
-        self.assertEqual([collision.joint for collision in collisions], [2])
-
-        added = collisions.add()
-        added.joint = 5
-        written = twintech.write_container(root.ttt, schema.OBJECT_TYPES)
-
-        self.assertEqual(written["Collisions"]["1"]["Joint"], 5)
-        self.assertEqual(written["Collisions"]["0"]["UnkShorts"], [1, 2])
-
     def test_lights_are_edited_as_ranges(self):
         node = Element(schema.OBJECT_TYPES)
         twintech.read_container(node.ttt, schema.OBJECT_TYPES, extras("SceneryTreeNode"))
@@ -197,7 +179,7 @@ class ContainerTests(unittest.TestCase):
 
         self.assertEqual(written["Type"], "PointLight")
         self.assertEqual(written["Color"], vector(1, 1, 1, 1))
-        self.assertEqual(written["UnkVec1"], vector(0, 0, 0, 1))
+        self.assertEqual(written["BoundsMin"], vector(0, 0, 0, 1))
 
     def test_every_sample_comes_back_through_properties(self):
         for name in SAMPLES:

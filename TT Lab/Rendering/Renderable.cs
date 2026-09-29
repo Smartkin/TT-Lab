@@ -271,10 +271,13 @@ public abstract class Renderable
 
     public void RemoveChild(Renderable child)
     {
-        if (!_children.Remove(child.Name))
+        // Only the child itself: another one of the same name, made again for the same asset, went with a removal of the one it replaced
+        if (!_children.TryGetValue(child.Name, out var existing) || existing != child)
         {
             return;
         }
+
+        _children.Remove(child.Name);
 
         _childrenSnapshot = null;
         child.Parent = null;

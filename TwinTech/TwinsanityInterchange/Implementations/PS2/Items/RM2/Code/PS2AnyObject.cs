@@ -21,7 +21,12 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code
             get => (ITwinObject.ObjectType)type;
             set => type = (Byte)value;
         }
-        public Byte UnkTypeValue { get; set; }
+        /// <summary>
+        /// Bits 12-19 of the object's header: 1 on every retail object but the red wumpa (17) and the projectiles (18). Only pickups
+        /// read it: 16 and 17 give their instances the node with a phase of its own (InstanceNodeType1, GetInstanceNodeFromObject
+        /// 0x12dc60), 16 also drops the instance properties (GetNodeBasedOnInstanceType 0x12d520)
+        /// </summary>
+        public Byte SubType { get; set; }
         public Byte ReactJointAmount { get; set; }
         public Byte ExitPointAmount { get; set; }
         public String Name { get; set; }
@@ -156,7 +161,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code
         {
             var bitfield = reader.ReadUInt32();
             type = (Byte)(bitfield >> 0x14 & 0xFF);
-            UnkTypeValue = (Byte)(bitfield >> 0xC & 0xFF);
+            SubType = (Byte)(bitfield >> 0xC & 0xFF);
             ReactJointAmount = (Byte)(bitfield >> 0x6 & 0x3F);
             ExitPointAmount = (Byte)(bitfield & 0x3F);
 
@@ -254,7 +259,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code
                 newBitfield |= 0x30000000;
             }
             UInt32 objType = (UInt32)(type << 0x14);
-            UInt32 objTypeRelVal = (UInt32)(UnkTypeValue << 0xC);
+            UInt32 objTypeRelVal = (UInt32)(SubType << 0xC);
             UInt32 unkOgiArraySize = (UInt32)((ReactJointAmount & 0x3F) << 0x6);
             newBitfield |= objType;
             newBitfield |= objTypeRelVal;

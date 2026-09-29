@@ -54,14 +54,14 @@ public class ShaderViewModel : Conductor<IScreen>.Collection.AllActive, IHavePar
     private UInt16 _lodParamK;
     private UInt16 _lodParamL;
     private LabURI _texID = LabURI.Empty;
-    private Byte _unkVal1;
+    private Byte _unusedValue;
     private XScrollFormula _xScrollSettings;
     private YScrollFormula _yScrollSettings;
-    private Boolean _unkFlag1;
-    private Boolean _unkFlag2;
-    private Boolean _unkFlag3;
-    private Vector4ViewModel _unkVec1;
-    private Vector4ViewModel _unkVec2;
+    private Boolean _unusedFlag;
+    private Boolean _antiAliasing;
+    private Boolean _animationDrivesColor;
+    private Vector4ViewModel _leftoverVector;
+    private Vector4ViewModel _shaderColor;
     private Vector4ViewModel _uvScrollSpeed;
     private bool isDirty;
     private DirtyTracker dirtyTracker;
@@ -79,11 +79,11 @@ public class ShaderViewModel : Conductor<IScreen>.Collection.AllActive, IHavePar
         Type = TwinShader.Type.StandardUnlit;
         _name = Type.ToString();
         _floatParam = new Single[4];
-        _unkVec1 = new Vector4ViewModel();
-        _unkVec2 = new Vector4ViewModel();
+        _leftoverVector = new Vector4ViewModel();
+        _shaderColor = new Vector4ViewModel();
         _uvScrollSpeed = new Vector4ViewModel();
-        dirtyTracker.AddChild(_unkVec1);
-        dirtyTracker.AddChild(_unkVec2);
+        dirtyTracker.AddChild(_leftoverVector);
+        dirtyTracker.AddChild(_shaderColor);
         dirtyTracker.AddChild(_uvScrollSpeed);
         _texID = LabURI.Empty;
     }
@@ -122,20 +122,20 @@ public class ShaderViewModel : Conductor<IScreen>.Collection.AllActive, IHavePar
         _lodParamK = shader.LodParamK;
         _lodParamL = shader.LodParamL;
         _texID = shader.TextureId;
-        _unkVal1 = shader.UnkVal1;
+        _unusedValue = shader.UnusedValue;
         _xScrollSettings = shader.XScrollSettings;
         _yScrollSettings = shader.YScrollSettings;
-        _unkFlag1 = shader.UnkFlag1;
-        _unkFlag2 = shader.UnkFlag2;
-        _unkFlag3 = shader.UnkFlag3;
-        dirtyTracker.RemoveChild(_unkVec1);
-        dirtyTracker.RemoveChild(_unkVec2);
+        _unusedFlag = shader.UnusedFlag;
+        _antiAliasing = shader.AntiAliasing;
+        _animationDrivesColor = shader.AnimationDrivesColor;
+        dirtyTracker.RemoveChild(_leftoverVector);
+        dirtyTracker.RemoveChild(_shaderColor);
         dirtyTracker.RemoveChild(_uvScrollSpeed);
-        _unkVec1 = new Vector4ViewModel(shader.UnkVector1);
-        _unkVec2 = new Vector4ViewModel(shader.UnkVector2);
+        _leftoverVector = new Vector4ViewModel(shader.LeftoverVector);
+        _shaderColor = new Vector4ViewModel(shader.ShaderColor);
         _uvScrollSpeed = new Vector4ViewModel(shader.UvScrollSpeed);
-        dirtyTracker.AddChild(_unkVec1);
-        dirtyTracker.AddChild(_unkVec2);
+        dirtyTracker.AddChild(_leftoverVector);
+        dirtyTracker.AddChild(_shaderColor);
         dirtyTracker.AddChild(_uvScrollSpeed);
     }
 
@@ -181,25 +181,25 @@ public class ShaderViewModel : Conductor<IScreen>.Collection.AllActive, IHavePar
         o.LodParamK = LodParamK;
         o.LodParamL = LodParamL;
         o.TextureId = TexID;
-        o.UnkVal1 = UnkVal1;
+        o.UnusedValue = UnusedValue;
         o.XScrollSettings = XScrollSettings;
         o.YScrollSettings = YScrollSettings;
-        o.UnkFlag1 = UnkFlag1;
-        o.UnkFlag2 = UnkFlag2;
-        o.UnkFlag3 = UnkFlag3;
-        o.UnkVector1 = new Vector4
+        o.UnusedFlag = UnusedFlag;
+        o.AntiAliasing = AntiAliasing;
+        o.AnimationDrivesColor = AnimationDrivesColor;
+        o.LeftoverVector = new Vector4
         {
-            X = UnkVec1.X,
-            Y = UnkVec1.Y,
-            Z = UnkVec1.Z,
-            W = UnkVec1.W
+            X = LeftoverVector.X,
+            Y = LeftoverVector.Y,
+            Z = LeftoverVector.Z,
+            W = LeftoverVector.W
         };
-        o.UnkVector2 = new Vector4
+        o.ShaderColor = new Vector4
         {
-            X = UnkVec2.X,
-            Y = UnkVec2.Y,
-            Z = UnkVec2.Z,
-            W = UnkVec2.W,
+            X = ShaderColor.X,
+            Y = ShaderColor.Y,
+            Z = ShaderColor.Z,
+            W = ShaderColor.W,
         };
         o.UvScrollSpeed = new Vector4
         {
@@ -684,14 +684,14 @@ public class ShaderViewModel : Conductor<IScreen>.Collection.AllActive, IHavePar
         }
     }
     [MarkDirty]
-    public Byte UnkVal1
+    public Byte UnusedValue
     {
-        get => _unkVal1;
+        get => _unusedValue;
         set
         {
-            if (_unkVal1 != value)
+            if (_unusedValue != value)
             {
-                _unkVal1 = value;
+                _unusedValue = value;
                 NotifyOfPropertyChange();
             }
         }
@@ -723,49 +723,49 @@ public class ShaderViewModel : Conductor<IScreen>.Collection.AllActive, IHavePar
         }
     }
     [MarkDirty]
-    public Boolean UnkFlag1
+    public Boolean UnusedFlag
     {
-        get => _unkFlag1;
+        get => _unusedFlag;
         set
         {
-            if (_unkFlag1 != value)
+            if (_unusedFlag != value)
             {
-                _unkFlag1 = value;
+                _unusedFlag = value;
                 NotifyOfPropertyChange();
             }
         }
     }
     [MarkDirty]
-    public Boolean UnkFlag2
+    public Boolean AntiAliasing
     {
-        get => _unkFlag2;
+        get => _antiAliasing;
         set
         {
-            if (_unkFlag2 != value)
+            if (_antiAliasing != value)
             {
-                _unkFlag2 = value;
+                _antiAliasing = value;
                 NotifyOfPropertyChange();
             }
         }
     }
         
     [MarkDirty]
-    public Boolean UnkFlag3
+    public Boolean AnimationDrivesColor
     {
-        get => _unkFlag3;
+        get => _animationDrivesColor;
         set
         {
-            if (_unkFlag3 != value)
+            if (_animationDrivesColor != value)
             {
-                _unkFlag3 = value;
+                _animationDrivesColor = value;
                 NotifyOfPropertyChange();
             }
         }
     }
         
-    public Vector4ViewModel UnkVec1 => _unkVec1;
+    public Vector4ViewModel LeftoverVector => _leftoverVector;
 
-    public Vector4ViewModel UnkVec2 => _unkVec2;
+    public Vector4ViewModel ShaderColor => _shaderColor;
 
     public Vector4ViewModel UvScrollSpeed => _uvScrollSpeed;
 

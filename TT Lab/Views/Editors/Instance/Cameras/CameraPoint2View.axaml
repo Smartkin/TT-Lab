@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -15,8 +15,8 @@
             <cameras:BaseCameraView DataContext="{Binding}"/>
             <controls1:GroupBox Header="Parameters">
                 <StackPanel Orientation="Vertical">
-                    <controls:LabeledTextBox HorizontalAlignment="Stretch" Text="{Binding UnkFloat3}" TextBoxName="Unknown Float 3"/>
-                    <controls:LabeledTextBox HorizontalAlignment="Stretch" Text="{Binding UnkByte}" TextBoxName="Unknown Byte"/>
+                    <controls:LabeledTextBox HorizontalAlignment="Stretch" Text="{Binding Distance}" TextBoxName="Unknown Float 3"/>
+                    <controls:LabeledTextBox HorizontalAlignment="Stretch" Text="{Binding Mode}" TextBoxName="Unknown Byte"/>
                 </StackPanel>
             </controls1:GroupBox>
             <controls1:GroupBox Header="Point">

@@ -19,12 +19,12 @@
         </Style>
     </UserControl.Styles>
     <Border BorderBrush="DimGray" BorderThickness="1">
-        <ScrollViewer BringIntoViewOnFocusChange="False" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+        <!-- No scroll viewer of its own, the document's scrolls everything -->
             <Expander ContentTransition="{x:Null}" IsExpanded="{Binding IsExpanded}" HorizontalAlignment="Stretch">
                 <Expander.Header>
                     <Panel>
                         <DockPanel LastChildFill="True">
-                            <TextBlock VerticalAlignment="Center" DockPanel.Dock="Left" Text="{Binding Caption}" Classes.overridden="{Binding IsOverridden}" ContextRequested="Caption_OnContextRequested"/>
+                            <TextBlock VerticalAlignment="Center" DockPanel.Dock="Left" Text="{Binding Caption}" ToolTip.Tip="{Binding Hint}" ToolTip.ShowDelay="500" Classes.overridden="{Binding IsOverridden}" ContextRequested="Caption_OnContextRequested"/>
                             <Button Margin="10" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" IsVisible="{Binding IsConstructible}" x:Name="ConstructNewInstance">
                                 <Button.Content>
                                     <TextBlock Text="{Binding TypeConstructed}"/>
@@ -55,17 +55,14 @@
                 <ItemsControl HorizontalAlignment="Stretch" VerticalAlignment="Stretch" DockPanel.Dock="Top" x:Name="EditorsContainer">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="viewmodels:DocumentNodeViewModel">
-                            <DockPanel Classes.highlighted="{Binding IsHighlighted}" IsVisible="{Binding IsVisible}" HorizontalSpacing="15" LastChildFill="True" Background="Transparent" ToolTip.Tip="{Binding Hint}">
-                                <TextBlock IsVisible="{Binding IsCaptionVisible}" Margin="5, 0, 0, 0" MinWidth="80" DockPanel.Dock="{Binding Orientation}" VerticalAlignment="Center" Text="{Binding Caption}"
+                            <DockPanel Classes.highlighted="{Binding IsHighlighted}" IsVisible="{Binding IsVisible}" HorizontalSpacing="15" LastChildFill="True" Background="Transparent">
+                                <TextBlock IsVisible="{Binding IsCaptionVisible}" Margin="5, 0, 0, 0" MinWidth="80" MaxWidth="200" TextWrapping="Wrap" DockPanel.Dock="{Binding Orientation}" VerticalAlignment="Center" Text="{Binding Caption}" ToolTip.Tip="{Binding Hint}" ToolTip.ShowDelay="500"
                                            Classes.overridden="{Binding IsOverridden}" ContextRequested="Caption_OnContextRequested"/>
-                                <ScrollViewer DockPanel.Dock="{Binding EditorOrientation}" BringIntoViewOnFocusChange="False" MaxHeight="800" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
-                                    <ContentControl HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Content="{Binding}"/>
-                                </ScrollViewer>
+                                <ContentControl DockPanel.Dock="{Binding EditorOrientation}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Content="{Binding}"/>
                             </DockPanel>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
             </Expander>
-        </ScrollViewer>
     </Border>
 </UserControl>

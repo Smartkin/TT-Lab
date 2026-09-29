@@ -1,7 +1,7 @@
+using Avalonia.Headless.XUnit;
 using System.Text.Json.Nodes;
 using TT_Lab.AssetData.Code;
 using TT_Lab.AssetData.Graphics;
-using TT_Lab.AssetData.Graphics.TlModel;
 using TT_Lab.AssetData.Graphics.TlModel;
 using TT_Lab.AssetData.Instance;
 using TT_Lab.Assets;
@@ -9,8 +9,15 @@ using TT_Lab.Assets.Code;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Assets.Graphics;
 using TT_Lab.Assets.Instance;
+using Newtonsoft.Json;
+using Splat;
+using TT_Lab.Project;
 using TT_Lab.ServiceProviders;
+using TT_Lab.Services.Implementations;
 using TT_Lab.Tests.Support;
+using TT_Lab.ViewModels;
+using TT_Lab.ViewModels.ResourceTree;
+using GamePlatform = TT_Lab.Project.Project.GamePlatform;
 using Path = System.IO.Path;
 
 namespace TT_Lab.Tests.Assets;
@@ -47,6 +54,29 @@ public sealed class AssetCreationTests : IDisposable
     {
         return (LevelChunk?)AssetFactory.CreateAsset(typeof(LevelChunk), folder, name, string.Empty,
             TwinIdGeneratorServiceProvider.GetGenerator<LevelChunk>(), asset => AssetDataFactory.CreateChunkData(folder, asset));
+    }
+
+    private static Folder AddFolder(Folder parent, string name)
+    {
+        return (Folder)AssetFactory.CreateAsset(typeof(Folder), parent, name, string.Empty, TwinIdGeneratorServiceProvider.GetGenerator<Folder>(),
+            asset => AssetDataFactory.CreateFolderData(parent, asset))!;
+    }
+
+    private static Folder ProjectAssetsFolder =>
+        (Folder)Assert.Single(Locator.Current.GetService<ProjectManager>()!.FullProjectTree, element => element.Alias == "assets").Asset;
+
+    private Package CreatePackage(string name)
+    {
+        return (Package)AssetFactory.CreateAsset(typeof(Package), ProjectAssetsFolder, name, _project.Project.BasePackage.ID.ToString(),
+            TwinIdGeneratorServiceProvider.GetGenerator<Package>(), AssetDataFactory.CreatePackageData)!;
+    }
+
+    // What the folder's Create Asset dialog offers
+    private static List<string> Offered(Folder folder)
+    {
+        var dialogue = new CreateAssetViewModel(new DataValidatorService(), new ActiveChunkService());
+        ((FolderElementViewModel)folder.GetResourceTreeElement()).ListAssetsToCreate(dialogue);
+        return dialogue.CreatableAssets.Select(model => model.DisplayName).ToList();
     }
 
     [Fact]
@@ -87,6 +117,92 @@ public sealed class AssetCreationTests : IDisposable
         AddSurface();
 
         Assert.Null(CreateChunk(_project.GetFolder(_package, "Graphics"), "testlevel"));
+    }
+
+    // The build writes the chunks of the levels folder at the root of a package, whichever package it is
+    [AvaloniaFact]
+    public void ChunksAreOnlyOfferedInAPackagesLevelsFolder()
+    {
+        var levels = _project.GetFolder(_package, "levels");
+        var earth = AddFolder(levels, "earth");
+        var misplaced = AddFolder(_project.GetFolder(_package, "Graphics"), "levels");
+
+        Assert.Contains("Chunk", Offered(levels));
+        Assert.Contains("Chunk", Offered(earth));
+        Assert.DoesNotContain("Chunk", Offered(_project.GetFolder(_package, "Graphics")));
+        Assert.DoesNotContain("Chunk", Offered(misplaced));
+        Assert.DoesNotContain("Chunk", Offered(_package.GetPackageFolder()));
+        AddCrash();
+        AddSurface();
+        Assert.Equal(Path.Combine("levels", "earth", "cave"), CreateChunk(earth, "cave")!.AdditionalPath);
+        Assert.Null(CreateChunk(misplaced, "grotto"));
+    }
+
+    // The game has one file for a path, another package's chunk at it would be built over it
+    [AvaloniaFact]
+    public void AChunksPathIsItsOwnInItsVersionOfTheGame()
+    {
+        AddCrash();
+        AddSurface();
+        Assert.NotNull(CreateChunk(_project.GetFolder(_package, "levels"), "cave"));
+        var modLevels = AddFolder(CreatePackage("Mod").GetPackageFolder(), "levels");
+
+        Assert.Null(CreateChunk(modLevels, "cave"));
+        Assert.NotNull(CreateChunk(modLevels, "grotto"));
+        var xbox = _project.Project.GlobalPackageXbox;
+        var crash = _project.Add(new GameObject(), "Crash", 0x0, xbox);
+        crash.SetData(new GameObjectData(crash) { Name = "Crash" });
+        var surface = new CollisionSurface { Chunk = "default" };
+        surface.Parameters.Add(CollisionSurface.EditorColorParameter, CollisionSurface.DefaultColors[0]);
+        _project.Add(surface, "Surface", 0x0, xbox);
+        Assert.NotNull(CreateChunk(AddFolder(_project.Project.XboxPackage.GetPackageFolder(), "levels"), "cave"));
+    }
+
+    // Packages are the folders of the project's assets folder, a package's own assets folder is a folder like any other
+    [AvaloniaFact]
+    public void PackagesAreMadeInTheProjectsAssetsFolder()
+    {
+        Assert.Equal(["Package"], Offered(ProjectAssetsFolder));
+
+        var mod = CreatePackage("Mod");
+
+        Assert.Equal("Mod", mod.Name);
+        Assert.True(File.Exists(Path.Combine(_project.AssetsPath, "Mod", "Mod.json")));
+        var folder = mod.GetPackageFolder();
+        Assert.Equal(FolderMark.IsPackage | FolderMark.Locked, folder.Mark);
+        Assert.Equal(mod.URI, folder.Package);
+        Assert.Contains(folder.URI, ProjectAssetsFolder.Children);
+        Assert.Empty(folder.Children);
+        // It depends on the version's package and the project's own package depends on it, on disk as well
+        Assert.Equal([_project.Project.Ps2Package.URI], mod.Dependencies);
+        Assert.Equal(GamePlatform.PS2, _project.Project.GetPlatform(mod.URI));
+        var basePackagePath = Path.Combine(_project.AssetsPath, _project.Project.BasePackage.Name, $"{_project.Project.BasePackage.Name}.json");
+        Assert.Contains(mod.URI, JsonConvert.DeserializeObject<Package>(File.ReadAllText(basePackagePath))!.Dependencies);
+        // Its assets belong to it
+        var objects = AddFolder(folder, "assets");
+        Assert.Equal(mod.URI, objects.Package);
+        Assert.DoesNotContain("Package", Offered(objects));
+        Assert.Contains("Game Object", Offered(objects));
+        Assert.DoesNotContain("Package", Offered(_package.GetPackageFolder()));
+        // The tree following the file system keeps it as it is
+        Locator.Current.GetService<ProjectManager>()!.SyncProjectTree();
+        Assert.Single(ProjectAssetsFolder.Children, uri => uri == folder.URI);
+        Assert.Contains(objects.URI, folder.Children);
+    }
+
+    [AvaloniaFact]
+    public void BuildsWriteTheChunksOfEveryPackageOfTheVersion()
+    {
+        var mod = CreatePackage("Mod");
+        var modLevels = AddFolder(mod.GetPackageFolder(), "levels");
+        AddFolder(_project.Project.XboxPackage.GetPackageFolder(), "levels");
+
+        Assert.Equal([_project.GetFolder(_package, "levels"), modLevels], _project.Project.GetLevelsFolders(GamePlatform.PS2));
+        Assert.Empty(_project.Project.GetLevelsFolders(GamePlatform.Xbox));
+        _project.Project.XboxPackage.Enabled = true;
+        Assert.Single(_project.Project.GetLevelsFolders(GamePlatform.Xbox));
+        mod.Enabled = false;
+        Assert.Equal([_project.GetFolder(_package, "levels")], _project.Project.GetLevelsFolders(GamePlatform.PS2));
     }
 
     [Fact]

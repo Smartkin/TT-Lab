@@ -15,6 +15,8 @@ public class Package : SerializableAsset
 {
     public override string SavePath => Name;
     protected override string SavePathInPackage => string.Empty;
+    // A package's file is in its own folder, its URI names no package above it
+    protected override string LoadPath => Path.Combine("assets", SavePath);
 
     [JsonProperty(Required = Required.Always)]
     [Editable]

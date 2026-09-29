@@ -19,11 +19,9 @@ namespace TT_Lab.ViewModels.Editors.Instance.ChunkLinks;
 
 public class LinkViewModel : Conductor<IScreen>.Collection.AllActive, ISaveableViewModel<ChunkLink>, IHaveChildrenEditors
 {
-    private Boolean unkFlag;
+    private Boolean loadsWithoutPlayer;
     private LabURI path;
-    private Boolean isAlwaysVisible;
-    private Boolean isVisibleInCameraFrustum;
-    private Byte unkNum;
+    private ChunkLinkVisibility visibility;
     private Boolean isLoadWallActive;
     private Boolean keepLoaded;
     private Matrix4ViewModel objectMatrix;
@@ -31,7 +29,7 @@ public class LinkViewModel : Conductor<IScreen>.Collection.AllActive, ISaveableV
     private Matrix4ViewModel? loadingWall;
     private Vector4ViewModel _position;
     private Vector3ViewModel _rotation;
-    private BindableCollection<ChunkLinkBoundingBoxBuilderViewModel> boundingBoxBuilders;
+    private BindableCollection<ChunkLinkHullViewModel> hulls;
     private bool isDirty;
     private DirtyTracker dirtyTracker;
 
@@ -44,10 +42,10 @@ public class LinkViewModel : Conductor<IScreen>.Collection.AllActive, ISaveableV
         objectMatrix = new Matrix4ViewModel(mat4.Identity.Inverse.ToTwin());
         chunkMatrix = new Matrix4ViewModel(mat4.Identity.ToTwin());
         chunkMatrix.PropertyChanged += ChunkMatrixOnPropertyChanged;
-        boundingBoxBuilders = [];
+        hulls = [];
         dirtyTracker.AddChild(objectMatrix);
         dirtyTracker.AddChild(chunkMatrix);
-        dirtyTracker.AddBindableCollection(boundingBoxBuilders);
+        dirtyTracker.AddBindableCollection(hulls);
         
         var rot = chunkMatrix.Rotation;
         _rotation = new Vector3ViewModel(rot.x, rot.y, rot.z);
@@ -64,11 +62,9 @@ public class LinkViewModel : Conductor<IScreen>.Collection.AllActive, ISaveableV
     {
         dirtyTracker = new DirtyTracker(this);
         
-        unkFlag = link.UnkFlag;
+        loadsWithoutPlayer = link.LoadsWithoutPlayer;
         path = link.Path;
-        isAlwaysVisible = link.IsAlwaysVisible;
-        isVisibleInCameraFrustum = link.IsVisibleInCameraFrustum;
-        unkNum = link.UnkNum;
+        visibility = link.Visibility;
         isLoadWallActive = link.IsLoadWallActive;
         keepLoaded = link.KeepLoaded;
         objectMatrix = new Matrix4ViewModel(link.ObjectMatrix);
@@ -82,11 +78,11 @@ public class LinkViewModel : Conductor<IScreen>.Collection.AllActive, ISaveableV
             dirtyTracker.AddChild(loadingWall);
         }
         
-        boundingBoxBuilders = new BindableCollection<ChunkLinkBoundingBoxBuilderViewModel>();
-        dirtyTracker.AddBindableCollection(boundingBoxBuilders);
-        foreach (var builder in link.ChunkLinksCollisionData)
+        hulls = new BindableCollection<ChunkLinkHullViewModel>();
+        dirtyTracker.AddBindableCollection(hulls);
+        foreach (var hull in link.Hulls)
         {
-            boundingBoxBuilders.Add(new ChunkLinkBoundingBoxBuilderViewModel(builder));
+            hulls.Add(new ChunkLinkHullViewModel(hull.ToTwin()));
         }
 
         var rot = chunkMatrix.Rotation;
@@ -144,10 +140,9 @@ public class LinkViewModel : Conductor<IScreen>.Collection.AllActive, ISaveableV
 
     public void Save(ChunkLink link)
     {
-        link.UnkFlag = UnkFlag;
+        link.LoadsWithoutPlayer = LoadsWithoutPlayer;
         link.Path = Path;
-        link.IsAlwaysVisible = IsAlwaysVisible;
-        link.UnkNum = UnkNum;
+        link.Visibility = Visibility;
         link.IsLoadWallActive = IsLoadWallActive;
         link.KeepLoaded = KeepLoaded;
         link.ObjectMatrix = new Matrix4();
@@ -160,12 +155,12 @@ public class LinkViewModel : Conductor<IScreen>.Collection.AllActive, ISaveableV
             link.LoadingWall = new Matrix4();
             LoadingWall.Save(link.LoadingWall);
         }
-        link.ChunkLinksCollisionData.Clear();
-        foreach (var builder in BoundingBoxBuilders)
+        link.Hulls.Clear();
+        foreach (var hull in Hulls)
         {
-            var bbb = new TwinChunkLinkBoundingBoxBuilder();
-            builder.Save(bbb);
-            link.ChunkLinksCollisionData.Add(bbb);
+            var linkHull = new TwinChunkLinkHull();
+            hull.Save(linkHull);
+            link.Hulls.Add(new ChunkLinkHull(linkHull.Hull));
         }
             
         ResetDirty();
@@ -181,7 +176,7 @@ public class LinkViewModel : Conductor<IScreen>.Collection.AllActive, ISaveableV
             ActivateItemAsync(loadingWall, cancellationToken);
         }
 
-        foreach (var builder in boundingBoxBuilders)
+        foreach (var builder in hulls)
         {
             ActivateItemAsync(builder, cancellationToken);
         }
@@ -193,14 +188,14 @@ public class LinkViewModel : Conductor<IScreen>.Collection.AllActive, ISaveableV
     public Vector3ViewModel Rotation => _rotation;
 
     [MarkDirty]
-    public Boolean UnkFlag
+    public Boolean LoadsWithoutPlayer
     {
-        get => unkFlag;
+        get => loadsWithoutPlayer;
         set
         {
-            if (value != unkFlag)
+            if (value != loadsWithoutPlayer)
             {
-                unkFlag = value;
+                loadsWithoutPlayer = value;
                 NotifyOfPropertyChange();
             }
         }
@@ -221,48 +216,19 @@ public class LinkViewModel : Conductor<IScreen>.Collection.AllActive, ISaveableV
     }
 
     [MarkDirty]
-    public Boolean IsAlwaysVisible
+    public ChunkLinkVisibility Visibility
     {
-        get => isAlwaysVisible;
+        get => visibility;
         set
         {
-            if (value != isAlwaysVisible)
+            if (value != visibility)
             {
-                isAlwaysVisible = value;
-                NotifyOfPropertyChange();
-            }
-        }
-    }
-    
-    [MarkDirty]
-    public Boolean IsVisibleInCameraFrustum
-    {
-        get => isVisibleInCameraFrustum;
-        set
-        {
-            if (value != isVisibleInCameraFrustum)
-            {
-                isVisibleInCameraFrustum = value;
+                visibility = value;
                 NotifyOfPropertyChange();
             }
         }
     }
 
-    [MarkDirty]
-    public Byte UnkNum
-    {
-        get => unkNum;
-        set
-        {
-            if (value != unkNum)
-            {
-                unkNum = value;
-                NotifyOfPropertyChange();
-            }
-        }
-    }
-
-    [MarkDirty]
     public Boolean IsLoadWallActive
     {
         get => isLoadWallActive;
@@ -290,9 +256,9 @@ public class LinkViewModel : Conductor<IScreen>.Collection.AllActive, ISaveableV
         }
     }
     
-    public AddItemToListCommand<ChunkLinkBoundingBoxBuilderViewModel> AddBoxBuilderCommand => new(BoundingBoxBuilders);
+    public AddItemToListCommand<ChunkLinkHullViewModel> AddHullCommand => new(Hulls);
     
-    public DeleteItemFromListCommand DeleteBoxBuilderCommand => new(BoundingBoxBuilders);
+    public DeleteItemFromListCommand DeleteHullCommand => new(Hulls);
 
     public Matrix4ViewModel ObjectMatrix => objectMatrix;
 
@@ -300,7 +266,7 @@ public class LinkViewModel : Conductor<IScreen>.Collection.AllActive, ISaveableV
 
     public Matrix4ViewModel? LoadingWall => loadingWall;
 
-    public BindableCollection<ChunkLinkBoundingBoxBuilderViewModel> BoundingBoxBuilders => boundingBoxBuilders;
+    public BindableCollection<ChunkLinkHullViewModel> Hulls => hulls;
 
     public DirtyTracker DirtyTracker => dirtyTracker;
 }

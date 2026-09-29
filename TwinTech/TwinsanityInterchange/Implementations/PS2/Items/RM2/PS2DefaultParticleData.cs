@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -13,22 +13,23 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2
         public UInt32[] MaterialIDs { get; set; }
         public UInt32 DecalTextureID { get; set; }
         public UInt32 DecalMaterialID { get; set; }
-        public Byte[] UnkData { get; set; }
-        public Byte[] UnkBlob { get; set; }
-        public Int32[] UnkInts { get; set; }
-        public List<Byte[]> UnkBlobs { get; set; }
+        public Int32 UnusedDecalInt { get; set; }
+        public TwinDecalUvPacket DecalUvPacket { get; set; }
+        public Int32[] DecalTypeMarkers { get; set; }
+        public List<TwinDecalType> DecalTypes { get; set; }
 
         public PS2DefaultParticleData() : base()
         {
-            UnkBlobs = new List<Byte[]>();
+            DecalTypes = new List<TwinDecalType>();
             TextureIDs = new UInt32[3];
             MaterialIDs = new UInt32[3];
-            UnkInts = new Int32[16];
+            DecalTypeMarkers = new Int32[16];
+            DecalUvPacket = new TwinDecalUvPacket();
         }
 
         public override Int32 GetLength()
         {
-            return 24 + 8 + ParticleSystems.Sum(t => t.GetLength()) + 12 + 0x420 + 0x40 + UnkBlobs.Sum(b => 0x890);
+            return 24 + 8 + ParticleSystems.Sum(t => t.GetLength()) + 12 + TwinDecalUvPacket.Length + 0x40 + DecalTypes.Sum(b => b.GetLength());
         }
 
         public override void Read(BinaryReader reader, Int32 length)
@@ -52,17 +53,20 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2
             }
             DecalTextureID = reader.ReadUInt32();
             DecalMaterialID = reader.ReadUInt32();
-            UnkData = reader.ReadBytes(4);
-            UnkBlob = reader.ReadBytes(0x420);
+            UnusedDecalInt = reader.ReadInt32();
+            DecalUvPacket.Read(reader, TwinDecalUvPacket.Length);
             for (var i = 0; i < 16; ++i)
             {
-                UnkInts[i] = reader.ReadInt32();
+                DecalTypeMarkers[i] = reader.ReadInt32();
             }
+            DecalTypes.Clear();
             for (var i = 0; i < 16; ++i)
             {
-                if (UnkInts[i] != 0)
+                if (DecalTypeMarkers[i] != 0)
                 {
-                    UnkBlobs.Add(reader.ReadBytes(0x890));
+                    var type = new TwinDecalType();
+                    type.Read(reader, TwinDecalType.Length);
+                    DecalTypes.Add(type);
                 }
             }
         }
@@ -80,16 +84,21 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2
             writer.BaseStream.Position -= 4;
             writer.Write(DecalTextureID);
             writer.Write(DecalMaterialID);
-            writer.Write(UnkData);
-            writer.Write(UnkBlob);
+            writer.Write(UnusedDecalInt);
+            DecalUvPacket.Write(writer);
             for (var i = 0; i < 16; ++i)
             {
-                writer.Write(UnkInts[i]);
+                writer.Write(DecalTypeMarkers[i]);
             }
-            foreach (var b in UnkBlobs)
+            foreach (var type in DecalTypes)
             {
-                writer.Write(b);
+                type.Write(writer);
             }
+        }
+
+        public override String GetName()
+        {
+            return $"Default particle data {id:X}";
         }
     }
 }

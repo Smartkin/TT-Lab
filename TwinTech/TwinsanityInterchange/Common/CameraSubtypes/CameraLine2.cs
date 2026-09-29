@@ -1,21 +1,27 @@
-﻿using System;
+using System;
 using System.IO;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout;
 
 namespace Twinsanity.TwinsanityInterchange.Common.CameraSubtypes
 {
+    /// <summary>
+    /// A line the camera slides along by the target's distance from its start (measured flat, without the height): at the start up to
+    /// <see cref="NearDistance"/>, at the end from <see cref="FarDistance"/> on, between them in between (FUN_0027da60).
+    /// </summary>
     public class CameraLine2 : CameraSubBase
     {
         public Vector4 LineStart { get; set; }
         public Vector4 LineEnd { get; set; }
-        public Single UnkFloat3 { get; set; }
-        public Single UnkFloat4 { get; set; }
+        public Single NearDistance { get; set; }
+        public Single FarDistance { get; set; }
+
         public CameraLine2()
         {
             LineStart = new Vector4();
             LineEnd = new Vector4();
         }
+
         public override int GetLength()
         {
             return base.GetLength() + 8 + LineStart.GetLength() + LineEnd.GetLength();
@@ -26,8 +32,8 @@ namespace Twinsanity.TwinsanityInterchange.Common.CameraSubtypes
             base.Read(reader, base.GetLength());
             LineStart.Read(reader, Constants.SIZE_VECTOR4);
             LineEnd.Read(reader, Constants.SIZE_VECTOR4);
-            UnkFloat3 = reader.ReadSingle();
-            UnkFloat4 = reader.ReadSingle();
+            NearDistance = reader.ReadSingle();
+            FarDistance = reader.ReadSingle();
         }
 
         public override void Write(BinaryWriter writer)
@@ -35,8 +41,8 @@ namespace Twinsanity.TwinsanityInterchange.Common.CameraSubtypes
             base.Write(writer);
             LineStart.Write(writer);
             LineEnd.Write(writer);
-            writer.Write(UnkFloat3);
-            writer.Write(UnkFloat4);
+            writer.Write(NearDistance);
+            writer.Write(FarDistance);
         }
 
         public override ITwinCamera.CameraType GetCameraType()

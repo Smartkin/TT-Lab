@@ -13,6 +13,10 @@ namespace Twinsanity.TwinsanityInterchange.Common.Animation
         public Int32 Count { get => Transforms.Count; }
         public List<Transformation> Transforms { get => transformValues; }
 
+        public AnimatedTransformation() : this(0)
+        {
+        }
+
         public AnimatedTransformation(UInt16 amount)
         {
             transformValues = new List<Transformation>(amount);

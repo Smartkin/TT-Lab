@@ -40,6 +40,9 @@ public abstract partial class DocumentNodeViewModel : DocumentBaseViewModel, IAc
     // Marks what got selected somewhere else, like in the viewport
     [Reactive]
     private bool _isHighlighted;
+    // Shown in the document's side pane, with all the room of it, instead of among the other editors
+    [Reactive]
+    private bool _isInSidePane;
     
     private string _caption = string.Empty;
 
@@ -59,6 +62,9 @@ public abstract partial class DocumentNodeViewModel : DocumentBaseViewModel, IAc
     }
 
     public string Title => Caption;
+
+    // Where its property is declared among the ones its composite shows, the order the rows go in after any explicit one
+    internal int DeclarationOrder { get; set; }
     
     public PropertyNode Property { get; }
     

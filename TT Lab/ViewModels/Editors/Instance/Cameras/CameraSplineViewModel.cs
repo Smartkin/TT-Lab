@@ -12,11 +12,11 @@ namespace TT_Lab.ViewModels.Editors.Instance.Cameras
 {
     public class CameraSplineViewModel : BaseCameraViewModel
     {
-        private Single unkFloat3;
+        private Single stepLength;
         private BindableCollection<Vector4ViewModel> pathPoints;
-        private BindableCollection<Vector4ViewModel> interpolationPoints;
-        private BindableCollection<Vector2ViewModel> unkData;
-        private UInt16 unkShort;
+        private BindableCollection<Vector4ViewModel> tangents;
+        private BindableCollection<Vector2ViewModel> parameters;
+        private UInt16 splineFlags;
 
         public CameraSplineViewModel()
         {
@@ -24,45 +24,45 @@ namespace TT_Lab.ViewModels.Editors.Instance.Cameras
             pathPoints = new BindableCollection<Vector4ViewModel>();
             DirtyTracker.AddBindableCollection(pathPoints);
             
-            interpolationPoints = new BindableCollection<Vector4ViewModel>();
-            DirtyTracker.AddBindableCollection(interpolationPoints);
+            tangents = new BindableCollection<Vector4ViewModel>();
+            DirtyTracker.AddBindableCollection(tangents);
 
-            unkData = new BindableCollection<Vector2ViewModel>();
-            DirtyTracker.AddBindableCollection(unkData);
-            unkShort = 0;
+            parameters = new BindableCollection<Vector2ViewModel>();
+            DirtyTracker.AddBindableCollection(parameters);
+            splineFlags = 0;
         }
 
         public CameraSplineViewModel(CameraSubBase cam) : base(cam)
         {
             var baseCam = (CameraSpline)cam;
-            unkFloat3 = baseCam.UnkFloat3;
+            stepLength = baseCam.StepLength;
             pathPoints = new BindableCollection<Vector4ViewModel>();
             DirtyTracker.AddBindableCollection(pathPoints);
             foreach (var v in baseCam.PathPoints)
             {
                 pathPoints.Add(new Vector4ViewModel(v));
             }
-            interpolationPoints = new BindableCollection<Vector4ViewModel>();
-            DirtyTracker.AddBindableCollection(interpolationPoints);
-            foreach (var v in baseCam.InterpolationPoints)
+            tangents = new BindableCollection<Vector4ViewModel>();
+            DirtyTracker.AddBindableCollection(tangents);
+            foreach (var v in baseCam.Tangents)
             {
-                interpolationPoints.Add(new Vector4ViewModel(v));
+                tangents.Add(new Vector4ViewModel(v));
             }
-            unkData = new BindableCollection<Vector2ViewModel>();
-            DirtyTracker.AddBindableCollection(unkData);
-            foreach (var d in baseCam.UnkData)
+            parameters = new BindableCollection<Vector2ViewModel>();
+            DirtyTracker.AddBindableCollection(parameters);
+            foreach (var d in baseCam.Parameters)
             {
-                unkData.Add(new Vector2ViewModel(d));
+                parameters.Add(new Vector2ViewModel(d));
             }
-            unkShort = baseCam.UnkShort;
+            splineFlags = baseCam.SplineFlags;
         }
 
         public override void Save(CameraSubBase? cam)
         {
             cam ??= new CameraSpline();
             var splineCam = (CameraSpline)cam;
-            splineCam.UnkFloat3 = UnkFloat3;
-            splineCam.UnkShort = UnkShort;
+            splineCam.StepLength = StepLength;
+            splineCam.SplineFlags = SplineFlags;
             splineCam.PathPoints.Clear();
             foreach (var p in PathPoints)
             {
@@ -74,10 +74,10 @@ namespace TT_Lab.ViewModels.Editors.Instance.Cameras
                     W = p.W,
                 });
             }
-            splineCam.InterpolationPoints.Clear();
-            foreach (var ip in InterpolationPoints)
+            splineCam.Tangents.Clear();
+            foreach (var ip in Tangents)
             {
-                splineCam.InterpolationPoints.Add(new Twinsanity.TwinsanityInterchange.Common.Vector4
+                splineCam.Tangents.Add(new Twinsanity.TwinsanityInterchange.Common.Vector4
                 {
                     X = ip.X,
                     Y = ip.Y,
@@ -85,10 +85,10 @@ namespace TT_Lab.ViewModels.Editors.Instance.Cameras
                     W = ip.W,
                 });
             }
-            splineCam.UnkData.Clear();
-            foreach (var d in UnkData)
+            splineCam.Parameters.Clear();
+            foreach (var d in Parameters)
             {
-                splineCam.UnkData.Add(new Twinsanity.TwinsanityInterchange.Common.Vector2
+                splineCam.Parameters.Add(new Twinsanity.TwinsanityInterchange.Common.Vector2
                 {
                     X = d.X,
                     Y = d.Y
@@ -104,12 +104,12 @@ namespace TT_Lab.ViewModels.Editors.Instance.Cameras
                 ActivateItemAsync(point, cancellationToken);
             }
 
-            foreach (var interPoint in interpolationPoints)
+            foreach (var interPoint in tangents)
             {
                 ActivateItemAsync(interPoint, cancellationToken);
             }
 
-            foreach (var data in unkData)
+            foreach (var data in parameters)
             {
                 ActivateItemAsync(data, cancellationToken);
             }
@@ -118,14 +118,14 @@ namespace TT_Lab.ViewModels.Editors.Instance.Cameras
         }
 
         [MarkDirty]
-        public Single UnkFloat3
+        public Single StepLength
         {
-            get => unkFloat3;
+            get => stepLength;
             set
             {
-                if (unkFloat3 != value)
+                if (stepLength != value)
                 {
-                    unkFloat3 = value;
+                    stepLength = value;
                     NotifyOfPropertyChange();
                 }
             }
@@ -136,25 +136,25 @@ namespace TT_Lab.ViewModels.Editors.Instance.Cameras
             get => pathPoints;
         }
 
-        public BindableCollection<Vector4ViewModel> InterpolationPoints
+        public BindableCollection<Vector4ViewModel> Tangents
         {
-            get => interpolationPoints;
+            get => tangents;
         }
 
-        public BindableCollection<Vector2ViewModel> UnkData
+        public BindableCollection<Vector2ViewModel> Parameters
         {
-            get => unkData;
+            get => parameters;
         }
 
         [MarkDirty]
-        public UInt16 UnkShort
+        public UInt16 SplineFlags
         {
-            get => unkShort;
+            get => splineFlags;
             set
             {
-                if (unkShort != value)
+                if (splineFlags != value)
                 {
-                    unkShort = value;
+                    splineFlags = value;
                     NotifyOfPropertyChange();
                 }
             }

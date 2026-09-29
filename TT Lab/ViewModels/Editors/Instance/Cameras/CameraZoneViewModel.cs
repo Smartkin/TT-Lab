@@ -10,34 +10,34 @@ namespace TT_Lab.ViewModels.Editors.Instance.Cameras
 {
     public class CameraZoneViewModel : BaseCameraViewModel
     {
-        private BindableCollection<Vector4ViewModel> unkVecs1;
-        private BindableCollection<Vector4ViewModel> unkVecs2;
+        private BindableCollection<Vector4ViewModel> cameraBoxVectors;
+        private BindableCollection<Vector4ViewModel> targetBoxVectors;
 
         public CameraZoneViewModel()
         {
             CameraType = ITwinCamera.CameraType.CameraZone;
-            unkVecs1 = new BindableCollection<Vector4ViewModel>();
-            unkVecs2 = new BindableCollection<Vector4ViewModel>();
-            DirtyTracker.AddBindableCollection(unkVecs1);
-            DirtyTracker.AddBindableCollection(unkVecs2);
+            cameraBoxVectors = new BindableCollection<Vector4ViewModel>();
+            targetBoxVectors = new BindableCollection<Vector4ViewModel>();
+            DirtyTracker.AddBindableCollection(cameraBoxVectors);
+            DirtyTracker.AddBindableCollection(targetBoxVectors);
             for (var i = 0; i < 5; ++i)
             {
-                unkVecs1.Add(new Vector4ViewModel());
-                unkVecs2.Add(new Vector4ViewModel());
+                cameraBoxVectors.Add(new Vector4ViewModel());
+                targetBoxVectors.Add(new Vector4ViewModel());
             }
         }
 
         public CameraZoneViewModel(CameraSubBase cam) : base(cam)
         {
             var baseCam = (CameraZone)cam;
-            unkVecs1 = new BindableCollection<Vector4ViewModel>();
-            unkVecs2 = new BindableCollection<Vector4ViewModel>();
-            DirtyTracker.AddBindableCollection(unkVecs1);
-            DirtyTracker.AddBindableCollection(unkVecs2);
+            cameraBoxVectors = new BindableCollection<Vector4ViewModel>();
+            targetBoxVectors = new BindableCollection<Vector4ViewModel>();
+            DirtyTracker.AddBindableCollection(cameraBoxVectors);
+            DirtyTracker.AddBindableCollection(targetBoxVectors);
             for (var i = 0; i < 5; ++i)
             {
-                unkVecs1.Add(new Vector4ViewModel(baseCam.UnkData1[i]));
-                unkVecs2.Add(new Vector4ViewModel(baseCam.UnkData2[i]));
+                cameraBoxVectors.Add(new Vector4ViewModel(baseCam.CameraBox[i]));
+                targetBoxVectors.Add(new Vector4ViewModel(baseCam.TargetBox[i]));
             }
         }
 
@@ -47,19 +47,19 @@ namespace TT_Lab.ViewModels.Editors.Instance.Cameras
             var zoneCam = (CameraZone)cam;
             for (var i = 0; i < 5; ++i)
             {
-                zoneCam.UnkData1[i] = new Twinsanity.TwinsanityInterchange.Common.Vector4
+                zoneCam.CameraBox[i] = new Twinsanity.TwinsanityInterchange.Common.Vector4
                 {
-                    X = UnkVecs1[i].X,
-                    Y = UnkVecs1[i].Y,
-                    Z = UnkVecs1[i].Z,
-                    W = UnkVecs1[i].W,
+                    X = CameraBoxVectors[i].X,
+                    Y = CameraBoxVectors[i].Y,
+                    Z = CameraBoxVectors[i].Z,
+                    W = CameraBoxVectors[i].W,
                 };
-                zoneCam.UnkData2[i] = new Twinsanity.TwinsanityInterchange.Common.Vector4
+                zoneCam.TargetBox[i] = new Twinsanity.TwinsanityInterchange.Common.Vector4
                 {
-                    X = UnkVecs2[i].X,
-                    Y = UnkVecs2[i].Y,
-                    Z = UnkVecs2[i].Z,
-                    W = UnkVecs2[i].W,
+                    X = TargetBoxVectors[i].X,
+                    Y = TargetBoxVectors[i].Y,
+                    Z = TargetBoxVectors[i].Z,
+                    W = TargetBoxVectors[i].W,
                 };
             }
             base.Save(cam);
@@ -69,21 +69,21 @@ namespace TT_Lab.ViewModels.Editors.Instance.Cameras
         {
             for (var i = 0; i < 5; ++i)
             {
-                ActivateItemAsync(unkVecs1[i], cancellationToken);
-                ActivateItemAsync(unkVecs2[i], cancellationToken);
+                ActivateItemAsync(cameraBoxVectors[i], cancellationToken);
+                ActivateItemAsync(targetBoxVectors[i], cancellationToken);
             }
 
             return base.OnInitializeAsync(cancellationToken);
         }
 
-        public BindableCollection<Vector4ViewModel> UnkVecs1
+        public BindableCollection<Vector4ViewModel> CameraBoxVectors
         {
-            get => unkVecs1;
+            get => cameraBoxVectors;
         }
 
-        public BindableCollection<Vector4ViewModel> UnkVecs2
+        public BindableCollection<Vector4ViewModel> TargetBoxVectors
         {
-            get => unkVecs2;
+            get => targetBoxVectors;
         }
     }
 }

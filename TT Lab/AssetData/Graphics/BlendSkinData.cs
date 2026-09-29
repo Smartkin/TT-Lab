@@ -34,7 +34,7 @@ public class BlendSkinData : AbstractAssetData
     }
 
     /// <summary>
-    /// Amount of shapes every part has
+    /// Amount of shapes every part has, the shapes of the parts read from the model file
     /// </summary>
     public Int32 BlendsAmount { get; set; }
     public List<SubBlendData> Blends { get; set; } = [];
@@ -101,26 +101,16 @@ public class BlendSkinData : AbstractAssetData
     {
         foreach (var (part, material) in TlmMeshes.ReadMesh(file, mesh, true))
         {
-            Blends.Add(new SubBlendData(materials.Get(material), part));
+            Blends.Add(new SubBlendData(materials.GetRequired(material, TlmMaterialUse.Skin), part));
         }
 
         BlendsAmount = Math.Max(BlendsAmount, Blends.Select(b => b.ShapeOffsets.Count).DefaultIfEmpty(0).Max());
     }
 
-    public JsonObject WriteTlmData()
-    {
-        return new JsonObject { ["BlendsAmount"] = BlendsAmount };
-    }
-
-    public void ReadTlmData(JsonObject data)
-    {
-        BlendsAmount = data.GetInt("BlendsAmount", BlendsAmount);
-    }
-
     protected override void SaveInternal(String dataPath, JsonSerializerSettings? settings = null)
     {
         var file = new TlmFile(TlmAssetType, Owner.Name);
-        var root = TlmNodes.Create(TlmKind, Owner.Name, WriteTlmData());
+        var root = TlmNodes.Create(TlmKind, Owner.Name);
         root[TlmNodes.MeshKey] = WriteTlmMesh(file, new TlmMaterials(file));
         file.Root = root;
         file.Save(dataPath);
@@ -134,12 +124,11 @@ public class BlendSkinData : AbstractAssetData
         BlendsAmount = 0;
         if (file.Root != null)
         {
-            ReadTlmData(file.Root.GetData());
             ReadTlmMesh(file, file.Root[TlmNodes.MeshKey] as JsonObject, materials);
         }
 
         DisposedValue = false;
-        if (materials.AddedToProject || file.IsOutdated)
+        if (materials.AddedToProject)
         {
             SaveInternal(dataPath, settings);
         }

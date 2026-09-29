@@ -42,41 +42,10 @@ public partial class DocumentModelViewModel : DocumentCompositeViewModel
 
     public override ReactiveCommand<Unit, Unit>? AddCommand => null;
     
+    // The node makes its children again for the new value's type, and taking the change back with undo does the same
     public void ConstructType(Type typeToConstruct)
     {
-        if (typeToConstruct == typeof(NullConstructor))
-        {
-            foreach (var propertyChild in Property.Children)
-            {
-                Property.Graph!.Deindex(propertyChild);
-            }
-            Property.Children.Clear();
-            Property.SetValue(null);
-            if (IsExpanded)
-            {
-                Rebuild();
-            }
-            return;
-        }
-
-        var constructedValue = Property.Metadata!.TypeConstructors[typeToConstruct]();
-        Property.SetValue(constructedValue);
-        foreach (var propertyChild in Property.Children)
-        {
-            Property.Graph!.Deindex(propertyChild);
-        }
-        Property.Children.Clear();
-        var newChildren = PropertyGraphBuilder.BuildNode(Property.Target, Property.Metadata, Property.Path, Property.Graph!.Tracker, typeToConstruct, Property.Index);
-        foreach (var newChild in newChildren.Children)
-        {
-            Property.Graph.Index(newChild);
-            Property.AddChild(newChild);
-        }
-        
-        if (IsExpanded)
-        {
-            Rebuild();
-        }
+        Property.SetValue(typeToConstruct == typeof(NullConstructor) ? null : Property.Metadata!.TypeConstructors[typeToConstruct]());
     }
 
     private class NullConstructor;

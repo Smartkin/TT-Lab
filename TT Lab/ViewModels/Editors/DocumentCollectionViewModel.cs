@@ -16,19 +16,32 @@ public partial class DocumentCollectionViewModel : DocumentCompositeViewModel
     [Reactive(SetModifier = AccessModifier.Private)]
     private bool _canChangeCollection = true;
 
+    [Reactive(SetModifier = AccessModifier.Private)]
+    private bool _canAddItem = true;
+
+    [Reactive(SetModifier = AccessModifier.Private)]
+    private string? _addItemHint;
+
     public override ReactiveCommand<Unit, Unit> AddCommand => CreateNewItemCommand;
 
     public const string ItemIndexAsChars = "DOCUMENT_COLLECTION_ITEM_INDEX_AS_CHARS";
     public const string ItemCaptionPrefix = "DOCUMENT_COLLECTION_FIELD_ITEM_CAPTION_PREFIX";
     public const string IsCollectionEditable = "DOCUMENT_COLLECTION_IS_EDITABLE";
+    // The most elements the game takes, like a material's 4 shaders
+    public const string MaxCount = "DOCUMENT_COLLECTION_MAX_COUNT";
     
     public DocumentCollectionViewModel(DocumentViewModel document, PropertyNode node, params DocumentNodeViewModel[] dependencies) : base(document, node, dependencies)
     {
     }
     
-    [ReactiveCommand]
+    [ReactiveCommand(CanExecute = nameof(CanAddItemChanges))]
     private void CreateNewItem()
     {
+        if (Property.IsFull)
+        {
+            return;
+        }
+
         _isAddingItem = true;
         var data = Property.AddElement();
         _isAddingItem = false;
@@ -38,22 +51,54 @@ public partial class DocumentCollectionViewModel : DocumentCompositeViewModel
         }
 
         AddItem(data);
+        UpdateCanAddItem();
+    }
+
+    private IObservable<bool> CanAddItemChanges => this.WhenAnyValue(x => x.CanAddItem);
+
+    private void UpdateCanAddItem()
+    {
+        CanAddItem = !Property.IsFull;
+        AddItemHint = Property.MaxElements is { } max ? $"The game takes at most {max}" : null;
     }
 
     private void AddItem(PropertyNode data)
     {
         var editor = EditorDescRegistry.GetDesc(Document, data).Construct();
-        editor.Caption = GetItemCaption(data.Index ?? Nodes.Count);
         editor.Orientation = Avalonia.Controls.Dock.Left;
         editor.Closed += () => ItemClosed(editor);
-        
+        FollowName(editor);
+        editor.Caption = CaptionOf(editor, data.Index ?? Nodes.Count);
+
         AddNode(editor);
+    }
+
+    // Elements with a name of their own, like the default chunk's 255 particle systems, show it next to their index and follow it
+    private static PropertyNode? NameOf(DocumentNodeViewModel item) => item.Property.FindChild(".Name") is { PropertyType: var type } name && type == typeof(string) ? name : null;
+
+    private string CaptionOf(DocumentNodeViewModel item, int index)
+    {
+        var caption = GetItemCaption(index);
+        return NameOf(item)?.GetValue() is string { Length: > 0 } name ? $"{caption} · {name}" : caption;
+    }
+
+    private void FollowName(DocumentNodeViewModel item)
+    {
+        if (NameOf(item) is not { } name)
+        {
+            return;
+        }
+
+        void Rename() => item.Caption = CaptionOf(item, item.Property.Index ?? 0);
+        name.Changed += Rename;
+        item.Closed += () => name.Changed -= Rename;
     }
 
     // Elements can get added or removed from elsewhere, like instances placed or deleted in the viewport
     protected override void PropertyOnChanged()
     {
         base.PropertyOnChanged();
+        UpdateCanAddItem();
 
         if (_isAddingItem || !_actuallyRemoved)
         {
@@ -87,6 +132,7 @@ public partial class DocumentCollectionViewModel : DocumentCompositeViewModel
         
         CanChangeCollection = GetEditorParameter(IsCollectionEditable, true);
         IsCollection = CanChangeCollection;
+        UpdateCanAddItem();
     }
 
     protected override void OnExpanded(CompositeDisposable disposables)
@@ -100,8 +146,9 @@ public partial class DocumentCollectionViewModel : DocumentCompositeViewModel
         foreach (var item in Nodes)
         {
             item.Orientation = Avalonia.Controls.Dock.Left;
-            item.Caption = GetItemCaption(itemIndex++);
+            item.Caption = CaptionOf(item, itemIndex++);
             item.Closed += () => ItemClosed(item);
+            FollowName(item);
         }
 
         _actuallyRemoved = true;
@@ -126,7 +173,7 @@ public partial class DocumentCollectionViewModel : DocumentCompositeViewModel
         for (var i = fromIdx; i < Nodes.Count; i++)
         {
             var item = Nodes[i];
-            item.Caption = GetItemCaption(i);
+            item.Caption = CaptionOf(item, i);
         }
     }
     

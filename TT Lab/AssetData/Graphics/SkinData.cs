@@ -20,6 +20,8 @@ namespace TT_Lab.AssetData.Graphics;
 public class SkinData : AbstractAssetData
 {
     public const string TlmAssetType = "Skin";
+    // The game's biggest skin part has 2716 vertexes before its strips
+    private const int BigSkinVertexes = 8000;
 
     public SkinData(IAsset asset) : base(asset)
     {
@@ -92,7 +94,12 @@ public class SkinData : AbstractAssetData
     {
         foreach (var (part, material) in TlmMeshes.ReadMesh(file, mesh, true))
         {
-            SubSkins.Add(new SubSkinData(materials.Get(material), part));
+            if (part.Vertexes.Count > BigSkinVertexes)
+            {
+                Log.WriteLine($"A skin part of {Owner.Name} has {part.Vertexes.Count} vertexes, the game's biggest skins have around 3000: expect the game to slow down", Log.LogType.Warning);
+            }
+
+            SubSkins.Add(new SubSkinData(materials.GetRequired(material, TlmMaterialUse.Skin), part));
         }
     }
 
@@ -112,7 +119,7 @@ public class SkinData : AbstractAssetData
         SubSkins = [];
         ReadTlmMesh(file, file.Root?[TlmNodes.MeshKey] as JsonObject, materials);
         DisposedValue = false;
-        if (materials.AddedToProject || file.IsOutdated)
+        if (materials.AddedToProject)
         {
             SaveInternal(dataPath, settings);
         }

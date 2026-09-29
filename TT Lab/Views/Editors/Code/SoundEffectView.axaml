@@ -15,6 +15,12 @@
     </Interaction.Behaviors>
     <controls1:GroupBox>
         <StackPanel Orientation="Vertical">
+            <controls:SoundWaveform x:Name="Waveform" Height="96" Margin="0, 0, 0, 5"
+                                    Samples="{Binding DisplaySamples}"
+                                    LoopStart="{Binding LoopStart}"
+                                    LoopEnd="{Binding LoopEnd}"
+                                    Playhead="{Binding PlayheadSample}"
+                                    ToolTip.Tip="Drag the loop's ends, click to play from there. The PS2 keeps loops in blocks of 28 samples"/>
             <Grid RowDefinitions="*,*" ColumnDefinitions="*,*">
                 <Slider x:Name="PlayerTrack"
                         Margin="0, 0, 0, 5"
@@ -31,9 +37,20 @@
                 <TextBlock x:Name="TrackLength" Margin="0, 0, 0, 5" Grid.Column="1" Grid.Row="1" TextAlignment="Right"/>
             </Grid>
             <UniformGrid Columns="3">
-                <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5" Command="{Binding PlaySound}" Content="Play"></Button>
-                <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5" Command="{Binding PauseSound}" Content="Pause"></Button>
+                <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5" Command="{Binding PlaySound}" IsEnabled="{Binding CanPlay}" Content="Play"></Button>
+                <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5" Command="{Binding PauseSound}" IsEnabled="{Binding CanPlay}" Content="Pause"></Button>
                 <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5" Command="{Binding ReplaceSound}" Content="Replace"></Button>
+            </UniformGrid>
+            <TextBlock Margin="5, 5, 5, 0" TextWrapping="Wrap" Text="{Binding LoopText}"/>
+            <UniformGrid Columns="4" IsEnabled="{Binding CanEditLoop}">
+                <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5" Command="{Binding SetLoopStartHere}" Content="Loop from here"
+                        ToolTip.Tip="The loop starts where playback is, rounded to a block of 28 samples; without a loop it runs to the end"/>
+                <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5" Command="{Binding SetLoopEndHere}" Content="Loop to here"
+                        ToolTip.Tip="The loop ends where playback is, rounded to a block of 28 samples: the sound never gets past it, builds leave the rest out"/>
+                <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5" Command="{Binding LoopWholeSound}" Content="Loop all"
+                        ToolTip.Tip="The whole sound loops"/>
+                <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5" Command="{Binding RemoveLoop}" Content="No loop"
+                        IsEnabled="{Binding HasLoop}" ToolTip.Tip="The sound plays once"/>
             </UniformGrid>
         </StackPanel>
     </controls1:GroupBox>

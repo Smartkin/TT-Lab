@@ -5,8 +5,10 @@ using Twinsanity.TwinsanityInterchange.Common;
 namespace TT_Lab.Rendering.Particles;
 
 /// <summary>
-/// The 8 key curves of particle systems: each key is the time in the particle's life (0 to 1) and its value. The curve ends with the first
-/// key at the end of the life, the keys after it are leftovers of the tools
+/// The 8 key curves of particle systems: each key is the time in the particle's life (0 to 1) and its value. The game samples them at 64
+/// steps of the life when it first draws a system: a step takes the first pair of keys in a row whose times enclose it and interpolates
+/// between them, steps no pair encloses are 0. The curve ends with the first key at the end of the life, the keys after it are
+/// leftovers of the tools
 /// </summary>
 public static class ParticleCurves
 {
@@ -34,8 +36,7 @@ public static class ParticleCurves
 
     public static float Evaluate(Vector2[] keys, float time)
     {
-        var count = CountKeys(keys);
-        return Evaluate(count, i => keys[i].X, i => keys[i].Y, time);
+        return Evaluate(i => keys[i].X, i => keys[i].Y, time);
     }
 
     /// <summary>
@@ -43,38 +44,31 @@ public static class ParticleCurves
     /// </summary>
     public static vec3 EvaluateColor(Vector4[] keys, float time)
     {
-        var count = CountKeys(keys);
-        return new vec3(Evaluate(count, i => keys[i].X, i => keys[i].Y, time),
-            Evaluate(count, i => keys[i].X, i => keys[i].Z, time),
-            Evaluate(count, i => keys[i].X, i => keys[i].W, time));
+        return new vec3(Evaluate(i => keys[i].X, i => keys[i].Y, time),
+            Evaluate(i => keys[i].X, i => keys[i].Z, time),
+            Evaluate(i => keys[i].X, i => keys[i].W, time));
     }
 
-    // Keys at the same time make the value jump there
-    private static float Evaluate(int count, Func<int, float> timeOf, Func<int, float> valueOf, float time)
+    // The game's search: the first pair in a row enclosing the time, 0 when there's none. A pair at the same time gives its first key's value
+    private static float Evaluate(Func<int, float> timeOf, Func<int, float> valueOf, float time)
     {
-        if (time <= timeOf(0))
+        for (var i = 0; i < MaxKeys - 1; i++)
         {
-            return valueOf(0);
-        }
-
-        for (var i = 0; i < count - 1; i++)
-        {
-            var nextTime = timeOf(i + 1);
-            if (time > nextTime)
+            var from = timeOf(i);
+            var to = timeOf(i + 1);
+            if (from > time || time > to)
             {
                 continue;
             }
 
-            var span = nextTime - timeOf(i);
-            if (span <= 0.0f)
+            if (time - from == 0.0f)
             {
-                return valueOf(i + 1);
+                return valueOf(i);
             }
 
-            var from = valueOf(i);
-            return from + (valueOf(i + 1) - from) * (time - timeOf(i)) / span;
+            return valueOf(i) + (time - from) / (to - from) * (valueOf(i + 1) - valueOf(i));
         }
 
-        return valueOf(count - 1);
+        return 0.0f;
     }
 }

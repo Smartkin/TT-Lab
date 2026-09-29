@@ -43,13 +43,21 @@ internal sealed class VariantMerger(AssetManager assetManager, string assetsPath
         // A variant can be the version of several chunks, a later chunk with the same content found it by its hash
         var chunksUsing = GetChunksUsing(chunks.Values.Distinct(), variants.Select(variant => variant.URI).ToHashSet());
         var changedChunks = new HashSet<LevelChunk>();
+        var keptTextures = new List<(IAsset Variant, IAsset Base)>();
         // What variants refer to has to be merged before them, an object's sound slots hold the chunk's variants of its sounds
         foreach (var variant in variants.OrderBy(MergeOrder))
         {
-            // Levels' own versions of the startup chunk's objects are in the level's package, their asset in the global one
-            if (!bases.TryGetValue((variant.Type, variant.ID, variant.LayoutID), out var candidates) ||
-                (candidates.FirstOrDefault(candidate => candidate.Package == variant.Package) ??
-                 candidates.FirstOrDefault(candidate => assetManager.IsRelated(variant.Package, candidate.Package))) is not { } @base)
+            // Levels' own versions of the startup chunk's objects are in the level's package, their asset in the global one. The
+            // shared asset is the base, not a chunk folder's own copy of the ID (a scenery's texture): the variant is the chunk's
+            // version of what the package shares
+            if (!bases.TryGetValue((variant.Type, variant.ID, variant.LayoutID), out var candidates))
+            {
+                continue;
+            }
+
+            var ordered = candidates.OrderByDescending(candidate => string.IsNullOrEmpty(candidate.AdditionalPath)).ThenBy(candidate => candidate.URI.ToString(), StringComparer.Ordinal).ToList();
+            if ((ordered.FirstOrDefault(candidate => candidate.Package == variant.Package) ??
+                 ordered.FirstOrDefault(candidate => assetManager.IsRelated(variant.Package, candidate.Package))) is not { } @base)
             {
                 continue;
             }
@@ -57,6 +65,11 @@ internal sealed class VariantMerger(AssetManager assetManager, string assetsPath
             var values = GetOverrideValues(@base, variant);
             if (values == null)
             {
+                if (variant is Texture)
+                {
+                    keptTextures.Add((variant, @base));
+                }
+
                 continue;
             }
 
@@ -73,7 +86,8 @@ internal sealed class VariantMerger(AssetManager assetManager, string assetsPath
             _merged[variant.URI] = @base.URI;
         }
 
-        if (_merged.Count == 0)
+        LinkMaterialsToTextureVariants(keptTextures, chunks, changedChunks);
+        if (_merged.Count == 0 && changedChunks.Count == 0)
         {
             return 0;
         }
@@ -90,6 +104,67 @@ internal sealed class VariantMerger(AssetManager assetManager, string assetsPath
         }
 
         return _merged.Count;
+    }
+
+    /// <summary>
+    /// A chunk's own picture of a texture ID other chunks have another picture of stays a variant (the game reuses IDs: a hub's 16x16
+    /// texture is a 32x32 one elsewhere), and the materials it shares link to the base. The chunk gets the materials pointing at its
+    /// picture as overrides, or it built with the other chunks' picture
+    /// </summary>
+    private void LinkMaterialsToTextureVariants(List<(IAsset Variant, IAsset Base)> keptTextures, Dictionary<(LabURI, string), LevelChunk> chunks, HashSet<LevelChunk> changedChunks)
+    {
+        var materials = assetManager.GetAllAssetsOf<Material>().Where(material => !material.IsInternal && !_merged.ContainsKey(material.URI)).ToList();
+        foreach (var (variant, @base) in keptTextures)
+        {
+            if (!chunks.TryGetValue((variant.Package, variant.Variation), out var chunk))
+            {
+                continue;
+            }
+
+            foreach (var material in materials.Where(material => material.References.Contains(@base.URI)))
+            {
+                var values = GetLinkOverrideValues(material, @base.URI, variant.URI);
+                if (values.Count == 0)
+                {
+                    continue;
+                }
+
+                var existing = chunk.Overrides.FirstOrDefault(entry => entry.Asset == material.URI);
+                if (existing == null)
+                {
+                    existing = new AssetOverride { Asset = material.URI };
+                    chunk.Overrides.Add(existing);
+                }
+
+                foreach (var (path, value) in values)
+                {
+                    existing.Values[path] = value;
+                }
+
+                changedChunks.Add(chunk);
+            }
+        }
+    }
+
+    // The values of the asset's document with every link to the URI pointing at the other one
+    private static SortedDictionary<string, JToken> GetLinkOverrideValues(IAsset asset, LabURI from, LabURI to)
+    {
+        var data = asset.GetData<AbstractAssetData>();
+        try
+        {
+            var document = AssetOverrides.GetDocument(asset, data);
+            var changed = (JObject)document.DeepClone();
+            foreach (var link in changed.Descendants().OfType<JObject>().Where(token => token["_uri"] is JValue { Type: JTokenType.String } value && (string)value! == from.ToString()).ToList())
+            {
+                link["_uri"] = to.ToString();
+            }
+
+            return AssetOverrides.Diff(document, changed);
+        }
+        finally
+        {
+            asset.UnloadData();
+        }
     }
 
     // What each chunk has or refers to down its assets' references

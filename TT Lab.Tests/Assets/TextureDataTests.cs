@@ -68,8 +68,8 @@ public class TextureDataTests
 
         var texture = (ITwinTexture)data.Export(new PS2ItemFactory());
 
-        Assert.Equal(new byte[] { 0xE0, 0x20, 0, 0 }, texture.UnkBytes2);
-        Assert.Equal(reservesMemory ? new byte[] { 0x20, 0 } : new byte[] { 0, 0 }, texture.UnkBytes3);
+        Assert.Equal(new byte[] { 0xE0, 0x20, 0, 0 }, texture.SizeWords);
+        Assert.Equal(reservesMemory ? new byte[] { 0x20, 0 } : new byte[] { 0, 0 }, texture.ReservedBlocks);
     }
 
     [AvaloniaFact]
@@ -82,5 +82,24 @@ public class TextureDataTests
         var texture = (ITwinTexture)data.Export(new PS2ItemFactory());
 
         Assert.Equivalent(leftovers, texture.Leftovers);
+    }
+
+    // Powers of two of 16 to 256, the closest to the image's size, so Blender's images fit the game
+    [AvaloniaFact]
+    public void ResizingForTheGameGivesPowersOfTwo()
+    {
+        var owner = new Texture { Package = new TT_Lab.Assets.LabURI("res://Test"), InvariantName = "Big", Alias = "Big" };
+        var pixels = Enumerable.Range(0, 300 * 100).Select(i => i % 300 < 150 ? 0xFFFF0000 : 0x800000FFu).ToArray();
+        using var stream = new MemoryStream(EncodePng(pixels, 300));
+        var big = TextureData.FromPng(owner, stream);
+
+        var resized = big.ResizedForTheGame();
+
+        Assert.Equal((256, 128), (resized.Bitmap!.PixelSize.Width, resized.Bitmap.PixelSize.Height));
+        var resizedPixels = resized.GetPixels();
+        Assert.Equal(0xFFFF0000, resizedPixels[0]);
+        Assert.Equal(0x800000FFu, resizedPixels[255]);
+        var small = TextureData.CreateSolidColor(owner, 64, 0xFF000000);
+        Assert.Same(small, small.ResizedForTheGame());
     }
 }

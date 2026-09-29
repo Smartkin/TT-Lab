@@ -10,6 +10,7 @@ in vec3 Normal;
 in vec3 ViewPosition;
 // Tint of the drawn instance
 in vec4 InstanceColor;
+in vec2 EnvUv;
 
 layout (location = 0) out vec4 outColor;
 

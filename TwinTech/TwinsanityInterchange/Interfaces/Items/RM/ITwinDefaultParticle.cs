@@ -1,10 +1,12 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using Twinsanity.TwinsanityInterchange.Common.Particles;
 
 namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM
 {
     /// <summary>
-    /// Special particle data section only used in Default
+    /// Special particle data section only used in Default: the systems every chunk can play, the texture pages they draw
+    /// with and the decal system's data
     /// </summary>
     public interface ITwinDefaultParticle : ITwinParticle
     {
@@ -25,20 +27,21 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM
         /// </summary>
         UInt32 DecalMaterialID { get; set; }
         /// <summary>
-        /// Unknown binary data
+        /// Read into a global the retail game never reads (1 in its data)
         /// </summary>
-        Byte[] UnkData { get; set; }
+        Int32 UnusedDecalInt { get; set; }
         /// <summary>
-        /// Unknown binary data
+        /// The packet that sets the decals up for drawing
         /// </summary>
-        Byte[] UnkBlob { get; set; }
+        TwinDecalUvPacket DecalUvPacket { get; set; }
         /// <summary>
-        /// Unknown integer parameters
+        /// One per possible decal type, a type follows for every entry that isn't 0 (the tools left their memory's
+        /// addresses in them)
         /// </summary>
-        Int32[] UnkInts { get; set; }
+        Int32[] DecalTypeMarkers { get; set; }
         /// <summary>
-        /// Unknown binary data lists
+        /// The decal types, in the order of their markers
         /// </summary>
-        List<Byte[]> UnkBlobs { get; set; }
+        List<TwinDecalType> DecalTypes { get; set; }
     }
 }

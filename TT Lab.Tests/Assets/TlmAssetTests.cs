@@ -11,6 +11,7 @@ using TT_Lab.Assets.Factory;
 using TT_Lab.Assets.Graphics;
 using TT_Lab.Extensions;
 using TT_Lab.Tests.Support;
+using Twinsanity.TwinsanityInterchange.Interfaces.Items;
 using TwinShader = Twinsanity.TwinsanityInterchange.Common.TwinShader;
 
 namespace TT_Lab.Tests.Assets;
@@ -107,7 +108,9 @@ public sealed class TlmAssetTests : IDisposable
 
         var root = file.Root!;
         Assert.Equal(OGIData.TlmKind, root.GetKind());
-        Assert.Equal([OGIData.ArmatureKind, SkinData.TlmKind, BlendSkinData.TlmKind, OGIData.RigidBodiesKind, OGIData.ExitPointsKind], root.GetChildren().Select(child => child.GetKind()));
+        Assert.Equal([OGIData.ArmatureKind, SkinData.TlmKind, BlendSkinData.TlmKind, OGIData.RigidBodiesKind, OGIData.ExitPointsKind, OGIData.CollisionHullsKind], root.GetChildren().Select(child => child.GetKind()));
+        var hull = root.FindChild(OGIData.CollisionHullsKind)!.GetChildren().Single();
+        Assert.Equal((TlmHulls.Kind, 2), (hull.GetKind(), hull.GetInt(TlmNodes.JointKey)));
         var body = root.FindChild(OGIData.RigidBodiesKind)!.GetChildren().Single();
         Assert.Equal((OGIData.BodyKind, 1), (body.GetKind(), body.GetInt(TlmNodes.JointKey)));
         var exitPoint = root.FindChild(OGIData.ExitPointsKind)!.GetChildren().Single();
@@ -197,6 +200,84 @@ public sealed class TlmAssetTests : IDisposable
         Assert.Equal(0.5f, data.ExitPoints[0].Matrix.ToSystem().M41);
     }
 
+    // The game's matrix is kept next to the transform, not among the values Blender edits
+    [Fact]
+    public void ExitPointsKeepTheGamesMatrixNextToTheirTransform()
+    {
+        var data = ((IAsset)_assets.AddOgi()).GetData<OGIData>();
+        var matrix = Bytes(data.ExitPoints[0].Matrix);
+        var file = data.WriteTlm();
+        var exitPoint = file.Root!.FindChild(OGIData.ExitPointsKind)!.GetChildren().Single();
+
+        Assert.Equal(["Id"], exitPoint.GetData().Select(pair => pair.Key));
+        Assert.Equal(16, exitPoint.GetFloats(TlmNodes.MatrixKey).Length);
+
+        data.ReadTlm(file);
+
+        Assert.Equal(matrix, Bytes(data.ExitPoints[0].Matrix));
+    }
+
+    // The shapes of a blend skin are the shape keys of its mesh, Blender adds and removes them
+    [Fact]
+    public void BlendSkinsHaveTheShapesTheirMeshHas()
+    {
+        var data = ((IAsset)_assets.AddOgi()).GetData<OGIData>();
+        var file = data.WriteTlm();
+        var shape = file.Root!.FindChild(BlendSkinData.TlmKind)!;
+        Assert.Null(shape[TlmNodes.DataKey]);
+        foreach (var part in shape[TlmNodes.MeshKey]!["parts"]!.AsArray().OfType<JsonObject>())
+        {
+            var shapes = part["shapes"]!.AsArray();
+            shapes.Add(shapes[0]!.DeepClone());
+        }
+
+        data.ReadTlm(file);
+
+        var blendSkin = _assets.Get(data.BlendSkin).GetData<BlendSkinData>();
+        Assert.Equal(3, blendSkin.BlendsAmount);
+        Assert.All(blendSkin.Blends, blend => Assert.Equal(3, blend.ShapeOffsets.Count));
+    }
+
+    // A hull's mesh moved or edited in Blender gets the planes and axes the game reads worked out again, an untouched one keeps the game's
+    [Fact]
+    public void HullsEditedInBlenderGetNewPlanes()
+    {
+        var data = ((IAsset)_assets.AddOgi()).GetData<OGIData>();
+        var planes = data.CollisionHulls[0].Planes.Select(Bytes).ToList();
+        var file = data.WriteTlm();
+        var node = file.Root!.FindChild(OGIData.CollisionHullsKind)!.GetChildren().Single();
+        node["twin_vertices"] = node["vertices"]!.DeepClone();
+        node["twin_faces"] = node["faces"]!.DeepClone();
+
+        data.ReadTlm(file);
+        Assert.Equal(planes, data.CollisionHulls[0].Planes.Select(Bytes));
+
+        node["translation"] = new JsonArray(0, 2, 0);
+        data.ReadTlm(file);
+
+        var moved = data.CollisionHulls[0];
+        Assert.Equal(2.0f, moved.Vertexes.Min(vertex => vertex.Y));
+        Assert.True(moved.DescribesFaces());
+        Assert.NotEqual(planes, moved.Planes.Select(Bytes));
+        Assert.Equal(2U, data.CollisionHullJoints[0]);
+
+        // The top of the box raised in Blender: its four corners moved, the box is still a box
+        node.Remove("translation");
+        var vertexes = file.Read<float>(node["vertices"]);
+        for (var vertex = 4; vertex < 8; vertex++)
+        {
+            vertexes[vertex * 4 + 1] += 0.5f;
+        }
+
+        node["vertices"] = file.Write(vertexes.AsSpan());
+        data.ReadTlm(file);
+
+        var raised = data.CollisionHulls[0];
+        Assert.True(raised.DescribesFaces());
+        Assert.Equal(1.5f, raised.Vertexes[4].Y);
+        Assert.Equal(-1.5f, raised.Planes[5].W, 5);
+    }
+
     // Blender keeps rigid bodies where they were put, they're moved into their joint's space
     [Fact]
     public void MovedBodiesAreBakedIntoTheirModel()
@@ -258,6 +339,24 @@ public sealed class TlmAssetTests : IDisposable
 
         Assert.Equal(material.URI, data.Materials[1]);
         Assert.Equal(assetsBefore + 2, _project.AssetManager.GetAssets().Count(asset => !asset.IsInternal));
+    }
+
+    // Blender's images come in any size, the game's textures are powers of two of at most 256, with a palette where its tools laid one out
+    [AvaloniaFact]
+    public void ImagesMadeInBlenderGetTheGamesSizes()
+    {
+        _project.BuildProjectTree("Global PS2_Test/Material", "Global PS2_Test/Texture");
+        var rigidModel = _assets.AddRigidModel("Chair", _assets.AddMaterial("Varnish").URI, _assets.AddMaterial("Paint").URI);
+        rigidModel.Serialize(SerializationFlags.SaveData);
+        WithBlenderMaterial(rigidModel.FullDataPath, TextureData.CreateSolidColor(_assets.AddTexture("Scratch", 0), 1024, 0xFF20C040).GetPngBytes());
+
+        var data = ((IAsset)rigidModel).GetData<RigidModelData>();
+
+        var texture = _assets.Get<Texture>(((IAsset)_assets.Get<Material>(data.Materials[1])).GetData<MaterialData>().Shaders.Single().TextureId);
+        var textureData = ((IAsset)texture).GetData<TextureData>();
+        Assert.Equal((256, 256), (textureData.Bitmap!.PixelSize.Width, textureData.Bitmap.PixelSize.Height));
+        Assert.Equal(0xFF20C040, textureData.GetPixels()[0]);
+        Assert.Equal((ITwinTexture.TexturePixelFormat.PSMCT32, false), (texture.PixelFormat, texture.GenerateMipmaps));
     }
 
     private static void WithBlenderMaterial(string path, byte[] png)

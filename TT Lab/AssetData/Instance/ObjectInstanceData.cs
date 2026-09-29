@@ -70,6 +70,8 @@ public class ObjectInstanceData : AbstractAssetData
     
     [JsonProperty(Required = Required.Always)]
     [Editable]
+    [EditorParam(UriLinkViewModel.BrowseType, typeof(ObjectInstance))]
+    [EditorParam(UriLinkViewModel.BrowseScope, UriLinkViewModel.Scope.Chunk)]
     [OnReferenceDeleted(DeletedReferenceAction.Remove)]
     public List<LabURI> Instances { get; set; }
     
@@ -78,6 +80,8 @@ public class ObjectInstanceData : AbstractAssetData
     
     [JsonProperty(Required = Required.Always)]
     [Editable]
+    [EditorParam(UriLinkViewModel.BrowseType, typeof(Position))]
+    [EditorParam(UriLinkViewModel.BrowseScope, UriLinkViewModel.Scope.Chunk)]
     [OnReferenceDeleted(DeletedReferenceAction.Remove)]
     public List<LabURI> Positions { get; set; }
     
@@ -86,6 +90,8 @@ public class ObjectInstanceData : AbstractAssetData
     
     [JsonProperty(Required = Required.Always)]
     [Editable]
+    [EditorParam(UriLinkViewModel.BrowseType, typeof(Path))]
+    [EditorParam(UriLinkViewModel.BrowseScope, UriLinkViewModel.Scope.Chunk)]
     [OnReferenceDeleted(DeletedReferenceAction.Remove)]
     public List<LabURI> Paths { get; set; }
     
@@ -98,7 +104,8 @@ public class ObjectInstanceData : AbstractAssetData
     public Int16 RefListIndex { get; set; }
     
     [JsonProperty(Required = Required.Always)]
-    [Editable]
+    [Editable(Hint = "The behaviour graph run when the instance spawns, the game refers to its starter")]
+    [EditorParam(UriLinkViewModel.BrowseType, typeof(BehaviourGraph))]
     [OnReferenceDeleted(DeletedReferenceAction.Clear)]
     public LabURI OnSpawnScriptId { get; set; }
     
@@ -167,6 +174,10 @@ public class ObjectInstanceData : AbstractAssetData
 
     public override ITwinItem Export(ITwinItemFactory factory)
     {
+        // The properties' header counts them in bytes
+        CheckCount("flag properties", ParamList1.Count, InstanceTemplateData.MaxProperties);
+        CheckCount("float properties", ParamList2.Count, InstanceTemplateData.MaxProperties);
+        CheckCount("integer properties", ParamList3.Count, InstanceTemplateData.MaxProperties);
         var assetManager = AssetManager.Get();
         using var ms = new MemoryStream();
         using var writer = new BinaryWriter(ms);

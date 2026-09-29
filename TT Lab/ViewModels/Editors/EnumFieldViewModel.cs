@@ -14,6 +14,7 @@ namespace TT_Lab.ViewModels.Editors;
 
 public partial class EnumFieldViewModel : DocumentDataViewModel<object>
 {
+
     [Reactive]
     private object? _selectedValue;
 
@@ -34,7 +35,19 @@ public partial class EnumFieldViewModel : DocumentDataViewModel<object>
         this.WhenAnyValue(x => x.SelectedValue)
             .Skip(1)
             .WhereNotNull()
+            .Where(_ => !_isShowing)
             .Subscribe(SetCurrentValue).DisposeWith(disposables);
+    }
+
+    private bool _isShowing;
+
+    // Undo and redo change the value from outside, the combo box shows what it is
+    protected override void OnCurrentValueChanged()
+    {
+        base.OnCurrentValueChanged();
+        _isShowing = true;
+        SelectedValue = CurrentValue;
+        _isShowing = false;
     }
 
     protected override void SetCurrentValue(Object? value)

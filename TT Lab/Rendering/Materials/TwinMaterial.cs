@@ -1,4 +1,4 @@
-using GlmSharp;
+﻿using GlmSharp;
 using Silk.NET.OpenGL;
 using TT_Lab.Rendering.Shaders;
 using TT_Lab.Rendering.UniformDescs;
@@ -23,9 +23,11 @@ public class TwinMaterial(RenderContext context, TwinMaterialDesc materialDesc) 
         Program.SetUniform(KnownUniform.MaterialPerformFog, @override ? 1.0f : 0.0f);
     }
 
-    public void ApplyDeformSpeed(vec2 @override)
+    public void ApplyDeform(int mode, float speed, vec3 amplitude)
     {
-        Program.SetUniform(KnownUniform.MaterialDeformSpeed, @override);
+        Program.SetUniform(KnownUniform.MaterialDeformMode, mode);
+        Program.SetUniform(KnownUniform.MaterialDeformSpeed, speed);
+        Program.SetUniform(KnownUniform.MaterialDeformAmplitude, amplitude);
     }
 
     public void ApplyBillboardRender(bool @override)
@@ -54,6 +56,26 @@ public class TwinMaterial(RenderContext context, TwinMaterialDesc materialDesc) 
     public void ApplyUvScroll(vec2 @override)
     {
         Program.SetUniform(KnownUniform.MaterialUvScrollSpeed, @override);
+    }
+
+    public void ApplyUvOffset(vec2 @override)
+    {
+        Program.SetUniform(KnownUniform.MaterialUvOffset, @override);
+    }
+
+    public void ApplyAnimatedColor(vec4 @override)
+    {
+        Program.SetUniform(KnownUniform.MaterialAnimatedColor, @override);
+    }
+
+    // The shader animation's tracks at the render time, where the shader takes them
+    private void ApplyAnimation()
+    {
+        var sample = _materialDesc.Animation != null && (_materialDesc.AnimatesU || _materialDesc.AnimatesV || _materialDesc.AnimatesColor)
+            ? ShaderAnimationSampler.At(_materialDesc.Animation, context.Time)
+            : ShaderAnimationSampler.Still;
+        ApplyUvOffset(new vec2(_materialDesc.AnimatesU ? sample.Uv.x : 0.0f, _materialDesc.AnimatesV ? sample.Uv.y : 0.0f));
+        ApplyAnimatedColor(_materialDesc.AnimatesColor ? sample.Color : vec4.Ones);
     }
 
     public void ApplyAlphaTest(float @override)
@@ -85,38 +107,9 @@ public class TwinMaterial(RenderContext context, TwinMaterialDesc materialDesc) 
             return;
         }
 
-        var state = context.State;
-        switch (@override)
-        {
-            case TwinShader.AlphaBlendPresets.Mix:
-                state.SetBlendEquation(BlendEquationModeEXT.FuncAdd);
-                state.SetBlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha, BlendingFactor.One, BlendingFactor.OneMinusSrcAlpha);
-                break;
-            case TwinShader.AlphaBlendPresets.Add:
-                state.SetBlendEquation(BlendEquationModeEXT.FuncAdd);
-                state.SetBlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.One, BlendingFactor.SrcAlpha, BlendingFactor.One);
-                break;
-            case TwinShader.AlphaBlendPresets.Sub:
-                state.SetBlendEquation(BlendEquationModeEXT.FuncReverseSubtract);
-                state.SetBlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.One, BlendingFactor.SrcAlpha, BlendingFactor.One);
-                break;
-            case TwinShader.AlphaBlendPresets.Alpha:
-                state.SetBlendEquation(BlendEquationModeEXT.FuncAdd);
-                state.SetBlendFunc(BlendingFactor.Zero, BlendingFactor.SrcAlpha, BlendingFactor.Zero, BlendingFactor.One);
-                break;
-            case TwinShader.AlphaBlendPresets.Zero:
-                state.SetBlendEquation(BlendEquationModeEXT.FuncReverseSubtract);
-                state.SetBlendFunc(BlendingFactor.Zero, BlendingFactor.One, BlendingFactor.Zero, BlendingFactor.One);
-                break;
-            case TwinShader.AlphaBlendPresets.Destination:
-                state.SetBlendEquation(BlendEquationModeEXT.FuncAdd);
-                state.SetBlendFunc(BlendingFactor.Zero, BlendingFactor.DstAlpha, BlendingFactor.Zero, BlendingFactor.One);
-                break;
-            case TwinShader.AlphaBlendPresets.Source:
-                state.SetBlendEquation(BlendEquationModeEXT.FuncAdd);
-                state.SetBlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.Zero, BlendingFactor.One, BlendingFactor.Zero);
-                break;
-        }
+        // The material shader hands over its color, so Brighten brightens what's behind by the color rather than the alpha. No retail
+        // material blends with it
+        GsBlending.Apply(context.State, @override);
     }
 
     public void ApplyDepthWrite(bool @override)
@@ -157,12 +150,13 @@ public class TwinMaterial(RenderContext context, TwinMaterialDesc materialDesc) 
         _materialDesc.Texture?.Bind();
         ApplyUseTexture(_materialDesc.UseTexture.Equals(1.0f));
         ApplyDoubleColor(_materialDesc.DoubleColor);
-        ApplyDeformSpeed(_materialDesc.DeformSpeed);
+        ApplyDeform(_materialDesc.DeformMode, _materialDesc.DeformSpeed, _materialDesc.DeformAmplitude);
         ApplyBillboardRender(_materialDesc.BillboardRender);
         ApplyAlphaTest(_materialDesc.AlphaTest);
         ApplyEnvMap(_materialDesc.EnvMap);
         ApplyMetallicSpecular(_materialDesc.MetalicSpecular);
         ApplyUvScroll(_materialDesc.UvScrollSpeed);
+        ApplyAnimation();
         ApplyReflectDistance(_materialDesc.ReflectDist);
         ApplyAlphaBlending(_materialDesc.AlphaBlend.Equals(1.0f));
         ApplyBlending(_materialDesc.BlendFunc);

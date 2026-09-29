@@ -34,13 +34,15 @@ public class AiPositionData : AbstractAssetData
     [Editable]
     public Vector3 Coords { get; set; }
     
+    // The game's nearest point search goes by the coordinates alone; the W of the position is only read by the
+    // NearestPointEdgeDistanceSquared condition (FUN_00225be0), which takes it off the distance to the point: its radius
     [JsonProperty(Required = Required.Always)]
-    [Editable]
-    public float FloatArg { get; set; }
+    [Editable(Hint = "How far the position reaches: scripts' NearestPointEdgeDistanceSquared measures to its edge, the nearest position itself is picked by its coordinates")]
+    public float Radius { get; set; }
         
     [JsonProperty(Required = Required.Always)]
     [Editable]
-    public UInt16 Arg { get; set; }
+    public UInt16 Flags { get; set; }
 
     protected override void Dispose(Boolean disposing)
     {
@@ -51,8 +53,8 @@ public class AiPositionData : AbstractAssetData
     {
         var aiPosition = GetTwinItem<ITwinAIPosition>();
         Coords = new Vector3(aiPosition.Position.X, aiPosition.Position.Y, aiPosition.Position.Z);
-        FloatArg = aiPosition.Position.W;
-        Arg = aiPosition.UnkShort;
+        Radius = aiPosition.Position.W;
+        Flags = aiPosition.Flags;
     }
 
     public override ITwinItem Export(ITwinItemFactory factory)
@@ -60,8 +62,8 @@ public class AiPositionData : AbstractAssetData
         using var ms = new MemoryStream();
         using var writer = new BinaryWriter(ms);
         Coords.Write(writer);
-        writer.Write(FloatArg);
-        writer.Write(Arg);
+        writer.Write(Radius);
+        writer.Write(Flags);
 
         writer.Flush();
         ms.Position = 0;
@@ -82,11 +84,64 @@ public class AiPositionData : AbstractAssetData
         editableObject.SelectedColor = new vec4(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f,  color.A / 255.0f * 0.25f);
         editableObject.UnselectedColor = visual.Diffuse;
         editableObject.SetPosition(Coords.ToGlm());
-        
-        return [new ViewportObject(editableObject, property.Path, property)
+
+        var coords = property.Find($"[data].AssetData.{nameof(Coords)}");
+        var radius = property.Find($"[data].AssetData.{nameof(Radius)}");
+        var objects = new List<ViewportObject>
         {
-            Position = property.Find($"[data].AssetData.{nameof(Coords)}"),
+            new(editableObject, property.Path, property)
+            {
+                Position = coords,
+                Category = ViewportObjectCategory.AiPositions,
+            }
+        };
+        if (coords == null || radius == null)
+        {
+            return objects;
+        }
+
+        // The radius is dragged by a handle on its ring, whose distance from the position it takes
+        var converter = new AiPositionRadiusHandle(coords);
+        var handle = new EditableObject(viewportContext.RenderContext, null, $"{Owner.FullDataPath}_RADIUS", -vec3.Ones * RadiusHandleSize, vec3.Ones * RadiusHandleSize * 2.0f);
+        handle.SetPosition(converter.ToPosition(Radius));
+        var ring = new AiPositionRadiusVisual(viewportContext.RenderContext, editableObject, handle, Radius);
+        objects[0] = objects[0] with
+        {
+            RenderDependencies = [radius],
+            Refresh = () =>
+            {
+                ring.Radius = radius.GetValue<float>();
+                return true;
+            },
+        };
+        objects.Add(new ViewportObject(handle, $"{property.Path}_RADIUS", property)
+        {
+            Position = radius,
+            PositionConverter = converter,
             Category = ViewportObjectCategory.AiPositions,
-        }];
+            InspectorFocus = radius,
+            RenderDependencies = [coords],
+            Refresh = () =>
+            {
+                handle.SetPosition(converter.ToPosition(radius.GetValue()));
+                return true;
+            },
+        });
+        return objects;
     }
+
+    // Half the size of the box the radius handle is picked by
+    private const float RadiusHandleSize = 0.2f;
+}
+
+/// <summary>
+/// The handle of an AI position's radius stands on the +X side of its ring, and the radius is how far from the position it's dragged
+/// </summary>
+internal sealed class AiPositionRadiusHandle(PropertyNode coords) : IPositionConverter
+{
+    private vec3 Center => coords.GetValue() is Vector3 center ? center.ToGlm() : vec3.Zero;
+
+    public vec3 ToPosition(object? data) => AiPositionRadiusVisual.HandlePosition(Center, data is float radius ? radius : 0.0f);
+
+    public object ToData(vec3 position) => (position - Center).Length;
 }

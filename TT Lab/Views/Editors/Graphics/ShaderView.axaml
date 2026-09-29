@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -40,22 +40,22 @@
                             <controls:LabeledTextBox Text="{Binding LodParamK, UpdateSourceTrigger=PropertyChanged}" x:Name="LodParamKBox" TextBoxName="LOD Param K" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="2,2,2,2"/>
                             <controls:LabeledTextBox Text="{Binding LodParamL, UpdateSourceTrigger=PropertyChanged}" x:Name="LodParamLBox" TextBoxName="LOD Param L" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="2,2,2,2"/>
                             <controls:LabeledTextBox Text="{Binding FixedAlphaValue, UpdateSourceTrigger=PropertyChanged}" x:Name="FixedAlphaValueBox" TextBoxName="Fixed alpha value" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="2,2,2,2"/>
-                            <controls:LabeledTextBox Text="{Binding UnkVal1, UpdateSourceTrigger=PropertyChanged}" x:Name="UnkVal1Box" TextBoxName="Unk value 1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="2,2,2,2"/>
+                            <controls:LabeledTextBox Text="{Binding UnusedValue, UpdateSourceTrigger=PropertyChanged}" x:Name="UnusedValueBox" TextBoxName="Unused value" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="2,2,2,2"/>
                             <controls:LabeledDropList Items="{Binding XApplicableScrollSettings}" SelectedItem="{Binding XScrollSettings}" x:Name="XScrollSettings2Box" DropListName="UV X Scroll settings" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="2,2,2,2"/>
                             <controls:LabeledDropList Items="{Binding YApplicableScrollSettings}" SelectedItem="{Binding YScrollSettings}" x:Name="YScrollSettings3Box" DropListName="UV Y Scroll settings" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="2,2,2,2"/>
                         </UniformGrid>
                         <Grid x:Name="ShaderSettingsVectorGrid" Margin="0,0,0,0" Grid.Row="2" RowDefinitions="*,*,*">
-                            <UniformGrid x:Name="UnkVec1Grid" Rows="1">
-                                <controls:LabeledTextBox Text="{Binding UnkVec1.X, Converter={StaticResource FloatConverter}, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="2,2,2,2" TextBoxName="Unk vector 1 X"/>
-                                <controls:LabeledTextBox Text="{Binding UnkVec1.Y, Converter={StaticResource FloatConverter}, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="2,2,2,2" TextBoxName="Unk vector 1 Y"/>
-                                <controls:LabeledTextBox Text="{Binding UnkVec1.Z, Converter={StaticResource FloatConverter}, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="2,2,2,2" TextBoxName="Unk vector 1 Z"/>
-                                <controls:LabeledTextBox Text="{Binding UnkVec1.W, Converter={StaticResource FloatConverter}, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="2,2,2,2" TextBoxName="Unk vector 1 W"/>
+                            <UniformGrid x:Name="LeftoverVectorGrid" Rows="1">
+                                <controls:LabeledTextBox Text="{Binding LeftoverVector.X, Converter={StaticResource FloatConverter}, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="2,2,2,2" TextBoxName="Unk vector 1 X"/>
+                                <controls:LabeledTextBox Text="{Binding LeftoverVector.Y, Converter={StaticResource FloatConverter}, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="2,2,2,2" TextBoxName="Unk vector 1 Y"/>
+                                <controls:LabeledTextBox Text="{Binding LeftoverVector.Z, Converter={StaticResource FloatConverter}, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="2,2,2,2" TextBoxName="Unk vector 1 Z"/>
+                                <controls:LabeledTextBox Text="{Binding LeftoverVector.W, Converter={StaticResource FloatConverter}, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="2,2,2,2" TextBoxName="Unk vector 1 W"/>
                             </UniformGrid>
-                            <UniformGrid x:Name="UnkVec2Grid" Grid.Row="1" Rows="1">
-                                <controls:LabeledTextBox Text="{Binding UnkVec2.X, Converter={StaticResource FloatConverter}, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="2,2,2,2" TextBoxName="Unk vector 2 X"/>
-                                <controls:LabeledTextBox Text="{Binding UnkVec2.Y, Converter={StaticResource FloatConverter}, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="2,2,2,2" TextBoxName="Unk vector 2 Y"/>
-                                <controls:LabeledTextBox Text="{Binding UnkVec2.Z, Converter={StaticResource FloatConverter}, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="2,2,2,2" TextBoxName="Unk vector 2 Z"/>
-                                <controls:LabeledTextBox Text="{Binding UnkVec2.W, Converter={StaticResource FloatConverter}, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="2,2,2,2" TextBoxName="Unk vector 2 W"/>
+                            <UniformGrid x:Name="ShaderColorGrid" Grid.Row="1" Rows="1">
+                                <controls:LabeledTextBox Text="{Binding ShaderColor.X, Converter={StaticResource FloatConverter}, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="2,2,2,2" TextBoxName="Unk vector 2 X"/>
+                                <controls:LabeledTextBox Text="{Binding ShaderColor.Y, Converter={StaticResource FloatConverter}, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="2,2,2,2" TextBoxName="Unk vector 2 Y"/>
+                                <controls:LabeledTextBox Text="{Binding ShaderColor.Z, Converter={StaticResource FloatConverter}, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="2,2,2,2" TextBoxName="Unk vector 2 Z"/>
+                                <controls:LabeledTextBox Text="{Binding ShaderColor.W, Converter={StaticResource FloatConverter}, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="2,2,2,2" TextBoxName="Unk vector 2 W"/>
                             </UniformGrid>
                             <UniformGrid x:Name="UnkVec3Grid" Grid.Row="2" Rows="1">
                                 <controls:LabeledTextBox Text="{Binding UvScrollSpeed.X, Converter={StaticResource FloatConverter}, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="2,2,2,2" TextBoxName="Start Scroll Offset X"/>
@@ -81,9 +81,9 @@
                         <controls:LabeledCheckBox LayoutOrientation="Horizontal" Checked="{Binding Fog}" x:Name="FoggingCheckbox" HorizontalAlignment="Stretch" Margin="0,0,0,0" VerticalAlignment="Stretch" CheckBoxName="Fogging"/>
                         <controls:LabeledCheckBox LayoutOrientation="Horizontal" Checked="{Binding UseCustomAlphaRegSettings}" x:Name="UseCustomAlphaRegSettingsCheckbox" CheckBoxName="Custom alpha reg settings"/>
                         <controls:LabeledCheckBox LayoutOrientation="Horizontal" Checked="{Binding AlphaCorrectionValue}" x:Name="AlphaCorrectionValueCheckbox" CheckBoxName="Alpha correction value MSB"/>
-                        <controls:LabeledCheckBox LayoutOrientation="Horizontal" Checked="{Binding UnkFlag1}" x:Name="UnkFlag1Checkbox" CheckBoxName="Unk flag 1"/>
-                        <controls:LabeledCheckBox LayoutOrientation="Horizontal" Checked="{Binding UnkFlag2}" x:Name="UnkFlag2Checkbox" CheckBoxName="Unk flag 2"/>
-                        <controls:LabeledCheckBox LayoutOrientation="Horizontal" Checked="{Binding UnkFlag3}" x:Name="UnkFlag3Checkbox" CheckBoxName="Unk flag 3"/>
+                        <controls:LabeledCheckBox LayoutOrientation="Horizontal" Checked="{Binding UnusedFlag}" x:Name="UnusedFlagCheckbox" CheckBoxName="Unused flag"/>
+                        <controls:LabeledCheckBox LayoutOrientation="Horizontal" Checked="{Binding AntiAliasing}" x:Name="AntiAliasingCheckbox" CheckBoxName="Anti-aliasing"/>
+                        <controls:LabeledCheckBox LayoutOrientation="Horizontal" Checked="{Binding AnimationDrivesColor}" x:Name="AnimationDrivesColorCheckbox" CheckBoxName="Animation drives color"/>
                     </UniformGrid>
                 </ScrollViewer>
             </Grid>

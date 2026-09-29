@@ -114,12 +114,17 @@ namespace TT_Lab.Project
         /// <summary>
         /// Packs all the assets back into Twinsanity's PS2 format
         /// </summary>
-        void PackAssetsPS2();
+        void PackAssetsPS2(Build.BuildProfile? profile = null);
 
         /// <summary>
         /// Packs all the assets back into Twinsanity's XBox format
         /// </summary>
-        void PackAssetsXbox();
+        void PackAssetsXbox(Build.BuildProfile? profile = null);
+
+        /// <summary>
+        /// Builds the version of the game the profile names without the chunks it leaves out
+        /// </summary>
+        void Build(Build.BuildProfile profile);
 
         /// <summary>
         /// Creates the BD/BH archives and the PS2 compatible ISO

@@ -11,29 +11,24 @@ namespace Twinsanity.TwinsanityInterchange.Common
     {
         UInt32 type;
         UInt32 flags;
-
         /// <summary>
-        /// Unknown flag which is related to how chunk is loaded
+        /// A link with loading hulls only loads its chunk while the player is inside one of them. This makes it load while there
+        /// is no player yet either (LoadLinkedChunks 0x2aa118), the game's tools set it on 3 links
         /// </summary>
-        public Boolean UnkFlag { get; set; }
+        public Boolean LoadsWithoutPlayer { get; set; }
         /// <summary>
         /// Path to the linked chunk
         /// </summary>
         public String Path { get; set; }
         /// <summary>
-        /// Marks if the linked chunk should be rendered
+        /// Whether and how the linked chunk's scenery is drawn from this chunk. The game reads the flags' low 7 bits as one number:
+        /// 0 draws nothing, 1 draws it always and anything above draws it culled by the load wall as a portal
         /// </summary>
-        public Boolean IsAlwaysVisible { get; set; }
+        public ChunkLinkVisibility Visibility { get; set; }
         /// <summary>
-        /// Marks if the linked chunk should be rendered
-        /// </summary>
-        public Boolean IsVisibleInCameraFrustum { get; set; }
-        /// <summary>
-        /// Purpose currently unknown. Only 5 bits are used
-        /// </summary>
-        public Byte UnkNum { get; set; }
-        /// <summary>
-        /// Marks if the load wall is collidable, when turned off the linked chunk can not be transitioned into and only the scenery of the linked chunk will be rendered
+        /// Marks if the load wall is collidable, when turned off the linked chunk can not be transitioned into and only the scenery of the linked chunk will be rendered.
+        /// The loader reads it together with <see cref="KeepLoaded"/> (bits 7-13 of the flags): a link with either set loads
+        /// the linked chunk's own links one level deeper, one without leaves them at the last level
         /// </summary>
         public Boolean IsLoadWallActive { get; set; }
         /// <summary>
@@ -55,14 +50,14 @@ namespace Twinsanity.TwinsanityInterchange.Common
         /// <summary>
         /// Loading bounding boxes. When set will create a bounding box that the playable must be in for the chunk to start loading/be loaded.
         /// </summary>
-        public List<TwinChunkLinkBoundingBoxBuilder> ChunkLinksCollisionData { get; set; }
+        public List<TwinChunkLinkHull> ChunkLinksCollisionData { get; set; }
 
         public TwinChunkLink()
         {
             ObjectMatrix = new Matrix4();
             ChunkMatrix = new Matrix4();
             LoadingWall = null;
-            ChunkLinksCollisionData = new List<TwinChunkLinkBoundingBoxBuilder>();
+            ChunkLinksCollisionData = new List<TwinChunkLinkHull>();
         }
         public int GetLength()
         {
@@ -80,15 +75,13 @@ namespace Twinsanity.TwinsanityInterchange.Common
         {
             type = reader.ReadUInt32();
             {
-                UnkFlag = (type & 0x2) != 0;
+                LoadsWithoutPlayer = (type & 0x2) != 0;
             }
             int pathLen = reader.ReadInt32();
             Path = new String(reader.ReadChars(pathLen));
             flags = reader.ReadUInt32();
             {
-                IsAlwaysVisible = (flags & 0x1) != 0;
-                IsVisibleInCameraFrustum = (flags & 0x2) != 0;
-                UnkNum = (Byte)((flags >> 0x2) & 0x1F);
+                Visibility = (ChunkLinkVisibility)(flags & 0x7F);
                 KeepLoaded = (flags & 0x80) != 0;
                 IsLoadWallActive = (flags & 0x100) != 0;
             }
@@ -101,7 +94,7 @@ namespace Twinsanity.TwinsanityInterchange.Common
             }
             if ((type & 0x1) != 0)
             {
-                var clOgi3 = new TwinChunkLinkBoundingBoxBuilder();
+                var clOgi3 = new TwinChunkLinkHull();
                 Boolean hasNext;
                 do
                 {
@@ -110,7 +103,7 @@ namespace Twinsanity.TwinsanityInterchange.Common
                     hasNext = (clOgi3.Type & 0x1) != 0;
                     if (hasNext)
                     {
-                        clOgi3 = new TwinChunkLinkBoundingBoxBuilder();
+                        clOgi3 = new TwinChunkLinkHull();
                     }
                 } while (hasNext);
             }
@@ -118,16 +111,8 @@ namespace Twinsanity.TwinsanityInterchange.Common
 
         public void Write(BinaryWriter writer)
         {
-            flags = (UInt32)((UnkNum & 0x1F) << 2);
+            flags = (UInt32)Visibility & 0x7F;
             type = 0;
-            if (IsAlwaysVisible)
-            {
-                flags |= 0x1;
-            }
-            if (IsVisibleInCameraFrustum)
-            {
-                flags |= 0x2;
-            }
             if (KeepLoaded)
             {
                 flags |= 0x80;
@@ -144,7 +129,7 @@ namespace Twinsanity.TwinsanityInterchange.Common
             {
                 type |= 0x1;
             }
-            if (UnkFlag)
+            if (LoadsWithoutPlayer)
             {
                 type |= 0x2;
             }
@@ -168,5 +153,25 @@ namespace Twinsanity.TwinsanityInterchange.Common
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// How a chunk link's scenery is drawn from the linking chunk (the low 7 bits of the link's flags, verified in the PAL
+    /// executable's chunk renderer 0x1ea3a8). Values above 2 draw like <see cref="ThroughLoadWall"/>, the game's tools never wrote any
+    /// </summary>
+    public enum ChunkLinkVisibility : byte
+    {
+        /// <summary>
+        /// The linked chunk isn't drawn
+        /// </summary>
+        Hidden = 0,
+        /// <summary>
+        /// The linked chunk is always drawn
+        /// </summary>
+        Always = 1,
+        /// <summary>
+        /// The linked chunk is drawn through its load wall, which culls it like a portal
+        /// </summary>
+        ThroughLoadWall = 2
     }
 }

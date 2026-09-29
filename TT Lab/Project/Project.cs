@@ -14,6 +14,7 @@ using TT_Lab.AssetData;
 using TT_Lab.AssetData.Instance;
 using TT_Lab.AssetResolvers;
 using TT_Lab.Assets;
+using TT_Lab.Project.Build;
 using TT_Lab.Assets.Code;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Assets.Global;
@@ -52,7 +53,7 @@ namespace TT_Lab.Project;
 public class Project : IProject
 {
     // 0.6.0 changed how models, scenery and every other glb asset are stored
-    private const string CURRENT_VERSION = "0.10.0";
+    private const string CURRENT_VERSION = "0.11.0";
 
     public AssetManager AssetManager { get; private set; }
 
@@ -393,7 +394,7 @@ public class Project : IProject
 
     internal readonly record struct DiscFile(string Path, Func<Byte[]> Read);
 
-    internal enum GamePlatform
+    public enum GamePlatform
     {
         PS2,
         Xbox
@@ -724,15 +725,13 @@ public class Project : IProject
 
     private Package GetGlobalPackage(GamePlatform platform) => platform == GamePlatform.Xbox ? GlobalPackageXbox : GlobalPackagePS2;
 
-    private Package GetPlatformPackage(GamePlatform platform) => platform == GamePlatform.Xbox ? XboxPackage : Ps2Package;
-
     private ITwinItemFactory CreateFactory(GamePlatform platform)
     {
         return platform == GamePlatform.Xbox ? new XboxItemFactory { GlobalPackage = GlobalPackageXbox } : new PS2ItemFactory { GlobalPackage = GlobalPackagePS2 };
     }
 
     // The PS2 version's files get packed into its archive, the Xbox version's are written as they're on the disc
-    private string GetBuildFilesPath(GamePlatform platform)
+    internal string GetBuildFilesPath(GamePlatform platform)
     {
         return platform == GamePlatform.Xbox
             ? System.IO.Path.Combine(ProjectPath, "build", "xbox", "files")
@@ -762,7 +761,19 @@ public class Project : IProject
 
     // Chunks build in parallel. Each gets a factory of its own, which keeps track of what went into the chunk, and a scope for
     // the asset data it loads, which is released once the chunk is written
-    private void WriteChunk(ITwinItemFactory buildFactory, BuildCache cache, LevelChunk chunk, string[] outputs, bool isDefault)
+    internal void WriteChunk(ITwinItemFactory buildFactory, BuildCache cache, LevelChunk chunk, string[] outputs, bool isDefault)
+    {
+        try
+        {
+            WriteChunkFiles(buildFactory, cache, chunk, outputs, isDefault);
+        }
+        catch (Exception ex) when (ex is not BuildException)
+        {
+            throw new BuildException(chunk.Alias, ex);
+        }
+    }
+
+    private void WriteChunkFiles(ITwinItemFactory buildFactory, BuildCache cache, LevelChunk chunk, string[] outputs, bool isDefault)
     {
         Log.WriteLine($"Writing {chunk.Alias}...");
         System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(outputs[0])!);
@@ -784,26 +795,13 @@ public class Project : IProject
             foreach (var asset in chunk.ChunkResources.Select(AssetManager.GetAsset))
             {
                 Log.WriteLine($"Writing {asset.Name} of {chunk.Alias}...", Log.LogType.Debug);
-                if (!isDefault && asset is Scenery or ChunkLinks)
+                try
                 {
-                    if (asset is Scenery scenery)
-                    {
-                        var sceneryData = ((IAsset)scenery).GetData<SceneryData>();
-                        sceneryData.SkydomeID = chunk.Skydome;
-
-                        var collision = AssetManager.GetAsset(sceneryData.Collision);
-                        collision.ResolveChunkResources(factory, rm2);
-                    }
-
-                    asset.ResolveChunkResources(factory, sm2);
+                    ResolveChunkResource(factory, chunk, asset, rm2, sm2, isDefault);
                 }
-                else if (asset is SoundEffect)
+                catch (Exception ex) when (ex is not BuildException)
                 {
-                    asset.ResolveChunkResources(factory, rm2.GetItem<ITwinSection>(Constants.LEVEL_CODE_SECTION).GetItem<ITwinSection>(asset.Section));
-                }
-                else
-                {
-                    asset.ResolveChunkResources(factory, rm2);
+                    throw new BuildException($"{asset.Name} of {chunk.Alias}", ex);
                 }
             }
 
@@ -818,8 +816,33 @@ public class Project : IProject
             }
         }
 
-        cache.Record($"chunk:{chunk.URI}", accessedAssets.Keys, outputs);
+        cache.Record($"chunk:{chunk.URI}", accessedAssets.Keys, outputs, factory.LinkedChunks);
         Log.WriteLine($"Finished writing {chunk.Alias}");
+    }
+
+    private void ResolveChunkResource(ITwinItemFactory factory, LevelChunk chunk, IAsset asset, ITwinSection rm2, ITwinSection sm2, bool isDefault)
+    {
+        if (!isDefault && asset is Scenery or ChunkLinks)
+        {
+            if (asset is Scenery scenery)
+            {
+                var sceneryData = ((IAsset)scenery).GetData<SceneryData>();
+                sceneryData.SkydomeID = chunk.Skydome;
+
+                var collision = AssetManager.GetAsset(sceneryData.Collision);
+                collision.ResolveChunkResources(factory, rm2);
+            }
+
+            asset.ResolveChunkResources(factory, sm2);
+        }
+        else if (asset is SoundEffect)
+        {
+            asset.ResolveChunkResources(factory, rm2.GetItem<ITwinSection>(Constants.LEVEL_CODE_SECTION).GetItem<ITwinSection>(asset.Section));
+        }
+        else
+        {
+            asset.ResolveChunkResources(factory, rm2);
+        }
     }
 
     private static void WriteSection(ITwinSection section, string path)
@@ -829,35 +852,66 @@ public class Project : IProject
         section.Write(writer);
     }
 
-    public void PackAssetsPS2()
+    public void PackAssetsPS2(BuildProfile? profile = null)
     {
-        if (PackAssets(GamePlatform.PS2))
+        var total = Stopwatch.StartNew();
+        if (PackAssets(GamePlatform.PS2, profile))
         {
             CreatePs2ArchivesAndIso();
         }
+
+        Log.WriteLine($"The whole PS2 build took {FormatDuration(total.Elapsed)}");
     }
 
-    public void PackAssetsXbox()
+    public void PackAssetsXbox(BuildProfile? profile = null)
     {
-        if (PackAssets(GamePlatform.Xbox))
+        var total = Stopwatch.StartNew();
+        if (PackAssets(GamePlatform.Xbox, profile))
         {
             CreateXboxGame();
         }
+
+        Log.WriteLine($"The whole Xbox build took {FormatDuration(total.Elapsed)}");
+    }
+
+    public void Build(BuildProfile profile)
+    {
+        if (profile.Platform == GamePlatform.Xbox)
+        {
+            PackAssetsXbox(profile);
+        }
+        else
+        {
+            PackAssetsPS2(profile);
+        }
+    }
+
+    internal static string FormatDuration(TimeSpan elapsed)
+    {
+        return elapsed.TotalHours >= 1.0 ? $"{(int)elapsed.TotalHours} h {elapsed.Minutes} min {elapsed.Seconds} s"
+            : elapsed.TotalMinutes >= 1.0 ? $"{elapsed.Minutes} min {elapsed.Seconds} s"
+            : $"{elapsed.TotalSeconds:F1} s";
     }
 
     // Writes the platform's chunks and global files, the files that didn't change since the last build are kept
-    private bool PackAssets(GamePlatform platform)
+    private bool PackAssets(GamePlatform platform, BuildProfile? profile = null)
     {
         System.IO.Directory.SetCurrentDirectory(ProjectPath);
         var globalPackage = GetGlobalPackage(platform);
-        var platformPackage = GetPlatformPackage(platform);
         if (!globalPackage.Enabled)
         {
             Log.WriteLine($"{globalPackage.Name} package MUST be enabled to compile the project", Log.LogType.Error);
             return false;
         }
 
+        var excludedChunks = profile?.ExcludedChunkUris() ?? [];
+        if (profile != null)
+        {
+            Log.WriteLine($"Building with the {profile.Name} profile, {excludedChunks.Count} chunks left out");
+        }
+
         var factory = CreateFactory(platform);
+        factory.ExcludedChunks = excludedChunks;
         var assetManager = AssetManager;
         using var memoryGate = new MemoryGate((long)(Preferences.GetPreference<Double>(Preferences.BuildMemoryBudget) * 1024 * 1024));
 
@@ -878,33 +932,34 @@ public class Project : IProject
         System.IO.Directory.SetCurrentDirectory("Levels");
         Log.WriteLine("Writing Levels...");
         var phaseTimer = Stopwatch.StartNew();
-        // Only the platform's own packages, the other version's chunks are built for it
-        var chunksFolder = (from dependencyUri in BasePackage.Dependencies
-                            where dependencyUri == globalPackage.URI || dependencyUri == platformPackage.URI
-                            let dependency = assetManager.GetAsset<Package>(dependencyUri)
-                            where dependency.Enabled
-                            let packageFolder = dependency.GetPackageFolder()
-                            let folder = packageFolder.FindChild("levels")
-                            where folder != LabURI.Empty
-                            select assetManager.GetAsset<Folder>(folder)).ToList();
+        var chunksFolder = GetLevelsFolders(platform);
 
         var cache = BuildCache.Load(ProjectPath, AssetManager);
+        cache.ExcludedChunks = excludedChunks;
         var levelsPath = System.IO.Path.Combine(filesPath, "Levels");
         var jobs = new List<(LevelChunk Chunk, string[] Outputs)>();
         var createdDirectories = new List<string>();
+        var leftOut = new LeftOutChunks(excludedChunks, platform, filesPath, DiscContentPathPS2);
+        var claimedOutputs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var folder in chunksFolder)
         {
-            CollectChunks(cache, folder, levelsPath, platform, jobs, createdDirectories);
+            CollectChunks(cache, folder, levelsPath, platform, jobs, createdDirectories, leftOut, claimedOutputs);
         }
 
-        WriteChunks(factory, cache, jobs, memoryGate);
-        // Chunk folders only held their chunk's own assets, levels are written next to them
-        foreach (var directory in Enumerable.Reverse(createdDirectories).Where(directory => !System.IO.Directory.EnumerateFileSystemEntries(directory).Any()))
+        try
         {
-            System.IO.Directory.Delete(directory);
+            WriteChunks(factory, cache, jobs, memoryGate);
         }
-
-        cache.Save();
+        finally
+        {
+            // The chunks written before one failed are kept for the next build
+            cache.Save();
+            // Chunk folders only held their chunk's own assets, levels are written next to them
+            foreach (var directory in Enumerable.Reverse(createdDirectories).Where(directory => !System.IO.Directory.EnumerateFileSystemEntries(directory).Any()))
+            {
+                System.IO.Directory.Delete(directory);
+            }
+        }
 
         Log.WriteLine($"Finished writing Levels in {phaseTimer.Elapsed}");
         foreach (var globalFolder in new[] { "Extras", "Language" })
@@ -1099,7 +1154,14 @@ public class Project : IProject
                 using (assetManager.RecordAccessedAssets(accessedAssets))
                 using (new AssetDataScope())
                 {
-                    asset.ExportToFile(factory);
+                    try
+                    {
+                        asset.ExportToFile(factory);
+                    }
+                    catch (Exception ex) when (ex is not BuildException)
+                    {
+                        throw new BuildException(asset.Name, ex);
+                    }
                 }
 
                 cache.Record(cacheKey, accessedAssets.Keys, [output]);
@@ -1119,8 +1181,21 @@ public class Project : IProject
     }
 
     // The chunks that changed since the last build with the files they're written to. A level is written next to its chunk's folder
+    // The levels folders at the root of the version's enabled packages, the other version's chunks are built for it
+    internal List<Folder> GetLevelsFolders(GamePlatform platform)
+    {
+        return (from dependencyUri in BasePackage.Dependencies
+                where GetPlatform(dependencyUri) == platform
+                let package = AssetManager.GetAsset<Package>(dependencyUri)
+                where package.Enabled
+                let folder = package.GetPackageFolder().Children.Where(AssetManager.DoesAssetExist).Select(AssetManager.GetAsset).OfType<Folder>()
+                    .FirstOrDefault(child => child.Alias == Folder.LevelsFolderName)
+                where folder != null
+                select folder).ToList();
+    }
+
     private void CollectChunks(BuildCache cache, Folder currentFolder, string directory, GamePlatform platform, List<(LevelChunk Chunk, string[] Outputs)> jobs,
-        List<string> createdDirectories)
+        List<string> createdDirectories, LeftOutChunks leftOut, ISet<string> claimedOutputs)
     {
         foreach (var item in currentFolder.Children)
         {
@@ -1128,7 +1203,22 @@ public class Project : IProject
             if (asset is LevelChunk chunk)
             {
                 var outputs = GetChunkOutputs(chunk, System.IO.Path.GetDirectoryName(directory)!, false, platform);
-                if (cache.IsUpToDate($"chunk:{chunk.URI}", outputs))
+                // The game has one file for a path, two packages' chunks at it would be written over each other
+                if (!claimedOutputs.Add(outputs[0]))
+                {
+                    Log.WriteLine($"{chunk.Alias} of {AssetManager.GetAsset(chunk.Package).Name} is at the same place as a chunk of another package, only the first one is built",
+                        Log.LogType.Warning);
+                    break;
+                }
+
+                if (leftOut.Contains(chunk))
+                {
+                    if (!leftOut.Keep(chunk, outputs))
+                    {
+                        jobs.Add((chunk, outputs));
+                    }
+                }
+                else if (cache.IsUpToDate($"chunk:{chunk.URI}", outputs))
                 {
                     Log.WriteLine($"{chunk.Alias} didn't change since the last build, keeping it");
                 }
@@ -1146,8 +1236,45 @@ public class Project : IProject
                 var innerDirectory = System.IO.Path.Combine(directory, innerFolder.Name);
                 System.IO.Directory.CreateDirectory(innerDirectory);
                 createdDirectories.Add(innerDirectory);
-                CollectChunks(cache, innerFolder, innerDirectory, platform, jobs, createdDirectories);
+                CollectChunks(cache, innerFolder, innerDirectory, platform, jobs, createdDirectories, leftOut, claimedOutputs);
             }
+        }
+    }
+
+    // Chunks a build profile leaves out aren't written. The Xbox game takes the disc's files of the ones the build folder doesn't have,
+    // the PS2 archive is made of the build folder alone, so a left out chunk that was never built gets its files from the disc's
+    // archive, the last build's or the game's own, and is only written when that doesn't have it either
+    internal sealed class LeftOutChunks(IReadOnlySet<LabURI> excluded, GamePlatform platform, string filesPath, string? discContentPath)
+    {
+        private DiscArchive? _discArchive;
+        private bool _discArchiveOpened;
+
+        public bool Contains(LevelChunk chunk) => excluded.Contains(chunk.URI);
+
+        // Whether the chunk's files are taken care of, false when it has to be written
+        public bool Keep(LevelChunk chunk, string[] outputs)
+        {
+            if (platform == GamePlatform.Xbox || outputs.All(System.IO.File.Exists))
+            {
+                Log.WriteLine($"{chunk.Alias} is left out by the build profile, keeping its files");
+                return true;
+            }
+
+            if (!_discArchiveOpened)
+            {
+                _discArchiveOpened = true;
+                _discArchive = DiscArchive.Open(discContentPath);
+            }
+
+            var files = outputs.Select(output => (System.IO.Path.GetRelativePath(filesPath, output), output)).ToList();
+            if (_discArchive != null && _discArchive.TryCopy(files))
+            {
+                Log.WriteLine($"{chunk.Alias} is left out by the build profile and was never built, taking its files from the disc's archive");
+                return true;
+            }
+
+            Log.WriteLine($"{chunk.Alias} is left out by the build profile but neither the build nor the disc's archive has it, writing it so the archive has it");
+            return false;
         }
     }
 

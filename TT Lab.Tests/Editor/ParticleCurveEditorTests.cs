@@ -147,6 +147,25 @@ public sealed class ParticleCurveEditorTests : IDisposable
 
         editor.RemoveKey(1);
         Assert.Equal([new Point(0, 0), new Point(0.75, 80), new Point(1, 0)], editor.Points);
+
+        // A key put in moves the ones after it, one undo takes all of that back
+        document.History.CloseStep();
+        var before = editor.Points;
+        editor.AddKey(new Point(0.5, 10));
+        Assert.Equal(4, editor.KeyCount);
+        document.Undo();
+        Assert.Equal(before, editor.Points);
+        document.Redo();
+        Assert.Equal(4, editor.KeyCount);
+        document.Undo();
+
+        // A drag is one step however far it goes
+        editor.BeginDrag();
+        editor.DragKey(1, new Point(0.6, 20));
+        editor.DragKey(1, new Point(0.9, 30));
+        editor.EndDrag();
+        document.Undo();
+        Assert.Equal(before, editor.Points);
     }
 
     [AvaloniaFact]

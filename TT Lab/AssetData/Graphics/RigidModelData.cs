@@ -78,7 +78,7 @@ public class RigidModelData : AbstractAssetData
         var file = TlmFile.Load(dataPath);
         var materials = new TlmMaterials(file, Owner);
         var parts = TlmMeshes.ReadMesh(file, file.Root?[TlmNodes.MeshKey] as JsonObject, false, file.Root?.GetTransform());
-        SetFromParts(Owner, parts.Select(p => (p.Part, materials.Get(p.Material))).ToList(), Owner.Name);
+        SetFromParts(Owner, parts.Select(p => (p.Part, materials.GetRequired(p.Material))).ToList(), Owner.Name);
         DisposedValue = false;
         if (materials.AddedToProject)
         {
@@ -115,7 +115,7 @@ public class RigidModelData : AbstractAssetData
             InternalOwner = owner
         };
         RigidModelData data = typeof(T) == typeof(Mesh) ? new MeshData(asset) : new RigidModelData(asset);
-        data.SetFromParts(owner, TlmMeshes.ReadMesh(file, mesh, false, transform).Select(p => (p.Part, materials.Get(p.Material))).ToList(), name);
+        data.SetFromParts(owner, TlmMeshes.ReadMesh(file, mesh, false, transform).Select(p => (p.Part, materials.GetRequired(p.Material))).ToList(), name);
         asset.SetData(data);
         AssetManager.Get().TryAddAsset(asset);
         return asset;

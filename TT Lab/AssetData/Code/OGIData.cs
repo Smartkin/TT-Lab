@@ -53,8 +53,8 @@ public class OGIData : AbstractAssetData
         SkinInverseMatrices = [mat4.Identity.ToTwin()];
         Skin = LabURI.Empty;
         BlendSkin = LabURI.Empty;
-        BoundingBoxBuilders = [];
-        BoundingBoxBuilderToJointIndex = [];
+        CollisionHulls = [];
+        CollisionHullJoints = [];
         Animations = [];
     }
 
@@ -96,7 +96,12 @@ public class OGIData : AbstractAssetData
     public const string BodyKind = "body";
     public const string ExitPointsKind = "exit_points";
     public const string ExitPointKind = "exit_point";
+    public const string CollisionHullsKind = "collision_hulls";
     private const Int32 NoParent = 0xFF;
+    /// <summary>
+    /// The joint of a hull that isn't on any, in the model's space
+    /// </summary>
+    public const Byte NoJoint = 0xFF;
 
     internal TlmFile WriteTlm()
     {
@@ -106,18 +111,7 @@ public class OGIData : AbstractAssetData
         var root = TlmNodes.Create(TlmKind, Owner.Name, new JsonObject
         {
             ["BoundingBoxMin"] = TlmJson.ToJson(BoundingBox[0]),
-            ["BoundingBoxMax"] = TlmJson.ToJson(BoundingBox[1]),
-            ["Collisions"] = new JsonArray(BoundingBoxBuilders.Select((builder, i) => (JsonNode)new JsonObject
-            {
-                ["Joint"] = (Int32)BoundingBoxBuilderToJointIndex.ElementAtOrDefault(i),
-                ["Points"] = TlmJson.ToJson(builder.BoundingBoxPoints.SelectMany(v => new[] { v.X, v.Y, v.Z, v.W })),
-                ["UnkVectors1"] = TlmJson.ToJson(builder.UnkVectors1.SelectMany(v => new[] { v.X, v.Y, v.Z, v.W })),
-                ["UnkVectors2"] = TlmJson.ToJson(builder.UnkVectors2.SelectMany(v => new[] { v.X, v.Y, v.Z, v.W })),
-                ["UnkVectors3"] = TlmJson.ToJson(builder.UnkVectors3.SelectMany(v => new[] { v.X, v.Y, v.Z, v.W })),
-                ["UnkShorts"] = TlmJson.ToJson(builder.UnkShorts.Select(v => (Int32)v)),
-                ["UnkBytes1"] = TlmJson.ToJson(builder.UnkBytes1.Select(v => (Int32)v)),
-                ["UnkBytes2"] = TlmJson.ToJson(builder.UnkBytes2.Select(v => (Int32)v))
-            }).ToArray())
+            ["BoundingBoxMax"] = TlmJson.ToJson(BoundingBox[1])
         });
 
         var armature = root.AddChild(TlmNodes.Create(ArmatureKind, "Armature"));
@@ -156,7 +150,7 @@ public class OGIData : AbstractAssetData
         if (BlendSkin != LabURI.Empty)
         {
             var blendSkinData = assetManager.GetAssetData<BlendSkinData>(BlendSkin);
-            var shape = root.AddChild(TlmNodes.Create(BlendSkinData.TlmKind, "Blend Skin", blendSkinData.WriteTlmData()));
+            var shape = root.AddChild(TlmNodes.Create(BlendSkinData.TlmKind, "Blend Skin"));
             shape[TlmNodes.MeshKey] = blendSkinData.WriteTlmMesh(file, materials);
         }
 
@@ -174,13 +168,19 @@ public class OGIData : AbstractAssetData
         var exitPoints = root.AddChild(TlmNodes.Create(ExitPointsKind, "Exit Points"));
         foreach (var exitPoint in ExitPoints)
         {
-            var node = exitPoints.AddChild(TlmNodes.Create(ExitPointKind, $"Exit Point {exitPoint.ID}", new JsonObject
-            {
-                ["Id"] = TlmJson.ToJson(exitPoint.ID),
-                ["Matrix"] = TlmJson.ToJson(TlmNodes.ToArray(exitPoint.Matrix.ToSystem()))
-            }));
+            var node = exitPoints.AddChild(TlmNodes.Create(ExitPointKind, $"Exit Point {exitPoint.ID}", new JsonObject { ["Id"] = TlmJson.ToJson(exitPoint.ID) }));
             node[TlmNodes.JointKey] = (Int32)exitPoint.ParentJointIndex;
-            node.SetTransform(exitPoint.Matrix.ToSystem());
+            var matrix = exitPoint.Matrix.ToSystem();
+            node.SetTransform(matrix);
+            // The game's matrix as it is: a few of the game's exit points are scaled or sheared, and a transform loses the last bits of the rest
+            node[TlmNodes.MatrixKey] = TlmJson.ToJson(TlmNodes.ToArray(matrix));
+        }
+
+        var hulls = root.AddChild(TlmNodes.Create(CollisionHullsKind, "Collision Hulls"));
+        for (var i = 0; i < CollisionHulls.Count; i++)
+        {
+            var node = hulls.AddChild(TlmHulls.Write(file, CollisionHulls[i], $"Hull {i}"));
+            node[TlmNodes.JointKey] = (Int32)(i < CollisionHullJoints.Count ? CollisionHullJoints[i] : NoJoint);
         }
 
         file.Root = root;
@@ -237,18 +237,20 @@ public class OGIData : AbstractAssetData
         foreach (var node in root.FindChild(ExitPointsKind).Traverse().Where(node => node.GetKind() == ExitPointKind))
         {
             var data = node.GetData();
+            var stored = node.GetFloats(TlmNodes.MatrixKey);
             ExitPoints.Add(new TwinExitPoint
             {
                 ID = data.GetUInt("Id"),
                 ParentJointIndex = ToJoint(node),
-                Matrix = TlmNodes.KeepStored(data.GetFloats("Matrix"), node.GetTransform(), out _).ToTwin()
+                Matrix = TlmNodes.KeepStored(stored, node.GetTransform(), out _).ToTwin()
             });
         }
 
         ExitPoints.Sort((e1, e2) => e1.ID.CompareTo(e2.ID));
+        ReadHulls(file, root);
         ReadSkins(file, root, materials);
         var animationsChanged = ReadAnimations(file, armature);
-        return animationsChanged || materials.AddedToProject || file.IsOutdated;
+        return animationsChanged || materials.AddedToProject;
     }
 
     private Byte ToJoint(JsonObject node)
@@ -260,33 +262,19 @@ public class OGIData : AbstractAssetData
     private void ReadRootData(JsonObject data)
     {
         BoundingBox = [data.GetVector4("BoundingBoxMin", BoundingBox[0]), data.GetVector4("BoundingBoxMax", BoundingBox[1])];
-        BoundingBoxBuilders.Clear();
-        BoundingBoxBuilderToJointIndex.Clear();
-        foreach (var collision in data.GetIndexed("Collisions"))
-        {
-            BoundingBoxBuilders.Add(new TwinBoundingBoxBuilder
-            {
-                BoundingBoxPoints = ToVectors(collision.GetFloats("Points")),
-                UnkVectors1 = ToVectors(collision.GetFloats("UnkVectors1")),
-                UnkVectors2 = ToVectors(collision.GetFloats("UnkVectors2")),
-                UnkVectors3 = ToVectors(collision.GetFloats("UnkVectors3")),
-                UnkShorts = collision.GetInts("UnkShorts").Select(v => (UInt16)v).ToList(),
-                UnkBytes1 = collision.GetInts("UnkBytes1").Select(v => (Byte)v).ToList(),
-                UnkBytes2 = collision.GetInts("UnkBytes2").Select(v => (Byte)v).ToList()
-            });
-            BoundingBoxBuilderToJointIndex.Add((Byte)collision.GetInt("Joint"));
-        }
+        CollisionHulls.Clear();
+        CollisionHullJoints.Clear();
     }
 
-    private static List<Vector4> ToVectors(Single[] values)
+    // A hull on no joint is in the model's space, the game marks those with a joint of 0xFF
+    private void ReadHulls(TlmFile file, JsonObject root)
     {
-        var result = new List<Vector4>();
-        for (var i = 0; i + 3 < values.Length; i += 4)
+        foreach (var node in root.FindChild(CollisionHullsKind).Traverse().Where(node => node.GetKind() == TlmHulls.Kind))
         {
-            result.Add(new Vector4(values[i], values[i + 1], values[i + 2], values[i + 3]));
+            var joint = node.GetInt(TlmNodes.JointKey, NoJoint);
+            CollisionHulls.Add(TlmHulls.Read(file, node));
+            CollisionHullJoints.Add((Byte)(joint >= 0 && joint < Joints.Count ? joint : NoJoint));
         }
-
-        return result;
     }
 
     // Bones are placed where the joints' bind poses are. Joints whose bone is still there keep the game's values, the ones moved
@@ -480,7 +468,6 @@ public class OGIData : AbstractAssetData
             var blendSkinData = new BlendSkinData(blendSkin);
             foreach (var node in shapeNodes)
             {
-                blendSkinData.ReadTlmData(node.GetData());
                 blendSkinData.ReadTlmMesh(file, node[TlmNodes.MeshKey] as JsonObject, materials);
             }
 
@@ -570,8 +557,14 @@ public class OGIData : AbstractAssetData
 
     public Vector4[] BoundingBox { get; set; }
     public List<TwinExitPoint> ExitPoints { get; set; }
-    public List<TwinBoundingBoxBuilder> BoundingBoxBuilders { get; set; }
-    public List<Byte> BoundingBoxBuilderToJointIndex { get; set; }
+    /// <summary>
+    /// The convex hulls the game collides the model with
+    /// </summary>
+    public List<TwinCollisionHull> CollisionHulls { get; set; }
+    /// <summary>
+    /// The joint every hull is on, <see cref="NoJoint"/> for one in the model's space
+    /// </summary>
+    public List<Byte> CollisionHullJoints { get; set; }
     public List<TwinJoint> Joints { get; set; }
     public List<Byte> RigidModelJointIndices { get; set; }
     public List<LabURI> RigidModelIds { get; set; }
@@ -586,8 +579,8 @@ public class OGIData : AbstractAssetData
         RigidModelJointIndices.Clear();
         RigidModelIds.Clear();
         SkinInverseMatrices.Clear();
-        BoundingBoxBuilders.Clear();
-        BoundingBoxBuilderToJointIndex.Clear();
+        CollisionHulls.Clear();
+        CollisionHullJoints.Clear();
     }
 
     public override void Import(LabURI package, String? variant, Int32? layoutId)
@@ -600,10 +593,10 @@ public class OGIData : AbstractAssetData
         {
             RigidModelIds.Add(AssetManager.Get().GetUriByTwinId<RigidModel>(Owner, model));
         }
-        BoundingBoxBuilderToJointIndex = CloneUtils.CloneList(ogi.CollisionJointIndices);
+        CollisionHullJoints = CloneUtils.CloneList(ogi.CollisionJointIndices);
         Joints = CloneUtils.DeepClone(ogi.Joints);
         ExitPoints = CloneUtils.DeepClone(ogi.ExitPoints);
-        BoundingBoxBuilders = CloneUtils.DeepClone(ogi.Collisions);
+        CollisionHulls = CloneUtils.DeepClone(ogi.CollisionHulls);
         SkinInverseMatrices = CloneUtils.CloneListUnsafe(ogi.SkinInverseBindMatrices);
         Skin = ogi.SkinID != 0 ? AssetManager.Get().GetUriByTwinId<Skin>(Owner, ogi.SkinID) : LabURI.Empty;
         BlendSkin = ogi.BlendSkinID != 0 ? AssetManager.Get().GetUriByTwinId<BlendSkin>(Owner, ogi.BlendSkinID) : LabURI.Empty;
@@ -649,14 +642,14 @@ public class OGIData : AbstractAssetData
             matrix.Write(writer);
         }
 
-        writer.Write(BoundingBoxBuilders.Count);
-        foreach (var builder in BoundingBoxBuilders)
+        writer.Write(CollisionHulls.Count);
+        foreach (var hull in CollisionHulls)
         {
-            builder.Write(writer);
+            hull.Write(writer);
         }
 
-        writer.Write(BoundingBoxBuilderToJointIndex.Count);
-        foreach (var idx in BoundingBoxBuilderToJointIndex)
+        writer.Write(CollisionHullJoints.Count);
+        foreach (var idx in CollisionHullJoints)
         {
             writer.Write(idx);
         }

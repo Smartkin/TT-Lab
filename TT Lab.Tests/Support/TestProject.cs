@@ -81,6 +81,7 @@ public sealed class TestProject : IDisposable
     public void Dispose()
     {
         Directory.SetCurrentDirectory(_previousDirectory);
+        _projectManager.StopTreeWatcher();
         Locator.CurrentMutable.UnregisterAll<ProjectManager>();
         try
         {

@@ -64,6 +64,26 @@ public sealed class AssetManagerTests : IDisposable
         Assert.Equal(first.URI, _project.AssetManager.GetUriByTwinId<Skin>(other, 0x40));
     }
 
+    // The game reuses texture IDs for other pictures in other chunks' sceneries: a shared material finds the shared texture and a
+    // scenery's material its own scenery's, whatever order they were added in
+    [Fact]
+    public void RequestersFindAssetsOfTheirOwnFolderThenTheSharedOnes()
+    {
+        var totemScenery = _project.Add(new Texture { AdditionalPath = "levels/earth/totem/l03beach" }, "Texture 671573F7", 0x671573F7);
+        var shared = _project.Add(new Texture(), "Texture 671573F7", 0x671573F7);
+        var hubMaterial = _project.Add(new Material(), "lambert48_A13CC1D3", 0xA13CC1D3);
+        var totemMaterial = _project.Add(new Material { AdditionalPath = "levels/earth/totem/l03beach" }, "lambert3_1", 0x1);
+        var otherScenery = _project.Add(new Material { AdditionalPath = "levels/earth/hub/hubd" }, "lambert3_2", 0x2);
+
+        Assert.Equal(shared.URI, _project.AssetManager.GetUriByTwinId<Texture>(hubMaterial, 0x671573F7));
+        Assert.Equal(totemScenery.URI, _project.AssetManager.GetUriByTwinId<Texture>(totemMaterial, 0x671573F7));
+        Assert.Equal(shared.URI, _project.AssetManager.GetUriByTwinId<Texture>(otherScenery, 0x671573F7));
+
+        // Another chunk's folder is the last resort
+        _project.AssetManager.RemoveAsset(shared);
+        Assert.Equal(totemScenery.URI, _project.AssetManager.GetUriByTwinId<Texture>(hubMaterial, 0x671573F7));
+    }
+
     [Fact]
     public void StorageIndexesAssetsByTypeAndId()
     {

@@ -56,6 +56,8 @@ public class CurveGraph : Control
     public event Action<int, Point>? KeyDragged;
     public event Action<Point>? KeyAddRequested;
     public event Action<int>? KeyRemoveRequested;
+    public event Action? DragStarted;
+    public event Action? DragEnded;
 
     /// <summary>
     /// Values shown from the bottom to the top. It stays the same while dragging, following the key would move the graph under the mouse
@@ -201,6 +203,7 @@ public class CurveGraph : Control
         SelectedIndex = hit;
         _dragRange = GetValueRange();
         _dragged = hit;
+        DragStarted?.Invoke();
         e.Pointer.Capture(this);
         e.Handled = true;
     }
@@ -225,6 +228,11 @@ public class CurveGraph : Control
     protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
     {
         base.OnPointerCaptureLost(e);
+        if (_dragged != -1)
+        {
+            DragEnded?.Invoke();
+        }
+
         _dragged = -1;
         _dragRange = null;
         InvalidateVisual();
@@ -240,6 +248,7 @@ public class CurveGraph : Control
         _dragged = -1;
         _dragRange = null;
         pointer.Capture(null);
+        DragEnded?.Invoke();
         InvalidateVisual();
     }
 }

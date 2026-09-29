@@ -12,6 +12,9 @@ public partial class LayoutFieldView : DocumentBaseView<LayoutFieldViewModel>
         InitializeComponent();
     }
 
+    // The combo box drops its selection when its items change
+    protected override bool RebindsOnRecycle => true;
+
     protected override void HandleActivation(CompositeDisposable disposables)
     {
         this.OneWayBind(ViewModel, viewModel => viewModel.Layouts, view => view.LayoutChoices.ItemsSource).DisposeWith(disposables);

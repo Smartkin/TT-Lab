@@ -35,7 +35,6 @@ public class BehaviourGraphTests
         "         AssignPreference = ANYHOW;\n" +
         "      }\n" +
         "   }\n" +
-        "   [Unknown(0x0)]\n" +
         "   state State_0() {\n" +
         "   }\n" +
         "}\n";

@@ -10,7 +10,10 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM
         /// <summary>
         /// Unknown integer parameter
         /// </summary>
-        UInt32 UnkInt { get; set; }
+        /// <summary>
+        /// The data's version word (3001), read and never checked
+        /// </summary>
+        UInt32 Version { get; set; }
         List<TwinCollisionTrigger> Triggers { get; set; }
         List<TwinGroupInformation> Groups { get; set; }
         List<TwinCollisionTriangle> Triangles { get; set; }

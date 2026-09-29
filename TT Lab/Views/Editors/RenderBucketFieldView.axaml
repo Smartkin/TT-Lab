@@ -1,0 +1,18 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:graphics="clr-namespace:TT_Lab.Assets.Graphics"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="TT_Lab.Views.Editors.RenderBucketFieldView">
+    <ComboBox HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" x:Name="BucketChoices">
+        <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="graphics:RenderBucket">
+                <TextBlock ToolTip.Tip="{Binding Description}">
+                    <Run Text="{Binding Id}" FontWeight="SemiBold"/>
+                    <Run Text="{Binding Name}"/>
+                </TextBlock>
+            </DataTemplate>
+        </ComboBox.ItemTemplate>
+    </ComboBox>
+</UserControl>

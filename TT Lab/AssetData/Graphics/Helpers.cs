@@ -198,65 +198,6 @@ internal class JsonByteRefConverter : System.Text.Json.Serialization.JsonConvert
     }
 }
 
-public class JsonTwinBoundingBoxBuilderConverter : System.Text.Json.Serialization.JsonConverter<TwinBoundingBoxBuilder>
-{
-    private readonly JsonListConverter<Vector4> vectorConverter = new();
-    private readonly JsonListConverter<UInt16Ref> shortsConverter = new();
-    private readonly JsonListConverter<ByteRef> bytesConverter = new();
-    
-    public override TwinBoundingBoxBuilder? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-    {
-        var bbBuilder = new TwinBoundingBoxBuilder();
-        bbBuilder.BoundingBoxPoints = vectorConverter.Read(ref reader, typeToConvert, options); reader.Read();
-        bbBuilder.UnkVectors1 = vectorConverter.Read(ref reader, typeToConvert, options); reader.Read();
-        bbBuilder.UnkVectors2 = vectorConverter.Read(ref reader, typeToConvert, options); reader.Read();
-        bbBuilder.UnkVectors3 = vectorConverter.Read(ref reader, typeToConvert, options); reader.Read();
-        bbBuilder.UnkShorts = shortsConverter.Read(ref reader, typeToConvert, options)!.Select(sRef => sRef.Value).ToList(); reader.Read();
-        bbBuilder.UnkBytes1 = bytesConverter.Read(ref reader, typeToConvert, options)!.Select(sRef => sRef.Value).ToList(); reader.Read();
-        bbBuilder.UnkBytes2 = bytesConverter.Read(ref reader, typeToConvert, options)!.Select(sRef => sRef.Value).ToList(); reader.Read();
-        
-        return bbBuilder;
-    }
-
-    public override void Write(Utf8JsonWriter writer, TwinBoundingBoxBuilder value, JsonSerializerOptions options)
-    {
-        vectorConverter.Write(writer, value.BoundingBoxPoints, options);
-        vectorConverter.Write(writer, value.UnkVectors1, options);
-        vectorConverter.Write(writer, value.UnkVectors2, options);
-        vectorConverter.Write(writer, value.UnkVectors3, options);
-        shortsConverter.Write(writer, value.UnkShorts.Select(vShort => new UInt16Ref { Value = vShort }).ToList(), options);
-        bytesConverter.Write(writer, value.UnkBytes1.Select(vByte => new ByteRef { Value = vByte }).ToList(), options);
-        bytesConverter.Write(writer, value.UnkBytes2.Select(vByte => new ByteRef { Value = vByte }).ToList(), options);
-    }
-}
-
-public class BoxBuilderToJointLink
-{
-    public TwinBoundingBoxBuilder BoundingBoxBuilder { get; set; }
-    public Byte JointIndex { get; set; }
-}
-
-public class BoxBuilderToJointLinkJsonConverter : System.Text.Json.Serialization.JsonConverter<BoxBuilderToJointLink>
-{
-    private readonly JsonTwinBoundingBoxBuilderConverter bbConverter = new();
-    private readonly JsonByteRefConverter byteRefConverter = new();
-    
-    public override BoxBuilderToJointLink? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-    {
-        var link = new BoxBuilderToJointLink();
-        link.BoundingBoxBuilder = bbConverter.Read(ref reader, typeToConvert, options)!;
-        link.JointIndex = byteRefConverter.Read(ref reader, typeToConvert, options)!.Value;
-
-        return link;
-    }
-
-    public override void Write(Utf8JsonWriter writer, BoxBuilderToJointLink value, JsonSerializerOptions options)
-    {
-        bbConverter.Write(writer, value.BoundingBoxBuilder, options);
-        byteRefConverter.Write(writer, new ByteRef { Value = value.JointIndex }, options);
-    }
-}
-
 public class JsonListConverter<T> : System.Text.Json.Serialization.JsonConverter<List<T>> where T : class
 {
     private bool _isConvertingFromString = false;
@@ -292,8 +233,6 @@ public class JsonListConverter<T> : System.Text.Json.Serialization.JsonConverter
         JsonConverters.Add(typeof(Matrix4), new InternalConverter<JsonMatrix4Converter, Matrix4>(new JsonMatrix4Converter()));
         JsonConverters.Add(typeof(UInt16Ref), new InternalConverter<JsonUInt16RefConverter, UInt16Ref>(new JsonUInt16RefConverter()));
         JsonConverters.Add(typeof(ByteRef), new InternalConverter<JsonByteRefConverter, ByteRef>(new JsonByteRefConverter()));
-        JsonConverters.Add(typeof(TwinBoundingBoxBuilder), new InternalConverter<JsonTwinBoundingBoxBuilderConverter, TwinBoundingBoxBuilder>(new JsonTwinBoundingBoxBuilderConverter()));
-        JsonConverters.Add(typeof(BoxBuilderToJointLink), new InternalConverter<BoxBuilderToJointLinkJsonConverter, BoxBuilderToJointLink>(new BoxBuilderToJointLinkJsonConverter()));
     }
     
     public override List<T>? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)

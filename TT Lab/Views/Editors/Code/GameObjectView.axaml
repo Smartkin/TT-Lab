@@ -38,7 +38,7 @@
                         <StackPanel Orientation="Vertical">
                             <controls:LabeledTextBox LayoutOrientation="Horizontal" HorizontalAlignment="Stretch" TextBoxName="Object Name" Text="{Binding Name}"/>
                             <controls:LabeledDropList LayoutOrientation="Horizontal" DropListName="Type" SelectedItem="{Binding Type}" Items="{Binding ObjectTypes}"/>
-                            <controls:LabeledTextBox ToolTip.Tip="{Binding UnkTypeHintString}" LayoutOrientation="Horizontal" HorizontalAlignment="Stretch" TextBoxName="Sub Type (Read the hint by hovering over)" Text="{Binding UnkTypeValue}"/>
+                            <controls:LabeledTextBox ToolTip.Tip="{Binding SubTypeHintString}" LayoutOrientation="Horizontal" HorizontalAlignment="Stretch" TextBoxName="Sub Type (Read the hint by hovering over)" Text="{Binding SubType}"/>
                             <controls:LabeledTextBox LayoutOrientation="Horizontal" HorizontalAlignment="Stretch" TextBoxName="Camera Controlled Joints Amount" Text="{Binding CameraReactJointAmount}"/>
                             <controls:LabeledTextBox LayoutOrientation="Horizontal" HorizontalAlignment="Stretch" TextBoxName="Exit Points Amount (in OGI/Skeleton)" Text="{Binding ExitPointAmount}"/>
                             <Expander IsExpanded="True" HorizontalAlignment="Stretch" Header="Slots (used for Behaviours)">

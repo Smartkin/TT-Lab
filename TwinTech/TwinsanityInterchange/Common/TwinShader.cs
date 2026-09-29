@@ -21,7 +21,10 @@ namespace Twinsanity.TwinsanityInterchange.Common
         public DestinationAlphaTest DAlphaTest;
         public DestinationAlphaTestMode DAlphaTestMode;
         public DepthTestMethod DepthTest;
-        public byte UnkVal1;
+        /// <summary>
+        /// Never read by the game: 4 in every retail material but the UI's, which have 6.
+        /// </summary>
+        public byte UnusedValue;
         public ShadingMethod ShdMethod;
         public TextureMapping TxtMapping;
         public TextureCoordinatesSpecification MethodOfSpecifyingTextureCoordinates;
@@ -37,14 +40,30 @@ namespace Twinsanity.TwinsanityInterchange.Common
         public byte FixedAlphaValue;
         public TextureFilter TextureFilterWhenTextureIsExpanded;
         public bool AlphaCorrectionValue;
-        public bool UnkFlag1;
-        public bool UnkFlag2;
+        /// <summary>
+        /// Never read by the game, false in every retail material.
+        /// </summary>
+        public bool UnusedFlag;
+        /// <summary>
+        /// The GS's antialiasing (PRMODE AA1), false in every retail material.
+        /// </summary>
+        public bool AntiAliasing;
         public ZValueDrawMask ZValueDrawingMask;
-        public bool UnkFlag3;
+        /// <summary>
+        /// With an animation, its color track drives <see cref="ShaderColor"/> every frame (RGB times 256, alpha times 127).
+        /// </summary>
+        public bool AnimationDrivesColor;
         public UInt16 LodParamK { get; set; }
         public UInt16 LodParamL { get; set; }
-        public Vector4 UnkVector1 { get; set; }
-        public Vector4 UnkVector2 { get; set; }
+        /// <summary>
+        /// Leftover memory of the tools (bits of strings), never read but to tell shaders apart when the game merges equal ones.
+        /// </summary>
+        public Vector4 LeftoverVector { get; set; }
+        /// <summary>
+        /// Only the integer part of X reaches the shader's VU1 program as a byte in its packet: 0 in the retail materials, 1 in
+        /// the UI's (whose value is (1, 1, 1, 64), the rest have (0, 0, 0, 128)).
+        /// </summary>
+        public Vector4 ShaderColor { get; set; }
         /// <summary>
         /// Z component contains the U/X scroll speed and W component contains the V/Y scroll speed
         /// X and Y components are for internal code usage and are used as accumulators
@@ -55,8 +74,8 @@ namespace Twinsanity.TwinsanityInterchange.Common
         public TwinShader()
         {
             FloatParam = new float[4];
-            UnkVector1 = new Vector4();
-            UnkVector2 = new Vector4();
+            LeftoverVector = new Vector4();
+            ShaderColor = new Vector4();
             UvScrollSpeed = new Vector4();
             Animation = null;
         }
@@ -103,7 +122,7 @@ namespace Twinsanity.TwinsanityInterchange.Common
             DAlphaTest = (DestinationAlphaTest)reader.ReadByte();
             DAlphaTestMode = (DestinationAlphaTestMode)reader.ReadByte();
             DepthTest = (DepthTestMethod)reader.ReadByte();
-            UnkVal1 = reader.ReadByte();
+            UnusedValue = reader.ReadByte();
             ShdMethod = (ShadingMethod)reader.ReadByte();
             TxtMapping = (TextureMapping)reader.ReadByte();
             MethodOfSpecifyingTextureCoordinates = (TextureCoordinatesSpecification)reader.ReadByte();
@@ -119,15 +138,15 @@ namespace Twinsanity.TwinsanityInterchange.Common
             FixedAlphaValue = reader.ReadByte();
             TextureFilterWhenTextureIsExpanded = (TextureFilter)reader.ReadByte();
             AlphaCorrectionValue = reader.ReadBoolean();
-            UnkFlag1 = reader.ReadBoolean();
-            UnkFlag2 = reader.ReadBoolean();
+            UnusedFlag = reader.ReadBoolean();
+            AntiAliasing = reader.ReadBoolean();
             ZValueDrawingMask = (ZValueDrawMask)reader.ReadByte();
-            UnkFlag3 = reader.ReadBoolean();
+            AnimationDrivesColor = reader.ReadBoolean();
             var hasAnimation = reader.ReadBoolean();
             LodParamK = reader.ReadUInt16();
             LodParamL = reader.ReadUInt16();
-            UnkVector1.Read(reader, Constants.SIZE_VECTOR4);
-            UnkVector2.Read(reader, Constants.SIZE_VECTOR4);
+            LeftoverVector.Read(reader, Constants.SIZE_VECTOR4);
+            ShaderColor.Read(reader, Constants.SIZE_VECTOR4);
             UvScrollSpeed.Read(reader, Constants.SIZE_VECTOR4);
             TextureId = reader.ReadUInt32();
             reader.ReadUInt32(); // ShaderType
@@ -176,7 +195,7 @@ namespace Twinsanity.TwinsanityInterchange.Common
             writer.Write((byte)DAlphaTest);
             writer.Write((byte)DAlphaTestMode);
             writer.Write((byte)DepthTest);
-            writer.Write(UnkVal1);
+            writer.Write(UnusedValue);
             writer.Write((byte)ShdMethod);
             writer.Write((byte)TxtMapping);
             writer.Write((byte)MethodOfSpecifyingTextureCoordinates);
@@ -192,15 +211,15 @@ namespace Twinsanity.TwinsanityInterchange.Common
             writer.Write(FixedAlphaValue);
             writer.Write((byte)TextureFilterWhenTextureIsExpanded);
             writer.Write(AlphaCorrectionValue);
-            writer.Write(UnkFlag1);
-            writer.Write(UnkFlag2);
+            writer.Write(UnusedFlag);
+            writer.Write(AntiAliasing);
             writer.Write((byte)ZValueDrawingMask);
-            writer.Write(UnkFlag3);
+            writer.Write(AnimationDrivesColor);
             writer.Write(Animation != null);
             writer.Write(LodParamK);
             writer.Write(LodParamL);
-            UnkVector1.Write(writer);
-            UnkVector2.Write(writer);
+            LeftoverVector.Write(writer);
+            ShaderColor.Write(writer);
             UvScrollSpeed.Write(writer);
             writer.Write(TextureId);
             writer.Write((UInt32)ShaderType);
@@ -318,15 +337,26 @@ namespace Twinsanity.TwinsanityInterchange.Common
             FIX = 0b10,
             RESERVED = 0b11
         }
+        /// <summary>
+        /// The game's GS alpha blending presets (the PAL executable's <c>G_AlphaRegPresets</c>), Cs and As the drawn color and alpha
+        /// (128 is 1), Cd what's behind
+        /// </summary>
         public enum AlphaBlendPresets
         {
+            /// <summary>(Cs - Cd) * As + Cd, normal blending</summary>
             Mix,
+            /// <summary>Cs * As + Cd</summary>
             Add,
+            /// <summary>Cd - Cs * As</summary>
             Sub,
-            Alpha,
-            Zero,
-            Destination,
-            Source,
+            /// <summary>Cd * As + Cd, brightens what's behind by the alpha</summary>
+            Brighten,
+            /// <summary>Cd - Cd * As, darkens what's behind by the alpha</summary>
+            Darken,
+            /// <summary>Cd * As, what's behind times the alpha</summary>
+            Scale,
+            /// <summary>Past the PS2 version's presets, where its table has zeros: (Cs - Cs) * As + Cs, drawn as it is</summary>
+            Replace,
             // Only the Xbox version uses these
             Preset7,
             Preset8,
@@ -349,9 +379,14 @@ namespace Twinsanity.TwinsanityInterchange.Common
             NOT_UPDATE
         }
 
+        /// <summary>
+        /// How the U coordinate moves (FUN_001cd208): 1 takes the shader animation's X track, 2 scrolls by <see cref="UvScrollSpeed"/>.X
+        /// every UvScrollSpeed.Z frames, 3 and 4 sway it
+        /// </summary>
         public enum XScrollFormula
         {
             Disabled = 0,
+            FromAnimation = 0x1,
             Linear = 0x2,
             LinearPlus_1 = 0x3,
             LinearPlus_2 = 0x4,
@@ -360,6 +395,7 @@ namespace Twinsanity.TwinsanityInterchange.Common
         public enum YScrollFormula
         {
             Disabled = 0,
+            FromAnimation = 0x1,
             Linear = 0x2,
             LinearPlus_1 = 0x3,
             LinearPlus_2 = 0x4,

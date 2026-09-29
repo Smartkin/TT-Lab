@@ -9,13 +9,13 @@ namespace TT_Lab.ViewModels.Editors.Instance.Scenery
 {
     public class SceneryRootViewModel : SceneryNodeViewModel
     {
-        private UInt32 unkUInt;
+        private UInt32 treeDepth;
         private IList<SceneryBaseData> baseTree;
 
         public SceneryRootViewModel(SceneryBaseData data, IList<SceneryBaseData> sceneryTree) : base(data)
         {
             var rootData = (SceneryRootData)data;
-            unkUInt = rootData.UnkUInt;
+            treeDepth = rootData.TreeDepth;
             baseTree = sceneryTree;
         }
 
@@ -46,14 +46,14 @@ namespace TT_Lab.ViewModels.Editors.Instance.Scenery
         }
 
         [MarkDirty]
-        public UInt32 UnkUInt
+        public UInt32 TreeDepth
         {
-            get => unkUInt;
+            get => treeDepth;
             set
             {
-                if (unkUInt != value)
+                if (treeDepth != value)
                 {
-                    unkUInt = value;
+                    treeDepth = value;
                     NotifyOfPropertyChange();
                 }
             }

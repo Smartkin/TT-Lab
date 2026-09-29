@@ -1,7 +1,10 @@
+using Avalonia.Headless.XUnit;
 using Newtonsoft.Json.Linq;
 using TT_Lab.AssetData.Code;
+using TT_Lab.AssetData.Graphics;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
+using TT_Lab.Assets.Graphics;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Project;
 using TT_Lab.Tests.Support;
@@ -63,14 +66,12 @@ public sealed class AssetOverrideTests : IDisposable
         var bird = AddObject("Bird");
         var values = new SortedDictionary<string, JToken>(StringComparer.Ordinal)
         {
-            ["AssetData.Name"] = "|HubB|act_BIRDCLUMP",
             ["AssetData.InstFlags[1]"] = 9
         };
 
         var view = AssetOverrides.CreateView(bird, values);
 
         var viewData = ((IAsset)view).GetData<GameObjectData>();
-        // The game doesn't read objects' names, the ones projects kept for chunks are left out
         Assert.Equal("|Hub|act_BIRD", viewData.Name);
         Assert.Equal([1u, 9u, 3u], viewData.InstFlags);
         Assert.Equal(bird.URI, view.URI);
@@ -158,6 +159,51 @@ public sealed class AssetOverrideTests : IDisposable
         Assert.Equal(1, new VariantMerger(_project.AssetManager, _project.AssetsPath).Merge());
         Assert.Empty(hub.Overrides);
         Assert.False(_project.AssetManager.DoesAssetExist(variant.URI));
+    }
+
+    // The game reuses texture IDs for other pictures: a chunk's own picture stays a variant and its materials have to point at it.
+    // Textures hold bitmaps, which need the headless application
+    [AvaloniaFact]
+    public void ChunksGetTheirOwnPictureOfATextureThroughTheirMaterials()
+    {
+        var hub = AddChunk("levels/earth/hub/hubd");
+        var other = AddChunk("levels/earth/hub/huba");
+        var shared = _project.Add(new Texture(), "Texture 3B69A5CF", 0x3B69A5CF, _project.Project.Ps2Package);
+        shared.SetData(TextureData.CreateSolidColor(shared, 32, 0xFF808080));
+        shared.Serialize(SerializationFlags.SaveData);
+        var own = _project.Add(new Texture { Variation = "levels_earth_hub_hubd" }, "Texture 3B69A5CF", 0x3B69A5CF, _project.Project.Ps2Package);
+        own.SetData(TextureData.CreateSolidColor(own, 16, 0xFF204060));
+        own.Serialize(SerializationFlags.SaveData);
+        var material = AddMaterial("lambert20_24FFD1E7", 0x24FFD1E7, shared);
+        // A scenery of another chunk has a picture of its own of the ID in its folder, with its own material: not the base of anything
+        var scenery = _project.Add(new Texture { AdditionalPath = "levels/earth/docamok/docamok1" }, "Texture 3B69A5CF", 0x3B69A5CF, _project.Project.Ps2Package);
+        scenery.SetData(TextureData.CreateSolidColor(scenery, 32, 0xFF808080));
+        scenery.Serialize(SerializationFlags.SaveData);
+        var sceneryMaterial = AddMaterial("lambert245_5F34070", 0x5F34070, scenery, "levels/earth/docamok/docamok1");
+
+        var merged = new VariantMerger(_project.AssetManager, _project.AssetsPath).Merge();
+
+        Assert.Equal(0, merged);
+        Assert.True(_project.AssetManager.DoesAssetExist(own.URI));
+        var @override = Assert.Single(hub.Overrides);
+        Assert.Equal(material.URI, @override.Asset);
+        var (path, value) = Assert.Single(@override.Values);
+        Assert.Equal("AssetData.Shaders[0].TextureId", path);
+        Assert.Equal(own.URI.ToString(), (string)value["_uri"]!);
+        Assert.Empty(other.Overrides);
+        Assert.Equal(shared.URI, ((IAsset)material).GetData<MaterialData>().Shaders[0].TextureId);
+        Assert.Equal(scenery.URI, ((IAsset)sceneryMaterial).GetData<MaterialData>().Shaders[0].TextureId);
+    }
+
+    private Material AddMaterial(string name, UInt32 id, Texture texture, string folder = "")
+    {
+        var material = _project.Add(new Material { AdditionalPath = folder }, name, id, _project.Project.Ps2Package);
+        var data = new MaterialData(material);
+        data.Shaders[0].TextureId = texture.URI;
+        material.SetData(data);
+        material.Serialize(SerializationFlags.SaveData);
+        material.References = [texture.URI];
+        return material;
     }
 
     [Fact]

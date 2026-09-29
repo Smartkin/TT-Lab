@@ -83,6 +83,41 @@ public class AgentLabSymbolTable
         return symbol;
     }
 
+    /// <summary>
+    /// Type of Prop(index), Raw(bits) and the other tagged literals, which fit any tagged parameter
+    /// </summary>
+    public const string TaggedLiteralTypeName = "TaggedLiteral";
+    /// <summary>
+    /// The type of a {name = value, ...} argument, the fields of a packed parameter
+    /// </summary>
+    public const string FieldGroupTypeName = "FieldGroup";
+
+    /// <summary>
+    /// Whether a value of one type can be given for a parameter of another: ints for floats, numbers and tagged literals for tagged parameters
+    /// </summary>
+    public static bool IsAssignable(string parameterType, string valueType)
+    {
+        if (parameterType == valueType)
+        {
+            return true;
+        }
+
+        switch (parameterType)
+        {
+            case nameof(AgentLabToken.TokenType.FloatType):
+                return valueType == nameof(AgentLabToken.TokenType.IntegerType);
+            // a packed parameter takes its fields, or the whole dword as an int (scripts written before the fields were known)
+            case nameof(AgentLabToken.TokenType.PackedType):
+                return valueType is nameof(AgentLabToken.TokenType.IntegerType) or FieldGroupTypeName;
+            case nameof(AgentLabToken.TokenType.TaggedFloatType):
+            case nameof(AgentLabToken.TokenType.TaggedIntType):
+            case nameof(AgentLabToken.TokenType.TaggedAngleType):
+                return valueType is nameof(AgentLabToken.TokenType.IntegerType) or nameof(AgentLabToken.TokenType.FloatType) or TaggedLiteralTypeName;
+            default:
+                return false;
+        }
+    }
+
     private void InitBuiltInPrimitives()
     {
         static AgentLabBuiltInSymbol CreateBuiltInSymbol(AgentLabToken.TokenType token)
@@ -94,6 +129,13 @@ public class AgentLabSymbolTable
         Define(CreateBuiltInSymbol(AgentLabToken.TokenType.IntegerType));
         Define(CreateBuiltInSymbol(AgentLabToken.TokenType.FloatType));
         Define(CreateBuiltInSymbol(AgentLabToken.TokenType.BooleanType));
+        Define(CreateBuiltInSymbol(AgentLabToken.TokenType.TaggedFloatType));
+        Define(CreateBuiltInSymbol(AgentLabToken.TokenType.TaggedIntType));
+        Define(CreateBuiltInSymbol(AgentLabToken.TokenType.TaggedAngleType));
+        Define(new AgentLabBuiltInSymbol(TaggedLiteralTypeName));
+        Define(CreateBuiltInSymbol(AgentLabToken.TokenType.SignedIntegerType));
+        Define(CreateBuiltInSymbol(AgentLabToken.TokenType.PackedType));
+        Define(new AgentLabBuiltInSymbol(FieldGroupTypeName));
         Define(CreateBuiltInSymbol(AgentLabToken.TokenType.EnumType));
         Define(CreateBuiltInSymbol(AgentLabToken.TokenType.StringType));
         Define(CreateBuiltInSymbol(AgentLabToken.TokenType.ControlPacket));
@@ -113,8 +155,9 @@ public class AgentLabSymbolTable
         // InstanceType consts
         Define(CreateBuiltInEnumSymbol("InstanceType", Enum.GetNames<ITwinBehaviourCommandsSequence.InstanceType>()));
         
-        // Starter consts
+        // Starter consts, GlobalObjectId is the old name of RefListIndex when it still resolved an object
         Define(CreateBuiltInConstSymbol("GlobalObjectId", AgentLabToken.TokenType.StringType));
+        Define(CreateBuiltInConstSymbol("RefListIndex", AgentLabToken.TokenType.IntegerType));
         Define(CreateBuiltInEnumSymbol("AssignType", Enum.GetNames<TwinBehaviourAssigner.AssignTypeID>()));
         Define(CreateBuiltInEnumSymbol("AssignLocality", Enum.GetNames<TwinBehaviourAssigner.AssignLocalityID>()));
         Define(CreateBuiltInEnumSymbol("AssignStatus", Enum.GetNames<TwinBehaviourAssigner.AssignStatusID>()));

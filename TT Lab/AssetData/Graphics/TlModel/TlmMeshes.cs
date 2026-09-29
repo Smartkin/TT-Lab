@@ -187,11 +187,11 @@ public static class TlmMeshes
             var normal = normals != null ? PickNormal(normals[i], rawNormals?[i]) : new Vector4(0, 1, 0, 0);
             var raw = RawInfluences(rawJoints, rawWeights, i);
             // Blender's weights are what the add-on read from the vertex groups, the game's ones are used while they still match
-            var influences = groupJoints.Length >= (i + 1) * 4 ? GroupInfluences(groupJoints, groupWeights, i) : raw;
+            var influences = groupJoints.Length >= (i + 1) * 4 ? UseRawWeights(GroupInfluences(groupJoints, groupWeights, i), raw) : raw;
             var vertex = new Vertex(new Vector4(positions[i].X, positions[i].Y, positions[i].Z, normal.X),
                 colors.Length >= (i + 1) * 4 ? FromBytes(colors, i) : DefaultSkinColor(), new Vector4(uvs[i].X, uvs[i].Y, normal.Y, normal.Z))
             {
-                JointInfo = ToJointInfo(ReferenceEquals(influences, raw) ? raw : UseRawWeights(influences, raw))
+                JointInfo = ToJointInfo(influences, !ReferenceEquals(influences, raw))
             };
             part.Vertexes.Add(vertex);
         }
@@ -288,8 +288,9 @@ public static class TlmMeshes
         }
     }
 
-    // The game's joints in the order they were stored. Blender can have more than 3 or unnormalized weights, the 3 strongest are kept
-    private static VertexJointInfo ToJointInfo((Int32 Joint, Single Weight)[] influences)
+    // The game's joints in the order they were stored. Blender can have more than 3, the 3 strongest are kept. Blender's weights can
+    // add up to anything, it scales them to 1 when it deforms the vertex, so they get normalized like the game needs them
+    private static VertexJointInfo ToJointInfo((Int32 Joint, Single Weight)[] influences, Boolean normalize)
     {
         if (influences.Length == 0)
         {
@@ -298,7 +299,7 @@ public static class TlmMeshes
 
         var kept = influences.Length > 3 ? influences.OrderByDescending(i => i.Weight).Take(3).ToArray() : influences;
         var total = kept.Sum(i => i.Weight);
-        if (influences.Length > 3 && total > 0)
+        if (normalize && total > 0)
         {
             kept = kept.Select(i => (i.Joint, i.Weight / total)).ToArray();
         }
@@ -504,15 +505,7 @@ public static class TlmMeshes
         layout.IgnoresFacing = strips.GetBool("ignores_facing");
         if (!layout.Draws(modelPart.Faces, modelPart.Vertexes.Count, winding))
         {
-            // Files written before skins counted their strips' winding from each strip's start have those strips' faces turned
-            // around, the strips are still the game's
-            if (winding != StripParts.SkinWinding || layout.IgnoresFacing || !layout.DrawsWithOldSkinWinding(modelPart.Faces, modelPart.Vertexes.Count))
-            {
-                return null;
-            }
-
-            modelPart.Faces = layout.GetFaces(winding);
-            file.IsOutdated = true;
+            return null;
         }
 
         var paletteSizes = file.Read<Int32>(strips["joint_palette_sizes"]);

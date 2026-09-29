@@ -54,7 +54,7 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code
         /// <summary>
         /// Collision builder for multiple bounding boxes for more precise collision detection
         /// </summary>
-        List<TwinBoundingBoxBuilder> Collisions { get; set; }
+        List<TwinCollisionHull> CollisionHulls { get; set; }
         /// <summary>
         /// Which joint links to which bounding box <seealso cref="Collisions"/>
         /// </summary>

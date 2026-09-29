@@ -38,6 +38,12 @@ namespace TT_Lab
         public const string BuildMemoryBudget = "BuildMemoryBudget";
         // Folders of the projects opened last, newest first
         public const string RecentProjects = "RecentProjects";
+        public const string LastBuildProfile = "LastBuildProfile";
+        // PCSX2's executable, or its Flatpak's ID, found on its own when empty
+        public const string Pcsx2Path = "Pcsx2Path";
+        // The disc image PCSX2 boots a chunk with, the project's own when empty
+        public const string Pcsx2DiscImage = "Pcsx2DiscImage";
+        public const string Pcsx2ReloadOnSave = "Pcsx2ReloadOnSave";
 
         static Preferences()
         {
@@ -53,6 +59,10 @@ namespace TT_Lab
             Settings[ViewportGridShown] = true;
             Settings[BuildMemoryBudget] = 2048.0;
             Settings[RecentProjects] = new List<string>();
+            Settings[LastBuildProfile] = "";
+            Settings[Pcsx2Path] = "";
+            Settings[Pcsx2DiscImage] = "";
+            Settings[Pcsx2ReloadOnSave] = true;
         }
 
         public static void Save()

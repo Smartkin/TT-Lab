@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using GlmSharp;
+using TT_Lab.AssetData.Graphics;
 using TT_Lab.AssetData.Instance.Particle;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
@@ -17,6 +18,7 @@ using TT_Lab.ViewModels;
 using TT_Lab.ViewModels.Editors;
 using TT_Lab.ViewModels.Editors.PropertyGraph;
 using TT_Lab.ViewModels.Interfaces;
+using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Common.Particles;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM;
@@ -25,6 +27,11 @@ namespace TT_Lab.AssetData.Instance;
 
 public class ParticleData : AbstractAssetData
 {
+    // The game's tables of what the loaded chunks have (ReadMainParticleSection): systems past them are read and dropped, emitters
+    // past them aren't read
+    public const int MaxLoadedSystems = 300;
+    public const int MaxLoadedEmitters = 0x300;
+
     public ParticleData(IAsset asset) : base(asset)
     {
         ParticleSystems = [];
@@ -37,14 +44,16 @@ public class ParticleData : AbstractAssetData
     }
 
     [JsonProperty(Required = Required.Always)]
-    [Editable]
+    [Editable(Hint = "The game keeps 300 particle systems at once, the default chunk's first (255 on the PS2) and then every loaded chunk's")]
     [EditorParam(DocumentModelViewModel.EditorExplicitOrder, -10)]
+    [EditorParam(DocumentCollectionViewModel.MaxCount, MaxLoadedSystems)]
     public List<ParticleSystem> ParticleSystems { get; set; }
     
     [JsonProperty(Required = Required.Always)]
     [Editable]
     [EditorParam(DocumentModelViewModel.EditorExplicitOrder, -10)]
     [EditorHiddenWhen(nameof(CannotHaveEmitters))]
+    [EditorParam(DocumentCollectionViewModel.MaxCount, MaxLoadedEmitters)]
     public List<ParticleSystemInstance> ParticleInstances { get; set; }
 
     // The default chunk's particles only hold the systems every chunk can use
@@ -88,6 +97,41 @@ public class ParticleData : AbstractAssetData
         return defaults == null ? [] : ((IAsset)defaults).GetData<DefaultParticleData>().TextureIDs;
     }
 
+    /// <summary>
+    /// The alpha blending of every page's material, the Page material blend mode draws the particles with it
+    /// </summary>
+    public IReadOnlyList<TwinShader.AlphaBlendPresets> GetPageBlends()
+    {
+        var defaults = this as DefaultParticleData;
+        if (defaults == null)
+        {
+            var asset = AssetManager.Get().GetRelatedAssetsOf<DefaultParticles>(Owner.Package).FirstOrDefault();
+            defaults = asset == null ? null : ((IAsset)asset).GetData<DefaultParticleData>();
+        }
+
+        if (defaults == null)
+        {
+            return [];
+        }
+
+        var assetManager = AssetManager.Get();
+        return defaults.MaterialIDs.Select(uri => assetManager.DoesAssetExist(uri)
+            ? assetManager.GetAssetData<MaterialData>(uri).Shaders.FirstOrDefault()?.AlphaRegSettingsIndex ?? TwinShader.AlphaBlendPresets.Mix
+            : TwinShader.AlphaBlendPresets.Mix).ToList();
+    }
+
+    protected void CheckLoadedCounts()
+    {
+        CheckCount("particle systems", ParticleSystems.Count, MaxLoadedSystems);
+        CheckCount("emitters", ParticleInstances.Count, MaxLoadedEmitters);
+    }
+
+    private int DefaultSystemCount()
+    {
+        return AssetManager.Get().GetRelatedAssetsOf<DefaultParticles>(Owner.Package).Select(defaults => ((IAsset)defaults).GetData<DefaultParticleData>().ParticleSystems.Count)
+            .FirstOrDefault();
+    }
+
     public (ParticleSystem System, bool IsDefault)? FindSystem(string name)
     {
         return GetUsableSystems().Where(usable => usable.System.Name == name).Select(usable => ((ParticleSystem, bool)?)usable).FirstOrDefault();
@@ -115,6 +159,13 @@ public class ParticleData : AbstractAssetData
 
     public override ITwinItem Export(ITwinItemFactory factory)
     {
+        CheckLoadedCounts();
+        if (this is not DefaultParticleData && DefaultSystemCount() is var defaults and > 0 && defaults + ParticleSystems.Count > MaxLoadedSystems)
+        {
+            Log.WriteLine($"{Owner.Alias} has {ParticleSystems.Count} particle systems and the default chunk {defaults}, the game keeps {MaxLoadedSystems} at once and drops the rest",
+                Log.LogType.Warning);
+        }
+
         using var ms = new MemoryStream();
         using var writer = new BinaryWriter(ms);
 
@@ -150,6 +201,7 @@ public class ParticleData : AbstractAssetData
         }
         
         var pages = GetTexturePages();
+        var pageBlends = GetPageBlends();
         var instIdx = 0;
         foreach (var inst in ParticleInstances)
         {
@@ -166,7 +218,7 @@ public class ParticleData : AbstractAssetData
             editableObject.UnselectedColor = visual.Diffuse;
             editableObject.SetPosition(inst.Position.ToGlm());
 
-            var emitter = new ParticleEmitter(viewportContext.RenderContext, $"{Owner.FullDataPath}{instIdx} particles", pages, instIdx);
+            var emitter = new ParticleEmitter(viewportContext.RenderContext, $"{Owner.FullDataPath}{instIdx} particles", pages, pageBlends, instIdx);
             emitter.Configure(FindSystem(inst.Name)?.System, inst);
             editableObject.AddChild(emitter);
 

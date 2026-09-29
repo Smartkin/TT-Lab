@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\TwinTech\TwinTech.csproj" />
+    <ProjectReference Include="..\TT Lab\TT Lab.csproj" />
   </ItemGroup>
 
 </Project>

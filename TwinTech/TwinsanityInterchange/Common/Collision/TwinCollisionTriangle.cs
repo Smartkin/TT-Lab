@@ -34,6 +34,17 @@ namespace Twinsanity.TwinsanityInterchange.Common.Collision
         public void Write(BinaryWriter writer)
         {
             UInt32 mask = 0x3FFFF;
+            // Three 18 bit vertex indexes and the surface's index in the 10 bits left
+            if (Vector1Index > mask || Vector2Index > mask || Vector3Index > mask)
+            {
+                throw new InvalidOperationException($"A collision triangle uses vertex {Math.Max(Vector1Index, Math.Max(Vector2Index, Vector3Index))}, the game's collision indexes {mask + 1} vertexes");
+            }
+
+            if (SurfaceIndex > 0x3FF)
+            {
+                throw new InvalidOperationException($"A collision triangle uses surface {SurfaceIndex}, the game's collision indexes 1024 surfaces");
+            }
+
             UInt64 packedTriangle = (UInt64)Vector1Index & mask;
             packedTriangle |= (UInt64)(Vector2Index & mask) << 0x12;
             packedTriangle |= (UInt64)(Vector3Index & mask) << 0x24;

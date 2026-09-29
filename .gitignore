@@ -358,3 +358,8 @@ MigrationBackup/
 
 # Ionide (cross platform F# VS Code tools) working folder
 .ionide/
+
+# The twinstudio tools fetched next to the app (scripts/fetch_tools.py). Only their folders: the repository ignores case, and
+# TT Lab/tools/ hid the sources in TT Lab/Tools/
+TT Lab/tools/twinmusic/
+TT Lab/tools/twinpss/

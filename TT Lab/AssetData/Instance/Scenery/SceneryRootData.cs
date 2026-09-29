@@ -10,19 +10,19 @@ namespace TT_Lab.AssetData.Instance.Scenery;
 
 public class SceneryRootData : SceneryNodeData
 {
-    public UInt32 UnkUInt { get; set; }
+    public UInt32 TreeDepth { get; set; }
 
     public SceneryRootData() { }
 
     public SceneryRootData(IAsset owner, TwinSceneryBaseType baseType) : base(owner, baseType)
     {
         var root = (TwinSceneryRoot)baseType;
-        UnkUInt = root.UnkUInt;
+        TreeDepth = root.TreeDepth;
     }
 
     public SceneryRootData(SceneryRootViewModel vm) : base(vm)
     {
-        UnkUInt = vm.UnkUInt;
+        TreeDepth = vm.TreeDepth;
     }
 
     public override ITwinScenery.SceneryType GetSceneryType()
@@ -32,7 +32,7 @@ public class SceneryRootData : SceneryNodeData
 
     public override void Write(BinaryWriter writer)
     {
-        writer.Write(UnkUInt);
+        writer.Write(TreeDepth);
         base.Write(writer);
     }
 }

@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -46,16 +46,16 @@
                     </Grid.RowDefinitions>
                     <controls1:GroupBox Grid.Row="0">
                         <ListBox x:Name="UnknownDataList"
-                                 ItemsSource="{Binding UnkData}">
+                                 ItemsSource="{Binding Parameters}">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
-                                    <TextBlock Text="{Binding Value, StringFormat={}{0:X}}"/>
+                                    <TextBlock Text="{Binding DisplayString}"/>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
                     </controls1:GroupBox>
-                    <controls1:GroupBox Grid.Row="1" Header="Edited Point">
-                        <controls:LabeledTextBox Text="{Binding SelectedItem, ElementName=UnknownDataList, Converter={StaticResource WrapperUint64Converter}}" TextBoxName="Edited Data" HorizontalAlignment="Stretch"/>
+                    <controls1:GroupBox Grid.Row="1" Header="Edited Parameter">
+                        <composite:Vector2View DataContext="{Binding SelectedItem, ElementName=UnknownDataList}"/>
                     </controls1:GroupBox>
                 </Grid>
             </controls1:GroupBox>

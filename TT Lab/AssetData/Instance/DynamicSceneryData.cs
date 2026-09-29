@@ -16,6 +16,7 @@ using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.SM;
 using Mesh = TT_Lab.Assets.Graphics.Mesh;
+using Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SM2;
 
 namespace TT_Lab.AssetData.Instance;
 
@@ -104,7 +105,7 @@ public class DynamicSceneryData : AbstractAssetData
     {
         using var ms = new MemoryStream();
         using var writer = new BinaryWriter(ms);
-        writer.Write(65545); // Dynamic scenery header
+        writer.Write(PS2AnyDynamicScenery.GameVersion);
         writer.Write((Int16)DynamicModels.Count);
         foreach (var model in DynamicModels)
         {

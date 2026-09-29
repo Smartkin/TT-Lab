@@ -1,7 +1,8 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Drawing;
 using System.Numerics;
 using System.Windows;
@@ -38,6 +39,8 @@ public class Renderer : IView
     private IInputContext? _inputContext;
     private FrameBuffer[] _pongBuffers;
     private FrameBuffer _screenBuffer;
+    private FrameBuffer? _skyBuffer;
+    private ivec2 _skyBufferSize;
     private ivec2 _frameBufferSize => new((int)_renderContext.ViewportSize.x, (int)_renderContext.ViewportSize.y);
     private readonly Stopwatch _renderTime = new();
     private readonly Stopwatch _updateWatch = new();
@@ -233,6 +236,19 @@ public class Renderer : IView
     {
     }
 
+    /// <summary>
+    /// The editor's own visuals (cursor, selection, grids), left out of pictures of the scene
+    /// </summary>
+    public bool DrawEditorPrimitives { get; set; } = true;
+
+    /// <summary>
+    /// Renders a frame right away, on the render thread between the frames the context renders
+    /// </summary>
+    internal void RenderNow(float delta)
+    {
+        DoRender(delta);
+    }
+
     private void DoRender(double delta)
     {
         if (!_isInitialized)
@@ -255,11 +271,7 @@ public class Renderer : IView
 
         PrepareInstances();
         
-        // Opaque skydome pass
-        PerformPassChain((float)delta, _passService.GetSkydomeOpaquePasses);
-
-        // Transparent skydome pass
-        PerformPassChain((float)delta, _passService.GetSkydomeTransparentPasses);
+        RenderSkydome((float)delta);
 
         // Opaque objects pass
         PerformPassChain((float)delta, _passService.GetPasses);
@@ -291,6 +303,38 @@ public class Renderer : IView
         Render?.Invoke(delta);
         _renderContext.Invalidate();
         FinishRender?.Invoke();
+    }
+
+    // The game draws the sky first, at half the screen's size into a buffer of its own, and copies it over the whole screen doubled pixel
+    // for pixel before the level draws (FUN_001ba488, FUN_001ba6c0). The level's depth stays clear, so it always draws over the sky
+    private void RenderSkydome(float delta)
+    {
+        // The scene's camera is in every pass
+        if (!_passService.GetSkydomePasses().Any(pass => _passService.GetRenderablesInPass(pass.Name).Any(renderable => renderable is not Scene.Camera)))
+        {
+            return;
+        }
+
+        var gl = _renderContext.Gl;
+        var size = new ivec2(Math.Max(_frameBufferSize.x / 2, 1), Math.Max(_frameBufferSize.y / 2, 1));
+        if (_skyBuffer == null || _skyBufferSize != size)
+        {
+            _skyBuffer?.Dispose();
+            _skyBuffer = new FrameBuffer(_renderContext, size);
+            _skyBufferSize = size;
+        }
+
+        gl.BindFramebuffer(FramebufferTarget.Framebuffer, _skyBuffer.Handler);
+        gl.Viewport(0, 0, (uint)size.x, (uint)size.y);
+        gl.Scissor(0, 0, (uint)size.x, (uint)size.y);
+        gl.Clear(ClearBufferMask.ColorBufferBit);
+        PerformPassChain(delta, _passService.GetSkydomePasses);
+        gl.Viewport(0, 0, (uint)_frameBufferSize.x, (uint)_frameBufferSize.y);
+        gl.Scissor(0, 0, (uint)_frameBufferSize.x, (uint)_frameBufferSize.y);
+        gl.BindFramebuffer(FramebufferTarget.ReadFramebuffer, _skyBuffer.Handler);
+        gl.BindFramebuffer(FramebufferTarget.DrawFramebuffer, _renderContext.GetOutputBuffer());
+        gl.BlitFramebuffer(0, 0, size.x, size.y, 0, 0, _frameBufferSize.x, _frameBufferSize.y, ClearBufferMask.ColorBufferBit, BlitFramebufferFilter.Nearest);
+        gl.BindFramebuffer(FramebufferTarget.Framebuffer, _renderContext.GetOutputBuffer());
     }
 
     private void PrepareInstances()
@@ -327,7 +371,11 @@ public class Renderer : IView
             }
         }
 
-        DrawPrimitives?.Invoke(_primitiveRenderer, camera);
+        if (DrawEditorPrimitives)
+        {
+            DrawPrimitives?.Invoke(_primitiveRenderer, camera);
+        }
+
         _primitiveRenderer.Render(camera);
     }
 
@@ -351,6 +399,7 @@ public class Renderer : IView
         if (pass.StartPass())
         {
             var program = _renderContext.CurrentPass.Program;
+            _renderContext.Time = Time;
             program.SetUniform(KnownUniform.Time, (float)Time);
             program.SetUniform(KnownUniform.Resolution, new vec2(_frameBufferSize.x, _frameBufferSize.y));
         }
@@ -470,6 +519,8 @@ public class Renderer : IView
             pongBuffer.Dispose();
         }
         _screenBuffer.Dispose();
+        _skyBuffer?.Dispose();
+        _skyBuffer = null;
     }
     
     public bool IsDisposed { get; private set; }

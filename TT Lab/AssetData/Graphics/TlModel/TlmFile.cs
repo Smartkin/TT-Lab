@@ -29,11 +29,6 @@ public sealed class TlmFile
 
     public JsonObject Json { get; }
 
-    /// <summary>
-    /// Whether reading the file brought something in it up to date, it should be written again so Blender gets it that way too
-    /// </summary>
-    public Boolean IsOutdated { get; set; }
-
     public TlmFile(string assetType, string name)
     {
         Json = new JsonObject

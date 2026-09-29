@@ -34,10 +34,12 @@ import typing
 import uuid
 
 import bpy
-from mathutils import Matrix, Quaternion, Vector
+import numpy
+from mathutils import Euler, Matrix, Quaternion, Vector
 
 from . import flags
 from . import project as projects
+from . import retarget
 from . import schema
 from . import tlm
 from . import tlm_math
@@ -54,9 +56,17 @@ PARTS_PROPERTY = "ttt_parts"
 KIND_PROPERTY = "ttt_kind"
 ANIMATION_PROPERTY = "ttt_animation"
 OWNER_PROPERTY = "ttt_owner"
+# On a retargeted copy of an action, the action it was made from
+RETARGETED_PROPERTY = "ttt_retargeted_from"
 JOINT_PROPERTY = "ttt_joint"
 # The bind pose a bone was imported with, Blender keeps bones by head, tail and roll, which loses precision
 BIND_PROPERTY = "ttt_bind"
+# The game's matrix of an exit point, TT Lab keeps it while the object is still where it puts it
+MATRIX_PROPERTY = "ttt_matrix"
+# What a collision hull came with: the game's planes, axes and edges and the vertexes and faces they were made for, TT Lab keeps
+# them while the mesh still has those
+HULL_PROPERTY = "ttt_hull"
+HULL_KEYS = ("vertices", "faces", "planes", "edge_directions", "face_normals", "edges")
 
 PART_ATTRIBUTE = "tt_part"
 VERTEX_PART_ATTRIBUTE = "tt_vertex_part"
@@ -75,7 +85,7 @@ TWIN_SHAPE_ATTRIBUTE = "twin_shape_"
 Y_UP = Matrix.Rotation(math.pi / 2, 4, "X")
 
 # The node kinds and the Twin Tech types of the objects they become
-KIND_TYPES = {"ogi": "Ogi", "skin": "Skin", "shape": "BlendSkin", "body": "Body", "exit_point": "ExitPoint", "model": "Model",
+KIND_TYPES = {"ogi": "Ogi", "skin": "Skin", "shape": "BlendSkin", "body": "Body", "exit_point": "ExitPoint", "hull": "CollisionHull", "model": "Model",
               "rigid_model": "RigidModel", "mesh": "Mesh", "scenery": "Scenery", "tree_node": "SceneryTreeNode", "scenery_mesh": "SceneryMesh",
               "scenery_lod": "SceneryLod", "lod_mesh": "LodMesh", "ambient_light": "AmbientLight", "directional_light": "DirectionalLight",
               "point_light": "PointLight", "negative_light": "NegativeLight", "collision": "Collision", "dynamic_scenery": "DynamicScenery",
@@ -111,18 +121,6 @@ def _set_node_transform(blender_object: bpy.types.Object, tree_node: typing.Dict
     blender_object.location = translation
     blender_object.rotation_quaternion = tlm_math.xyzw_to_wxyz(rotation)
     blender_object.scale = scale
-
-
-def _node_transform(blender_object: bpy.types.Object, tree_node: typing.Dict[str, typing.Any]) -> None:
-    translation, rotation, scale = blender_object.matrix_basis.decompose()
-    if translation.length > 1e-7:
-        tree_node["translation"] = list(translation)
-
-    if abs(abs(rotation.w) - 1.0) > 1e-7:
-        tree_node["rotation"] = list(tlm_math.wxyz_to_xyzw(tuple(rotation)))
-
-    if any(abs(value - 1.0) > 1e-7 for value in scale):
-        tree_node["scale"] = list(scale)
 
 
 # Materials
@@ -371,8 +369,75 @@ def _add_weights(blender_object: bpy.types.Object, data: tlm_mesh.MeshData, bone
             group.add([vertex], weight / total, "ADD")
 
 
+# The game's biggest skin has 2716 vertexes before its strips (Cortex), meshes past this get decimated on export
+MAX_EXPORT_VERTICES = 4096
+
+# What the export decimated, reported with the warnings
+_export_notes: typing.List[str] = []
+
+
+def _decimated(blender_object: bpy.types.Object, target: int) -> typing.Tuple[bpy.types.Object, typing.Callable[[], None]]:
+    """A temporary copy of the object whose mesh is collapsed down to about the target's vertexes, and what removes it again.
+    Vertex groups and UVs survive the collapse, shape keys wouldn't so meshes with them aren't decimated."""
+    mesh: bpy.types.Mesh = blender_object.data
+    copy = blender_object.copy()
+    copy.data = mesh.copy()
+    bpy.context.scene.collection.objects.link(copy)
+    for modifier in list(copy.modifiers):
+        copy.modifiers.remove(modifier)
+
+    decimate = copy.modifiers.new("Decimate", "DECIMATE")
+    decimate.decimate_type = "COLLAPSE"
+    decimate.use_collapse_triangulate = True
+    # The ratio is of faces, the vertexes it leaves are found in a few tries
+    ratio = target / len(mesh.vertices)
+    decimated = None
+    for _ in range(6):
+        decimate.ratio = max(0.01, min(1.0, ratio))
+        depsgraph = bpy.context.evaluated_depsgraph_get()
+        if decimated is not None:
+            bpy.data.meshes.remove(decimated)
+
+        decimated = bpy.data.meshes.new_from_object(copy.evaluated_get(depsgraph), preserve_all_data_layers=True, depsgraph=depsgraph)
+        if len(decimated.vertices) <= target:
+            break
+
+        ratio *= 0.9 * target / len(decimated.vertices)
+
+    working_copy = copy.data
+    copy.modifiers.remove(decimate)
+    copy.data = decimated
+
+    def remove() -> None:
+        bpy.data.objects.remove(copy)
+        bpy.data.meshes.remove(decimated)
+        bpy.data.meshes.remove(working_copy)
+
+    return copy, remove
+
+
 def _read_mesh(blender_object: bpy.types.Object, file_materials: typing.Optional[_FileMaterials], skinned: bool,
                joint_of_group: typing.Optional[typing.Dict[int, int]] = None) -> tlm_mesh.CornerMesh:
+    mesh: bpy.types.Mesh = blender_object.data
+    if len(mesh.vertices) <= MAX_EXPORT_VERTICES:
+        return _read_mesh_data(blender_object, file_materials, skinned, joint_of_group)
+
+    if mesh.shape_keys is not None:
+        _export_notes.append("%s has %d vertexes, the game's biggest skin has 2716: it wasn't decimated because of its shape keys, expect the game to slow down"
+                             % (blender_object.name, len(mesh.vertices)))
+        return _read_mesh_data(blender_object, file_materials, skinned, joint_of_group)
+
+    decimated, remove = _decimated(blender_object, MAX_EXPORT_VERTICES)
+    try:
+        _export_notes.append("%s has %d vertexes, the game's biggest skin has 2716: written decimated to %d"
+                             % (blender_object.name, len(mesh.vertices), len(decimated.data.vertices)))
+        return _read_mesh_data(decimated, file_materials, skinned, joint_of_group)
+    finally:
+        remove()
+
+
+def _read_mesh_data(blender_object: bpy.types.Object, file_materials: typing.Optional[_FileMaterials], skinned: bool,
+                    joint_of_group: typing.Optional[typing.Dict[int, int]] = None) -> tlm_mesh.CornerMesh:
     mesh: bpy.types.Mesh = blender_object.data
     result = tlm_mesh.CornerMesh()
     vertex_count = len(mesh.vertices)
@@ -552,6 +617,8 @@ def _import_ogi(context: bpy.types.Context, file: tlm.TlmFile, root_node: typing
                 node.get("name") or "Body", file, node, parent, collection, materials, False))
         elif kind == "exit_points":
             _import_attached(child, "exit_point", root, armature, bone_names, collection, lambda node, parent: _add_exit_point(node, parent, collection))
+        elif kind == "collision_hulls":
+            _import_attached(child, "hull", root, armature, bone_names, collection, lambda node, parent: add_hull_object(file, node, parent, collection))
 
     _import_animations(context, file, armature_node, armature, shape_object, rests, joints, bone_names, root)
 
@@ -576,13 +643,73 @@ def _import_attached(container_node: typing.Dict[str, typing.Any], kind: str, ro
 
         blender_object = create(tree_node, container)
         _set_node_transform(blender_object, tree_node)
+        matrix = tree_node.get("matrix") or (tree_node.get("data") or {}).get("Matrix")
+        if isinstance(matrix, list) and len(matrix) == 16:
+            blender_object[MATRIX_PROPERTY] = [float(value) for value in matrix]
+
         joint = int(tree_node.get("joint", 0))
         blender_object[JOINT_PROPERTY] = joint
+        # A hull on no joint stays in the model's space
+        if joint not in bone_names:
+            continue
+
         constraint = blender_object.constraints.new("CHILD_OF")
         constraint.target = armature
-        constraint.subtarget = bone_names.get(joint, "")
+        constraint.subtarget = bone_names[joint]
         # Follows the bone without what the container and the root already do
         constraint.inverse_matrix = root.matrix_basis.inverted()
+
+
+def add_hull_object(file: tlm.TlmFile, tree_node: typing.Dict[str, typing.Any], parent: bpy.types.Object, collection: bpy.types.Collection) -> bpy.types.Object:
+    """A collision hull as a wire mesh of its faces. What the game reads of it comes along, for TT Lab to keep while the mesh stays."""
+    positions = file.read_view(tree_node.get("vertices"), "f32")
+    face_bytes = file.read_view(tree_node.get("faces"), "u8")
+    faces = []
+    offset = 0
+    while offset < len(face_bytes):
+        count = face_bytes[offset]
+        faces.append([int(index) for index in face_bytes[offset + 1:offset + 1 + count]])
+        offset += 1 + count
+
+    mesh = bpy.data.meshes.new(tree_node.get("name") or "Hull")
+    mesh.from_pydata([tuple(positions[i:i + 3]) for i in range(0, len(positions) - 3, 4)], [], [face for face in faces if len(face) >= 3])
+    mesh.update()
+    blender_object = _new_object(tree_node.get("name") or "Hull", mesh, parent, collection)
+    blender_object.display_type = "WIRE"
+    blender_object[KIND_PROPERTY] = "hull"
+    _read_data(blender_object, "CollisionHull", tree_node.get("data"))
+    kept = {key: list(file.read_view(tree_node[key])) for key in HULL_KEYS if key in tree_node}
+    blender_object[HULL_PROPERTY] = json.dumps(kept)
+    return blender_object
+
+
+def export_hull(file: tlm.TlmFile, blender_object: bpy.types.Object, tree_node: typing.Dict[str, typing.Any]) -> None:
+    """The hull's vertexes and faces from its mesh, with what it came with for TT Lab to tell whether the mesh changed."""
+    mesh: bpy.types.Mesh = blender_object.data
+    positions = array.array("f", [0.0] * len(mesh.vertices) * 3)
+    mesh.vertices.foreach_get("co", positions)
+    tree_node["vertices"] = file.write_view([value for vertex in range(len(mesh.vertices)) for value in (*positions[vertex * 3:vertex * 3 + 3], 1.0)], "f32")
+    faces = []
+    for polygon in mesh.polygons:
+        faces.append(len(polygon.vertices))
+        faces.extend(polygon.vertices)
+
+    tree_node["faces"] = file.write_view(faces, "u8")
+    try:
+        kept = json.loads(blender_object.get(HULL_PROPERTY, "{}"))
+    except ValueError:
+        kept = {}
+
+    for key in ("planes", "edge_directions", "face_normals"):
+        if key in kept:
+            tree_node[key] = file.write_view(kept[key], "f32")
+
+    if "edges" in kept:
+        tree_node["edges"] = file.write_view(kept["edges"], "u8")
+
+    if "vertices" in kept and "faces" in kept:
+        tree_node["twin_vertices"] = file.write_view(kept["vertices"], "f32")
+        tree_node["twin_faces"] = file.write_view(kept["faces"], "u8")
 
 
 def _add_exit_point(tree_node: typing.Dict[str, typing.Any], parent: bpy.types.Object, collection: bpy.types.Collection) -> bpy.types.Object:
@@ -590,7 +717,7 @@ def _add_exit_point(tree_node: typing.Dict[str, typing.Any], parent: bpy.types.O
     exit_point.empty_display_type = "ARROWS"
     exit_point.empty_display_size = 0.1
     exit_point[KIND_PROPERTY] = "exit_point"
-    _read_data(exit_point, "ExitPoint", tree_node.get("data"))
+    _read_data(exit_point, "ExitPoint", {key: value for key, value in (tree_node.get("data") or {}).items() if key != "Matrix"})
     return exit_point
 
 
@@ -784,7 +911,7 @@ def sync_shape_keys(armature: bpy.types.Object) -> None:
 # Exporting
 
 _TYPE_KINDS = {type_name: kind for kind, type_name in KIND_TYPES.items()}
-_CONTAINER_ROLES = {"rigid_bodies": "body", "exit_points": "exit_point"}
+_CONTAINER_ROLES = {"rigid_bodies": "body", "exit_points": "exit_point", "collision_hulls": "hull"}
 
 
 def role_of(blender_object: bpy.types.Object) -> typing.Optional[str]:
@@ -820,12 +947,15 @@ def _descendants(blender_object: bpy.types.Object) -> typing.List[bpy.types.Obje
     return result
 
 
-def export_file(root: bpy.types.Object, path: str) -> None:
+def export_file(root: bpy.types.Object, path: str) -> typing.List[str]:
+    """Writes the model to the file. Returns what the file doesn't have of the scene, to warn about."""
     kind = root.get(KIND_PROPERTY, "")
     file = tlm.TlmFile(root.get(ROOT_PROPERTY, ""), root.name)
     materials = _FileMaterials(file)
     tree = tlm.node(kind, root.name, _write_data(root))
     descendants = _descendants(root)
+    warnings = _unapplied_modifiers(descendants)
+    _export_notes.clear()
     from . import tlm_scenery
 
     if kind == "ogi":
@@ -848,10 +978,135 @@ def export_file(root: bpy.types.Object, path: str) -> None:
 
     file.root = tree
     file.save(path)
+    warnings.extend(_export_notes)
+    _export_notes.clear()
+    return warnings
+
+
+def _unapplied_modifiers(descendants: typing.List[bpy.types.Object]) -> typing.List[str]:
+    """Meshes are written as they are, without their modifiers. The armature's is how the skin gets deformed, everything else would
+    be lost."""
+    warnings = []
+    for blender_object in descendants:
+        if blender_object.type != "MESH":
+            continue
+
+        names = [modifier.name for modifier in blender_object.modifiers if modifier.type != "ARMATURE" and modifier.show_viewport]
+        if len(names) > 0:
+            warnings.append("%s is written without its %s modifier%s, apply them to keep what they do" % (blender_object.name, ", ".join(names), "s" if len(names) > 1 else ""))
+
+    return warnings
 
 
 def _relative_to_root(root: bpy.types.Object, blender_object: bpy.types.Object) -> Matrix:
     return root.matrix_world.inverted() @ blender_object.matrix_world
+
+
+def _is_identity(matrix: Matrix, translation_tolerance: float = 1e-4, rotation_tolerance: float = 1e-6, scale_tolerance: float = 1e-4) -> bool:
+    """Whether the matrix is the identity give or take the rounding errors the transforms of objects go through."""
+    translation, rotation, scale = matrix.decompose()
+    return translation.length <= translation_tolerance and 1.0 - abs(rotation.w) <= rotation_tolerance and \
+        all(abs(value - 1.0) <= scale_tolerance for value in scale)
+
+
+def _write_transform(tree_node: typing.Dict[str, typing.Any], matrix: Matrix) -> None:
+    """The node's transform, none for a matrix that's the identity but for rounding errors."""
+    if _is_identity(matrix):
+        return
+
+    translation, rotation, scale = matrix.decompose()
+    tree_node["translation"] = list(translation)
+    if 1.0 - abs(rotation.w) > 1e-7:
+        tree_node["rotation"] = list(tlm_math.wxyz_to_xyzw(tuple(rotation)))
+
+    if any(abs(value - 1.0) > 1e-6 for value in scale):
+        tree_node["scale"] = list(scale)
+
+
+def _bake_transform(mesh: tlm_mesh.CornerMesh, matrix: Matrix) -> None:
+    """Moves the mesh's positions, normals and shapes by the matrix. Skins have no transform in the file, they're in the model's
+    space like the bones' bind poses."""
+    if _is_identity(matrix, 1e-6, 1e-9, 1e-6):
+        return
+
+    linear = matrix.to_3x3()
+    positions = array.array("f")
+    for i in range(0, len(mesh.positions), 3):
+        positions.extend(matrix @ Vector(mesh.positions[i:i + 3]))
+
+    mesh.positions = positions
+    if mesh.corner_normals is not None:
+        normal_matrix = linear.inverted_safe().transposed()
+        normals = array.array("f")
+        for i in range(0, len(mesh.corner_normals), 3):
+            normal = normal_matrix @ Vector(mesh.corner_normals[i:i + 3])
+            normals.extend(normal.normalized() if normal.length > 1e-12 else normal)
+
+        mesh.corner_normals = normals
+
+    shapes = []
+    for shape in mesh.shapes:
+        offsets = array.array("f")
+        for i in range(0, len(shape), 3):
+            offsets.extend(linear @ Vector(shape[i:i + 3]))
+
+        shapes.append(offsets)
+
+    mesh.shapes = shapes
+
+
+def armature_of(root: bpy.types.Object) -> typing.Optional[bpy.types.Object]:
+    return next((child for child in _descendants(root) if child.type == "ARMATURE"), None)
+
+
+def shape_object_of(root: bpy.types.Object) -> typing.Optional[bpy.types.Object]:
+    return next((child for child in _descendants(root) if role_of(child) == "shape" and child.type == "MESH"), None)
+
+
+def joints_of_bones(armature: bpy.types.Object) -> typing.Dict[str, int]:
+    """The joint of every bone: the index of its Joint type, bones without one or with one another bone has get the next free ones."""
+    result: typing.Dict[str, int] = {}
+    taken = set()
+    for bone in armature.data.bones:
+        container = properties.get(bone)
+        if container.type == "Joint" and int(container.joint.index) not in taken:
+            result[bone.name] = int(container.joint.index)
+            taken.add(result[bone.name])
+
+    next_index = max(taken, default=-1) + 1
+    for bone in armature.data.bones:
+        if bone.name not in result:
+            result[bone.name] = next_index
+            taken.add(next_index)
+            next_index += 1
+
+    return result
+
+
+def _rests_of_bones(root: typing.Optional[bpy.types.Object], armature: bpy.types.Object, joint_of_bone: typing.Dict[str, int]) -> typing.Tuple[typing.Dict[int, typing.Any], typing.Dict[int, typing.List[float]]]:
+    """Every joint's rest and bind pose in the model's space (the armature's own without a model): the bone's, or the game's the bone was
+    imported with while it's still there."""
+    armature_matrix = _relative_to_root(root, armature) if root is not None else armature.matrix_world.copy()
+    rests: typing.Dict[int, typing.Tuple[typing.Any, typing.Any]] = {}
+    binds: typing.Dict[int, typing.List[float]] = {}
+    for bone in armature.data.bones:
+        index = joint_of_bone[bone.name]
+        bind = tlm_math.to_rows([list(row) for row in armature_matrix @ bone.matrix_local])
+        rests[index] = tlm_math.rest_of(tlm_math.from_rows(bind))
+        stored = bone.get(BIND_PROPERTY)
+        if stored is not None and len(stored) == 16:
+            stored_rest = tlm_math.rest_of(tlm_math.from_rows(list(stored)))
+            if _same_rest(stored_rest, rests[index]):
+                bind, rests[index] = [float(value) for value in stored], stored_rest
+
+        binds[index] = bind
+
+    return rests, binds
+
+
+def _relative_rests(armature: bpy.types.Object, joint_of_bone: typing.Dict[str, int], rests: typing.Dict[int, typing.Any]) -> typing.Dict[int, typing.Any]:
+    parents = {joint_of_bone[bone.name]: joint_of_bone[bone.parent.name] if bone.parent is not None else -1 for bone in armature.data.bones}
+    return {index: tlm_math.relative_rest(rests.get(parents[index]), rests[index]) for index in rests}
 
 
 def _export_ogi(file: tlm.TlmFile, root: bpy.types.Object, tree: typing.Dict[str, typing.Any], descendants: typing.List[bpy.types.Object],
@@ -861,30 +1116,13 @@ def _export_ogi(file: tlm.TlmFile, root: bpy.types.Object, tree: typing.Dict[str
     joint_of_bone: typing.Dict[str, int] = {}
     rests: typing.Dict[int, typing.Tuple[typing.Any, typing.Any]] = {}
     if armature is not None:
-        armature_matrix = _relative_to_root(root, armature)
-        used = {int(properties.get(bone).joint.index) for bone in armature.data.bones if properties.get(bone).type == "Joint"}
-        next_index = max(used, default=-1) + 1
-        for bone in armature.data.bones:
-            container = properties.get(bone)
-            if container.type == "Joint":
-                joint_of_bone[bone.name] = int(container.joint.index)
-            else:
-                joint_of_bone[bone.name] = next_index
-                next_index += 1
-
+        joint_of_bone = joints_of_bones(armature)
+        rests, binds = _rests_of_bones(root, armature, joint_of_bone)
         joints = []
         for bone in armature.data.bones:
             index = joint_of_bone[bone.name]
-            bind = tlm_math.to_rows([list(row) for row in armature_matrix @ bone.matrix_local])
-            rests[index] = tlm_math.rest_of(tlm_math.from_rows(bind))
-            stored = bone.get(BIND_PROPERTY)
-            if stored is not None and len(stored) == 16:
-                stored_rest = tlm_math.rest_of(tlm_math.from_rows(list(stored)))
-                if _same_rest(stored_rest, rests[index]):
-                    bind, rests[index] = [float(value) for value in stored], stored_rest
-
             joint: typing.Dict[str, typing.Any] = {"index": index, "parent": joint_of_bone[bone.parent.name] if bone.parent is not None else -1,
-                                                   "name": bone.name, "bind": bind}
+                                                   "name": bone.name, "bind": binds[index]}
             if properties.get(bone).type == "Joint":
                 data = _write_data(bone)
                 data.pop("Index", None)
@@ -901,21 +1139,33 @@ def _export_ogi(file: tlm.TlmFile, root: bpy.types.Object, tree: typing.Dict[str
         if blender_object.type == "MESH" and kind in SKINNED_KINDS:
             groups = {group.index: joint_of_group_names[group.name] for group in blender_object.vertex_groups if group.name in joint_of_group_names}
             skin = tlm.add_child(tree, tlm.node(kind, blender_object.name, _write_data(blender_object) or None))
-            skin["mesh"] = tlm_mesh.to_parts(file, _read_mesh(blender_object, materials, True, groups), True)
+            mesh = _read_mesh(blender_object, materials, True, groups)
+            # The skin is where the object shows it, wherever the object was put under the root
+            _bake_transform(mesh, _relative_to_root(root, blender_object))
+            skin["mesh"] = tlm_mesh.to_parts(file, mesh, True)
 
     bodies = tlm.add_child(tree, tlm.node("rigid_bodies", "Rigid Bodies"))
     exit_points = tlm.add_child(tree, tlm.node("exit_points", "Exit Points"))
+    hulls = tlm.add_child(tree, tlm.node("collision_hulls", "Collision Hulls"))
     for blender_object in descendants:
         kind = role_of(blender_object)
         if kind == "body" and blender_object.type == "MESH":
             body = tlm.add_child(bodies, tlm.node("body", blender_object.name, _write_data(blender_object)))
-            body["joint"] = _attached_joint(blender_object, joint_of_bone)
-            _node_transform(blender_object, body)
+            body["joint"], placement = _attached_placement(root, blender_object, armature, joint_of_bone, rests)
+            _write_transform(body, placement)
             body["mesh"] = tlm_mesh.to_parts(file, _read_mesh(blender_object, materials, False), False)
         elif kind == "exit_point":
             exit_point = tlm.add_child(exit_points, tlm.node("exit_point", blender_object.name, _write_data(blender_object)))
-            exit_point["joint"] = _attached_joint(blender_object, joint_of_bone)
-            _node_transform(blender_object, exit_point)
+            exit_point["joint"], placement = _attached_placement(root, blender_object, armature, joint_of_bone, rests)
+            _write_transform(exit_point, placement)
+            stored = blender_object.get(MATRIX_PROPERTY)
+            if stored is not None and len(stored) == 16:
+                exit_point["matrix"] = [float(value) for value in stored]
+        elif kind == "hull" and blender_object.type == "MESH":
+            hull = tlm.add_child(hulls, tlm.node("hull", blender_object.name, _write_data(blender_object) or None))
+            hull["joint"], placement = _attached_placement(root, blender_object, armature, joint_of_bone, rests, NO_JOINT)
+            _write_transform(hull, placement)
+            export_hull(file, blender_object, hull)
 
 
 def _same_rest(a: typing.Tuple[typing.Any, typing.Any], b: typing.Tuple[typing.Any, typing.Any]) -> bool:
@@ -926,7 +1176,11 @@ def _same_rest(a: typing.Tuple[typing.Any, typing.Any], b: typing.Tuple[typing.A
     return moved < 1e-4 and turned < 1e-6
 
 
-def _attached_joint(blender_object: bpy.types.Object, joint_of_bone: typing.Dict[str, int]) -> int:
+# The joint of a hull that's on none, in the model's space
+NO_JOINT = 0xFF
+
+
+def _attached_joint(blender_object: bpy.types.Object, joint_of_bone: typing.Dict[str, int], default: int = 0) -> int:
     for constraint in blender_object.constraints:
         if constraint.type == "CHILD_OF" and constraint.subtarget in joint_of_bone:
             return joint_of_bone[constraint.subtarget]
@@ -934,7 +1188,38 @@ def _attached_joint(blender_object: bpy.types.Object, joint_of_bone: typing.Dict
     if blender_object.parent_type == "BONE" and blender_object.parent_bone in joint_of_bone:
         return joint_of_bone[blender_object.parent_bone]
 
-    return int(blender_object.get(JOINT_PROPERTY, 0))
+    return int(blender_object.get(JOINT_PROPERTY, default))
+
+
+def _attached_placement(root: bpy.types.Object, blender_object: bpy.types.Object, armature: typing.Optional[bpy.types.Object],
+                        joint_of_bone: typing.Dict[str, int], rests: typing.Dict[int, typing.Any], default_joint: int = 0) -> typing.Tuple[int, Matrix]:
+    """The joint a body, exit point or hull follows and where it is in the joint's space: where the object would be with the armature
+    at rest, whichever way it follows its bone, relative to the joint's rest. Without a joint it's relative to the model."""
+    joint = _attached_joint(blender_object, joint_of_bone, default_joint)
+    parent = blender_object.parent
+    unconstrained = parent.matrix_world @ blender_object.matrix_parent_inverse @ blender_object.matrix_basis if parent is not None else blender_object.matrix_basis.copy()
+    rest_world = None
+    if armature is not None:
+        constraint = next((constraint for constraint in blender_object.constraints
+                           if constraint.type == "CHILD_OF" and constraint.target == armature and constraint.subtarget in joint_of_bone), None)
+        if constraint is not None:
+            # The constraint puts the object at the bone's pose, as the pose it was set up in moved
+            bone = armature.data.bones[constraint.subtarget]
+            rest_world = armature.matrix_world @ bone.matrix_local @ constraint.inverse_matrix @ unconstrained
+        elif blender_object.parent_type == "BONE" and parent == armature and blender_object.parent_bone in joint_of_bone:
+            # Blender parents to the bone's tail
+            bone = armature.data.bones[blender_object.parent_bone]
+            rest_world = armature.matrix_world @ bone.matrix_local @ Matrix.Translation((0.0, bone.length, 0.0)) @ blender_object.matrix_parent_inverse @ blender_object.matrix_basis
+
+    if rest_world is None:
+        rest_world = blender_object.matrix_world
+
+    relative = root.matrix_world.inverted() @ rest_world
+    rest = rests.get(joint)
+    if rest is None:
+        return joint, relative
+
+    return joint, Matrix(tlm_math.compose(rest[0], rest[1])).inverted() @ relative
 
 
 def _animation_meta(action: bpy.types.Action) -> typing.Dict[str, typing.Any]:
@@ -946,15 +1231,16 @@ def _animation_meta(action: bpy.types.Action) -> typing.Dict[str, typing.Any]:
     return meta if isinstance(meta, dict) else {}
 
 
-def _owned_actions(root: bpy.types.Object, armature: bpy.types.Object, bone_names: typing.Iterable[str]) -> typing.List[bpy.types.Action]:
-    """The actions of the model: the ones imported with it and the ones made in Blender that animate its bones."""
-    uid = root.get(UID_PROPERTY)
+def _owned_actions(root: typing.Optional[bpy.types.Object], armature: bpy.types.Object, bone_names: typing.Iterable[str]) -> typing.List[bpy.types.Action]:
+    """The actions of the model: the ones imported with it, the ones retargeted to its armature and the ones made in Blender that
+    animate its bones."""
+    owners = {root.get(UID_PROPERTY) if root is not None else None, armature.get(UID_PROPERTY)} - {None}
     names = set(bone_names)
     result = []
     for action in bpy.data.actions:
         owner = action.get(OWNER_PROPERTY)
         if owner is not None:
-            if owner == uid:
+            if owner in owners:
                 result.append(action)
 
             continue
@@ -995,9 +1281,9 @@ def _sample(fcurve: typing.Any, frames: int, default: float) -> typing.List[floa
 
 def _export_animations(file: tlm.TlmFile, root: bpy.types.Object, armature: bpy.types.Object, joint_of_bone: typing.Dict[str, int],
                        rests: typing.Dict[int, typing.Any], descendants: typing.List[bpy.types.Object]) -> typing.List[typing.Dict[str, typing.Any]]:
-    parents = {joint_of_bone[bone.name]: joint_of_bone[bone.parent.name] if bone.parent is not None else -1 for bone in armature.data.bones}
-    relative_rests = {index: tlm_math.relative_rest(rests.get(parents[index]), rests[index]) for index in rests}
+    relative_rests = _relative_rests(armature, joint_of_bone, rests)
     shape_object = next((child for child in descendants if role_of(child) == "shape" and child.type == "MESH"), None)
+    key_blocks = list(shape_object.data.shape_keys.key_blocks)[1:] if shape_object is not None and shape_object.data.shape_keys is not None else []
     result = []
     for action in _owned_actions(root, armature, joint_of_bone):
         meta = _animation_meta(action)
@@ -1047,25 +1333,31 @@ def _export_animations(file: tlm.TlmFile, root: bpy.types.Object, armature: bpy.
         animation["joints"] = sorted(joints, key=lambda joint: joint["joint"])
         facial = meta.get("facial")
         key_slot = next((slot for slot in action.slots if slot.target_id_type == "KEY"), None)
+        key_bag = _existing_channelbag(action, key_slot) if key_slot is not None else None
+        key_curves = {fcurve.data_path: fcurve for fcurve in key_bag.fcurves} if key_bag is not None else {}
+        if not isinstance(facial, dict) and len(key_blocks) > 0 and any(_shape_curve(key_curves, key_blocks, shape) is not None for shape in range(len(key_blocks))):
+            # An animation of the shape keys made in Blender
+            facial = {"frames": frames, "shapes": 0, "weights": []}
+
         if isinstance(facial, dict):
-            shapes = int(facial.get("shapes", 0))
+            stored_shapes = int(facial.get("shapes", 0))
+            # The game blends as many shapes as the model has, the model's shape keys are its shapes
+            shapes = len(key_blocks) if len(key_blocks) > 0 else stored_shapes
             facial_frames = int(facial.get("frames", frames))
             stored = facial.get("weights", [])
-            key_bag = _existing_channelbag(action, key_slot) if key_slot is not None else None
-            key_curves = {fcurve.data_path: fcurve for fcurve in key_bag.fcurves} if key_bag is not None else {}
-            key_blocks = shape_object.data.shape_keys.key_blocks if shape_object is not None and shape_object.data.shape_keys is not None else []
+            stored_frames = len(stored) // stored_shapes if stored_shapes > 0 else 0
             tracks = []
             for shape in range(shapes):
-                name = key_blocks[shape + 1].name if shape + 1 < len(key_blocks) else None
-                if name is None:
-                    stored_frames = len(stored) // shapes if shapes > 0 else 0
-                    tracks.append([stored[min(frame, stored_frames - 1) * shapes + shape] if stored_frames > 0 else 0.0 for frame in range(facial_frames)])
-                    continue
+                fcurve = _shape_curve(key_curves, key_blocks, shape) if shape < len(key_blocks) else None
+                if fcurve is not None or shape < len(key_blocks) and (shape >= stored_shapes or stored_frames == 0):
+                    tracks.append(_sample(fcurve, facial_frames, key_blocks[shape].value))
+                elif shape < stored_shapes and stored_frames > 0:
+                    # Shapes without a shape key, or shape keys no curve animates, keep the weights the game had for them
+                    tracks.append([stored[min(frame, stored_frames - 1) * stored_shapes + shape] for frame in range(facial_frames)])
+                else:
+                    tracks.append([0.0] * facial_frames)
 
-                fcurve = key_curves.get('key_blocks["%s"].value' % bpy.utils.escape_identifier(name))
-                tracks.append(_sample(fcurve, facial_frames, key_blocks[shape + 1].value))
-
-            animation["facial"] = dict({key: value for key, value in facial.items() if key != "weights"},
+            animation["facial"] = dict({key: value for key, value in facial.items() if key != "weights"}, shapes=shapes,
                                        weights=file.write_view([track[frame] for frame in range(facial_frames) for track in tracks], "f32"))
 
         result.append(animation)
@@ -1073,8 +1365,427 @@ def _export_animations(file: tlm.TlmFile, root: bpy.types.Object, armature: bpy.
     return result
 
 
+def _shape_curve(key_curves: typing.Dict[str, typing.Any], key_blocks: typing.List[typing.Any], shape: int) -> typing.Any:
+    """The curve animating a shape key: named after the key, or after the name the key was imported with when it got renamed or the
+    mesh got swapped for one with other names."""
+    for name in (key_blocks[shape].name, "Shape %d" % shape):
+        fcurve = key_curves.get('key_blocks["%s"].value' % bpy.utils.escape_identifier(name))
+        if fcurve is not None:
+            return fcurve
+
+    return None
+
+
 def _constant_or_all(values: typing.List[float], size: int) -> typing.List[float]:
     if all(values[i] == values[i % size] for i in range(size, len(values))):
         return values[:size]
 
     return values
+
+
+# Retargeting
+
+def _armature_object(blender_object: bpy.types.Object) -> typing.Optional[bpy.types.Object]:
+    return blender_object if blender_object.type == "ARMATURE" else armature_of(blender_object)
+
+
+def _deformed_by(armature: bpy.types.Object) -> typing.List[bpy.types.Object]:
+    """The meshes the armature deforms, through a modifier or by being parented to it."""
+    result = []
+    for blender_object in bpy.data.objects:
+        if blender_object.type != "MESH":
+            continue
+
+        if any(modifier.type == "ARMATURE" and modifier.object == armature for modifier in blender_object.modifiers) or blender_object.parent == armature:
+            result.append(blender_object)
+
+    return result
+
+
+def _shape_of_armature(armature: bpy.types.Object) -> typing.Optional[bpy.types.Object]:
+    return next((blender_object for blender_object in _deformed_by(armature) if blender_object.data.shape_keys is not None), None)
+
+
+def bone_infos(armature: bpy.types.Object) -> typing.List[retarget.BoneInfo]:
+    """Every bone with its parent and the joint index its Joint type gives it."""
+    result = []
+    for bone in armature.data.bones:
+        container = properties.get(bone)
+        index = int(container.joint.index) if container is not None and container.type == "Joint" else None
+        result.append((bone.name, bone.parent.name if bone.parent is not None else None, index))
+
+    return result
+
+
+def joint_matches(original: bpy.types.Object, incoming: bpy.types.Object) -> typing.Dict[str, retarget.Match]:
+    """Which of the original armature's joints the incoming armature's bones stand for, see retarget.match_joints."""
+    return retarget.match_joints(bone_infos(original), bone_infos(incoming))
+
+
+def assign_joints(original: bpy.types.Object, incoming: bpy.types.Object) -> typing.Dict[str, int]:
+    """Makes the incoming armature's bones the original's joints: every bone gets the name and the joint index of the original bone it
+    stands for (bones the original doesn't have get the next joint indexes as Joint N), with the joint's settings the original has
+    (its react ID and additional rotation). Returns how many bones were matched each way (retarget.BY_INDEX, BY_NAME, BY_ORDER, NEW)."""
+    matches = joint_matches(original, incoming)
+    bones = incoming.data.bones
+    # Names get swapped around, so nothing may take another bone's name before that one gave it up
+    for name in matches:
+        bones[name].name = "ttt_renaming " + name
+
+    counts: typing.Dict[str, int] = {}
+    for name, match in matches.items():
+        bone = bones["ttt_renaming " + name]
+        bone.name = retarget.joint_name(match)
+        data: typing.Dict[str, typing.Any] = {"Index": match[0]}
+        if match[1] is not None:
+            original_data = _write_data(original.data.bones[match[1]])
+            for key in ("ReactId", "AdditionalAnimationRotation", "ChildrenAmt2"):
+                if key in original_data:
+                    data[key] = original_data[key]
+
+        _read_data(bone, "Joint", data)
+        # The bind the bone was imported with was another joint's
+        if match[2] != retarget.BY_INDEX and BIND_PROPERTY in bone:
+            del bone[BIND_PROPERTY]
+
+        incoming.pose.bones[bone.name].rotation_mode = "QUATERNION"
+        counts[match[2]] = counts.get(match[2], 0) + 1
+
+    return counts
+
+
+def animations_of(root: bpy.types.Object) -> typing.List[bpy.types.Action]:
+    """The model's animations: the actions imported with it, retargeted to it or made in Blender for its bones."""
+    armature = armature_of(root)
+    if armature is None:
+        return []
+
+    return _owned_actions(root, armature, [bone.name for bone in armature.data.bones])
+
+
+def remove_model(root: bpy.types.Object) -> None:
+    """Removes the model's objects with the meshes and armatures only they used, and its collections once they hold nothing else."""
+    objects = [root] + _descendants(root)
+    collections = {collection.name for blender_object in objects for collection in blender_object.users_collection}
+    for blender_object in objects:
+        data = blender_object.data
+        bpy.data.objects.remove(blender_object, do_unlink=True)
+        if data is None or data.users > 0:
+            continue
+
+        if isinstance(data, bpy.types.Mesh):
+            bpy.data.meshes.remove(data)
+        elif isinstance(data, bpy.types.Armature):
+            bpy.data.armatures.remove(data)
+
+    _remove_empty_collections(collections)
+
+
+def _remove_empty_collections(names: typing.Iterable[str]) -> None:
+    for name in sorted(set(names)):
+        collection = bpy.data.collections.get(name)
+        if collection is not None and collection != bpy.context.scene.collection and len(collection.objects) == 0 and len(collection.children) == 0:
+            bpy.data.collections.remove(collection)
+
+
+def retarget_and_replace(context: bpy.types.Context, root: bpy.types.Object, path: str) -> typing.Tuple[bpy.types.Object, int]:
+    """Imports the model file and puts it in the model's place: its bones become the model's joints (assign_joints), every animation
+    of the model becomes one of its own under the same name (retarget_animations), and the model goes with its own animations and
+    the file's, the new model taking its file, name and collection. Returns the new root and how many animations were retargeted."""
+    original = armature_of(root)
+    if original is None:
+        raise ValueError("%s has no armature" % root.name)
+
+    scene = context.scene
+    fps, fps_base = scene.render.fps, scene.render.fps_base
+    incoming_root = import_file(context, path)
+    scene.render.fps, scene.render.fps_base = fps, fps_base
+    incoming = armature_of(incoming_root)
+    if incoming_root.get(KIND_PROPERTY) != "ogi" or incoming is None:
+        remove_model(incoming_root)
+        raise ValueError("%s isn't an OGI with an armature" % os.path.basename(path))
+
+    # The file's own animations go, the model's are the ones it plays from now on
+    for action in [action for action in bpy.data.actions if action.get(OWNER_PROPERTY) == incoming_root[UID_PROPERTY]]:
+        bpy.data.actions.remove(action)
+
+    assign_joints(original, incoming)
+    count = retarget_animations(root, incoming_root)
+    names: typing.Dict[str, str] = {}
+    for action in animations_of(root):
+        names[_uid_of(action)] = action.name
+        bpy.data.actions.remove(action)
+
+    owner = _uid_of(incoming)
+    copies = [action for action in bpy.data.actions if action.get(OWNER_PROPERTY) == owner and action.get(RETARGETED_PROPERTY)]
+    first = None
+    for action in sorted(copies, key=lambda action: (int(_animation_meta(action).get("order", 1 << 30)), action.name)):
+        source = action[RETARGETED_PROPERTY]
+        del action[RETARGETED_PROPERTY]
+        action[OWNER_PROPERTY] = incoming_root[UID_PROPERTY]
+        if source in names:
+            action.name = names[source]
+
+        first = first or action
+
+    incoming_root[PATH_PROPERTY] = root.get(PATH_PROPERTY, "")
+    incoming_root[ROOT_PROPERTY] = root.get(ROOT_PROPERTY) or incoming_root.get(ROOT_PROPERTY)
+    name = root.name
+    # Into the model's collections before the model goes, they'd go with it while empty
+    _move_to_collections(incoming_root, list(root.users_collection))
+    remove_model(root)
+    incoming_root.name = name
+    _drop_name_numbers(_descendants(incoming_root))
+    if first is not None:
+        assign_action(incoming, first)
+        flags.apply_inherit_scale(incoming)
+        scene.frame_start = 0
+        scene.frame_end = int(first.frame_end)
+
+    return incoming_root, count
+
+
+def _drop_name_numbers(objects: typing.List[bpy.types.Object]) -> None:
+    """Takes the numbers Blender gave the objects and their data for names the removed model held (armature.001) off again."""
+    for blender_object in objects:
+        for block, blocks in ((blender_object, bpy.data.objects), (blender_object.data, None)):
+            if block is None:
+                continue
+
+            base, dot, number = block.name.rpartition(".")
+            if dot and number.isdigit() and len(number) == 3 and base:
+                blocks = blocks if blocks is not None else (bpy.data.meshes if isinstance(block, bpy.types.Mesh) else bpy.data.armatures if isinstance(block, bpy.types.Armature) else None)
+                if blocks is not None and blocks.get(base) is None:
+                    block.name = base
+
+
+def _move_to_collections(root: bpy.types.Object, collections: typing.List[bpy.types.Collection]) -> None:
+    """Puts the model into the collections, out of the ones it was in, which go once empty."""
+    left = set()
+    for blender_object in [root] + _descendants(root):
+        own = list(blender_object.users_collection)
+        for collection in collections:
+            if blender_object.name not in collection.objects:
+                collection.objects.link(blender_object)
+
+        for collection in own:
+            if collection not in collections:
+                collection.objects.unlink(blender_object)
+                left.add(collection.name)
+
+    _remove_empty_collections(left)
+
+
+def retarget_animations(source: bpy.types.Object, target: bpy.types.Object) -> int:
+    """Makes the target armature (or model) play the source's animations: a copy of every action of the source becomes the
+    target's, in which every bone of the same joint (or the same name) turns from its own rest, in the world, as much as the
+    source's turned from its on every frame, and moves as far beyond where its parent's turn leaves it as the source's did (scaled
+    by how much bigger the target skeleton is), whatever way its axes point. The shape keys are animated in the same order.
+    Rerunning it writes the copies again. Returns how many animations were retargeted."""
+    source_armature, target_armature = _armature_object(source), _armature_object(target)
+    if source_armature is None or target_armature is None or source_armature == target_armature:
+        return 0
+
+    source_root, target_root = find_root(source_armature), find_root(target_armature)
+    bones = _matched_bones(source_armature, target_armature)
+    original, incoming = _skeleton(source_armature), _skeleton(target_armature)
+    scale = retarget.size_ratio(original, incoming, {target_name: source_name for source_name, target_name in bones.items()})
+    source_shape = shape_object_of(source_root) if source_root is not None else None
+    target_shape = shape_object_of(target_root) if target_root is not None else None
+    source_shape, target_shape = source_shape or _shape_of_armature(source_armature), target_shape or _shape_of_armature(target_armature)
+    shapes: typing.Dict[str, str] = {}
+    if source_shape is not None and target_shape is not None and source_shape.data.shape_keys is not None and target_shape.data.shape_keys is not None:
+        for source_block, target_block in zip(list(source_shape.data.shape_keys.key_blocks)[1:], list(target_shape.data.shape_keys.key_blocks)[1:]):
+            shapes[source_block.name] = target_block.name
+
+    for target_name in bones.values():
+        target_armature.pose.bones[target_name].rotation_mode = "QUATERNION"
+
+    owner = _uid_of(target_armature)
+    copies = {action.get(RETARGETED_PROPERTY): action for action in bpy.data.actions if action.get(OWNER_PROPERTY) == owner and action.get(RETARGETED_PROPERTY)}
+    actions = [action for action in _owned_actions(source_root, source_armature, bones) if action.get(OWNER_PROPERTY) != owner]
+    first = None
+    for action in actions:
+        source_id = _uid_of(action)
+        copy = copies.get(source_id)
+        if copy is None:
+            copy = action.copy()
+            copy[RETARGETED_PROPERTY] = source_id
+            del copy[UID_PROPERTY]
+
+        copy[OWNER_PROPERTY] = owner
+        _retarget_action(action, copy, bones, original, incoming, scale, source_armature, target_armature, shapes)
+        first = first or copy
+
+    if first is not None and (target_armature.animation_data is None or target_armature.animation_data.action is None):
+        assign_action(target_armature, first)
+        flags.apply_inherit_scale(target_armature)
+
+    return len(actions)
+
+
+def _matched_bones(source_armature: bpy.types.Object, target_armature: bpy.types.Object) -> typing.Dict[str, str]:
+    """The target bone of every source bone: the one of the same joint, else the one of the same name."""
+    source_joints = joints_of_bones(source_armature)
+    target_joints = joints_of_bones(target_armature)
+    target_of_joint = {index: name for name, index in target_joints.items() if properties.get(target_armature.data.bones[name]).type == "Joint"}
+    bones: typing.Dict[str, str] = {}
+    for name, index in source_joints.items():
+        target_name = target_of_joint.get(index) if properties.get(source_armature.data.bones[name]).type == "Joint" else None
+        if target_name is None and name in target_joints:
+            target_name = name
+
+        if target_name is not None:
+            bones[name] = target_name
+
+    return bones
+
+
+def _skeleton(armature: bpy.types.Object) -> retarget.Skeleton:
+    """The armature's bones with their rests in the world, the space it shares with any other armature."""
+    result: retarget.Skeleton = {}
+    for bone in armature.data.bones:
+        translation, rotation, _ = tlm_math.decompose([list(row) for row in armature.matrix_world @ bone.matrix_local])
+        result[bone.name] = (bone.parent.name if bone.parent is not None else None, (translation, rotation))
+
+    return result
+
+
+def _uid_of(block: typing.Any) -> str:
+    if not block.get(UID_PROPERTY):
+        block[UID_PROPERTY] = uuid.uuid4().hex
+
+    return block[UID_PROPERTY]
+
+
+_POSE_CHANNELS = (("location", 3, 0.0), ("rotation_quaternion", 4, None), ("rotation_euler", 3, 0.0), ("scale", 3, 1.0))
+
+
+def _retarget_action(action: bpy.types.Action, copy: bpy.types.Action, bones: typing.Dict[str, str], original: retarget.Skeleton, incoming: retarget.Skeleton,
+                     scale: float, source_armature: bpy.types.Object, target_armature: bpy.types.Object, shapes: typing.Dict[str, str]) -> None:
+    slot = next((slot for slot in action.slots if slot.target_id_type == "OBJECT"), None)
+    bag = _existing_channelbag(action, slot) if slot is not None else None
+    start, end = (int(round(value)) for value in action.frame_range)
+    frames = list(range(start, max(start, end) + 1))
+    # Every bone of the source counts, a bone the target doesn't have still turns everything under it
+    poses = _sample_poses(bag, source_armature, list(original), frames) if bag is not None else {}
+    retargeted = retarget.retarget_pose(original, incoming, {target_name: source_name for source_name, target_name in bones.items()}, poses, scale)
+
+    copy_slot = next((slot for slot in copy.slots if slot.target_id_type == "OBJECT"), None)
+    copy_bag = _channelbag(copy, copy_slot) if copy_slot is not None else None
+    if copy_bag is None and slot is None:
+        copy_bag = _channelbag(copy, copy.slots.new("OBJECT", target_armature.name))
+
+    if copy_bag is not None:
+        # The copy's bone curves are the source's, written again for the target's bones
+        for fcurve in [fcurve for fcurve in copy_bag.fcurves if _bone_of_path(fcurve.data_path) is not None]:
+            copy_bag.fcurves.remove(fcurve)
+
+        for target_name in bones.values():
+            if target_name in retargeted:
+                _write_pose_curves(copy_bag, target_name, frames, retargeted[target_name])
+
+    for source_name, target_name in bones.items():
+        entry = flags.find_flags(source_armature.data.bones[source_name], action.name)
+        if entry is None:
+            continue
+
+        target_entry = flags.get_or_add_flags(target_armature.data.bones[target_name], copy)
+        target_entry.independent_scaling = entry.independent_scaling
+        target_entry.uses_additional_rotation = entry.uses_additional_rotation
+
+    key_slot = next((slot for slot in copy.slots if slot.target_id_type == "KEY"), None)
+    key_bag = _existing_channelbag(copy, key_slot) if key_slot is not None else None
+    if key_bag is None:
+        return
+
+    paths = {'key_blocks["%s"].value' % bpy.utils.escape_identifier(source_name): 'key_blocks["%s"].value' % bpy.utils.escape_identifier(target_name)
+             for source_name, target_name in shapes.items()}
+    for fcurve in key_bag.fcurves:
+        if fcurve.data_path in paths:
+            fcurve.data_path = paths[fcurve.data_path]
+
+
+def _sample_poses(bag: typing.Any, armature: bpy.types.Object, bones: typing.Iterable[str], frames: typing.List[int]) -> typing.Dict[str, retarget.Pose]:
+    """Every bone's pose on the frames, read off its curves (the rest where it has none), each component an array over the frames."""
+    tracks: typing.Dict[str, typing.Dict[str, typing.List[typing.Any]]] = {}
+    for fcurve in bag.fcurves:
+        bone = _bone_of_path(fcurve.data_path)
+        channel = fcurve.data_path.split("].", 1)[1] if bone is not None and "]." in fcurve.data_path else None
+        size = next((size for name, size, _ in _POSE_CHANNELS if name == channel), 0)
+        if channel is None or fcurve.array_index >= size:
+            continue
+
+        components = tracks.setdefault(bone, {}).get(channel)
+        if components is None:
+            default = next(default for name, _, default in _POSE_CHANNELS if name == channel)
+            components = tracks[bone][channel] = [numpy.full(len(frames), (1.0 if component == 0 else 0.0) if default is None else default) for component in range(size)]
+
+        components[fcurve.array_index] = numpy.array(_samples(fcurve, frames), dtype=numpy.float64)
+
+    result: typing.Dict[str, retarget.Pose] = {}
+    for bone in bones:
+        channels = tracks.get(bone)
+        if channels is None:
+            continue
+
+        mode = armature.pose.bones[bone].rotation_mode if bone in armature.pose.bones else "QUATERNION"
+        location = tuple(channels["location"]) if "location" in channels else (0.0, 0.0, 0.0)
+        scale = tuple(channels["scale"]) if "scale" in channels else (1.0, 1.0, 1.0)
+        if "rotation_quaternion" in channels and (mode == "QUATERNION" or "rotation_euler" not in channels):
+            rotation = tuple(channels["rotation_quaternion"])
+        elif "rotation_euler" in channels:
+            euler_mode = mode if mode not in ("QUATERNION", "AXIS_ANGLE") else "XYZ"
+            quaternions = numpy.array([tuple(Euler(angles, euler_mode).to_quaternion()) for angles in zip(*channels["rotation_euler"])], dtype=numpy.float64)
+            rotation = tuple(quaternions[:, component] for component in range(4))
+        else:
+            rotation = (1.0, 0.0, 0.0, 0.0)
+
+        result[bone] = (location, rotation, scale)  # type: ignore[assignment]
+
+    return result
+
+
+def _samples(fcurve: typing.Any, frames: typing.List[int]) -> typing.List[float]:
+    points = fcurve.keyframe_points
+    if len(points) == len(frames):
+        values = array.array("f", [0.0] * len(points) * 2)
+        points.foreach_get("co", values)
+        # Keys on every frame are read as they are
+        if all(values[index * 2] == float(frame) for index, frame in enumerate(frames)):
+            return list(values[1::2])
+
+    return [fcurve.evaluate(frame) for frame in frames]
+
+
+def _write_pose_curves(bag: typing.Any, bone_name: str, frames: typing.List[int], pose: retarget.Pose) -> None:
+    """Keys the bone's location, rotation and scale on every frame, linear like the game's, from arrays over the frames."""
+    count = len(frames)
+    rotation = numpy.stack([numpy.broadcast_to(numpy.asarray(component, dtype=numpy.float64), (count,)) for component in pose[1]], axis=-1)
+    # Keys turning the long way round between two frames get the other sign
+    if count > 1:
+        flips = numpy.cumprod(numpy.where(numpy.sum(rotation[1:] * rotation[:-1], axis=1) < 0.0, -1.0, 1.0))
+        rotation[1:] *= flips[:, None]
+
+    location = [numpy.broadcast_to(numpy.asarray(component, dtype=numpy.float64), (count,)) for component in pose[0]]
+    scale = [numpy.broadcast_to(numpy.asarray(component, dtype=numpy.float64), (count,)) for component in pose[2]]
+    base = 'pose.bones["%s"].' % bpy.utils.escape_identifier(bone_name)
+    group = next((group for group in bag.groups if group.name == bone_name), None) or bag.groups.new(bone_name)
+    frame_values = numpy.array(frames, dtype=numpy.float32)
+    for channel, components in (("location", location), ("rotation_quaternion", [rotation[:, index] for index in range(4)]), ("scale", scale)):
+        for index, values in enumerate(components):
+            fcurve = bag.fcurves.new(base + channel, index=index)
+            fcurve.group = group
+            points = fcurve.keyframe_points
+            points.add(count)
+            co = numpy.empty(count * 2, dtype=numpy.float32)
+            co[0::2] = frame_values
+            co[1::2] = values
+            points.foreach_set("co", co)
+            try:
+                points.foreach_set("interpolation", numpy.full(count, 1, dtype=numpy.int32))
+            except (TypeError, RuntimeError):
+                for point in points:
+                    point.interpolation = "LINEAR"
+
+            fcurve.update()

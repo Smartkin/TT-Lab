@@ -6,6 +6,7 @@
     { "include": "#comments" },
     { "include": "#strings" },
     { "include": "#attributes" },
+    { "include": "#stateReference" },
     { "include": "#declarations" },
     { "include": "#execute" },
     { "include": "#keywords" },
@@ -32,6 +33,15 @@
         "2": { "name": "entity.other.attribute-name.agentlab" }
       }
     },
+    "stateReference": {
+      "match": "\\b(state)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(\\()\\s*([A-Za-z_][A-Za-z0-9_]*)",
+      "captures": {
+        "1": { "name": "storage.type.agentlab" },
+        "2": { "name": "entity.name.type.agentlab" },
+        "3": { "name": "punctuation.section.parens.agentlab" },
+        "4": { "name": "entity.name.type.behaviour.agentlab" }
+      }
+    },
     "declarations": {
       "match": "\\b(library|behaviour|state|packet)\\s+([A-Za-z_][A-Za-z0-9_]*)",
       "captures": {
@@ -49,8 +59,9 @@
     "keywords": {
       "patterns": [
         { "match": "\\b(library|behaviour|state|starter|assigner|settings|data|packet)\\b", "name": "storage.type.agentlab" },
-        { "match": "\\b(if|execute|interval|unknown|threshold|const)\\b", "name": "keyword.control.agentlab" },
-        { "match": "\\b(bool|int|float|string|action|condition)\\b", "name": "storage.type.primitive.agentlab" },
+        { "match": "\\b(if|else|completion|execute|window|weight|threshold|restart|interval|unknown|const)\\b", "name": "keyword.control.agentlab" },
+        { "match": "\\b(bool|int|sint|float|tfloat|tint|tangle|string|action|condition)\\b", "name": "storage.type.primitive.agentlab" },
+        { "match": "\\b(Prop|Raw|Float|Int|Angle)(?=\\()", "name": "support.function.agentlab" },
         { "match": "\\b(true|false)\\b", "name": "constant.language.agentlab" }
       ]
     },
@@ -71,7 +82,7 @@
       "name": "variable.other.constant.agentlab"
     },
     "operators": {
-      "match": ">=|<=|==|=|!|\\+|-|\\*|/",
+      "match": ">=|<=|==|=|>|<|!|\\+|-|\\*|/",
       "name": "keyword.operator.agentlab"
     }
   }

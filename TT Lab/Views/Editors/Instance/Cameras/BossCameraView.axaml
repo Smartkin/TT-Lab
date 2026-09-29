@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -15,19 +15,19 @@
             <cameras:BaseCameraView DataContext="{Binding}"/>
             <controls1:GroupBox Header="Parameters">
                 <StackPanel Orientation="Vertical">
-                    <controls:LabeledTextBox HorizontalAlignment="Stretch" TextBoxName="Unknown float 3" Text="{Binding UnkFloat3}"/>
-                    <controls:LabeledTextBox HorizontalAlignment="Stretch" TextBoxName="Unknown float 4" Text="{Binding UnkFloat4}"/>
-                    <controls:LabeledTextBox HorizontalAlignment="Stretch" TextBoxName="Unknown float 5" Text="{Binding UnkFloat5}"/>
-                    <controls:LabeledTextBox HorizontalAlignment="Stretch" TextBoxName="Unknown float 6" Text="{Binding UnkFloat6}"/>
-                    <controls:LabeledTextBox HorizontalAlignment="Stretch" TextBoxName="Unknown byte 1" Text="{Binding UnkByte1}"/>
-                    <controls:LabeledTextBox HorizontalAlignment="Stretch" TextBoxName="Unknown byte 2" Text="{Binding UnkByte2}"/>
+                    <controls:LabeledTextBox HorizontalAlignment="Stretch" TextBoxName="Unknown float 3" Text="{Binding RadiusBlend}"/>
+                    <controls:LabeledTextBox HorizontalAlignment="Stretch" TextBoxName="Unknown float 4" Text="{Binding NearHeightOffset}"/>
+                    <controls:LabeledTextBox HorizontalAlignment="Stretch" TextBoxName="Unknown float 5" Text="{Binding FarHeightOffset}"/>
+                    <controls:LabeledTextBox HorizontalAlignment="Stretch" TextBoxName="Unknown float 6" Text="{Binding MaxTurnRate}"/>
+                    <controls:LabeledCheckBox HorizontalAlignment="Stretch" LayoutOrientation="Horizontal" CheckBoxName="Uses distance curves" Checked="{Binding UsesDistanceCurves}"/>
+                    <controls:LabeledCheckBox HorizontalAlignment="Stretch" LayoutOrientation="Horizontal" CheckBoxName="Distance includes height" Checked="{Binding DistanceIncludesHeight}"/>
                 </StackPanel>
             </controls1:GroupBox>
             <controls1:GroupBox Header="Unknown Matrix 1">
-                <composite:Matrix4View DataContext="{Binding UnkMatrix1}"/>
+                <composite:Matrix4View DataContext="{Binding WorldToArena}"/>
             </controls1:GroupBox>
             <controls1:GroupBox Header="Unknown Matrix 2">
-                <composite:Matrix4View DataContext="{Binding UnkMatrix2}"/>
+                <composite:Matrix4View DataContext="{Binding ArenaToWorld}"/>
             </controls1:GroupBox>
             <controls1:GroupBox Header="Unknown Vector">
                 <composite:Vector4View DataContext="{Binding UnkVec}"/>

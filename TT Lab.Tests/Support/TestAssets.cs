@@ -1,4 +1,4 @@
-using TT_Lab.AssetData;
+﻿using TT_Lab.AssetData;
 using TT_Lab.AssetData.Code;
 using TT_Lab.AssetData.Graphics;
 using TT_Lab.AssetData.Graphics.Shaders;
@@ -106,7 +106,7 @@ public sealed class TestAssets(TestProject project, int seed = 31)
             Shaders =
             [
                 new LabShader { ShaderType = TwinShader.Type.StandardLit, TxtMapping = textures.Length > 0 ? TwinShader.TextureMapping.ON : TwinShader.TextureMapping.OFF,
-                    TextureId = textures.ElementAtOrDefault(0) ?? LabURI.Empty, UnkVector1 = new Vector4(Single.NaN, 1, 2, 3) },
+                    TextureId = textures.ElementAtOrDefault(0) ?? LabURI.Empty, LeftoverVector = new Vector4(Single.NaN, 1, 2, 3) },
                 new LabShader { ShaderType = TwinShader.Type.LitEnvironmentMap, ABlending = TwinShader.AlphaBlending.ON, TextureId = textures.ElementAtOrDefault(1) ?? LabURI.Empty }
             ]
         };
@@ -148,8 +148,8 @@ public sealed class TestAssets(TestProject project, int seed = 31)
             ExitPoints = [new TwinExitPoint { ID = 7, ParentJointIndex = 2, Matrix = MatrixWithNegativeZeros() }],
             RigidModelIds = [rigidModel.URI],
             RigidModelJointIndices = [1],
-            BoundingBoxBuilders = [new TwinBoundingBoxBuilder { BoundingBoxPoints = [new Vector4(0, 0, 0, 1), new Vector4(1, 1, 1, 1)], UnkShorts = [1, 2], UnkBytes1 = [3], UnkBytes2 = [4] }],
-            BoundingBoxBuilderToJointIndex = [2],
+            CollisionHulls = [TwinCollisionHull.CreateBox(new Vector4(-0.5f, 0, -0.5f, 1), new Vector4(0.5f, 1, 0.5f, 1))],
+            CollisionHullJoints = [2],
             Skin = skin.URI,
             BlendSkin = blendSkin.URI
         };
@@ -220,7 +220,7 @@ public sealed class TestAssets(TestProject project, int seed = 31)
         project.AssetManager.AddAsset(dynamicScenery);
 
         // The root holds a node with a leaf in it and another leaf, every one of them has something placed in it
-        var root = TreeNode(new SceneryRootData { UnkUInt = 1 }, new Vector3(-100, -20, -100), new Vector3(100, 20, 100), [ITwinScenery.SceneryType.Node, ITwinScenery.SceneryType.None, ITwinScenery.SceneryType.Leaf]);
+        var root = TreeNode(new SceneryRootData { TreeDepth = 1 }, new Vector3(-100, -20, -100), new Vector3(100, 20, 100), [ITwinScenery.SceneryType.Node, ITwinScenery.SceneryType.None, ITwinScenery.SceneryType.Leaf]);
         var node = TreeNode(new SceneryNodeData(), new Vector3(-100, -20, -100), new Vector3(0, 20, 0), [ITwinScenery.SceneryType.None, ITwinScenery.SceneryType.None, ITwinScenery.SceneryType.None, ITwinScenery.SceneryType.None, ITwinScenery.SceneryType.None, ITwinScenery.SceneryType.Leaf]);
         var leaf = TreeNode(new SceneryLeafData(), new Vector3(-100, -20, -100), new Vector3(-50, 20, -50), []);
         var otherLeaf = TreeNode(new SceneryLeafData(), new Vector3(0, -20, 0), new Vector3(100, 20, 100), []);
@@ -232,12 +232,12 @@ public sealed class TestAssets(TestProject project, int seed = 31)
         var data = new SceneryData(scenery)
         {
             FogColor = 3,
-            UnkByte = 0x12,
+            UnusedByte = 0x12,
             HasLighting = true,
-            AmbientLights = [new AmbientLight { Color = new Vector4(0.2f, 0.2f, 0.3f, 1), Position = new Vector4(1, 2, 3, 1), UnkData = 5, Radius = 10 }],
-            DirectionalLights = [new DirectionalLight { Direction = new Vector4(0, 0.70710677f, 0, 0.70710677f), UnkShort = 3, Position = new Vector4(0, 50, 0, 1), Color = new Vector4(1, 1, 0.9f, 1) }],
-            PointLights = [new PointLight { UnkShort = -2, Position = new Vector4(10, 3, 10, 1), Radius = 7.5f, Color = new Vector4(1, 0.5f, 0, 1) }],
-            NegativeLights = [new NegativeLight { UnkVec3 = new Vector4(1, 2, 3, 4), UnkFloat1 = 0.5f, UnkFloat2 = 2, UnkUInt1 = 0xFFFFFFFF, UnkUInt2 = 7, UnkUShort1 = 65535, UnkUShort2 = 3, Position = new Vector4(-10, 0, 0, 1) }],
+            AmbientLights = [new AmbientLight { Color = new Vector4(0.2f, 0.2f, 0.3f, 1), Position = new Vector4(1, 2, 3, 1), Enabled = false, Intensity = 10 }],
+            DirectionalLights = [new DirectionalLight { Direction = new Vector4(0.6f, 0.8f, 0, 0), Leftover = 3, Intensity = 1.5f, Position = new Vector4(0, 50, 0, 1), Color = new Vector4(1, 1, 0.9f, 1) }],
+            PointLights = [new PointLight { AttenuationPower = -2, Position = new Vector4(10, 3, 10, 1), Intensity = 7.5f, Color = new Vector4(1, 0.5f, 0, 1) }],
+            NegativeLights = [new NegativeLight { Direction = new Vector4(1, 2, 3, 4), InnerConeCosine = 0.5f, OuterConeCosine = 0.4f, ConeAngle = 21845, FalloffAngle = 1166, AttenuationPower = 65535, SpotExponent = 3, Intensity = 2, Position = new Vector4(-10, 0, 0, 1) }],
             Sceneries = [root, node, leaf, otherLeaf],
             Collision = collision.URI,
             DynamicScenery = dynamicScenery.URI
@@ -251,10 +251,10 @@ public sealed class TestAssets(TestProject project, int seed = 31)
     {
         var half = (max - min) / 2;
         var center = (max + min) / 2;
-        node.UnkVec1 = new Vector4(center.X, center.Y, center.Z, half.Length());
-        node.UnkVec2 = new Vector4(min.X, min.Y, min.Z, half.Length());
-        node.UnkVec3 = new Vector4(max.X, max.Y, max.Z, half.Length());
-        node.UnkVec4 = new Vector4(half.X, half.Y, half.Z, half.Length());
+        node.BoundsCenter = new Vector4(center.X, center.Y, center.Z, half.Length());
+        node.BoundsMin = new Vector4(min.X, min.Y, min.Z, half.Length());
+        node.BoundsMax = new Vector4(max.X, max.Y, max.Z, half.Length());
+        node.BoundsHalfSize = new Vector4(half.X, half.Y, half.Z, half.Length());
         node.LightsEnabler = Enumerable.Range(0, 128).Select(i => i % 3 == 0).ToArray();
         node.MeshIDs = [];
         node.LodIDs = [];

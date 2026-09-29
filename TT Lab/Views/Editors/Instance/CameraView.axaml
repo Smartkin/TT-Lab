@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -30,31 +30,31 @@
                     <!-- <ScrollViewer PanningMode="VerticalOnly" PanningRatio="0.9" PanningDeceleration="0.5"> -->
                         <Grid RowDefinitions="*,*,*">
                             <controls1:GroupBox Grid.Row="0" Header="Unknown Vector 1">
-                                <composite:Vector4View DataContext="{Binding UnkVector1}"/>
+                                <composite:Vector4View DataContext="{Binding LeftoverVector1}"/>
                             </controls1:GroupBox>
                             <controls1:GroupBox Grid.Row="1" Header="Unknown Vector 2">
-                                <composite:Vector4View DataContext="{Binding UnkVector2}"/>
+                                <composite:Vector4View DataContext="{Binding LeftoverVector2}"/>
                             </controls1:GroupBox>
                             <UniformGrid Grid.Row="2" Columns="1">
-                                <controls:LabeledTextBox Text="{Binding CameraHeader, StringFormat={}{0:X}}" HorizontalAlignment="Stretch" TextBoxName="Camera Header"></controls:LabeledTextBox>
-                                <controls:LabeledTextBox Text="{Binding UnkShort}" HorizontalAlignment="Stretch" TextBoxName="Unknown Short"></controls:LabeledTextBox>
-                                <controls:LabeledTextBox Text="{Binding UnkFloat1}" HorizontalAlignment="Stretch" TextBoxName="Unknown Float 1"></controls:LabeledTextBox>
-                                <controls:LabeledTextBox Text="{Binding UnkFloat2}" HorizontalAlignment="Stretch" TextBoxName="Unknown Float 2"></controls:LabeledTextBox>
-                                <controls:LabeledTextBox Text="{Binding UnkFloat3}" HorizontalAlignment="Stretch" TextBoxName="Unknown Float 3"></controls:LabeledTextBox>
-                                <controls:LabeledTextBox Text="{Binding UnkFloat4}" HorizontalAlignment="Stretch" TextBoxName="Unknown Float 4"></controls:LabeledTextBox>
-                                <controls:LabeledTextBox Text="{Binding UnkFloat5}" HorizontalAlignment="Stretch" TextBoxName="Unknown Float 5"></controls:LabeledTextBox>
-                                <controls:LabeledTextBox Text="{Binding UnkFloat6}" HorizontalAlignment="Stretch" TextBoxName="Unknown Float 6"></controls:LabeledTextBox>
-                                <controls:LabeledTextBox Text="{Binding UnkFloat7}" HorizontalAlignment="Stretch" TextBoxName="Unknown Float 7"></controls:LabeledTextBox>
-                                <controls:LabeledTextBox Text="{Binding UnkFloat8}" HorizontalAlignment="Stretch" TextBoxName="Unknown Float 8"></controls:LabeledTextBox>
-                                <controls:LabeledTextBox Text="{Binding UnkInt1}" HorizontalAlignment="Stretch" TextBoxName="Unknown Integer 1"></controls:LabeledTextBox>
-                                <controls:LabeledTextBox Text="{Binding UnkInt2}" HorizontalAlignment="Stretch" TextBoxName="Unknown Integer 2"></controls:LabeledTextBox>
-                                <controls:LabeledTextBox Text="{Binding UnkInt3}" HorizontalAlignment="Stretch" TextBoxName="Unknown Integer 3"></controls:LabeledTextBox>
-                                <controls:LabeledTextBox Text="{Binding UnkInt4}" HorizontalAlignment="Stretch" TextBoxName="Unknown Integer 4"></controls:LabeledTextBox>
-                                <controls:LabeledTextBox Text="{Binding UnkInt5}" HorizontalAlignment="Stretch" TextBoxName="Unknown Integer 5"></controls:LabeledTextBox>
-                                <controls:LabeledTextBox Text="{Binding UnkInt6}" HorizontalAlignment="Stretch" TextBoxName="Unknown Integer 6"></controls:LabeledTextBox>
-                                <controls:LabeledTextBox Text="{Binding UnkInt7}" HorizontalAlignment="Stretch" TextBoxName="Unknown Integer 7"></controls:LabeledTextBox>
-                                <controls:LabeledTextBox Text="{Binding UnkInt8}" HorizontalAlignment="Stretch" TextBoxName="Unknown Integer 8"></controls:LabeledTextBox>
-                                <controls:LabeledTextBox Text="{Binding UnkByte}" HorizontalAlignment="Stretch" TextBoxName="Unknown Byte"></controls:LabeledTextBox>
+                                <controls:LabeledTextBox Text="{Binding Flags, StringFormat={}{0:X}}" HorizontalAlignment="Stretch" TextBoxName="Camera Header"></controls:LabeledTextBox>
+                                <controls:LabeledTextBox Text="{Binding Switches}" HorizontalAlignment="Stretch" TextBoxName="Unknown Short"></controls:LabeledTextBox>
+                                <controls:LabeledTextBox Text="{Binding BlendTime}" HorizontalAlignment="Stretch" TextBoxName="Unknown Float 1"></controls:LabeledTextBox>
+                                <controls:LabeledTextBox Text="{Binding LeftoverFloat1}" HorizontalAlignment="Stretch" TextBoxName="Unknown Float 2"></controls:LabeledTextBox>
+                                <controls:LabeledTextBox Text="{Binding LeftoverFloat2}" HorizontalAlignment="Stretch" TextBoxName="Unknown Float 3"></controls:LabeledTextBox>
+                                <controls:LabeledTextBox Text="{Binding DistanceStart}" HorizontalAlignment="Stretch" TextBoxName="Unknown Float 4"></controls:LabeledTextBox>
+                                <controls:LabeledTextBox Text="{Binding DistanceEnd}" HorizontalAlignment="Stretch" TextBoxName="Unknown Float 5"></controls:LabeledTextBox>
+                                <controls:LabeledTextBox Text="{Binding Camera2Value}" HorizontalAlignment="Stretch" TextBoxName="Unknown Float 6"></controls:LabeledTextBox>
+                                <controls:LabeledTextBox Text="{Binding Camera1Value}" HorizontalAlignment="Stretch" TextBoxName="Unknown Float 7"></controls:LabeledTextBox>
+                                <controls:LabeledTextBox Text="{Binding BlendInDistance}" HorizontalAlignment="Stretch" TextBoxName="Unknown Float 8"></controls:LabeledTextBox>
+                                <controls:LabeledTextBox Text="{Binding FovStart}" HorizontalAlignment="Stretch" TextBoxName="Unknown Integer 1"></controls:LabeledTextBox>
+                                <controls:LabeledTextBox Text="{Binding FovEnd}" HorizontalAlignment="Stretch" TextBoxName="Unknown Integer 2"></controls:LabeledTextBox>
+                                <controls:LabeledTextBox Text="{Binding PitchStart}" HorizontalAlignment="Stretch" TextBoxName="Unknown Integer 3"></controls:LabeledTextBox>
+                                <controls:LabeledTextBox Text="{Binding PitchEnd}" HorizontalAlignment="Stretch" TextBoxName="Unknown Integer 4"></controls:LabeledTextBox>
+                                <controls:LabeledTextBox Text="{Binding YawStart}" HorizontalAlignment="Stretch" TextBoxName="Unknown Integer 5"></controls:LabeledTextBox>
+                                <controls:LabeledTextBox Text="{Binding YawEnd}" HorizontalAlignment="Stretch" TextBoxName="Unknown Integer 6"></controls:LabeledTextBox>
+                                <controls:LabeledTextBox Text="{Binding YawExtra}" HorizontalAlignment="Stretch" TextBoxName="Unknown Integer 7"></controls:LabeledTextBox>
+                                <controls:LabeledTextBox Text="{Binding BlendInYaw}" HorizontalAlignment="Stretch" TextBoxName="Unknown Integer 8"></controls:LabeledTextBox>
+                                <controls:LabeledTextBox Text="{Binding Group}" HorizontalAlignment="Stretch" TextBoxName="Unknown Byte"></controls:LabeledTextBox>
                             </UniformGrid>
                         </Grid>
                     <!-- </ScrollViewer> -->

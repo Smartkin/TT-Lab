@@ -18,6 +18,9 @@ public partial class DocumentModelView : DocumentBaseView<DocumentModelViewModel
         InitializeComponent();
     }
 
+    // The constructors' flyout and the scroll requests are bound from the view model
+    protected override bool RebindsOnRecycle => true;
+
     protected override void HandleActivation(CompositeDisposable disposables)
     {
         this.OneWayBind(ViewModel, viewModel => viewModel.Nodes,

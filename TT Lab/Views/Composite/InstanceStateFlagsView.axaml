@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -17,9 +17,9 @@
                     <controls:LabeledCheckBox LayoutOrientation="Horizontal" Checked="{Binding Visible}" Margin="0,0,0,0" CheckBoxName="Visible"/>
                     <controls:LabeledCheckBox LayoutOrientation="Horizontal" Checked="{Binding ShadowActive}" Margin="0,0,0,0" CheckBoxName="Shadows Active"/>
                     <controls:LabeledCheckBox LayoutOrientation="Horizontal" Checked="{Binding PlayableCharacterCanMoveAlong}" Margin="0,0,0,0" CheckBoxName="Playable character can move along"/>
-                    <controls:LabeledCheckBox LayoutOrientation="Horizontal" Checked="{Binding Unknown3}" Margin="0,0,0,0" CheckBoxName="Unknown 3"/>
-                    <controls:LabeledCheckBox LayoutOrientation="Horizontal" Checked="{Binding SyncCrossChunkState}" Margin="0,0,0,0" CheckBoxName="Sync state across loaded chunks"/>
-                    <controls:LabeledCheckBox LayoutOrientation="Horizontal" Checked="{Binding Unknown5}" Margin="0,0,0,0" CheckBoxName="Unknown 5"/>
+                    <controls:LabeledCheckBox LayoutOrientation="Horizontal" Checked="{Binding TracksMovement}" Margin="0,0,0,0" CheckBoxName="Tracks movement (what stands on it moves along)"/>
+                    <controls:LabeledCheckBox LayoutOrientation="Horizontal" Checked="{Binding SyncCrossChunkState}" Margin="0,0,0,0" CheckBoxName="Has a persistent flag"/>
+                    <controls:LabeledCheckBox LayoutOrientation="Horizontal" Checked="{Binding PersistentFlagInChunkStore}" Margin="0,0,0,0" CheckBoxName="Persistent flag in the chunk's own store"/>
                     <controls:LabeledCheckBox LayoutOrientation="Horizontal" Checked="{Binding ReceiveOnTriggerSignals}" Margin="0,0,0,0" CheckBoxName="Receive OnTrigger signals"/>
                     <controls:LabeledCheckBox LayoutOrientation="Horizontal" Checked="{Binding CanDamageCharacter}" Margin="0,0,0,0" CheckBoxName="Can damage character"/>
                     <controls:LabeledCheckBox LayoutOrientation="Horizontal" Checked="{Binding SolidToBodySlam}" Margin="0,0,0,0" CheckBoxName="Solid to body slam"/>
@@ -30,7 +30,7 @@
                     <controls:LabeledCheckBox LayoutOrientation="Horizontal" Checked="{Binding Targettable}" Margin="0,0,0,0" CheckBoxName="Targetable"/>
                     <controls:LabeledCheckBox LayoutOrientation="Horizontal" Checked="{Binding CanAlwaysDamageCharacter}" Margin="0,0,0,0" CheckBoxName="Can always damage character?"/>
                     <controls:LabeledCheckBox LayoutOrientation="Horizontal" Checked="{Binding BulletsWillBounceBack}" Margin="0,0,0,0" CheckBoxName="Bullets will bounce back"/>
-                    <controls:LabeledCheckBox LayoutOrientation="Horizontal" Checked="{Binding Unknown13}" Margin="0,0,0,0" CheckBoxName="Unknown 13"/>
+                    <controls:LabeledCheckBox LayoutOrientation="Horizontal" Checked="{Binding SnapToGround}" Margin="0,0,0,0" CheckBoxName="Snap to the ground when created"/>
                     <controls:LabeledCheckBox LayoutOrientation="Horizontal" Checked="{Binding Unknown14}" Margin="0,0,0,0" CheckBoxName="Unknown 14"/>
                     <controls:LabeledCheckBox LayoutOrientation="Horizontal" Checked="{Binding Unknown15}" Margin="0,0,0,0" CheckBoxName="Unknown 15"/>
                     <controls:LabeledCheckBox LayoutOrientation="Horizontal" Checked="{Binding Unknown16}" Margin="0,0,0,0" CheckBoxName="Unknown 16"/>

@@ -52,13 +52,13 @@ public class AgentLabGrammarTests
     {
         var tokens = Tokenize(
             "   state State_0() {",
-            "      if Else(0) >= 0.5 {",
+            "      if Else(0) > 0.5 {",
             "         AUnknown_122(0x03FBF6FC, -1.5, \"text\");",
             "         execute State_1;");
 
         Assert.Contains(("if", "keyword.control.agentlab"), tokens);
         Assert.Contains(("execute", "keyword.control.agentlab"), tokens);
-        Assert.Contains((">=", "keyword.operator.agentlab"), tokens);
+        Assert.Contains((">", "keyword.operator.agentlab"), tokens);
         Assert.Contains(("0.5", "constant.numeric.agentlab"), tokens);
         Assert.Contains(("-1.5", "constant.numeric.agentlab"), tokens);
         Assert.Contains(tokens, token => token.Text == "0x03FBF6FC" && token.Scope.StartsWith("constant.numeric"));

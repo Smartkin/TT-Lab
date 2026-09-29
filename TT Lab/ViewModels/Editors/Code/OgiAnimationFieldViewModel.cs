@@ -53,10 +53,14 @@ public partial class OgiAnimationFieldViewModel : DocumentDataViewModel<UInt16>
         this.WhenAnyValue(x => x.SelectedAnimation)
             .Skip(1)
             .WhereNotNull()
-            .Where(animation => animation.Id != CurrentValue)
+            .Where(animation => !_isShowing && animation.Id != CurrentValue)
             .Subscribe(animation => SetCurrentValue(animation.Id))
             .DisposeWith(disposables);
     }
+
+    // Set while the choices and the selection show the value: the combo box handed its old selection back as the list changed, which
+    // became the value again, and the two went back and forth until the stack ran out
+    private bool _isShowing;
 
     protected override void OnCurrentValueChanged()
     {
@@ -84,8 +88,21 @@ public partial class OgiAnimationFieldViewModel : DocumentDataViewModel<UInt16>
             choices.Add(current);
         }
 
-        Animations = choices;
-        SelectedAnimation = current;
+        _isShowing = true;
+        try
+        {
+            if (!choices.SequenceEqual(Animations))
+            {
+                Animations = choices;
+            }
+
+            SelectedAnimation = current;
+        }
+        finally
+        {
+            _isShowing = false;
+        }
+
         this.RaisePropertyChanged(nameof(CanChooseAnimation));
     }
 }

@@ -22,7 +22,7 @@ public class TriggerViewModel : ViewportEditableInstanceViewModel
     private Enums.TriggerActivatorObjects _objActivatorMask;
     private BindableCollection<PrimitiveWrapperViewModel<LabURI>> _instances = new();
     private UInt32 _header;
-    private Single _unkFloat;
+    private Single _checkInterval;
     private Enums.Layouts _layId;
     private UInt16 _triggerMessage1;
     private UInt16 _triggerMessage2;
@@ -65,7 +65,7 @@ public class TriggerViewModel : ViewportEditableInstanceViewModel
     {
         data.ObjectActivatorMask = ObjectActivatorMask;
         data.Header = Header;
-        data.UnkFloat = UnkFloat;
+        data.CheckInterval = CheckInterval;
         var newScale = new Vector3();
         Scale.Save(newScale);
         var quat = Quaternion.CreateFromYawPitchRoll(Rotation.X, Rotation.Y, Rotation.Z);
@@ -95,7 +95,7 @@ public class TriggerViewModel : ViewportEditableInstanceViewModel
         DirtyTracker.AddChild(Rotation);
         DirtyTracker.AddChild(Scale);
         _header = data.Header;
-        _unkFloat = data.UnkFloat;
+        _checkInterval = data.CheckInterval;
         _triggerMessage1 = data.TriggerMessage1;
         _triggerMessage2 = data.TriggerMessage2;
         _triggerMessage3 = data.TriggerMessage3;
@@ -405,14 +405,14 @@ public class TriggerViewModel : ViewportEditableInstanceViewModel
     }
 
     [MarkDirty]
-    public Single UnkFloat
+    public Single CheckInterval
     {
-        get => _unkFloat;
+        get => _checkInterval;
         set
         {
-            if (value != _unkFloat)
+            if (value != _checkInterval)
             {
-                _unkFloat = value;
+                _checkInterval = value;
                     
                 NotifyOfPropertyChange();
             }

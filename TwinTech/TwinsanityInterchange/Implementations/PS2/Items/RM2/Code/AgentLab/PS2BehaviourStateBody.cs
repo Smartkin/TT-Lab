@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -17,9 +17,10 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
         public UInt32 Bitfield { get; set; }
         public Boolean HasStateJump { get; set; }
         public Int32 JumpToState { get; set; }
-        public bool Unknown { get; set; }
+        public Boolean RestartsState { get; set; }
         public TwinBehaviourCondition Condition { get; set; }
         public List<ITwinBehaviourCommand> Commands { get; set; }
+        public Boolean IsCompletionBody { get; set; }
 
         bool ITwinBehaviourStateBody.HasNext { get; set; }
 
@@ -43,19 +44,32 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
             return;
         }
 
+        /// <summary>
+        /// Whether the body decompiles to a completion block, which compiles back to the always passing condition
+        /// </summary>
+        public Boolean IsPlainCompletion => IsCompletionBody && (Condition == null || Condition.IsPlainNext);
+
         public void Decompile(IResolver resolver, StreamWriter writer, int tabs = 0)
         {
-            if (Condition == null)
+            if (IsPlainCompletion)
             {
-                StringUtils.WriteLineTabulated(writer, "if Else(0) >= 0.5 {", tabs);
-                StringUtils.WriteLineTabulated(writer, "interval = 1.0;", tabs + 1);
-                StringUtils.WriteLineTabulated(writer, "unknown = false;", tabs + 1);
+                StringUtils.WriteLineTabulated(writer, "completion {", tabs);
+                Condition?.DecompileValues(writer, tabs + 1, true);
+            }
+            else if (Condition == null)
+            {
+                // Only bodies made by hand lack a condition, the game's all have one
+                StringUtils.WriteLineTabulated(writer, "else {", tabs);
             }
             else
             {
                 Condition.Decompile(resolver, writer, tabs);
             }
-            StringUtils.WriteLineTabulated(writer, $"unknown = {Unknown.ToString().ToLower()};", tabs + 1);
+
+            if (RestartsState)
+            {
+                StringUtils.WriteLineTabulated(writer, "restart = true;", tabs + 1);
+            }
 
             tabs += 1;
             foreach (var cmd in Commands)
@@ -77,10 +91,9 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
             Bitfield = reader.ReadUInt32();
             var hasStateJump = (Bitfield & 0x400) != 0;
             var hasCondition = (Bitfield & 0x200) != 0;
-            var hasTraceEnabled = (Bitfield & 0x100) != 0; // Unused in retail
             var commandsAmt = Bitfield & 0xFF;
             HasStateJump = hasStateJump;
-            Unknown = hasTraceEnabled;
+            RestartsState = (Bitfield & 0x100) != 0;
             if (HasStateJump)
             {
                 JumpToState = reader.ReadInt32();
@@ -115,7 +128,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
             {
                 newBitfield |= 0x200;
             }
-            if (Unknown)
+            if (RestartsState)
             {
                 newBitfield |= 0x100;
             }
@@ -141,6 +154,10 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
             {
                 StringUtils.WriteLineTabulated(writer, $"next_state = {JumpToState}", tabs + 1);
             }
+            if (RestartsState)
+            {
+                StringUtils.WriteLineTabulated(writer, "restarts_state", tabs + 1);
+            }
             Condition?.WriteText(writer, tabs + 1);
             foreach (var cmd in Commands)
             {
@@ -165,6 +182,10 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
                 {
                     JumpToState = int.Parse(StringUtils.GetStringAfter(line, "="));
                     HasStateJump = true;
+                }
+                else if (line.StartsWith("restarts_state"))
+                {
+                    RestartsState = true;
                 }
                 else if (line.StartsWith("Condition"))
                 {

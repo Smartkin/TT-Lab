@@ -28,8 +28,11 @@ public struct DynamicModelAnimationSample
 [ReferencesAssets]
 public class DynamicSceneryModelData
 {
-    [System.Text.Json.Serialization.JsonConverter(typeof(JsonListConverter<TwinBoundingBoxBuilder>))]
-    public List<TwinBoundingBoxBuilder> BoundingBoxBuilders { get; set; }
+    /// <summary>
+    /// The convex hulls the game collides the model with, in its space
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public List<TwinCollisionHull> CollisionHulls { get; set; }
     
     [System.Text.Json.Serialization.JsonIgnore]
     public Int32 AnimatedFrames { get; set; }
@@ -48,7 +51,7 @@ public class DynamicSceneryModelData
 
     public DynamicSceneryModelData()
     {
-        BoundingBoxBuilders = new List<TwinBoundingBoxBuilder>();
+        CollisionHulls = [];
         Animation = new TwinDynamicSceneryAnimation();
         Mesh = LabURI.Empty;
         BoundingBox = [new Vector4(0, 0, 0, 1), new Vector4(10, 10, 10, 1)];
@@ -56,7 +59,7 @@ public class DynamicSceneryModelData
 
     public DynamicSceneryModelData(IAsset owner, TwinDynamicSceneryModel model)
     {
-        BoundingBoxBuilders = CloneUtils.DeepClone(model.BoundingBoxBuilders);
+        CollisionHulls = CloneUtils.DeepClone(model.CollisionHulls);
         AnimatedFrames = model.AnimatedFrames;
         Animation = CloneUtils.DeepClone(model.Animation);
         LodFlag = model.LodFlag;
@@ -80,18 +83,13 @@ public class DynamicSceneryModelData
             ["Order"] = order,
             ["LodFlag"] = (Int32)LodFlag,
             ["BoundingBoxMin"] = TlmJson.ToJson(BoundingBox[0]),
-            ["BoundingBoxMax"] = TlmJson.ToJson(BoundingBox[1]),
-            ["Collisions"] = new JsonArray(BoundingBoxBuilders.Select(builder => (JsonNode)new JsonObject
-            {
-                ["Points"] = TlmJson.ToJson(builder.BoundingBoxPoints.SelectMany(v => new[] { v.X, v.Y, v.Z, v.W })),
-                ["UnkVectors1"] = TlmJson.ToJson(builder.UnkVectors1.SelectMany(v => new[] { v.X, v.Y, v.Z, v.W })),
-                ["UnkVectors2"] = TlmJson.ToJson(builder.UnkVectors2.SelectMany(v => new[] { v.X, v.Y, v.Z, v.W })),
-                ["UnkVectors3"] = TlmJson.ToJson(builder.UnkVectors3.SelectMany(v => new[] { v.X, v.Y, v.Z, v.W })),
-                ["UnkShorts"] = TlmJson.ToJson(builder.UnkShorts.Select(v => (Int32)v)),
-                ["UnkBytes1"] = TlmJson.ToJson(builder.UnkBytes1.Select(v => (Int32)v)),
-                ["UnkBytes2"] = TlmJson.ToJson(builder.UnkBytes2.Select(v => (Int32)v))
-            }).ToArray())
+            ["BoundingBoxMax"] = TlmJson.ToJson(BoundingBox[1])
         });
+        for (var i = 0; i < CollisionHulls.Count; i++)
+        {
+            node.AddChild(TlmHulls.Write(file, CollisionHulls[i], $"Hull {i}"));
+        }
+
         var assetManager = AssetManager.Get();
         if (Mesh != LabURI.Empty && assetManager.DoesAssetExist(Mesh))
         {
@@ -131,16 +129,7 @@ public class DynamicSceneryModelData
         {
             LodFlag = (Byte)data.GetInt("LodFlag"),
             BoundingBox = [data.GetVector4("BoundingBoxMin", new Vector4(0, 0, 0, 1)), data.GetVector4("BoundingBoxMax", new Vector4(10, 10, 10, 1))],
-            BoundingBoxBuilders = data.GetIndexed("Collisions").Select(collision => new TwinBoundingBoxBuilder
-            {
-                BoundingBoxPoints = ToVectors(collision.GetFloats("Points")),
-                UnkVectors1 = ToVectors(collision.GetFloats("UnkVectors1")),
-                UnkVectors2 = ToVectors(collision.GetFloats("UnkVectors2")),
-                UnkVectors3 = ToVectors(collision.GetFloats("UnkVectors3")),
-                UnkShorts = collision.GetInts("UnkShorts").Select(v => (UInt16)v).ToList(),
-                UnkBytes1 = collision.GetInts("UnkBytes1").Select(v => (Byte)v).ToList(),
-                UnkBytes2 = collision.GetInts("UnkBytes2").Select(v => (Byte)v).ToList()
-            }).ToList()
+            CollisionHulls = node.Children.Where(child => child.Kind == TlmHulls.Kind).Select(child => TlmHulls.Read(file, child.Json)).ToList()
         };
 
         if (node.Json["animation"] is not JsonObject animation)
@@ -225,8 +214,8 @@ public class DynamicSceneryModelData
         Animation = new TwinDynamicSceneryAnimation();
         var settings = new DynamicModelSettings
         {
-            UnknownValue = 22,
-            UnusedRotationRelatedParameter = 7,
+            LeftoverByte = 22,
+            ChannelCount = 7,
             StaticTransformationIndex = 0,
             AnimationTransformationIndex = 0
         };
@@ -263,11 +252,11 @@ public class DynamicSceneryModelData
 
     public void Write(BinaryWriter writer)
     {
-        writer.Write(8); // Dynamic scenery model header
-        writer.Write(BoundingBoxBuilders.Count);
-        foreach (var bbBuilder in BoundingBoxBuilders)
+        writer.Write(TwinDynamicSceneryModel.GameLeftover);
+        writer.Write(CollisionHulls.Count);
+        foreach (var hull in CollisionHulls)
         {
-            bbBuilder.Write(writer);
+            hull.Write(writer);
         }
         writer.Write(AnimatedFrames);
         Animation.Write(writer);

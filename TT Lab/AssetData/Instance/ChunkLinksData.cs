@@ -56,16 +56,28 @@ public class ChunkLinksData : AbstractAssetData
     public override ITwinItem Export(ITwinItemFactory factory)
     {
         var assetManager = AssetManager.Get();
-        using var ms = new MemoryStream();
-        using var writer = new BinaryWriter(ms);
-        writer.Write(Links.Count);
+        // Links to the chunks the build profile leaves out stay in the asset and go out of the file
+        var written = new List<ChunkLink>();
         foreach (var link in Links)
         {
-            writer.Write(link.UnkFlag);
+            factory.LinkedChunks.Add(link.Path);
+            if (factory.ExcludedChunks.Contains(link.Path))
+            {
+                Log.WriteLine($"Dropped the link of {Owner.Name} to {link.Path}, the build profile leaves the chunk out", Log.LogType.Debug);
+                continue;
+            }
+
+            written.Add(link);
+        }
+
+        using var ms = new MemoryStream();
+        using var writer = new BinaryWriter(ms);
+        writer.Write(written.Count);
+        foreach (var link in written)
+        {
+            writer.Write(link.LoadsWithoutPlayer);
             writer.Write(assetManager.GetAsset<LevelChunk>(link.Path).GetChunkPath().ToLowerInvariant());
-            writer.Write(link.IsAlwaysVisible);
-            writer.Write(link.IsVisibleInCameraFrustum);
-            writer.Write(link.UnkNum);
+            writer.Write((Byte)link.Visibility);
             writer.Write(link.IsLoadWallActive);
             writer.Write(link.KeepLoaded);
             link.ObjectMatrix.Write(writer);
@@ -78,10 +90,10 @@ public class ChunkLinksData : AbstractAssetData
                 link.LoadingWall.Write(writer);
             }
 
-            writer.Write(link.ChunkLinksCollisionData.Count);
-            foreach (var collisionData in link.ChunkLinksCollisionData)
+            writer.Write(link.Hulls.Count);
+            foreach (var hull in link.Hulls)
             {
-                collisionData.Write(writer);
+                hull.ToTwin().Write(writer);
             }
         }
 
@@ -113,9 +125,74 @@ public class ChunkLinksData : AbstractAssetData
             {
                 viewportObjects.Add(loadWall);
             }
+
+            for (var hullIdx = 0; hullIdx < Links[linkIdx].Hulls.Count; hullIdx++)
+            {
+                viewportObjects.Add(CreateHull(viewportContext, property, linksProperty, linkProperty, linkIdx, hullIdx));
+            }
         }
 
         return viewportObjects;
+    }
+
+    // A hull is placed by its placement, the corners around it are what it draws
+    private ViewportObject CreateHull(ViewportContext viewportContext, PropertyNode property, PropertyNode linksProperty, PropertyNode linkProperty, int linkIdx, int hullIdx)
+    {
+        var link = Links[linkIdx];
+        var hull = link.Hulls[hullIdx];
+        var (offset, size) = GetBounds(hull);
+        var editableObject = new EditableObject(viewportContext.RenderContext, null, $"{Owner.FullDataPath}{linkIdx}_HULL_{hullIdx}", offset, size);
+        editableObject.Init();
+        editableObject.SetLocalTransform(hull.Placement.ToGlm());
+        var visual = new LinkHullVisual(viewportContext.RenderContext, editableObject, hull);
+
+        var hullProperty = linkProperty.Find($"{nameof(ChunkLink.Hulls)}[{hullIdx}]")!;
+        var placementProperty = hullProperty.Find(nameof(ChunkLinkHull.Placement))!;
+        var isRebuildNeeded = CreateRebuildCheck(link, linkIdx);
+        var hullCount = link.Hulls.Count;
+        var corners = Corners(hull);
+        return new ViewportObject(editableObject, $"LINK_HULL_{placementProperty.Path}", property)
+        {
+            Transform = placementProperty,
+            Category = ViewportObjectCategory.LinkHulls,
+            InspectorFocus = hullProperty,
+            DuplicatedElement = hullProperty,
+            RenderDependencies = [linksProperty],
+            Refresh = () =>
+            {
+                if (isRebuildNeeded() || link.Hulls.Count != hullCount || link.Hulls[hullIdx] != hull)
+                {
+                    return false;
+                }
+
+                var current = Corners(hull);
+                if (!current.SequenceEqual(corners))
+                {
+                    corners = current;
+                    visual.SetShape(hull);
+                    (editableObject.Offset, editableObject.Size) = GetBounds(hull);
+                }
+
+                return true;
+            },
+        };
+    }
+
+    private static (vec3 Offset, vec3 Size) GetBounds(ChunkLinkHull hull)
+    {
+        if (hull.Vertexes.Count == 0)
+        {
+            return (-vec3.Ones, vec3.Ones * 2.0f);
+        }
+
+        var min = new vec3(hull.Vertexes.Min(v => v.X), hull.Vertexes.Min(v => v.Y), hull.Vertexes.Min(v => v.Z));
+        var max = new vec3(hull.Vertexes.Max(v => v.X), hull.Vertexes.Max(v => v.Y), hull.Vertexes.Max(v => v.Z));
+        return (min, vec3.Max(max - min, new vec3(0.01f)));
+    }
+
+    private static List<(float, float, float)> Corners(ChunkLinkHull hull)
+    {
+        return hull.Vertexes.Select(vertex => (vertex.X, vertex.Y, vertex.Z)).Concat(hull.Faces.Select(face => ((float)face.Count, 0f, 0f))).ToList();
     }
 
     private ViewportObject? CreateLinkedScenery(ViewportContext viewportContext, PropertyNode property, PropertyNode linksProperty, PropertyNode linkProperty, int linkIdx)
@@ -219,6 +296,6 @@ public class ChunkLinksData : AbstractAssetData
 
     private static bool IsLinkedSceneryShown(ChunkLink link)
     {
-        return link.IsAlwaysVisible || link.IsVisibleInCameraFrustum;
+        return link.Visibility != ChunkLinkVisibility.Hidden;
     }
 }

@@ -1,17 +1,20 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reactive;
 using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 using Dock.Model.ReactiveUI.Controls;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
 using Splat;
 using TT_Lab.AssetData;
 using TT_Lab.Assets;
+using TT_Lab.Assets.Instance;
 using TT_Lab.ServiceProviders;
 using TT_Lab.Util;
 using TT_Lab.ViewModels.Editors;
@@ -65,26 +68,36 @@ public abstract partial class TabbedEditorViewModel : Document
 
         _creationTask = RxSchedulers.TaskpoolScheduler.Schedule(this, (_, state) =>
         {
-            if (HasViewport)
+            try
             {
-                Viewport = new ViewportViewModel();
+                if (HasViewport)
+                {
+                    Viewport = new ViewportViewModel();
+                }
+
+                _asset.GetData<AbstractAssetData>(); // Load in the asset data
+                Document = new DocumentViewModel(_asset, Viewport);
+
+                Document.Initialize();
+
+                if (HasViewport)
+                {
+                    Viewport!.Init(Document);
+                }
+
+                Title = _asset.Name;
+                this.WhenAnyValue(x => x.Document!.IsDirty).Subscribe(x => ChangeDisplayName());
+
+                IsLoaded = true;
             }
-            
-            _asset.GetData<AbstractAssetData>(); // Load in the asset data
-            Document = new DocumentViewModel(_asset, Viewport);
-        
-            Document.Initialize();
-            
-            if (HasViewport)
+            catch (Exception ex)
             {
-                Viewport!.Init(Document);
+                // Nothing observes the task, the tab stayed loading for good
+                Log.WriteLine($"{_asset.Name} couldn't be opened: {ex.Message}", Log.LogType.Error);
+                Document = null;
+                Dispatcher.UIThread.Post(RequestClose);
             }
 
-            Title = _asset.Name;
-            this.WhenAnyValue(x => x.Document!.IsDirty).Subscribe(x => ChangeDisplayName());
-
-            IsLoaded = true;
-            
             return Disposable.Empty;
         });
     }
@@ -146,10 +159,26 @@ public abstract partial class TabbedEditorViewModel : Document
         if (_asset is LevelChunk chunk)
         {
             TwinIdGeneratorServiceProvider.DeregisterGeneratorServiceForChunk(chunk.AdditionalPath!);
+            ForgetUnplacedInstances(chunk);
         }
         
         Viewport?.Close();
         _creationTask.Dispose();
+    }
+
+    // Instances made for the chunk (placed, copied, from prefabs) that it doesn't list once it's closed, their placing undone or the
+    // chunk closed without saving, never got files: they'd stay in the project tree without anything to open
+    private static void ForgetUnplacedInstances(LevelChunk chunk)
+    {
+        var listed = chunk.ChunkResources.ToHashSet();
+        var unplaced = AssetManager.Get().GetAssets()
+            .OfType<SerializableInstance>()
+            .Where(asset => asset.IsUnsaved && asset.Package == chunk.Package && asset.Chunk == chunk.AdditionalPath && !listed.Contains(asset.URI))
+            .ToList();
+        foreach (var asset in unplaced)
+        {
+            AssetDeletion.ForgetUnsaved(asset);
+        }
     }
     
     public IEnumerable<LabURI> GetReferencedAssets()

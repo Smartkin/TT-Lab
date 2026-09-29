@@ -29,7 +29,7 @@ public record DocumentMetadata : EditorMetadata
         
         var editableProps = new List<PropertyMetadata>();
 
-        foreach (var property in type.GetProperties())
+        foreach (var property in InDeclarationOrder(type.GetProperties()))
         {
             var editableAttribute = property.GetCustomAttribute<EditableAttribute>();
             if (editableAttribute == null && !searchAllAttributes)
@@ -89,15 +89,17 @@ public record DocumentMetadata : EditorMetadata
                 }
                 
                 var metadata = DocumentMetadataCache.Get(property.PropertyType, true);
+                var foreign = ForeignPropertyAttributes.Of(property);
+                var foreignEditable = foreign.OfType<EditableAttribute>().FirstOrDefault();
                 editableProps.Add(new PropertyMetadata
                 {
                     PropertyInfo = property,
                     ContainedTypeConstructor = containedTypeConstructor,
-                    EditorDescType = metadata.EditorDescType,
-                    Editable = metadata.Editable,
+                    EditorDescType = foreignEditable?.EditorDescType ?? metadata.EditorDescType,
+                    Editable = foreignEditable ?? metadata.Editable,
                     EditorParams = metadata.EditorParams,
-                    EditorParamWrappers = metadata.EditorParamWrappers,
-                    FieldReactors = metadata.FieldReactors
+                    EditorParamWrappers = [..metadata.EditorParamWrappers, ..foreign.OfType<EditorParamWrapperBaseAttribute>()],
+                    FieldReactors = foreign.Count == 0 ? metadata.FieldReactors : Merge(metadata.FieldReactors, GetFieldReactors(foreign.OfType<EditorLinkedFieldAttribute>()))
                 });
             }
             else
@@ -126,9 +128,48 @@ public record DocumentMetadata : EditorMetadata
         Properties = editableProps.ToArray();
     }
     
+    // Reflection gives properties in no promised order: the inspector lays them out as they're declared, a base class's before its
+    // subclasses'
+    private static IEnumerable<PropertyInfo> InDeclarationOrder(IEnumerable<PropertyInfo> properties)
+    {
+        return properties.OrderBy(property => InheritanceDepth(property.DeclaringType)).ThenBy(property => property.MetadataToken);
+    }
+
+    private static int InheritanceDepth(Type? type)
+    {
+        var depth = 0;
+        for (var current = type?.BaseType; current != null; current = current.BaseType)
+        {
+            depth++;
+        }
+
+        return depth;
+    }
+
     private static Dictionary<string, List<IFieldChange>> GetFieldReactors(MemberInfo provider)
     {
-        var links = provider.GetCustomAttributes<EditorLinkedFieldAttribute>();
+        return GetFieldReactors(provider.GetCustomAttributes<EditorLinkedFieldAttribute>());
+    }
+
+    private static Dictionary<string, List<IFieldChange>> Merge(Dictionary<string, List<IFieldChange>> first, Dictionary<string, List<IFieldChange>> second)
+    {
+        var result = first.ToDictionary(pair => pair.Key, pair => pair.Value.ToList());
+        foreach (var (field, reactors) in second)
+        {
+            if (!result.TryGetValue(field, out var list))
+            {
+                list = [];
+                result[field] = list;
+            }
+
+            list.AddRange(reactors);
+        }
+
+        return result;
+    }
+
+    private static Dictionary<string, List<IFieldChange>> GetFieldReactors(IEnumerable<EditorLinkedFieldAttribute> links)
+    {
         var result = new Dictionary<string, List<IFieldChange>>();
         foreach (var link in links)
         {

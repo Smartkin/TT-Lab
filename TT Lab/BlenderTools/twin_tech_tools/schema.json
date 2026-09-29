@@ -7,11 +7,11 @@
   "types": {
     "Scene": {},
     "Object": {
-      "Ogi": ["BoundingBoxMin", "BoundingBoxMax", "Collisions"],
-      "Scenery": ["FogColor", "HasLighting", "UnkByte", "LightOrder"],
+      "Ogi": ["BoundingBoxMin", "BoundingBoxMax"],
+      "Scenery": ["FogColor", "HasLighting", "UnusedByte", "LightOrder"],
       "Skydome": [],
       "Skin": [],
-      "BlendSkin": ["BlendsAmount"],
+      "BlendSkin": [],
       "Body": ["Order"],
       "Model": [],
       "RigidModel": [],
@@ -19,16 +19,17 @@
       "SceneryMesh": ["Order", "Matrix", "BoundingBox"],
       "SceneryLod": ["Order", "Matrix", "LodType", "MinDrawDistance", "MaxDrawDistance", "ModelsDrawDistances", "BoundingBox"],
       "LodMesh": ["Level"],
-      "AmbientLight": ["Order", "Color", "Radius", "PositionW", "UnkData", "UnkVec1", "UnkVec2"],
-      "DirectionalLight": ["Order", "Color", "Radius", "PositionW", "UnkData", "UnkVec1", "UnkVec2", "UnkShort", "Direction"],
-      "PointLight": ["Order", "Color", "Radius", "PositionW", "UnkData", "UnkVec1", "UnkVec2", "UnkShort"],
-      "NegativeLight": ["Order", "Color", "Radius", "PositionW", "UnkData", "UnkVec1", "UnkVec2", "UnkVec3", "UnkFloat1", "UnkFloat2", "UnkUInt1", "UnkUInt2", "UnkUShort1", "UnkUShort2"],
-      "ExitPoint": ["Id", "Matrix"],
+      "AmbientLight": ["Order", "Color", "Intensity", "Enabled", "PositionW", "BoundsMin", "BoundsMax"],
+      "DirectionalLight": ["Order", "Color", "Intensity", "Enabled", "PositionW", "BoundsMin", "BoundsMax", "Leftover", "Direction"],
+      "PointLight": ["Order", "Color", "Intensity", "Enabled", "PositionW", "BoundsMin", "BoundsMax", "AttenuationPower"],
+      "NegativeLight": ["Order", "Color", "Intensity", "Enabled", "PositionW", "BoundsMin", "BoundsMax", "ConeAngle", "FalloffAngle", "AttenuationPower", "SpotExponent", "Direction", "InnerConeCosine", "OuterConeCosine"],
+      "ExitPoint": ["Id"],
+      "CollisionHull": [],
       "DynamicScenery": [],
-      "DynamicSceneryModel": ["Order", "LodFlag", "BoundingBoxMin", "BoundingBoxMax", "Collisions"],
+      "DynamicSceneryModel": ["Order", "LodFlag", "BoundingBoxMin", "BoundingBoxMax"],
       "SkydomeMesh": ["Order"],
       "Collision": ["UnusedVertexes", "UnusedPositions"],
-      "SceneryTreeNode": ["LightsEnabler", "Kind", "Slot", "UnkVec2", "UnkVec3", "UnkVec1", "UnkVec4", "UnkUInt", "SceneryTypes"]
+      "SceneryTreeNode": ["LightsEnabler", "Kind", "Slot", "BoundsMin", "BoundsMax", "BoundsCenter", "BoundsHalfSize", "TreeDepth", "SceneryTypes"]
     },
     "Bone": {
       "Joint": ["Index", "ReactId", "AdditionalAnimationRotation", "ChildrenAmt2", "UnusedRotation", "LocalTranslation", "LocalRotation", "WorldTranslation", "InverseBindMatrix"]
@@ -36,10 +37,7 @@
     "Material": {
       "CollisionSurface": ["Surface"]
     },
-    "Items": {
-      "OgiCollision": ["Joint", "Points", "UnkVectors1", "UnkVectors2", "UnkVectors3", "UnkShorts", "UnkBytes1", "UnkBytes2"],
-      "Collision": ["Points", "UnkVectors1", "UnkVectors2", "UnkVectors3", "UnkShorts", "UnkBytes1", "UnkBytes2"]
-    }
+    "Items": {}
   },
   "fogColors": [
     ["Purple", [128, 0, 128, 255]],

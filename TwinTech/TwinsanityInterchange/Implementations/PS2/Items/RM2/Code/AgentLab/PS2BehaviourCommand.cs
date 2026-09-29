@@ -143,38 +143,52 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
 
         private string ToStringArgument(UInt32 arg, Int32 pos, UInt32 index, AgentLabDefs defs)
         {
-            string type = "hex";
-            string str_index = index.ToString();
-            if (defs.CommandMap.ContainsKey(str_index.ToString()))
+            if (defs.CommandMap.TryGetValue(index.ToString(), out var def) && def.GetFields(pos) is { } fields)
             {
-                List<string> types = defs.CommandMap[str_index].Arguments;
-                if (pos < types.Count)
-                {
-                    type = types[pos].ToLower();
-                }
+                return PackedArgument.Format(arg, fields);
             }
+
+            var type = ArgumentType(pos, index, defs);
+            var tagged = TaggedValue.TypeOfLabType(type);
+            if (tagged != null)
+            {
+                return TaggedValue.Format(arg, tagged.Value);
+            }
+
             return type switch
             {
+                // The lexer reads a negative literal's magnitude as an int, which int.MinValue's doesn't fit
+                "int32" when arg == 0x80000000 => "0x80000000",
                 "int32" => BitConverter.ToInt32(BitConverter.GetBytes(arg), 0).ToString(),
                 "int16" => BitConverter.ToInt16(BitConverter.GetBytes(0xFFFF & arg), 0).ToString(),
                 "uint32" => arg.ToString(),
                 "uint16" => (0xFFFF & arg).ToString(),
                 "byte" => (0xFF & arg).ToString(),
-                "single" => BitConverter.ToSingle(BitConverter.GetBytes(arg), 0).ToString(CultureInfo.InvariantCulture),
+                // NaN, infinities and denormals have no literal, their bits are written in hex which compiles back as they are
+                "single" => TaggedValue.FloatLiteral(BitConverter.UInt32BitsToSingle(arg)) ?? "0x" + arg.ToString("X8"),
                 _ => "0x" + arg.ToString("X8"),
             };
         }
 
+        private static string ArgumentType(Int32 pos, UInt32 index, AgentLabDefs defs)
+        {
+            if (!defs.CommandMap.TryGetValue(index.ToString(), out var def))
+            {
+                return "hex";
+            }
+
+            return pos < def.Arguments.Count ? def.Arguments[pos].ToLower() : "hex";
+        }
+
         private UInt32 ToArgumentString(string arg, Int32 pos, UInt32 index, AgentLabDefs defs)
         {
-            String type = "hex";
-            if (!arg.StartsWith("0x"))
+            var type = arg.StartsWith("0x") ? "hex" : ArgumentType(pos, index, defs);
+            var tagged = TaggedValue.TypeOfLabType(type);
+            if (tagged != null)
             {
-                if (pos < defs.CommandMap[index.ToString()].Arguments.Count)
-                {
-                    type = defs.CommandMap[index.ToString()].Arguments[pos];
-                }
+                return TaggedValue.Parse(arg, tagged.Value);
             }
+
             switch (type)
             {
                 case "int32":

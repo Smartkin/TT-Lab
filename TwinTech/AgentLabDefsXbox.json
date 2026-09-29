@@ -77,14 +77,103 @@
 		"74": "XCycle",
 		"75": "YCycle",
 		"76": "ZCycle", // End officially known and confirmed
+		"77": "GotAgentRef1",
+		"78": "GotAgentRef2",
+		"79": "AgentRef1ActorEquals",
+		"80": "AgentRef2ActorEquals",
+		"81": "HasInstancePosition",
+		"82": "HasFocusPosition",
+		"83": "NodeFlag16",
+		"84": "NodeFlag17",
+		"85": "NodeFlag15",
+		"86": "NodeByte154Fraction",
+		"87": "PhysicsBodyFlag1",
 		"88": "DistanceToTarget",
+		"89": "FocusPositionDistanceSquared",
+		"90": "GroundBelowFocusPosition",
+		"91": "ObjectInstanceByteAt",
 		"92": "InstanceSubtype",
+		"93": "HeadTrackingFlag24",
+		"94": "HeadTrackingFlag25",
+		"95": "HeadTrackingFlag26",
+		"96": "HeadTrackingFlag27",
+		"97": "HeadTrackingFlag28",
+		"102": "SubPathKeyRaw",
+		"103": "SubPathKey",
+		"104": "SubPathKeyDistanceSquared",
+		"105": "PhysicsCount8c",
+		"106": "PhysicsHasContacts",
+		"107": "SubPathPreviousKeyDistanceSquared",
+		"108": "PhysicsHasGround",
+		"109": "CurrentLinkIndex",
+		"110": "HeightAboveStart",
+		"111": "HasPerception0",
+		"112": "HasPerception2",
+		"113": "HasPerception1",
+		"114": "CharacterAnalog",
+		"115": "AlwaysZero",
+		"116": "PhysicsBodyFlag5",
+		"117": "GotUserMessageOnceEquals",
 		"118": "HasXLinks",
+		"119": "PositionX",
+		"120": "PositionY",
+		"121": "PositionZ",
+		"122": "AgentRef1SpawnFlag",
 		"123": "DistanceToTarget_Duplicate",
+		"124": "IsAttached",
+		"125": "PhysicsImpact",
+		"126": "FocusForwardDot",
+		"127": "FocusObjectProp0Equals",
+		"128": "AngleToFocus",
 		"129": "SubtypeOfPercept128_1",
 		"130": "SubtypeOfPercept128_2",
 		"131": "SubtypeOfPercept128_3",
+		"132": "KeyPathOnLastKey",
+		"133": "ContextValue154Set",
+		"134": "KeyPathProgress",
+		"135": "KeyPathByte42",
+		"136": "FocusVisible",
+		"137": "KeyPathNumKeys",
+		"138": "FocusToAgentRef1DistanceSquared",
+		"139": "FocusDistanceFromStartSquared",
+		"140": "AgentRef1HeightDifference",
+		"141": "FocusOffXAxisDistanceSquared",
+		"142": "FocusHorizontalDistanceSquared",
+		"143": "FocusOffForwardAxisDistanceSquared",
+		"144": "AgentRef1OffXAxisDistanceSquared",
+		"145": "AgentRef1HorizontalDistanceSquared",
+		"146": "AgentRef1OffAxisDistanceSquared",
+		"147": "PhysicsTouching",
+		"148": "AgentRef1SideOffset",
+		"149": "AgentRef1Visible",
+		"150": "AgentRef1InViewCone",
+		"151": "FocusFlag10",
+		"152": "IsInPlayerChunk",
+		"153": "HasScriptInSlot",
+		"154": "CurrentKeyIsEven",
+		"155": "FocusFromExitPoint",
+		"156": "VideoStateIs5",
+		"157": "UpVectorX",
+		"158": "IntProp0Bit0",
+		"159": "VideoReady",
+		"160": "NearestPointEdgeDistanceSquared",
+		"161": "FocusIsAgentRef1",
+		"162": "PhysicsHasCollisionNode",
+		"163": "FocusObjectByte0Equals",
+		"164": "FocusObjectByte1Equals",
+		"165": "FocusObjectByte2Equals",
+		"166": "FocusObjectByte3Equals",
+		"167": "SplineDistanceToAgentRef1",
+		"168": "ObstacleAhead",
+		"169": "NodeValue174Count",
+		"170": "IsFullInstanceNode",
+		"171": "NodeByte8cMinusGlobal",
+		"172": "TimeSinceMark",
+		"173": "AlwaysZero173",
+		"174": "Always",
+		"175": "Never",
 		"176": "ChunksLoaded",
+		"177": "FocusInSameChunk",
 		"512": "PlayerHitPoints", // Start officially known and confirmed
 		"513": "Difficulty",
 		"514": "PlayerIsCrouching",
@@ -142,25 +231,85 @@
 		"566": "PlayerIsJumping",
 		"567": "HeadCanSeePlayerUnblocked",
 		"568": "AmIHarmful", // End officially known and confirmed
+		"569": "AttachedContextFlag8",
+		"570": "DUMMY_570",
+		"571": "DUMMY_571",
 		"572": "CutsceneSkipped",
+		"573": "ButtonPressure6",
+		"574": "ButtonPressure7",
+		"575": "ButtonPressure",
+		"576": "ButtonPressure19",
+		"577": "CharacterVehiclePointer",
+		"578": "CharacterFlag23",
 		"579": "IsChargedShot",
 		"580": "IsDownBlast",
+		"581": "GlobalInstanceOp581",
+		"582": "PlayerVisible",
+		"583": "SubPathPointFlag0",
+		"584": "PlayerVisible2",
+		"585": "PlayerVisible3",
+		"586": "CharacterFlag22",
+		"587": "IsPlayer",
+		"588": "ObjectContextFlag17",
 		"589": "HitByPunch",
 		"590": "HitByBodySlam2",
 		"591": "HitBySpinHitbox",
 		"592": "HitByBodySlamHitbox",
+		"593": "CharacterHasVehicle",
 		"594": "IsVehicleRollerbrawl",
+		"595": "VehicleTypeNot2",
 		"596": "IsVehicleHumiliskate",
+		"597": "VehicleTypeNot4",
 		"598": "IsVehicle3",
+		"599": "SubPathPointFlag5",
+		"600": "SubPathPointFlag4",
+		"601": "SubPathPointFlag6",
+		"602": "PathSegmentFlag0",
+		"603": "SubPathPreviousPointFlag5",
+		"604": "SubPathPreviousPointFlag4",
+		"605": "SubPathPreviousPointFlag6",
+		"606": "SubPathPointFlag5b",
+		"607": "SubPathPointFlag4b",
+		"608": "SubPathPointFlag6b",
+		"609": "PlayerVectorLengthDifference",
 		"610": "HitByCortexBolt",
+		"611": "ObjectContextFlag1",
+		"612": "SubPathPointFlag2",
+		"613": "SubPathPreviousPointFlag2",
+		"614": "SubPathPointFlag2b",
+		"615": "SubPathPointFlags56",
+		"616": "FocusPositionToPlayerDistanceSquared",
 		"617": "IsPushingObject",
+		"618": "PlayerSideOffset",
+		"619": "PlayerNearCurrentKey",
+		"620": "PlayerSplineVehicleValue",
+		"621": "CharacterHasHomeChunk",
+		"622": "PlayerFlag57Clear",
 		"623": "HasActorWeight",
+		"624": "GameFlags44Is12",
+		"625": "ObjectContextFlag25",
+		"626": "ObjectContextFlag2",
+		"627": "PlayerVehicle1Value",
+		"628": "BothCharactersFlag14",
+		"629": "GlobalInt3098e8",
+		"630": "NodeValue134Set",
+		"631": "GameControllerField500High",
+		"632": "GameTimer57c",
+		"633": "SecondCharacterGunState",
 		"634": "HasAmmo",
+		"635": "CameraForwardDistance",
+		"636": "ObjectContextFlag19",
+		"637": "GameModeIs5",
+		"638": "ObjectContextFlags3or22",
 		"639": "GlobalProgression",
-		"641": "IsMoviePlaying"
+		"640": "SecondCharacterVehicleValue",
+		"641": "IsMoviePlaying",
+		"642": "PlayerFlag14",
+		"643": "GameStateIs",
+		"644": "TriggeredByOtherCharacter"
 	},
 	"CommandSizes": [
-		"0x0C",
+		"0x00",
 		"0x80",
 		"0x0C",
 		"0x20",
@@ -728,11 +877,11 @@
 		"0x40",
 		"0x0C",
 		"0x0C",
-		"0x00",
+		"0x2C",
 		"0x10",
 		"0x10",
 		"0x10",
-		"0x00",
+		"0x94",
 		"0x18",
 		"0x54",
 		"0x14",
@@ -1186,6 +1335,7 @@
 		"0x00"
 	],
 	"DeletedCommands": [
+		0,
 		6, // SetKeyLoop
 		20, // NowLookUp
 		21, // NowLookDown
@@ -1200,7 +1350,6 @@
 		43, // LaunchAt
 		46, // TriggerFocusAgent
 		58, // TransferFocus
-		70, // ContinueColliderMotion
 		73, // ColliderRecoil
 		107,
 		216,
@@ -1500,10 +1649,7 @@
 		510,
 		511,
 		547, // SpawnPickup
-		568,
-		572,
 		635,
-		646,
 		663,
 		664,
 		665,
@@ -1873,7 +2019,16 @@
 		},
 		"1": {
 			"Name": "AddTrail",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "single", "hex", "tint", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "single", "single", "single", "hex", "int32", "single", "int32", "hex", "single", "single", "single", "single", "single", "single", "single", "int32", "int32", "int32", "hex" ],
+			"ArgumentNames": [ "lifetime", "flags", "flags2", "unused4", "ids1", "ids2", "ids3", "ids4", "ids5", "ids6", "value11", "value12", "value13", "unused14", "value15", "value16", "value17", "unused18", "value19", "scale", "value21", "value22", "value23", "value24", "value25", "posX", "posY", "posZ", "posW" ],
+			"ArgumentFields": {
+				"4": [ { "Name": "idA", "Bit": 0, "Width": 16, "Type": "sint" }, { "Name": "idB", "Bit": 16, "Width": 16, "Type": "sint" } ],
+				"5": [ { "Name": "idA", "Bit": 0, "Width": 16, "Type": "sint" }, { "Name": "idB", "Bit": 16, "Width": 16, "Type": "sint" } ],
+				"6": [ { "Name": "idA", "Bit": 0, "Width": 16, "Type": "sint" }, { "Name": "idB", "Bit": 16, "Width": 16, "Type": "sint" } ],
+				"7": [ { "Name": "idA", "Bit": 0, "Width": 16, "Type": "sint" }, { "Name": "idB", "Bit": 16, "Width": 16, "Type": "sint" } ],
+				"8": [ { "Name": "idA", "Bit": 0, "Width": 16, "Type": "sint" }, { "Name": "idB", "Bit": 16, "Width": 16, "Type": "sint" } ],
+				"9": [ { "Name": "idA", "Bit": 0, "Width": 16, "Type": "sint" }, { "Name": "idB", "Bit": 16, "Width": 16, "Type": "sint" } ]
+			}
 		},
 		"2": {
 			"Name": "ClearTrail",
@@ -1881,11 +2036,19 @@
 		},
 		"3": {
 			"Name": "PositionWarp",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "hex", "single", "single", "single", "single" ],
+			"ArgumentNames": [ "targetAndSpace", "x", "y", "z", "w" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "unused", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "designator", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "space", "Bit": 16, "Width": 2, "Type": "int" }, { "Name": "unused2", "Bit": 18, "Width": 14, "Type": "int" } ]
+			}
 		},
 		"4": {
 			"Name": "SetKey",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "keyAndFlags" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "key", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "rangeStart", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "rangeEnd", "Bit": 16, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 24, "Width": 1, "Type": "int" }, { "Name": "noRepeat", "Bit": 25, "Width": 1, "Type": "bool" }, { "Name": "nearestKey", "Bit": 26, "Width": 1, "Type": "bool" }, { "Name": "random", "Bit": 27, "Width": 1, "Type": "bool" }, { "Name": "lastKey", "Bit": 28, "Width": 1, "Type": "bool" }, { "Name": "unused2", "Bit": 29, "Width": 3, "Type": "int" } ]
+			}
 		},
 		"5": {
 			"Name": "NextKey",
@@ -1901,19 +2064,41 @@
 		},
 		"9": {
 			"Name": "DoAnimation",
-			"Arguments": [ "int32", "single", "int32", "int32", "int32", "int32" ]
+			"Arguments": [ "int32", "tfloat", "tfloat", "tfloat", "single", "int32" ],
+			"ArgumentNames": [ "flags", "blendTime", "speed", "speedRandom", "startPosition", "animSlots" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "slotCount", "Bit": 0, "Width": 4, "Type": "int" }, { "Name": "layer", "Bit": 4, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 12, "Width": 1, "Type": "int" }, { "Name": "blendTimeGiven", "Bit": 13, "Width": 1, "Type": "bool" }, { "Name": "speedGiven", "Bit": 14, "Width": 1, "Type": "bool" }, { "Name": "speedIsDuration", "Bit": 15, "Width": 1, "Type": "bool" }, { "Name": "speedRandomGiven", "Bit": 16, "Width": 1, "Type": "bool" }, { "Name": "startPositionGiven", "Bit": 17, "Width": 1, "Type": "bool" }, { "Name": "unused2", "Bit": 18, "Width": 14, "Type": "int" } ],
+				"5": [ { "Name": "slot1", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "slot2", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "slot3", "Bit": 16, "Width": 8, "Type": "int" }, { "Name": "slot4", "Bit": 24, "Width": 8, "Type": "int" } ]
+			}
 		},
 		"10": {
 			"Name": "DoParticle",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ],
+			"ArgumentNames": [ "systemAndFlags", "flags2", "flags3", "unknown4", "unknown5", "posX", "posY", "posZ", "posW" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "system", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "flags", "Bit": 16, "Width": 16, "Type": "int" } ],
+				"1": [ { "Name": "flag0", "Bit": 0, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 1, "Width": 1, "Type": "bool" }, { "Name": "flag2", "Bit": 2, "Width": 1, "Type": "bool" }, { "Name": "flag3", "Bit": 3, "Width": 1, "Type": "bool" }, { "Name": "unused2", "Bit": 4, "Width": 2, "Type": "int" }, { "Name": "byte0", "Bit": 6, "Width": 8, "Type": "int" }, { "Name": "unused3", "Bit": 14, "Width": 1, "Type": "bool" }, { "Name": "flag15", "Bit": 15, "Width": 1, "Type": "bool" }, { "Name": "flag16", "Bit": 16, "Width": 1, "Type": "bool" }, { "Name": "unused4", "Bit": 17, "Width": 5, "Type": "int" }, { "Name": "byte2", "Bit": 22, "Width": 8, "Type": "int" }, { "Name": "unused5", "Bit": 30, "Width": 2, "Type": "int" } ]
+			}
 		},
 		"11": {
 			"Name": "DoSound",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "tfloat", "single", "single", "single", "int32", "hex", "int32", "int32", "single", "single" ],
+			"ArgumentNames": [ "flags", "soundSlots1", "soundSlots2", "soundSlots3", "soundSlots4", "volume", "unused7", "pitch", "pitchRandom", "volumeRandom", "unknown11", "unknown12", "shakeUnknown1", "shakeUnknown2", "shakeUnknown3" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "slotCount", "Bit": 0, "Width": 4, "Type": "int" }, { "Name": "unused", "Bit": 4, "Width": 4, "Type": "int" }, { "Name": "channel", "Bit": 8, "Width": 3, "Type": "int" }, { "Name": "playMode11", "Bit": 11, "Width": 1, "Type": "bool" }, { "Name": "playMode12", "Bit": 12, "Width": 1, "Type": "bool" }, { "Name": "unused2", "Bit": 13, "Width": 1, "Type": "int" }, { "Name": "pitchRandomGiven", "Bit": 14, "Width": 1, "Type": "bool" }, { "Name": "volumeRandomGiven", "Bit": 15, "Width": 1, "Type": "bool" }, { "Name": "pitchGiven", "Bit": 16, "Width": 1, "Type": "bool" }, { "Name": "volumeGiven", "Bit": 17, "Width": 1, "Type": "bool" }, { "Name": "shakeGiven", "Bit": 18, "Width": 1, "Type": "bool" }, { "Name": "unused3", "Bit": 19, "Width": 4, "Type": "int" }, { "Name": "playMode23", "Bit": 23, "Width": 1, "Type": "bool" }, { "Name": "unused4", "Bit": 24, "Width": 8, "Type": "int" } ],
+				"1": [ { "Name": "slotA", "Bit": 0, "Width": 16, "Type": "sint" }, { "Name": "slotB", "Bit": 16, "Width": 16, "Type": "sint" } ],
+				"2": [ { "Name": "slotA", "Bit": 0, "Width": 16, "Type": "sint" }, { "Name": "slotB", "Bit": 16, "Width": 16, "Type": "sint" } ],
+				"3": [ { "Name": "slotA", "Bit": 0, "Width": 16, "Type": "sint" }, { "Name": "slotB", "Bit": 16, "Width": 16, "Type": "sint" } ],
+				"4": [ { "Name": "slotA", "Bit": 0, "Width": 16, "Type": "sint" }, { "Name": "slotB", "Bit": 16, "Width": 16, "Type": "sint" } ]
+			}
 		},
 		"12": {
 			"Name": "SetWobble",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "hex", "hex", "hex", "single", "single", "single", "hex", "hex", "hex", "single", "single", "single", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "int32", "hex", "hex", "hex", "hex", "hex" ],
+			"ArgumentNames": [ "amplitudeX", "amplitudeY", "amplitudeZ", "rateX", "rateY", "rateZ", "phaseX", "phaseY", "phaseZ", "value10", "value11", "value12", "keyAndObject", "unknown14", "unknown15", "unused16", "unused17", "unknown18", "unknown19", "unknown20", "unknown21", "unknown22", "unknown23", "unknown24", "unknown25", "unknown26", "flags27", "flags28", "unused29", "unused30", "unused31", "unused32", "unknown33", "unknown34" ],
+			"ArgumentFields": {
+				"12": [ { "Name": "key", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "objectId", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
 		},
 		"13": {
 			"Name": "ClearWobble",
@@ -1921,59 +2106,91 @@
 		},
 		"14": {
 			"Name": "NowMoveForwards",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "tfloat" ],
+			"ArgumentNames": [ "distance" ]
 		},
 		"15": {
 			"Name": "NowMoveBackwards",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "tfloat" ],
+			"ArgumentNames": [ "distance" ]
 		},
 		"16": {
 			"Name": "NowStrafeLeft",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "tfloat" ],
+			"ArgumentNames": [ "distance" ]
 		},
 		"17": {
 			"Name": "NowStrafeRight",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "tfloat" ],
+			"ArgumentNames": [ "distance" ]
 		},
 		"18": {
 			"Name": "NowTurnLeft",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "tfloat" ],
+			"ArgumentNames": [ "angleValue" ]
 		},
 		"19": {
 			"Name": "NowTurnRight",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "tfloat" ],
+			"ArgumentNames": [ "angleValue" ]
 		},
 		"23": {
 			"Name": "NowRotateJoint",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "tangle" ],
+			"ArgumentNames": [ "value1" ]
 		},
 		"24": {
 			"Name": "PositionJoint",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "tfloat" ],
+			"ArgumentNames": [ "value1" ]
 		},
 		"27": {
 			"Name": "StoreCurrentSpace",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "targetAndSpace" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "key", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "designator", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "space", "Bit": 16, "Width": 4, "Type": "int" }, { "Name": "unused", "Bit": 20, "Width": 12, "Type": "int" } ]
+			}
 		},
 		"28": {
 			"Name": "SetFocusToKey",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "keyAndFlags" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "key", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 4, "Type": "int" }, { "Name": "focusPath", "Bit": 12, "Width": 1, "Type": "bool" }, { "Name": "agentRef1Path", "Bit": 13, "Width": 1, "Type": "bool" }, { "Name": "unused2", "Bit": 14, "Width": 2, "Type": "int" }, { "Name": "objectId", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
 		},
 		"29": {
 			"Name": "RotationWarp",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "hex", "single", "single", "single", "single" ],
+			"ArgumentNames": [ "targetAndSpace", "quatX", "quatY", "quatZ", "quatW" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "unused", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "designator", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "space", "Bit": 16, "Width": 2, "Type": "int" }, { "Name": "unused2", "Bit": 18, "Width": 14, "Type": "int" } ]
+			}
 		},
 		"31": {
 			"Name": "ClearThreats",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "designator" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "designator", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ]
+			}
 		},
 		"33": {
 			"Name": "TriggerLinkedObjects",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "value1" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "flag0", "Bit": 0, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 1, "Width": 31, "Type": "int" } ]
+			}
 		},
 		"34": {
 			"Name": "SetState",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "value1" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "byte0", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ]
+			}
 		},
 		"35": {
 			"Name": "ToggleState",
@@ -1989,23 +2206,40 @@
 		},
 		"40": {
 			"Name": "SetLogicalRadius",
-			"Arguments": [ "hex", "hex" ]
+			"Arguments": [ "hex", "single" ],
+			"ArgumentNames": [ "value1", "value2" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "flag0", "Bit": 0, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 1, "Width": 31, "Type": "int" } ]
+			}
 		},
 		"42": {
 			"Name": "SetBehaviourPriority",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "priorityValue" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "priorityValue", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ]
+			}
 		},
 		"44": {
 			"Name": "SetCollisions",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "single", "int32", "int32", "int32", "single", "hex", "single", "single", "single", "single", "single", "single", "int32", "single", "single", "tfloat", "hex" ],
+			"ArgumentNames": [ "unknown1", "value2", "value3", "value4", "one5", "flags", "height", "value8", "value9", "value10", "value11", "value12", "value13", "value14", "value15", "radius", "unknown17" ]
 		},
 		"45": {
 			"Name": "SetFocusToAgent",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "targetAndSlot" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "designator", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "slot", "Bit": 8, "Width": 3, "Type": "int" }, { "Name": "unused", "Bit": 11, "Width": 21, "Type": "int" } ]
+			}
 		},
 		"47": {
 			"Name": "AttachFocusObject",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "hex", "single", "single", "single", "single", "hex", "hex", "hex", "hex" ],
+			"ArgumentNames": [ "flags", "offsetX", "offsetY", "offsetZ", "offsetW", "rotX", "rotY", "rotZ", "unknown9" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "unused", "Bit": 0, "Width": 11, "Type": "int" }, { "Name": "flag11", "Bit": 11, "Width": 1, "Type": "bool" }, { "Name": "flag12", "Bit": 12, "Width": 1, "Type": "bool" }, { "Name": "unused2", "Bit": 13, "Width": 2, "Type": "int" }, { "Name": "flag15", "Bit": 15, "Width": 1, "Type": "bool" }, { "Name": "unused3", "Bit": 16, "Width": 5, "Type": "int" }, { "Name": "flag21", "Bit": 21, "Width": 1, "Type": "bool" }, { "Name": "flag22", "Bit": 22, "Width": 1, "Type": "bool" }, { "Name": "flag23", "Bit": 23, "Width": 1, "Type": "bool" }, { "Name": "unused4", "Bit": 24, "Width": 8, "Type": "int" } ]
+			}
 		},
 		"48": {
 			"Name": "DropAttachedObject",
@@ -2013,7 +2247,11 @@
 		},
 		"49": {
 			"Name": "ThrowAttachedObject",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "hex", "single", "single", "single", "hex", "tfloat", "tfloat", "single", "hex" ],
+			"ArgumentNames": [ "value1", "x", "y", "z", "unused5", "radius", "angleValue", "value8", "unused9" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "byte0", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "flag8", "Bit": 8, "Width": 1, "Type": "bool" }, { "Name": "flag9", "Bit": 9, "Width": 1, "Type": "bool" }, { "Name": "flag10", "Bit": 10, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 11, "Width": 9, "Type": "int" }, { "Name": "flag20", "Bit": 20, "Width": 1, "Type": "bool" }, { "Name": "flag21", "Bit": 21, "Width": 1, "Type": "bool" }, { "Name": "flag22", "Bit": 22, "Width": 1, "Type": "bool" }, { "Name": "flag23", "Bit": 23, "Width": 1, "Type": "bool" }, { "Name": "flag24", "Bit": 24, "Width": 1, "Type": "bool" }, { "Name": "flag25", "Bit": 25, "Width": 1, "Type": "bool" }, { "Name": "unused2", "Bit": 26, "Width": 5, "Type": "int" }, { "Name": "flag31", "Bit": 31, "Width": 1, "Type": "bool" } ]
+			}
 		},
 		"50": {
 			"Name": "UnsupportOverFocus",
@@ -2021,7 +2259,11 @@
 		},
 		"51": {
 			"Name": "UnsupportAbove",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "hex", "single", "single", "single", "hex" ],
+			"ArgumentNames": [ "value1", "x", "y", "z", "value5" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "byte0", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "flag8", "Bit": 8, "Width": 1, "Type": "bool" }, { "Name": "flag9", "Bit": 9, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 10, "Width": 6, "Type": "int" }, { "Name": "flag16", "Bit": 16, "Width": 1, "Type": "bool" }, { "Name": "flag17", "Bit": 17, "Width": 1, "Type": "bool" }, { "Name": "unused2", "Bit": 18, "Width": 14, "Type": "int" } ]
+			}
 		},
 		"52": {
 			"Name": "ClearFocus",
@@ -2037,23 +2279,46 @@
 		},
 		"55": {
 			"Name": "BroadcastUserMessage",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "hex", "single", "hex", "hex", "hex", "single", "single", "single", "single", "hex", "hex", "hex", "hex" ],
+			"ArgumentNames": [ "messageTarget", "radius", "unused3", "unused4", "unused5", "x", "y", "z", "w", "unknown10", "unknown11", "unknown12", "unknown13" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "message", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 4, "Type": "int" }, { "Name": "flag12", "Bit": 12, "Width": 1, "Type": "bool" }, { "Name": "unused2", "Bit": 13, "Width": 1, "Type": "bool" }, { "Name": "flag14", "Bit": 14, "Width": 1, "Type": "bool" }, { "Name": "unused3", "Bit": 15, "Width": 3, "Type": "int" }, { "Name": "flag18", "Bit": 18, "Width": 1, "Type": "bool" }, { "Name": "unused4", "Bit": 19, "Width": 5, "Type": "int" }, { "Name": "flag24", "Bit": 24, "Width": 1, "Type": "bool" }, { "Name": "flag25", "Bit": 25, "Width": 1, "Type": "bool" }, { "Name": "flag26", "Bit": 26, "Width": 1, "Type": "bool" }, { "Name": "flag27", "Bit": 27, "Width": 1, "Type": "bool" }, { "Name": "flag28", "Bit": 28, "Width": 1, "Type": "bool" }, { "Name": "flag29", "Bit": 29, "Width": 1, "Type": "bool" }, { "Name": "unused5", "Bit": 30, "Width": 2, "Type": "int" } ],
+				"9": [ { "Name": "objectId", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "unused", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
 		},
 		"56": {
 			"Name": "ClearAnimation",
-			"Arguments": [ "hex", "hex" ]
+			"Arguments": [ "hex", "tfloat" ],
+			"ArgumentNames": [ "value1", "value2" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "byte0", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ]
+			}
 		},
 		"57": {
 			"Name": "RequestAttachmentFocus",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "value1" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "byte0", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ]
+			}
 		},
 		"59": {
-			"Name": "RequestMessagersFocus",
-			"Arguments": [ "hex" ]
+			"Name": "RequestMessengersFocus",
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "value1" ],
+			"Aliases": [ "RequestMessagersFocus" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "short0", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "unused", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
 		},
 		"60": {
 			"Name": "SetFocusPosition",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "hex", "single", "single", "single", "single", "hex", "hex", "single", "single", "single", "single", "single", "single", "int32", "int32", "int32", "hex", "int32", "hex", "hex", "hex" ],
+			"ArgumentNames": [ "flags", "offsetX", "offsetY", "offsetZ", "offsetW", "targetFlags", "angleValue", "value8", "scale", "value10", "value11", "value12", "value13", "value14", "value15", "value16", "keyAndObject", "value18", "unknown19", "unknown20", "unknown21" ],
+			"ArgumentFields": {
+				"5": [ { "Name": "unused", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "designator", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "unused2", "Bit": 16, "Width": 16, "Type": "int" } ],
+				"16": [ { "Name": "key", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "objectId", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
 		},
 		"61": {
 			"Name": "StopMoving",
@@ -2061,7 +2326,11 @@
 		},
 		"62": {
 			"Name": "AddNoiseToFocusPosition",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "hex", "tfloat", "single", "single", "single" ],
+			"ArgumentNames": [ "flags", "amount", "factorA", "factorB", "factorC" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "short0", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "unused", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
 		},
 		"63": {
 			"Name": "RestartDefaultBehaviour",
@@ -2069,7 +2338,11 @@
 		},
 		"64": {
 			"Name": "AttachLinkedObject",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "hex", "single", "single", "single", "single", "hex", "hex", "hex", "hex" ],
+			"ArgumentNames": [ "value1", "x", "y", "z", "value5", "value6", "value7", "value8", "unused9" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "unused", "Bit": 0, "Width": 11, "Type": "int" }, { "Name": "flag11", "Bit": 11, "Width": 1, "Type": "bool" }, { "Name": "flag12", "Bit": 12, "Width": 1, "Type": "bool" }, { "Name": "unused2", "Bit": 13, "Width": 2, "Type": "int" }, { "Name": "flag15", "Bit": 15, "Width": 1, "Type": "bool" }, { "Name": "unused3", "Bit": 16, "Width": 5, "Type": "int" }, { "Name": "flag21", "Bit": 21, "Width": 1, "Type": "bool" }, { "Name": "flag22", "Bit": 22, "Width": 1, "Type": "bool" }, { "Name": "flag23", "Bit": 23, "Width": 1, "Type": "bool" }, { "Name": "unused4", "Bit": 24, "Width": 8, "Type": "int" } ]
+			}
 		},
 		"65": {
 			"Name": "MessageLinkedObject",
@@ -2081,15 +2354,34 @@
 		},
 		"67": {
 			"Name": "RequestMessSourceAsFocus",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "slot" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "slot", "Bit": 0, "Width": 3, "Type": "int" }, { "Name": "unused", "Bit": 3, "Width": 29, "Type": "int" } ]
+			}
 		},
 		"68": {
 			"Name": "SetCounter",
-			"Arguments": [ "hex", "hex" ]
+			"Arguments": [ "hex", "tint" ],
+			"ArgumentNames": [ "counterTarget", "value" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "counter", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "designator", "Bit": 16, "Width": 8, "Type": "int" }, { "Name": "instanceCounter", "Bit": 24, "Width": 1, "Type": "bool" }, { "Name": "randomUpTo", "Bit": 25, "Width": 1, "Type": "bool" }, { "Name": "everyLinked", "Bit": 26, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 27, "Width": 5, "Type": "int" } ]
+			}
 		},
 		"69": {
 			"Name": "ModifyCounter",
-			"Arguments": [ "hex", "hex", "hex" ]
+			"Arguments": [ "hex", "tint", "hex" ],
+			"ArgumentNames": [ "counterTarget", "delta", "unknown3" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "counter", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "designator", "Bit": 16, "Width": 8, "Type": "int" }, { "Name": "instanceCounter", "Bit": 24, "Width": 1, "Type": "bool" }, { "Name": "everyLinked", "Bit": 25, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 26, "Width": 6, "Type": "int" } ],
+				"2": [ { "Name": "objectId", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "unused", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
+		},
+		"70": {
+			"Name": "ContinueColliderMotion",
+			"Arguments": [ "tfloat", "int32", "int32", "int32", "hex", "int32", "int32", "int32", "hex" ],
+			"ArgumentNames": [ "value1", "velX", "velY", "velZ", "unused5", "value6", "value7", "value8", "unused9" ],
+			"Aliases": [ "AUnknown_70" ]
 		},
 		"71": {
 			"Name": "RevertColliderMotion",
@@ -2097,19 +2389,32 @@
 		},
 		"72": {
 			"Name": "ColliderLaunchNow",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "single", "single", "single", "single", "single", "hex", "hex", "int32", "single", "int32", "hex", "int32", "int32", "int32", "single", "hex", "hex" ],
+			"ArgumentNames": [ "unknown1", "x", "y", "z", "w", "flags", "flags2", "value8", "value9", "value10", "value11", "value12", "value13", "value14", "power", "unknown16", "unknown17" ],
+			"ArgumentFields": {
+				"5": [ { "Name": "unused", "Bit": 0, "Width": 12, "Type": "int" }, { "Name": "designator", "Bit": 12, "Width": 8, "Type": "int" }, { "Name": "unused2", "Bit": 20, "Width": 12, "Type": "int" } ]
+			}
 		},
 		"74": {
 			"Name": "ForceAnimationUpdate",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "tint" ],
+			"ArgumentNames": [ "value1" ]
 		},
 		"75": {
 			"Name": "DestroySpawnedAttachment",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "value1" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "byte0", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "flag8", "Bit": 8, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 9, "Width": 23, "Type": "int" } ]
+			}
 		},
 		"76": {
 			"Name": "ApplyImpulse",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "hex", "single", "single", "single", "single", "single", "single", "single", "single" ],
+			"ArgumentNames": [ "value1", "velX", "velY", "velZ", "value5", "value6", "value7", "value8", "unused9" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "unused", "Bit": 0, "Width": 2, "Type": "int" }, { "Name": "flag2", "Bit": 2, "Width": 1, "Type": "bool" }, { "Name": "unused2", "Bit": 3, "Width": 5, "Type": "int" }, { "Name": "flag8", "Bit": 8, "Width": 1, "Type": "bool" }, { "Name": "flag9", "Bit": 9, "Width": 1, "Type": "bool" }, { "Name": "flag10", "Bit": 10, "Width": 1, "Type": "bool" }, { "Name": "unused3", "Bit": 11, "Width": 21, "Type": "int" } ]
+			}
 		},
 		"77": {
 			"Name": "RequestDetach",
@@ -2117,15 +2422,28 @@
 		},
 		"78": {
 			"Name": "SetObject",
-			"Arguments": [ "hex", "hex" ]
+			"Arguments": [ "hex", "hex" ],
+			"ArgumentNames": [ "flags", "flags2" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "visible", "Bit": 0, "Width": 2, "Type": "int" }, { "Name": "pair1", "Bit": 2, "Width": 2, "Type": "int" }, { "Name": "pair2", "Bit": 4, "Width": 2, "Type": "int" }, { "Name": "pair3", "Bit": 6, "Width": 2, "Type": "int" }, { "Name": "pair4", "Bit": 8, "Width": 2, "Type": "int" }, { "Name": "pair5", "Bit": 10, "Width": 2, "Type": "int" }, { "Name": "pair6", "Bit": 12, "Width": 2, "Type": "int" }, { "Name": "pair7", "Bit": 14, "Width": 2, "Type": "int" }, { "Name": "pair8", "Bit": 16, "Width": 2, "Type": "int" }, { "Name": "pair9", "Bit": 18, "Width": 2, "Type": "int" }, { "Name": "pair10", "Bit": 20, "Width": 2, "Type": "int" }, { "Name": "pair11", "Bit": 22, "Width": 2, "Type": "int" }, { "Name": "pair12", "Bit": 24, "Width": 2, "Type": "int" }, { "Name": "pair13", "Bit": 26, "Width": 2, "Type": "int" }, { "Name": "pair14", "Bit": 28, "Width": 2, "Type": "int" }, { "Name": "pair15", "Bit": 30, "Width": 2, "Type": "int" } ],
+				"1": [ { "Name": "pair0", "Bit": 0, "Width": 2, "Type": "int" }, { "Name": "pair1", "Bit": 2, "Width": 2, "Type": "int" }, { "Name": "pair2", "Bit": 4, "Width": 2, "Type": "int" }, { "Name": "pair3", "Bit": 6, "Width": 2, "Type": "int" }, { "Name": "pair4", "Bit": 8, "Width": 2, "Type": "int" }, { "Name": "pair5", "Bit": 10, "Width": 2, "Type": "int" }, { "Name": "pair6", "Bit": 12, "Width": 2, "Type": "int" }, { "Name": "pair7", "Bit": 14, "Width": 2, "Type": "int" }, { "Name": "pair8", "Bit": 16, "Width": 2, "Type": "int" }, { "Name": "pair9", "Bit": 18, "Width": 2, "Type": "int" }, { "Name": "pair10", "Bit": 20, "Width": 2, "Type": "int" }, { "Name": "pair11", "Bit": 22, "Width": 2, "Type": "int" }, { "Name": "pair12", "Bit": 24, "Width": 2, "Type": "int" }, { "Name": "pair13", "Bit": 26, "Width": 2, "Type": "int" }, { "Name": "pair14", "Bit": 28, "Width": 2, "Type": "int" }, { "Name": "pair15", "Bit": 30, "Width": 2, "Type": "int" } ]
+			}
 		},
 		"79": {
 			"Name": "Keep",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "tint" ],
+			"ArgumentNames": [ "flags" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "flag0", "Bit": 0, "Width": 1, "Type": "bool" }, { "Name": "flag1", "Bit": 1, "Width": 1, "Type": "bool" }, { "Name": "flag2", "Bit": 2, "Width": 1, "Type": "bool" }, { "Name": "flag3", "Bit": 3, "Width": 1, "Type": "bool" }, { "Name": "flag4", "Bit": 4, "Width": 1, "Type": "bool" }, { "Name": "flag5", "Bit": 5, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 6, "Width": 26, "Type": "int" } ]
+			}
 		},
 		"80": {
 			"Name": "AttachSpring",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "single", "single", "single", "single", "single", "single", "single", "single", "single", "tangle", "hex", "single", "single", "single", "hex", "hex", "single" ],
+			"ArgumentNames": [ "unused1", "offsetX", "offsetY", "offsetZ", "value5", "x", "y", "z", "value9", "offsetX2", "value11", "value12", "value13", "value14", "unused15", "unused16", "unused17" ],
+			"ArgumentFields": {
+				"10": [ { "Name": "byte0", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "byte1", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
 		},
 		"81": {
 			"Name": "DetachAllSprings",
@@ -2133,11 +2451,23 @@
 		},
 		"82": {
 			"Name": "SetContactSpringy",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "single", "int32", "int32", "int32", "int32", "int32", "int32", "int32", "single", "single", "single", "hex", "int32", "int32", "int32", "int32", "int32", "single", "int32", "hex", "hex", "hex", "single", "tint", "int32", "int32", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ],
+			"ArgumentNames": [ "drag", "mode1", "hitType", "gravity", "friction", "rollingFriction", "bounce", "maxSpeed", "value8", "value9", "value10", "unused11", "offsetX", "offsetY", "offsetZ", "value15", "value16", "value17", "value18", "unused19", "unused20", "unused21", "one22", "motionFlags", "value24", "value25", "motionType", "motionFlags2", "unused29", "unused30", "unused31", "id", "unused33", "unused34" ],
+			"ArgumentFields": {
+				"23": [ { "Name": "flag0", "Bit": 0, "Width": 1, "Type": "bool" }, { "Name": "flag1", "Bit": 1, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 2, "Width": 4, "Type": "int" }, { "Name": "ogiMode", "Bit": 6, "Width": 4, "Type": "int" }, { "Name": "unused2", "Bit": 10, "Width": 1, "Type": "int" }, { "Name": "mode", "Bit": 11, "Width": 3, "Type": "int" }, { "Name": "unused3", "Bit": 14, "Width": 3, "Type": "int" }, { "Name": "flag17", "Bit": 17, "Width": 1, "Type": "bool" }, { "Name": "unused4", "Bit": 18, "Width": 1, "Type": "int" }, { "Name": "useValue9", "Bit": 19, "Width": 1, "Type": "bool" }, { "Name": "unused5", "Bit": 20, "Width": 12, "Type": "int" } ],
+				"26": [ { "Name": "unused", "Bit": 0, "Width": 14, "Type": "int" }, { "Name": "flag14", "Bit": 14, "Width": 1, "Type": "bool" }, { "Name": "unused2", "Bit": 15, "Width": 13, "Type": "int" }, { "Name": "motionType", "Bit": 28, "Width": 3, "Type": "int" }, { "Name": "flag31", "Bit": 31, "Width": 1, "Type": "bool" } ],
+				"27": [ { "Name": "flags", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "hasOffset", "Bit": 8, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 9, "Width": 1, "Type": "int" }, { "Name": "mode", "Bit": 10, "Width": 3, "Type": "int" }, { "Name": "flag13", "Bit": 13, "Width": 1, "Type": "bool" }, { "Name": "flag14", "Bit": 14, "Width": 1, "Type": "bool" }, { "Name": "flag15", "Bit": 15, "Width": 1, "Type": "bool" }, { "Name": "unused2", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
 		},
 		"83": {
 			"Name": "SetContactRigid",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "single", "int32", "single", "single", "single", "single", "single", "single", "int32", "single", "int32", "hex", "int32", "single", "int32", "int32", "int32", "single", "int32", "single", "hex", "hex", "single", "tint", "single", "single", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ],
+			"ArgumentNames": [ "drag", "mode1", "hitType", "gravity", "friction", "rollingFriction", "bounce", "maxSpeed", "value8", "value9", "value10", "unused11", "offsetX", "offsetY", "offsetZ", "value15", "value16", "value17", "value18", "unused19", "unused20", "unused21", "one22", "motionFlags", "value24", "value25", "motionType", "motionFlags2", "unused29", "unused30", "unused31", "id", "unused33", "unused34" ],
+			"ArgumentFields": {
+				"23": [ { "Name": "flag0", "Bit": 0, "Width": 1, "Type": "bool" }, { "Name": "flag1", "Bit": 1, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 2, "Width": 4, "Type": "int" }, { "Name": "ogiMode", "Bit": 6, "Width": 4, "Type": "int" }, { "Name": "unused2", "Bit": 10, "Width": 1, "Type": "int" }, { "Name": "mode", "Bit": 11, "Width": 3, "Type": "int" }, { "Name": "unused3", "Bit": 14, "Width": 3, "Type": "int" }, { "Name": "flag17", "Bit": 17, "Width": 1, "Type": "bool" }, { "Name": "unused4", "Bit": 18, "Width": 1, "Type": "int" }, { "Name": "useValue9", "Bit": 19, "Width": 1, "Type": "bool" }, { "Name": "unused5", "Bit": 20, "Width": 12, "Type": "int" } ],
+				"26": [ { "Name": "unused", "Bit": 0, "Width": 14, "Type": "int" }, { "Name": "flag14", "Bit": 14, "Width": 1, "Type": "bool" }, { "Name": "unused2", "Bit": 15, "Width": 13, "Type": "int" }, { "Name": "motionType", "Bit": 28, "Width": 3, "Type": "int" }, { "Name": "flag31", "Bit": 31, "Width": 1, "Type": "bool" } ],
+				"27": [ { "Name": "flags", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "hasOffset", "Bit": 8, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 9, "Width": 1, "Type": "int" }, { "Name": "mode", "Bit": 10, "Width": 3, "Type": "int" }, { "Name": "flag13", "Bit": 13, "Width": 1, "Type": "bool" }, { "Name": "flag14", "Bit": 14, "Width": 1, "Type": "bool" }, { "Name": "flag15", "Bit": 15, "Width": 1, "Type": "bool" }, { "Name": "unused2", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
 		},
 		"84": {
 			"Name": "ClearContactResponse",
@@ -2145,83 +2475,192 @@
 		},
 		"85": {
 			"Name": "DestroyMe",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "mode" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "mode", "Bit": 0, "Width": 3, "Type": "int" }, { "Name": "unused", "Bit": 3, "Width": 29, "Type": "int" } ]
+			}
 		},
 		"86": {
 			"Name": "SetSound",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "hex", "single", "single", "single", "hex", "hex", "hex" ],
+			"ArgumentNames": [ "value1", "value2", "value3", "value4", "unused5", "unused6", "value7" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "flag0", "Bit": 0, "Width": 1, "Type": "bool" }, { "Name": "flag1", "Bit": 1, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 2, "Width": 2, "Type": "int" }, { "Name": "bits4", "Bit": 4, "Width": 4, "Type": "int" }, { "Name": "flag8", "Bit": 8, "Width": 1, "Type": "bool" }, { "Name": "flag9", "Bit": 9, "Width": 1, "Type": "bool" }, { "Name": "unused2", "Bit": 10, "Width": 22, "Type": "int" } ],
+				"6": [ { "Name": "flag0", "Bit": 0, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 1, "Width": 31, "Type": "int" } ]
+			}
 		},
 		"87": {
 			"Name": "AlterWobblePhase",
-			"Arguments": [ "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "tfloat", "tfloat", "tfloat", "tint" ],
+			"ArgumentNames": [ "value1", "value2", "value3", "value4" ]
 		},
 		"88": {
 			"Name": "BeginMusic",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "tint", "hex", "single", "single", "int32" ],
+			"ArgumentNames": [ "track", "flags", "volume", "fadeTime", "unknown5" ],
+			"ArgumentFields": {
+				"1": [ { "Name": "unused", "Bit": 0, "Width": 12, "Type": "int" }, { "Name": "flag12", "Bit": 12, "Width": 1, "Type": "bool" }, { "Name": "flag13", "Bit": 13, "Width": 1, "Type": "bool" }, { "Name": "unused2", "Bit": 14, "Width": 1, "Type": "bool" }, { "Name": "flag15", "Bit": 15, "Width": 1, "Type": "bool" }, { "Name": "unused3", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
 		},
 		"89": {
 			"Name": "EndContextMusic",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "single" ],
+			"ArgumentNames": [ "time" ]
 		}, // End officially known and confirmed
 		"90": {
 			"Name": "SetFocusToAgent2",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "targetAndSlot" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "flag0", "Bit": 0, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 1, "Width": 1, "Type": "bool" }, { "Name": "flag2", "Bit": 2, "Width": 1, "Type": "bool" }, { "Name": "flag3", "Bit": 3, "Width": 1, "Type": "bool" }, { "Name": "unused2", "Bit": 4, "Width": 1, "Type": "bool" }, { "Name": "flag5", "Bit": 5, "Width": 1, "Type": "bool" }, { "Name": "unused3", "Bit": 6, "Width": 26, "Type": "int" } ]
+			}
 		},
 		"91": {
 			"Name": "SetFocusToAgent3",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "targetAndSlot" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "flag0", "Bit": 0, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 1, "Width": 1, "Type": "bool" }, { "Name": "flag2", "Bit": 2, "Width": 1, "Type": "bool" }, { "Name": "flag3", "Bit": 3, "Width": 1, "Type": "bool" }, { "Name": "unused2", "Bit": 4, "Width": 1, "Type": "bool" }, { "Name": "flag5", "Bit": 5, "Width": 1, "Type": "bool" }, { "Name": "unused3", "Bit": 6, "Width": 26, "Type": "int" } ]
+			}
 		},
 		"92": {
 			"Name": "AddLives",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "int32" ],
+			"ArgumentNames": [ "value1" ]
 		},
 		"93": {
 			"Name": "AddLives_Duplicate2",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "int32" ],
+			"ArgumentNames": [ "value1" ]
 		},
 		"94": {
 			"Name": "AttachFocusObject2",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "hex", "single", "single", "single", "single", "hex", "hex", "hex", "hex" ],
+			"ArgumentNames": [ "flags", "offsetX", "offsetY", "offsetZ", "offsetW", "rotX", "rotY", "rotZ", "unknown9" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "unused", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "short1", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
+		},
+		"95": {
+			"Name": "ReleaseAgentRef2",
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "event" ],
+			"Aliases": [ "AUnknown_95" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "eventId", "Bit": 0, "Width": 16, "Type": "sint" }, { "Name": "unused", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
+		},
+		"96": {
+			"Name": "LaunchAgentRef2",
+			"Arguments": [ "hex", "single", "single", "single", "single", "single", "int32", "single", "single", "single", "int32", "single", "int32", "int32", "int32", "int32", "hex", "int32", "int32", "single", "int32", "int32", "single", "int32", "hex", "hex", "hex", "single", "tint", "int32", "int32", "hex", "single", "int32", "hex", "hex", "hex", "hex", "hex", "hex", "tangle", "tfloat", "single", "single", "single" ],
+			"ArgumentNames": [ "unused", "offsetX", "offsetY", "offsetZ", "offsetW", "motion0", "motion1", "motion2", "gravity", "motion4", "motion5", "angleX", "angleY", "angleZ", "motion9", "motion10", "motion11", "motionDesignator", "motion13", "motion14", "motion15", "motion16", "motion17", "motion18", "motion19", "motion20", "motion21", "motion22", "motionFlags", "motionFlags2", "motion25", "motion26", "motion27", "motion28", "unused1", "unused2", "unused3", "unused4", "unused5", "launch", "launchFlags", "timeOrDistance", "scaleFactor", "height", "value44" ],
+			"Aliases": [ "AUnknown_96" ],
+			"ArgumentFields": {
+				"17": [ { "Name": "designator", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ],
+				"28": [ { "Name": "flags", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "randomAngleX", "Bit": 16, "Width": 1, "Type": "bool" }, { "Name": "randomAngleY", "Bit": 17, "Width": 1, "Type": "bool" }, { "Name": "randomAngleZ", "Bit": 18, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 19, "Width": 9, "Type": "int" }, { "Name": "motionType", "Bit": 28, "Width": 3, "Type": "int" }, { "Name": "unused2", "Bit": 31, "Width": 1, "Type": "int" } ],
+				"39": [ { "Name": "unused", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "space", "Bit": 8, "Width": 4, "Type": "int" }, { "Name": "designator", "Bit": 12, "Width": 8, "Type": "int" }, { "Name": "designator2", "Bit": 20, "Width": 8, "Type": "int" }, { "Name": "unused2", "Bit": 28, "Width": 4, "Type": "int" } ],
+				"40": [ { "Name": "unused", "Bit": 0, "Width": 1, "Type": "int" }, { "Name": "useOffset", "Bit": 1, "Width": 1, "Type": "bool" }, { "Name": "scale", "Bit": 2, "Width": 1, "Type": "bool" }, { "Name": "clearFlag8", "Bit": 3, "Width": 1, "Type": "bool" }, { "Name": "unused2", "Bit": 4, "Width": 3, "Type": "int" }, { "Name": "targetAgentRef1", "Bit": 7, "Width": 1, "Type": "bool" }, { "Name": "unused3", "Bit": 8, "Width": 24, "Type": "int" } ]
+			}
+		},
+		"97": {
+			"Name": "ClearAgentRef1",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_97" ]
+		},
+		"98": {
+			"Name": "ClearAgentRef2",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_98" ]
 		},
 		"99": {
-			"Name": "RequestMessagersFocus2",
-			"Arguments": [ "hex" ]
+			"Name": "RequestMessengersFocus2",
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "value1" ],
+			"Aliases": [ "RequestMessagersFocus2" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "short0", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "unused", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
 		},
 		"100": {
-			"Name": "RequestMessagersFocus3",
-			"Arguments": [ "hex" ]
+			"Name": "RequestMessengersFocus3",
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "value1" ],
+			"Aliases": [ "RequestMessagersFocus3" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "short0", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "unused", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
 		},
 		"101": {
 			"Name": "RequestMessSourceAsFocus2",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "slot" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "short0", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "unused", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
 		},
 		"102": {
 			"Name": "RequestMessSourceAsFocus3",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "slot" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "short0", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "unused", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
 		},
 		"103": {
 			"Name": "SetFocusToKey2",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "keyAndFlags" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "key", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 4, "Type": "int" }, { "Name": "focusPath", "Bit": 12, "Width": 1, "Type": "bool" }, { "Name": "agentRef1Path", "Bit": 13, "Width": 1, "Type": "bool" }, { "Name": "unused2", "Bit": 14, "Width": 2, "Type": "int" }, { "Name": "objectId", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
 		},
 		"104": {
 			"Name": "SetFocusToAgent4",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "targetAndSlot" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "flag0", "Bit": 0, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 1, "Width": 1, "Type": "bool" }, { "Name": "flag2", "Bit": 2, "Width": 1, "Type": "bool" }, { "Name": "flag3", "Bit": 3, "Width": 1, "Type": "bool" }, { "Name": "unused2", "Bit": 4, "Width": 1, "Type": "bool" }, { "Name": "flag5", "Bit": 5, "Width": 1, "Type": "bool" }, { "Name": "unused3", "Bit": 6, "Width": 26, "Type": "int" } ]
+			}
 		},
 		"105": {
 			"Name": "SetRotation2",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "hex", "single", "single", "single", "single" ],
+			"ArgumentNames": [ "targetAndSpace", "x", "y", "z", "w" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "unused", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "designator", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "space", "Bit": 16, "Width": 2, "Type": "int" }, { "Name": "unused2", "Bit": 18, "Width": 14, "Type": "int" } ]
+			}
 		},
 		"106": {
-			"Name": "RequestMessagersFocus4",
-			"Arguments": [ "hex" ]
+			"Name": "RequestMessengersFocus4",
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "value1" ],
+			"Aliases": [ "RequestMessagersFocus4" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "short0", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "unused", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
 		},
 		"108": {
 			"Name": "SetFocusPosition2",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "hex", "single", "single", "single", "single", "hex", "hex", "single", "single", "int32", "int32", "single", "single", "single", "int32", "int32", "hex", "int32", "hex", "hex", "hex" ],
+			"ArgumentNames": [ "flags", "offsetX", "offsetY", "offsetZ", "offsetW", "targetFlags", "angleValue", "value8", "scale", "value10", "value11", "value12", "value13", "value14", "value15", "value16", "keyAndObject", "value18", "unknown19", "unknown20", "unknown21" ],
+			"ArgumentFields": {
+				"5": [ { "Name": "byte0", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "flag8", "Bit": 8, "Width": 1, "Type": "bool" }, { "Name": "flag9", "Bit": 9, "Width": 1, "Type": "bool" }, { "Name": "flag10", "Bit": 10, "Width": 1, "Type": "bool" }, { "Name": "flag11", "Bit": 11, "Width": 1, "Type": "bool" }, { "Name": "flag12", "Bit": 12, "Width": 1, "Type": "bool" }, { "Name": "flag13", "Bit": 13, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 14, "Width": 2, "Type": "int" }, { "Name": "flag16", "Bit": 16, "Width": 1, "Type": "bool" }, { "Name": "flag17", "Bit": 17, "Width": 1, "Type": "bool" }, { "Name": "flag18", "Bit": 18, "Width": 1, "Type": "bool" }, { "Name": "unused2", "Bit": 19, "Width": 7, "Type": "int" }, { "Name": "flag26", "Bit": 26, "Width": 1, "Type": "bool" }, { "Name": "flag27", "Bit": 27, "Width": 1, "Type": "bool" }, { "Name": "flag28", "Bit": 28, "Width": 1, "Type": "bool" }, { "Name": "flag29", "Bit": 29, "Width": 1, "Type": "bool" }, { "Name": "flag30", "Bit": 30, "Width": 1, "Type": "bool" }, { "Name": "flag31", "Bit": 31, "Width": 1, "Type": "bool" } ],
+				"16": [ { "Name": "byte0", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ]
+			}
 		},
 		"109": {
 			"Name": "AddNoiseToFocusPos2",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "hex", "tfloat", "single", "single", "single" ],
+			"ArgumentNames": [ "noiseType", "range", "value3", "value4", "value5" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "noiseType", "Bit": 0, "Width": 3, "Type": "int" }, { "Name": "unused", "Bit": 3, "Width": 29, "Type": "int" } ]
+			}
+		},
+		"110": {
+			"Name": "ClearFocusPosition",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_110" ]
 		},
 		"111": {
 			"Name": "CacheLinkedInstance",
@@ -2231,69 +2670,756 @@
 			"Name": "SpawnCachedResidentAgent",
 			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ]
 		},
+		"113": {
+			"Name": "SetRotationComponents",
+			"Arguments": [ "tfloat", "single", "single", "single" ],
+			"ArgumentNames": [ "rotX", "rotY", "rotZ", "set" ],
+			"Aliases": [ "AUnknown_113" ],
+			"ArgumentFields": {
+				"3": [ { "Name": "x", "Bit": 0, "Width": 1, "Type": "bool" }, { "Name": "y", "Bit": 1, "Width": 1, "Type": "bool" }, { "Name": "z", "Bit": 2, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 3, "Width": 29, "Type": "int" } ]
+			}
+		},
+		"114": {
+			"Name": "StopHeadTracking",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_114" ]
+		},
+		"115": {
+			"Name": "StartHeadTracking",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_115" ]
+		},
+		"116": {
+			"Name": "DestroyHeadTracking",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_116" ]
+		},
+		"117": {
+			"Name": "MakeNoise",
+			"Arguments": [ "single", "single" ],
+			"ArgumentNames": [ "radius", "loudness" ],
+			"Aliases": [ "AUnknown_117" ]
+		},
+		"118": {
+			"Name": "SetHeadTrackingTarget",
+			"Arguments": [ "hex", "single" ],
+			"ArgumentNames": [ "target", "weightValue" ],
+			"Aliases": [ "AUnknown_118" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "index", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "player", "Bit": 8, "Width": 1, "Type": "bool" }, { "Name": "agentRef2", "Bit": 9, "Width": 1, "Type": "bool" }, { "Name": "focus", "Bit": 10, "Width": 1, "Type": "bool" }, { "Name": "setWeight", "Bit": 11, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 12, "Width": 20, "Type": "int" } ]
+			}
+		},
+		"119": {
+			"Name": "ClearNodeByte154",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_119" ]
+		},
 		"120": {
 			"Name": "PhysicsResetVelocity",
 			"Arguments": []
 		},
+		"121": {
+			"Name": "SetFocusPositionBesidePlayer",
+			"Arguments": [ "single", "hex" ],
+			"ArgumentNames": [ "distance", "unused" ],
+			"Aliases": [ "AUnknown_121" ]
+		},
+		"122": {
+			"Name": "SetFocusPositionToAgent",
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "targets" ],
+			"Aliases": [ "AUnknown_122" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "keyOrAnchor", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "designator", "Bit": 16, "Width": 8, "Type": "int" }, { "Name": "unused2", "Bit": 24, "Width": 8, "Type": "int" } ]
+			}
+		},
+		"123": {
+			"Name": "LinkToNearestPoint",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_123" ]
+		},
 		"124": {
 			"Name": "RunScriptSlot",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "slotAndFlags" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "slot", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "flag", "Bit": 16, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 17, "Width": 15, "Type": "int" } ]
+			}
+		},
+		"125": {
+			"Name": "OffsetFocusPosition",
+			"Arguments": [ "hex", "single", "single", "single", "hex" ],
+			"ArgumentNames": [ "unused", "x", "y", "z", "w" ],
+			"Aliases": [ "AUnknown_125" ]
+		},
+		"126": {
+			"Name": "NextLinkedObject",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_126" ]
+		},
+		"127": {
+			"Name": "PhysicsSetGravity",
+			"Arguments": [ "single" ],
+			"ArgumentNames": [ "gravity" ],
+			"Aliases": [ "AUnknown_127" ]
+		},
+		"128": {
+			"Name": "PhysicsBodyReset",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_128" ]
+		},
+		"129": {
+			"Name": "PhysicsBodyActivate",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_129" ]
+		},
+		"130": {
+			"Name": "SetPhysicsSizes",
+			"Arguments": [ "int32", "int32", "hex", "tangle" ],
+			"ArgumentNames": [ "size", "size2", "mode1", "mode2" ],
+			"Aliases": [ "AUnknown_130" ],
+			"ArgumentFields": {
+				"2": [ { "Name": "mode", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "unused", "Bit": 16, "Width": 16, "Type": "int" } ],
+				"3": [ { "Name": "mode", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "unused", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
+		},
+		"131": {
+			"Name": "MagnetPullToFocus",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_131" ]
+		},
+		"132": {
+			"Name": "SetLinkedObjectIndex",
+			"Arguments": [ "int32" ],
+			"ArgumentNames": [ "number" ],
+			"Aliases": [ "AUnknown_132" ]
+		},
+		"133": {
+			"Name": "ClearObjectContextTarget",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_133" ]
+		},
+		"134": {
+			"Name": "SetFocusToOriginator",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_134" ]
+		},
+		"135": {
+			"Name": "DestroyPerceptions",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_135" ]
+		},
+		"136": {
+			"Name": "SetPerceptionWeight",
+			"Arguments": [ "tangle", "int32" ],
+			"ArgumentNames": [ "slot", "weightValue" ],
+			"Aliases": [ "AUnknown_136" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "slot", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ]
+			}
+		},
+		"137": {
+			"Name": "AddPerceptionWeight",
+			"Arguments": [ "tangle", "int32" ],
+			"ArgumentNames": [ "slot", "value" ],
+			"Aliases": [ "AUnknown_137" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "slot", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ]
+			}
+		},
+		"138": {
+			"Name": "PushFromPerception",
+			"Arguments": [ "tangle", "single" ],
+			"ArgumentNames": [ "mode", "factor" ],
+			"Aliases": [ "AUnknown_138" ]
+		},
+		"139": {
+			"Name": "SetCharacterAnalog",
+			"Arguments": [ "single" ],
+			"ArgumentNames": [ "value" ],
+			"Aliases": [ "AUnknown_139" ]
+		},
+		"140": {
+			"Name": "AddCharacterAnalog",
+			"Arguments": [ "single" ],
+			"ArgumentNames": [ "delta" ],
+			"Aliases": [ "AUnknown_140" ]
+		},
+		"141": {
+			"Name": "PerceptionOp141",
+			"Arguments": [ "tangle" ],
+			"ArgumentNames": [ "slot" ],
+			"Aliases": [ "AUnknown_141" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "slot", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ]
+			}
+		},
+		"142": {
+			"Name": "PerceptionOp142",
+			"Arguments": [ "tangle" ],
+			"ArgumentNames": [ "slot" ],
+			"Aliases": [ "AUnknown_142" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "slot", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ]
+			}
+		},
+		"143": {
+			"Name": "DisableAllPerceptions",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_143" ]
+		},
+		"144": {
+			"Name": "EnableAllPerceptions",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_144" ]
+		},
+		"145": {
+			"Name": "SetParentExecutionValue",
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "value" ],
+			"Aliases": [ "AUnknown_145" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "value", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "unused", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
+		},
+		"146": {
+			"Name": "SetFocusToLinkedObject",
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "target" ],
+			"Aliases": [ "AUnknown_146" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "index", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "linked", "Bit": 8, "Width": 1, "Type": "bool" }, { "Name": "currentLink", "Bit": 9, "Width": 1, "Type": "bool" }, { "Name": "fromFocus", "Bit": 10, "Width": 1, "Type": "bool" }, { "Name": "fromAgentRef1", "Bit": 11, "Width": 1, "Type": "bool" }, { "Name": "slot", "Bit": 12, "Width": 3, "Type": "int" }, { "Name": "lastLink", "Bit": 15, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
+		},
+		"147": {
+			"Name": "PreviousKey",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_147" ]
+		},
+		"148": {
+			"Name": "SetMotionFloats",
+			"Arguments": [ "tfloat", "tfloat", "tfloat", "tint" ],
+			"ArgumentNames": [ "a", "b", "c", "set" ],
+			"Aliases": [ "AUnknown_148" ],
+			"ArgumentFields": {
+				"3": [ { "Name": "a", "Bit": 0, "Width": 1, "Type": "bool" }, { "Name": "b", "Bit": 1, "Width": 1, "Type": "bool" }, { "Name": "c", "Bit": 2, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 3, "Width": 29, "Type": "int" } ]
+			}
+		},
+		"149": {
+			"Name": "RotateWithLinked",
+			"Arguments": [ "single", "tfloat" ],
+			"ArgumentNames": [ "degreesPerSecond", "axes" ],
+			"Aliases": [ "AUnknown_149" ],
+			"ArgumentFields": {
+				"1": [ { "Name": "rotateX", "Bit": 0, "Width": 1, "Type": "bool" }, { "Name": "rotateY", "Bit": 1, "Width": 1, "Type": "bool" }, { "Name": "rotateZ", "Bit": 2, "Width": 1, "Type": "bool" }, { "Name": "sourceX", "Bit": 3, "Width": 1, "Type": "bool" }, { "Name": "sourceY", "Bit": 4, "Width": 1, "Type": "bool" }, { "Name": "sourceZ", "Bit": 5, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 6, "Width": 26, "Type": "int" } ]
+			}
+		},
+		"150": {
+			"Name": "StrafeTowardsTarget",
+			"Arguments": [ "hex", "single", "single" ],
+			"ArgumentNames": [ "target", "speed", "maxDistance" ],
+			"Aliases": [ "AUnknown_150" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "designator", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "mode", "Bit": 8, "Width": 4, "Type": "int" }, { "Name": "unused", "Bit": 12, "Width": 20, "Type": "int" } ]
+			}
+		},
+		"151": {
+			"Name": "NextKeyOfPath34",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_151" ]
+		},
+		"152": {
+			"Name": "AddMotionAngles",
+			"Arguments": [ "tfloat", "tfloat", "tfloat", "tfloat" ],
+			"ArgumentNames": [ "x", "y", "z", "set" ],
+			"Aliases": [ "AUnknown_152" ],
+			"ArgumentFields": {
+				"3": [ { "Name": "x", "Bit": 0, "Width": 1, "Type": "bool" }, { "Name": "y", "Bit": 1, "Width": 1, "Type": "bool" }, { "Name": "z", "Bit": 2, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 3, "Width": 29, "Type": "int" } ]
+			}
+		},
+		"153": {
+			"Name": "MoveTowardsDesignator",
+			"Arguments": [ "hex", "int32", "single", "int32", "int32" ],
+			"ArgumentNames": [ "target", "distance", "value2", "value3", "value4" ],
+			"Aliases": [ "AUnknown_153" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "designator", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ]
+			}
+		},
+		"154": {
+			"Name": "SetFocusPositionToLinkedObject",
+			"Arguments": [ "tint" ],
+			"ArgumentNames": [ "target" ],
+			"Aliases": [ "AUnknown_154" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "index", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "linked", "Bit": 8, "Width": 1, "Type": "bool" }, { "Name": "currentLink", "Bit": 9, "Width": 1, "Type": "bool" }, { "Name": "fromFocus", "Bit": 10, "Width": 1, "Type": "bool" }, { "Name": "fromAgentRef1", "Bit": 11, "Width": 1, "Type": "bool" }, { "Name": "slot", "Bit": 12, "Width": 3, "Type": "int" }, { "Name": "lastLink", "Bit": 15, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
+		},
+		"155": {
+			"Name": "SetAgentRef1ToLinkedObject",
+			"Arguments": [ "tint" ],
+			"ArgumentNames": [ "target" ],
+			"Aliases": [ "AUnknown_155" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "index", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "linked", "Bit": 8, "Width": 1, "Type": "bool" }, { "Name": "currentLink", "Bit": 9, "Width": 1, "Type": "bool" }, { "Name": "fromFocus", "Bit": 10, "Width": 1, "Type": "bool" }, { "Name": "fromAgentRef1", "Bit": 11, "Width": 1, "Type": "bool" }, { "Name": "slot", "Bit": 12, "Width": 3, "Type": "int" }, { "Name": "lastLink", "Bit": 15, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
+		},
+		"156": {
+			"Name": "SetNode150Fields",
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "values" ],
+			"Aliases": [ "AUnknown_156" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "value", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "flag", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
+		},
+		"157": {
+			"Name": "UnlinkTarget",
+			"Arguments": [ "tangle" ],
+			"ArgumentNames": [ "target" ],
+			"Aliases": [ "AUnknown_157" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "index", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "allLinks", "Bit": 8, "Width": 1, "Type": "bool" }, { "Name": "byIndex", "Bit": 9, "Width": 1, "Type": "bool" }, { "Name": "currentLink", "Bit": 10, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 11, "Width": 21, "Type": "int" } ]
+			}
+		},
+		"158": {
+			"Name": "AttachMotionBlock",
+			"Arguments": [ "int32", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ],
+			"ArgumentNames": [ "id", "block1", "block2", "block3", "block4", "block5", "block6", "block7", "block8", "block9", "block10", "block11", "block12", "block13", "block14", "block15", "block16", "block17", "block18", "block19", "block20", "block21", "block22", "block23", "block24", "block25", "block26", "block27", "block28", "block29", "block30", "block31", "block32", "block33", "block34" ],
+			"Aliases": [ "AUnknown_158" ]
+		},
+		"159": {
+			"Name": "ResetNode120",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_159" ]
+		},
+		"160": {
+			"Name": "ClearMotionBlockFlag16",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_160" ]
+		},
+		"161": {
+			"Name": "SetMotionBlockFlag16",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_161" ]
+		},
+		"162": {
+			"Name": "AddToFocusObjectByte",
+			"Arguments": [ "hex", "tint" ],
+			"ArgumentNames": [ "index", "value" ],
+			"Aliases": [ "AUnknown_162" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "index", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ]
+			}
+		},
+		"164": {
+			"Name": "AddToLinkedObjectsByte",
+			"Arguments": [ "hex", "hex", "tint" ],
+			"ArgumentNames": [ "filter", "target", "value" ],
+			"Aliases": [ "AUnknown_164" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "objectId", "Bit": 0, "Width": 16, "Type": "sint" }, { "Name": "byteIndex", "Bit": 16, "Width": 16, "Type": "int" } ],
+				"1": [ { "Name": "index", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "allLinks", "Bit": 8, "Width": 1, "Type": "bool" }, { "Name": "currentLink", "Bit": 9, "Width": 1, "Type": "bool" }, { "Name": "fromFocus", "Bit": 10, "Width": 1, "Type": "bool" }, { "Name": "fromAgentRef1", "Bit": 11, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 12, "Width": 20, "Type": "int" } ]
+			}
 		},
 		"165": {
 			"Name": "ForceVolumeController",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "tfloat", "tfloat", "tfloat", "hex", "hex", "int32", "hex", "hex", "hex", "tint", "hex", "hex", "hex" ],
+			"ArgumentNames": [ "x", "y", "z", "unused4", "unused5", "value6", "value7", "value8", "value9", "value10", "unused11", "unused12", "unused13" ]
+		},
+		"166": {
+			"Name": "NotifyInstancesWithin",
+			"Arguments": [ "tfloat" ],
+			"ArgumentNames": [ "radius" ],
+			"Aliases": [ "AUnknown_166" ]
 		},
 		"167": {
 			"Name": "SetSurface",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "surface" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "surface", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "flags", "Bit": 16, "Width": 9, "Type": "int" }, { "Name": "unused", "Bit": 25, "Width": 7, "Type": "int" } ]
+			}
+		},
+		"168": {
+			"Name": "MoveInstancesInBox",
+			"Arguments": [ "hex", "single", "single", "single", "single", "single", "single", "hex", "hex" ],
+			"ArgumentNames": [ "unused", "offsetX", "offsetY", "offsetZ", "size", "value5", "value6", "flags", "unused2" ],
+			"Aliases": [ "AUnknown_168" ],
+			"ArgumentFields": {
+				"7": [ { "Name": "flag", "Bit": 0, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 1, "Width": 31, "Type": "int" } ]
+			}
+		},
+		"169": {
+			"Name": "SetFocusPositionAlong",
+			"Arguments": [ "hex", "single" ],
+			"ArgumentNames": [ "targets", "distance" ],
+			"Aliases": [ "AUnknown_169" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "designator", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "from", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "to", "Bit": 16, "Width": 8, "Type": "int" }, { "Name": "mode", "Bit": 24, "Width": 4, "Type": "int" }, { "Name": "unused", "Bit": 28, "Width": 4, "Type": "int" } ]
+			}
+		},
+		"170": {
+			"Name": "SetFocusObjectByte",
+			"Arguments": [ "hex", "int32", "tint" ],
+			"ArgumentNames": [ "index", "source", "value" ],
+			"Aliases": [ "AUnknown_170" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "index", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ]
+			}
+		},
+		"171": {
+			"Name": "RunSlotBehaviourOnLinked",
+			"Arguments": [ "hex", "hex" ],
+			"ArgumentNames": [ "targetAndObject", "slotAndFlags" ],
+			"Aliases": [ "AUnknown_171" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "designator", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "objectId", "Bit": 16, "Width": 16, "Type": "int" } ],
+				"1": [ { "Name": "slot", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "flag16", "Bit": 16, "Width": 1, "Type": "bool" }, { "Name": "flag17", "Bit": 17, "Width": 1, "Type": "bool" }, { "Name": "flag18", "Bit": 18, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 19, "Width": 13, "Type": "int" } ]
+			}
+		},
+		"173": {
+			"Name": "SetKeyPathByte43",
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "value" ],
+			"Aliases": [ "AUnknown_173" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "value", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ]
+			}
+		},
+		"174": {
+			"Name": "SetFocusToOwner",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_174" ]
+		},
+		"175": {
+			"Name": "SetAgentRef1ToOwner",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_175" ]
+		},
+		"176": {
+			"Name": "FadeSoundGroup",
+			"Arguments": [ "single", "tint" ],
+			"ArgumentNames": [ "value", "group" ],
+			"Aliases": [ "AUnknown_176" ],
+			"ArgumentFields": {
+				"1": [ { "Name": "group", "Bit": 0, "Width": 3, "Type": "int" }, { "Name": "unused", "Bit": 3, "Width": 29, "Type": "int" } ]
+			}
+		},
+		"177": {
+			"Name": "WarpAgent",
+			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "single", "single", "single", "single" ],
+			"ArgumentNames": [ "warp", "source", "unused1", "unused2", "unused3", "offsetX", "offsetY", "offsetZ", "offsetW" ],
+			"Aliases": [ "AUnknown_177" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "designator", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "designator2", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "space", "Bit": 16, "Width": 4, "Type": "int" }, { "Name": "unused", "Bit": 20, "Width": 1, "Type": "int" }, { "Name": "useOffset", "Bit": 21, "Width": 1, "Type": "bool" }, { "Name": "addForward", "Bit": 22, "Width": 1, "Type": "bool" }, { "Name": "unused2", "Bit": 23, "Width": 1, "Type": "int" }, { "Name": "subject", "Bit": 24, "Width": 8, "Type": "int" } ],
+				"1": [ { "Name": "designator", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ]
+			}
+		},
+		"178": {
+			"Name": "RotateAgent",
+			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "single", "single", "single", "single" ],
+			"ArgumentNames": [ "rotate", "subject", "unused1", "unused2", "unused3", "quatX", "quatY", "quatZ", "quatW" ],
+			"Aliases": [ "AUnknown_178" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "designator", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "designator2", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "mode", "Bit": 16, "Width": 4, "Type": "int" }, { "Name": "unused", "Bit": 20, "Width": 1, "Type": "int" }, { "Name": "useQuaternion", "Bit": 21, "Width": 1, "Type": "bool" }, { "Name": "unused2", "Bit": 22, "Width": 10, "Type": "int" } ],
+				"1": [ { "Name": "designator", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "designator2", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
+		},
+		"179": {
+			"Name": "WarpAgentForward",
+			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "single", "single", "single", "single" ],
+			"ArgumentNames": [ "warp", "source", "unused1", "unused2", "unused3", "offsetX", "offsetY", "offsetZ", "offsetW" ],
+			"Aliases": [ "AUnknown_179" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "designator", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "designator2", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "space", "Bit": 16, "Width": 4, "Type": "int" }, { "Name": "unused", "Bit": 20, "Width": 1, "Type": "int" }, { "Name": "useOffset", "Bit": 21, "Width": 1, "Type": "bool" }, { "Name": "addForward", "Bit": 22, "Width": 1, "Type": "bool" }, { "Name": "unused2", "Bit": 23, "Width": 1, "Type": "int" }, { "Name": "subject", "Bit": 24, "Width": 8, "Type": "int" } ],
+				"1": [ { "Name": "designator", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ]
+			}
+		},
+		"180": {
+			"Name": "QueueObjectVideo",
+			"Arguments": [ "int32", "tangle" ],
+			"ArgumentNames": [ "value", "value2" ],
+			"Aliases": [ "AUnknown_180" ]
+		},
+		"181": {
+			"Name": "VideoControllerUpdate",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_181" ]
+		},
+		"182": {
+			"Name": "VideoControllerOp182",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_182" ]
+		},
+		"183": {
+			"Name": "SetTargetOwnerToSelf",
+			"Arguments": [ "tangle" ],
+			"ArgumentNames": [ "target" ],
+			"Aliases": [ "AUnknown_183" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "designator", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ]
+			}
+		},
+		"185": {
+			"Name": "QueueVideo",
+			"Arguments": [ "tint", "hex" ],
+			"ArgumentNames": [ "movieId", "flags" ],
+			"Aliases": [ "AUnknown_185" ],
+			"ArgumentFields": {
+				"1": [ { "Name": "byte0", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ]
+			}
+		},
+		"186": {
+			"Name": "StartQueuedVideo",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_186" ]
 		},
 		"187": {
 			"Name": "SetShadow",
-			"Arguments": [ "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "hex", "tfloat", "tfloat", "tfloat" ],
+			"ArgumentNames": [ "shadowSlot", "size", "height", "size2" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "slot", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ]
+			}
 		},
 		"188": {
 			"Name": "SetShadowCircle",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "hex", "tfloat", "tfloat", "tfloat", "tfloat", "tfloat" ],
+			"ArgumentNames": [ "meshSlotAndMode", "radius", "radius2", "offsetX", "offsetY", "offsetZ" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "slot", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "mode", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
 		},
 		"189": {
 			"Name": "SetShadowMesh",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "hex", "tfloat", "tfloat", "tfloat", "tfloat" ],
+			"ArgumentNames": [ "meshSlotAndMode", "size", "offsetX", "offsetY", "offsetZ" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "slot", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "mode", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "meshId1", "Bit": 16, "Width": 8, "Type": "int" }, { "Name": "meshId2", "Bit": 24, "Width": 8, "Type": "int" } ]
+			}
 		},
 		"190": {
 			"Name": "SetShadowRectangle",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "hex", "tfloat", "tfloat", "tfloat", "tfloat", "tfloat" ],
+			"ArgumentNames": [ "slot", "size", "size3", "offsetX", "offsetY", "offsetZ" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "slot", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "flag8", "Bit": 8, "Width": 1, "Type": "bool" }, { "Name": "flag9", "Bit": 9, "Width": 1, "Type": "bool" }, { "Name": "flag10", "Bit": 10, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 11, "Width": 21, "Type": "int" } ]
+			}
 		},
 		"191": {
 			"Name": "ShadowToggle",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "slot" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "slot", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ]
+			}
+		},
+		"192": {
+			"Name": "SetNode10Slot",
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "slot" ],
+			"Aliases": [ "AUnknown_192" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "slot", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ]
+			}
+		},
+		"193": {
+			"Name": "LaunchAtTarget",
+			"Arguments": [ "hex", "single", "single", "single", "single", "tangle", "single", "single", "single" ],
+			"ArgumentNames": [ "unused", "offsetX", "offsetY", "offsetZ", "offsetW", "target", "speedOrAngle", "value7", "value8" ],
+			"Aliases": [ "AUnknown_193" ],
+			"ArgumentFields": {
+				"5": [ { "Name": "space", "Bit": 0, "Width": 4, "Type": "int" }, { "Name": "designator", "Bit": 4, "Width": 8, "Type": "int" }, { "Name": "designator2", "Bit": 12, "Width": 8, "Type": "int" }, { "Name": "skip", "Bit": 20, "Width": 1, "Type": "bool" }, { "Name": "useOffset", "Bit": 21, "Width": 1, "Type": "bool" }, { "Name": "byAngle", "Bit": 22, "Width": 1, "Type": "bool" }, { "Name": "bySpeed", "Bit": 23, "Width": 1, "Type": "bool" }, { "Name": "addHeight", "Bit": 24, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 25, "Width": 7, "Type": "int" } ]
+			}
+		},
+		"194": {
+			"Name": "SetNodeBytes168",
+			"Arguments": [ "hex", "single" ],
+			"ArgumentNames": [ "bytes", "value" ],
+			"Aliases": [ "AUnknown_194" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "byte1", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "byte2", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "flag", "Bit": 16, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 17, "Width": 15, "Type": "int" } ]
+			}
+		},
+		"195": {
+			"Name": "StopVideo",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_195" ]
+		},
+		"196": {
+			"Name": "StopSound",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_196" ]
 		},
 		"197": {
 			"Name": "DUMMY_197",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "hex", "int32", "hex", "hex", "hex", "int32", "int32", "int32", "hex" ],
+			"ArgumentNames": [ "objectId", "value2", "unused3", "unused4", "unused5", "offsetX", "offsetY", "offsetZ", "value9" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "objectId", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "unused", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
+		},
+		"198": {
+			"Name": "SetCollisionBoxSize",
+			"Arguments": [ "single", "single", "single" ],
+			"ArgumentNames": [ "x", "y", "z" ],
+			"Aliases": [ "AUnknown_198" ]
+		},
+		"199": {
+			"Name": "NextLinkedObjectInList",
+			"Arguments": [ "tfloat", "hex", "hex", "hex", "hex" ],
+			"ArgumentNames": [ "links1", "links2", "links3", "links4", "count" ],
+			"Aliases": [ "AUnknown_199" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "link1", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "link2", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "link3", "Bit": 16, "Width": 8, "Type": "int" }, { "Name": "link4", "Bit": 24, "Width": 8, "Type": "int" } ],
+				"1": [ { "Name": "link5", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "link6", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "link7", "Bit": 16, "Width": 8, "Type": "int" }, { "Name": "link8", "Bit": 24, "Width": 8, "Type": "int" } ],
+				"2": [ { "Name": "link9", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "link10", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "link11", "Bit": 16, "Width": 8, "Type": "int" }, { "Name": "link12", "Bit": 24, "Width": 8, "Type": "int" } ],
+				"3": [ { "Name": "link13", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "link14", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "link15", "Bit": 16, "Width": 8, "Type": "int" }, { "Name": "link16", "Bit": 24, "Width": 8, "Type": "int" } ],
+				"4": [ { "Name": "count", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ]
+			}
+		},
+		"200": {
+			"Name": "ArrangeLinkedObjects",
+			"Arguments": [ "single", "single", "hex" ],
+			"ArgumentNames": [ "angleValue", "value", "flags" ],
+			"Aliases": [ "AUnknown_200" ],
+			"ArgumentFields": {
+				"2": [ { "Name": "mode", "Bit": 0, "Width": 4, "Type": "int" }, { "Name": "field1", "Bit": 4, "Width": 8, "Type": "int" }, { "Name": "field2", "Bit": 12, "Width": 8, "Type": "int" }, { "Name": "flag20", "Bit": 20, "Width": 1, "Type": "bool" }, { "Name": "flag21", "Bit": 21, "Width": 1, "Type": "bool" }, { "Name": "flag22", "Bit": 22, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 23, "Width": 9, "Type": "int" } ]
+			}
+		},
+		"201": {
+			"Name": "ArrangeLinkedObjects2",
+			"Arguments": [ "single", "single", "hex" ],
+			"ArgumentNames": [ "angleValue", "value", "flags" ],
+			"Aliases": [ "AUnknown_201" ],
+			"ArgumentFields": {
+				"2": [ { "Name": "mode", "Bit": 0, "Width": 4, "Type": "int" }, { "Name": "field1", "Bit": 4, "Width": 8, "Type": "int" }, { "Name": "field2", "Bit": 12, "Width": 8, "Type": "int" }, { "Name": "flag20", "Bit": 20, "Width": 1, "Type": "bool" }, { "Name": "flag21", "Bit": 21, "Width": 1, "Type": "bool" }, { "Name": "flag22", "Bit": 22, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 23, "Width": 9, "Type": "int" } ]
+			}
+		},
+		"202": {
+			"Name": "TriggerInstanceAtOwnBox",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_202" ]
+		},
+		"203": {
+			"Name": "ScaleModelNode",
+			"Arguments": [ "single" ],
+			"ArgumentNames": [ "value" ],
+			"Aliases": [ "AUnknown_203" ]
+		},
+		"204": {
+			"Name": "SetFocusPositionOffset",
+			"Arguments": [ "single", "single", "single", "single", "single", "single", "single", "tint" ],
+			"ArgumentNames": [ "x", "y", "z", "offsetX", "offsetY", "offsetZ", "distance", "use" ],
+			"Aliases": [ "AUnknown_204" ],
+			"ArgumentFields": {
+				"7": [ { "Name": "x", "Bit": 0, "Width": 1, "Type": "bool" }, { "Name": "y", "Bit": 1, "Width": 1, "Type": "bool" }, { "Name": "z", "Bit": 2, "Width": 1, "Type": "bool" }, { "Name": "offsetX", "Bit": 3, "Width": 1, "Type": "bool" }, { "Name": "offsetY", "Bit": 4, "Width": 1, "Type": "bool" }, { "Name": "offsetZ", "Bit": 5, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 6, "Width": 26, "Type": "int" } ]
+			}
+		},
+		"205": {
+			"Name": "SetFocusPositionAtAngle",
+			"Arguments": [ "single", "single" ],
+			"ArgumentNames": [ "distance", "angleValue" ],
+			"Aliases": [ "AUnknown_205" ]
+		},
+		"206": {
+			"Name": "SaveScriptState",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_206" ]
+		},
+		"207": {
+			"Name": "ClearSavedScriptState",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_207" ]
+		},
+		"208": {
+			"Name": "SetNodeByte8c",
+			"Arguments": [ "tint" ],
+			"ArgumentNames": [ "value" ],
+			"Aliases": [ "AUnknown_208" ]
+		},
+		"209": {
+			"Name": "SetGlobalByte30a0e9",
+			"Arguments": [ "tint" ],
+			"ArgumentNames": [ "value" ],
+			"Aliases": [ "AUnknown_209" ]
+		},
+		"210": {
+			"Name": "TriggerInstancesInRange",
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "event" ],
+			"Aliases": [ "AUnknown_210" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "eventId", "Bit": 0, "Width": 16, "Type": "sint" }, { "Name": "mode", "Bit": 16, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 24, "Width": 8, "Type": "int" } ]
+			}
+		},
+		"211": {
+			"Name": "MarkTime",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_211" ]
+		},
+		"212": {
+			"Name": "ClearMarkedTime",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_212" ]
+		},
+		"213": {
+			"Name": "KeyOfPath34Op213",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_213" ]
 		},
 		"214": {
 			"Name": "ControllerRumble",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "single" ],
+			"ArgumentNames": [ "value1" ]
+		},
+		"215": {
+			"Name": "SetSoundParams",
+			"Arguments": [ "tfloat", "single", "int32" ],
+			"ArgumentNames": [ "set", "pitch", "volume" ],
+			"Aliases": [ "AUnknown_215" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "pitch", "Bit": 0, "Width": 1, "Type": "bool" }, { "Name": "volume", "Bit": 1, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 2, "Width": 30, "Type": "int" } ]
+			}
 		},
 		"512": { // Start officially known and confirmed
 			"Name": "CreateCrateContents",
-			"Arguments": [ "hex", "hex" ]
+			"Arguments": [ "hex", "hex" ],
+			"ArgumentNames": [ "value1", "value2" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "short0", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "short1", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
 		},
 		"513": {
 			"Name": "CA_PickUpWumpa",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "int32" ],
+			"ArgumentNames": [ "value1" ]
 		},
 		"514": {
 			"Name": "CreateDamage",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "hex", "single", "single", "single", "single", "hex", "single", "tint", "tfloat", "hex", "tfloat", "tfloat", "hex" ],
+			"ArgumentNames": [ "unused1", "x", "y", "z", "w", "flags", "unknown7", "damage", "radius", "flags10", "force", "value12", "unknown13" ],
+			"ArgumentFields": {
+				"5": [ { "Name": "unused", "Bit": 0, "Width": 13, "Type": "int" }, { "Name": "flag13", "Bit": 13, "Width": 1, "Type": "bool" }, { "Name": "unused2", "Bit": 14, "Width": 18, "Type": "int" } ],
+				"9": [ { "Name": "short0", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "unused", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
 		},
 		"515": {
 			"Name": "SetAgent",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "agentFlags" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "select", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "values", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
 		},
 		"516": {
 			"Name": "SetPlayerRespawnPosition",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "value1" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "byte0", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "byte1", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
 		},
 		"517": {
 			"Name": "ResetGame",
@@ -2301,7 +3427,11 @@
 		},
 		"518": {
 			"Name": "SetCrate",
-			"Arguments": [ "hex", "hex" ]
+			"Arguments": [ "hex", "hex" ],
+			"ArgumentNames": [ "unused1", "value2" ],
+			"ArgumentFields": {
+				"1": [ { "Name": "byte0", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ]
+			}
 		},
 		"519": {
 			"Name": "TriggerBalancedCrateFalling",
@@ -2313,7 +3443,11 @@
 		},
 		"521": {
 			"Name": "SetPlayerInput",
-			"Arguments": [ "hex", "hex" ]
+			"Arguments": [ "hex", "hex" ],
+			"ArgumentNames": [ "inputFlags", "unknown2" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "select", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "values", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
 		},
 		"522": {
 			"Name": "TriggerAllNitroCrates",
@@ -2321,7 +3455,11 @@
 		},
 		"523": {
 			"Name": "ApplyVelocity",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "tfloat", "tfloat", "tfloat", "tfloat", "tfloat", "tfloat", "tfloat", "tint", "tfloat", "tfloat", "tfloat", "int32" ],
+			"ArgumentNames": [ "radius", "velX", "velY", "velZ", "velX2", "velY2", "velZ2", "value8", "value9", "value10", "value11", "target" ],
+			"ArgumentFields": {
+				"11": [ { "Name": "designator", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ]
+			}
 		},
 		"524": {
 			"Name": "SetKeyNearestPlayer",
@@ -2329,27 +3467,43 @@
 		},
 		"525": {
 			"Name": "RaycastFocusPosition",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "hex", "single", "single", "single", "single", "single", "int32", "tangle", "hex", "hex", "hex", "hex", "hex" ],
+			"ArgumentNames": [ "unused1", "x", "y", "z", "value5", "distance", "size", "mode", "unused9", "target", "unused11", "unused12", "unused13" ],
+			"ArgumentFields": {
+				"7": [ { "Name": "mode", "Bit": 0, "Width": 3, "Type": "int" }, { "Name": "unused", "Bit": 3, "Width": 29, "Type": "int" } ],
+				"9": [ { "Name": "designator", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ]
+			}
 		},
 		"526": {
 			"Name": "ApplyVelocityToSelf",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "tfloat", "tfloat", "tfloat", "tfloat", "tfloat", "tfloat", "tfloat", "tangle" ],
+			"ArgumentNames": [ "radius", "velX", "velY", "velZ", "value5", "value6", "value7", "value8" ]
 		},
 		"527": {
 			"Name": "SetChiChiGrass",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "value1" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "short0", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "short1", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
 		},
 		"528": {
 			"Name": "ReduceHitPoints",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "int32" ],
+			"ArgumentNames": [ "hitPoints" ]
 		},
 		"529": {
 			"Name": "SetHitPoints",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "hitPoints" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "byte0", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ]
+			}
 		},
 		"530": {
 			"Name": "DUMMY_SetRayTests",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "int32", "int32", "int32", "int32", "int32" ],
+			"ArgumentNames": [ "value1", "value2", "value3", "value4", "value5" ]
 		},
 		"531": {
 			"Name": "RestartDefault",
@@ -2357,15 +3511,21 @@
 		},
 		"532": {
 			"Name": "DUMMY_NowGoForwardCollidable",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "tfloat" ],
+			"ArgumentNames": [ "angleValue" ]
 		},
 		"533": {
 			"Name": "NowGoBackCollidable",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "tfloat" ],
+			"ArgumentNames": [ "value1" ]
 		}, // End officially known and confirmed
 		"534": {
 			"Name": "SetGlobalProgression",
-			"Arguments": [ "hex", "hex" ]
+			"Arguments": [ "hex", "tint" ],
+			"ArgumentNames": [ "value1", "value" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "bits0", "Bit": 0, "Width": 5, "Type": "int" }, { "Name": "unused", "Bit": 5, "Width": 27, "Type": "int" } ]
+			}
 		},
 		"535": {
 			"Name": "AddCrystal",
@@ -2373,11 +3533,13 @@
 		},
 		"536": {
 			"Name": "DUMMY_536",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "unused1" ]
 		},
 		"537": {
 			"Name": "AddGem",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "int32" ],
+			"ArgumentNames": [ "value1" ]
 		},
 		"538": {
 			"Name": "DUMMY_538",
@@ -2385,15 +3547,29 @@
 		},
 		"539": { // Start officially known and confirmed
 			"Name": "CA_SetPickup",
-			"Arguments": [ "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "single", "single", "single", "hex" ],
+			"ArgumentNames": [ "value1", "value2", "value3", "hitPoints" ],
+			"ArgumentFields": {
+				"3": [ { "Name": "unused", "Bit": 0, "Width": 1, "Type": "bool" }, { "Name": "flag1", "Bit": 1, "Width": 1, "Type": "bool" }, { "Name": "flag2", "Bit": 2, "Width": 1, "Type": "bool" }, { "Name": "flag3", "Bit": 3, "Width": 1, "Type": "bool" }, { "Name": "flag4", "Bit": 4, "Width": 1, "Type": "bool" }, { "Name": "flag5", "Bit": 5, "Width": 1, "Type": "bool" }, { "Name": "flag6", "Bit": 6, "Width": 1, "Type": "bool" }, { "Name": "unused2", "Bit": 7, "Width": 1, "Type": "bool" }, { "Name": "bits8", "Bit": 8, "Width": 2, "Type": "int" }, { "Name": "flag10", "Bit": 10, "Width": 1, "Type": "bool" }, { "Name": "unused3", "Bit": 11, "Width": 21, "Type": "int" } ]
+			}
 		},
 		"540": {
 			"Name": "CA_SetProjectile",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "hex", "single", "int32", "single", "int32", "tfloat" ],
+			"ArgumentNames": [ "hitPoints", "speed", "value3", "value4", "value5", "radius" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "hitPoints", "Bit": 0, "Width": 4, "Type": "int" }, { "Name": "flag4", "Bit": 4, "Width": 1, "Type": "bool" }, { "Name": "gravityGiven", "Bit": 5, "Width": 1, "Type": "bool" }, { "Name": "flag6", "Bit": 6, "Width": 1, "Type": "bool" }, { "Name": "flag7", "Bit": 7, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ]
+			}
 		},
 		"541": {
 			"Name": "CA_AddTrail",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "hex", "hex", "tint", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "int32", "single", "single", "hex", "int32", "int32", "int32", "hex", "int32", "single", "int32", "single", "int32", "int32", "int32", "int32", "int32", "int32", "hex" ],
+			"ArgumentNames": [ "lifetime", "flags", "flags2", "unused4", "ids1", "ids2", "ids3", "ids4", "ids5", "ids6", "value11", "value12", "value13", "unused14", "value15", "value16", "value17", "unused18", "value19", "scale", "value21", "value22", "value23", "value24", "value25", "posX", "posY", "posZ", "posW" ],
+			"ArgumentFields": {
+				"4": [ { "Name": "short0", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "slots", "Bit": 16, "Width": 16, "Type": "int" } ],
+				"8": [ { "Name": "unused", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "short1", "Bit": 16, "Width": 16, "Type": "int" } ],
+				"9": [ { "Name": "message", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "byte2", "Bit": 16, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 24, "Width": 8, "Type": "int" } ]
+			}
 		},
 		"542": {
 			"Name": "CA_ClearTrail",
@@ -2401,31 +3577,64 @@
 		},
 		"543": {
 			"Name": "CA_DoAnimation",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "hex", "tfloat", "tfloat", "tfloat", "int32", "hex" ],
+			"ArgumentNames": [ "flags", "blendTime", "speed", "speedRandom", "startPosition", "animSlots" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "bits0", "Bit": 0, "Width": 4, "Type": "int" }, { "Name": "unused", "Bit": 4, "Width": 8, "Type": "int" }, { "Name": "flag12", "Bit": 12, "Width": 1, "Type": "bool" }, { "Name": "flag13", "Bit": 13, "Width": 1, "Type": "bool" }, { "Name": "flag14", "Bit": 14, "Width": 1, "Type": "bool" }, { "Name": "flag15", "Bit": 15, "Width": 1, "Type": "bool" }, { "Name": "flag16", "Bit": 16, "Width": 1, "Type": "bool" }, { "Name": "flag17", "Bit": 17, "Width": 1, "Type": "bool" }, { "Name": "flag18", "Bit": 18, "Width": 1, "Type": "bool" }, { "Name": "flag19", "Bit": 19, "Width": 1, "Type": "bool" }, { "Name": "flag20", "Bit": 20, "Width": 1, "Type": "bool" }, { "Name": "unused2", "Bit": 21, "Width": 11, "Type": "int" } ],
+				"5": [ { "Name": "animSlots", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ]
+			}
 		},
 		"544": {
 			"Name": "CA_DoParticle",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ],
+			"ArgumentNames": [ "systemAndFlags", "flags2", "flags3", "unknown4", "unknown5", "posX", "posY", "posZ", "posW" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "short0", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "unused", "Bit": 16, "Width": 9, "Type": "int" }, { "Name": "bits25", "Bit": 25, "Width": 6, "Type": "int" }, { "Name": "unused2", "Bit": 31, "Width": 1, "Type": "bool" } ],
+				"1": [ { "Name": "flag0", "Bit": 0, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 1, "Width": 1, "Type": "bool" }, { "Name": "flag2", "Bit": 2, "Width": 1, "Type": "bool" }, { "Name": "flag3", "Bit": 3, "Width": 1, "Type": "bool" }, { "Name": "unused2", "Bit": 4, "Width": 2, "Type": "int" }, { "Name": "byte0", "Bit": 6, "Width": 8, "Type": "int" }, { "Name": "unused3", "Bit": 14, "Width": 1, "Type": "bool" }, { "Name": "flag15", "Bit": 15, "Width": 1, "Type": "bool" }, { "Name": "flag16", "Bit": 16, "Width": 1, "Type": "bool" }, { "Name": "unused4", "Bit": 17, "Width": 5, "Type": "int" }, { "Name": "byte2", "Bit": 22, "Width": 8, "Type": "int" }, { "Name": "unused5", "Bit": 30, "Width": 2, "Type": "int" } ]
+			}
 		},
 		"545": {
 			"Name": "CA_DoSound",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "tfloat", "single", "single", "single", "int32", "hex", "int32", "int32", "single", "single" ],
+			"ArgumentNames": [ "flags", "soundSlots1", "soundSlots2", "soundSlots3", "soundSlots4", "volume", "unused7", "pitch", "pitchRandom", "volumeRandom", "unknown11", "unknown12", "shakeUnknown1", "shakeUnknown2", "shakeUnknown3" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "bits0", "Bit": 0, "Width": 4, "Type": "int" }, { "Name": "unused", "Bit": 4, "Width": 7, "Type": "int" }, { "Name": "flag11", "Bit": 11, "Width": 1, "Type": "bool" }, { "Name": "flag12", "Bit": 12, "Width": 1, "Type": "bool" }, { "Name": "unused2", "Bit": 13, "Width": 2, "Type": "int" }, { "Name": "flag15", "Bit": 15, "Width": 1, "Type": "bool" }, { "Name": "unused3", "Bit": 16, "Width": 1, "Type": "bool" }, { "Name": "flag17", "Bit": 17, "Width": 1, "Type": "bool" }, { "Name": "unused4", "Bit": 18, "Width": 1, "Type": "bool" }, { "Name": "flag19", "Bit": 19, "Width": 1, "Type": "bool" }, { "Name": "flag20", "Bit": 20, "Width": 1, "Type": "bool" }, { "Name": "unused5", "Bit": 21, "Width": 1, "Type": "bool" }, { "Name": "flag22", "Bit": 22, "Width": 1, "Type": "bool" }, { "Name": "flag23", "Bit": 23, "Width": 1, "Type": "bool" }, { "Name": "unused6", "Bit": 24, "Width": 8, "Type": "int" } ],
+				"1": [ { "Name": "slots", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "unused", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
 		},
 		"546": {
 			"Name": "CA_CreateDamage",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "hex", "single", "single", "single", "single", "hex", "single", "tint", "tfloat", "hex", "tfloat", "tfloat", "hex" ],
+			"ArgumentNames": [ "unused1", "x", "y", "z", "w", "flags", "unknown7", "damage", "radius", "flags10", "force", "value12", "unknown13" ],
+			"ArgumentFields": {
+				"5": [ { "Name": "unused", "Bit": 0, "Width": 13, "Type": "int" }, { "Name": "flag13", "Bit": 13, "Width": 1, "Type": "bool" }, { "Name": "unused2", "Bit": 14, "Width": 18, "Type": "int" } ],
+				"9": [ { "Name": "short0", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "unused", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
 		},
 		"548": {
 			"Name": "Shoot",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "hex", "single", "single", "single", "single", "hex", "hex", "single", "hex" ],
+			"ArgumentNames": [ "unused1", "x", "y", "z", "unused5", "message", "value7", "distance", "unused9" ],
+			"ArgumentFields": {
+				"5": [ { "Name": "objectId", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "message", "Bit": 16, "Width": 16, "Type": "int" } ],
+				"6": [ { "Name": "byte0", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "flag8", "Bit": 8, "Width": 1, "Type": "bool" }, { "Name": "flag9", "Bit": 9, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 10, "Width": 4, "Type": "int" }, { "Name": "flag14", "Bit": 14, "Width": 1, "Type": "bool" }, { "Name": "unused2", "Bit": 15, "Width": 17, "Type": "int" } ]
+			}
 		},
 		"549": {
 			"Name": "GetShortRoute",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "single", "single", "single", "single", "single", "hex", "hex", "tfloat", "tfloat", "tfloat", "tfloat", "tfloat", "hex", "hex", "hex", "single", "single" ],
+			"ArgumentNames": [ "unknown1", "x", "y", "z", "w", "targetFlags", "flags7", "value8", "value9", "value10", "value11", "value12", "keyAndObject", "unknown14", "unknown15", "value16", "value17" ],
+			"ArgumentFields": {
+				"5": [ { "Name": "byte0", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "flag8", "Bit": 8, "Width": 1, "Type": "bool" }, { "Name": "flag9", "Bit": 9, "Width": 1, "Type": "bool" }, { "Name": "flag10", "Bit": 10, "Width": 1, "Type": "bool" }, { "Name": "flag11", "Bit": 11, "Width": 1, "Type": "bool" }, { "Name": "flag12", "Bit": 12, "Width": 1, "Type": "bool" }, { "Name": "flag13", "Bit": 13, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 14, "Width": 14, "Type": "int" }, { "Name": "flag28", "Bit": 28, "Width": 1, "Type": "bool" }, { "Name": "flag29", "Bit": 29, "Width": 1, "Type": "bool" }, { "Name": "flag30", "Bit": 30, "Width": 1, "Type": "bool" }, { "Name": "unused2", "Bit": 31, "Width": 1, "Type": "bool" } ],
+				"12": [ { "Name": "byte0", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "short1", "Bit": 16, "Width": 16, "Type": "int" } ],
+				"13": [ { "Name": "short0", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "short1", "Bit": 16, "Width": 16, "Type": "int" } ],
+				"14": [ { "Name": "short0", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "unused", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
 		},
 		"550": {
 			"Name": "DUMMY_FuelPayGate",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "unused1" ]
 		},
 		"551": {
 			"Name": "OpenAllLinkedFurniture",
@@ -2437,7 +3646,8 @@
 		},
 		"553": {
 			"Name": "AttachAllLinkedAgents",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "value1" ]
 		},
 		"554": {
 			"Name": "DetachAllLinkedAgents",
@@ -2445,7 +3655,11 @@
 		}, // End officially known and confirmed
 		"555": {
 			"Name": "SetVehicleHumiliskate",
-			"Arguments": [ "hex", "hex", "hex" ]
+			"Arguments": [ "hex", "tfloat", "tfloat" ],
+			"ArgumentNames": [ "value1", "value2", "value3" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "byte0", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "byte1", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
 		},
 		"556": { // Start officially known and confirmed
 			"Name": "SetFocusToPlayer",
@@ -2453,15 +3667,26 @@
 		},
 		"557": {
 			"Name": "RequestFocus",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "hex", "single", "single", "single", "single", "hex", "hex", "hex", "hex", "hex", "int32", "single", "hex" ],
+			"ArgumentNames": [ "unused1", "x", "y", "z", "w", "ids6", "ids7", "ids8", "targetFlags", "flags10", "flags11", "radius", "unknown13" ],
+			"ArgumentFields": {
+				"5": [ { "Name": "objectId", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "unused", "Bit": 16, "Width": 16, "Type": "int" } ],
+				"7": [ { "Name": "byte0", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ],
+				"8": [ { "Name": "flag0", "Bit": 0, "Width": 1, "Type": "bool" }, { "Name": "flag1", "Bit": 1, "Width": 1, "Type": "bool" }, { "Name": "flag2", "Bit": 2, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 3, "Width": 5, "Type": "int" }, { "Name": "byte1", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "short1", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
 		},
 		"558": {
 			"Name": "SetFocusProperties",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "tint" ],
+			"ArgumentNames": [ "value1" ]
 		},
 		"559": {
 			"Name": "SetCamera",
-			"Arguments": [ "hex", "hex", "hex" ]
+			"Arguments": [ "tint", "tangle", "int32" ],
+			"ArgumentNames": [ "value1", "value2", "value3" ],
+			"ArgumentFields": {
+				"2": [ { "Name": "byte0", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "byte1", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "byte2", "Bit": 16, "Width": 8, "Type": "int" }, { "Name": "byte3", "Bit": 24, "Width": 8, "Type": "int" } ]
+			}
 		},
 		"560": {
 			"Name": "RestoreCameraDefaults",
@@ -2469,7 +3694,11 @@
 		},
 		"561": {
 			"Name": "LinkToFocusCharacter",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "value1" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "flag0", "Bit": 0, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 1, "Width": 31, "Type": "int" } ]
+			}
 		},
 		"562": {
 			"Name": "UnlinkCharacters",
@@ -2477,35 +3706,174 @@
 		},
 		"563": {
 			"Name": "DamageOriginator",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "single", "tint", "hex", "hex" ],
+			"ArgumentNames": [ "unused1", "unused2", "unused3", "unused4", "unused5", "unused6", "unused7", "unused8", "unused9", "value10", "hitPoints", "unused12", "unused13" ]
 		}, // End officially known and confirmed
 		"564": {
 			"Name": "RequestFocus2",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "hex", "single", "single", "single", "single", "hex", "hex", "hex", "hex", "hex", "int32", "single", "hex" ],
+			"ArgumentNames": [ "unused1", "x", "y", "z", "w", "ids6", "ids7", "ids8", "targetFlags", "flags10", "flags11", "radius", "unknown13" ],
+			"ArgumentFields": {
+				"5": [ { "Name": "objectId", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "unused", "Bit": 16, "Width": 16, "Type": "int" } ],
+				"7": [ { "Name": "byte0", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ],
+				"8": [ { "Name": "flag0", "Bit": 0, "Width": 1, "Type": "bool" }, { "Name": "flag1", "Bit": 1, "Width": 1, "Type": "bool" }, { "Name": "flag2", "Bit": 2, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 3, "Width": 5, "Type": "int" }, { "Name": "byte1", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "short1", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
 		},
 		"565": {
 			"Name": "RequestFocus3",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "hex", "single", "single", "single", "hex", "hex", "hex", "hex", "hex", "hex", "int32", "single", "hex" ],
+			"ArgumentNames": [ "unused1", "x", "y", "z", "w", "ids6", "ids7", "ids8", "targetFlags", "flags10", "flags11", "radius", "unknown13" ],
+			"ArgumentFields": {
+				"5": [ { "Name": "objectId", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "unused", "Bit": 16, "Width": 16, "Type": "int" } ],
+				"7": [ { "Name": "byte0", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ],
+				"8": [ { "Name": "flag0", "Bit": 0, "Width": 1, "Type": "bool" }, { "Name": "flag1", "Bit": 1, "Width": 1, "Type": "bool" }, { "Name": "flag2", "Bit": 2, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 3, "Width": 5, "Type": "int" }, { "Name": "byte1", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "short1", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
+		},
+		"566": {
+			"Name": "SetAgentRef1ToPlayer",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_566" ]
+		},
+		"567": {
+			"Name": "SetFocusPositionToPlayer",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_567" ]
+		},
+		"568": {
+			"Name": "DUMMY_568",
+			"Arguments": [ "int32", "int32", "int32", "int32", "int32", "hex", "hex", "hex" ],
+			"ArgumentNames": [ "distance", "value1", "value2", "value3", "value4", "shorts1", "shorts2", "shorts3" ],
+			"Aliases": [ "AUnknown_568" ],
+			"ArgumentFields": {
+				"5": [ { "Name": "a", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "b", "Bit": 16, "Width": 16, "Type": "int" } ],
+				"6": [ { "Name": "c", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "d", "Bit": 16, "Width": 16, "Type": "int" } ],
+				"7": [ { "Name": "e", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "unused", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
 		},
 		"569": {
 			"Name": "ExitVehicleMode",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "int32" ],
+			"ArgumentNames": [ "value1" ]
 		},
 		"570": {
 			"Name": "SetVehicleRollerbrawl",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "value1" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "byte0", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "byte1", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
 		},
 		"571": {
 			"Name": "SetVehicleHoverboard",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "value1" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "byte0", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ]
+			}
+		},
+		"572": {
+			"Name": "SetMotion",
+			"Arguments": [ "hex", "int32", "int32", "int32", "int32", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "int32", "int32", "int32", "hex", "hex", "hex", "hex", "hex" ],
+			"ArgumentNames": [ "flags", "range", "value2", "value3", "value4", "value5", "angleX", "angleY", "angleZ", "unused9", "unused10", "unused11", "startDesignator", "unused13", "unused14", "unused15", "unused16", "unused17", "unused18", "unused19", "unused20", "unused21", "unused22", "unused23", "unused24", "unused25", "motionType", "motionFlags2", "value28", "unused29", "unused30", "unused31", "unused32", "unused33" ],
+			"Aliases": [ "AUnknown_572" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "flag0", "Bit": 0, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 1, "Width": 31, "Type": "int" } ],
+				"12": [ { "Name": "designator", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ],
+				"26": [ { "Name": "unused", "Bit": 0, "Width": 14, "Type": "int" }, { "Name": "flag14", "Bit": 14, "Width": 1, "Type": "bool" }, { "Name": "unused2", "Bit": 15, "Width": 13, "Type": "int" }, { "Name": "motionType", "Bit": 28, "Width": 3, "Type": "int" }, { "Name": "flag31", "Bit": 31, "Width": 1, "Type": "bool" } ]
+			}
+		},
+		"573": {
+			"Name": "SetNearestPointFlags",
+			"Arguments": [ "tangle", "int32", "int32" ],
+			"ArgumentNames": [ "flags", "range", "value" ],
+			"Aliases": [ "AUnknown_573" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "flag0", "Bit": 0, "Width": 2, "Type": "int" }, { "Name": "flag2", "Bit": 2, "Width": 2, "Type": "int" }, { "Name": "flag4", "Bit": 4, "Width": 2, "Type": "int" }, { "Name": "unused", "Bit": 6, "Width": 26, "Type": "int" } ]
+			}
+		},
+		"574": {
+			"Name": "CreateHeadTracking",
+			"Arguments": [ "int32", "single", "single", "int32", "int32", "int32", "single", "single", "single", "int32", "int32", "int32", "int32", "int32", "int32", "hex", "single", "hex" ],
+			"ArgumentNames": [ "value0", "range", "value2", "angle1", "angle2", "angle3", "dirX", "dirY", "dirZ", "value9", "value10", "value11", "value12", "value13", "value14", "animations", "speed", "flags" ],
+			"Aliases": [ "AUnknown_574" ],
+			"ArgumentFields": {
+				"15": [ { "Name": "animation1", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "animation2", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "byte2", "Bit": 16, "Width": 8, "Type": "int" }, { "Name": "flag24", "Bit": 24, "Width": 1, "Type": "bool" }, { "Name": "flag25", "Bit": 25, "Width": 1, "Type": "bool" }, { "Name": "flag26", "Bit": 26, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 27, "Width": 5, "Type": "int" } ]
+			}
+		},
+		"575": {
+			"Name": "SetFocusPositionToNearestPoint",
+			"Arguments": [ "hex", "single" ],
+			"ArgumentNames": [ "target", "unused" ],
+			"Aliases": [ "AUnknown_575" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "designator", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ]
+			}
+		},
+		"576": {
+			"Name": "SetFocusToGameActor",
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "actorIndex" ],
+			"Aliases": [ "AUnknown_576" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "byte0", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ]
+			}
 		},
 		"577": {
 			"Name": "BecomeSticky",
-			"Arguments": [ "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "int32", "int32", "hex", "int32" ],
+			"ArgumentNames": [ "value1", "value2", "objectId", "message" ],
+			"ArgumentFields": {
+				"2": [ { "Name": "objectId", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "unused", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
+		},
+		"578": {
+			"Name": "CharacterOp578",
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "value" ],
+			"Aliases": [ "AUnknown_578" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "value", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "flag16", "Bit": 16, "Width": 1, "Type": "bool" }, { "Name": "flag17", "Bit": 17, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 18, "Width": 14, "Type": "int" } ]
+			}
+		},
+		"579": {
+			"Name": "CounterPositionOp579",
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "counter" ],
+			"Aliases": [ "AUnknown_579" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "id", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "fromObjectByte", "Bit": 16, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 17, "Width": 15, "Type": "int" } ]
+			}
+		},
+		"580": {
+			"Name": "ApplyVelocityToHeldBody",
+			"Arguments": [ "hex", "single", "single", "single", "single" ],
+			"ArgumentNames": [ "unused", "x", "y", "z", "w" ],
+			"Aliases": [ "AUnknown_580" ]
 		},
 		"581": {
 			"Name": "BecomeNormal",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "value1" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "flag0", "Bit": 0, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 1, "Width": 31, "Type": "int" } ]
+			}
+		},
+		"582": {
+			"Name": "AddPerception",
+			"Arguments": [ "tint", "single", "hex", "hex", "hex", "hex", "hex", "hex", "int32", "hex", "int32", "single", "int32", "single", "int32", "single" ],
+			"ArgumentNames": [ "type", "value1", "unused2", "objectId", "unused4", "unused5", "unused6", "bytes", "range", "range2", "value10", "value11", "value12", "value13", "value14", "value15" ],
+			"Aliases": [ "AUnknown_582" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "type", "Bit": 0, "Width": 3, "Type": "int" }, { "Name": "unused", "Bit": 3, "Width": 29, "Type": "int" } ],
+				"3": [ { "Name": "objectId", "Bit": 0, "Width": 16, "Type": "sint" }, { "Name": "unused", "Bit": 16, "Width": 16, "Type": "int" } ],
+				"7": [ { "Name": "byte0", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "byte1", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "byte2", "Bit": 16, "Width": 8, "Type": "int" }, { "Name": "byte3", "Bit": 24, "Width": 8, "Type": "int" } ]
+			}
+		},
+		"583": {
+			"Name": "CutsceneCameraOp583",
+			"Arguments": [ "single", "int32", "tangle", "tfloat", "single", "single", "single", "tfloat", "int32", "tangle", "int32", "tangle", "hex", "tangle", "single", "single", "hex", "hex" ],
+			"ArgumentNames": [ "x", "y", "value2", "value3", "value4", "value5", "value6", "value7", "value8", "value9", "value10", "value11", "unused12", "value13", "value14", "value15", "unused16", "unused17" ],
+			"Aliases": [ "AUnknown_583" ]
 		},
 		"584": {
 			"Name": "DUMMY_584",
@@ -2513,11 +3881,25 @@
 		},
 		"585": {
 			"Name": "AddLives_Duplicate",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "int32" ],
+			"ArgumentNames": [ "value1" ]
 		},
 		"586": {
 			"Name": "DUMMY_586",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "value1" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "short0", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "unused", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
+		},
+		"587": {
+			"Name": "SetObjectFlags587",
+			"Arguments": [ "tint" ],
+			"ArgumentNames": [ "flags" ],
+			"Aliases": [ "AUnknown_587" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "flag16", "Bit": 0, "Width": 2, "Type": "int" }, { "Name": "unused1", "Bit": 2, "Width": 2, "Type": "int" }, { "Name": "flag18", "Bit": 4, "Width": 2, "Type": "int" }, { "Name": "unused2", "Bit": 6, "Width": 4, "Type": "int" }, { "Name": "flags13to15", "Bit": 10, "Width": 2, "Type": "int" }, { "Name": "unused3", "Bit": 12, "Width": 20, "Type": "int" } ]
+			}
 		},
 		"588": {
 			"Name": "PlayerFaceTowardsCamera",
@@ -2525,35 +3907,75 @@
 		},
 		"589": {
 			"Name": "CutsceneStart",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "single" ],
+			"ArgumentNames": [ "value1" ]
 		},
 		"590": {
 			"Name": "CutsceneEnd",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "single" ],
+			"ArgumentNames": [ "value1" ]
+		},
+		"591": {
+			"Name": "CutsceneCameraMove",
+			"Arguments": [ "tangle", "single", "single", "single", "single", "single", "single", "hex", "hex", "int32", "int32", "hex" ],
+			"ArgumentNames": [ "flagsAndAngle", "offset1", "offset2", "offset3", "offset4", "offset5", "offset6", "unused8", "unused9", "value10", "value11", "value12" ],
+			"Aliases": [ "AUnknown_591" ]
 		},
 		"592": {
 			"Name": "CameraSaveParams",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "tfloat" ],
+			"ArgumentNames": [ "value1" ]
 		},
 		"593": {
 			"Name": "CameraLoadParams",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "tfloat" ],
+			"ArgumentNames": [ "value1" ]
 		},
 		"594": {
 			"Name": "ToggleCutsceneCamera",
-			"Arguments": [ "hex", "hex" ]
+			"Arguments": [ "hex", "single" ],
+			"ArgumentNames": [ "modeFlags", "blendTime" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "mode", "Bit": 0, "Width": 3, "Type": "int" }, { "Name": "option3", "Bit": 3, "Width": 1, "Type": "bool" }, { "Name": "option4", "Bit": 4, "Width": 1, "Type": "bool" }, { "Name": "options", "Bit": 5, "Width": 3, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ]
+			}
+		},
+		"595": {
+			"Name": "CutsceneCameraTargets",
+			"Arguments": [ "hex", "hex", "hex" ],
+			"ArgumentNames": [ "targets", "flags", "keys" ],
+			"Aliases": [ "AUnknown_595" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "designatorA", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "designatorB", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "alternativeA", "Bit": 16, "Width": 8, "Type": "int" }, { "Name": "alternativeB", "Bit": 24, "Width": 8, "Type": "int" } ],
+				"1": [ { "Name": "flag0", "Bit": 0, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 1, "Width": 31, "Type": "int" } ],
+				"2": [ { "Name": "keyA", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "keyB", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
 		},
 		"596": {
 			"Name": "StartWhackaworm",
-			"Arguments": [ "hex", "hex", "hex" ]
+			"Arguments": [ "int32", "tfloat", "tint" ],
+			"ArgumentNames": [ "animSlots", "value2", "hitPoints" ]
 		},
 		"597": {
 			"Name": "ProgressWhackaworm",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "value1" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "flag0", "Bit": 0, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 1, "Width": 1, "Type": "bool" }, { "Name": "flag2", "Bit": 2, "Width": 1, "Type": "bool" }, { "Name": "flag3", "Bit": 3, "Width": 1, "Type": "bool" }, { "Name": "flag4", "Bit": 4, "Width": 1, "Type": "bool" }, { "Name": "flag5", "Bit": 5, "Width": 1, "Type": "bool" }, { "Name": "flag6", "Bit": 6, "Width": 1, "Type": "bool" }, { "Name": "flag7", "Bit": 7, "Width": 1, "Type": "bool" }, { "Name": "flag8", "Bit": 8, "Width": 1, "Type": "bool" }, { "Name": "unused2", "Bit": 9, "Width": 23, "Type": "int" } ]
+			}
 		},
 		"598": {
 			"Name": "EndWhackaworm",
 			"Arguments": []
+		},
+		"599": {
+			"Name": "ReleasePlayerHold",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_599" ]
+		},
+		"600": {
+			"Name": "WarpToChunkLinkTowardsPlayer",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_600" ]
 		},
 		"601": {
 			"Name": "SetVehicleWrestleCreature",
@@ -2561,15 +3983,23 @@
 		},
 		"602": {
 			"Name": "FadeoutScreen",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "hex", "single", "int32", "single", "single", "single" ],
+			"ArgumentNames": [ "flags", "duration", "unused3", "red", "green", "blue" ]
 		},
 		"603": {
 			"Name": "DisplayBottomText",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "int32", "single", "single", "single", "single", "single", "single" ],
+			"ArgumentNames": [ "value1", "x", "y", "value4", "value5", "value6", "value7" ]
+		},
+		"604": {
+			"Name": "ResetCharacterFall",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_604" ]
 		},
 		"605": {
 			"Name": "DismissCharacter",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "int32" ],
+			"ArgumentNames": [ "value1" ]
 		},
 		"606": {
 			"Name": "CameraFocusObject",
@@ -2591,9 +4021,53 @@
 			"Name": "DUMMY_610",
 			"Arguments": []
 		},
+		"611": {
+			"Name": "SetCharacterHomeChunk",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_611" ]
+		},
+		"612": {
+			"Name": "GameControllerOp612",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_612" ]
+		},
 		"613": {
 			"Name": "DisablePlayerControl",
 			"Arguments": []
+		},
+		"614": {
+			"Name": "SetNode120Flag",
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "value" ],
+			"Aliases": [ "AUnknown_614" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "enabled", "Bit": 0, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 1, "Width": 31, "Type": "int" } ]
+			}
+		},
+		"615": {
+			"Name": "SetPlayerFlag57",
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "value" ],
+			"Aliases": [ "AUnknown_615" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "disabled", "Bit": 0, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 1, "Width": 31, "Type": "int" } ]
+			}
+		},
+		"616": {
+			"Name": "PlaceCharacterInChunk",
+			"Arguments": [ "int32" ],
+			"ArgumentNames": [ "character" ],
+			"Aliases": [ "AUnknown_616" ]
+		},
+		"617": {
+			"Name": "HitInstancesInBoxes",
+			"Arguments": [ "hex", "single", "hex" ],
+			"ArgumentNames": [ "flags", "radius", "event" ],
+			"Aliases": [ "AUnknown_617" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "mask1", "Bit": 0, "Width": 1, "Type": "bool" }, { "Name": "mask2", "Bit": 1, "Width": 1, "Type": "bool" }, { "Name": "trigger", "Bit": 2, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 3, "Width": 29, "Type": "int" } ],
+				"2": [ { "Name": "eventId", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "unused", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
 		},
 		"618": {
 			"Name": "ForceGameOver",
@@ -2601,15 +4075,31 @@
 		},
 		"619": {
 			"Name": "ShowBottomText",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "single" ],
+			"ArgumentNames": [ "value1" ]
 		},
 		"620": {
 			"Name": "HideBottomText",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "single" ],
+			"ArgumentNames": [ "value1" ]
+		},
+		"621": {
+			"Name": "SetFocusToCameraTarget",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_621" ]
 		},
 		"622": {
 			"Name": "CharacterSoundProxy",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "value1" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "byte0", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "flag8", "Bit": 8, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 9, "Width": 23, "Type": "int" } ]
+			}
+		},
+		"623": {
+			"Name": "CameraNodeSetTarget",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_623" ]
 		},
 		"624": {
 			"Name": "EnableVarPercept629",
@@ -2617,47 +4107,278 @@
 		},
 		"625": {
 			"Name": "SwitchCharacter",
-			"Arguments": [ "hex", "hex" ]
+			"Arguments": [ "hex", "int32" ],
+			"ArgumentNames": [ "value1", "value2" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "bits0", "Bit": 0, "Width": 4, "Type": "int" }, { "Name": "flag4", "Bit": 4, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 5, "Width": 2, "Type": "int" }, { "Name": "flag7", "Bit": 7, "Width": 1, "Type": "bool" }, { "Name": "unused2", "Bit": 8, "Width": 5, "Type": "int" }, { "Name": "bits13", "Bit": 13, "Width": 19, "Type": "int" } ]
+			}
+		},
+		"626": {
+			"Name": "CameraNodeEnableFlags",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_626" ]
+		},
+		"627": {
+			"Name": "CameraNodeClearFlags",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_627" ]
+		},
+		"628": {
+			"Name": "SetCameraNodeValue",
+			"Arguments": [ "tfloat", "single" ],
+			"ArgumentNames": [ "mode", "value" ],
+			"Aliases": [ "AUnknown_628" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "mode", "Bit": 0, "Width": 3, "Type": "int" }, { "Name": "unused", "Bit": 3, "Width": 29, "Type": "int" } ]
+			}
+		},
+		"629": {
+			"Name": "SetCameraNodeValues",
+			"Arguments": [ "tangle", "single", "single" ],
+			"ArgumentNames": [ "mode", "value1", "value2" ],
+			"Aliases": [ "AUnknown_629" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "mode", "Bit": 0, "Width": 3, "Type": "int" }, { "Name": "unused", "Bit": 3, "Width": 29, "Type": "int" } ]
+			}
+		},
+		"630": {
+			"Name": "SetNode5Flags",
+			"Arguments": [ "tint" ],
+			"ArgumentNames": [ "flags" ],
+			"Aliases": [ "AUnknown_630" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "bit13", "Bit": 0, "Width": 2, "Type": "int" }, { "Name": "bit15", "Bit": 2, "Width": 2, "Type": "int" }, { "Name": "bit16", "Bit": 4, "Width": 2, "Type": "int" }, { "Name": "bit12", "Bit": 6, "Width": 2, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ]
+			}
+		},
+		"631": {
+			"Name": "SetPlayerVehicleValue",
+			"Arguments": [ "int32" ],
+			"ArgumentNames": [ "value" ],
+			"Aliases": [ "AUnknown_631" ]
+		},
+		"632": {
+			"Name": "SetLinkedObjectNearestPlayer",
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "range" ],
+			"Aliases": [ "AUnknown_632" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "first", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "count", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 16, "Width": 16, "Type": "int" } ]
+			}
 		},
 		"633": {
 			"Name": "SetPlayerMode",
-			"Arguments": [ "hex", "hex", "hex" ]
+			"Arguments": [ "hex", "hex", "hex" ],
+			"ArgumentNames": [ "value1", "value2", "value3" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "bits0", "Bit": 0, "Width": 4, "Type": "int" }, { "Name": "unused", "Bit": 4, "Width": 28, "Type": "int" } ],
+				"1": [ { "Name": "bits0", "Bit": 0, "Width": 4, "Type": "int" }, { "Name": "unused", "Bit": 4, "Width": 28, "Type": "int" } ],
+				"2": [ { "Name": "bits0", "Bit": 0, "Width": 4, "Type": "int" }, { "Name": "unused", "Bit": 4, "Width": 28, "Type": "int" } ]
+			}
 		},
 		"634": {
 			"Name": "PlayMovie",
-			"Arguments": [ "hex", "hex" ]
+			"Arguments": [ "tint", "single" ],
+			"ArgumentNames": [ "value", "value2" ]
 		},
 		"636": {
 			"Name": "AddAmmo",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "int32" ],
+			"ArgumentNames": [ "value1" ]
+		},
+		"637": {
+			"Name": "LinkedObjectNearestPlayerOp637",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_637" ]
 		},
 		"638": {
 			"Name": "EnableBossMode",
-			"Arguments": [ "hex", "hex", "hex" ]
+			"Arguments": [ "int32", "tint", "single" ],
+			"ArgumentNames": [ "animSlots", "hitPoints", "value3" ]
 		},
 		"639": {
 			"Name": "DamageBoss",
-			"Arguments": [ "hex" ]
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "value1" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "flag0", "Bit": 0, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 1, "Width": 1, "Type": "bool" }, { "Name": "flag2", "Bit": 2, "Width": 1, "Type": "bool" }, { "Name": "flag3", "Bit": 3, "Width": 1, "Type": "bool" }, { "Name": "flag4", "Bit": 4, "Width": 1, "Type": "bool" }, { "Name": "flag5", "Bit": 5, "Width": 1, "Type": "bool" }, { "Name": "flag6", "Bit": 6, "Width": 1, "Type": "bool" }, { "Name": "flag7", "Bit": 7, "Width": 1, "Type": "bool" }, { "Name": "flag8", "Bit": 8, "Width": 1, "Type": "bool" }, { "Name": "unused2", "Bit": 9, "Width": 23, "Type": "int" } ]
+			}
 		},
 		"640": {
 			"Name": "ExitBossMode",
 			"Arguments": []
 		},
+		"641": {
+			"Name": "FinalBossInitWeapons",
+			"Arguments": [ "hex", "int32", "hex", "int32", "int32", "hex" ],
+			"ArgumentNames": [ "target", "mode", "weapons", "value1", "value2", "slots" ],
+			"Aliases": [ "AUnknown_641" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "index", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ],
+				"2": [ { "Name": "a", "Bit": 0, "Width": 1, "Type": "bool" }, { "Name": "b", "Bit": 1, "Width": 1, "Type": "bool" }, { "Name": "c", "Bit": 2, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 3, "Width": 29, "Type": "int" } ],
+				"5": [ { "Name": "slot1", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "slot2", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "slot3", "Bit": 16, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 24, "Width": 8, "Type": "int" } ]
+			}
+		},
+		"642": {
+			"Name": "FinalBossResetWeapons",
+			"Arguments": [ "hex", "int32", "hex", "single", "single", "hex" ],
+			"ArgumentNames": [ "target", "mode", "weapons", "value1", "value2", "slots" ],
+			"Aliases": [ "AUnknown_642" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "index", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ],
+				"2": [ { "Name": "a", "Bit": 0, "Width": 1, "Type": "bool" }, { "Name": "b", "Bit": 1, "Width": 1, "Type": "bool" }, { "Name": "c", "Bit": 2, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 3, "Width": 29, "Type": "int" } ],
+				"5": [ { "Name": "slot1", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "slot2", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "slot3", "Bit": 16, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 24, "Width": 8, "Type": "int" } ]
+			}
+		},
+		"643": {
+			"Name": "FinalBossToggleWeapons",
+			"Arguments": [ "hex", "int32", "hex", "single", "single", "hex" ],
+			"ArgumentNames": [ "target", "mode", "weapons", "value1", "value2", "slots" ],
+			"Aliases": [ "AUnknown_643" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "index", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ],
+				"2": [ { "Name": "a", "Bit": 0, "Width": 1, "Type": "bool" }, { "Name": "b", "Bit": 1, "Width": 1, "Type": "bool" }, { "Name": "c", "Bit": 2, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 3, "Width": 29, "Type": "int" } ],
+				"5": [ { "Name": "slot1", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "slot2", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "slot3", "Bit": 16, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 24, "Width": 8, "Type": "int" } ]
+			}
+		},
+		"644": {
+			"Name": "FinalBossControl",
+			"Arguments": [ "hex", "int32", "hex", "single", "single", "hex" ],
+			"ArgumentNames": [ "target", "mode", "weapons", "value1", "value2", "slots" ],
+			"Aliases": [ "AUnknown_644" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "index", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ],
+				"2": [ { "Name": "a", "Bit": 0, "Width": 1, "Type": "bool" }, { "Name": "b", "Bit": 1, "Width": 1, "Type": "bool" }, { "Name": "c", "Bit": 2, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 3, "Width": 29, "Type": "int" } ],
+				"5": [ { "Name": "slot1", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "slot2", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "slot3", "Bit": 16, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 24, "Width": 8, "Type": "int" } ]
+			}
+		},
+		"645": {
+			"Name": "CreateNodeController",
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "controller" ],
+			"Aliases": [ "AUnknown_645" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "type", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "keepExisting", "Bit": 8, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 9, "Width": 23, "Type": "int" } ]
+			}
+		},
+		"646": {
+			"Name": "RequestOgiSlot",
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "slot" ],
+			"Aliases": [ "AUnknown_646" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "slot", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ]
+			}
+		},
 		"647": {
 			"Name": "SetGlobalProgression2",
-			"Arguments": [ "hex", "hex" ]
+			"Arguments": [ "int32", "tint" ],
+			"ArgumentNames": [ "value1", "value" ]
+		},
+		"648": {
+			"Name": "SetNodeValue174",
+			"Arguments": [ "single" ],
+			"ArgumentNames": [ "value" ],
+			"Aliases": [ "AUnknown_648" ]
+		},
+		"649": {
+			"Name": "ClearNodeValue174",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_649" ]
+		},
+		"650": {
+			"Name": "SetCharacterFlag2",
+			"Arguments": [ "int32" ],
+			"ArgumentNames": [ "character" ],
+			"Aliases": [ "AUnknown_650" ]
+		},
+		"651": {
+			"Name": "ClearCharacterFlag2",
+			"Arguments": [ "int32" ],
+			"ArgumentNames": [ "character" ],
+			"Aliases": [ "AUnknown_651" ]
 		},
 		"652": {
 			"Name": "CameraTopdownMode",
 			"Arguments": []
 		},
+		"653": {
+			"Name": "FinalBossWeaponValues",
+			"Arguments": [ "hex", "int32", "tint", "single", "single", "hex" ],
+			"ArgumentNames": [ "target", "mode", "weapons", "value1", "value2", "slots" ],
+			"Aliases": [ "AUnknown_653" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "index", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 8, "Width": 24, "Type": "int" } ],
+				"2": [ { "Name": "a", "Bit": 0, "Width": 1, "Type": "bool" }, { "Name": "b", "Bit": 1, "Width": 1, "Type": "bool" }, { "Name": "c", "Bit": 2, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 3, "Width": 29, "Type": "int" } ],
+				"5": [ { "Name": "slot1", "Bit": 0, "Width": 8, "Type": "int" }, { "Name": "slot2", "Bit": 8, "Width": 8, "Type": "int" }, { "Name": "slot3", "Bit": 16, "Width": 8, "Type": "int" }, { "Name": "unused", "Bit": 24, "Width": 8, "Type": "int" } ]
+			}
+		},
 		"654": {
 			"Name": "PlayCredits",
 			"Arguments": []
 		},
+		"655": {
+			"Name": "SetMaskControllerIds",
+			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex" ],
+			"ArgumentNames": [ "ids1", "ids2", "unused1", "unused2", "unused3", "unused4", "count" ],
+			"Aliases": [ "AUnknown_655" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "id1", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "id2", "Bit": 16, "Width": 16, "Type": "int" } ],
+				"1": [ { "Name": "id3", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "id4", "Bit": 16, "Width": 16, "Type": "int" } ],
+				"6": [ { "Name": "count", "Bit": 0, "Width": 4, "Type": "int" }, { "Name": "unused", "Bit": 4, "Width": 28, "Type": "int" } ]
+			}
+		},
+		"656": {
+			"Name": "ResetMaskController",
+			"Arguments": [],
+			"Aliases": [ "AUnknown_656" ]
+		},
 		"657": {
 			"Name": "DisplayBottomTextInstance",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex" ]
+			"Arguments": [ "int32", "int32", "single", "single", "single", "single" ],
+			"ArgumentNames": [ "x", "y", "value3", "value4", "value5", "value6" ]
+		},
+		"658": {
+			"Name": "SetSplineControllerValues",
+			"Arguments": [ "tfloat", "tfloat", "tfloat", "tfloat", "tfloat", "tfloat", "tfloat" ],
+			"ArgumentNames": [ "x", "y", "z", "value4", "value5", "value6", "value7" ],
+			"Aliases": [ "AUnknown_658" ]
+		},
+		"659": {
+			"Name": "TriggerCharacterEvent12",
+			"Arguments": [ "int32" ],
+			"ArgumentNames": [ "characters" ],
+			"Aliases": [ "AUnknown_659" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "all", "Bit": 0, "Width": 1, "Type": "bool" }, { "Name": "first", "Bit": 1, "Width": 1, "Type": "bool" }, { "Name": "second", "Bit": 2, "Width": 1, "Type": "bool" }, { "Name": "sixth", "Bit": 3, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 4, "Width": 28, "Type": "int" } ]
+			}
+		},
+		"660": {
+			"Name": "ClearPlayerFlag14",
+			"Arguments": [ "hex" ],
+			"ArgumentNames": [ "unused" ],
+			"Aliases": [ "AUnknown_660" ]
+		},
+		"661": {
+			"Name": "SetSkateControllerIds",
+			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex" ],
+			"ArgumentNames": [ "ids1", "ids2", "ids3", "ids4", "ids5", "ids6", "sounds1", "sounds2", "sounds3", "sounds4", "sounds5", "sounds6", "sounds7", "unused1", "unused2", "unused3", "unused4", "unused5", "unused6", "unused7", "unused8", "unused9", "counts" ],
+			"Aliases": [ "AUnknown_661" ],
+			"ArgumentFields": {
+				"0": [ { "Name": "id1", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "id2", "Bit": 16, "Width": 16, "Type": "int" } ],
+				"1": [ { "Name": "id3", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "id4", "Bit": 16, "Width": 16, "Type": "int" } ],
+				"2": [ { "Name": "id5", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "id6", "Bit": 16, "Width": 16, "Type": "int" } ],
+				"3": [ { "Name": "id7", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "id8", "Bit": 16, "Width": 16, "Type": "int" } ],
+				"4": [ { "Name": "id9", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "id10", "Bit": 16, "Width": 16, "Type": "int" } ],
+				"5": [ { "Name": "id11", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "id12", "Bit": 16, "Width": 16, "Type": "int" } ],
+				"6": [ { "Name": "slot1", "Bit": 0, "Width": 16, "Type": "sint" }, { "Name": "slot2", "Bit": 16, "Width": 16, "Type": "sint" } ],
+				"7": [ { "Name": "slot3", "Bit": 0, "Width": 16, "Type": "sint" }, { "Name": "slot4", "Bit": 16, "Width": 16, "Type": "sint" } ],
+				"8": [ { "Name": "slot5", "Bit": 0, "Width": 16, "Type": "sint" }, { "Name": "slot6", "Bit": 16, "Width": 16, "Type": "sint" } ],
+				"9": [ { "Name": "slot7", "Bit": 0, "Width": 16, "Type": "sint" }, { "Name": "slot8", "Bit": 16, "Width": 16, "Type": "sint" } ],
+				"10": [ { "Name": "slot9", "Bit": 0, "Width": 16, "Type": "sint" }, { "Name": "slot10", "Bit": 16, "Width": 16, "Type": "sint" } ],
+				"11": [ { "Name": "slot11", "Bit": 0, "Width": 16, "Type": "sint" }, { "Name": "slot12", "Bit": 16, "Width": 16, "Type": "sint" } ],
+				"12": [ { "Name": "slot13", "Bit": 0, "Width": 16, "Type": "sint" }, { "Name": "slot14", "Bit": 16, "Width": 16, "Type": "sint" } ],
+				"22": [ { "Name": "idCount", "Bit": 0, "Width": 4, "Type": "int" }, { "Name": "soundCount", "Bit": 4, "Width": 5, "Type": "int" }, { "Name": "force", "Bit": 9, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 10, "Width": 22, "Type": "int" } ]
+			}
 		},
 		"662": {
 			"Name": "ResetCamera",

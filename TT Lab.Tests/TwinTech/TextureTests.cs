@@ -48,8 +48,8 @@ public class TextureTests
         Assert.Equal(clutPointer, texture.ClutBufferBasePointer);
         Assert.Equal(bufferWidth, texture.TextureBufferWidth);
         Assert.Equal((uploadWidth, uploadHeight), UploadRectangle(texture));
-        Assert.Equal(new byte[] { 0xE0, (byte)size, (byte)(size >> 8), 0 }, texture.UnkBytes2);
-        Assert.Equal(new byte[] { (byte)size, (byte)(size >> 8) }, texture.UnkBytes3);
+        Assert.Equal(new byte[] { 0xE0, (byte)size, (byte)(size >> 8), 0 }, texture.SizeWords);
+        Assert.Equal(new byte[] { (byte)size, (byte)(size >> 8) }, texture.ReservedBlocks);
     }
 
     [Theory]
@@ -67,8 +67,8 @@ public class TextureTests
 
         Assert.Equal(4, texture.TextureBufferWidth);
         Assert.Equal((width, height), UploadRectangle(texture));
-        Assert.Equal(new byte[] { 0xE0, (byte)size, (byte)(size >> 8), 0 }, texture.UnkBytes2);
-        Assert.Equal(new byte[] { (byte)size, (byte)(size >> 8) }, texture.UnkBytes3);
+        Assert.Equal(new byte[] { 0xE0, (byte)size, (byte)(size >> 8), 0 }, texture.SizeWords);
+        Assert.Equal(new byte[] { (byte)size, (byte)(size >> 8) }, texture.ReservedBlocks);
         Assert.Equal(expected, texture.Colors.Select(color => color.ToARGB()));
     }
 

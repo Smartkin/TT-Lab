@@ -15,9 +15,10 @@ public class LabCompilerResolver : ICompilerResolver
         _graphResolver = graphResolver;
     }
 
-    public LabCompilerResolver(int graphId = -1)
+    public LabCompilerResolver(int graphId = -1, IAsset? requester = null)
     {
         _graphResolver = new LabGraphResolver(graphId);
+        _stateGraphResolver = new LabStateGraphResolver(requester);
     }
 
     public IGraphResolver GetGraphResolver()

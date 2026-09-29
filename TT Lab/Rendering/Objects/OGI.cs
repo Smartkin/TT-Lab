@@ -10,15 +10,45 @@ using TT_Lab.Rendering.Services;
 
 namespace TT_Lab.Rendering.Objects;
 
-public class OGI : Renderable
+public class OGI : Renderable, IPrimitiveRenderable
 {
+    private static readonly vec4 HullColor = new(0.25f, 0.9f, 0.7f, 0.85f);
+
     private SkinnedMesh? skinBuffer;
     private BlendSkinnedMesh? blendSkinBuffer;
     private TwinSkeleton defaultSkeleton = new();
+    // The collision hulls' edges and the joint each is on, drawn where the joints are
+    private readonly List<(int Joint, vec3[] Vertexes, (int, int)[] Edges)> _hulls = [];
     
     public OGI(RenderContext context, TwinSkeletonManager skeletonManager, MeshService meshService, OGIData ogiData, string name = "") : base(context, name)
     {
         BuildSkeleton(skeletonManager, meshService, ogiData);
+        for (var i = 0; i < ogiData.CollisionHulls.Count; i++)
+        {
+            var hull = ogiData.CollisionHulls[i];
+            _hulls.Add((i < ogiData.CollisionHullJoints.Count ? ogiData.CollisionHullJoints[i] : OGIData.NoJoint,
+                hull.Vertexes.Select(vertex => new vec3(vertex.X, vertex.Y, vertex.Z)).ToArray(),
+                hull.Edges.Where(edge => edge.Count == 2 && edge[0] < hull.Vertexes.Count && edge[1] < hull.Vertexes.Count).Select(edge => ((int)edge[0], (int)edge[1])).ToArray()));
+        }
+    }
+
+    public bool ShowHulls { get; set; } = true;
+
+    public void DrawPrimitives(PrimitiveRenderer renderer, FrameCamera camera)
+    {
+        if (!ShowHulls)
+        {
+            return;
+        }
+
+        foreach (var (joint, vertexes, edges) in _hulls)
+        {
+            var transform = joint != OGIData.NoJoint && defaultSkeleton.Bones.TryGetValue(joint, out var bone) ? bone.WorldTransform : WorldTransform;
+            foreach (var (from, to) in edges)
+            {
+                renderer.DrawLine((transform * new vec4(vertexes[from], 1.0f)).xyz, (transform * new vec4(vertexes[to], 1.0f)).xyz, HullColor, 1.5f, PrimitiveLayer.WorldXRay);
+            }
+        }
     }
 
     public void ApplyTransformToJoint(int jointIndex, vec3 position, vec3 scale, quat rotation)

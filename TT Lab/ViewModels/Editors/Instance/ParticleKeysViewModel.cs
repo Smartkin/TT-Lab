@@ -29,6 +29,7 @@ public abstract partial class ParticleKeysViewModel<T> : DocumentDataViewModel<T
     private string _selectedTime = string.Empty;
 
     private bool _isShowingSelection;
+    private IDisposable? _drag;
 
     protected ParticleKeysViewModel(DocumentViewModel document, PropertyNode node, params DocumentNodeViewModel[] dependencies) : base(document, node, dependencies)
     {
@@ -118,14 +119,31 @@ public abstract partial class ParticleKeysViewModel<T> : DocumentDataViewModel<T
         SelectedIndex = Math.Min(index, KeyCount - 1);
     }
 
-    // Only the keys that changed, every change updates the viewport's emitters
+    /// <summary>
+    /// Makes everything a drag of a key changes one step
+    /// </summary>
+    public void BeginDrag()
+    {
+        _drag?.Dispose();
+        _drag = Document.History.BeginGroup("Moved a key");
+    }
+
+    public void EndDrag()
+    {
+        _drag?.Dispose();
+        _drag = null;
+    }
+
+    // Only the keys that changed, every change updates the viewport's emitters. Keys moving along with a key put in or taken out are one
+    // step with it, undoing a new key took back the last key it moved
     protected void Write(CurveKey[] keys)
     {
         var current = CurrentKeys;
         var elements = Property.Children;
-        for (var i = 0; i < keys.Length && i < elements.Count; i++)
+        var changed = Enumerable.Range(0, Math.Min(keys.Length, elements.Count)).Where(i => keys[i] != current[i]).ToList();
+        using (_drag == null && changed.Count > 1 ? Document.History.BeginGroup("Changed the keys") : null)
         {
-            if (keys[i] != current[i])
+            foreach (var i in changed)
             {
                 elements[i].SetValue(FromKey(keys[i]));
             }

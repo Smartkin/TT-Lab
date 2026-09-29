@@ -10,48 +10,48 @@ namespace TT_Lab.ViewModels.Editors.Instance.Cameras
 {
     public class BossCameraViewModel : BaseCameraViewModel
     {
-        private Matrix4ViewModel unkMatrix1;
-        private Matrix4ViewModel unkMatrix2;
+        private Matrix4ViewModel worldToArena;
+        private Matrix4ViewModel arenaToWorld;
         private Vector4ViewModel unkVec;
-        private Byte unkByte1;
-        private Single unkFloat3;
-        private Single unkFloat4;
-        private Single unkFloat5;
-        private Single unkFloat6;
-        private Byte unkByte2;
+        private Boolean usesDistanceCurves;
+        private Single radiusBlend;
+        private Single nearHeightOffset;
+        private Single farHeightOffset;
+        private Single maxTurnRate;
+        private Boolean distanceIncludesHeight;
 
         public BossCameraViewModel()
         {
             CameraType = ITwinCamera.CameraType.BossCamera;
-            unkMatrix1 = new Matrix4ViewModel();
-            unkMatrix2 = new Matrix4ViewModel();
+            worldToArena = new Matrix4ViewModel();
+            arenaToWorld = new Matrix4ViewModel();
             unkVec = new Vector4ViewModel();
-            DirtyTracker.AddChild(unkMatrix1);
-            DirtyTracker.AddChild(unkMatrix2);
+            DirtyTracker.AddChild(worldToArena);
+            DirtyTracker.AddChild(arenaToWorld);
             DirtyTracker.AddChild(unkVec);
-            unkByte1 = 0;
-            unkByte2 = 0;
-            unkFloat3 = 0;
-            unkFloat4 = 0;
-            unkFloat5 = 0;
-            unkFloat6 = 0;
+            usesDistanceCurves = false;
+            distanceIncludesHeight = false;
+            radiusBlend = 0;
+            nearHeightOffset = 0;
+            farHeightOffset = 0;
+            maxTurnRate = 0;
         }
 
         public BossCameraViewModel(CameraSubBase cam) : base(cam)
         {
             var bossCam = (BossCamera)cam;
-            unkMatrix1 = new Matrix4ViewModel(bossCam.UnkMatrix1);
-            unkMatrix2 = new Matrix4ViewModel(bossCam.UnkMatrix2);
-            unkVec = new Vector4ViewModel(bossCam.UnkVector);
-            DirtyTracker.AddChild(unkMatrix1);
-            DirtyTracker.AddChild(unkMatrix2);
+            worldToArena = new Matrix4ViewModel(bossCam.WorldToArena);
+            arenaToWorld = new Matrix4ViewModel(bossCam.ArenaToWorld);
+            unkVec = new Vector4ViewModel(bossCam.Orbit);
+            DirtyTracker.AddChild(worldToArena);
+            DirtyTracker.AddChild(arenaToWorld);
             DirtyTracker.AddChild(unkVec);
-            unkByte1 = bossCam.UnkByte1;
-            unkByte2 = bossCam.UnkByte2;
-            unkFloat3 = bossCam.UnkFloat3;
-            unkFloat4 = bossCam.UnkFloat4;
-            unkFloat5 = bossCam.UnkFloat5;
-            unkFloat6 = bossCam.UnkFloat6;
+            usesDistanceCurves = bossCam.UsesDistanceCurves;
+            distanceIncludesHeight = bossCam.DistanceIncludesHeight;
+            radiusBlend = bossCam.RadiusBlend;
+            nearHeightOffset = bossCam.NearHeightOffset;
+            farHeightOffset = bossCam.FarHeightOffset;
+            maxTurnRate = bossCam.MaxTurnRate;
         }
 
         public override void Save(CameraSubBase? cam)
@@ -60,54 +60,54 @@ namespace TT_Lab.ViewModels.Editors.Instance.Cameras
             var bossCam = (BossCamera)cam;
             for (var i = 0; i < 4; ++i)
             {
-                bossCam.UnkMatrix1[i] = new Twinsanity.TwinsanityInterchange.Common.Vector4
+                bossCam.WorldToArena[i] = new Twinsanity.TwinsanityInterchange.Common.Vector4
                 {
-                    X = UnkMatrix1[i].X,
-                    Y = UnkMatrix1[i].Y,
-                    Z = UnkMatrix1[i].Z,
-                    W = UnkMatrix1[i].W,
+                    X = WorldToArena[i].X,
+                    Y = WorldToArena[i].Y,
+                    Z = WorldToArena[i].Z,
+                    W = WorldToArena[i].W,
                 };
-                bossCam.UnkMatrix2[i] = new Twinsanity.TwinsanityInterchange.Common.Vector4
+                bossCam.ArenaToWorld[i] = new Twinsanity.TwinsanityInterchange.Common.Vector4
                 {
-                    X = UnkMatrix2[i].X,
-                    Y = UnkMatrix2[i].Y,
-                    Z = UnkMatrix2[i].Z,
-                    W = UnkMatrix2[i].W,
+                    X = ArenaToWorld[i].X,
+                    Y = ArenaToWorld[i].Y,
+                    Z = ArenaToWorld[i].Z,
+                    W = ArenaToWorld[i].W,
                 };
             }
-            bossCam.UnkVector = new Twinsanity.TwinsanityInterchange.Common.Vector4
+            bossCam.Orbit = new Twinsanity.TwinsanityInterchange.Common.Vector4
             {
                 X = UnkVec.X,
                 Y = UnkVec.Y,
                 Z = UnkVec.Z,
                 W = UnkVec.W,
             };
-            bossCam.UnkByte1 = UnkByte1;
-            bossCam.UnkByte2 = UnkByte2;
-            bossCam.UnkFloat3 = UnkFloat3;
-            bossCam.UnkFloat4 = UnkFloat4;
-            bossCam.UnkFloat5 = UnkFloat5;
-            bossCam.UnkFloat6 = UnkFloat6;
+            bossCam.UsesDistanceCurves = UsesDistanceCurves;
+            bossCam.DistanceIncludesHeight = DistanceIncludesHeight;
+            bossCam.RadiusBlend = RadiusBlend;
+            bossCam.NearHeightOffset = NearHeightOffset;
+            bossCam.FarHeightOffset = FarHeightOffset;
+            bossCam.MaxTurnRate = MaxTurnRate;
             base.Save(cam);
         }
 
         protected override Task OnInitializeAsync(CancellationToken cancellationToken)
         {
-            ActivateItemAsync(unkMatrix1, cancellationToken);
-            ActivateItemAsync(unkMatrix2, cancellationToken);
+            ActivateItemAsync(worldToArena, cancellationToken);
+            ActivateItemAsync(arenaToWorld, cancellationToken);
             ActivateItemAsync(unkVec, cancellationToken);
 
             return base.OnInitializeAsync(cancellationToken);
         }
 
-        public Matrix4ViewModel UnkMatrix1
+        public Matrix4ViewModel WorldToArena
         {
-            get => unkMatrix1;
+            get => worldToArena;
         }
 
-        public Matrix4ViewModel UnkMatrix2
+        public Matrix4ViewModel ArenaToWorld
         {
-            get => unkMatrix2;
+            get => arenaToWorld;
         }
 
         public Vector4ViewModel UnkVec
@@ -116,84 +116,84 @@ namespace TT_Lab.ViewModels.Editors.Instance.Cameras
         }
 
         [MarkDirty]
-        public Byte UnkByte1
+        public Boolean UsesDistanceCurves
         {
-            get => unkByte1;
+            get => usesDistanceCurves;
             set
             {
-                if (unkByte1 != value)
+                if (usesDistanceCurves != value)
                 {
-                    unkByte1 = value;
+                    usesDistanceCurves = value;
                     NotifyOfPropertyChange();
                 }
             }
         }
 
         [MarkDirty]
-        public Single UnkFloat3
+        public Single RadiusBlend
         {
-            get => unkFloat3;
+            get => radiusBlend;
             set
             {
-                if (unkFloat3 != value)
+                if (radiusBlend != value)
                 {
-                    unkFloat3 = value;
+                    radiusBlend = value;
                     NotifyOfPropertyChange();
                 }
             }
         }
 
         [MarkDirty]
-        public Single UnkFloat4
+        public Single NearHeightOffset
         {
-            get => unkFloat4;
+            get => nearHeightOffset;
             set
             {
-                if (unkFloat4 != value)
+                if (nearHeightOffset != value)
                 {
-                    unkFloat4 = value;
+                    nearHeightOffset = value;
                     NotifyOfPropertyChange();
                 }
             }
         }
 
         [MarkDirty]
-        public Single UnkFloat5
+        public Single FarHeightOffset
         {
-            get => unkFloat5;
+            get => farHeightOffset;
             set
             {
-                if (unkFloat5 != value)
+                if (farHeightOffset != value)
                 {
-                    unkFloat5 = value;
+                    farHeightOffset = value;
                     NotifyOfPropertyChange();
                 }
             }
         }
 
         [MarkDirty]
-        public Single UnkFloat6
+        public Single MaxTurnRate
         {
-            get => unkFloat6;
+            get => maxTurnRate;
             set
             {
-                if (unkFloat6 != value)
+                if (maxTurnRate != value)
                 {
-                    unkFloat6 = value;
+                    maxTurnRate = value;
                     NotifyOfPropertyChange();
                 }
             }
         }
         
         [MarkDirty]
-        public Byte UnkByte2
+        public Boolean DistanceIncludesHeight
         {
-            get => unkByte2;
+            get => distanceIncludesHeight;
             set
             {
-                if (unkByte2 != value)
+                if (distanceIncludesHeight != value)
                 {
-                    unkByte2 = value;
+                    distanceIncludesHeight = value;
                     NotifyOfPropertyChange();
                 }
             }

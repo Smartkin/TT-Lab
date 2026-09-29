@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reactive.Disposables;
@@ -27,7 +27,11 @@ public partial class UriLinkViewModel : DocumentDataViewModel<LabURI>
     public enum Scope
     {
         Project,
-        Document
+        Document,
+        /// <summary>
+        /// The assets of the chunk the edited asset belongs to (an instance's other instances, positions and paths)
+        /// </summary>
+        Chunk
     }
     
     public UriLinkViewModel(DocumentViewModel document, PropertyNode data, params DocumentNodeViewModel[] dependencies) : base(document, data, dependencies)
@@ -81,19 +85,29 @@ public partial class UriLinkViewModel : DocumentDataViewModel<LabURI>
         }
     }
 
-    [ReactiveCommand]
-    private async Task<LabURI> SelectUriFromLink()
+    /// <summary>
+    /// What the link browser offers: the assets of the link's type in its scope, without the excluded ones
+    /// </summary>
+    internal List<LabURI> GetBrowseCandidates()
     {
-        var uri = CurrentValue;
+        var assetManager = AssetManager.Get();
         var resourcesToBrowse = new List<LabURI>();
         switch (_browseScope)
         {
             case Scope.Project:
-                resourcesToBrowse.AddRange(AssetManager.Get().GetAllAssetUrisOf(_browseType));
+                // A link of no particular type offers everything, the browser tells the types apart
+                resourcesToBrowse.AddRange(_browseType == typeof(IAsset) ? assetManager.GetAllAssetUris() : assetManager.GetAllAssetUrisOf(_browseType));
                 break;
             case Scope.Document:
                 resourcesToBrowse.AddRange(Document.Uris);
                 break;
+            case Scope.Chunk:
+            {
+                var (package, chunk) = GetOwnerChunkPath();
+                resourcesToBrowse.AddRange(assetManager.GetAllAssetUrisOf(_browseType)
+                    .Where(uri => assetManager.GetAsset(uri) is SerializableInstance instance && instance.Package == package && instance.Chunk == chunk));
+                break;
+            }
         }
 
         if (_browseExcludeWhen != null)
@@ -106,7 +120,15 @@ public partial class UriLinkViewModel : DocumentDataViewModel<LabURI>
             var ownerChunk = GetOwnerChunk();
             resourcesToBrowse.RemoveAll(link => link != LabURI.Empty && link == ownerChunk);
         }
-        
+
+        return resourcesToBrowse;
+    }
+
+    [ReactiveCommand]
+    private async Task<LabURI> SelectUriFromLink()
+    {
+        var uri = CurrentValue;
+        var resourcesToBrowse = GetBrowseCandidates();
         var linkBrowser = new ResourceBrowserViewModel(_browseType, resourcesToBrowse, uri);
         var linkBrowserDialogue = new ResourceBrowserView
         {
@@ -136,6 +158,23 @@ public partial class UriLinkViewModel : DocumentDataViewModel<LabURI>
     }
 
     // The link can be edited either as a part of the chunk's document or from within one of the chunk's resources
+    // The chunk the edited asset belongs to: the chunk itself or the instance's chunk, as the package and chunk path
+    private (LabURI? Package, string? Chunk) GetOwnerChunkPath()
+    {
+        for (var node = Property.Parent; node != null; node = node.Parent)
+        {
+            switch (node.Target)
+            {
+                case LevelChunk chunk:
+                    return (chunk.Package, chunk.AdditionalPath);
+                case SerializableInstance { Chunk: not null } instance:
+                    return (instance.Package, instance.Chunk);
+            }
+        }
+
+        return (null, null);
+    }
+
     private LabURI GetOwnerChunk()
     {
         for (var node = Property.Parent; node != null; node = node.Parent)

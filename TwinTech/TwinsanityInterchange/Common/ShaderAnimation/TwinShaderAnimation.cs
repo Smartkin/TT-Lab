@@ -6,11 +6,33 @@ using Twinsanity.TwinsanityInterchange.Interfaces;
 
 namespace Twinsanity.TwinsanityInterchange.Common.ShaderAnimation
 {
+    /// <summary>
+    /// A material shader's animation, played by the game's AnimateShader (0x297260) every frame: six tracks (U, V, red, green, blue,
+    /// alpha), each either a static value or a value per frame interpolated between frames, in 1/4096ths. The frames play at
+    /// <see cref="FramesPerSecond"/> and loop. A shader takes the U and V tracks as its UV offset with the FromAnimation scroll modes and
+    /// the color tracks with <see cref="TwinShader.AnimationDrivesColor"/>. Only the first of <see cref="AnimationSettings"/> is read.
+    /// </summary>
     public class TwinShaderAnimation : ITwinSerializable
     {
         UInt32 dataPacker;
+        /// <summary>
+        /// The low half is the frame count the game times the animation by, bits 16-20 the frames per second, bit 21 the game's
+        /// "started" flag
+        /// </summary>
         public UInt32 Header { get; set; }
         public UInt16 TotalFrames { get; set; }
+
+        public Int32 TimedFrames
+        {
+            get { return (Int32)(Header & 0xFFFF); }
+            set { Header = (Header & 0xFFFF0000) | (UInt32)(value & 0xFFFF); }
+        }
+
+        public Int32 FramesPerSecond
+        {
+            get { return (Int32)(Header >> 16) & 0x1F; }
+            set { Header = (Header & ~0x1F0000u) | ((UInt32)(value & 0x1F) << 16); }
+        }
         public List<AnimationSettings> AnimationSettings { get; set; } = new();
         public List<Transformation> StaticTransformations { get; set; } = new();
         public List<AnimatedTransformation> AnimatedTransformations { get; set; } = new();

@@ -28,6 +28,7 @@ public abstract partial class DocumentCompositeViewModel : DocumentNodeViewModel
     private NodeScrollRequest? _scrollRequest;
 
     private PropertyNode? _pendingReveal;
+    private int _builtChildrenVersion;
     private bool _isBuilt;
 
     public abstract ReactiveCommand<Unit, Unit>? AddCommand { get; }
@@ -42,12 +43,14 @@ public abstract partial class DocumentCompositeViewModel : DocumentNodeViewModel
     // The property's own properties are laid out with the ones next to it instead of in an editor of its own, like an asset's data
     public const string EditorInline = "DOCUMENT_MODEL_INLINE";
 
-    private readonly SourceCache<DocumentNodeViewModel, string> _nodes;
+    // Keyed by the editors themselves: paths move when elements go in or out before them, a list's element put back by undo replaced
+    // the editor of the one that had moved to its path
+    private readonly SourceCache<DocumentNodeViewModel, DocumentNodeViewModel> _nodes;
 
     protected DocumentCompositeViewModel(DocumentViewModel document, PropertyNode node, params DocumentNodeViewModel[] dependencies) : base(document, node, dependencies)
     {
         IsCaptionVisible = false;
-        _nodes = new SourceCache<DocumentNodeViewModel, String>(n => n.Property.Path);
+        _nodes = new SourceCache<DocumentNodeViewModel, DocumentNodeViewModel>(n => n);
         _nodes.DisposeWith(FullDeactivationDisposables);
         _nodes.Connect()
             .SortAndBind(out Nodes, new DocComparer()).Subscribe().DisposeWith(FullDeactivationDisposables);
@@ -69,8 +72,7 @@ public abstract partial class DocumentCompositeViewModel : DocumentNodeViewModel
 
     protected void RemoveNode(DocumentNodeViewModel node)
     {
-        _nodes.RemoveKey(node.Property.Path);
-        _nodes.Remove(node);
+        _nodes.RemoveKey(node);
     }
     
     protected virtual void ReindexNodes(int fromIdx)
@@ -91,9 +93,15 @@ public abstract partial class DocumentCompositeViewModel : DocumentNodeViewModel
         this.WhenAnyValue(x => x.IsExpanded)
             .Subscribe(x =>
             {
-                // Views of nodes scrolled out of sight get recycled, coming back into view mustn't build the nodes again
+                // Views of nodes scrolled out of sight get recycled, coming back into view mustn't build the nodes again, unless the
+                // value got another type meanwhile
                 if (x && _isBuilt)
                 {
+                    if (_builtChildrenVersion != Property.ChildrenVersion)
+                    {
+                        Rebuild();
+                    }
+
                     ContinueReveal();
                 }
                 else if (x)
@@ -109,10 +117,26 @@ public abstract partial class DocumentCompositeViewModel : DocumentNodeViewModel
             }).DisposeWith(disposables);
     }
 
+    // The value got another type (a subtype picked, or taken back with undo), its old nodes show values it doesn't have
+    protected override void PropertyOnChanged()
+    {
+        base.PropertyOnChanged();
+        if (_isBuilt && IsExpanded && _builtChildrenVersion != Property.ChildrenVersion)
+        {
+            Rebuild();
+        }
+    }
+
     protected void Rebuild()
     {
+        _builtChildrenVersion = Property.ChildrenVersion;
         var viewModels = GetShownChildren(Property)
-            .Select(propertyChild => EditorDescRegistry.GetDesc(Document, propertyChild).Construct())
+            .Select((propertyChild, order) =>
+            {
+                var editor = EditorDescRegistry.GetDesc(Document, propertyChild).Construct();
+                editor.DeclarationOrder = order;
+                return editor;
+            })
             .ToList();
         // A single change for all of them, one per node made the list update thousands of times
         _nodes.Edit(nodes =>
@@ -122,10 +146,15 @@ public abstract partial class DocumentCompositeViewModel : DocumentNodeViewModel
         });
     }
 
-    private static IEnumerable<PropertyNode> GetShownChildren(PropertyNode property)
+    private IEnumerable<PropertyNode> GetShownChildren(PropertyNode property)
     {
         foreach (var child in property.Children)
         {
+            if (Document.ShowsInSidePane(child))
+            {
+                continue;
+            }
+
             if (!IsInline(child))
             {
                 yield return child;
@@ -249,8 +278,10 @@ public abstract partial class DocumentCompositeViewModel : DocumentNodeViewModel
             {
                 return orderComparison;
             }
-            
-            return string.Compare(x.Property.Path, y.Property.Path, StringComparison.Ordinal);
+
+            // As declared, they went by their paths: alphabetically
+            var declarationComparison = x.DeclarationOrder.CompareTo(y.DeclarationOrder);
+            return declarationComparison != 0 ? declarationComparison : string.Compare(x.Property.Path, y.Property.Path, StringComparison.Ordinal);
         }
 
         // Inlined properties go where the property they're inlined from would have gone

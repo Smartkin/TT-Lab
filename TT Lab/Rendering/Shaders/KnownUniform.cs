@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using TT_Lab.Rendering.UniformDescs;
 
 namespace TT_Lab.Rendering.Shaders;
@@ -31,9 +31,13 @@ public enum KnownUniform
     MaterialPerformFog,
     MaterialUseTexture,
     MaterialDoubleColor,
+    MaterialDeformMode,
     MaterialDeformSpeed,
+    MaterialDeformAmplitude,
     MaterialBillboardRender,
     MaterialUvScrollSpeed,
+    MaterialUvOffset,
+    MaterialAnimatedColor,
     MaterialReflectDist,
     MaterialAlphaTest,
     MaterialAlphaBlend,
@@ -42,8 +46,14 @@ public enum KnownUniform
     ViewProjection,
     ViewportSize,
     LightDirection,
+    EnvLight0,
+    EnvLight1,
+    EnvLight2,
     Opacity,
     DepthBias,
+    AlphaAsColor,
+    Distortion,
+    FollowsCamera,
 }
 
 public static class KnownUniforms
@@ -64,9 +74,13 @@ public static class KnownUniforms
                 KnownUniform.MaterialPerformFog => TwinMaterialDesc.PerformFogPath,
                 KnownUniform.MaterialUseTexture => TwinMaterialDesc.UseTexturePath,
                 KnownUniform.MaterialDoubleColor => TwinMaterialDesc.DoubleColorPath,
+                KnownUniform.MaterialDeformMode => TwinMaterialDesc.DeformModePath,
                 KnownUniform.MaterialDeformSpeed => TwinMaterialDesc.DeformSpeedPath,
+                KnownUniform.MaterialDeformAmplitude => TwinMaterialDesc.DeformAmplitudePath,
                 KnownUniform.MaterialBillboardRender => TwinMaterialDesc.BillboardRenderPath,
                 KnownUniform.MaterialUvScrollSpeed => TwinMaterialDesc.UvScrollSpeedPath,
+                KnownUniform.MaterialUvOffset => TwinMaterialDesc.UvOffsetPath,
+                KnownUniform.MaterialAnimatedColor => TwinMaterialDesc.AnimatedColorPath,
                 KnownUniform.MaterialReflectDist => TwinMaterialDesc.ReflectDistPath,
                 KnownUniform.MaterialAlphaTest => TwinMaterialDesc.AlphaTestPath,
                 KnownUniform.MaterialAlphaBlend => TwinMaterialDesc.AlphaBlendPath,

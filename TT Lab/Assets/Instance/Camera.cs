@@ -57,14 +57,9 @@ namespace TT_Lab.Assets.Instance
             if (AssetData != null)
             {
                 var camData = (CameraData)AssetData;
-                if (camData.MainCamera1 != null)
-                {
-                    Parameters["MainCamera1Type"] = camData.MainCamera1.GetType();
-                }
-                if (camData.MainCamera2 != null)
-                {
-                    Parameters["MainCamera2Type"] = camData.MainCamera2.GetType();
-                }
+                // None once the subtype got taken away
+                Parameters["MainCamera1Type"] = camData.MainCamera1?.GetType();
+                Parameters["MainCamera2Type"] = camData.MainCamera2?.GetType();
             }
             
             base.Serialize(serializationFlags);

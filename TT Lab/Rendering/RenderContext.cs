@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -115,6 +115,10 @@ public class RenderContext : IDisposable
         var particleFragShader = new Shader(this, ShaderType.FragmentShader, "Particle.frag");
         _programs.Add("Particle", new ShaderProgram(this, particleVertShader, particleFragShader));
 
+        var distortionVertShader = new Shader(this, ShaderType.VertexShader, "ParticleDistortion.vert");
+        var distortionFragShader = new Shader(this, ShaderType.FragmentShader, "ParticleDistortion.frag");
+        _programs.Add("ParticleDistortion", new ShaderProgram(this, distortionVertShader, distortionFragShader));
+
         var screenVertShader = new Shader(this, ShaderType.VertexShader, "ScreenRender.vert");
         var screenFlipFragShader = new Shader(this, ShaderType.FragmentShader, "ScreenHorizontalFlip.frag");
         var screenFlipProgram = new ShaderProgram(this, screenVertShader, screenFlipFragShader);
@@ -165,6 +169,17 @@ public class RenderContext : IDisposable
     public MeshService MeshService { get; private set; }
     public SceneInstanceFactory SceneInstanceFactory { get; private set; }
     public PrimitiveRenderer PrimitiveRenderer { get; private set; }
+
+    /// <summary>
+    /// Seconds since the renderer started, what the shaders' Time uniform holds, set by the renderer before every frame
+    /// </summary>
+    public double Time { get; set; }
+
+    /// <summary>
+    /// The scene's three strongest lights, unit vectors towards where the light comes from, what the game's environment map looks up
+    /// by. A scene without lights gets ones from above and the sides
+    /// </summary>
+    public vec3[] EnvLights { get; set; } = [new vec3(0.0f, 1.0f, 0.0f), new vec3(1.0f, 0.0f, 0.0f), new vec3(0.0f, 0.0f, 1.0f)];
     public vec2 ViewportSize { get; set; }
 
     public void SetGlAccessibility(bool isAccessible)

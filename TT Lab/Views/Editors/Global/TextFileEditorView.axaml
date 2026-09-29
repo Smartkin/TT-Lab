@@ -37,9 +37,9 @@
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
         </WrapPanel>
-        <!-- A fixed height lets the editor scroll by itself instead of growing inside the document's scroll viewers -->
+        <!-- In the side pane the editor takes its height, elsewhere a fixed one lets it scroll by itself instead of growing inside the
+             document's scroll viewer (the view sets it) -->
         <avaloniaEdit:TextEditor x:Name="Editor"
-                                 Height="640"
                                  ShowLineNumbers="True"
                                  WordWrap="False"
                                  FontSize="14"

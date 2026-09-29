@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
@@ -6,6 +7,7 @@ using ReactiveUI;
 using ReactiveUI.SourceGenerators;
 using ReactiveUI.Validation.Extensions;
 using TT_Lab.Assets;
+using TT_Lab.Assets.Code;
 using TT_Lab.ViewModels.Editors.PropertyGraph;
 using Twinsanity.AgentLab;
 
@@ -26,6 +28,16 @@ public partial class CodeEditorViewModel(DocumentViewModel document, PropertyNod
     private bool _canClose = true;
 
     public bool IsAgentLabCode => GetEditorParameter(ValidateAgentLabCode, false);
+
+    // The asset the code belongs to, whose package tells which behaviours the states can name
+    public IAsset? Asset => DocumentViewModel.GetOwningAsset(Property) ?? Document.DocumentModel as IAsset;
+
+    public BehaviourGraph? FindBehaviour(string reference) => Asset is { } asset ? BehaviourReferences.Find(asset, reference) : null;
+
+    public IReadOnlyList<AgentLabCompletionItem> GetBehaviourSuggestions() => Asset is { } asset ? BehaviourReferences.GetCompletionItems(asset) : [];
+
+    // Typing on keeps changing the same step of the document's history, the editor ends it when the caret goes elsewhere
+    public void EndTypingStep() => Document.History.CloseStep();
 
     // Code that can only be a list of commands, which can be empty as well
     public bool IsAgentLabCommandList => GetEditorParameter(AgentLabCommandsOnly, false);
@@ -70,7 +82,11 @@ public partial class CodeEditorViewModel(DocumentViewModel document, PropertyNod
 
         // Checking reads the action definitions every time so it's only done once the typing stops
         var actionDefinitions = ActionDefinitionsFile;
-        Func<string, string, AgentLabCompiler.CompilerStatus> check = IsAgentLabCommandList ? AgentLabCompiler.CheckCommands : AgentLabCompiler.Check;
+        var asset = Asset;
+        Func<string, bool>? behaviourExists = asset == null ? null : reference => BehaviourReferences.Find(asset, reference) != null;
+        Func<string, string, AgentLabCompiler.CompilerStatus> check = IsAgentLabCommandList
+            ? AgentLabCompiler.CheckCommands
+            : (code, definitions) => AgentLabCompiler.Check(code, definitions, behaviourExists);
         this.WhenAnyValue(x => x.Code)
             .Where(code => code != null)
             .Throttle(CheckDelay, RxSchedulers.TaskpoolScheduler)
@@ -79,6 +95,12 @@ public partial class CodeEditorViewModel(DocumentViewModel document, PropertyNod
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Subscribe(status => CodeStatus = status)
             .DisposeWith(disposables);
+    }
+
+    // The document's history and other editors of the value change it from outside the editor
+    protected override void OnCurrentValueChanged()
+    {
+        Code = CurrentValue ?? string.Empty;
     }
 
     public override Boolean CanClose()

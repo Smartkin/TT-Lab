@@ -81,11 +81,11 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
 
     protected void BuildChildren(Folder folder)
     {
-        // Build the tree
+        // Folders before the rest, each in the order of their names the folder keeps them in
         var myChildren = folder.Children;
         var children = (from child in myChildren
             let c = AssetManager.Get().GetAsset(child)
-            select c.GetResourceTreeElement(this));
+            select c.GetResourceTreeElement(this)).OrderBy(element => element.Asset is Folder ? 0 : 1);
         _children = new BindableCollection<ResourceTreeElementViewModel>(children);
         _internalChildren = new List<ResourceTreeElementViewModel>(_children);
     }
@@ -109,6 +109,34 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
         }
     }
 
+    // Folders before assets, each in the order of their names, like the tree gets built
+    private static readonly StringComparer NameOrder = StringComparer.OrdinalIgnoreCase;
+
+    private static int InsertionIndex(IReadOnlyList<ResourceTreeElementViewModel> siblings, ResourceTreeElementViewModel child)
+    {
+        var childIsFolder = child.Asset is Folder;
+        for (var i = 0; i < siblings.Count; i++)
+        {
+            var siblingIsFolder = siblings[i].Asset is Folder;
+            if (childIsFolder != siblingIsFolder)
+            {
+                if (childIsFolder)
+                {
+                    return i;
+                }
+
+                continue;
+            }
+
+            if (NameOrder.Compare(siblings[i].Alias, child.Alias) > 0)
+            {
+                return i;
+            }
+        }
+
+        return siblings.Count;
+    }
+
     public void AddNewChild(ResourceTreeElementViewModel child)
     {
         if (_internalChildren == null || _children == null)
@@ -121,7 +149,7 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
             return;
         }
         
-        _internalChildren.Add(child);
+        _internalChildren.Insert(InsertionIndex(_internalChildren, child), child);
         AddChild(child);
     }
 
@@ -137,10 +165,10 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
             return;
         }
         
-        _children.Add(a);
+        _children.Insert(InsertionIndex(_children, a), a);
     }
 
-    private void RemoveChild(ResourceTreeElementViewModel child)
+    internal void RemoveChild(ResourceTreeElementViewModel child)
     {
         if (_internalChildren == null || _children == null)
         {
@@ -190,7 +218,7 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
         });
     }
 
-    public void CreateEditor()
+    public virtual void CreateEditor()
     {
         var mainShell = Locator.Current.GetService<ILabManager>()!;
         mainShell.OpenEditor(Asset);

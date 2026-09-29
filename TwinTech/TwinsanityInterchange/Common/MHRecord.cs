@@ -11,6 +11,10 @@ namespace Twinsanity.TwinsanityInterchange.Common
         public Int32 Size;
         public UInt32 Offset;
         public Int32 SampleRate;
+        /// <summary>
+        /// 0 on every record but the looping music streams', where it's a multiple of 16 below the bank's interleave. The executable
+        /// hands the bank to the IOP's driver without reading the records, so what the driver does with it isn't known
+        /// </summary>
         public Int32 UnkInt;
 
         public Int32 GetLength()

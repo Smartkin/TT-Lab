@@ -14,37 +14,37 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Layout
         public static readonly Dictionary<ITwinCamera.CameraType, Type> subCamIdToCamera = new();
 
         public TwinTrigger CamTrigger { get; set; }
-        public UInt32 CameraHeader { get; set; }
-        public UInt16 UnkShort { get; set; }
-        public Single UnkFloat1 { get; set; } // 10
-        public Vector4 UnkVector1 { get; set; }
-        public Vector4 UnkVector2 { get; set; } // 42
-        public Single UnkFloat2 { get; set; }
-        public Single UnkFloat3 { get; set; } // 50
-        public UInt32 UnkInt1 { get; set; }
-        public UInt32 UnkInt2 { get; set; }
-        public UInt32 UnkInt3 { get; set; }
-        public UInt32 UnkInt4 { get; set; } // 66
-        public UInt32 UnkInt5 { get; set; }
-        public UInt32 UnkInt6 { get; set; } // 74
-        public Single UnkFloat4 { get; set; }
-        public Single UnkFloat5 { get; set; }
-        public Single UnkFloat6 { get; set; }
-        public Single UnkFloat7 { get; set; } // 90
-        public UInt32 UnkInt7 { get; set; }
-        public UInt32 UnkInt8 { get; set; } // 98
-        public UInt32 UnkInt9 { get; set; }
-        public Single UnkFloat8 { get; set; } // 106
+        public ITwinCamera.CameraFlags Flags { get; set; }
+        public ITwinCamera.CameraSwitches Switches { get; set; }
+        public Single BlendTime { get; set; } // 10
+        public Vector4 LeftoverVector1 { get; set; }
+        public Vector4 LeftoverVector2 { get; set; } // 42
+        public Single LeftoverFloat1 { get; set; }
+        public Single LeftoverFloat2 { get; set; } // 50
+        public UInt32 FovStart { get; set; }
+        public UInt32 FovEnd { get; set; }
+        public UInt32 PitchStart { get; set; }
+        public UInt32 PitchEnd { get; set; } // 66
+        public UInt32 YawStart { get; set; }
+        public UInt32 YawEnd { get; set; } // 74
+        public Single DistanceStart { get; set; }
+        public Single DistanceEnd { get; set; }
+        public Single Camera2Value { get; set; }
+        public Single Camera1Value { get; set; } // 90
+        public UInt32 YawExtra { get; set; }
+        public UInt32 BlendInYaw { get; set; } // 98
+        public UInt32 BlendInPitch { get; set; }
+        public Single BlendInDistance { get; set; } // 106
         public ITwinCamera.CameraType TypeIndex1 { get; set; }
         public ITwinCamera.CameraType TypeIndex2 { get; set; } // 114
-        public Byte UnkByte { get; set; } // 115
+        public Byte Group { get; set; } // 115
         public CameraSubBase MainCamera1 { get; set; }
         public CameraSubBase MainCamera2 { get; set; }
         public PS2AnyCamera()
         {
             CamTrigger = new TwinTrigger();
-            UnkVector1 = new Vector4();
-            UnkVector2 = new Vector4();
+            LeftoverVector1 = new Vector4();
+            LeftoverVector2 = new Vector4();
         }
 
         static PS2AnyCamera()
@@ -72,30 +72,30 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Layout
         {
             CamTrigger.Read(reader, length);
             // Camera
-            CameraHeader = reader.ReadUInt32();
-            UnkShort = reader.ReadUInt16();
-            UnkFloat1 = reader.ReadSingle();
-            UnkVector1.Read(reader, Constants.SIZE_VECTOR4);
-            UnkVector2.Read(reader, Constants.SIZE_VECTOR4);
-            UnkFloat2 = reader.ReadSingle();
-            UnkFloat3 = reader.ReadSingle();
-            UnkInt1 = reader.ReadUInt32();
-            UnkInt2 = reader.ReadUInt32();
-            UnkInt3 = reader.ReadUInt32();
-            UnkInt4 = reader.ReadUInt32();
-            UnkInt5 = reader.ReadUInt32();
-            UnkInt6 = reader.ReadUInt32();
-            UnkFloat4 = reader.ReadSingle();
-            UnkFloat5 = reader.ReadSingle();
-            UnkFloat6 = reader.ReadSingle();
-            UnkFloat7 = reader.ReadSingle();
-            UnkInt7 = reader.ReadUInt32();
-            UnkInt8 = reader.ReadUInt32();
-            UnkInt9 = reader.ReadUInt32();
-            UnkFloat8 = reader.ReadSingle();
+            Flags = (ITwinCamera.CameraFlags)reader.ReadUInt32();
+            Switches = (ITwinCamera.CameraSwitches)reader.ReadUInt16();
+            BlendTime = reader.ReadSingle();
+            LeftoverVector1.Read(reader, Constants.SIZE_VECTOR4);
+            LeftoverVector2.Read(reader, Constants.SIZE_VECTOR4);
+            LeftoverFloat1 = reader.ReadSingle();
+            LeftoverFloat2 = reader.ReadSingle();
+            FovStart = reader.ReadUInt32();
+            FovEnd = reader.ReadUInt32();
+            PitchStart = reader.ReadUInt32();
+            PitchEnd = reader.ReadUInt32();
+            YawStart = reader.ReadUInt32();
+            YawEnd = reader.ReadUInt32();
+            DistanceStart = reader.ReadSingle();
+            DistanceEnd = reader.ReadSingle();
+            Camera2Value = reader.ReadSingle();
+            Camera1Value = reader.ReadSingle();
+            YawExtra = reader.ReadUInt32();
+            BlendInYaw = reader.ReadUInt32();
+            BlendInPitch = reader.ReadUInt32();
+            BlendInDistance = reader.ReadSingle();
             TypeIndex1 = (ITwinCamera.CameraType)reader.ReadUInt32();
             TypeIndex2 = (ITwinCamera.CameraType)reader.ReadUInt32();
-            UnkByte = reader.ReadByte();
+            Group = reader.ReadByte();
             if (TypeIndex1 != ITwinCamera.CameraType.Null && subCamIdToCamera.ContainsKey(TypeIndex1))
             {
                 MainCamera1 = (CameraSubBase)Activator.CreateInstance(subCamIdToCamera[TypeIndex1]);
@@ -112,30 +112,30 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Layout
         {
             CamTrigger.Write(writer);
             //
-            writer.Write(CameraHeader);
-            writer.Write(UnkShort);
-            writer.Write(UnkFloat1);
-            UnkVector1.Write(writer);
-            UnkVector2.Write(writer);
-            writer.Write(UnkFloat2);
-            writer.Write(UnkFloat3);
-            writer.Write(UnkInt1);
-            writer.Write(UnkInt2);
-            writer.Write(UnkInt3);
-            writer.Write(UnkInt4);
-            writer.Write(UnkInt5);
-            writer.Write(UnkInt6);
-            writer.Write(UnkFloat4);
-            writer.Write(UnkFloat5);
-            writer.Write(UnkFloat6);
-            writer.Write(UnkFloat7);
-            writer.Write(UnkInt7);
-            writer.Write(UnkInt8);
-            writer.Write(UnkInt9);
-            writer.Write(UnkFloat8);
+            writer.Write((UInt32)Flags);
+            writer.Write((UInt16)Switches);
+            writer.Write(BlendTime);
+            LeftoverVector1.Write(writer);
+            LeftoverVector2.Write(writer);
+            writer.Write(LeftoverFloat1);
+            writer.Write(LeftoverFloat2);
+            writer.Write(FovStart);
+            writer.Write(FovEnd);
+            writer.Write(PitchStart);
+            writer.Write(PitchEnd);
+            writer.Write(YawStart);
+            writer.Write(YawEnd);
+            writer.Write(DistanceStart);
+            writer.Write(DistanceEnd);
+            writer.Write(Camera2Value);
+            writer.Write(Camera1Value);
+            writer.Write(YawExtra);
+            writer.Write(BlendInYaw);
+            writer.Write(BlendInPitch);
+            writer.Write(BlendInDistance);
             writer.Write((UInt32)TypeIndex1);
             writer.Write((UInt32)TypeIndex2);
-            writer.Write(UnkByte);
+            writer.Write(Group);
             MainCamera1?.Write(writer);
             MainCamera2?.Write(writer);
         }

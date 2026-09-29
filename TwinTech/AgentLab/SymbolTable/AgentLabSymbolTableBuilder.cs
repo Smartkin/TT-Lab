@@ -58,6 +58,15 @@ public class AgentLabSymbolTableBuilder
         });
     }
 
+    /// <summary>
+    /// Makes the states' behaviour references get checked against what exists
+    /// </summary>
+    public AgentLabSymbolTableBuilder CheckBehaviours(Func<string, bool> behaviourExists)
+    {
+        _visitor.BehaviourExists = behaviourExists;
+        return this;
+    }
+
     public AgentLabSymbolTableBuilder BuildFromAst(IAgentLabTreeNode tree)
     {
         _visitor.Visit(tree);

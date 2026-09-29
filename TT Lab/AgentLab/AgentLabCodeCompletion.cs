@@ -28,14 +28,18 @@ public sealed class AgentLabCodeCompletion : IDisposable
     private readonly TextEditor _editor;
     private readonly string _actionDefinitionsFile;
     private readonly bool _commandsOnly;
+    private readonly Func<IEnumerable<AgentLabCompletionItem>>? _behaviours;
     private CompletionWindow? _completionWindow;
     private OverloadInsightWindow? _signatureWindow;
+    // The library hands out the same item objects every time, so their rows are made once
+    private readonly Dictionary<AgentLabCompletionItem, AgentLabCompletionData> _rows = new(ReferenceEqualityComparer.Instance);
 
-    public AgentLabCodeCompletion(TextEditor editor, string actionDefinitionsFile, bool commandsOnly = false)
+    public AgentLabCodeCompletion(TextEditor editor, string actionDefinitionsFile, bool commandsOnly = false, Func<IEnumerable<AgentLabCompletionItem>>? behaviours = null)
     {
         _editor = editor;
         _actionDefinitionsFile = actionDefinitionsFile;
         _commandsOnly = commandsOnly;
+        _behaviours = behaviours;
         _editor.TextArea.TextEntering += OnTextEntering;
         _editor.TextArea.TextEntered += OnTextEntered;
         _editor.TextArea.Caret.PositionChanged += OnCaretMoved;
@@ -110,9 +114,9 @@ public sealed class AgentLabCodeCompletion : IDisposable
                 case '[':
                     ShowCompletion(_ => true, false);
                     break;
-                // Within an attribute's parentheses only, a call's parameters can be anything
+                // Within an attribute's or a state's parentheses only, a call's parameters can be anything
                 case '(':
-                    ShowCompletion(items => items.All(item => item.Kind is AgentLabCompletionKind.State or AgentLabCompletionKind.ControlPacket or AgentLabCompletionKind.EnumValue), false);
+                    ShowCompletion(items => items.All(item => item.Kind is AgentLabCompletionKind.State or AgentLabCompletionKind.ControlPacket or AgentLabCompletionKind.EnumValue or AgentLabCompletionKind.Behaviour), false);
                     break;
                 case ' ' or '=' when IsAfterValueStart():
                     ShowCompletion(_ => true, false);
@@ -126,13 +130,8 @@ public sealed class AgentLabCodeCompletion : IDisposable
         }
     }
 
-    private void OnCaretMoved(object? sender, EventArgs e)
-    {
-        if (_signatureWindow != null)
-        {
-            UpdateSignature(false);
-        }
-    }
+    // The parameter hint follows the caret: it opens once the caret is inside a call, wherever it got there from
+    private void OnCaretMoved(object? sender, EventArgs e) => UpdateSignature(true);
 
     private bool IsStartOfWord()
     {
@@ -165,7 +164,7 @@ public sealed class AgentLabCodeCompletion : IDisposable
     {
         var document = _editor.Document;
         var caret = _editor.CaretOffset;
-        var result = AgentLabCompletion.GetCompletions(document.Text, caret, _actionDefinitionsFile, _commandsOnly);
+        var result = AgentLabCompletion.GetCompletions(document.Text, caret, _actionDefinitionsFile, _commandsOnly, _behaviours);
         if (result.Items.Count == 0 || !shouldShow(result.Items))
         {
             return;
@@ -209,7 +208,12 @@ public sealed class AgentLabCodeCompletion : IDisposable
         // Filling the list before showing it left the count at zero until something got typed
         foreach (var item in result.Items)
         {
-            window.CompletionList.CompletionData.Add(new AgentLabCompletionData(item));
+            if (!_rows.TryGetValue(item, out var row))
+            {
+                _rows[item] = row = new AgentLabCompletionData(item);
+            }
+
+            window.CompletionList.CompletionData.Add(row);
         }
 
         window.CompletionList.SelectItem(document.GetText(result.StartOffset, caret - result.StartOffset));

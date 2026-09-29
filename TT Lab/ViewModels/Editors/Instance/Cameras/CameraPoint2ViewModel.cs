@@ -11,16 +11,16 @@ namespace TT_Lab.ViewModels.Editors.Instance.Cameras
     public class CameraPoint2ViewModel : BaseCameraViewModel
     {
         private Vector4ViewModel point;
-        private Single unkFloat3;
-        private Byte unkByte;
+        private Single distance;
+        private Byte mode;
 
         public CameraPoint2ViewModel()
         {
             CameraType = ITwinCamera.CameraType.CameraPoint2;
             point = new Vector4ViewModel();
             DirtyTracker.AddChild(point);
-            unkFloat3 = 0;
-            unkByte = 0;
+            distance = 0;
+            mode = 0;
         }
 
         public CameraPoint2ViewModel(CameraSubBase cam) : base(cam)
@@ -28,8 +28,8 @@ namespace TT_Lab.ViewModels.Editors.Instance.Cameras
             var baseCam = (CameraPoint2)cam;
             point = new Vector4ViewModel(baseCam.Point);
             DirtyTracker.AddChild(point);
-            unkFloat3 = baseCam.UnkFloat3;
-            unkByte = baseCam.UnkByte;
+            distance = baseCam.Distance;
+            mode = baseCam.Mode;
         }
 
         public override void Save(CameraSubBase? cam)
@@ -43,8 +43,8 @@ namespace TT_Lab.ViewModels.Editors.Instance.Cameras
                 Z = point.Z,
                 W = point.W,
             };
-            pCam.UnkFloat3 = UnkFloat3;
-            pCam.UnkByte = UnkByte;
+            pCam.Distance = Distance;
+            pCam.Mode = Mode;
             base.Save(cam);
         }
 
@@ -61,28 +61,28 @@ namespace TT_Lab.ViewModels.Editors.Instance.Cameras
         }
 
         [MarkDirty]
-        public Single UnkFloat3
+        public Single Distance
         {
-            get => unkFloat3;
+            get => distance;
             set
             {
-                if (unkFloat3 != value)
+                if (distance != value)
                 {
-                    unkFloat3 = value;
+                    distance = value;
                     NotifyOfPropertyChange();
                 }
             }
         }
 
         [MarkDirty]
-        public Byte UnkByte
+        public Byte Mode
         {
-            get => unkByte;
+            get => mode;
             set
             {
-                if (unkByte != value)
+                if (mode != value)
                 {
-                    unkByte = value;
+                    mode = value;
                     NotifyOfPropertyChange();
                 }
             }

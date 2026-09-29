@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -15,8 +15,8 @@
             <cameras:BaseCameraView DataContext="{Binding}"></cameras:BaseCameraView>
             <controls1:GroupBox Header="Parameters">
                 <StackPanel Orientation="Vertical">
-                    <controls:LabeledTextBox HorizontalAlignment="Stretch" TextBoxName="Unknown Float 3" Text="{Binding UnkFloat3}"/>
-                    <controls:LabeledTextBox HorizontalAlignment="Stretch" TextBoxName="Unknown Short" Text="{Binding UnkShort}"/>
+                    <controls:LabeledTextBox HorizontalAlignment="Stretch" TextBoxName="Unknown Float 3" Text="{Binding StepLength}"/>
+                    <controls:LabeledTextBox HorizontalAlignment="Stretch" TextBoxName="Unknown Short" Text="{Binding SplineFlags}"/>
                 </StackPanel>
             </controls1:GroupBox>
             <controls1:GroupBox Header="Path Points">
@@ -48,7 +48,7 @@
                     </Grid.RowDefinitions>
                     <controls1:GroupBox Grid.Row="0">
                         <ListBox x:Name="InterpolationPointList"
-                                 ItemsSource="{Binding InterpolationPoints}">
+                                 ItemsSource="{Binding Tangents}">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding DisplayString}"></TextBlock>
@@ -69,7 +69,7 @@
                     </Grid.RowDefinitions>
                     <controls1:GroupBox Grid.Row="0">
                         <ListBox x:Name="UnkDataList"
-                                 ItemsSource="{Binding UnkData}">
+                                 ItemsSource="{Binding Parameters}">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding DisplayString}"></TextBlock>

@@ -1,4 +1,4 @@
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 using Avalonia.Headless.XUnit;
 using TT_Lab.AssetData;
 using TT_Lab.AssetData.Code;
@@ -104,6 +104,61 @@ public sealed class TlmSceneryTests : IDisposable
         Assert.Equal(dynamicSceneryBefore, _assets.Export(_assets.Get(read.DynamicScenery)));
     }
 
+    // A light's node points its Z axis along the light's direction: turning the empty in Blender turns the light, the stored direction
+    // is kept while the node still points along it
+    [Fact]
+    public void LightsPointTheirNodesAlongTheirDirections()
+    {
+        var scenery = _assets.AddScenery();
+        var before = _assets.Export(scenery);
+        var direction = ((IAsset)scenery).GetData<SceneryData>().DirectionalLights[0].Direction;
+
+        var read = _assets.Reload<SceneryData>(scenery);
+        Assert.Equal(before, _assets.Export(scenery));
+        Assert.Equal((direction.X, direction.Y, direction.Z, direction.W), (read.DirectionalLights[0].Direction.X, read.DirectionalLights[0].Direction.Y, read.DirectionalLights[0].Direction.Z, read.DirectionalLights[0].Direction.W));
+
+        Edit(scenery, root =>
+        {
+            // Turned half a turn about Y, the arrow now points along -Z
+            FindNode(root, node => node["kind"]?.ToString() == SceneryData.DirectionalLightKind)["rotation"] = new JsonArray(0.0f, 1.0f, 0.0f, 0.0f);
+            FindNode(root, node => node["kind"]?.ToString() == SceneryData.NegativeLightKind)["rotation"] = new JsonArray(0.70710677f, 0.0f, 0.0f, 0.70710677f);
+        });
+        var turned = ((IAsset)scenery).GetData<SceneryData>();
+
+        var directional = turned.DirectionalLights[0].Direction;
+        var spot = turned.NegativeLights[0].Direction;
+        Assert.Equal((0f, 0f, -1f, 0f), (MathF.Round(directional.X, 4), MathF.Round(directional.Y, 4), MathF.Round(directional.Z, 4), directional.W));
+        // A quarter turn about X takes Z to -Y
+        Assert.Equal((0f, -1f, 0f, 0f), (MathF.Round(spot.X, 4), MathF.Round(spot.Y, 4), MathF.Round(spot.Z, 4), spot.W));
+    }
+
+    // Edited cone angles give the cosines the game lights with, unedited ones keep the game's
+    [Fact]
+    public void SpotLightConesEditedInBlenderGetNewCosines()
+    {
+        var scenery = _assets.AddScenery();
+        var data = ((IAsset)scenery).GetData<SceneryData>();
+        data.NegativeLights[0].SetCone(104.128f, 5.037f);
+        data.NegativeLights[0].InnerConeCosine = 0.615f;
+        var before = _assets.Export(scenery);
+
+        var read = _assets.Reload<SceneryData>(scenery);
+        Assert.Equal(before, _assets.Export(scenery));
+        Assert.Equal(0.615f, read.NegativeLights[0].InnerConeCosine);
+
+        Edit(scenery, root =>
+        {
+            var light = FindNode(root, node => node["kind"]?.ToString() == SceneryData.NegativeLightKind)["data"]!.AsObject();
+            light["ConeAngle"] = 10923;
+            light["FalloffAngle"] = 1820;
+        });
+        var edited = ((IAsset)scenery).GetData<SceneryData>().NegativeLights[0];
+
+        Assert.Equal((10923u, 1820u), (edited.ConeAngle, edited.FalloffAngle));
+        Assert.Equal(MathF.Cos(30 * MathF.PI / 180), edited.InnerConeCosine, 1e-4f);
+        Assert.Equal(MathF.Cos(40 * MathF.PI / 180), edited.OuterConeCosine, 1e-4f);
+    }
+
     [Fact]
     public void MeshesAddedInBlenderJoinTheTree()
     {
@@ -123,7 +178,7 @@ public sealed class TlmSceneryTests : IDisposable
         Assert.Contains(data.Sceneries[2].MeshModelMatrices, matrix => matrix.ToSystem().Translation == new Vector3(-90, 0, -90));
         Assert.Equal(leafBounds, Bounds(data.Sceneries[2]));
         Assert.Contains(data.Sceneries[0].MeshModelMatrices, matrix => matrix.ToSystem().Translation == new Vector3(500, 0, 0));
-        Assert.True(data.Sceneries[0].UnkVec3.X > 510);
+        Assert.True(data.Sceneries[0].BoundsMax.X > 510);
         Assert.Equal(data.Sceneries[0].MeshIDs.Count + data.Sceneries[0].LodIDs.Count, data.Sceneries[0].BoundingBoxes.Count);
     }
 
@@ -186,7 +241,7 @@ public sealed class TlmSceneryTests : IDisposable
         Assert.IsType<SceneryLeafData>(added);
         // The node takes the box of what got placed in it
         var box = added.BoundingBoxes[0];
-        Assert.Equal((box.V1.X + 50, box.V1.Z - 50, box.V2.X + 50, box.V2.Z - 50), (added.UnkVec2.X, added.UnkVec2.Z, added.UnkVec3.X, added.UnkVec3.Z));
+        Assert.Equal((box.V1.X + 50, box.V1.Z - 50, box.V2.X + 50, box.V2.Z - 50), (added.BoundsMin.X, added.BoundsMin.Z, added.BoundsMax.X, added.BoundsMax.Z));
         Assert.Equal(ITwinScenery.SceneryType.Leaf, ((SceneryRootData)data.Sceneries[0]).SceneryTypes[1]);
         Assert.NotEmpty(_assets.Export(scenery));
     }
@@ -211,9 +266,9 @@ public sealed class TlmSceneryTests : IDisposable
         Assert.Equal(2, tree.BoundingBoxes.Count);
         // The root grew from its default size to hold both
         var box = tree.BoundingBoxes[0];
-        Assert.Equal(-10 + box.V1.X, tree.UnkVec2.X, 1e-4f);
-        Assert.Equal(10 + box.V2.X, tree.UnkVec3.X, 1e-4f);
-        Assert.Equal(5 + box.V2.Z, tree.UnkVec3.Z, 1e-4f);
+        Assert.Equal(-10 + box.V1.X, tree.BoundsMin.X, 1e-4f);
+        Assert.Equal(10 + box.V2.X, tree.BoundsMax.X, 1e-4f);
+        Assert.Equal(5 + box.V2.Z, tree.BoundsMax.Z, 1e-4f);
         Assert.NotEmpty(_assets.Export(scenery));
     }
 
@@ -297,10 +352,6 @@ public sealed class TlmSceneryTests : IDisposable
             Assert.True(known != null, $"The add-on doesn't know {type}");
             Assert.Subset(known, data.Select(pair => pair.Key).ToHashSet());
             checkedTypes.Add(type);
-            foreach (var entry in data.GetIndexed("Collisions"))
-            {
-                Assert.Subset(SchemaTests.KnownKeys(type == "Ogi" ? "OgiCollision" : "Collision", "Items")!, entry.Select(pair => pair.Key).ToHashSet());
-            }
         }
     }
 
@@ -308,7 +359,7 @@ public sealed class TlmSceneryTests : IDisposable
     private static readonly Dictionary<string, string?> KindTypes = new()
     {
         ["ogi"] = "Ogi", ["armature"] = null, ["skin"] = "Skin", ["shape"] = "BlendSkin", ["rigid_bodies"] = null, ["body"] = "Body", ["exit_points"] = null,
-        ["exit_point"] = "ExitPoint", ["model"] = "Model", ["rigid_model"] = "RigidModel", ["mesh"] = "Mesh", ["scenery"] = "Scenery", ["tree_node"] = "SceneryTreeNode",
+        ["exit_point"] = "ExitPoint", ["collision_hulls"] = null, ["hull"] = "CollisionHull", ["model"] = "Model", ["rigid_model"] = "RigidModel", ["mesh"] = "Mesh", ["scenery"] = "Scenery", ["tree_node"] = "SceneryTreeNode",
         ["scenery_mesh"] = "SceneryMesh", ["scenery_lod"] = "SceneryLod", ["lod_mesh"] = "LodMesh", ["lights"] = null, ["ambient_light"] = "AmbientLight",
         ["directional_light"] = "DirectionalLight", ["point_light"] = "PointLight", ["negative_light"] = "NegativeLight", ["collision"] = "Collision",
         ["dynamic_scenery"] = "DynamicScenery", ["dynamic_model"] = "DynamicSceneryModel", ["skydome"] = "Skydome", ["skydome_mesh"] = "SkydomeMesh"
@@ -330,7 +381,7 @@ public sealed class TlmSceneryTests : IDisposable
 
     private static (float, float, float, float, float, float) Bounds(SceneryBaseData node)
     {
-        return (node.UnkVec2.X, node.UnkVec2.Y, node.UnkVec2.Z, node.UnkVec3.X, node.UnkVec3.Y, node.UnkVec3.Z);
+        return (node.BoundsMin.X, node.BoundsMin.Y, node.BoundsMin.Z, node.BoundsMax.X, node.BoundsMax.Y, node.BoundsMax.Z);
     }
 
     [Fact]

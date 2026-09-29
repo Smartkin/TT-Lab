@@ -1,0 +1,18 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewModels="clr-namespace:TT_Lab.ViewModels.Composite"
+             xmlns:controls1="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+             x:DataType="viewModels:CollisionHullViewModel"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="800"
+             x:Class="TT_Lab.Views.Composite.CollisionHullView">
+    <controls1:GroupBox>
+        <StackPanel Orientation="Vertical">
+            <TextBlock Text="{Binding Summary}" TextWrapping="Wrap"/>
+            <Expander HorizontalAlignment="Stretch" IsExpanded="True" Header="Vertexes">
+                <ListBox x:Name="VertexList" ItemsSource="{Binding Vertexes}"/>
+            </Expander>
+        </StackPanel>
+    </controls1:GroupBox>
+</UserControl>

@@ -64,24 +64,50 @@ Every node has a `kind` and a `name`. Nodes may have:
 ### Standalone models
 
 `Model`, `RigidModel`, `Mesh`, `Skin` and `BlendSkin` files have one node, the root, with the asset's mesh: `model`, `rigid_model`,
-`mesh`, `skin` or `shape` (`data: { "BlendsAmount": 2 }`). A model's parts have no material.
+`mesh`, `skin` or `shape`. A model's parts have no material.
 
 ### OGI
 
 ```
-ogi              data: BoundingBoxMin, BoundingBoxMax, Collisions
+ogi              data: BoundingBoxMin, BoundingBoxMax
 ├─ armature      joints, animations
 ├─ skin          mesh with joints and weights
-├─ shape         data: BlendsAmount, mesh with shapes (the blend skin)
+├─ shape         mesh with shapes (the blend skin), as many as the mesh has shape keys
 ├─ rigid_bodies
 │  └─ body       joint, data: Order, mesh in the joint's space
-└─ exit_points
-   └─ exit_point joint, data: Id, Matrix, transform relative to the joint
+├─ exit_points
+│  └─ exit_point joint, data: Id, transform relative to the joint, matrix
+└─ collision_hulls
+   └─ hull       joint (255 for none), vertices, faces, planes, edge_directions, face_normals, edges
 ```
 
-`skin` and `shape` are left out when the OGI has none. A `body` moved away from its joint has a transform relative to it, TT Lab
-moves the vertexes by it. `Matrix` of an exit point is the game's matrix (16 floats, translation last), kept while the node's
-transform still is the one it stands for.
+`skin` and `shape` are left out when the OGI has none, and have no transform: the add-on bakes where their object is under the root
+into the vertexes, they're in the model's space like the bind poses. A `body` moved away from its joint has a transform relative to
+the joint's rest, TT Lab moves the vertexes by it; the add-on works it out from where the object follows its bone (through its Child
+Of constraint or as the bone's child) with the armature at rest, whatever pose is on. `matrix` of an exit point is the game's matrix
+(16 floats, translation last), kept while the node's transform still is the one it stands for; the add-on carries it with the object
+without showing it, like the bones' bind poses.
+
+#### Collision hulls
+
+The convex hulls the game collides the model with (its `ModelCollisionData`), each on a joint or, with a `joint` of 255, in the model's
+space:
+
+```json
+{ "kind": "hull", "name": "Hull 0", "joint": 6, "vertices": <f32 view>, "faces": <u8 view>,
+  "planes": <f32 view>, "edge_directions": <f32 view>, "face_normals": <f32 view>, "edges": <u8 view> }
+```
+
+- `vertices` are 4 floats each (W is 1), `faces` every face's vertex count followed by its vertexes, counter-clockwise seen from
+  outside. The add-on shows them as a wire mesh.
+- The rest is what the game reads without working it out: `planes` one per face (unit normal pointing out, the plane's constant in W,
+  a point is inside where `n·p + w ≤ 0`), `face_normals` and `edge_directions` the unique ones (either way, W 1) that hull against
+  hull tests take as separating axes, `edges` the two vertexes of each. TT Lab works them out again (`TwinCollisionHull.ComputeFromFaces`,
+  the way the game's own hull builder does) when the node has a transform, which it bakes into the vertexes, or when the add-on's
+  `twin_vertices` and `twin_faces`, the ones it imported, aren't the mesh's anymore. The game's tools ordered them differently from
+  the game's builder, so unedited hulls keep them as they were.
+
+Dynamic scenery models keep their hulls the same way, as `hull` children without a `joint`.
 
 #### Joints
 
@@ -119,7 +145,8 @@ transform still is the one it stands for.
 
 - `translation`, `rotation` (quaternion `x, y, z, w`) and `scale` hold every frame's local transform of the joint, with its
   additional rotation applied when `additional_rotation` is set. A track with one key holds for every frame. `facial.weights` holds
-  every frame's shape weights, `shapes` of them per frame.
+  every frame's shape weights, `shapes` of them per frame. The add-on writes a weight for every shape key of the shape, the game's
+  weights of shapes without a key stay, and an action animating the shape keys of a model gets a `facial` of its own.
 - `exact` is the animation as the game stores it (`TwinAnimation` followed by `TwinMorphAnimation`). The add-on keeps it with the
   action and writes it back, edited or not. TT Lab keeps the game's values of every joint, frame and track whose keys still round to
   them (translations, scales and weights to the same 1/4096, rotations closer than half of the game's 1/4096 of a turn) and makes
@@ -132,8 +159,8 @@ transform still is the one it stands for.
 ### Scenery
 
 ```
-scenery            data: FogColor, UnkByte, HasLighting, LightOrder
-├─ tree_node       data: Kind, Slot, UnkVec1..4, LightsEnabler, SceneryTypes, UnkUInt (the root)
+scenery            data: FogColor, UnusedByte, HasLighting, LightOrder
+├─ tree_node       data: Kind, Slot, BoundsCenter, BoundsMin, BoundsMax, BoundsHalfSize, LightsEnabler, SceneryTypes, TreeDepth (the root)
 │  ├─ tree_node    the node's children, in the slots they had
 │  ├─ scenery_mesh data: Order, Matrix, BoundingBox, transform, mesh
 │  └─ scenery_lod  data: Order, Matrix, BoundingBox, LodType, MinDrawDistance, MaxDrawDistance, ModelsDrawDistances, transform
@@ -150,7 +177,12 @@ scenery            data: FogColor, UnkByte, HasLighting, LightOrder
   mesh) goes to the deepest node it's in. Nodes grow to hold what's in them, nodes made in Blender take the box of what's placed in them.
 - `Matrix` of a placed mesh or LOD is the game's matrix (16 floats, translation last), kept while the node's transform is still the one
   it stands for. `BoundingBox` is the box the game culls it with (8 floats), kept while it still holds the mesh.
-- A directional light's rotation is its direction.
+- Lights are empties: the node's Z axis (the empty's arrow) is a directional light's `Direction`, pointing at where the light comes
+  from, and a spot light's (`negative_light`, the tools' name), pointing where it shines. `Direction` is kept while the arrow still
+  points along it. Every light has `Intensity` (multiplies `Color`), `Enabled` (the game never reads it), `PositionW` and the bounds
+  the tools kept (`BoundsMin`, `BoundsMax`, the game works them out again from the intensity). Point and spot lights fade with
+  `AttenuationPower` (intensity · (25 / (d² + 25))^power), a spot light has its `ConeAngle` and `FalloffAngle` in 65536ths of a turn and the
+  `InnerConeCosine`/`OuterConeCosine` the game lights with, made again from the angles when they changed.
 - `collision` has the collision's `surfaces`:
 
   ```json
@@ -160,7 +192,8 @@ scenery            data: FogColor, UnkByte, HasLighting, LightOrder
 
   `triangles` and `vertexes` say where every triangle and vertex was in the collision, the tree the game finds collisions with comes out
   the same while every surface still has them. `data` has the vertexes no triangle uses (`UnusedVertexes`, `UnusedPositions`).
-- `dynamic_model` has `data` (`Order`, `LodFlag`, `BoundingBoxMin`, `BoundingBoxMax`, `Collisions`), a `mesh` and its movement:
+- `dynamic_model` has `data` (`Order`, `LodFlag`, `BoundingBoxMin`, `BoundingBoxMax`), `hull` children (see Collision hulls), a `mesh` and its
+  movement:
 
   ```json
   "animation": { "frames": 30, "exact": <u8 view>, "translation": <f32 view>, "rotation": <f32 view> }
@@ -183,7 +216,7 @@ Each part is drawn with one material and becomes one of the game's submodels. Bl
 
 | Key | View | Per vertex | Meaning |
 |---|---|---|---|
-| `material` | | | Index into `materials`, -1 for none |
+| `material` | | | Index into `materials`, -1 for none (a model's parts, or a part made in Blender without one, which TT Lab draws with a placeholder) |
 | `vertices` | | | Number of vertexes |
 | `faces` | `u32` | | 3 vertex indexes per triangle |
 | `position` | `f32` | 3 | Position |
@@ -198,14 +231,15 @@ Each part is drawn with one material and becomes one of the game's submodels. Bl
 | `joints` | `u8` | 3 | A skin's joints of every vertex in the game's order |
 | `weights` | `f32` | 3 | Their weights, 0 for unused ones |
 | `group_joints` | `i32` | 4 | Joints of the vertex groups Blender has, -1 for none. Written by the add-on |
-| `group_weights` | `f32` | 4 | Their weights |
+| `group_weights` | `f32` | 4 | Their weights, adding up to anything like Blender's |
 | `shapes` | list of `f32` | 3 | A blend skin's offset of every vertex for every shape |
 | `twin_shapes` | list of `f32` | 3 | The game's offsets, used while `shapes` only moved by rounding errors. Written by the add-on |
 | `strips` | | | The strips the game draws the part with, reused while they still draw its triangles |
 | `compression` | | | How a skin packs its positions and UVs |
 
 A skin's `joints` and `weights` are used while `group_joints` and `group_weights` are missing or still the same influences, up to
-their order and scale. Otherwise the vertex groups' 3 strongest influences are the vertex's.
+their order and scale. Otherwise the vertex groups' 3 strongest influences are the vertex's, scaled to add up to 1 the way Blender
+scales them when it deforms the vertex.
 
 `strips`:
 

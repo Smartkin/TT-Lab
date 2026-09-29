@@ -29,7 +29,10 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.SM
         /// <summary>
         /// Unknown byte parameter
         /// </summary>
-        Byte UnkByte { get; set; }
+        /// <summary>
+        /// Read into the chunk's data and never read again
+        /// </summary>
+        Byte UnusedByte { get; set; }
         /// <summary>
         /// Skydome's ID to render
         /// </summary>

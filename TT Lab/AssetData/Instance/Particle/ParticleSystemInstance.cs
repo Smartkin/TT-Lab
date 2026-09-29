@@ -1,3 +1,4 @@
+using Newtonsoft.Json;
 using System;
 using System.IO;
 using TT_Lab.Attributes;
@@ -11,6 +12,10 @@ using Twinsanity.TwinsanityInterchange.Common.Particles;
 
 namespace TT_Lab.AssetData.Instance.Particle;
 
+/// <summary>
+/// An emitter placed in the chunk, see <see cref="TwinParticleEmitter"/>. Rotations are in 65536ths of a turn: the tilt turns about Z
+/// (the up leans towards -X), then the yaw about Y, then the roll about X
+/// </summary>
 public class ParticleSystemInstance : IDocumentModel
 {
     public ParticleSystemInstance()
@@ -21,19 +26,18 @@ public class ParticleSystemInstance : IDocumentModel
     {
         Version = twinInst.Version;
         Position = CloneUtils.Clone(twinInst.Position);
-        GravityRotX = twinInst.GravityRotX;
-        GravityRotY = twinInst.GravityRotY;
-        EmitRotX = twinInst.EmitRotX;
-        EmitRotY = twinInst.EmitRotY;
-        UnkShort5 = twinInst.UnkShort5;
-        Offset = twinInst.Offset;
-        Name = new String(twinInst.Name);
-        Name = Name.Replace("\0", "");
+        GravityTilt = twinInst.GravityTilt;
+        GravityYaw = twinInst.GravityYaw;
+        EmitTilt = twinInst.EmitTilt;
+        EmitYaw = twinInst.EmitYaw;
+        EmitRoll = twinInst.EmitRoll;
+        TimingOffset = twinInst.TimingOffset;
+        (Name, NameLeftover) = ParticleNames.Split(twinInst.Name);
         SwitchType = twinInst.SwitchType;
         SwitchId = twinInst.SwitchId;
         SwitchValue = twinInst.SwitchValue;
-        UnkShort6 = twinInst.UnkShort6;
-        UnkShort7 = twinInst.UnkShort7;
+        UnusedShort = twinInst.UnusedShort;
+        BouncePlaneAngle = twinInst.BouncePlaneAngle;
         PlaneOffset = twinInst.PlaneOffset;
         BounceFactor = twinInst.BounceFactor;
         GroupId = twinInst.GroupId;
@@ -44,60 +48,59 @@ public class ParticleSystemInstance : IDocumentModel
         var twinInst = new TwinParticleEmitter();
         twinInst.Version = Version;
         twinInst.Position = CloneUtils.Clone(Position);
-        twinInst.Name = new Char[16];
-        var nameIdx = 0;
-        foreach (var c in Name.ToCharArray())
-        {
-            twinInst.Name[nameIdx++] = c;
-            if (nameIdx >= 16)
-            {
-                break;
-            }
-        }
-        while (nameIdx < 16)
-        {
-            twinInst.Name[nameIdx++] = '\0';
-        }
-        
-        twinInst.GravityRotX = GravityRotX;
-        twinInst.GravityRotY = GravityRotY;
-        twinInst.EmitRotX = EmitRotX;
-        twinInst.EmitRotY = EmitRotY;
-        twinInst.UnkShort5 = UnkShort5;
-        twinInst.Offset = Offset;
+        twinInst.Name = ParticleNames.Join(Name, NameLeftover);
+        twinInst.GravityTilt = GravityTilt;
+        twinInst.GravityYaw = GravityYaw;
+        twinInst.EmitTilt = EmitTilt;
+        twinInst.EmitYaw = EmitYaw;
+        twinInst.EmitRoll = EmitRoll;
+        twinInst.TimingOffset = TimingOffset;
         twinInst.SwitchType = SwitchType;
         twinInst.SwitchId = SwitchId;
         twinInst.SwitchValue = SwitchValue;
-        twinInst.UnkShort6 = UnkShort6;
-        twinInst.UnkShort7 = UnkShort7;
+        twinInst.UnusedShort = UnusedShort;
+        twinInst.BouncePlaneAngle = BouncePlaneAngle;
         twinInst.PlaneOffset = PlaneOffset;
         twinInst.BounceFactor = BounceFactor;
         twinInst.GroupId = GroupId;
-        
+
         twinInst.Write(writer);
     }
 
     [Editable] [EditorReadOnly] public UInt32 Version { get; set; } = 0x1E;
     [Editable] public Vector3 Position { get; set; } = new();
-    [Editable] public Int16 GravityRotX { get; set; }
-    [Editable] public Int16 GravityRotY { get; set; }
-    [Editable] public Int16 EmitRotX { get; set; }
-    [Editable] public Int16 EmitRotY { get; set; }
-    [Editable] public Int16 UnkShort5 { get; set; }
-    [Editable] public Int32 Offset { get; set; }
+
+    // Turns the space the particles move and fall in, the emit rotation with it
+    [Editable(Caption = "Gravity Tilt (degrees, about Z)", EditorDescType = typeof(AngleEditorDesc))] public Int16 GravityTilt { get; set; }
+    [Editable(Caption = "Gravity Yaw (degrees, about Y)", EditorDescType = typeof(AngleEditorDesc))] public Int16 GravityYaw { get; set; }
+
+    // Turns the direction the particles are emitted along, within the gravity space
+    [Editable(Caption = "Emit Tilt (degrees, about Z)", EditorDescType = typeof(AngleEditorDesc))] public Int16 EmitTilt { get; set; }
+    [Editable(Caption = "Emit Yaw (degrees, about Y)", EditorDescType = typeof(AngleEditorDesc))] public Int16 EmitYaw { get; set; }
+    [Editable(Caption = "Emit Roll (degrees, about X)", EditorDescType = typeof(AngleEditorDesc))] public Int16 EmitRoll { get; set; }
+
+    // Shifts the on and off cycle against the game's frame counter, and starts a rotor's sweep
+    [Editable(Caption = "Timing Offset (frames)")] public Int32 TimingOffset { get; set; }
 
     // Name of the particle system it plays, the chunk's own or the default chunk's
     [Editable(Caption = "Particle System", EditorDescType = typeof(ParticleSystemEditorDesc))]
     [EditorParam(TextFieldViewModel.TextFieldStringLength, 16U)]
     public string Name { get; set; } = "Particle Inst";
 
+    // What the tools left in the name's buffer after its NUL, written back so the file stays the same
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public string? NameLeftover { get; set; }
+
+    // The switches and group aren't read by the retail game
     [Editable] public Int32 SwitchType { get; set; }
-    [Editable] public Int32 SwitchId { get; set; }
+    [Editable] public Int32 SwitchId { get; set; } = -1;
     [Editable] public Single SwitchValue { get; set; }
-    [Editable] public Int16 UnkShort6 { get; set; }
-    [Editable] public Int16 UnkShort7 { get; set; }
-    [Editable] public Single PlaneOffset { get; set; }
-    [Editable] public Single BounceFactor { get; set; }
+    [Editable] public Int16 UnusedShort { get; set; }
+
+    // The Bounce sorts' plane: its height (or the vertical plane's distance) relative to the emitter, the vertical plane's angle about Y
+    [Editable(Caption = "Bounce Plane Angle (degrees, BounceXZ)", EditorDescType = typeof(AngleEditorDesc))] public Int16 BouncePlaneAngle { get; set; }
+    [Editable(Caption = "Plane Offset (Bounce sorts)")] public Single PlaneOffset { get; set; }
+    [Editable(Caption = "Bounce Factor")] public Single BounceFactor { get; set; } = 0.9f;
     [Editable] public Int16 GroupId { get; set; }
 
     public string DocumentName => "Particle System Instance";

@@ -70,11 +70,6 @@ public class StripLayout
     /// </summary>
     public List<IndexedFace> GetFaces(StripWinding winding)
     {
-        return GetFaces(winding, false);
-    }
-
-    private List<IndexedFace> GetFaces(StripWinding winding, Boolean skinsCountFromBatch)
-    {
         var faces = new List<IndexedFace>();
         foreach (var batch in Batches)
         {
@@ -88,7 +83,7 @@ public class StripLayout
                 }
 
                 stripStart = GetStripStart(vertexes, k, stripStart);
-                var flipped = IsFlipped(k, skinsCountFromBatch ? 0 : stripStart, winding);
+                var flipped = IsFlipped(k, stripStart, winding);
                 var first = vertexes[flipped ? k - 1 : k - 2].Index;
                 var second = vertexes[flipped ? k - 2 : k - 1].Index;
                 faces.Add(new IndexedFace(first, second, vertexes[k].Index));
@@ -123,14 +118,6 @@ public class StripLayout
     public Boolean Draws(IReadOnlyList<IndexedFace> faces, Int32 vertexCount, StripWinding winding)
     {
         return Draws(faces, vertexCount, GetFaces(winding));
-    }
-
-    /// <summary>
-    /// Whether the strips draw the triangles facing the way skins were read before their strips' own start was counted from
-    /// </summary>
-    public Boolean DrawsWithOldSkinWinding(IReadOnlyList<IndexedFace> faces, Int32 vertexCount)
-    {
-        return Draws(faces, vertexCount, GetFaces(StripWinding.OddFlipped, true));
     }
 
     private Boolean Draws(IReadOnlyList<IndexedFace> faces, Int32 vertexCount, List<IndexedFace> drawn)

@@ -12,6 +12,9 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout
         /// <summary>
         /// Unknown parameter
         /// </summary>
-        UInt16 UnkShort { get; set; }
+        /// <summary>
+        /// Bits 1, 2 and 4 on some positions of the retail levels, no reader found in the PAL executable
+        /// </summary>
+        UInt16 Flags { get; set; }
     }
 }

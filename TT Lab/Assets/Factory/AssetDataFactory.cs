@@ -15,6 +15,7 @@ using TT_Lab.AssetData.Instance;
 using TT_Lab.AssetData.Instance.Collision;
 using TT_Lab.AssetData.Instance.Scenery;
 using TT_Lab.Assets.Code;
+using TT_Lab.Assets.Global;
 using TT_Lab.Assets.Graphics;
 using TT_Lab.Assets.Instance;
 using TT_Lab.Project;
@@ -58,6 +59,22 @@ public static class AssetDataFactory
         0.3f, 0.3f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f
     ];
     private static readonly UInt32[] CrashInstanceIntegers = [0, 255, 2];
+
+    // A package is a folder of the project's assets folder, named as typed. It depends on the version's package, which brings the
+    // version's global one, and the project's package depends on it like on the others
+    public static AssetCreationStatus CreatePackageData(IAsset asset)
+    {
+        var project = Locator.Current.GetService<ProjectManager>()!.OpenedProject!;
+        var package = (Package)asset;
+        package.Variation = string.Empty;
+        package.RegenerateLinks();
+        package.Package = package.URI;
+        var version = project.Ps2Package.Enabled || !project.XboxPackage.Enabled ? project.Ps2Package : project.XboxPackage;
+        package.AddDependency(version.URI);
+        project.BasePackage.AddDependency(package.URI);
+        project.BasePackage.Serialize();
+        return AssetCreationStatus.Success;
+    }
 
     public static AssetCreationStatus CreateFolderData(IAsset parent, IAsset asset)
     {
@@ -248,6 +265,13 @@ public static class AssetDataFactory
             return AssetCreationStatus.Failed;
         }
 
+        // The game has one file for a path, a chunk of another package of the same version would be built over it
+        if (FindChunkAt(chunkPath, asset.Package) is { } existing)
+        {
+            Log.WriteLine($"{AssetManager.Get().GetAsset(existing.Package).Name} already has a chunk at {chunkPath}. Chunk wasn't created.", Log.LogType.Error);
+            return AssetCreationStatus.Failed;
+        }
+
         var crashObject = FindCrashObject(asset.Package);
         if (crashObject == LabURI.Empty)
         {
@@ -286,32 +310,26 @@ public static class AssetDataFactory
                 ParamList3 = [..CrashInstanceIntegers]
             });
 
+        LevelSelect.AddChunk(chunk);
         return AssetCreationStatus.Success;
     }
 
     // Builds only pick up chunks from the levels folder and the path is relative to the package
     private static string? GetNewChunkPath(Folder parentFolder, string chunkName)
     {
-        var assetManager = AssetManager.Get();
-        var pathTokens = new List<string> { chunkName };
-        var folder = parentFolder;
-        while (!folder.Mark.HasFlag(FolderMark.IsPackage))
-        {
-            pathTokens.Insert(0, folder.Alias);
-            if (folder.Parent == LabURI.Empty)
-            {
-                return null;
-            }
+        return parentFolder.GetPathInLevels() is { } folders ? string.Join(Path.DirectorySeparatorChar, [..folders, chunkName]) : null;
+    }
 
-            folder = assetManager.GetAsset<Folder>(folder.Parent);
-        }
-
-        if (pathTokens.Count < 2 || pathTokens[0] != "levels")
+    private static LevelChunk? FindChunkAt(string chunkPath, LabURI package)
+    {
+        if (Locator.Current.GetService<ProjectManager>()?.OpenedProject is not TT_Lab.Project.Project project)
         {
             return null;
         }
 
-        return string.Join(Path.DirectorySeparatorChar, pathTokens);
+        var platform = project.GetPlatform(package);
+        return AssetManager.Get().GetAssets().OfType<LevelChunk>()
+            .FirstOrDefault(chunk => string.Equals(chunk.AdditionalPath, chunkPath, StringComparison.OrdinalIgnoreCase) && project.GetPlatform(chunk.Package) == platform);
     }
 
     private static LabURI FindCrashObject(LabURI package)
@@ -362,15 +380,15 @@ public static class AssetDataFactory
 
         var sceneryRoot = new SceneryRootData
         {
-            UnkUInt = 1,
+            TreeDepth = 1,
             SceneryTypes = Enumerable.Repeat(ITwinScenery.SceneryType.None, 8).ToArray(),
             BoundingBoxes = [],
             MeshModelMatrices = [],
             LodModelMatrices = [],
-            UnkVec1 = new Vector4(0.0f, 0.0f, 0.0f, halfSize * MathF.Sqrt(2.0f)),
-            UnkVec2 = new Vector4(-halfSize, 0.0f, -halfSize, 1.0f),
-            UnkVec3 = new Vector4(halfSize, 0.0f, halfSize, 1.0f),
-            UnkVec4 = new Vector4(halfSize, 0.0f, halfSize, 1.0f),
+            BoundsCenter = new Vector4(0.0f, 0.0f, 0.0f, halfSize * MathF.Sqrt(2.0f)),
+            BoundsMin = new Vector4(-halfSize, 0.0f, -halfSize, 1.0f),
+            BoundsMax = new Vector4(halfSize, 0.0f, halfSize, 1.0f),
+            BoundsHalfSize = new Vector4(halfSize, 0.0f, halfSize, 1.0f),
             LightsEnabler = new Boolean[128]
         };
 

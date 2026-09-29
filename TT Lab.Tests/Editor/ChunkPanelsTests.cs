@@ -60,6 +60,30 @@ public sealed class ChunkPanelsTests : IDisposable
         return tab;
     }
 
+    // An instance made in a scene and taken out again by undo never gets saved: it stayed in the project, and once an editor closing
+    // released its data it couldn't be opened, the tab stayed loading
+    [AvaloniaFact]
+    public async Task UnplacedInstancesLeaveWithTheirScene()
+    {
+        var scenes = new ScenesEditorsViewModel();
+        var chunk = CreateChunk("first");
+        var tab = await OpenScene(scenes, chunk);
+        var made = tab.Viewport!.CreateResource(typeof(Position), 0)!;
+        var kept = tab.Viewport!.CreateResource(typeof(Trigger), 0)!;
+        tab.Document!.Undo();
+        Assert.DoesNotContain(kept.URI, chunk.ChunkResources);
+
+        // Data nobody saved yet stays when editors let go of what they don't use
+        made.UnloadData();
+        Assert.NotNull(((IAsset)made).GetData<TT_Lab.AssetData.Instance.PositionData>());
+
+        tab.SaveTab();
+        scenes.TabsFactory.CloseDockable(tab);
+        await WaitUntil(() => !scenes.Tabs.Contains(tab));
+        Assert.False(_project.AssetManager.DoesAssetExist(kept.URI));
+        Assert.True(_project.AssetManager.DoesAssetExist(made.URI));
+    }
+
     [AvaloniaFact]
     public async Task PanelsShowTheSceneLastWorkedOn()
     {
@@ -67,12 +91,15 @@ public sealed class ChunkPanelsTests : IDisposable
         var resources = new ChunkResourcesViewModel(scenes);
         var inspector = new ChunkInspectorViewModel(scenes);
         var view = new ChunkResourcesView { DataContext = resources };
-        var window = new Window { Content = view, Width = 400, Height = 600 };
+        var inspectorView = new ChunkInspectorView { DataContext = inspector };
+        var window = new Window { Content = new StackPanel { Children = { view, inspectorView } }, Width = 400, Height = 600 };
         window.Show();
         Assert.Null(resources.Document);
 
         var first = await OpenScene(scenes, CreateChunk("first"));
         await WaitUntil(() => resources.Document == first.Document);
+        // The panel's view gets loaded on a later pass of the dispatcher than its view model gets the scene
+        await WaitUntil(() => view.FindDescendantOfType<Decorator>()?.Child != null);
         var firstView = view.FindDescendantOfType<Decorator>()!.Child;
         Assert.NotNull(firstView);
 
@@ -83,16 +110,21 @@ public sealed class ChunkPanelsTests : IDisposable
         second.Document.OpenInspector(resource.Find("[data]"));
         await WaitUntil(() => inspector.Inspected == second.Document.Inspector);
         Assert.NotNull(inspector.Inspected);
+        var secondInspectorView = inspectorView.FindDescendantOfType<Decorator>()!.Child;
+        Assert.NotNull(secondInspectorView);
 
         // Going back shows the first scene's view as it was left and what that scene inspects
         scenes.TabsFactory.ActivateEditor(first);
         await WaitUntil(() => resources.Document == first.Document);
         Assert.Same(firstView, view.FindDescendantOfType<Decorator>()!.Child);
         Assert.Null(inspector.Inspected);
+        Assert.NotSame(secondInspectorView, inspectorView.FindDescendantOfType<Decorator>()!.Child);
 
+        // The inspector's views aren't built again either, the default chunk's 255 particle systems took seconds each time
         scenes.TabsFactory.RemoveEditor(first);
         await WaitUntil(() => resources.Document == second.Document);
         Assert.Same(second.Document.Inspector, inspector.Inspected);
+        Assert.Same(secondInspectorView, inspectorView.FindDescendantOfType<Decorator>()!.Child);
 
         scenes.TabsFactory.RemoveEditor(second);
         await WaitUntil(() => resources.Document == null);

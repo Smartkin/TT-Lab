@@ -1,24 +1,33 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using Twinsanity.TwinsanityInterchange.Enumerations;
-using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout;
 
 namespace Twinsanity.TwinsanityInterchange.Common.CameraSubtypes
 {
+    /// <summary>
+    /// A path (the same uniform cubic B-spline as the AI paths, with the same parameters: every segment's arc length from the start
+    /// then 1 over its steps) the camera slides along to the point nearest the target, <see cref="CameraSubBase.Offset"/> units
+    /// further (FUN_0027d6e8, FUN_0027d770).
+    /// </summary>
     public class CameraPath : CameraSubBase
     {
         public List<Vector4> PathPoints { get; set; }
-        public List<UInt64> UnkData { get; set; }
+        /// <summary>
+        /// The segments' arc lengths from the start, then 1 over the steps each takes, one pair after the other like a path's
+        /// </summary>
+        public List<Vector2> Parameters { get; set; }
+
         public CameraPath()
         {
             PathPoints = new List<Vector4>();
-            UnkData = new List<UInt64>();
+            Parameters = new List<Vector2>();
         }
+
         public override int GetLength()
         {
-            return base.GetLength() + 4 + PathPoints.Count * Constants.SIZE_VECTOR4 + 4 + UnkData.Count * 8;
+            return base.GetLength() + 4 + PathPoints.Count * Constants.SIZE_VECTOR4 + 4 + Parameters.Count * Constants.SIZE_VECTOR2;
         }
 
         public override void Read(BinaryReader reader, int length)
@@ -32,11 +41,14 @@ namespace Twinsanity.TwinsanityInterchange.Common.CameraSubtypes
                 vec.Read(reader, Constants.SIZE_VECTOR4);
                 PathPoints.Add(vec);
             }
+
             int cnt2 = reader.ReadInt32();
-            UnkData.Clear();
+            Parameters.Clear();
             for (var i = 0; i < cnt2; ++i)
             {
-                UnkData.Add(reader.ReadUInt64());
+                Vector2 parameter = new Vector2();
+                parameter.Read(reader, Constants.SIZE_VECTOR2);
+                Parameters.Add(parameter);
             }
         }
 
@@ -44,14 +56,15 @@ namespace Twinsanity.TwinsanityInterchange.Common.CameraSubtypes
         {
             base.Write(writer);
             writer.Write(PathPoints.Count);
-            foreach (ITwinSerializable e in PathPoints)
+            foreach (var point in PathPoints)
             {
-                e.Write(writer);
+                point.Write(writer);
             }
-            writer.Write(UnkData.Count);
-            foreach (var unk in UnkData)
+
+            writer.Write(Parameters.Count);
+            foreach (var parameter in Parameters)
             {
-                writer.Write(unk);
+                parameter.Write(writer);
             }
         }
 

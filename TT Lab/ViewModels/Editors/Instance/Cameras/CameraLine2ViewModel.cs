@@ -12,8 +12,8 @@ namespace TT_Lab.ViewModels.Editors.Instance.Cameras
     {
         private Vector4ViewModel lineStart;
         private Vector4ViewModel lineEnd;
-        private Single unkFloat3;
-        private Single unkFloat4;
+        private Single nearDistance;
+        private Single farDistance;
 
         public CameraLine2ViewModel()
         {
@@ -22,8 +22,8 @@ namespace TT_Lab.ViewModels.Editors.Instance.Cameras
             lineEnd = new Vector4ViewModel();
             DirtyTracker.AddChild(lineStart);
             DirtyTracker.AddChild(lineEnd);
-            unkFloat3 = 0;
-            unkFloat4 = 0;
+            nearDistance = 0;
+            farDistance = 0;
         }
 
         public CameraLine2ViewModel(CameraSubBase cam) : base(cam)
@@ -33,8 +33,8 @@ namespace TT_Lab.ViewModels.Editors.Instance.Cameras
             lineEnd = new Vector4ViewModel(baseCam.LineEnd);
             DirtyTracker.AddChild(lineStart);
             DirtyTracker.AddChild(lineEnd);
-            unkFloat3 = baseCam.UnkFloat3;
-            unkFloat4 = baseCam.UnkFloat4;
+            nearDistance = baseCam.NearDistance;
+            farDistance = baseCam.FarDistance;
         }
 
         protected override Task OnInitializeAsync(CancellationToken cancellationToken)
@@ -63,8 +63,8 @@ namespace TT_Lab.ViewModels.Editors.Instance.Cameras
                 Z = LineEnd.Z,
                 W = LineEnd.W,
             };
-            lineCam.UnkFloat3 = UnkFloat3;
-            lineCam.UnkFloat4 = UnkFloat4;
+            lineCam.NearDistance = NearDistance;
+            lineCam.FarDistance = FarDistance;
             base.Save(cam);
         }
 
@@ -79,28 +79,28 @@ namespace TT_Lab.ViewModels.Editors.Instance.Cameras
         }
 
         [MarkDirty]
-        public Single UnkFloat3
+        public Single NearDistance
         {
-            get => unkFloat3;
+            get => nearDistance;
             set
             {
-                if (unkFloat3 != value)
+                if (nearDistance != value)
                 {
-                    unkFloat3 = value;
+                    nearDistance = value;
                     NotifyOfPropertyChange();
                 }
             }
         }
 
         [MarkDirty]
-        public Single UnkFloat4
+        public Single FarDistance
         {
-            get => unkFloat4;
+            get => farDistance;
             set
             {
-                if (unkFloat4 != value)
+                if (farDistance != value)
                 {
-                    unkFloat4 = value;
+                    farDistance = value;
                     NotifyOfPropertyChange();
                 }
             }

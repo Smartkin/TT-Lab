@@ -59,16 +59,16 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.Graphics
         }
         public ITwinTexture.TexturePixelFormat DestinationTextureFormat { get; set; }
         public ITwinTexture.TextureColorComponent ColorComponent { get; set; }
-        public Byte UnkByte { get; set; }
+        public Byte Reserved1 { get; set; }
         public ITwinTexture.TextureFunction TexFun { get; set; }
-        public Byte[] UnkBytes1 { get; set; }
+        public Byte[] Reserved2 { get; set; }
         public Int32 TextureBasePointer { get; set; }
         public Int32[] MipLevelsTBP { get; set; }
         public Int32 TextureBufferWidth { get; set; }
         public Int32[] MipLevelsTBW { get; set; }
         public Int32 ClutBufferBasePointer { get; set; }
-        public Byte[] UnkBytes2 { get; set; }
-        public Byte[] UnkBytes3 { get; set; }
+        public Byte[] SizeWords { get; set; }
+        public Byte[] ReservedBlocks { get; set; }
         public Byte[] UnusedMetadata { get; set; }
         public Byte[] TextureData { get; set; }
 
@@ -110,15 +110,15 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.Graphics
             HeaderSignature = 0xbbcccdcd;
             DestinationTextureFormat = ITwinTexture.TexturePixelFormat.PSMCT32;
             ColorComponent = ITwinTexture.TextureColorComponent.RGBA;
-            UnkByte = 0;
+            Reserved1 = 0;
             TextureBasePointer = 0;
             MipLevelsTBP = new int[6];
             TextureBufferWidth = 4;
             MipLevelsTBW = new int[6];
             ClutBufferBasePointer = 0;
-            UnkBytes1 = new byte[2];
-            UnkBytes2 = new byte[8] { 0, 0, 0, 0, 224, 0, 2, 0 };
-            UnkBytes3 = new byte[2] { 0, 2 };
+            Reserved2 = new byte[2];
+            SizeWords = new byte[8] { 0, 0, 0, 0, 224, 0, 2, 0 };
+            ReservedBlocks = new byte[2] { 0, 2 };
             UnusedMetadata = new byte[32];
             UnusedMetadata[0] = 31;
             UnusedMetadata[16] = 64;
@@ -148,9 +148,9 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.Graphics
             ps2TextureFormat = (ITwinTexture.TexturePixelFormat)reader.ReadByte();
             DestinationTextureFormat = (ITwinTexture.TexturePixelFormat)reader.ReadByte();
             ColorComponent = (ITwinTexture.TextureColorComponent)reader.ReadByte();
-            UnkByte = reader.ReadByte();
+            Reserved1 = reader.ReadByte();
             TexFun = (ITwinTexture.TextureFunction)reader.ReadByte();
-            UnkBytes1 = reader.ReadBytes(2);
+            Reserved2 = reader.ReadBytes(2);
             TextureBasePointer = reader.ReadInt32();
             MipLevelsTBP = new int[6];
             for (var i = 0; i < 6; ++i)
@@ -164,10 +164,10 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.Graphics
                 MipLevelsTBW[i] = reader.ReadInt32();
             }
             ClutBufferBasePointer = reader.ReadInt32();
-            UnkBytes2 = reader.ReadBytes(8);
+            SizeWords = reader.ReadBytes(8);
             reserved1 = reader.ReadUInt32();
             reserved2 = reader.ReadUInt32();
-            UnkBytes3 = reader.ReadBytes(2);
+            ReservedBlocks = reader.ReadBytes(2);
             reserved3 = reader.ReadUInt16();
             reader.Read(UnusedMetadata, 0, UnusedMetadata.Length);
 
@@ -186,9 +186,9 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.Graphics
             writer.Write((Byte)ps2TextureFormat);
             writer.Write((Byte)DestinationTextureFormat);
             writer.Write((Byte)ColorComponent);
-            writer.Write(UnkByte);
+            writer.Write(Reserved1);
             writer.Write((Byte)TexFun);
-            writer.Write(UnkBytes1);
+            writer.Write(Reserved2);
             writer.Write(TextureBasePointer);
             for (var i = 0; i < 6; ++i)
             {
@@ -200,10 +200,10 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.Graphics
                 writer.Write(MipLevelsTBW[i]);
             }
             writer.Write(ClutBufferBasePointer);
-            writer.Write(UnkBytes2);
+            writer.Write(SizeWords);
             writer.Write(reserved1);
             writer.Write(reserved2);
-            writer.Write(UnkBytes3);
+            writer.Write(ReservedBlocks);
             writer.Write(reserved3);
             writer.Write(UnusedMetadata);
             writer.Write(textureType);
@@ -267,9 +267,9 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.Graphics
             }
             // The game's textures keep the size of the PS2 texture they were made from, it's written the same way for new ones
             sourceLength = (UInt32)(width * height * 4 + 0x84);
-            UnkBytes3 = new Byte[2];
-            BitConverter.TryWriteBytes(UnkBytes2.AsSpan(0, 4), 1U);
-            BitConverter.TryWriteBytes(UnkBytes2.AsSpan(4, 4), sourceLength);
+            ReservedBlocks = new Byte[2];
+            BitConverter.TryWriteBytes(SizeWords.AsSpan(0, 4), 1U);
+            BitConverter.TryWriteBytes(SizeWords.AsSpan(4, 4), sourceLength);
             if (textureType != 0)
             {
                 TextureData = Dxt5.Encode(image, width, height);

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using GlmSharp;
 using TT_Lab.Extensions;
@@ -42,6 +42,7 @@ public enum ViewportObjectCategory
     AiPaths,
     Particles,
     LoadWalls,
+    LinkHulls,
 }
 
 /// <summary>
@@ -53,9 +54,25 @@ public interface ITransformConverter
     Matrix4 ToData(mat4 transform);
 }
 
+/// <summary>
+/// Turns a value kept in a position node that isn't the object's position, like the radius a handle's distance stands for, into where
+/// the object is and back
+/// </summary>
+public interface IPositionConverter
+{
+    vec3 ToPosition(object? data);
+    object ToData(vec3 position);
+}
+
 public record ViewportObject(EditableObject Render, string DocumentName, PropertyNode Property, object? UserData = null)
 {
     public PropertyNode? Position { get; init; }
+
+    /// <summary>
+    /// Set when the Position node holds something else than the object's position. Such objects are handles of something the object
+    /// they belong to has, they're picked on their own and never moved to the cursor with it
+    /// </summary>
+    public IPositionConverter? PositionConverter { get; init; }
     public PropertyNode? Rotation { get; init; }
     public PropertyNode? Scale { get; init; }
     public PropertyNode? Transform { get; init; }
@@ -110,6 +127,27 @@ public record ViewportObject(EditableObject Render, string DocumentName, Propert
     public mat4 GetTransformFromData(Matrix4 data)
     {
         return TransformConverter?.ToTransform(data) ?? data.ToGlm();
+    }
+
+    /// <summary>
+    /// The value a position node takes for a point: its own kind of vector, a Vector4 keeping its W (a camera's points)
+    /// </summary>
+    public static object PositionValue(PropertyNode node, vec3 position)
+    {
+        if (node.GetValue() is Twinsanity.TwinsanityInterchange.Common.Vector4 previous)
+        {
+            return new Twinsanity.TwinsanityInterchange.Common.Vector4(position.x, position.y, position.z, previous.W);
+        }
+
+        return new Twinsanity.TwinsanityInterchange.Common.Vector3(position.x, position.y, position.z);
+    }
+
+    /// <summary>
+    /// The value the position node takes for the object standing at a point
+    /// </summary>
+    public object PositionData(vec3 position)
+    {
+        return PositionConverter?.ToData(position) ?? PositionValue(Position!, position);
     }
 
     public Matrix4 GetDataFromTransform(mat4 transform)

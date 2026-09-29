@@ -23,6 +23,7 @@ using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM;
 using Vector4 = Twinsanity.TwinsanityInterchange.Common.Vector4;
+using Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2;
 
 namespace TT_Lab.AssetData.Instance;
 
@@ -299,7 +300,7 @@ public class CollisionData : AbstractAssetData
 
         using var ms = new MemoryStream();
         using var writer = new BinaryWriter(ms);
-        writer.Write(0xBB9); // Collision header
+        writer.Write(PS2AnyCollisionData.GameVersion);
         writer.Write(Triggers.Count);
         writer.Write(Groups.Count);
         writer.Write(treeTriangles.Count);

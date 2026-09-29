@@ -34,6 +34,8 @@ namespace TT_Lab.Project
         private readonly BindableCollection<ResourceTreeElementViewModel> _internalTree = new();
         private bool _workableProject = false;
         private string _searchAsset = "";
+        private Folder? _treeRoot;
+        private ProjectTreeWatcher? _treeWatcher;
 
 
         public ProjectManager(IEventAggregator eventAggregator)
@@ -371,42 +373,17 @@ namespace TT_Lab.Project
 
         public void BuildPs2Project()
         {
-            WorkableProject = false;
-            Task.Factory.StartNew(() =>
-            {
-                var pr = OpenedProject!;
-#if !DEBUG
-                try {
-#endif
-                pr.PackAssetsPS2();
-#if !DEBUG
-                } catch (Exception ex)
-                {
-                    Log.WriteLine($"Error building PS2 project: {ex.Message}");
-                }
-#endif
-                WorkableProject = true;
-            });
+            RunBuild("Error building PS2 project", project => project.PackAssetsPS2());
         }
 
         public void BuildPs2Iso()
         {
-            WorkableProject = false;
-            Task.Factory.StartNew(() =>
-            {
-                var pr = OpenedProject!;
-#if !DEBUG
-                try {
-#endif
-                pr.CreatePs2ArchivesAndIso();
-#if !DEBUG
-                } catch (Exception ex)
-                {
-                    Log.WriteLine($"Error creating PS2 ISO: {ex.Message}");
-                }
-#endif
-                WorkableProject = true;
-            });
+            RunBuild("Error creating PS2 ISO", project => project.CreatePs2ArchivesAndIso());
+        }
+
+        public void Build(TT_Lab.Project.Build.BuildProfile profile)
+        {
+            RunBuild($"Error building with the {profile.Name} profile", project => project.Build(profile));
         }
 
         public void BuildXboxProject()
@@ -419,28 +396,58 @@ namespace TT_Lab.Project
             RunBuild("Error putting the Xbox game together", project => project.CreateXboxGame());
         }
 
-        private void RunBuild(string errorMessage, Action<IProject> build)
+        // Nothing observes the build's task, so a build that fails has to say so here, debug builds included: the exception went
+        // nowhere and the build looked like it stopped for no reason, with the project never handed back
+        internal void RunBuild(string errorMessage, Action<IProject> build)
         {
             WorkableProject = false;
             Task.Factory.StartNew(() =>
             {
-                var pr = OpenedProject!;
-#if !DEBUG
-                try {
-#endif
-                build(pr);
-#if !DEBUG
-                } catch (Exception ex)
+                try
                 {
-                    Log.WriteLine($"{errorMessage}: {ex.Message}");
+                    build(OpenedProject!);
                 }
-#endif
-                WorkableProject = true;
+                catch (Exception ex)
+                {
+                    foreach (var line in BuildFailureLines(errorMessage, ex))
+                    {
+                        Log.WriteLine(line, Log.LogType.Error);
+                    }
+
+                    Log.WriteLine(ex.ToString(), Log.LogType.Debug);
+                }
+                finally
+                {
+                    WorkableProject = true;
+                }
             });
+        }
+
+        private const int MaxReportedBuildFailures = 5;
+
+        // One line per failure, the chunks building in parallel each fail on their own when they share the cause
+        internal static List<string> BuildFailureLines(string errorMessage, Exception exception)
+        {
+            var failures = exception is AggregateException aggregate ? aggregate.Flatten().InnerExceptions.ToList() : [exception];
+            if (failures.Count == 1)
+            {
+                return [$"{errorMessage}: {failures[0].Message}"];
+            }
+
+            var lines = new List<string> { $"{errorMessage}, {failures.Count} chunks failed:" };
+            lines.AddRange(failures.Take(MaxReportedBuildFailures).Select(failure => $"  {failure.Message}"));
+            if (failures.Count > MaxReportedBuildFailures)
+            {
+                lines.Add($"  and {failures.Count - MaxReportedBuildFailures} more, all of them are in the session log");
+            }
+
+            return lines;
         }
 
         public void CloseProject()
         {
+            StopTreeWatcher();
+            _treeRoot = null;
             OpenedProject = null;
             WorkableProject = false;
             ProjectTree.Clear();
@@ -477,23 +484,334 @@ namespace TT_Lab.Project
             
             var assetRoot = $"{OpenedProject!.ProjectPath}";
             var dirInfo = new DirectoryInfo(assetRoot);
-            ExploreFolder(root, dirInfo, false);
+            ExploreFolder(root, dirInfo, false, false);
+            _treeRoot = root;
             ProjectTree = new BindableCollection<ResourceTreeElementViewModel>(root.Children.Select(uri => OpenedProject!.AssetManager.GetAsset(uri).GetResourceTreeElement()));
+            _internalTree.Clear();
             _internalTree.AddRange(ProjectTree);
             _eventAggregator.PublishOnUIThreadAsync(new ProjectManagerMessage(nameof(ProjectTree)));
+            StopTreeWatcher();
+            try
+            {
+                _treeWatcher = new ProjectTreeWatcher(assetRoot, SyncProjectTree);
+            }
+            catch (Exception ex)
+            {
+                // Watching is a convenience, the tree stays as opened without it
+                Log.WriteLine($"The project tree won't follow the file system: {ex.Message}", Log.LogType.Warning);
+            }
+        }
+
+        internal void StopTreeWatcher()
+        {
+            _treeWatcher?.Dispose();
+            _treeWatcher = null;
+        }
+
+        /// <summary>
+        /// Puts what the file system has now into the tree: assets and folders made outside TT Lab show up, deleted ones go away
+        /// </summary>
+        public void SyncProjectTree()
+        {
+            if (OpenedProject == null || _treeRoot == null)
+            {
+                return;
+            }
+
+            var changed = false;
+            foreach (var folderUri in _treeRoot.Children.ToList())
+            {
+                var folder = OpenedProject.AssetManager.GetAsset<Folder>(folderUri);
+                var directory = new DirectoryInfo(Path.Combine(OpenedProject.ProjectPath, folder.Alias));
+                if (!directory.Exists)
+                {
+                    RemoveFolderTree(folder);
+                    _treeRoot.Children.Remove(folderUri);
+                    _internalTree.Remove(folder.GetResourceTreeElement());
+                    changed = true;
+                    continue;
+                }
+
+                changed |= SyncFolder(folder, directory);
+            }
+
+            foreach (var directory in new DirectoryInfo(OpenedProject.ProjectPath).GetDirectories().OrderBy(child => child.Name, TreeOrder))
+            {
+                if (_hiddenRootDirectories.Contains(directory.Name, TreeOrder) || _treeRoot.Children.Any(uri => OpenedProject.AssetManager.GetAsset(uri).Alias == directory.Name))
+                {
+                    continue;
+                }
+
+                var folder = ExploreNewFolder(_treeRoot, directory, false, true);
+                var element = folder.GetResourceTreeElement();
+                var index = _internalTree.TakeWhile(existing => TreeOrder.Compare(existing.Alias, element.Alias) < 0).Count();
+                _internalTree.Insert(index, element);
+                changed = true;
+            }
+
+            if (!changed)
+            {
+                return;
+            }
+
+            DoSearch();
+        }
+
+        // Whether anything under the folder changed
+        private bool SyncFolder(Folder folder, DirectoryInfo directory)
+        {
+            var assetManager = OpenedProject!.AssetManager;
+            var element = folder.GetResourceTreeElement();
+            var changed = false;
+            var files = new Dictionary<LabURI, (Type Type, FileInfo File)>();
+            foreach (var fileInfo in directory.GetFiles("*.json"))
+            {
+                if (ReadAssetHeader(fileInfo) is { } header && header.Type != typeof(Package))
+                {
+                    files[header.Uri] = (header.Type, fileInfo);
+                }
+            }
+
+            var discFiles = folder.Mark.HasFlag(FolderMark.Disc)
+                ? DiscFile.ListIn(OpenedProject.ProjectPath, directory).ToDictionary(file => file.URI)
+                : new Dictionary<LabURI, DiscFile>();
+            var isChunk = folder.Mark.HasFlag(FolderMark.IsChunk);
+            foreach (var childUri in folder.Children.ToList())
+            {
+                var child = assetManager.GetAsset(childUri);
+                if (child is DiscFile)
+                {
+                    if (discFiles.ContainsKey(childUri))
+                    {
+                        continue;
+                    }
+
+                    folder.Children.Remove(childUri);
+                    element.RemoveChild(child.GetResourceTreeElement());
+                    assetManager.RemoveAsset(child);
+                    changed = true;
+                    continue;
+                }
+
+                if (child is Folder childFolder)
+                {
+                    var childDirectory = new DirectoryInfo(Path.Combine(directory.FullName, childFolder.Alias));
+                    if (childDirectory.Exists)
+                    {
+                        changed |= SyncFolder(childFolder, childDirectory);
+                        continue;
+                    }
+
+                    if (HoldsUnsaved(childFolder))
+                    {
+                        continue;
+                    }
+
+                    RemoveFolderTree(childFolder);
+                    folder.Children.Remove(childUri);
+                    element.RemoveChild(childFolder.GetResourceTreeElement());
+                    changed = true;
+                    continue;
+                }
+
+                // Assets made in TT Lab have no file until what they were made for is saved
+                if (files.ContainsKey(childUri) || child is SerializableAsset { IsUnsaved: true })
+                {
+                    continue;
+                }
+
+                folder.Children.Remove(childUri);
+                element.RemoveChild(child.GetResourceTreeElement());
+                // An asset whose file is in another directory only leaves this folder, the one its file is in lists it
+                if (!HasFile(child))
+                {
+                    assetManager.RemoveAsset(child);
+                }
+
+                changed = true;
+            }
+
+            foreach (var (uri, (type, fileInfo)) in files.OrderBy(file => file.Value.File.Name, TreeOrder))
+            {
+                if (folder.Children.Contains(uri))
+                {
+                    continue;
+                }
+
+                var asset = LoadAssetFile(type, fileInfo, uri);
+                if (asset == null)
+                {
+                    continue;
+                }
+
+                if (type == typeof(LevelChunk))
+                {
+                    folder.Mark |= FolderMark.IsChunk;
+                    isChunk = true;
+                }
+
+                folder.AddChild(uri);
+                element.AddNewChild(asset.GetResourceTreeElement(element));
+                changed = true;
+            }
+
+            foreach (var discFile in discFiles.Values.OrderBy(file => file.Alias, TreeOrder))
+            {
+                if (folder.Children.Contains(discFile.URI))
+                {
+                    continue;
+                }
+
+                AddDiscFile(folder, discFile);
+                element.AddNewChild(assetManager.GetAsset(discFile.URI).GetResourceTreeElement(element));
+                changed = true;
+            }
+
+            if (isChunk)
+            {
+                return changed;
+            }
+
+            foreach (var childDirectory in directory.GetDirectories().OrderBy(child => child.Name, TreeOrder))
+            {
+                if (folder.Children.Any(uri => assetManager.GetAsset(uri) is Folder existing && existing.Alias == childDirectory.Name))
+                {
+                    continue;
+                }
+
+                var newFolder = ExploreNewFolder(folder, childDirectory, true, true);
+                element.AddNewChild(newFolder.GetResourceTreeElement(element));
+                changed = true;
+            }
+
+            return changed;
+        }
+
+        private static bool HasFile(IAsset asset)
+        {
+            return asset is SerializableAsset serializable && File.Exists(Path.Combine(serializable.FullPath, $"{serializable.Name}.json"));
+        }
+
+        private bool HoldsUnsaved(Folder folder)
+        {
+            var assetManager = OpenedProject!.AssetManager;
+            return folder.Children.Where(assetManager.DoesAssetExist).Select(assetManager.GetAsset)
+                .Any(child => child is SerializableAsset { IsUnsaved: true } || child is Folder childFolder && HoldsUnsaved(childFolder));
+        }
+
+        private void AddDiscFile(Folder folder, DiscFile discFile)
+        {
+            var assetManager = OpenedProject!.AssetManager;
+            if (!assetManager.DoesAssetExist(discFile.URI))
+            {
+                assetManager.AddAsset(discFile);
+            }
+
+            folder.AddChild(discFile.URI);
+        }
+
+        // An asset file made outside TT Lab, or one it already has (its own saves raise the same events)
+        private IAsset? LoadAssetFile(Type type, FileInfo fileInfo, LabURI uri)
+        {
+            var assetManager = OpenedProject!.AssetManager;
+            if (assetManager.DoesAssetExist(uri))
+            {
+                return assetManager.GetAsset(uri);
+            }
+
+            try
+            {
+                var asset = (IAsset)Activator.CreateInstance(type)!;
+                asset.Deserialize(File.ReadAllText(fileInfo.FullName));
+                assetManager.AddAsset(asset);
+                asset.PostDeserialize();
+                return asset;
+            }
+            catch (Exception ex)
+            {
+                Log.WriteLine($"Couldn't load {fileInfo.FullName} into the project tree: {ex.Message}", Log.LogType.Warning);
+                return null;
+            }
+        }
+
+        private void RemoveFolderTree(Folder folder)
+        {
+            var assetManager = OpenedProject!.AssetManager;
+            foreach (var childUri in folder.Children)
+            {
+                if (!assetManager.DoesAssetExist(childUri))
+                {
+                    continue;
+                }
+
+                var child = assetManager.GetAsset(childUri);
+                if (child is Folder childFolder)
+                {
+                    RemoveFolderTree(childFolder);
+                }
+
+                assetManager.RemoveAsset(child);
+            }
+
+            folder.Children.Clear();
+            assetManager.RemoveAsset(folder);
         }
 
         private static readonly string[] _reservedLockedDirectories = ["assets", "disc", "build"];
-        private void ExploreFolder(Folder folder, DirectoryInfo directory, bool setFolderAsParent = true)
+        private const string DiscDirectory = "disc";
+        // The project's own folders that aren't assets: the prefabs are the Prefabs panel's
+        private static readonly string[] _hiddenRootDirectories = [Prefabs.PrefabLibrary.FolderName, TT_Lab.Project.Build.BuildProfileLibrary.FolderName];
+
+        // Folders and assets in the order of their names, the file system's order looked random
+        private static readonly StringComparer TreeOrder = StringComparer.OrdinalIgnoreCase;
+
+        // Only asset files matter, anything else like build outputs can live in the project's folders too
+        private static (Type Type, LabURI Uri)? ReadAssetHeader(FileInfo fileInfo)
         {
-            var serializer = JsonSerializer.Create();
-            var hasChunk = false;
-            foreach (var fileInfo in directory.GetFiles("*.json"))
+            try
             {
                 using var reader = new JsonTextReader(new StreamReader(fileInfo.FullName));
-                // Only asset files matter, anything else like build outputs can live in the project's folders too
-                if (serializer.Deserialize(reader) is not JObject deserialized || deserialized["Type"]?.ToObject<Type>() is not { } assetType
+                if (JsonSerializer.Create().Deserialize(reader) is not JObject deserialized || deserialized["Type"]?.ToObject<Type>() is not { } assetType
                     || deserialized["URI"]?.ToObject<LabURI>() is not { } assetUri)
+                {
+                    return null;
+                }
+
+                return (assetType, assetUri);
+            }
+            catch (Exception ex) when (ex is JsonException or IOException)
+            {
+                return null;
+            }
+        }
+
+        private Folder ExploreNewFolder(Folder folder, DirectoryInfo directory, bool setFolderAsParent, bool loadAssets)
+        {
+            var mark = _reservedLockedDirectories.Contains(directory.Name) ? FolderMark.Locked : FolderMark.Normal;
+            if (setFolderAsParent ? folder.Mark.HasFlag(FolderMark.Disc) : directory.Name == DiscDirectory)
+            {
+                mark |= FolderMark.Disc;
+            }
+
+            var newFolder = new Folder(directory.Name)
+            {
+                Parent = setFolderAsParent ? folder.URI : LabURI.Empty,
+                Mark = mark,
+                Package = setFolderAsParent ? folder.Package : LabURI.Empty,
+            };
+            OpenedProject!.AssetManager.AddAsset(newFolder);
+            folder.AddChild(newFolder);
+            ExploreFolder(newFolder, directory, true, loadAssets);
+            return newFolder;
+        }
+
+        // Opening a project has every asset loaded before the tree gets built, folders that turn up later load theirs
+        private void ExploreFolder(Folder folder, DirectoryInfo directory, bool setFolderAsParent, bool loadAssets)
+        {
+            var hasChunk = false;
+            foreach (var fileInfo in directory.GetFiles("*.json").OrderBy(file => file.Name, TreeOrder))
+            {
+                if (ReadAssetHeader(fileInfo) is not var (assetType, assetUri))
                 {
                     continue;
                 }
@@ -506,6 +824,12 @@ namespace TT_Lab.Project
                     continue;
                 }
 
+                if (loadAssets && LoadAssetFile(assetType, fileInfo, assetUri) == null)
+                {
+                    continue;
+                }
+
+
                 if (assetType == typeof(LevelChunk))
                 {
                     hasChunk = true;
@@ -514,23 +838,28 @@ namespace TT_Lab.Project
                 folder.AddChild(assetUri);
             }
 
+            if (folder.Mark.HasFlag(FolderMark.Disc))
+            {
+                foreach (var discFile in DiscFile.ListIn(OpenedProject!.ProjectPath, directory).OrderBy(file => file.Alias, TreeOrder))
+                {
+                    AddDiscFile(folder, discFile);
+                }
+            }
+
             if (hasChunk)
             {
                 return;
             }
             
-            foreach (var assetDirectory in directory.GetDirectories())
+            foreach (var assetDirectory in directory.GetDirectories().OrderBy(child => child.Name, TreeOrder))
             {
                 var directoryName = assetDirectory.Name;
-                var newFolder = new Folder(directoryName)
+                if (!setFolderAsParent && _hiddenRootDirectories.Contains(directoryName, TreeOrder))
                 {
-                    Parent = setFolderAsParent ? folder.URI : LabURI.Empty,
-                    Mark = _reservedLockedDirectories.Contains(directoryName) ? FolderMark.Locked : FolderMark.Normal,
-                    Package = setFolderAsParent ? folder.Package : LabURI.Empty,
-                };
-                OpenedProject!.AssetManager.AddAsset(newFolder);
-                folder.AddChild(newFolder);
-                ExploreFolder(newFolder, assetDirectory);
+                    continue;
+                }
+
+                ExploreNewFolder(folder, assetDirectory, setFolderAsParent, loadAssets);
             }
         }
 

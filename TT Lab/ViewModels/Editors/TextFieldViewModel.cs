@@ -105,7 +105,7 @@ public partial class TextFieldViewModel(DocumentViewModel document, PropertyNode
 
         this.WhenAnyValue(x => x.Text)
             .Skip(1)
-            .Where(s => !string.IsNullOrEmpty(s) && (_converter == null || _converter.IsConvertible(s)))
+            .Where(s => !string.IsNullOrEmpty(s) && (_converter == null || _converter.IsConvertible(s)) && CanCommit(s))
             .Subscribe(s =>
             {
                 if (IsDirectEditing)
@@ -127,6 +127,9 @@ public partial class TextFieldViewModel(DocumentViewModel document, PropertyNode
     {
         return _canClose;
     }
+
+    // Whether typed text becomes the value, text a rule of the field turns down only shows its error
+    protected virtual bool CanCommit(string text) => true;
 
     private bool CheckNumberRange(string? s)
     {

@@ -13,6 +13,7 @@ using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Attributes;
+using TT_Lab.Attributes.EditorParamWrappers;
 using TT_Lab.Project;
 using TT_Lab.Util;
 using TT_Lab.ViewModels.Editors;
@@ -31,11 +32,14 @@ namespace TT_Lab.AssetData.Code
     [ReferencesAssets]
     public class GameObjectData : AbstractAssetData
     {
+        // The object's header counts its slots and its instances' properties in bytes
+        public const int MaxSlots = 255;
+
         public GameObjectData(IAsset asset) : base(asset)
         {
             Name = "NewGameObject";
             Type = ITwinObject.ObjectType.GenericObject;
-            UnkTypeValue = 1;
+            SubType = 1;
             TriggerBehaviours = new List<ObjectTriggerBehaviourData>();
             ModelSlots = new List<ModelSlot>();
             BehaviourSlots = new List<LabURI>();
@@ -66,12 +70,13 @@ namespace TT_Lab.AssetData.Code
         });
 
         [JsonProperty(Required = Required.Always)]
-        [Editable]
+        [Editable(Hint = "The game builds an instance's nodes by its object's type from the object's properties, slots and scripts, which have to be the type's: changing the types of the beach's objects (crates into characters, the character into a pickup, and objects into projectiles, graples and grabbables) froze the game while it loaded. It's set when the object is made, edit the object's file to change it knowing that")]
+        [EditorReadOnly]
         public ITwinObject.ObjectType Type { get; set; }
         
         [JsonProperty(Required = Required.Always)]
-        [Editable(Hint = "CAREFUL OF EDITING THIS VALUE! In general for all objects it should be equal to 1! For Pickups and Projectiles it can be equal to 17 or 18")]
-        public Byte UnkTypeValue { get; set; }
+        [Editable(Caption = "Sub type", Hint = "1 on every object but the red wumpa (17) and the projectiles (18). The game only reads it for pickups: 16 and 17 give their instances the node with a phase of their own, 16 also drops the instance properties")]
+        public Byte SubType { get; set; }
         
         [JsonProperty(Required = Required.Always)]
         public Byte CameraReactJointAmount { get; set; }
@@ -86,6 +91,7 @@ namespace TT_Lab.AssetData.Code
         [JsonProperty(Required = Required.Always)]
         [Editable(Caption = "Trigger Messages", EditorOrientation = Avalonia.Controls.Dock.Top)]
         [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Message")]
+        [EditorParam(DocumentCollectionViewModel.MaxCount, MaxSlots)]
         [OnReferenceDeleted(DeletedReferenceAction.Remove)]
         public List<ObjectTriggerBehaviourData> TriggerBehaviours { get; set; }
         
@@ -95,6 +101,7 @@ namespace TT_Lab.AssetData.Code
         [JsonProperty(Required = Required.Always)]
         [Editable(Caption = "Model Slots", EditorOrientation = Avalonia.Controls.Dock.Top)]
         [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Model Slot")]
+        [EditorParam(DocumentCollectionViewModel.MaxCount, MaxSlots)]
         public List<ModelSlot> ModelSlots { get; set; }
 
         public IReadOnlyList<LabURI> OGISlots => ModelSlots.Select(slot => slot.Ogi).ToList();
@@ -102,6 +109,7 @@ namespace TT_Lab.AssetData.Code
         [JsonProperty(Required = Required.Always)]
         [Editable(Caption = "Behaviour Slots", EditorOrientation = Avalonia.Controls.Dock.Top)]
         [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Behaviour Slot")]
+        [EditorParam(DocumentCollectionViewModel.MaxCount, MaxSlots)]
         [EditorParam(UriLinkViewModel.BrowseType, typeof(BehaviourGraph))]
         [OnReferenceDeleted(DeletedReferenceAction.Clear)]
         public List<LabURI> BehaviourSlots { get; set; }
@@ -109,6 +117,7 @@ namespace TT_Lab.AssetData.Code
         [JsonProperty(Required = Required.Always)]
         [Editable(Caption = "Object Slots", EditorOrientation = Avalonia.Controls.Dock.Top)]
         [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Object Slot")]
+        [EditorParam(DocumentCollectionViewModel.MaxCount, MaxSlots)]
         [EditorParam(UriLinkViewModel.BrowseType, typeof(GameObject))]
         [OnReferenceDeleted(DeletedReferenceAction.Clear)]
         public List<LabURI> ObjectSlots { get; set; }
@@ -116,6 +125,7 @@ namespace TT_Lab.AssetData.Code
         [JsonProperty(Required = Required.Always)]
         [Editable(Caption = "Sound Slots", EditorOrientation = Avalonia.Controls.Dock.Top)]
         [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Sound Slot")]
+        [EditorParam(DocumentCollectionViewModel.MaxCount, MaxSlots)]
         [EditorParam(UriLinkViewModel.BrowseType, typeof(SoundEffect))]
         [OnReferenceDeleted(DeletedReferenceAction.Clear)]
         public List<LabURI> SoundSlots { get; set; }
@@ -200,7 +210,7 @@ namespace TT_Lab.AssetData.Code
             var assetManager = AssetManager.Get();
             ITwinObject gameObject = GetTwinItem<ITwinObject>();
             Type = gameObject.Type;
-            UnkTypeValue = gameObject.UnkTypeValue;
+            SubType = gameObject.SubType;
             CameraReactJointAmount = gameObject.ReactJointAmount;
             ExitPointAmount = gameObject.ExitPointAmount;
             Name = new String(gameObject.Name.ToCharArray());
@@ -389,11 +399,19 @@ namespace TT_Lab.AssetData.Code
 
         public override ITwinItem Export(ITwinItemFactory factory)
         {
+            CheckCount("trigger messages", TriggerBehaviours.Count, MaxSlots);
+            CheckCount("model slots", ModelSlots.Count, MaxSlots);
+            CheckCount("behaviour slots", BehaviourSlots.Count, MaxSlots);
+            CheckCount("object slots", ObjectSlots.Count, MaxSlots);
+            CheckCount("sound slots", SoundSlots.Count, MaxSlots);
+            CheckCount("instance flag properties", InstFlags.Count, MaxSlots);
+            CheckCount("instance float properties", InstFloats.Count, MaxSlots);
+            CheckCount("instance integer properties", InstIntegers.Count, MaxSlots);
             var assetManager = AssetManager.Get();
             using var ms = new MemoryStream();
             using var writer = new BinaryWriter(ms);
             writer.Write((Int32)Type);
-            writer.Write(UnkTypeValue);
+            writer.Write(SubType);
             writer.Write(CameraReactJointAmount);
             writer.Write(ExitPointAmount);
             writer.Write(Name);

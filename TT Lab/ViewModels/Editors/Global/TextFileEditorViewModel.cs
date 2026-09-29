@@ -96,13 +96,24 @@ public partial class TextFileEditorViewModel(DocumentViewModel document, Propert
         }
 
         Glyphs = glyphs;
+        // The controller buttons first, then every other symbol the font draws: what a keyboard has no key for
         Buttons = glyphs == null
             ? []
             : PsfGlyphs.ButtonCharacters
+                .Concat(glyphs.Characters.Where(character => !PsfGlyphs.ButtonCharacters.Contains(character) && !char.IsLetterOrDigit(character) && !char.IsWhiteSpace(character)))
                 .Select(character => glyphs.TryGetGlyph(character, out var glyph) ? glyph : null)
                 .OfType<PsfGlyphs.Glyph>()
                 .Where(glyph => glyph.Image != null)
                 .Select(glyph => new TextFileGlyph(glyph.Character, glyph.Image, $"Inserts {glyph.Character} (0x{(int)glyph.Character:X2})"))
                 .ToList();
     }
+
+    // The document's history and other editors of the value change it from outside the editor
+    protected override void OnCurrentValueChanged()
+    {
+        Text = CurrentValue ?? string.Empty;
+    }
+
+    // Typing on keeps changing the same step of the document's history, the editor ends it when the caret goes elsewhere
+    public void EndTypingStep() => Document.History.CloseStep();
 }

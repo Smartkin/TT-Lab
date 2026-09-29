@@ -5,6 +5,7 @@ using TT_Lab.Assets;
 using TT_Lab.Attributes;
 using TT_Lab.Util;
 using TT_Lab.ViewModels.Composite;
+using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout;
 using static Twinsanity.TwinsanityInterchange.Enumerations.Enums;
 
 namespace TT_Lab.ViewModels.Editors.Instance
@@ -16,22 +17,22 @@ namespace TT_Lab.ViewModels.Editors.Instance
         private SurfaceCollisionFlags _collisionFlags;
         private LabURI stepSoundId1 = LabURI.Empty;
         private LabURI stepSoundId2 = LabURI.Empty;
-        private LabURI landSoundId1 = LabURI.Empty;
-        private LabURI landSoundId2 = LabURI.Empty;
-        private LabURI unkSoundId = LabURI.Empty;
-        private UInt16 walkOnParticleSystemId1;
-        private UInt16 walkOnParticleSystemId2;
-        private UInt16 unkId3;
-        private UInt16 landOnParticleSystemId;
+        private LabURI impactSoundId = LabURI.Empty;
+        private LabURI landSoundId = LabURI.Empty;
+        private LabURI scrapeSoundId = LabURI.Empty;
+        private UInt16 impactParticleSystemId;
+        private UInt16 hardImpactParticleSystemId;
+        private LabURI hardImpactSoundId = LabURI.Empty;
+        private UInt16 stepParticleSystemId;
         private UInt16 unkId5;
         private BindableCollection<PrimitiveWrapperViewModel<Single>> physicsParameters = new();
-        private Vector4ViewModel unkVec = new();
-        private BoundingBoxViewModel unkBoundingBox = new();
+        private Vector4ViewModel unusedVector = new();
+        private BoundingBoxViewModel contactMessage = new();
 
         public CollisionSurfaceViewModel()
         {
-            DirtyTracker.AddChild(unkVec);
-            DirtyTracker.AddChild(unkBoundingBox);
+            DirtyTracker.AddChild(unusedVector);
+            DirtyTracker.AddChild(contactMessage);
             DirtyTracker.AddBindableCollection(physicsParameters);
         }
 
@@ -44,38 +45,38 @@ namespace TT_Lab.ViewModels.Editors.Instance
             data.CollisionMask = CollisionFlags;
             data.StepSoundId1 = StepSoundId1;
             data.StepSoundId2 = StepSoundId2;
-            data.LandSoundId1 = LandSoundId1;
-            data.LandSoundId2 = LandSoundId2;
-            data.UnkSoundId = UnkSoundId;
-            data.WalkOnParticleSystemId1 = WalkOnParticleSystemId1;
-            data.WalkOnParticleSystemId2 = WalkOnParticleSystemId2;
-            data.UnkId3 = UnkId3;
-            data.LandOnParticleSystemId = LandOnParticleSystemId;
-            data.PhysicsParameters = new Single[10];
-            for (var i = 0; i < 10; i++)
+            data.ImpactSoundId = ImpactSoundId;
+            data.LandSoundId = LandSoundId;
+            data.ScrapeSoundId = ScrapeSoundId;
+            data.ImpactParticleSystemId = ImpactParticleSystemId;
+            data.HardImpactParticleSystemId = HardImpactParticleSystemId;
+            data.HardImpactSoundId = HardImpactSoundId;
+            data.StepParticleSystemId = StepParticleSystemId;
+            data.PhysicsParameters = new Single[SurfacePhysics.Count];
+            for (var i = 0; i < SurfacePhysics.Count; i++)
             {
                 data.PhysicsParameters[i] = PhysicsParameters[i].Value;
             }
-            data.UnkVec = new Twinsanity.TwinsanityInterchange.Common.Vector4
+            data.UnusedVector = new Twinsanity.TwinsanityInterchange.Common.Vector4
             {
-                X = UnkVec.X,
-                Y = UnkVec.Y,
-                Z = UnkVec.Z,
-                W = UnkVec.W
+                X = UnusedVector.X,
+                Y = UnusedVector.Y,
+                Z = UnusedVector.Z,
+                W = UnusedVector.W
             };
-            data.UnkBoundingBox[0] = new Twinsanity.TwinsanityInterchange.Common.Vector4
+            data.ContactMessage[0] = new Twinsanity.TwinsanityInterchange.Common.Vector4
             {
-                X = UnkBoundingBox.TopLeft.X,
-                Y = UnkBoundingBox.TopLeft.Y,
-                Z = UnkBoundingBox.TopLeft.Z,
-                W = UnkBoundingBox.TopLeft.W
+                X = ContactMessage.TopLeft.X,
+                Y = ContactMessage.TopLeft.Y,
+                Z = ContactMessage.TopLeft.Z,
+                W = ContactMessage.TopLeft.W
             };
-            data.UnkBoundingBox[1] = new Twinsanity.TwinsanityInterchange.Common.Vector4
+            data.ContactMessage[1] = new Twinsanity.TwinsanityInterchange.Common.Vector4
             {
-                X = UnkBoundingBox.BottomRight.X,
-                Y = UnkBoundingBox.BottomRight.Y,
-                Z = UnkBoundingBox.BottomRight.Z,
-                W = UnkBoundingBox.BottomRight.W
+                X = ContactMessage.BottomRight.X,
+                Y = ContactMessage.BottomRight.Y,
+                Z = ContactMessage.BottomRight.Z,
+                W = ContactMessage.BottomRight.W
             };
             
             base.Save();
@@ -93,19 +94,19 @@ namespace TT_Lab.ViewModels.Editors.Instance
             }
             stepSoundId1 = surfData.StepSoundId1;
             stepSoundId2 = surfData.StepSoundId2;
-            landSoundId1 = surfData.LandSoundId1;
-            landSoundId2 = surfData.LandSoundId2;
-            unkSoundId = surfData.UnkSoundId;
-            walkOnParticleSystemId1 = surfData.WalkOnParticleSystemId1;
-            walkOnParticleSystemId2 = surfData.WalkOnParticleSystemId2;
-            unkId3 = surfData.UnkId3;
-            landOnParticleSystemId = surfData.LandOnParticleSystemId;
-            DirtyTracker.RemoveChild(unkVec);
-            DirtyTracker.RemoveChild(unkBoundingBox);
-            unkVec = new Vector4ViewModel(surfData.UnkVec);
-            unkBoundingBox = new BoundingBoxViewModel(surfData.UnkBoundingBox);
-            DirtyTracker.AddChild(unkVec);
-            DirtyTracker.AddChild(unkBoundingBox);
+            impactSoundId = surfData.ImpactSoundId;
+            landSoundId = surfData.LandSoundId;
+            scrapeSoundId = surfData.ScrapeSoundId;
+            impactParticleSystemId = surfData.ImpactParticleSystemId;
+            hardImpactParticleSystemId = surfData.HardImpactParticleSystemId;
+            hardImpactSoundId = surfData.HardImpactSoundId;
+            stepParticleSystemId = surfData.StepParticleSystemId;
+            DirtyTracker.RemoveChild(unusedVector);
+            DirtyTracker.RemoveChild(contactMessage);
+            unusedVector = new Vector4ViewModel(surfData.UnusedVector);
+            contactMessage = new BoundingBoxViewModel(surfData.ContactMessage);
+            DirtyTracker.AddChild(unusedVector);
+            DirtyTracker.AddChild(contactMessage);
             layId = MiscUtils.ConvertEnum<Layouts>(asset.LayoutID!.Value);
         }
 
@@ -183,98 +184,98 @@ namespace TT_Lab.ViewModels.Editors.Instance
         }
 
         [MarkDirty]
-        public LabURI LandSoundId1
+        public LabURI ImpactSoundId
         {
-            get => landSoundId1;
+            get => impactSoundId;
             set
             {
-                if (landSoundId1 != value)
+                if (impactSoundId != value)
                 {
-                    landSoundId1 = value;
+                    impactSoundId = value;
                     NotifyOfPropertyChange();
                 }
             }
         }
 
         [MarkDirty]
-        public LabURI LandSoundId2
+        public LabURI LandSoundId
         {
-            get => landSoundId2;
+            get => landSoundId;
             set
             {
-                if (landSoundId2 != value)
+                if (landSoundId != value)
                 {
-                    landSoundId2 = value;
+                    landSoundId = value;
                     NotifyOfPropertyChange();
                 }
             }
         }
 
         [MarkDirty]
-        public LabURI UnkSoundId
+        public LabURI ScrapeSoundId
         {
-            get => unkSoundId;
+            get => scrapeSoundId;
             set
             {
-                if (unkSoundId != value)
+                if (scrapeSoundId != value)
                 {
-                    unkSoundId = value;
+                    scrapeSoundId = value;
                     NotifyOfPropertyChange();
                 }
             }
         }
 
         [MarkDirty]
-        public UInt16 WalkOnParticleSystemId1
+        public UInt16 ImpactParticleSystemId
         {
-            get => walkOnParticleSystemId1;
+            get => impactParticleSystemId;
             set
             {
-                if (walkOnParticleSystemId1 != value)
+                if (impactParticleSystemId != value)
                 {
-                    walkOnParticleSystemId1 = value;
+                    impactParticleSystemId = value;
                     NotifyOfPropertyChange();
                 }
             }
         }
 
         [MarkDirty]
-        public UInt16 WalkOnParticleSystemId2
+        public UInt16 HardImpactParticleSystemId
         {
-            get => walkOnParticleSystemId2;
+            get => hardImpactParticleSystemId;
             set
             {
-                if (walkOnParticleSystemId2 != value)
+                if (hardImpactParticleSystemId != value)
                 {
-                    walkOnParticleSystemId2 = value;
+                    hardImpactParticleSystemId = value;
                     NotifyOfPropertyChange();
                 }
             }
         }
 
         [MarkDirty]
-        public UInt16 UnkId3
+        public LabURI HardImpactSoundId
         {
-            get => unkId3;
+            get => hardImpactSoundId;
             set
             {
-                if (unkId3 != value)
+                if (hardImpactSoundId != value)
                 {
-                    unkId3 = value;
+                    hardImpactSoundId = value;
                     NotifyOfPropertyChange();
                 }
             }
         }
 
         [MarkDirty]
-        public UInt16 LandOnParticleSystemId
+        public UInt16 StepParticleSystemId
         {
-            get => landOnParticleSystemId;
+            get => stepParticleSystemId;
             set
             {
-                if (landOnParticleSystemId != value)
+                if (stepParticleSystemId != value)
                 {
-                    landOnParticleSystemId = value;
+                    stepParticleSystemId = value;
                     NotifyOfPropertyChange();
                 }
             }
@@ -299,14 +300,14 @@ namespace TT_Lab.ViewModels.Editors.Instance
             get => physicsParameters;
         }
 
-        public Vector4ViewModel UnkVec
+        public Vector4ViewModel UnusedVector
         {
-            get => unkVec;
+            get => unusedVector;
         }
 
-        public BoundingBoxViewModel UnkBoundingBox
+        public BoundingBoxViewModel ContactMessage
         {
-            get => unkBoundingBox;
+            get => contactMessage;
         }
     }
 }

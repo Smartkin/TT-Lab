@@ -22,6 +22,8 @@ public enum FolderMark
     DefaultOnly = 0x10,
     IsPackage =  0x20,
     IsChunk = 0x40,
+    // The disc's files, shown for the twinstudio tools to open
+    Disc = 0x80,
 }
     
 public class Folder : SerializableAsset
@@ -54,6 +56,11 @@ public class Folder : SerializableAsset
         Children.Add(asset.URI);
     }
 
+    // Folders are the project's directories, never files of their own
+    public override void Serialize(SerializationFlags serializationFlags = SerializationFlags.None)
+    {
+    }
+
     public override void Delete()
     {
         AssetManager.Get().RemoveAsset(this);
@@ -77,6 +84,29 @@ public class Folder : SerializableAsset
         result += parentFolder.GetPath();
 
         return $"{result}/{Alias}";
+    }
+
+    public const string LevelsFolderName = "levels";
+
+    // Chunks only go in the levels folder at the root of a package and the folders under it, the build writes that tree as the game's
+    // Levels folder. The folders from the levels folder down to this one, null when it isn't in one
+    public List<string>? GetPathInLevels()
+    {
+        var assetManager = AssetManager.Get();
+        var path = new List<string>();
+        var folder = this;
+        while (!folder.Mark.HasFlag(FolderMark.IsPackage))
+        {
+            if (folder.Mark.HasFlag(FolderMark.IsChunk) || folder.Parent == LabURI.Empty || !assetManager.DoesAssetExist(folder.Parent))
+            {
+                return null;
+            }
+
+            path.Insert(0, folder.Alias);
+            folder = assetManager.GetAsset<Folder>(folder.Parent);
+        }
+
+        return path.Count > 0 && path[0] == LevelsFolderName ? path : null;
     }
 
     public T FindAndGetChild<T>(string name) where T : IAsset

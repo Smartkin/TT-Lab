@@ -12,15 +12,15 @@ namespace TT_Lab.ViewModels.Editors.Instance.Cameras
     public class CameraPathViewModel : BaseCameraViewModel
     {
         private BindableCollection<Vector4ViewModel> pathPoints;
-        private BindableCollection<PrimitiveWrapperViewModel<UInt64>> unkData;
+        private BindableCollection<Vector2ViewModel> parameters;
 
         public CameraPathViewModel()
         {
             CameraType = ITwinCamera.CameraType.CameraPath;
             pathPoints = new BindableCollection<Vector4ViewModel>();
             DirtyTracker.AddBindableCollection(pathPoints);
-            unkData = new BindableCollection<PrimitiveWrapperViewModel<UInt64>>();
-            DirtyTracker.AddBindableCollection(unkData);
+            parameters = new BindableCollection<Vector2ViewModel>();
+            DirtyTracker.AddBindableCollection(parameters);
         }
 
         public CameraPathViewModel(CameraSubBase cam) : base(cam)
@@ -33,11 +33,11 @@ namespace TT_Lab.ViewModels.Editors.Instance.Cameras
                 pathPoints.Add(new Vector4ViewModel(v));
             }
             
-            unkData = new BindableCollection<PrimitiveWrapperViewModel<UInt64>>();
-            DirtyTracker.AddBindableCollection(unkData);
-            foreach (var d in baseCam.UnkData)
+            parameters = new BindableCollection<Vector2ViewModel>();
+            DirtyTracker.AddBindableCollection(parameters);
+            foreach (var d in baseCam.Parameters)
             {
-                unkData.Add(new PrimitiveWrapperViewModel<UInt64>(d));
+                parameters.Add(new Vector2ViewModel(d));
             }
         }
 
@@ -56,10 +56,10 @@ namespace TT_Lab.ViewModels.Editors.Instance.Cameras
                     W = p.W
                 });
             }
-            pathCam.UnkData.Clear();
-            foreach (var d in UnkData)
+            pathCam.Parameters.Clear();
+            foreach (var d in Parameters)
             {
-                pathCam.UnkData.Add(d.Value);
+                pathCam.Parameters.Add(new Twinsanity.TwinsanityInterchange.Common.Vector2 { X = d.X, Y = d.Y });
             }
             
             base.Save(cam);
@@ -80,9 +80,9 @@ namespace TT_Lab.ViewModels.Editors.Instance.Cameras
             get => pathPoints;
         }
 
-        public BindableCollection<PrimitiveWrapperViewModel<UInt64>> UnkData
+        public BindableCollection<Vector2ViewModel> Parameters
         {
-            get => unkData;
+            get => parameters;
         }
     }
 }

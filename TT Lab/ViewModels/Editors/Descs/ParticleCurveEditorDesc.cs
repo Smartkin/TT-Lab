@@ -11,3 +11,8 @@ public record ParticleGradientEditorDesc : EditorDesc
 {
     protected override DocumentNodeViewModel ConstructInternal() => new ParticleGradientViewModel(Document, Node);
 }
+
+public record ParticleTextureEditorDesc : EditorDesc
+{
+    protected override DocumentNodeViewModel ConstructInternal() => new ParticleTextureViewModel(Document, Node);
+}

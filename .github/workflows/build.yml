@@ -67,6 +67,11 @@ jobs:
       - name: Publish
         run: dotnet publish "TT Lab/TT Lab.csproj" -c Release -r ${{ matrix.runtime }} --self-contained false -o publish
 
+      # The twinstudio tools (twinmusic for the MH/MB music archives, twinpss for the PSS videos) ship next to TT Lab, each in its own
+      # folder under tools, taken from the latest twinstudio release for the runner's OS
+      - name: Fetch twinstudio tools
+        run: python scripts/fetch_tools.py --os ${{ runner.os }} --out publish/tools
+
       - name: Upload build
         uses: actions/upload-artifact@v7
         with:

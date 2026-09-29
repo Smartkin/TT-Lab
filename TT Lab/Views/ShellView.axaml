@@ -46,14 +46,20 @@
                 <MenuItem Command="{Binding CloseProject}" Header="Close Project" IsEnabled="{Binding ProjectOpened}"/>
             </MenuItem>
             <MenuItem x:Name="BuildSubMenu" Header="Build" IsEnabled="{Binding ProjectOpened}">
+                <MenuItem Command="{Binding OpenBuildDialog}" Header="Build..." ToolTip.Tip="Builds with a profile: the version of the game and the chunks to leave out"/>
+                <Separator/>
                 <MenuItem Command="{Binding BuildPs2}" Header="Full Build PS2 ISO" ToolTip.Tip="Packs all assets and chunks then creates PS2 archives then creates the ISO"/>
                 <MenuItem Command="{Binding BuildPs2Iso}" Header="Build Only PS2 ISO" ToolTip.Tip="Creates PS2 archives then creates the ISO"/>
                 <MenuItem Command="{Binding BuildXbox}" Header="Full Build XBox ISO" ToolTip.Tip="Packs all assets and chunks of the XBox version, puts the game together in the project's build/xbox/game folder then creates the ISO"/>
                 <MenuItem Command="{Binding BuildXboxImage}" Header="Build Only XBox ISO" ToolTip.Tip="Puts the XBox game together from the disc's files and the ones the last build wrote then creates the ISO"/>
             </MenuItem>
-            <!-- <MenuItem x:Name="ToolsSubMenu" Header="Tools" IsEnabled="False"> -->
-            <!--     <MenuItem/> -->
-            <!-- </MenuItem> -->
+            <MenuItem Header="Tools">
+                <MenuItem Command="{Binding LaunchTwinMusic}" Header="twinmusic" ToolTip.Tip="Opens the MH/MB music archives, double click one under the disc folder to open it"/>
+                <MenuItem Command="{Binding LaunchTwinPss}" Header="twinpss" ToolTip.Tip="Opens the PSS videos, double click one under the disc folder to open it"/>
+                <Separator/>
+                <MenuItem Command="{Binding OpenToolsFolder}" Header="Open tools folder"/>
+                <MenuItem Command="{Binding InstallTools}" Header="Install the tools" ToolTip.Tip="Downloads the latest twinstudio release of twinmusic and twinpss for this system into the tools folder, in place of what's there"/>
+            </MenuItem>
             <MenuItem Header="Window">
                 <MenuItem Command="{Binding ShowProjectTree}" Header="Project Tree"/>
                 <MenuItem Command="{Binding ShowChunkResources}" Header="Chunk Resources"/>
@@ -62,6 +68,7 @@
                 <MenuItem Command="{Binding ShowResources}" Header="Resources"/>
                 <MenuItem Command="{Binding ShowLog}" Header="Log"/>
                 <MenuItem Command="{Binding ShowHistory}" Header="History"/>
+                <MenuItem Command="{Binding ShowPrefabs}" Header="Prefabs"/>
                 <Separator/>
                 <MenuItem x:Name="ReopenClosedEditorItem" Command="{Binding ReopenClosedEditor}" Header="Reopen Closed Editor" InputGesture="Ctrl+Shift+T" IsEnabled="{Binding HasRecentlyClosedEditors}"/>
                 <MenuItem Header="Recently Closed Editors" ItemsSource="{Binding RecentlyClosedEditors}" IsEnabled="{Binding HasRecentlyClosedEditors}">

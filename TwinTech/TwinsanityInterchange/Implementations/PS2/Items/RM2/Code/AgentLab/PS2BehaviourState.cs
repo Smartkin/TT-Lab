@@ -8,6 +8,7 @@ using Twinsanity.AgentLab.Resolvers;
 using Twinsanity.AgentLab.Resolvers.Interfaces;
 using Twinsanity.AgentLab.Resolvers.Interfaces.Decompiler;
 using Twinsanity.Libraries;
+using Twinsanity.AgentLab;
 using Twinsanity.TwinsanityInterchange.Common.AgentLab;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code.AgentLab;
 
@@ -16,11 +17,10 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
     public class PS2BehaviourState : ITwinBehaviourState
     {
         public UInt16 Bitfield { get; set; }
-        public UInt16 Unknown { get; set; }
         public Int16 BehaviourIndexOrSlot { get; set; }
-        public Boolean SkipsFirstStateBody { get; set; }
+        public Boolean HasCompletionBody { get; set; }
         public Boolean UsesObjectSlot { get; set; }
-        public Boolean NoneBlocking { get; set; }
+        public Boolean Interrupting { get; set; }
         public TwinBehaviourControlPacket ControlPacket { get; set; }
         public List<ITwinBehaviourStateBody> Bodies { get; set; }
         internal int Index { get; set; }
@@ -59,8 +59,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
             ControlPacket?.Decompile(resolver, writer, tabs);
 
             writer.WriteLine();
-            
-            StringUtils.WriteLineTabulated(writer, $"[Unknown(0x{Unknown:X})]", tabs);
+
             if (ControlPacket != null)
             {
                 StringUtils.WriteLineTabulated(writer, $"[ControlPacket({ControlPacket.Name})]", tabs);
@@ -69,11 +68,19 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
             {
                 StringUtils.WriteLineTabulated(writer, $"[UseObjectSlot({(ITwinBehaviourState.ObjectBehaviourSlots)BehaviourIndexOrSlot})]", tabs);
             }
-            if (NoneBlocking)
+            if (Interrupting)
             {
-                StringUtils.WriteLineTabulated(writer, "[NonBlocking]", tabs);
+                StringUtils.WriteLineTabulated(writer, "[Interrupting]", tabs);
             }
-            if (SkipsFirstStateBody)
+
+            for (var i = 0; i < Bodies.Count; i++)
+            {
+                Bodies[i].IsCompletionBody = HasCompletionBody && i == 0;
+            }
+
+            // A completion block marks the first body, the attribute is only for a first body that can't be written as one
+            var firstIsCompletionBlock = Bodies.Count > 0 && (Bodies[0].Condition == null || Bodies[0].Condition.IsPlainNext);
+            if (HasCompletionBody && !firstIsCompletionBlock)
             {
                 StringUtils.WriteLineTabulated(writer, "[SkipFirstBody]", tabs);
             }
@@ -86,7 +93,9 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
             
             if (behaviourIndex != null && !UsesObjectSlot)
             {
-                StringUtils.WriteLineTabulated(writer, $"state State_{Index}(\"{behaviourIndex}\") {{", tabs);
+                // A behaviour's name is written as it is, a URI or an index as a string
+                var reference = AgentLabLexer.IsIdentifier(behaviourIndex) && !AgentLabLexer.IsReservedKeyword(behaviourIndex) ? behaviourIndex : $"\"{behaviourIndex}\"";
+                StringUtils.WriteLineTabulated(writer, $"state State_{Index}({reference}) {{", tabs);
             }
             else
             {
@@ -105,9 +114,8 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
         public void Read(BinaryReader reader, int length)
         {
             Bitfield = reader.ReadUInt16();
-            Unknown = (UInt16)(Bitfield & 0x3E0);
-            SkipsFirstStateBody = (Bitfield & 0x400) != 0;
-            NoneBlocking = (Bitfield & 0x800) != 0;
+            HasCompletionBody = (Bitfield & 0x400) != 0;
+            Interrupting = (Bitfield & 0x800) != 0;
             UsesObjectSlot = (Bitfield & 0x1000) != 0;
             BehaviourIndexOrSlot = reader.ReadInt16();
             if ((Bitfield & 0x4000) != 0)
@@ -133,12 +141,11 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
         public void Write(BinaryWriter writer)
         {
             UInt16 newBitfield = (UInt16)(Bodies.Count & 0x1F);
-            newBitfield |= Unknown;
-            if (SkipsFirstStateBody)
+            if (HasCompletionBody)
             {
                 newBitfield |= 0x400;
             }
-            if (NoneBlocking)
+            if (Interrupting)
             {
                 newBitfield |= 0x800;
             }
@@ -176,13 +183,13 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
             {
                 StringUtils.WriteLineTabulated(writer, $"uses_object_slot = {UsesObjectSlot}", tabs + 1);
             }
-            if (NoneBlocking)
+            if (Interrupting)
             {
-                StringUtils.WriteLineTabulated(writer, "none_blocking", tabs + 1);
+                StringUtils.WriteLineTabulated(writer, "interrupting", tabs + 1);
             }
-            if (SkipsFirstStateBody)
+            if (HasCompletionBody)
             {
-                StringUtils.WriteLineTabulated(writer, "skip_first_state_body", tabs + 1);
+                StringUtils.WriteLineTabulated(writer, "has_completion_body", tabs + 1);
             }
             ControlPacket?.WriteText(writer, tabs + 1);
             foreach (var body in Bodies)
@@ -233,13 +240,13 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
                 {
                     UsesObjectSlot = Boolean.Parse(StringUtils.GetStringAfter(line, "=").Trim());
                 }
-                if (line.StartsWith("none_blocking"))
+                if (line.StartsWith("interrupting"))
                 {
-                    NoneBlocking = true;
+                    Interrupting = true;
                 }
-                if (line.StartsWith("skip_first_state_body"))
+                if (line.StartsWith("has_completion_body"))
                 {
-                    SkipsFirstStateBody = true;
+                    HasCompletionBody = true;
                 }
             }
         }

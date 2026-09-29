@@ -3,7 +3,9 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
+using AvaloniaEdit;
 using Splat;
 using TT_Lab.AssetData.Code;
 using TT_Lab.Assets;
@@ -58,6 +60,8 @@ public sealed class EditorSavingTests : IDisposable
         await Task.Delay(50);
         return tab;
     }
+
+    private static string Dump(UndoHistory.Entry entry) => $"{entry.Description}{(entry.IsOpen ? "*" : "")}{(entry.Children.Count > 0 ? " > [" + string.Join(" | ", entry.Children.Select(Dump)) + "]" : "")}";
 
     private static Window Show(EditorsViewerViewModel viewer)
     {
@@ -124,6 +128,24 @@ public sealed class EditorSavingTests : IDisposable
 
         Assert.True(IsSaved(crash, "EDITED_PACK"));
         Assert.Equal("Crash", tab.Title);
+    }
+
+    // A package's settings open as a tab like any asset, closing it used to crash
+    [AvaloniaFact]
+    public async Task PackageSettingsOpenAndClose()
+    {
+        var viewer = new ResourcesEditorsViewModel();
+        var window = Show(viewer);
+        viewer.OpenEditor(_project.Project.GlobalPackagePS2);
+        var tab = await WaitUntilLoaded(viewer.Tabs.Single());
+        Assert.NotNull(tab.Document);
+        ClickIntoEditor(window);
+
+        window.KeyPressQwerty(PhysicalKey.W, RawInputModifiers.Control);
+        await Task.Delay(100);
+
+        Assert.Empty(viewer.Tabs);
+        Assert.True(_project.AssetManager.DoesAssetExist(_project.Project.GlobalPackagePS2.URI));
     }
 
     [AvaloniaFact]
@@ -227,6 +249,78 @@ public sealed class EditorSavingTests : IDisposable
         Assert.Equal(0.4, history.Entries[2].Opacity);
         Assert.StartsWith("\u21B3", history.Entries[3].Description);
         Assert.True(history.Entries[3].Indent > 0);
+    }
+
+    // The code editor's Ctrl+Z is the document's history: the text follows it, and picking a step in the History panel changes the text
+    [AvaloniaFact]
+    public async Task UndoingInTheCodeEditorRestoresItsText()
+    {
+        var crash = CreateGameObject("Crash");
+        var resources = new ResourcesEditorsViewModel();
+        var history = new HistoryViewModel(new ScenesEditorsViewModel(), resources);
+        var window = Show(resources);
+        resources.OpenEditor(crash);
+        var tab = await WaitUntilLoaded(resources.Tabs.Single());
+        var pack = tab.Document!.PropertyGraph.Find(BehaviourPack)!;
+        tab.Document.OpenInspector(tab.Document.PropertyGraph.Find("Root.AssetData"), pack);
+        Dispatcher.UIThread.RunJobs();
+        var editors = window.GetVisualDescendants().OfType<TextEditor>().ToList();
+        Assert.True(editors.Count == 1, string.Join(", ", window.GetVisualDescendants().Select(visual => visual.GetType().Name).Distinct()));
+        var editor = editors[0];
+        var original = editor.Text;
+        editor.TextArea.Focus();
+        editor.CaretOffset = editor.Document.TextLength;
+        foreach (var character in "xyz")
+        {
+            window.KeyTextInput(character.ToString());
+        }
+
+        Assert.Equal(original + "xyz", pack.GetValue());
+
+        // Loading the text isn't a step, so one undo is back at the start and another changes nothing
+        window.KeyPressQwerty(PhysicalKey.Z, RawInputModifiers.Control);
+        Assert.True(original == editor.Text, Dump(tab.Document.History.Root));
+        Assert.Equal(original, pack.GetValue());
+        window.KeyPressQwerty(PhysicalKey.Z, RawInputModifiers.Control);
+        Assert.Equal(original, editor.Text);
+
+        window.KeyPressQwerty(PhysicalKey.Y, RawInputModifiers.Control);
+        Assert.Equal(original + "xyz", editor.Text);
+        Assert.Equal(editor.Document.TextLength, editor.CaretOffset);
+
+        history.SelectedEntry = history.Entries[0];
+        Assert.Equal(original, editor.Text);
+        Assert.False(tab.Document.IsDirty);
+    }
+
+    // Typing keeps changing the step the document is at, so the panel keeps its rows and only swaps that one
+    [AvaloniaFact]
+    public async Task HistoryPanelKeepsItsRowsWhileTyping()
+    {
+        var crash = CreateGameObject("Crash");
+        var resources = new ResourcesEditorsViewModel();
+        var history = new HistoryViewModel(new ScenesEditorsViewModel(), resources);
+        var panel = new Window { Content = new HistoryView { DataContext = history }, Width = 400, Height = 300 };
+        panel.Show();
+        Show(resources);
+        resources.OpenEditor(crash);
+        var tab = await WaitUntilLoaded(resources.Tabs.Single());
+        var pack = tab.Document!.PropertyGraph.Find(BehaviourPack)!;
+        pack.SetValue("F");
+        var rows = history.Entries;
+        var typed = rows[^1];
+        pack.SetValue("FI");
+        pack.SetValue("FIR");
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+        Assert.Same(rows, history.Entries);
+        Assert.Equal(2, rows.Count);
+        Assert.NotSame(typed, rows[^1]);
+        Assert.Equal("Crash › BehaviourPack = \"FIR\"", rows[^1].Description);
+        Assert.True(rows[^1].IsCurrent);
+        Assert.Same(rows[^1], history.SelectedEntry);
+        Assert.Same(rows[^1], panel.GetVisualDescendants().OfType<ListBox>().Single().SelectedItem);
+        panel.Close();
     }
 
     [AvaloniaFact]

@@ -10,7 +10,11 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Layout
     public class PS2AnyAIPosition : BaseTwinItem, ITwinAIPosition
     {
         public Vector4 Position { get; set; }
-        public UInt16 UnkShort { get; set; }
+        /// <summary>
+        /// Bits 1, 2 and 4 on some positions of the retail levels, 0 on most. No code of the PAL executable reads AI positions'
+        /// values, the section only fills a table
+        /// </summary>
+        public UInt16 Flags { get; set; }
 
         public PS2AnyAIPosition()
         {
@@ -25,12 +29,12 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Layout
         public override void Read(BinaryReader reader, int length)
         {
             Position.Read(reader, Constants.SIZE_VECTOR4);
-            UnkShort = reader.ReadUInt16();
+            Flags = reader.ReadUInt16();
         }
         public override void Write(BinaryWriter writer)
         {
             Position.Write(writer);
-            writer.Write(UnkShort);
+            writer.Write(Flags);
         }
 
         public override String GetName()

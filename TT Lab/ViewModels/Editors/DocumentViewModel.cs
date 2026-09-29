@@ -14,13 +14,20 @@ using TT_Lab.Command;
 using TT_Lab.Controls;
 using TT_Lab.Util;
 using TT_Lab.ViewModels.Editors.Descs;
+using TT_Lab.ViewModels.Editors.Instance;
 using TT_Lab.ViewModels.Editors.PropertyGraph;
 using TT_Lab.ViewModels.Interfaces;
+
 
 namespace TT_Lab.ViewModels.Editors;
 
 public partial class DocumentViewModel : ReactiveObject
 {
+    /// <summary>
+    /// Any document saved, what plays the project's files (PCSX2) builds them again
+    /// </summary>
+    public static event Action<DocumentViewModel>? Saved;
+
     public ReactiveLifecycle Lifecycle { get; } = new();
     public DocumentRootViewModel Root { get; }
     public IDocumentModel DocumentModel { get; }
@@ -28,6 +35,17 @@ public partial class DocumentViewModel : ReactiveObject
     public ViewportViewModel? Viewport { get; }
 
     public ReadOnlyObservableCollection<LabURI> Uris;
+
+    /// <summary>
+    /// Editors of the document's own asset that get a pane of their own next to the other editors: code and text, which need the room
+    /// </summary>
+    public IReadOnlyList<DocumentNodeViewModel> SideEditors { get; }
+
+    public bool HasSideEditors => SideEditors.Count > 0;
+
+    public Avalonia.Controls.GridLength SidePaneWidth => HasSideEditors ? new Avalonia.Controls.GridLength(3, Avalonia.Controls.GridUnitType.Star) : new Avalonia.Controls.GridLength(0);
+
+    private readonly HashSet<PropertyNode> _sideNodes = [];
 
     private readonly SourceCache<LabURI, string> _resourcesInDocument;
     private readonly OpenDialogueCommand.DialogueResult _dialogueResult = new();
@@ -48,6 +66,8 @@ public partial class DocumentViewModel : ReactiveObject
     /// What the document's editors changed, every document keeps its own
     /// </summary>
     public UndoHistory History { get; }
+
+    private readonly ParticleSystemLinks _particleSystemLinks;
 
     [Reactive]
     private bool _isReady;
@@ -83,7 +103,14 @@ public partial class DocumentViewModel : ReactiveObject
 
             History.Record(change);
             IsDirty = !History.IsApplying || !History.IsAtSavePoint;
+            // Once whatever made the change is done, an undo can take a node out and put it back in a step after
+            if (Inspector != null && !_isFollowingInspected)
+            {
+                _isFollowingInspected = true;
+                Avalonia.Threading.Dispatcher.UIThread.Post(FollowInspected);
+            }
         };
+        _particleSystemLinks = new ParticleSystemLinks(PropertyGraph);
         History.Changed += () =>
         {
             CanUndo = History.CanUndo;
@@ -109,7 +136,41 @@ public partial class DocumentViewModel : ReactiveObject
             Depth = 0
         };
         DocumentModel = documentModel;
+
+        // The asset's own editors only, what it links to is edited where the link is
+        FindSideNodes(PropertyGraph.Root);
+        SideEditors = _sideNodes.Select(node =>
+        {
+            var editor = EditorDescRegistry.GetDesc(this, node).Construct();
+            editor.IsInSidePane = true;
+            editor.Depth = 1;
+            return editor;
+        }).ToList();
     }
+
+    private void FindSideNodes(PropertyNode node)
+    {
+        foreach (var child in node.Children)
+        {
+            if (child.Path.EndsWith("[data]"))
+            {
+                continue;
+            }
+
+            if (EditorDescRegistry.GetDesc(this, child).ShowsInSidePane)
+            {
+                _sideNodes.Add(child);
+                continue;
+            }
+
+            FindSideNodes(child);
+        }
+    }
+
+    /// <summary>
+    /// Whether the node's editor is in the side pane, and so left out of the editors of what it's in
+    /// </summary>
+    public bool ShowsInSidePane(PropertyNode node) => _sideNodes.Contains(node);
 
     public void Initialize()
     {
@@ -120,6 +181,62 @@ public partial class DocumentViewModel : ReactiveObject
     /// <summary>
     /// Shows the node expanded in the inspector, expanding it down to the focused node below it which then gets highlighted and expanded
     /// </summary>
+    private bool _isFollowingInspected;
+
+    // The inspected node taken out of the graph: the data of a resource that got deleted or whose placing got undone, or of a link
+    // pointed elsewhere. Editing it changed nothing the document has, and its steps' paths pointed at whatever came to its place, so
+    // the inspector goes to what took its place, or closes when nothing did
+    internal void FollowInspected()
+    {
+        _isFollowingInspected = false;
+        if (Inspector?.Property is not { } inspected || IsInGraph(inspected))
+        {
+            return;
+        }
+
+        var detached = new Stack<PropertyNode>();
+        var anchor = inspected;
+        while (anchor.Parent != null && !IsInGraph(anchor))
+        {
+            detached.Push(anchor);
+            anchor = anchor.Parent;
+        }
+
+        PropertyNode? replacement = anchor;
+        while (replacement != null && detached.Count > 0)
+        {
+            var node = detached.Pop();
+            if (node.Index == null)
+            {
+                replacement = replacement.FindChild(node.Segment);
+                continue;
+            }
+
+            // Another element may have come to the index of one taken out, and a node out of the graph has no value to ask for. Links are
+            // known again by the asset their data is, like a resource put back by undo
+            var asset = node.FindChild("[data]")?.Target as IAsset;
+            replacement = asset == null ? null : replacement.Children.FirstOrDefault(child => child.FindChild("[data]")?.Target == asset);
+        }
+
+        OpenInspector(replacement == anchor ? null : replacement);
+    }
+
+    private bool IsInGraph(PropertyNode node)
+    {
+        var current = node;
+        while (current.Parent != null)
+        {
+            if (!current.Parent.Children.Contains(current))
+            {
+                return false;
+            }
+
+            current = current.Parent;
+        }
+
+        return current == PropertyGraph.Root;
+    }
+
     public void OpenInspector(PropertyNode? docToInspect, PropertyNode? focus = null)
     {
         Highlight(null);
@@ -260,14 +377,22 @@ public partial class DocumentViewModel : ReactiveObject
         _changedAssets.Clear();
         History.MarkSaved();
         IsDirty = false;
+        _particleSystemLinks.Saved();
+        Saved?.Invoke(this);
     }
 
-    public void Undo() => History.Undo();
+    public void Undo()
+    {
+        History.Undo();
+    }
 
-    public void Redo() => History.Redo();
+    public void Redo()
+    {
+        History.Redo();
+    }
 
     // The closest asset up the graph, linked assets are nodes of the graph that target the asset itself
-    private static IAsset? GetOwningAsset(PropertyNode? node)
+    internal static IAsset? GetOwningAsset(PropertyNode? node)
     {
         while (node != null)
         {

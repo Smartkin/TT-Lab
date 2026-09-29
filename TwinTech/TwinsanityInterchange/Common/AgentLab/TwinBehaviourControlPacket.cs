@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using Twinsanity.AgentLab.Resolvers;
 using Twinsanity.AgentLab.Resolvers.Interfaces;
 using Twinsanity.Libraries;
@@ -167,12 +168,10 @@ namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
             StringUtils.WriteLineTabulated(writer, "}", tabs + 1);
             StringUtils.WriteLineTabulated(writer, "data {", tabs + 1);
             {
-                for (var i = 0; i < Bytes.Count; ++i)
+                // Compiling gives the values float slots in the order they're written, so they're written in the order of their slots
+                var order = Enumerable.Range(0, Bytes.Count).Where(i => Bytes[i] != 0xFF).OrderBy(i => Bytes[i] >= 0x80 ? 0x100 + i : Bytes[i]).ToList();
+                foreach (var i in order)
                 {
-                    if (Bytes[i] == 0xFF)
-                    {
-                        continue;
-                    }
                     var packet = (ControlPacketData)i;
                     if (Bytes[i] >= 0x80)
                     {

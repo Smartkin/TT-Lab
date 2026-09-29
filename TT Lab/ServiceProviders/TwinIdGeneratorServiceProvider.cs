@@ -70,6 +70,7 @@ public static class TwinIdGeneratorServiceProvider
             RegisterChunkGenerator<Path>((Enums.Layouts)i, chunk, chunkGenerators);
             RegisterChunkGenerator<Position>((Enums.Layouts)i, chunk, chunkGenerators);
             RegisterChunkGenerator<Trigger>((Enums.Layouts)i, chunk, chunkGenerators);
+            RegisterChunkGenerator<CollisionSurface>((Enums.Layouts)i, chunk, chunkGenerators);
         }
         _chunkIdGeneratorServices.Add(chunk.AdditionalPath!, chunkGenerators);
     }

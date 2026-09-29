@@ -92,6 +92,16 @@ public sealed class BuildCache
         return new BuildCache(projectPath, assetManager, manifest ?? new Manifest());
     }
 
+    // Dependencies on links: a chunk's file has the links to the chunks a build leaves out dropped
+    private const string LinkPrefix = "link:";
+    private const string LinkKept = "kept";
+    private const string LinkDropped = "dropped";
+
+    /// <summary>
+    /// The chunks the build's profile leaves out. A chunk's file is only up to date while the same of its links are dropped
+    /// </summary>
+    public IReadOnlySet<LabURI> ExcludedChunks { get; set; } = new HashSet<LabURI>();
+
     public bool IsUpToDate(string key, IReadOnlyCollection<string> outputs)
     {
         lock (_lock)
@@ -117,8 +127,20 @@ public sealed class BuildCache
 
         foreach (var (uri, fingerprint) in entry.Dependencies)
         {
+            if (uri.StartsWith(LinkPrefix, StringComparison.Ordinal))
+            {
+                if (LinkState(new LabURI(uri[LinkPrefix.Length..])) != fingerprint)
+                {
+                    return false;
+                }
+
+                continue;
+            }
+
+            // What was built from loaded data may have had changes that weren't saved then or were saved since, a chunk built while
+            // its scene was open looked up to date for as long as the scene stayed open
             var labUri = new LabURI(uri);
-            if (!_assetManager.DoesAssetExist(labUri) || GetFingerprint(_assetManager.GetAsset(labUri)) != fingerprint)
+            if (fingerprint == VolatileFingerprint || !_assetManager.DoesAssetExist(labUri) || GetFingerprint(_assetManager.GetAsset(labUri)) != fingerprint)
             {
                 return false;
             }
@@ -127,20 +149,25 @@ public sealed class BuildCache
         return true;
     }
 
-    public void Record(string key, IEnumerable<IAsset> dependencies, IReadOnlyCollection<string> outputs)
+    public void Record(string key, IEnumerable<IAsset> dependencies, IReadOnlyCollection<string> outputs, IEnumerable<LabURI>? linkedChunks = null)
     {
         lock (_lock)
         {
-            RecordLocked(key, dependencies, outputs);
+            RecordLocked(key, dependencies, outputs, linkedChunks ?? []);
         }
     }
 
-    private void RecordLocked(string key, IEnumerable<IAsset> dependencies, IReadOnlyCollection<string> outputs)
+    private void RecordLocked(string key, IEnumerable<IAsset> dependencies, IReadOnlyCollection<string> outputs, IEnumerable<LabURI> linkedChunks)
     {
         var entry = new Entry();
         foreach (var dependency in dependencies.Select(GetFingerprintedAsset).Distinct())
         {
             entry.Dependencies[dependency.URI.ToString()] = GetFingerprint(dependency);
+        }
+
+        foreach (var linkedChunk in linkedChunks.Distinct())
+        {
+            entry.Dependencies[$"{LinkPrefix}{linkedChunk}"] = LinkState(linkedChunk);
         }
 
         foreach (var output in outputs)
@@ -150,6 +177,8 @@ public sealed class BuildCache
 
         _manifest.Entries[key] = entry;
     }
+
+    private string LinkState(LabURI chunk) => ExcludedChunks.Contains(chunk) ? LinkDropped : LinkKept;
 
     public void Save()
     {

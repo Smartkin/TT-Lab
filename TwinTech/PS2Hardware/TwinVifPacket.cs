@@ -295,6 +295,12 @@ public static class TwinVifPacket
             if (hasDmaTag)
             {
                 var quadWords = (UInt64)((length + 15) / 16 - 1);
+                // The tag's size is 16 bits, more than that once overflowed into its other fields and the game hung waiting for the rest
+                if (quadWords > 0xFFFF)
+                {
+                    throw new InvalidOperationException($"A packet of {quadWords} quad words is more than a DMA tag can send (65535), split it into several sub models");
+                }
+
                 var tag = quadWords | (UInt64)DMATag.IdType.RET << 28;
                 BitConverter.TryWriteBytes(result.AsSpan(0, 8), tag);
             }

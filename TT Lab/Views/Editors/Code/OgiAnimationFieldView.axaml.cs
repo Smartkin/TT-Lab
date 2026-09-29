@@ -12,6 +12,9 @@ public partial class OgiAnimationFieldView : DocumentBaseView<OgiAnimationFieldV
         InitializeComponent();
     }
 
+    // The combo box drops its selection when its items change
+    protected override bool RebindsOnRecycle => true;
+
     protected override void HandleActivation(CompositeDisposable disposables)
     {
         this.OneWayBind(ViewModel, viewModel => viewModel.Animations, view => view.AnimationChoices.ItemsSource).DisposeWith(disposables);

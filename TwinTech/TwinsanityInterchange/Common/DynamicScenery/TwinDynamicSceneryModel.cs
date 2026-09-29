@@ -9,8 +9,16 @@ namespace Twinsanity.TwinsanityInterchange.Common.DynamicScenery
 {
     public class TwinDynamicSceneryModel : ITwinSerializable
     {
-        public Int32 UnkInt { get; set; }
-        public List<TwinBoundingBoxBuilder> BoundingBoxBuilders { get; set; }
+        /// <summary>
+        /// The first word of every retail dynamic model
+        /// </summary>
+        public const Int32 GameLeftover = 8;
+        /// <summary>
+        /// The tools' first word of the model (<see cref="GameLeftover"/> everywhere), the game sets it to -1 before reading it and
+        /// never reads it again
+        /// </summary>
+        public Int32 LeftoverInt { get; set; }
+        public List<TwinCollisionHull> CollisionHulls { get; set; }
         public Int32 AnimatedFrames { get; set; }
         public TwinDynamicSceneryAnimation Animation { get; set; }
         public Byte LodFlag { get; set; }
@@ -19,14 +27,14 @@ namespace Twinsanity.TwinsanityInterchange.Common.DynamicScenery
 
         public TwinDynamicSceneryModel()
         {
-            BoundingBoxBuilders = new List<TwinBoundingBoxBuilder>();
+            CollisionHulls = new List<TwinCollisionHull>();
             BoundingBox = new Vector4[2];
             Animation = new TwinDynamicSceneryAnimation();
         }
 
         public Int32 GetLength()
         {
-            return 4 + 4 + BoundingBoxBuilders.Sum(o => o.GetLength()) + 4 + Animation.GetLength() + 1 + 4 + 2 * Constants.SIZE_VECTOR4;
+            return 4 + 4 + CollisionHulls.Sum(o => o.GetLength()) + 4 + Animation.GetLength() + 1 + 4 + 2 * Constants.SIZE_VECTOR4;
         }
 
         public void Compile()
@@ -36,16 +44,13 @@ namespace Twinsanity.TwinsanityInterchange.Common.DynamicScenery
 
         public void Read(BinaryReader reader, Int32 length)
         {
-            UnkInt = reader.ReadInt32();
-            var bbBuildersAmount = reader.ReadInt32();
-            if (bbBuildersAmount != 0)
+            LeftoverInt = reader.ReadInt32();
+            var hullsAmount = reader.ReadInt32();
+            for (var i = 0; i < hullsAmount; ++i)
             {
-                for (var i = 0; i < bbBuildersAmount; ++i)
-                {
-                    var bbBuilder = new TwinBoundingBoxBuilder();
-                    BoundingBoxBuilders.Add(bbBuilder);
-                    bbBuilder.Read(reader, length);
-                }
+                var hull = new TwinCollisionHull();
+                CollisionHulls.Add(hull);
+                hull.Read(reader, length);
             }
             AnimatedFrames = reader.ReadInt32();
             Animation.Read(reader, length);
@@ -60,11 +65,11 @@ namespace Twinsanity.TwinsanityInterchange.Common.DynamicScenery
 
         public void Write(BinaryWriter writer)
         {
-            writer.Write(UnkInt);
-            writer.Write(BoundingBoxBuilders.Count);
-            foreach (var bbBuilder in BoundingBoxBuilders)
+            writer.Write(LeftoverInt);
+            writer.Write(CollisionHulls.Count);
+            foreach (var hull in CollisionHulls)
             {
-                bbBuilder.Write(writer);
+                hull.Write(writer);
             }
             writer.Write(AnimatedFrames);
             Animation.Write(writer);

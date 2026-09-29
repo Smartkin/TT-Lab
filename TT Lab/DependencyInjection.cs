@@ -9,6 +9,7 @@ using Splat;
 using TT_Lab.Project;
 using TT_Lab.Services;
 using TT_Lab.Services.Implementations;
+using TT_Lab.Tools.Pcsx2;
 using TT_Lab.ViewModels;
 using TT_Lab.ViewModels.Interfaces;
 
@@ -23,6 +24,7 @@ public static class DependencyInjection
         typeof(ChunkResourcesViewModel),
         typeof(ChunkInspectorViewModel),
         typeof(HistoryViewModel),
+        typeof(PrefabsViewModel),
         typeof(ScenesEditorsViewModel),
         typeof(ResourcesEditorsViewModel),
         typeof(EditorsViewModel)
@@ -69,6 +71,7 @@ public static class DependencyInjection
         services.AddSingleton<ProjectManager>();
         services.AddSingleton<IActiveChunkService, ActiveChunkService>();
         services.AddSingleton<IAudioService, AudioService>();
+        services.AddSingleton<Pcsx2Service>();
         services.AddTransient<IDataValidatorService, DataValidatorService>();
         
         return services;

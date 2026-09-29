@@ -20,7 +20,39 @@ public class PropertyNode
     public event Action? ReadOnlyChanged;
     
     public string Name { get; }
-    public string Path { get; internal set; }
+
+    // A node's path is its parent's plus its own segment (".Name", "[index]", "[data]"), worked out when asked and kept until the
+    // graph's structure changes: putting an element into a big list moves every element after it, renaming them all made an undo of
+    // fifty deletions in a chunk take seconds
+    private readonly string _initialPath;
+    private string _segment;
+    private string? _cachedPath;
+    private int _cachedVersion = -1;
+
+    public string Path
+    {
+        get
+        {
+            if (Parent == null)
+            {
+                return _initialPath;
+            }
+
+            var version = Graph?.StructureVersion ?? -1;
+            if (_cachedPath == null || _cachedVersion != version)
+            {
+                _cachedPath = Parent.Path + _segment;
+                _cachedVersion = version;
+            }
+
+            return _cachedPath;
+        }
+    }
+
+    /// <summary>
+    /// What the node adds to its parent's path
+    /// </summary>
+    public string Segment => _segment;
     public bool IsReadOnly
     {
         get => _isReadOnly;
@@ -42,13 +74,22 @@ public class PropertyNode
     public Type PropertyType { get; }
     public PropertyNode? Parent { get; private set; }
     public List<PropertyNode> Children { get; } = [];
+
+    // How many times the children were made again for a value of another type (a camera subtype picked, or taken away with undo),
+    // editors showing them make theirs again when it changes
+    public int ChildrenVersion { get; private set; }
     public Action<PropertyNode, object?>? SetValueDelegate { get; init; }
     public Func<PropertyNode, object>? GetValueDelegate { get; init; }
+
+    // Setting the node sets its parent's value (a bit of flags): the parent's change is the one change, a click on a flag was two
+    // steps to undo
+    public bool SetsParent { get; init; }
 
     public PropertyNode(string name, string path, object target, PropertyMetadata? metadata = null, Type? specifiedType = null, int? index = null)
     {
         Name = name;
-        Path = path;
+        _initialPath = path;
+        _segment = LastSegment(path);
         Target = target;
         Metadata = metadata;
         PropertyType = specifiedType ?? metadata?.PropertyInfo.PropertyType ?? target.GetType();
@@ -60,20 +101,40 @@ public class PropertyNode
         Graph = graph;
     }
 
-    // Everything below is addressed through this node's path, so it has to move along with it
-    internal void SetPath(string path)
+    // The last ".Name" or "[index]" of a path
+    private static string LastSegment(string path)
     {
-        var previousPath = Path;
-        Path = path;
-        if (previousPath == path)
+        var start = Math.Max(path.LastIndexOf('.'), path.LastIndexOf('['));
+        return start <= 0 ? path : path[start..];
+    }
+
+    // An element moved to another place of its list
+    internal void SetSegment(string segment)
+    {
+        _segment = segment;
+        _cachedPath = null;
+    }
+
+    /// <summary>
+    /// The child that adds the segment to this node's path, elements by their index first
+    /// </summary>
+    public PropertyNode? FindChild(string segment)
+    {
+        if (segment.Length > 2 && segment[0] == '[' && char.IsDigit(segment[1]) && int.TryParse(segment.AsSpan(1, segment.Length - 2), out var index)
+            && index >= 0 && index < Children.Count && Children[index]._segment == segment)
         {
-            return;
+            return Children[index];
         }
 
         foreach (var child in Children)
         {
-            child.SetPath(child.Path.StartsWith(previousPath, StringComparison.Ordinal) ? path + child.Path[previousPath.Length..] : child.Path);
+            if (child._segment == segment)
+            {
+                return child;
+            }
         }
+
+        return null;
     }
 
     internal void InitPropertyLinks()
@@ -102,19 +163,45 @@ public class PropertyNode
                 Log.WriteLine($"Linked property {prop} not found!", Log.LogType.Warning);
                 continue;
             }
-            
+
+            // Nodes get indexed again when what's around them changes
+            if (_fieldReactorHandlers.ContainsKey(linkedProp))
+            {
+                continue;
+            }
+
             _fieldReactorHandlers.Add(linkedProp, () => LinkedPropOnChanged(linkedProp, reactors));
             linkedProp.Changed += _fieldReactorHandlers[linkedProp];
-            
-            LinkedPropOnChanged(linkedProp, reactors);
+            foreach (var reactor in reactors)
+            {
+                reactor.Linked(this, linkedProp);
+            }
         }
     }
 
     private void LinkedPropOnChanged(PropertyNode prop, List<IFieldChange> reactors)
     {
-        foreach (var reactor in reactors)
+        if (Graph?.IsReplaying == true)
         {
-            reactor.DataChanged(this, prop);
+            foreach (var reactor in reactors)
+            {
+                reactor.Linked(this, prop);
+            }
+
+            return;
+        }
+
+        Graph?.BeginConsequences();
+        try
+        {
+            foreach (var reactor in reactors)
+            {
+                reactor.DataChanged(this, prop);
+            }
+        }
+        finally
+        {
+            Graph?.EndConsequences();
         }
     }
 
@@ -131,6 +218,14 @@ public class PropertyNode
         child.Parent = this;
         Children.Add(child);
     }
+
+    /// <summary>
+    /// How many elements the game takes in the list (<see cref="DocumentCollectionViewModel.MaxCount"/>), none when it takes any number.
+    /// Adding stops there, undo and redo still put back what they took out
+    /// </summary>
+    public int? MaxElements => Metadata?.EditorParams is { } parameters && parameters.TryGetValue(DocumentCollectionViewModel.MaxCount, out var max) ? Convert.ToInt32(max) : null;
+
+    public bool IsFull => MaxElements is { } max && Children.Count >= max;
 
     public PropertyNode? AddElement()
     {
@@ -166,7 +261,6 @@ public class PropertyNode
             return null;
         }
 
-        Graph!.Deindex(this);
         list.Insert(index, value);
         var nodeMetadata = Metadata;
         if (nodeMetadata != null)
@@ -174,11 +268,11 @@ public class PropertyNode
             nodeMetadata = nodeMetadata with { ContainedTypeConstructor = null };
         }
 
-        var node = PropertyGraphBuilder.BuildNode(list, nodeMetadata, $"{Path}[{index}]", Graph.Tracker, innerType: value.GetType(), index: index);
+        var node = PropertyGraphBuilder.BuildNode(list, nodeMetadata, $"{Path}[{index}]", Graph!.Tracker, innerType: value.GetType(), index: index);
         node.Parent = this;
         Children.Insert(index, node);
         PropertyGraphBuilder.RebuildCollection(this);
-        Graph.Index(this);
+        Graph.Index(node);
         RaiseStructureChange(PropertyChangeKind.Insert, index, value);
         return node;
     }
@@ -193,11 +287,10 @@ public class PropertyNode
         }
         
         var removed = value.GetValue();
-        Graph!.Deindex(this);
         list.RemoveAt(index);
         Children.RemoveAt(index);
         PropertyGraphBuilder.RebuildCollection(this);
-        Graph.Index(this);
+        Graph!.Deindex(value);
         RaiseStructureChange(PropertyChangeKind.Remove, index, removed);
     }
 
@@ -232,10 +325,19 @@ public class PropertyNode
         return Metadata.PropertyInfo.GetValue(Target);
     }
 
+    // NaNs of other bits are other values, shaders keep bits of the tools' memory in theirs and undo couldn't put them back
+    internal static bool IsSameValue(object? a, object? b) => (a, b) switch
+    {
+        (null, null) => true,
+        (Single x, Single y) => BitConverter.SingleToInt32Bits(x) == BitConverter.SingleToInt32Bits(y),
+        (Double x, Double y) => BitConverter.DoubleToInt64Bits(x) == BitConverter.DoubleToInt64Bits(y),
+        _ => a?.Equals(b) == true,
+    };
+
     public void SetValue(object? value)
     {
         var oldValue = GetValue();
-        if (oldValue?.Equals(value) == true || (value == null && oldValue == null))
+        if (IsSameValue(oldValue, value))
         {
             return;
         }
@@ -243,6 +345,11 @@ public class PropertyNode
         if (SetValueDelegate != null)
         {
             SetValueDelegate(this, value);
+            if (SetsParent)
+            {
+                return;
+            }
+
             UpdateChildrenTarget(value);
             RaiseGraphChange(oldValue, GetValue());
             return;
@@ -251,17 +358,25 @@ public class PropertyNode
         if (Index.HasValue && Target is IList list)
         {
             list[Index.Value] = value;
-            foreach (var childNode in Children)
-            {
-                childNode.Target = value;
-            }
-
             if (PropertyType.IsAssignableTo(typeof(LabURI)))
             {
                 PropertyGraphBuilder.RebuildLink(this);
                 Graph?.Index(this);
             }
+            else if (NeedsNewChildren(oldValue, value))
+            {
+                RebuildChildren();
+            }
+            else
+            {
+                foreach (var childNode in Children)
+                {
+                    childNode.Target = value!;
+                }
+            }
+
             RaiseGraphChange(oldValue, value);
+            RaiseDescendantsChanged();
             return;
         }
         
@@ -276,11 +391,60 @@ public class PropertyNode
             PropertyGraphBuilder.RebuildLink(this);
             Graph?.Index(this);
         }
+        else if (NeedsNewChildren(oldValue, value))
+        {
+            RebuildChildren();
+        }
         else
         {
             UpdateChildrenTarget(value);
         }
+
         RaiseGraphChange(oldValue, value);
+        RaiseDescendantsChanged();
+    }
+
+    // The values under a replaced one are the new value's now, their editors show them again (flags' check boxes after an undo)
+    private void RaiseDescendantsChanged()
+    {
+        foreach (var child in Children)
+        {
+            child.Changed?.Invoke();
+            child.RaiseDescendantsChanged();
+        }
+    }
+
+    // A value of another type (or none where there was one) has other values in it, the old children would show the old ones
+    private bool NeedsNewChildren(object? oldValue, object? newValue)
+    {
+        if (oldValue?.GetType() == newValue?.GetType())
+        {
+            return false;
+        }
+
+        return PropertyGraphBuilder.CanHaveChildren(oldValue?.GetType()) || PropertyGraphBuilder.CanHaveChildren(newValue?.GetType());
+    }
+
+    private void RebuildChildren()
+    {
+        foreach (var child in Children)
+        {
+            Graph?.Deindex(child);
+        }
+
+        Children.Clear();
+        var value = GetValue();
+        if (value != null && Graph != null)
+        {
+            var built = PropertyGraphBuilder.BuildNode(Target, Metadata, Path, Graph.Tracker, value.GetType(), Index);
+            foreach (var child in built.Children)
+            {
+                Graph.Index(child);
+                AddChild(child);
+            }
+        }
+
+        ChildrenVersion++;
     }
 
     private void UpdateChildrenTarget(object? newTarget)

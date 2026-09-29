@@ -99,6 +99,15 @@ public sealed class BuildCacheTests : IDisposable
     }
 
     [Fact]
+    public void OutputBuiltFromLoadedDataStaysStaleWhileTheDataIsLoaded()
+    {
+        _dependency.GetData();
+        RecordAndSave(_dependency);
+
+        Assert.False(Load().IsUpToDate(Key, [_output]));
+    }
+
+    [Fact]
     public void ChangedOrMissingOutputIsRebuilt()
     {
         RecordAndSave(_dependency);

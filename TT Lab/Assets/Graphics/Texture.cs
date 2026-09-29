@@ -46,7 +46,7 @@ public class Texture : SerializableAsset
         PixelFormat = texture.TextureFormat;
         GenerateMipmaps = texture.MipLevels > 1;
         ReservesMemory = texture.TextureFormat is not (ITwinTexture.TexturePixelFormat.PSMT8 or ITwinTexture.TexturePixelFormat.PSMCT32)
-            || texture.UnkBytes3 is not { Length: 2 } || texture.UnkBytes3[0] != 0 || texture.UnkBytes3[1] != 0;
+            || texture.ReservedBlocks is not { Length: 2 } || texture.ReservedBlocks[0] != 0 || texture.ReservedBlocks[1] != 0;
         Leftovers = texture.Leftovers;
     }
 

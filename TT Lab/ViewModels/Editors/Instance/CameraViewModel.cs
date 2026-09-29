@@ -17,27 +17,27 @@ namespace TT_Lab.ViewModels.Editors.Instance
         private static readonly Dictionary<ITwinCamera.CameraType, Type> subIdToCamVM = new Dictionary<ITwinCamera.CameraType, Type>();
 
         private TriggerViewModel trigger;
-        private UInt32 cameraHeader;
-        private UInt16 unkShort;
-        private Single unkFloat1;
-        private Vector4ViewModel unkVector1;
-        private Vector4ViewModel unkVector2;
-        private Single unkFloat2;
-        private Single unkFloat3;
-        private UInt32 unkInt1;
-        private UInt32 unkInt2;
-        private UInt32 unkInt3;
-        private UInt32 unkInt4;
-        private UInt32 unkInt5;
-        private UInt32 unkInt6;
-        private Single unkFloat4;
-        private Single unkFloat5;
-        private Single unkFloat6;
-        private Single unkFloat7;
-        private UInt32 unkInt7;
-        private UInt32 unkInt8;
-        private Single unkFloat8;
-        private Byte unkByte;
+        private UInt32 flags;
+        private UInt16 switches;
+        private Single blendTime;
+        private Vector4ViewModel leftoverVector1;
+        private Vector4ViewModel leftoverVector2;
+        private Single leftoverFloat1;
+        private Single leftoverFloat2;
+        private UInt32 fovStart;
+        private UInt32 fovEnd;
+        private UInt32 pitchStart;
+        private UInt32 pitchEnd;
+        private UInt32 yawStart;
+        private UInt32 yawEnd;
+        private Single distanceStart;
+        private Single distanceEnd;
+        private Single camera2Value;
+        private Single camera1Value;
+        private UInt32 yawExtra;
+        private UInt32 blendInYaw;
+        private Single blendInDistance;
+        private Byte group;
         private ITwinCamera.CameraType cameraType1 = ITwinCamera.CameraType.Null;
         private ITwinCamera.CameraType cameraType2 = ITwinCamera.CameraType.Null;
         private BaseCameraViewModel? mainCamera1;
@@ -61,39 +61,39 @@ namespace TT_Lab.ViewModels.Editors.Instance
             asset.LayoutID = (int)Trigger.LayoutID;
             var data = asset.GetData<CameraData>();
             Trigger.Save(data.Trigger);
-            data.CameraHeader = CameraHeader;
-            data.UnkShort = UnkShort;
-            data.UnkFloat1 = UnkFloat1;
-            data.UnkFloat2 = UnkFloat2;
-            data.UnkFloat3 = UnkFloat3;
-            data.UnkFloat4 = UnkFloat4;
-            data.UnkFloat5 = UnkFloat5;
-            data.UnkFloat6 = UnkFloat6;
-            data.UnkFloat7 = UnkFloat7;
-            data.UnkFloat8 = UnkFloat8;
-            data.UnkVector1 = new Twinsanity.TwinsanityInterchange.Common.Vector4
+            data.Flags = (ITwinCamera.CameraFlags)Flags;
+            data.Switches = (ITwinCamera.CameraSwitches)Switches;
+            data.BlendTime = BlendTime;
+            data.LeftoverFloat1 = LeftoverFloat1;
+            data.LeftoverFloat2 = LeftoverFloat2;
+            data.DistanceStart = DistanceStart;
+            data.DistanceEnd = DistanceEnd;
+            data.Camera2Value = Camera2Value;
+            data.Camera1Value = Camera1Value;
+            data.BlendInDistance = BlendInDistance;
+            data.LeftoverVector1 = new Twinsanity.TwinsanityInterchange.Common.Vector4
             {
-                X = UnkVector1.X,
-                Y = UnkVector1.Y,
-                Z = UnkVector1.Z,
-                W = UnkVector1.W,
+                X = LeftoverVector1.X,
+                Y = LeftoverVector1.Y,
+                Z = LeftoverVector1.Z,
+                W = LeftoverVector1.W,
             };
-            data.UnkVector2 = new Twinsanity.TwinsanityInterchange.Common.Vector4
+            data.LeftoverVector2 = new Twinsanity.TwinsanityInterchange.Common.Vector4
             {
-                X = UnkVector2.X,
-                Y = UnkVector2.Y,
-                Z = UnkVector2.Z,
-                W = UnkVector2.W,
+                X = LeftoverVector2.X,
+                Y = LeftoverVector2.Y,
+                Z = LeftoverVector2.Z,
+                W = LeftoverVector2.W,
             };
-            data.UnkInt1 = UnkInt1;
-            data.UnkInt2 = UnkInt2;
-            data.UnkInt3 = UnkInt3;
-            data.UnkInt4 = UnkInt4;
-            data.UnkInt5 = UnkInt5;
-            data.UnkInt6 = UnkInt6;
-            data.UnkInt7 = UnkInt7;
-            data.UnkInt8 = UnkInt8;
-            data.UnkByte = UnkByte;
+            data.FovStart = FovStart;
+            data.FovEnd = FovEnd;
+            data.PitchStart = PitchStart;
+            data.PitchEnd = PitchEnd;
+            data.YawStart = YawStart;
+            data.YawEnd = YawEnd;
+            data.YawExtra = YawExtra;
+            data.BlendInYaw = BlendInYaw;
+            data.Group = Group;
             if (MainCamera1 != null)
             {
                 MainCamera1.Save(data.MainCamera1);
@@ -120,31 +120,31 @@ namespace TT_Lab.ViewModels.Editors.Instance
             var data = asset.GetData<CameraData>();
             trigger = new TriggerViewModel(MiscUtils.ConvertEnum<Enums.Layouts>(asset.LayoutID!.Value), data.Trigger);
             DirtyTracker.AddChild(trigger);
-            cameraHeader = data.CameraHeader;
-            unkShort = data.UnkShort;
-            unkFloat1 = data.UnkFloat1;
-            unkVector1 = new Vector4ViewModel(data.UnkVector1);
-            unkVector2 = new Vector4ViewModel(data.UnkVector2);
-            DirtyTracker.AddChild(unkVector1);
-            DirtyTracker.AddChild(unkVector2);
-            ActivateItemAsync(unkVector1);
-            ActivateItemAsync(unkVector2);
-            unkFloat2 = data.UnkFloat2;
-            unkFloat3 = data.UnkFloat3;
-            unkInt1 = data.UnkInt1;
-            unkInt2 = data.UnkInt2;
-            unkInt3 = data.UnkInt3;
-            unkInt4 = data.UnkInt4;
-            unkInt5 = data.UnkInt5;
-            unkInt6 = data.UnkInt6;
-            unkFloat4 = data.UnkFloat4;
-            unkFloat5 = data.UnkFloat5;
-            unkFloat6 = data.UnkFloat6;
-            unkFloat7 = data.UnkFloat7;
-            unkInt7 = data.UnkInt7;
-            unkInt8 = data.UnkInt8;
-            unkFloat8 = data.UnkFloat8;
-            unkByte = data.UnkByte;
+            flags = (UInt32)data.Flags;
+            switches = (UInt16)data.Switches;
+            blendTime = data.BlendTime;
+            leftoverVector1 = new Vector4ViewModel(data.LeftoverVector1);
+            leftoverVector2 = new Vector4ViewModel(data.LeftoverVector2);
+            DirtyTracker.AddChild(leftoverVector1);
+            DirtyTracker.AddChild(leftoverVector2);
+            ActivateItemAsync(leftoverVector1);
+            ActivateItemAsync(leftoverVector2);
+            leftoverFloat1 = data.LeftoverFloat1;
+            leftoverFloat2 = data.LeftoverFloat2;
+            fovStart = data.FovStart;
+            fovEnd = data.FovEnd;
+            pitchStart = data.PitchStart;
+            pitchEnd = data.PitchEnd;
+            yawStart = data.YawStart;
+            yawEnd = data.YawEnd;
+            distanceStart = data.DistanceStart;
+            distanceEnd = data.DistanceEnd;
+            camera2Value = data.Camera2Value;
+            camera1Value = data.Camera1Value;
+            yawExtra = data.YawExtra;
+            blendInYaw = data.BlendInYaw;
+            blendInDistance = data.BlendInDistance;
+            group = data.Group;
             CameraType1 = ITwinCamera.CameraType.Null;
             CameraType2 = ITwinCamera.CameraType.Null;
             if (data.MainCamera1 != null && subIdToCamVM.ContainsKey(data.MainCamera1.GetCameraType()))
@@ -173,14 +173,14 @@ namespace TT_Lab.ViewModels.Editors.Instance
         }
 
         [MarkDirty]
-        public UInt32 CameraHeader
+        public UInt32 Flags
         {
-            get => cameraHeader;
+            get => flags;
             set
             {
-                if (cameraHeader != value)
+                if (flags != value)
                 {
-                    cameraHeader = value;
+                    flags = value;
                     
                     NotifyOfPropertyChange();
                 }
@@ -188,14 +188,14 @@ namespace TT_Lab.ViewModels.Editors.Instance
         }
 
         [MarkDirty]
-        public UInt16 UnkShort
+        public UInt16 Switches
         {
-            get => unkShort;
+            get => switches;
             set
             {
-                if (unkShort != value)
+                if (switches != value)
                 {
-                    unkShort = value;
+                    switches = value;
                     
                     NotifyOfPropertyChange();
                 }
@@ -203,250 +203,250 @@ namespace TT_Lab.ViewModels.Editors.Instance
         }
 
         [MarkDirty]
-        public Single UnkFloat1
+        public Single BlendTime
         {
-            get => unkFloat1;
+            get => blendTime;
             set
             {
-                if (unkFloat1 != value)
+                if (blendTime != value)
                 {
-                    unkFloat1 = value;
+                    blendTime = value;
                     
                     NotifyOfPropertyChange();
                 }
             }
         }
 
-        public Vector4ViewModel UnkVector1
+        public Vector4ViewModel LeftoverVector1
         {
-            get => unkVector1;
+            get => leftoverVector1;
         }
 
-        public Vector4ViewModel UnkVector2
+        public Vector4ViewModel LeftoverVector2
         {
-            get => unkVector2;
-        }
-
-        [MarkDirty]
-        public Single UnkFloat2
-        {
-            get => unkFloat2;
-            set
-            {
-                if (unkFloat2 != value)
-                {
-                    unkFloat2 = value;
-                    
-                    NotifyOfPropertyChange();
-                }
-            }
+            get => leftoverVector2;
         }
 
         [MarkDirty]
-        public Single UnkFloat3
+        public Single LeftoverFloat1
         {
-            get => unkFloat3;
+            get => leftoverFloat1;
             set
             {
-                if (unkFloat3 != value)
+                if (leftoverFloat1 != value)
                 {
-                    unkFloat3 = value;
+                    leftoverFloat1 = value;
+                    
+                    NotifyOfPropertyChange();
+                }
+            }
+        }
+
+        [MarkDirty]
+        public Single LeftoverFloat2
+        {
+            get => leftoverFloat2;
+            set
+            {
+                if (leftoverFloat2 != value)
+                {
+                    leftoverFloat2 = value;
                     
                     NotifyOfPropertyChange();
                 }
             }
         }
         [MarkDirty]
-        public UInt32 UnkInt1
+        public UInt32 FovStart
         {
-            get => unkInt1;
+            get => fovStart;
             set
             {
-                if (unkInt1 != value)
+                if (fovStart != value)
                 {
-                    unkInt1 = value;
+                    fovStart = value;
                     
                     NotifyOfPropertyChange();
                 }
             }
         }
         [MarkDirty]
-        public UInt32 UnkInt2
+        public UInt32 FovEnd
         {
-            get => unkInt2;
+            get => fovEnd;
             set
             {
-                if (unkInt2 != value)
+                if (fovEnd != value)
                 {
-                    unkInt2 = value;
+                    fovEnd = value;
                     
                     NotifyOfPropertyChange();
                 }
             }
         }
         [MarkDirty]
-        public UInt32 UnkInt3
+        public UInt32 PitchStart
         {
-            get => unkInt3;
+            get => pitchStart;
             set
             {
-                if (unkInt3 != value)
+                if (pitchStart != value)
                 {
-                    unkInt3 = value;
+                    pitchStart = value;
                     
                     NotifyOfPropertyChange();
                 }
             }
         }
         [MarkDirty]
-        public UInt32 UnkInt4
+        public UInt32 PitchEnd
         {
-            get => unkInt4;
+            get => pitchEnd;
             set
             {
-                if (unkInt4 != value)
+                if (pitchEnd != value)
                 {
-                    unkInt4 = value;
+                    pitchEnd = value;
                     
                     NotifyOfPropertyChange();
                 }
             }
         }
         [MarkDirty]
-        public UInt32 UnkInt5
+        public UInt32 YawStart
         {
-            get => unkInt5;
+            get => yawStart;
             set
             {
-                if (unkInt5 != value)
+                if (yawStart != value)
                 {
-                    unkInt5 = value;
+                    yawStart = value;
                     
                     NotifyOfPropertyChange();
                 }
             }
         }
         [MarkDirty]
-        public UInt32 UnkInt6
+        public UInt32 YawEnd
         {
-            get => unkInt6;
+            get => yawEnd;
             set
             {
-                if (unkInt6 != value)
+                if (yawEnd != value)
                 {
-                    unkInt6 = value;
+                    yawEnd = value;
                     
                     NotifyOfPropertyChange();
                 }
             }
         }
         [MarkDirty]
-        public Single UnkFloat4
+        public Single DistanceStart
         {
-            get => unkFloat4;
+            get => distanceStart;
             set
             {
-                if (unkFloat4 != value)
+                if (distanceStart != value)
                 {
-                    unkFloat4 = value;
+                    distanceStart = value;
                     
                     NotifyOfPropertyChange();
                 }
             }
         }
         [MarkDirty]
-        public Single UnkFloat5
+        public Single DistanceEnd
         {
-            get => unkFloat5;
+            get => distanceEnd;
             set
             {
-                if (unkFloat5 != value)
+                if (distanceEnd != value)
                 {
-                    unkFloat5 = value;
+                    distanceEnd = value;
                     
                     NotifyOfPropertyChange();
                 }
             }
         }
         [MarkDirty]
-        public Single UnkFloat6
+        public Single Camera2Value
         {
-            get => unkFloat6;
+            get => camera2Value;
             set
             {
-                if (unkFloat6 != value)
+                if (camera2Value != value)
                 {
-                    unkFloat6 = value;
+                    camera2Value = value;
                     
                     NotifyOfPropertyChange();
                 }
             }
         }
         [MarkDirty]
-        public Single UnkFloat7
+        public Single Camera1Value
         {
-            get => unkFloat7;
+            get => camera1Value;
             set
             {
-                if (unkFloat7 != value)
+                if (camera1Value != value)
                 {
-                    unkFloat7 = value;
+                    camera1Value = value;
                     
                     NotifyOfPropertyChange();
                 }
             }
         }
         [MarkDirty]
-        public UInt32 UnkInt7
+        public UInt32 YawExtra
         {
-            get => unkInt7;
+            get => yawExtra;
             set
             {
-                if (unkInt7 != value)
+                if (yawExtra != value)
                 {
-                    unkInt7 = value;
+                    yawExtra = value;
                     
                     NotifyOfPropertyChange();
                 }
             }
         }
         [MarkDirty]
-        public UInt32 UnkInt8
+        public UInt32 BlendInYaw
         {
-            get => unkInt8;
+            get => blendInYaw;
             set
             {
-                if (unkInt8 != value)
+                if (blendInYaw != value)
                 {
-                    unkInt8 = value;
+                    blendInYaw = value;
                     
                     NotifyOfPropertyChange();
                 }
             }
         }
         [MarkDirty]
-        public Single UnkFloat8
+        public Single BlendInDistance
         {
-            get => unkFloat8;
+            get => blendInDistance;
             set
             {
-                if (unkFloat8 != value)
+                if (blendInDistance != value)
                 {
-                    unkFloat8 = value;
+                    blendInDistance = value;
                     
                     NotifyOfPropertyChange();
                 }
             }
         }
         [MarkDirty]
-        public Byte UnkByte
+        public Byte Group
         {
-            get => unkByte;
+            get => group;
             set
             {
-                if (unkByte != value)
+                if (group != value)
                 {
-                    unkByte = value;
+                    group = value;
                     
                     NotifyOfPropertyChange();
                 }

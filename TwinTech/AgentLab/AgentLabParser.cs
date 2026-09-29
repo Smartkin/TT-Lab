@@ -21,7 +21,7 @@ namespace Twinsanity.AgentLab;
 /// *            | (alias COMMA alias_list)
 /// * param_definition_list : param_definition - parser implemented
 /// *                        | (param_definition COLON param_definition_list)
-/// * param_definition : TYPE param_name - parser implemented
+/// * param_definition : (BOOL | INT | FLOAT | TFLOAT | TINT | TANGLE) param_name - parser implemented
 /// * condition_definition_list : condition_definition - parser implemented
 /// *                            | condition_definition_list
 /// * condition_definition : CONDITION condition_name LPAREN (param_definition | empty) RPAREN - parser implemented
@@ -42,18 +42,21 @@ namespace Twinsanity.AgentLab;
 /// * global_object_id : GLOBAL_OBJECT_ID ASSIGN INTEGER - parser implemented
 /// * state_declaration_list : state_declaration - parser implemented
 /// *                         | state_declaration_list
-/// * state_declaration : ((non_blocking_attribute | skip_first_body_attribute | use_object_slot_attribute | control_packet_attribute) - parser implemented
+/// * state_declaration : ((interrupting_attribute | skip_first_body_attribute | use_object_slot_attribute | control_packet_attribute) - parser implemented
 /// *                         STATE state_name LPAREN (behaviour_name | empty) RPAREN OPEN_BRACKET (state_body_list | empty) CLOSE_BRACKET)
 /// *                     | empty
 /// * state_body_list : state_body | state_body_list - parser implemented
-/// * state_body : IF condition (GEQUAL | LEQUAL) factor OPEN_BRACKET (action_list | state_execute | empty) CLOSE_BRACKET - parser implemented
+/// * state_body : (IF condition (GREATER | LESS | GEQUAL | LEQUAL) factor | ELSE | COMPLETION) OPEN_BRACKET body_value_list (action_list | empty) (state_execute | empty) CLOSE_BRACKET - parser implemented
+/// * body_value_list : ((WINDOW | WEIGHT | THRESHOLD) ASSIGN factor SEMICOLON | RESTART ASSIGN bool SEMICOLON)* - parser implemented
+/// *                   (interval and unknown are the old names of window and restart)
 /// * condition : CONDITION_ID LPAREN (INTEGER | empty) RPAREN - parser implemented
 /// * action_list : action | action_list - parser implemented
 /// * action : ACTION_ID LPAREN (param_list | empty) RPAREN SEMICOLON - parser implemented
 /// * param_list : param | (param COLON param_list) - parser implemented
-/// * param : (factor | bool) - parser implemented
+/// * param : (factor | bool | tagged_literal) - parser implemented
+/// * tagged_literal : (PROP | RAW | FLOAT | INT | ANGLE) LPAREN factor RPAREN - parser implemented
 /// * state_execute : EXECUTE state_name - parser implemented
-/// * non_blocking_attribute : ATTRIBUTE_OPEN NON_BLOCKING ATTRIBUTE_CLOSE - parser implemented
+/// * interrupting_attribute : ATTRIBUTE_OPEN (INTERRUPTING | NON_BLOCKING) ATTRIBUTE_CLOSE - parser implemented
 /// * skip_first_body_attribute : ATTRIBUTE_OPEN SKIP_FIRST_BODY ATTRIBUTE_CLOSE - parser implemented
 /// * use_object_slot_attribute : ATTRIBUTE_OPEN USE_OBJECT_SLOT LPAREN SLOT_NAME RPAREN ATTRIBUTE_CLOSE - parser implemented
 /// * control_packet_attribute : ATTRIBUTE_OPEN CONTROL_PACKET LPAREN packet_name RPAREN ATTRIBUTE_CLOSE - parser implemented
@@ -187,12 +190,32 @@ public class AgentLabParser : IDisposable
 
     private ParamDefinitionNode ParamDefinition()
     {
+        // name { int a : 4, bool b, sint c : 16 } declares the fields the game packs into one dword
+        if (_currentToken.Type == AgentLabToken.TokenType.Identifier)
+        {
+            var groupName = _currentToken;
+            EatToken(AgentLabToken.TokenType.Identifier);
+            EatToken(AgentLabToken.TokenType.OpenBracket);
+            var fields = new List<FieldDefinitionNode> { FieldDefinition() };
+            while (_currentToken.Type == AgentLabToken.TokenType.Comma)
+            {
+                EatToken(AgentLabToken.TokenType.Comma);
+                fields.Add(FieldDefinition());
+            }
+
+            EatToken(AgentLabToken.TokenType.CloseBracket);
+            return new ParamDefinitionNode(groupName, fields);
+        }
+
         var type = _currentToken;
         switch (_currentToken.Type)
         {
             case AgentLabToken.TokenType.BooleanType:
             case AgentLabToken.TokenType.IntegerType:
             case AgentLabToken.TokenType.FloatType:
+            case AgentLabToken.TokenType.TaggedFloatType:
+            case AgentLabToken.TokenType.TaggedIntType:
+            case AgentLabToken.TokenType.TaggedAngleType:
                 EatToken(_currentToken.Type);
                 break;
             default:
@@ -203,6 +226,34 @@ public class AgentLabParser : IDisposable
         var identifier = _currentToken;
         EatToken(AgentLabToken.TokenType.Identifier);
         return new ParamDefinitionNode(identifier, new TypeNode(type));
+    }
+
+    private FieldDefinitionNode FieldDefinition()
+    {
+        var type = _currentToken;
+        if (type.Type is not (AgentLabToken.TokenType.IntegerType or AgentLabToken.TokenType.SignedIntegerType or AgentLabToken.TokenType.BooleanType))
+        {
+            throw Error($"A field is an int, a sint or a bool, not {type.Type}");
+        }
+
+        EatToken(type.Type);
+        var name = _currentToken;
+        EatToken(AgentLabToken.TokenType.Identifier);
+        var width = type.Type == AgentLabToken.TokenType.BooleanType ? 1 : 0;
+        if (_currentToken.Type == AgentLabToken.TokenType.Colon)
+        {
+            EatToken(AgentLabToken.TokenType.Colon);
+            var widthToken = _currentToken;
+            EatToken(AgentLabToken.TokenType.Integer);
+            width = widthToken.GetValue<int>();
+        }
+
+        if (width is < 1 or > 32)
+        {
+            throw Error($"Field {name.GetValue<string>()} needs a width of 1 to 32 bits");
+        }
+
+        return new FieldDefinitionNode(name, type, width);
     }
 
     private ActionDefinitionNode ActionDefinition()
@@ -250,6 +301,7 @@ public class AgentLabParser : IDisposable
         var aliasList = new AliasListNode(Alias());
         while (_currentToken.Type == AgentLabToken.TokenType.Comma)
         {
+            EatToken(AgentLabToken.TokenType.Comma);
             aliasList.Children.Add(Alias());
         }
         EatToken(AgentLabToken.TokenType.AttributeClose);
@@ -313,7 +365,11 @@ public class AgentLabParser : IDisposable
 
         while (_currentToken.Type == AgentLabToken.TokenType.AttributeOpen)
         {
-            attribList.Children.Add(Attribute());
+            var attribute = Attribute();
+            if (attribute != null)
+            {
+                attribList.Children.Add(attribute);
+            }
         }
 
         return attribList;
@@ -335,6 +391,7 @@ public class AgentLabParser : IDisposable
                 node = GraphPriorityAttribute();
                 break;
             case AgentLabToken.TokenType.NonBlocking:
+            case AgentLabToken.TokenType.Interrupting:
             case AgentLabToken.TokenType.SkipFirstBody:
             case AgentLabToken.TokenType.UseObjectSlot:
             case AgentLabToken.TokenType.ControlPacket:
@@ -345,7 +402,8 @@ public class AgentLabParser : IDisposable
                 node = BehaviourLibraryAttribute();
                 break;
             case AgentLabToken.TokenType.Unknown:
-                node = UnknownAttribute();
+                SkipUnknownAttribute();
+                node = null;
                 break;
             default:
                 // TODO: Raise parser error instead of throwing an exception
@@ -404,6 +462,20 @@ public class AgentLabParser : IDisposable
             case AgentLabToken.TokenType.False:
             case AgentLabToken.TokenType.True:
                 node = Boolean();
+                break;
+            case AgentLabToken.TokenType.Identifier when TaggedLiteralNode.Names.Contains(token.GetValue<string>()):
+                EatToken(AgentLabToken.TokenType.Identifier);
+                if (_currentToken.Type == AgentLabToken.TokenType.LeftParen)
+                {
+                    EatToken(AgentLabToken.TokenType.LeftParen);
+                    var value = Factor();
+                    EatToken(AgentLabToken.TokenType.RightParen);
+                    node = new TaggedLiteralNode(token, value);
+                }
+                else
+                {
+                    node = new ConstNode(token);
+                }
                 break;
             default:
                 node = Const();
@@ -661,10 +733,17 @@ public class AgentLabParser : IDisposable
         EatToken(AgentLabToken.TokenType.Identifier);
         EatToken(AgentLabToken.TokenType.LeftParen);
 
+        // The child behaviour by its name, or as a string for what only the resolver understands (a URI, an index)
         IAgentLabTreeNode behaviourId = null;
-        if (_currentToken.Type != AgentLabToken.TokenType.RightParen)
+        if (_currentToken.Type == AgentLabToken.TokenType.Identifier)
         {
-            behaviourId = String();
+            behaviourId = new BehaviourReferenceNode(_currentToken, true);
+            EatToken(AgentLabToken.TokenType.Identifier);
+        }
+        else if (_currentToken.Type != AgentLabToken.TokenType.RightParen)
+        {
+            behaviourId = new BehaviourReferenceNode(_currentToken, false);
+            EatToken(AgentLabToken.TokenType.String);
         }
         
         EatToken(AgentLabToken.TokenType.RightParen);
@@ -679,7 +758,7 @@ public class AgentLabParser : IDisposable
     {
         var bodies = new StateBodyListNode();
 
-        while (_currentToken.Type == AgentLabToken.TokenType.If)
+        while (_currentToken.Type == AgentLabToken.TokenType.If || IsKeyword("else") || IsKeyword("completion"))
         {
             bodies.Children.Add(StateBody());
         }
@@ -687,32 +766,97 @@ public class AgentLabParser : IDisposable
         return bodies;
     }
 
+    private bool IsKeyword(string keyword)
+    {
+        return _currentToken.Type == AgentLabToken.TokenType.Identifier && _currentToken.GetValue<string>() == keyword;
+    }
+
+    private static ConditionNode BuiltInCondition(AgentLabToken at, string name)
+    {
+        var token = new AgentLabToken(AgentLabToken.TokenType.Identifier, name).WithPosition(at.Line, at.Column);
+        return new ConditionNode(token, new NumberNode(new AgentLabToken(AgentLabToken.TokenType.Integer, 0).WithPosition(at.Line, at.Column)));
+    }
+
     private StateBodyNode StateBody()
     {
-        EatToken(AgentLabToken.TokenType.If);
-        var condition = Condition();
+        var token = _currentToken;
+        var kind = StateBodyKind.If;
+        ConditionNode condition;
+        IAgentLabTreeNode threshold = null;
         var isNot = false;
-        switch (_currentToken.Type)
+        if (IsKeyword("else"))
         {
-            case AgentLabToken.TokenType.GreaterEqual:
-                EatToken(AgentLabToken.TokenType.GreaterEqual);
-                break;
-            case AgentLabToken.TokenType.LessEqual:
-                EatToken(AgentLabToken.TokenType.LessEqual);
-                isNot = true;
-                break;
+            EatToken(AgentLabToken.TokenType.Identifier);
+            kind = StateBodyKind.Else;
+            condition = BuiltInCondition(token, "Else");
+        }
+        else if (IsKeyword("completion"))
+        {
+            EatToken(AgentLabToken.TokenType.Identifier);
+            kind = StateBodyKind.Completion;
+            condition = BuiltInCondition(token, "Next");
+        }
+        else
+        {
+            EatToken(AgentLabToken.TokenType.If);
+            condition = Condition();
+            switch (_currentToken.Type)
+            {
+                case AgentLabToken.TokenType.Greater:
+                case AgentLabToken.TokenType.GreaterEqual:
+                    EatToken(_currentToken.Type);
+                    break;
+                case AgentLabToken.TokenType.Less:
+                case AgentLabToken.TokenType.LessEqual:
+                    EatToken(_currentToken.Type);
+                    isNot = true;
+                    break;
+                default:
+                    throw Error($"Expected a comparison after the condition, found {_currentToken.Type}");
+            }
+
+            threshold = Factor();
         }
 
-        var threshold = Factor();
         EatToken(AgentLabToken.TokenType.OpenBracket);
-        var interval = Interval();
-        EatToken(AgentLabToken.TokenType.Unknown);
-        EatToken(AgentLabToken.TokenType.Assign);
-        var unknown = Boolean();
-        EatToken(AgentLabToken.TokenType.Semicolon);
+        IAgentLabTreeNode window = null;
+        IAgentLabTreeNode weight = null;
+        IAgentLabTreeNode restart = null;
+        while (true)
+        {
+            // interval and unknown are what the values used to be called
+            if (_currentToken.Type == AgentLabToken.TokenType.Interval || IsKeyword("window"))
+            {
+                window = BodyValue(ref window, "window");
+            }
+            else if (IsKeyword("weight"))
+            {
+                weight = BodyValue(ref weight, "weight");
+            }
+            else if (IsKeyword("threshold") && kind != StateBodyKind.If)
+            {
+                threshold = BodyValue(ref threshold, "threshold");
+            }
+            else if (_currentToken.Type == AgentLabToken.TokenType.Unknown || IsKeyword("restart"))
+            {
+                if (restart != null)
+                {
+                    throw Error("restart is set twice");
+                }
+
+                EatToken(_currentToken.Type);
+                EatToken(AgentLabToken.TokenType.Assign);
+                restart = Boolean();
+                EatToken(AgentLabToken.TokenType.Semicolon);
+            }
+            else
+            {
+                break;
+            }
+        }
+
         ActionListNode actions = null;
         StateExecuteNode execute = null;
-        NoOpNode noOp = null;
         if (_currentToken.Type == AgentLabToken.TokenType.Identifier)
         {
             actions = ActionList();
@@ -723,23 +867,23 @@ public class AgentLabParser : IDisposable
             execute = Execute();
         }
 
-        if (actions == null && execute == null)
-        {
-            noOp = Empty();
-        }
-        
         EatToken(AgentLabToken.TokenType.CloseBracket);
 
-        return new StateBodyNode(condition, interval, threshold, unknown, actions, execute, isNot);
+        return new StateBodyNode(token, kind, condition, threshold, isNot, window, weight, restart, actions, execute);
     }
 
-    private IntervalNode Interval()
+    private IAgentLabTreeNode BodyValue(ref IAgentLabTreeNode current, string name)
     {
-        EatToken(AgentLabToken.TokenType.Interval);
+        if (current != null)
+        {
+            throw Error($"{name} is set twice");
+        }
+
+        EatToken(_currentToken.Type);
         EatToken(AgentLabToken.TokenType.Assign);
         var factor = Factor();
         EatToken(AgentLabToken.TokenType.Semicolon);
-        return new IntervalNode(factor);
+        return factor;
     }
 
     private NoOpNode Empty()
@@ -791,24 +935,53 @@ public class AgentLabParser : IDisposable
     private ParamListNode ParamList()
     {
         var @params = new ParamListNode();
-        @params.Children.Add(new ParamNode(Factor()));
+        @params.Children.Add(new ParamNode(Argument()));
         
         while (_currentToken.Type == AgentLabToken.TokenType.Comma)
         {
             EatToken(AgentLabToken.TokenType.Comma);
-            @params.Children.Add(new ParamNode(Factor()));
+            @params.Children.Add(new ParamNode(Argument()));
         }
         
         return @params;
     }
 
-    private UnknownAttributeNode UnknownAttribute()
+    private IAgentLabTreeNode Argument()
+    {
+        return _currentToken.Type == AgentLabToken.TokenType.OpenBracket ? FieldGroup() : Factor();
+    }
+
+    // {name = value, ...}: the fields of a packed parameter, the ones left out are 0
+    private FieldGroupNode FieldGroup()
+    {
+        var token = _currentToken;
+        EatToken(AgentLabToken.TokenType.OpenBracket);
+        var fields = new List<(AgentLabToken, IAgentLabTreeNode)>();
+        while (_currentToken.Type != AgentLabToken.TokenType.CloseBracket)
+        {
+            var name = _currentToken;
+            EatToken(AgentLabToken.TokenType.Identifier);
+            EatToken(AgentLabToken.TokenType.Assign);
+            fields.Add((name, Expression()));
+            if (_currentToken.Type != AgentLabToken.TokenType.Comma)
+            {
+                break;
+            }
+
+            EatToken(AgentLabToken.TokenType.Comma);
+        }
+
+        EatToken(AgentLabToken.TokenType.CloseBracket);
+        return new FieldGroupNode(token, fields);
+    }
+
+    // [Unknown(n)] of older scripts held the state's bits the game never reads, it's dropped
+    private void SkipUnknownAttribute()
     {
         EatToken(AgentLabToken.TokenType.Unknown);
         EatToken(AgentLabToken.TokenType.LeftParen);
-        var number = Number();
+        Number();
         EatToken(AgentLabToken.TokenType.RightParen);
-        return new UnknownAttributeNode(number);
     }
 
     private UseObjectSlotAttributeNode UseObjectSlot()
@@ -907,8 +1080,9 @@ public class AgentLabParser : IDisposable
         switch (_currentToken.Type)
         {
             case AgentLabToken.TokenType.NonBlocking:
-                EatToken(AgentLabToken.TokenType.NonBlocking);
-                attribute = new NonBlockingAttributeNode();
+            case AgentLabToken.TokenType.Interrupting:
+                EatToken(_currentToken.Type);
+                attribute = new InterruptingAttributeNode();
                 break;
             case AgentLabToken.TokenType.SkipFirstBody:
                 EatToken(AgentLabToken.TokenType.SkipFirstBody);

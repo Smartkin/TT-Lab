@@ -7,6 +7,7 @@ using TT_Lab.AssetData.Graphics.Shaders;
 using TT_Lab.Rendering.Factories;
 using TT_Lab.Rendering.Materials;
 using TT_Lab.Rendering.Passes;
+using TT_Lab.Rendering.Services;
 using TT_Lab.Rendering.UniformDescs;
 using Twinsanity.TwinsanityInterchange.Common;
 
@@ -40,18 +41,30 @@ public class ModelBuffer(RenderContext context, ModelBufferBuild build, Material
         MaterialReplaced?.Invoke();
     }
 
+    // Where the part draws among the skydome's parts, which the game paints over each other in their order
+    public int DrawOrder { get; set; }
+
     public (string, int)[] GetPriorityPass()
     {
         var result = new List<(string, int)>();
         var shaderIndex = 0;
         foreach (var shader in _material.Shaders)
         {
-            var passName = shader.ShaderName;
-            var priority = (int)(-shader.UnkVector2.W + _material.DmaChainIndex + shaderIndex);
+            var passName = PassOf(shader);
+            var priority = passName == PassService.SkydomePassName
+                ? (DrawOrder << 8) + shaderIndex
+                : (int)(-shader.ShaderColor.W + _material.DmaChainIndex + shaderIndex);
             result.Add((passName, priority));
             shaderIndex++;
         }
         return result.ToArray();
+    }
+
+    // The sky's program (type 10, VU1 code 0x2e3ec0) never reads its model's matrix, only the one the sky's drawer leaves in VU memory
+    // (FUN_001c1f90), so the game draws a part of that type around the camera whatever model it's on. They all go in one pass, blended or not
+    private static string PassOf(LabShader shader)
+    {
+        return shader.ShaderType == TwinShader.Type.UnlitSkydome && shader.ForcedShaderName == null ? PassService.SkydomePassName : shader.ShaderName;
     }
     
     public virtual bool Bind()
@@ -86,7 +99,7 @@ public class ModelBuffer(RenderContext context, ModelBufferBuild build, Material
             return shader;
         }
 
-        shader = _material.Shaders.FirstOrDefault(s => s.ShaderName == passName);
+        shader = _material.Shaders.FirstOrDefault(s => PassOf(s) == passName);
         _passShaders[passName] = shader;
         return shader;
     }

@@ -2,6 +2,7 @@
 struct ParticleData
 {
     vec4 PositionAngle;
+    // the size, then the jibber's offset in the same view aligned units
     vec4 Size;
     vec4 Color;
     vec4 TextureRect;
@@ -28,7 +29,7 @@ void main()
     vec2 local = corner * particle.Size.xy;
     float c = cos(particle.PositionAngle.w);
     float s = sin(particle.PositionAngle.w);
-    local = vec2(local.x * c - local.y * s, local.x * s + local.y * c);
+    local = vec2(local.x * c - local.y * s, local.x * s + local.y * c) + particle.Size.zw;
     vec3 world = particle.PositionAngle.xyz + InverseView[0].xyz * local.x + InverseView[1].xyz * local.y;
     gl_Position = StartProjection * StartView * vec4(world, 1.0);
     // The texture's rows go from the top down

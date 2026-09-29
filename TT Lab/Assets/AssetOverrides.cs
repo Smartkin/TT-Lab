@@ -65,16 +65,6 @@ public static class AssetOverrides
             .ToList());
     }
 
-    // Projects made before a value was left to the asset kept chunks' values of it
-    private static bool IsSharedValue(Type dataType, string path)
-    {
-        return GetSharedProperties(dataType).Any(property =>
-        {
-            var propertyPath = $"{DataProperty}.{property}";
-            return path == propertyPath || path.StartsWith($"{propertyPath}.") || path.StartsWith($"{propertyPath}[");
-        });
-    }
-
     /// <summary>
     /// The changed document's values that differ from the base's, by their path. Lists of another length are a value as a whole
     /// </summary>
@@ -153,7 +143,7 @@ public static class AssetOverrides
         }
 
         var document = new JObject { [DataProperty] = JObject.FromObject(data) };
-        Apply(document, values.Where(value => IsDataPath(value.Key) && !IsSharedValue(data.GetType(), value.Key)));
+        Apply(document, values.Where(value => IsDataPath(value.Key)));
         var viewData = (AbstractAssetData)Activator.CreateInstance(data.GetType(), view)!;
         using (var reader = document[DataProperty]!.CreateReader())
         {

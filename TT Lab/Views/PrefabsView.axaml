@@ -1,0 +1,57 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewModels="clr-namespace:TT_Lab.ViewModels"
+             x:DataType="viewModels:PrefabsViewModel"
+             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="400"
+             x:Class="TT_Lab.Views.PrefabsView">
+    <DockPanel>
+        <StackPanel DockPanel.Dock="Top" Margin="6" Spacing="4">
+            <DockPanel>
+                <Button x:Name="RefreshButton" DockPanel.Dock="Right" Content="Refresh" Margin="4,0,0,0" Command="{Binding RefreshCommand}"
+                        ToolTip.Tip="Read the project's prefabs folder again"/>
+                <Button x:Name="SaveButton" DockPanel.Dock="Right" Content="Save selection" Margin="4,0,0,0" Command="{Binding SaveCommand}"
+                        ToolTip.Tip="Save what's selected in the scene as a prefab"/>
+                <TextBox x:Name="PrefabName" Text="{Binding PrefabName}" Watermark="Name" IsEnabled="{Binding CanSave}"/>
+            </DockPanel>
+            <TextBlock Text="{Binding Hint}" TextWrapping="Wrap" FontSize="11" Opacity="0.7"/>
+            <TextBlock Text="Drag a prefab into the scene to place it where it lands, right click it for more" TextWrapping="Wrap" FontSize="11" Opacity="0.7"/>
+        </StackPanel>
+        <TextBlock DockPanel.Dock="Top" Text="No prefabs saved yet" Margin="6,0" Opacity="0.7" IsVisible="{Binding !Prefabs.Count}"/>
+        <ListBox x:Name="PrefabList" ItemsSource="{Binding Prefabs}" SelectionMode="Single" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListBox.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel/>
+                </ItemsPanelTemplate>
+            </ListBox.ItemsPanel>
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="viewModels:PrefabEntry">
+                    <!-- A tile: the picture taken when the prefab got saved with its name under it, the rest in its tooltip -->
+                    <StackPanel Background="Transparent" Width="132" Margin="2" Spacing="3">
+                        <ToolTip.Tip>
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="{Binding Name}" FontWeight="Bold"/>
+                                <TextBlock Text="{Binding Details}" TextWrapping="Wrap" MaxWidth="260"/>
+                                <TextBlock Text="{Binding PlaceTip}" TextWrapping="Wrap" MaxWidth="260" Opacity="0.7"/>
+                            </StackPanel>
+                        </ToolTip.Tip>
+                        <StackPanel.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="Place at the cursor" Command="{Binding PlaceCommand}" IsEnabled="{Binding CanPlace}"/>
+                                <MenuItem Header="Delete" Command="{Binding DeleteCommand}"/>
+                            </ContextMenu>
+                        </StackPanel.ContextMenu>
+                        <Border Width="128" Height="96" Background="#FF1E1E22" BorderBrush="#FF3F3F46" BorderThickness="1" CornerRadius="3" ClipToBounds="True">
+                            <Panel>
+                                <Image Source="{Binding Preview}" Stretch="UniformToFill" IsVisible="{Binding HasPreview}"/>
+                                <TextBlock Text="No picture" FontSize="11" Opacity="0.5" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !HasPreview}"/>
+                            </Panel>
+                        </Border>
+                        <TextBlock Text="{Binding Name}" TextWrapping="Wrap" TextAlignment="Center" MaxLines="2" TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </DockPanel>
+</UserControl>

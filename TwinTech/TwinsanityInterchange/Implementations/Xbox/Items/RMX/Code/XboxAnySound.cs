@@ -10,8 +10,20 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.RMX.Code
         UInt32 frequency;
 
         public UInt32 Header { get; set; }
-        public Byte UnkFlag { get; set; }
-        public Byte FreqFac { get; set; }
+        /// <summary>
+        /// Worked out from the sample rate, setting a pitch the rate doesn't give already sets the rate it plays at
+        /// </summary>
+        public UInt16 Pitch
+        {
+            get => ITwinSound.PitchOf(frequency);
+            set
+            {
+                if (value != Pitch)
+                {
+                    frequency = ITwinSound.SampleRateOf(value);
+                }
+            }
+        }
         public UInt16 Param1 { get; set; }
         public UInt16 Param2 { get; set; }
         public UInt16 Param3 { get; set; }
@@ -61,12 +73,18 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.RMX.Code
             return (UInt16)frequency;
         }
 
+        /// <inheritdoc/>
+        public Int32 LoopStart => -1;
+
+        /// <inheritdoc/>
+        public Int32 LoopEnd => -1;
+
         public Byte[] ToPCM()
         {
             return Sound;
         }
 
-        public void SetDataFromPCM(Byte[] data)
+        public void SetDataFromPCM(Byte[] data, Int32 loopStart = -1, Int32 loopEnd = -1)
         {
             Sound = data;
         }

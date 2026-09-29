@@ -10,25 +10,25 @@ namespace TT_Lab.ViewModels.Editors.Instance.Cameras
 {
     public class BaseCameraViewModel : Conductor<IScreen>.Collection.AllActive, ISaveableViewModel<CameraSubBase?>, IHaveChildrenEditors
     {
-        private UInt32 unkInt;
-        private Single unkFloat1;
-        private Single unkFloat2;
+        private UInt32 flags;
+        private Single leftover;
+        private Single offset;
         private bool isDirty;
         private DirtyTracker dirtyTracker;
 
         public BaseCameraViewModel()
         {
             dirtyTracker = new DirtyTracker(this);
-            unkFloat1 = 0;
-            unkFloat2 = 0;
+            leftover = 0;
+            offset = 0;
         }
 
         public BaseCameraViewModel(CameraSubBase baseCam) : this()
         {
-            unkInt = baseCam.UnkInt;
+            flags = baseCam.Flags;
             CameraType = baseCam.GetCameraType();
-            unkFloat1 = baseCam.UnkFloat1;
-            unkFloat2 = baseCam.UnkFloat2;
+            leftover = baseCam.Leftover;
+            offset = baseCam.Offset;
         }
 
         public virtual void ResetDirty()
@@ -52,9 +52,9 @@ namespace TT_Lab.ViewModels.Editors.Instance.Cameras
 
         public virtual void Save(CameraSubBase? cam)
         {
-            cam.UnkInt = UnkInt;
-            cam.UnkFloat1 = UnkFloat1;
-            cam.UnkFloat2 = UnkFloat2;
+            cam.Flags = Flags;
+            cam.Leftover = Leftover;
+            cam.Offset = Offset;
             
             ResetDirty();
         }
@@ -62,42 +62,42 @@ namespace TT_Lab.ViewModels.Editors.Instance.Cameras
         public ITwinCamera.CameraType CameraType { get; protected set; }
 
         [MarkDirty]
-        public UInt32 UnkInt
+        public UInt32 Flags
         {
-            get => unkInt;
+            get => flags;
             set
             {
-                if (unkInt != value)
+                if (flags != value)
                 {
-                    unkInt = value;
+                    flags = value;
                     NotifyOfPropertyChange();
                 }
             }
         }
 
         [MarkDirty]
-        public Single UnkFloat1
+        public Single Leftover
         {
-            get => unkFloat1;
+            get => leftover;
             set
             {
-                if (unkFloat1 != value)
+                if (leftover != value)
                 {
-                    unkFloat1 = value;
+                    leftover = value;
                     NotifyOfPropertyChange();
                 }
             }
         }
 
         [MarkDirty]
-        public Single UnkFloat2
+        public Single Offset
         {
-            get => unkFloat2;
+            get => offset;
             set
             {
-                if (unkFloat2 != value)
+                if (offset != value)
                 {
-                    unkFloat2 = value;
+                    offset = value;
                     NotifyOfPropertyChange();
                 }
             }

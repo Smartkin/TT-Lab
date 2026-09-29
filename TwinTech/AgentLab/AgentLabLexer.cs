@@ -13,6 +13,7 @@ public class AgentLabLexer : IDisposable
     private AgentLabToken _currentToken;
     private List<AgentLabToken> _reservedKeywords = new();
     private char[] _reservedChar = { '/', '*', '!', '[', ']', '{', '}', '(', ')', '+', '-', '=', ';', ':', ',', '>', '<', '"', '\'' };
+    private static readonly Lazy<HashSet<string>> ReservedWords = new(() => new AgentLabLexer(string.Empty)._reservedKeywords.Select(keyword => keyword.ToString()).ToHashSet());
     private Char? _currentChar;
     private int _line = 1;
     private int _column;
@@ -29,6 +30,22 @@ public class AgentLabLexer : IDisposable
         InitKeywords();
         _reader = reader;
         Advance();
+    }
+
+    /// <summary>
+    /// Whether the word lexes as an identifier: a letter or underscore, then letters, digits and underscores
+    /// </summary>
+    public static bool IsIdentifier(string word)
+    {
+        return !string.IsNullOrEmpty(word) && (char.IsLetter(word[0]) || word[0] == '_') && word.All(character => char.IsLetterOrDigit(character) || character == '_');
+    }
+
+    /// <summary>
+    /// Whether the word is a keyword or a token type's name, which the lexer never gives back as an identifier
+    /// </summary>
+    public static bool IsReservedKeyword(string word)
+    {
+        return IsIdentifier(word) && (ReservedWords.Value.Contains(word) || Enum.TryParse(word, true, out AgentLabToken.TokenType _));
     }
 
     private void InitKeywords()
@@ -60,12 +77,17 @@ public class AgentLabLexer : IDisposable
         _reservedKeywords.Add(GenerateKeywordType(AgentLabToken.TokenType.BooleanType, "bool"));
         _reservedKeywords.Add(GenerateKeywordType(AgentLabToken.TokenType.IntegerType, "int"));
         _reservedKeywords.Add(GenerateKeywordType(AgentLabToken.TokenType.FloatType, "float"));
+        _reservedKeywords.Add(GenerateKeywordType(AgentLabToken.TokenType.TaggedFloatType, "tfloat"));
+        _reservedKeywords.Add(GenerateKeywordType(AgentLabToken.TokenType.TaggedIntType, "tint"));
+        _reservedKeywords.Add(GenerateKeywordType(AgentLabToken.TokenType.TaggedAngleType, "tangle"));
+        _reservedKeywords.Add(GenerateKeywordType(AgentLabToken.TokenType.SignedIntegerType, "sint"));
         _reservedKeywords.Add(GenerateKeywordType(AgentLabToken.TokenType.Action, "action"));
         _reservedKeywords.Add(GenerateKeywordType(AgentLabToken.TokenType.Condition, "condition"));
         _reservedKeywords.Add(GenerateKeyword("GlobalObjectId"));
         _reservedKeywords.Add(GenerateKeyword("Priority"));
         _reservedKeywords.Add(GenerateKeyword("GraphPriority"));
         _reservedKeywords.Add(GenerateKeyword("NonBlocking"));
+        _reservedKeywords.Add(GenerateKeyword("Interrupting"));
         _reservedKeywords.Add(GenerateKeyword("SkipFirstBody"));
         _reservedKeywords.Add(GenerateKeyword("UseObjectSlot"));
         _reservedKeywords.Add(GenerateKeyword("ControlPacket"));
@@ -181,7 +203,7 @@ public class AgentLabLexer : IDisposable
                     {
                         if (int.TryParse(lexeme[2..], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var parseResult))
                         {
-                            token = new AgentLabToken(AgentLabToken.TokenType.Integer, parseResult);
+                            token = new AgentLabToken(AgentLabToken.TokenType.Integer, parseResult).AsHexLiteral();
                         }
                     }
                     else if (int.TryParse(lexeme, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value))
@@ -209,6 +231,8 @@ public class AgentLabLexer : IDisposable
                     '=' when Peek() == '=' => new AgentLabToken(AgentLabToken.TokenType.Equality, "=="),
                     '>' when Peek() == '=' => new AgentLabToken(AgentLabToken.TokenType.GreaterEqual, ">="),
                     '<' when Peek() == '=' => new AgentLabToken(AgentLabToken.TokenType.LessEqual, "<="),
+                    '>' => new AgentLabToken(AgentLabToken.TokenType.Greater, '>'),
+                    '<' => new AgentLabToken(AgentLabToken.TokenType.Less, '<'),
                     ',' => new AgentLabToken(AgentLabToken.TokenType.Comma, ','),
                     ':' => new AgentLabToken(AgentLabToken.TokenType.Colon, ':'),
                     ';' => new AgentLabToken(AgentLabToken.TokenType.Semicolon, ';'),

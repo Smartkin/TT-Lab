@@ -21,7 +21,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code
         public List<Matrix4> SkinInverseBindMatrices { get; set; }
         public UInt32 SkinID { get; set; }
         public UInt32 BlendSkinID { get; set; }
-        public List<TwinBoundingBoxBuilder> Collisions { get; set; }
+        public List<TwinCollisionHull> CollisionHulls { get; set; }
         public List<Byte> CollisionJointIndices { get; set; }
 
         public PS2AnyOGI()
@@ -35,14 +35,14 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code
             JointIndices = new List<byte>();
             RigidModelIds = new List<uint>();
             SkinInverseBindMatrices = new List<Matrix4>();
-            Collisions = new List<TwinBoundingBoxBuilder>();
+            CollisionHulls = new List<TwinCollisionHull>();
             CollisionJointIndices = new List<byte>();
         }
 
         public override int GetLength()
         {
             int dynamic_size = 0;
-            foreach (ITwinSerializable e in Collisions)
+            foreach (ITwinSerializable e in CollisionHulls)
             {
                 dynamic_size += e.GetLength();
             }
@@ -100,12 +100,12 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code
             }
             SkinID = reader.ReadUInt32();
             BlendSkinID = reader.ReadUInt32();
-            Collisions.Clear();
+            CollisionHulls.Clear();
             for (int i = 0; i < collidersAmount; ++i)
             {
-                TwinBoundingBoxBuilder bbBuilder = new();
-                bbBuilder.Read(reader, length);
-                Collisions.Add(bbBuilder);
+                TwinCollisionHull hull = new();
+                hull.Read(reader, length);
+                CollisionHulls.Add(hull);
             }
             CollisionJointIndices.Clear();
             for (int i = 0; i < collidersAmount; ++i)
@@ -122,7 +122,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code
             headerData[(int)ITwinOGI.HeaderInfo.RIGID_MODELS_AMOUNT] = (Byte)RigidModelIds.Count;
             headerData[(int)ITwinOGI.HeaderInfo.HAS_SKIN] = (Byte)((SkinID == 0) ? 0 : 1);
             headerData[(int)ITwinOGI.HeaderInfo.HAS_BLEND_SKIN] = (Byte)((BlendSkinID == 0) ? 0 : 1);
-            headerData[(int)ITwinOGI.HeaderInfo.COLLISIONS_AMOUNT] = (Byte)Collisions.Count;
+            headerData[(int)ITwinOGI.HeaderInfo.COLLISIONS_AMOUNT] = (Byte)CollisionHulls.Count;
             writer.Write(headerData);
             BoundingBox[0].Write(writer);
             BoundingBox[1].Write(writer);
@@ -148,7 +148,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code
             }
             writer.Write(SkinID);
             writer.Write(BlendSkinID);
-            foreach (ITwinSerializable item in Collisions)
+            foreach (ITwinSerializable item in CollisionHulls)
             {
                 item.Write(writer);
             }

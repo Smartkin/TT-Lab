@@ -1,0 +1,31 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:editors="clr-namespace:TT_Lab.ViewModels.Editors"
+             x:DataType="editors:ChunkResourcesTreeViewModel"
+             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="400"
+             x:Class="TT_Lab.Views.Editors.ChunkResourcesTreeView">
+    <TreeView x:Name="Tree"
+              ItemsSource="{Binding Folders}"
+              SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
+              ScrollViewer.VerticalScrollBarVisibility="Disabled"
+              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+        <TreeView.Styles>
+            <Style Selector="TreeViewItem" x:DataType="editors:ChunkResourceRow">
+                <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+            </Style>
+        </TreeView.Styles>
+        <TreeView.ItemTemplate>
+            <TreeDataTemplate ItemsSource="{Binding Children}" x:DataType="editors:ChunkResourceRow">
+                <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,1" Background="Transparent" ToolTip.Tip="{Binding Hint}">
+                    <Image Source="{Binding Icon}" Width="20" Height="20" VerticalAlignment="Center" Stretch="Uniform"/>
+                    <TextBlock Text="{Binding Caption}" VerticalAlignment="Center" IsVisible="{Binding IsNotRenaming}"/>
+                    <TextBlock Text="{Binding Count}" VerticalAlignment="Center" Opacity="0.5" FontSize="11"/>
+                    <TextBox Text="{Binding NewName, Mode=TwoWay}" IsVisible="{Binding IsRenaming}" MinWidth="160" VerticalAlignment="Center"
+                             KeyDown="RenameKeyDown" LostFocus="RenameLostFocus" AttachedToVisualTree="RenameAttached"/>
+                </StackPanel>
+            </TreeDataTemplate>
+        </TreeView.ItemTemplate>
+    </TreeView>
+</UserControl>

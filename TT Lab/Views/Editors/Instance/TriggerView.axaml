@@ -33,7 +33,7 @@
                                 <UniformGrid Rows="1" Margin="0,0,0,0">
                                     <controls:LabeledDropList Margin="0, 5, 0, 0" x:Name="InstanceLayoutList" SelectedItem="{Binding LayoutID}" Items="{Binding InstanceLayers}" DropListName="Instance layout"/>
                                     <controls:LabeledTextBox x:Name="HeaderBox" Text="{Binding Header, StringFormat={}{0:X}}" IsReadOnly="True" TextBoxName="Header" Margin="5,5,5,5" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
-                                    <controls:LabeledTextBox x:Name="UnkFloatBox" Text="{Binding UnkFloat, Converter={StaticResource FloatConverter}}" TextBoxName="Unknown float" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="5,5,5,5"/>
+                                    <controls:LabeledTextBox x:Name="CheckIntervalBox" Text="{Binding CheckInterval, Converter={StaticResource FloatConverter}}" TextBoxName="Unknown float" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="5,5,5,5"/>
                                 </UniformGrid>
                             </Grid>
                         </Grid>

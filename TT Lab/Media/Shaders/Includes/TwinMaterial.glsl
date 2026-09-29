@@ -24,10 +24,15 @@ struct TwinMaterial {
     bool two_sided_lighting;
     float perform_fog; // 0 is off, 1 is on
     float use_texture; // 0 is off, 1 is on
-    vec2 deform_speed;
+    // Cloth deformation: the mode, how fast the phases advance and how far each axis moves
+    int deform_mode;
+    float deform_speed;
+    vec3 deform_amplitude;
     float billboard_render;
     float double_color;
     vec2 uv_scroll_speed;
+    vec2 uv_offset; // the shader animation's U and V tracks
+    vec4 animated_color; // the shader animation's color tracks, white without
     vec2 reflect_dist; // x is 1 or 0 for enabled/disabled, y is for actual distance
     float alpha_test;
     float alpha_blend; // 0 is off, 1 is on

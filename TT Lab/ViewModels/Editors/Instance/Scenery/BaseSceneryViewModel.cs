@@ -16,10 +16,10 @@ namespace TT_Lab.ViewModels.Editors.Instance.Scenery
         private BindableCollection<BoundingBoxViewModel> bbs;
         private BindableCollection<Matrix4ViewModel> meshModelMatrices;
         private BindableCollection<Matrix4ViewModel> lodModelMatrices;
-        private Vector4ViewModel unkVec1;
-        private Vector4ViewModel unkVec2;
-        private Vector4ViewModel unkVec3;
-        private Vector4ViewModel unkVec4;
+        private Vector4ViewModel boundsCenter;
+        private Vector4ViewModel boundsMin;
+        private Vector4ViewModel boundsMax;
+        private Vector4ViewModel boundsHalfSize;
         private BindableCollection<PrimitiveWrapperViewModel<Boolean>> lightsEnabler;
         private bool isDirty;
         private DirtyTracker dirtyTracker;
@@ -59,14 +59,14 @@ namespace TT_Lab.ViewModels.Editors.Instance.Scenery
             {
                 lodModelMatrices.Add(new Matrix4ViewModel(mat));
             }
-            unkVec1 = new Vector4ViewModel(data.UnkVec1);
-            unkVec2 = new Vector4ViewModel(data.UnkVec2);
-            unkVec3 = new Vector4ViewModel(data.UnkVec3);
-            unkVec4 = new Vector4ViewModel(data.UnkVec4);
-            dirtyTracker.AddChild(unkVec1);
-            dirtyTracker.AddChild(unkVec2);
-            dirtyTracker.AddChild(unkVec3);
-            dirtyTracker.AddChild(unkVec4);
+            boundsCenter = new Vector4ViewModel(data.BoundsCenter);
+            boundsMin = new Vector4ViewModel(data.BoundsMin);
+            boundsMax = new Vector4ViewModel(data.BoundsMax);
+            boundsHalfSize = new Vector4ViewModel(data.BoundsHalfSize);
+            dirtyTracker.AddChild(boundsCenter);
+            dirtyTracker.AddChild(boundsMin);
+            dirtyTracker.AddChild(boundsMax);
+            dirtyTracker.AddChild(boundsHalfSize);
             lightsEnabler = new BindableCollection<PrimitiveWrapperViewModel<Boolean>>();
             lightsEnabler.CollectionChanged += (s, e) => { dirtyTracker.MarkDirty(); };
             foreach (var enabler in data.LightsEnabler)
@@ -85,10 +85,10 @@ namespace TT_Lab.ViewModels.Editors.Instance.Scenery
         public BindableCollection<BoundingBoxViewModel> Bbs { get => bbs; private set => bbs = value; }
         public BindableCollection<Matrix4ViewModel> MeshModelMatrices { get => meshModelMatrices; private set => meshModelMatrices = value; }
         public BindableCollection<Matrix4ViewModel> LodModelMatrices { get => lodModelMatrices; private set => lodModelMatrices = value; }
-        public Vector4ViewModel UnkVec1 { get => unkVec1; set => unkVec1 = value; }
-        public Vector4ViewModel UnkVec2 { get => unkVec2; set => unkVec2 = value; }
-        public Vector4ViewModel UnkVec3 { get => unkVec3; set => unkVec3 = value; }
-        public Vector4ViewModel UnkVec4 { get => unkVec4; set => unkVec4 = value; }
+        public Vector4ViewModel BoundsCenter { get => boundsCenter; set => boundsCenter = value; }
+        public Vector4ViewModel BoundsMin { get => boundsMin; set => boundsMin = value; }
+        public Vector4ViewModel BoundsMax { get => boundsMax; set => boundsMax = value; }
+        public Vector4ViewModel BoundsHalfSize { get => boundsHalfSize; set => boundsHalfSize = value; }
         public BindableCollection<PrimitiveWrapperViewModel<Boolean>> LightsEnabler { get => lightsEnabler; private set => lightsEnabler = value; }
 
         public bool IsDirty => DirtyTracker.IsDirty;

@@ -3,6 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:viewModels="clr-namespace:TT_Lab.ViewModels"
+             xmlns:controls="clr-namespace:TT_Lab.Controls"
              x:DataType="viewModels:ChunkInspectorViewModel"
              mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="600"
              Focusable="True"
@@ -16,8 +17,7 @@
     <Grid>
         <TextBlock Text="Select something in a chunk's scene or open one of its resources to inspect it" TextWrapping="Wrap" Margin="10" Opacity="0.7"
                    IsVisible="{Binding Inspected, Converter={x:Static ObjectConverters.IsNull}}"/>
-        <DockPanel IsVisible="{Binding Inspected, Converter={x:Static ObjectConverters.IsNotNull}}">
-            <ContentControl Content="{Binding Inspected}"/>
-        </DockPanel>
+        <!-- The document's own scroll viewer and inspector view, kept while its tab is open -->
+        <Decorator x:Name="InspectorHost" IsVisible="{Binding Inspected, Converter={x:Static ObjectConverters.IsNotNull}}"/>
     </Grid>
 </UserControl>

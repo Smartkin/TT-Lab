@@ -15,6 +15,11 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
     private Func<int, int> conditionIdGenerator;
     
     public AgentLabSymbolTable SymbolTable { get; private set; }
+
+    /// <summary>
+    /// Tells whether a state's behaviour reference (a name or a string) exists, null skips the check
+    /// </summary>
+    public Func<string, bool> BehaviourExists { get; set; }
     
     public AgentLabSymbolTableNodeVisitor()
     {
@@ -55,7 +60,8 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
         Visitors.Add(typeof(UseObjectSlotAttributeNode), VisitUseObjectSlotAttribute);
         Visitors.Add(typeof(ObjectSlotNameNode), VisitObjectSlotName);
         Visitors.Add(typeof(ControlPacketAttributeNode), VisitControlPacketAttribute);
-        Visitors.Add(typeof(NonBlockingAttributeNode), VisitNoop);
+        Visitors.Add(typeof(InterruptingAttributeNode), VisitNoop);
+        Visitors.Add(typeof(TaggedLiteralNode), VisitTaggedLiteral);
         Visitors.Add(typeof(SkipFirstBodyAttributeNode), VisitNoop);
         Visitors.Add(typeof(StateExecuteNode), VisitStateExecute);
         Visitors.Add(typeof(ControlPacketListNode), VisitControlPacketList);
@@ -69,6 +75,7 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
         Visitors.Add(typeof(LinearBehaviourListNode), VisitLinearBehaviourListNode);
         Visitors.Add(typeof(LinearBehaviourNode), VisitLinearBehaviourNode);
         Visitors.Add(typeof(ParamDefinitionNode), VisitParamDefinitionNode);
+        Visitors.Add(typeof(FieldGroupNode), VisitFieldGroupNode);
         Visitors.Add(typeof(ParamDefinitionListNode), VisitParamDefinitionListNode);
         Visitors.Add(typeof(ActionDefinitionListNode), VisitActionDefinitionListNode);
         Visitors.Add(typeof(ActionDefinitionNode), VisitActionDefinitionNode);
@@ -146,12 +153,37 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
     {
         var stateBodyList = (StateBodyListNode)node;
         
-        foreach (var body in stateBodyList.Children)
+        for (var i = 0; i < stateBodyList.Children.Count; i++)
         {
+            var body = (StateBodyNode)stateBodyList.Children[i];
+            if (body.Kind == StateBodyKind.Completion && i != 0)
+            {
+                throw new AgentLabSyntaxException("The completion block has to be the first body of its state", body.Token.Line, body.Token.Column);
+            }
+
             Visit(body);
         }
         
         return null;
+    }
+
+    private Object VisitTaggedLiteral(IAgentLabTreeNode node)
+    {
+        var literal = (TaggedLiteralNode)node;
+        var valueType = Visit(literal.Value) as AgentLabSymbol;
+        var integerType = SymbolTable.Lookup(nameof(AgentLabToken.TokenType.IntegerType));
+        var floatType = SymbolTable.Lookup(nameof(AgentLabToken.TokenType.FloatType));
+        if (valueType != integerType && valueType != floatType)
+        {
+            throw new AgentLabSyntaxException($"{literal.Name}() takes a number", literal.Token.Line, literal.Token.Column);
+        }
+
+        if (literal.Name is "Prop" or "Raw" or "Int" && valueType != integerType)
+        {
+            throw new AgentLabSyntaxException($"{literal.Name}() takes an integer", literal.Token.Line, literal.Token.Column);
+        }
+
+        return SymbolTable.Lookup(AgentLabSymbolTable.TaggedLiteralTypeName);
     }
 
     private Object VisitAlias(IAgentLabTreeNode node)
@@ -228,7 +260,101 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
     private Object VisitParamDefinitionNode(IAgentLabTreeNode node)
     {
         var paramDef = (ParamDefinitionNode)node;
-        return new AgentLabParamSymbol(paramDef.Name, SymbolTable.Lookup(paramDef.Type.Type.ToString()));
+        if (paramDef.Fields == null)
+        {
+            return new AgentLabParamSymbol(paramDef.Name, SymbolTable.Lookup(paramDef.Type.Type.ToString()));
+        }
+
+        // the fields follow each other from bit 0 and have to fill the dword, so every value of the game's scripts has a form
+        var fields = new List<AgentLabFieldDefinition>();
+        var bit = 0;
+        foreach (var field in paramDef.Fields)
+        {
+            if (fields.Any(other => other.Name == field.Name))
+            {
+                throw new AgentLabSyntaxException($"Field {field.Name} of {paramDef.Name} is defined twice", field.Token.Line, field.Token.Column);
+            }
+
+            fields.Add(new AgentLabFieldDefinition(field.Name, bit, field.Width, field.Type == AgentLabToken.TokenType.BooleanType, field.Type == AgentLabToken.TokenType.SignedIntegerType));
+            bit += field.Width;
+        }
+
+        if (bit != 32)
+        {
+            var token = paramDef.Fields[^1].Token;
+            throw new AgentLabSyntaxException($"The fields of {paramDef.Name} take {bit} bits, they have to take 32", token.Line, token.Column);
+        }
+
+        return new AgentLabParamSymbol(paramDef.Name, SymbolTable.Lookup(nameof(AgentLabToken.TokenType.PackedType)), fields);
+    }
+
+    private Object VisitFieldGroupNode(IAgentLabTreeNode node)
+    {
+        var group = (FieldGroupNode)node;
+        foreach (var (_, value) in group.Fields)
+        {
+            Visit(value);
+        }
+
+        return SymbolTable.Lookup(AgentLabSymbolTable.FieldGroupTypeName);
+    }
+
+    // The names and types of a {name = value, ...} argument against the parameter's fields
+    private void CheckFieldGroup(FieldGroupNode group, AgentLabParamSymbol parameter, string actionName)
+    {
+        if (parameter.Fields == null)
+        {
+            throw new AgentLabSyntaxException($"Parameter {parameter.Name} of {actionName} is a value, not fields", group.Token.Line, group.Token.Column);
+        }
+
+        var seen = new HashSet<string>();
+        foreach (var (name, value) in group.Fields)
+        {
+            var fieldName = name.GetValue<string>();
+            var field = parameter.FindField(fieldName);
+            if (field == null)
+            {
+                throw new AgentLabSyntaxException($"Parameter {parameter.Name} of {actionName} has no field {fieldName}, it has {string.Join(", ", parameter.Fields.Select(f => f.Name))}", name.Line, name.Column);
+            }
+
+            if (!seen.Add(fieldName))
+            {
+                throw new AgentLabSyntaxException($"Field {fieldName} is given twice", name.Line, name.Column);
+            }
+
+            var valueType = (Visit(value) as AgentLabSymbol)?.Name;
+            var ok = field.IsBool ? valueType is nameof(AgentLabToken.TokenType.BooleanType) or nameof(AgentLabToken.TokenType.IntegerType) : valueType == nameof(AgentLabToken.TokenType.IntegerType);
+            if (!ok)
+            {
+                throw new AgentLabSyntaxException($"Field {fieldName} takes {(field.IsBool ? "a bool" : "an integer")}, not {valueType}", name.Line, name.Column);
+            }
+
+            // literals are checked against the field's range here, so the editor's check reports them, expressions when compiled
+            if (TryLiteral(value, out var literal) && !field.Fits(literal))
+            {
+                var range = field.IsBool ? "true or false" : field.IsSigned ? $"{-(1L << (field.Width - 1))} to {(1L << (field.Width - 1)) - 1}" : $"0 to {(field.Width >= 32 ? uint.MaxValue : (1L << field.Width) - 1)}";
+                throw new AgentLabSyntaxException($"Field {fieldName} takes {range}, not {literal}", name.Line, name.Column);
+            }
+        }
+    }
+
+    private static bool TryLiteral(IAgentLabTreeNode node, out long value)
+    {
+        switch (node)
+        {
+            case NumberNode { Value: int i }:
+                value = i;
+                return true;
+            case BooleanNode b:
+                value = b.Value ? 1 : 0;
+                return true;
+            case UnaryOperationNode { Token.Type: AgentLabToken.TokenType.SubtractOperator } negative when TryLiteral(negative.Expression, out var inner):
+                value = -inner;
+                return true;
+            default:
+                value = 0;
+                return false;
+        }
     }
 
     private Object VisitParamDefinitionListNode(IAgentLabTreeNode node)
@@ -369,7 +495,18 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
         {
             var providedType = parameterTypes![i];
             var expectedArgument = expectedSymbols![i];
-            AssertType(expectedArgument.Type, providedType);
+            if (((ParamNode)action.Parameters!.Children[i]).Value is FieldGroupNode group)
+            {
+                CheckFieldGroup(group, expectedArgument, action.Name);
+                continue;
+            }
+
+            if (!AgentLabSymbolTable.IsAssignable(expectedArgument.Type.Name, providedType.Name))
+            {
+                var paramNode = (ParamNode)action.Parameters!.Children[i];
+                var at = paramNode.Value is NumberNode number ? number.Token : paramNode.Value is TaggedLiteralNode tagged ? tagged.Token : action.Token;
+                throw new AgentLabSyntaxException($"Expected {expectedArgument.Type.Name} but got {providedType.Name} for parameter {expectedArgument.Name} of {action.Name}", at.Line, at.Column);
+            }
         }
 
         return null;
@@ -389,8 +526,23 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
     private Object VisitStateBodyNode(IAgentLabTreeNode node)
     {
         var stateBody = (StateBodyNode)node;
-        Visit(stateBody.Interval);
-        Visit(stateBody.Threshold);
+        var integerType = SymbolTable.Lookup(nameof(AgentLabToken.TokenType.IntegerType));
+        var floatType = SymbolTable.Lookup(nameof(AgentLabToken.TokenType.FloatType));
+        foreach (var (value, name) in new[] { (stateBody.Window, "window"), (stateBody.Threshold, "threshold"), (stateBody.Weight, "weight") })
+        {
+            if (value == null)
+            {
+                continue;
+            }
+
+            var type = Visit(value) as AgentLabSymbol;
+            if (type != integerType && type != floatType)
+            {
+                throw new AgentLabSyntaxException($"{name} has to be a number", stateBody.Token.Line, stateBody.Token.Column);
+            }
+        }
+
+        Visit(stateBody.Restart);
         Visit(stateBody.Condition);
         Visit(stateBody.ActionList);
         Visit(stateBody.StateExecute);
@@ -623,6 +775,12 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
             Type = SymbolTable.Lookup(nameof(AgentLabToken.TokenType.State))
         };
         SymbolTable.Define(symbol);
+        if (state.BehaviourId is BehaviourReferenceNode reference && BehaviourExists != null && !state.Attributes.Children.Any(attribute => attribute is UseObjectSlotAttributeNode)
+            && !BehaviourExists(reference.Reference))
+        {
+            throw new AgentLabSyntaxException($"Behaviour {reference.Reference} isn't in this package or the packages it depends on", reference.Token.Line, reference.Token.Column);
+        }
+
         DeferredVisit(state.Bodies);
         DeferredVisit(state.Attributes);
         return null;

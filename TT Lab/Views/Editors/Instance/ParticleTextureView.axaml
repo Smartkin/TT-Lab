@@ -1,0 +1,66 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:instance="clr-namespace:TT_Lab.ViewModels.Editors.Instance"
+             xmlns:labControls="clr-namespace:TT_Lab.Controls"
+             x:DataType="instance:ParticleTextureViewModel"
+             mc:Ignorable="d" d:DesignWidth="320" d:DesignHeight="420"
+             x:Class="TT_Lab.Views.Editors.Instance.ParticleTextureView">
+    <UserControl.Styles>
+        <Style Selector="Button.page">
+            <Setter Property="Padding" Value="2"/>
+            <Setter Property="BorderThickness" Value="2"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+        </Style>
+        <Style Selector="Button.page.selected">
+            <Setter Property="BorderBrush" Value="#FFB030"/>
+        </Style>
+    </UserControl.Styles>
+    <StackPanel Spacing="6" Margin="0,2">
+        <!-- The default chunk's texture pages, the picture is taken from one of them -->
+        <ItemsControl ItemsSource="{Binding Pages}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal" Spacing="6"/>
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="instance:ParticlePageChoice">
+                    <Button Classes="page" Classes.selected="{Binding IsSelected}" Click="PageClicked" ToolTip.Tip="{Binding Caption}">
+                        <StackPanel Spacing="2">
+                            <Border Width="48" Height="48" Background="#2A2A30">
+                                <Image Source="{Binding Picture}" Stretch="Uniform" RenderOptions.BitmapInterpolationMode="None"/>
+                            </Border>
+                            <TextBlock Text="{Binding Caption}" HorizontalAlignment="Center" FontSize="11"/>
+                        </StackPanel>
+                    </Button>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <labControls:ParticleTexturePage x:Name="PageEditor" HorizontalAlignment="Left" Zoom="2" ToolTip.Tip="{Binding Hint}" ToolTip.ShowDelay="500"
+                                         Page="{Binding Page}" Rect="{Binding Rect}" Sprites="{Binding Sprites}"/>
+        <TextBlock Text="{Binding Status}" Opacity="0.8" TextWrapping="Wrap"/>
+        <Grid ColumnDefinitions="Auto,12,*">
+            <Border Width="72" Height="72" Background="#2A2A30" VerticalAlignment="Top" ToolTip.Tip="The picture as the particles show it">
+                <Image Source="{Binding Preview}" Stretch="Uniform" RenderOptions.BitmapInterpolationMode="None" RenderTransformOrigin="50%,50%">
+                    <Image.RenderTransform>
+                        <ScaleTransform ScaleX="{Binding PreviewScaleX}" ScaleY="{Binding PreviewScaleY}"/>
+                    </Image.RenderTransform>
+                </Image>
+            </Border>
+            <Grid Grid.Column="2" ColumnDefinitions="Auto,*,8,Auto,*" RowDefinitions="Auto,4,Auto,4,Auto">
+                <TextBlock Text="X" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <TextBox x:Name="XBox" Grid.Column="1" Text="{Binding X, UpdateSourceTrigger=LostFocus}"/>
+                <TextBlock Grid.Column="3" Text="Y" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <TextBox Grid.Column="4" Text="{Binding Y, UpdateSourceTrigger=LostFocus}"/>
+                <TextBlock Grid.Row="2" Text="Width" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Width, UpdateSourceTrigger=LostFocus}"/>
+                <TextBlock Grid.Row="2" Grid.Column="3" Text="Height" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <TextBox Grid.Row="2" Grid.Column="4" Text="{Binding Height, UpdateSourceTrigger=LostFocus}"/>
+                <CheckBox Grid.Row="4" Grid.ColumnSpan="2" Content="Mirror sideways" IsChecked="{Binding MirrorX}"/>
+                <CheckBox Grid.Row="4" Grid.Column="3" Grid.ColumnSpan="2" Content="Mirror upside down" IsChecked="{Binding MirrorY}"/>
+            </Grid>
+        </Grid>
+    </StackPanel>
+</UserControl>

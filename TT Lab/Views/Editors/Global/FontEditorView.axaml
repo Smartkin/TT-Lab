@@ -1,0 +1,52 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:TT_Lab.Controls"
+             xmlns:global="clr-namespace:TT_Lab.ViewModels.Editors.Global"
+             x:DataType="global:FontEditorViewModel"
+             mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="600"
+             x:Class="TT_Lab.Views.Editors.Global.FontEditorView">
+    <DockPanel LastChildFill="True">
+        <WrapPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0, 0, 0, 4">
+            <TextBlock Text="Page" VerticalAlignment="Center" Margin="0, 0, 6, 0"/>
+            <ComboBox x:Name="PageChoice" ItemsSource="{Binding Pages}" SelectedItem="{Binding SelectedPage}" MinWidth="160" Margin="0, 0, 10, 0" VerticalAlignment="Center">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="global:FontPage">
+                        <TextBlock Text="{Binding Name}"/>
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+            <Button x:Name="ReplacePage" Content="Replace page image..." Click="ReplacePageClicked" Margin="0, 0, 10, 0" VerticalAlignment="Center"
+                    ToolTip.Tip="Puts a PNG in place of the page's picture: 8 to 256 pixels wide and tall, a power of two each way, upside down like the game keeps its pages (the editor shows them the right way up). It replaces the texture asset right away"/>
+            <TextBlock Text="Zoom" VerticalAlignment="Center" Margin="0, 0, 6, 0"/>
+            <Slider x:Name="ZoomSlider" Minimum="1" Maximum="8" Value="3" Width="120" VerticalAlignment="Center" Margin="0, 0, 10, 0"/>
+            <Button Content="Add character" Command="{Binding AddCharacterCommand}" Margin="0, 0, 4, 0" VerticalAlignment="Center" ToolTip.Tip="Adds the next character code to the table"/>
+            <Button Content="Remove last" Command="{Binding RemoveLastCharacterCommand}" VerticalAlignment="Center" ToolTip.Tip="Takes the table's last character out"/>
+        </WrapPanel>
+        <Grid ColumnDefinitions="*,8,320">
+            <ScrollViewer Grid.Column="0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Height="420">
+                <controls:FontPageEditor x:Name="PageEditor" Page="{Binding SelectedImage}" Boxes="{Binding Boxes}" SelectedIndex="{Binding SelectedIndex}"
+                                         Zoom="{Binding #ZoomSlider.Value}" HorizontalAlignment="Left" VerticalAlignment="Top"
+                                         ToolTip.Tip="Click a box to pick its character, drag it to move it, drag its corner to resize it"/>
+            </ScrollViewer>
+            <Grid Grid.Column="2" RowDefinitions="*,Auto">
+                <ListBox x:Name="CharacterList" ItemsSource="{Binding Characters}" SelectedItem="{Binding SelectedCharacter}" Height="260">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="global:FontCharacter">
+                            <TextBlock Text="{Binding Caption}"/>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+                <StackPanel Grid.Row="1" DataContext="{Binding SelectedCharacter}" x:DataType="global:FontCharacter" IsVisible="{Binding ., Converter={x:Static ObjectConverters.IsNotNull}}" Margin="0, 6, 0, 0">
+                    <TextBlock Text="{Binding Caption, StringFormat='Character {0}'}" FontWeight="Bold" Margin="0, 0, 0, 4"/>
+                    <controls:LabeledTextBox TextBoxName="Page (1 first, 2 second...)" Text="{Binding Page}" LayoutOrientation="Horizontal" Margin="0, 0, 0, 2"/>
+                    <controls:LabeledTextBox TextBoxName="Left" Text="{Binding Left}" LayoutOrientation="Horizontal" Margin="0, 0, 0, 2"/>
+                    <controls:LabeledTextBox TextBoxName="Bottom (the row under the glyph)" Text="{Binding Bottom}" LayoutOrientation="Horizontal" Margin="0, 0, 0, 2"/>
+                    <controls:LabeledTextBox TextBoxName="Width" Text="{Binding Width}" LayoutOrientation="Horizontal" Margin="0, 0, 0, 2"/>
+                    <controls:LabeledTextBox TextBoxName="Height" Text="{Binding Height}" LayoutOrientation="Horizontal" Margin="0, 0, 0, 2"/>
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </DockPanel>
+</UserControl>

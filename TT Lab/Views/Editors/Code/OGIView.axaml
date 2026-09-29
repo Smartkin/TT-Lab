@@ -66,22 +66,22 @@
                             </controls:GroupBox>
                         </StackPanel>
                     </Expander>
-                    <Expander HorizontalAlignment="Stretch" Header="Bounding Box Builders">
+                    <Expander HorizontalAlignment="Stretch" Header="Collision Hulls">
                         <StackPanel Orientation="Vertical">
-                            <ListBox x:Name="BoundingBoxBuildersList" MaxHeight="200" ItemsSource="{Binding BoundingBoxBuilders}">
+                            <ListBox x:Name="CollisionHullsList" MaxHeight="200" ItemsSource="{Binding CollisionHulls}">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
                                         <TextBlock Text="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType=ListBoxItem}, Converter={StaticResource ListBoxItemConverterIndexed}}"/>
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
                             </ListBox>
-                            <controls:GroupBox Header="Edited Bounding Box Builder">
-                                <composite:BoundingBoxBuilderView DataContext="{Binding SelectedItem, ElementName=BoundingBoxBuildersList}"/>
+                            <controls:GroupBox Header="Edited Collision Hull">
+                                <composite:CollisionHullView DataContext="{Binding SelectedItem, ElementName=CollisionHullsList}"/>
                             </controls:GroupBox>
                         </StackPanel>
                     </Expander>
-                    <Expander HorizontalAlignment="Stretch" Header="Bounding Box Builder To Joints">
-                        <ListBox MaxHeight="200" ItemsSource="{Binding BoundingBoxBuilderToJoints}">
+                    <Expander HorizontalAlignment="Stretch" Header="Collision Hull Joints">
+                        <ListBox MaxHeight="200" ItemsSource="{Binding CollisionHullJoints}">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding Value}"/>

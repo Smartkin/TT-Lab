@@ -14,10 +14,23 @@ namespace Twinsanity.TwinsanityInterchange.Common.ScenerySubtypes
         public List<Vector4[]> BoundingBoxes;
         public List<Matrix4> MeshModelMatrices;
         public List<Matrix4> LodModelMatrices;
-        public Vector4 UnkVec1;
-        public Vector4 UnkVec2;
-        public Vector4 UnkVec3;
-        public Vector4 UnkVec4;
+        /// <summary>
+        /// The center of the node's box with the box's radius in W, the tools' value the game never reads
+        /// </summary>
+        public Vector4 BoundsCenter;
+        /// <summary>
+        /// The smallest corner of the node's box, which the game finds the node holding a box by (ReadSceneryBase 0x1e9c78 keeps it
+        /// and <see cref="BoundsMax"/>, FUN_001ebbf8 searches with them). The tree is an octree, every node's box is a cell of it
+        /// </summary>
+        public Vector4 BoundsMin;
+        /// <summary>
+        /// The biggest corner of the node's box
+        /// </summary>
+        public Vector4 BoundsMax;
+        /// <summary>
+        /// Half the box's size, the tools' value the game never reads. The W of the three is the parent's radius
+        /// </summary>
+        public Vector4 BoundsHalfSize;
         public Boolean[] LightsEnabler;
 
         public TwinSceneryBaseType()
@@ -27,10 +40,10 @@ namespace Twinsanity.TwinsanityInterchange.Common.ScenerySubtypes
             BoundingBoxes = new List<Vector4[]>();
             MeshModelMatrices = new List<Matrix4>();
             LodModelMatrices = new List<Matrix4>();
-            UnkVec1 = new Vector4();
-            UnkVec2 = new Vector4();
-            UnkVec3 = new Vector4();
-            UnkVec4 = new Vector4();
+            BoundsCenter = new Vector4();
+            BoundsMin = new Vector4();
+            BoundsMax = new Vector4();
+            BoundsHalfSize = new Vector4();
             LightsEnabler = new Boolean[128];
         }
 
@@ -89,10 +102,10 @@ namespace Twinsanity.TwinsanityInterchange.Common.ScenerySubtypes
                     }
                 }
             }
-            UnkVec1.Read(reader, Constants.SIZE_VECTOR4);
-            UnkVec2.Read(reader, Constants.SIZE_VECTOR4);
-            UnkVec3.Read(reader, Constants.SIZE_VECTOR4);
-            UnkVec4.Read(reader, Constants.SIZE_VECTOR4);
+            BoundsCenter.Read(reader, Constants.SIZE_VECTOR4);
+            BoundsMin.Read(reader, Constants.SIZE_VECTOR4);
+            BoundsMax.Read(reader, Constants.SIZE_VECTOR4);
+            BoundsHalfSize.Read(reader, Constants.SIZE_VECTOR4);
             var bytes = reader.ReadBytes(0x10);
             var index = 0;
             foreach (var b in bytes)
@@ -137,10 +150,10 @@ namespace Twinsanity.TwinsanityInterchange.Common.ScenerySubtypes
                     mat.Write(writer);
                 }
             }
-            UnkVec1.Write(writer);
-            UnkVec2.Write(writer);
-            UnkVec3.Write(writer);
-            UnkVec4.Write(writer);
+            BoundsCenter.Write(writer);
+            BoundsMin.Write(writer);
+            BoundsMax.Write(writer);
+            BoundsHalfSize.Write(writer);
             var bytes = new Byte[16];
             for (var i = 0; i < 16; ++i)
             {

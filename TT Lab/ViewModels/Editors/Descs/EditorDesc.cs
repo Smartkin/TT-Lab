@@ -12,6 +12,11 @@ public abstract partial record EditorDesc
     public required DocumentViewModel Document { get; init; }
     public required PropertyNode Node { get; init; }
 
+    /// <summary>
+    /// Whether the editor goes in the document's side pane, next to the other editors, like code and text editors that need the room
+    /// </summary>
+    public virtual bool ShowsInSidePane => false;
+
     public DocumentNodeViewModel Construct()
     {
         var result = ConstructInternal();

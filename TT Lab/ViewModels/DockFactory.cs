@@ -28,13 +28,14 @@ public class DockFactory : Factory
     private readonly ChunkResourcesViewModel _chunkResources;
     private readonly ChunkInspectorViewModel _chunkInspector;
     private readonly HistoryViewModel _history;
+    private readonly PrefabsViewModel _prefabs;
     private readonly Dictionary<IDockable, string> _panelDefaultDocks;
     private readonly HashSet<string> _allowedPanelTypes;
     private bool _isClosingWindow;
 
     public DockFactory(IDockSerializer serializer, ScenesEditorsViewModel scenes, ResourcesEditorsViewModel resources,
         LogViewModel log, ProjectTreeViewModel projectTree, ChunkResourcesViewModel chunkResources, ChunkInspectorViewModel chunkInspector,
-        HistoryViewModel history)
+        HistoryViewModel history, PrefabsViewModel prefabs)
     {
         _serializer = serializer;
         _scenes = scenes;
@@ -44,15 +45,17 @@ public class DockFactory : Factory
         _chunkResources = chunkResources;
         _chunkInspector = chunkInspector;
         _history = history;
+        _prefabs = prefabs;
         _panelDefaultDocks = new Dictionary<IDockable, string>
         {
             [scenes] = DocumentsPaneId,
             [resources] = DocumentsPaneId,
             [log] = LogPaneId,
-            [history] = LogPaneId,
+            [prefabs] = LogPaneId,
             [projectTree] = ProjectTreePaneId,
             [chunkResources] = ProjectTreePaneId,
-            [chunkInspector] = ProjectTreePaneId
+            [chunkInspector] = ProjectTreePaneId,
+            [history] = ProjectTreePaneId
         };
         _allowedPanelTypes = _panelDefaultDocks.Keys
             .Select(panel => $"{panel.GetType().FullName}, {panel.GetType().Assembly.GetName().Name}")
@@ -76,14 +79,14 @@ public class DockFactory : Factory
         {
             Id = LogPaneId,
             Proportion = LogPaneProportion,
-            VisibleDockables = CreateList<IDockable>(_log, _history),
+            VisibleDockables = CreateList<IDockable>(_log, _prefabs),
             ActiveDockable = _log
         };
         var projectTreePane = new DocumentDock
         {
             Id = ProjectTreePaneId,
             Proportion = ProjectTreePaneProportion,
-            VisibleDockables = CreateList<IDockable>(_projectTree, _chunkResources, _chunkInspector),
+            VisibleDockables = CreateList<IDockable>(_projectTree, _chunkResources, _chunkInspector, _history),
             ActiveDockable = _projectTree
         };
         var documentsArea = new ProportionalDock

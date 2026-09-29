@@ -69,6 +69,11 @@ public sealed class PsfGlyphs
 
     public bool TryGetGlyph(char character, out Glyph glyph) => _glyphs.TryGetValue(character, out glyph!);
 
+    /// <summary>
+    /// Every character the font draws, in the order of their codes
+    /// </summary>
+    public IEnumerable<char> Characters => _glyphs.Keys.OrderBy(character => character);
+
     // The box's bottom row is the glyph's top one
     private static Bitmap? Crop(UInt32[] pixels, PixelSize pageSize, int left, int bottom, int width, int height)
     {

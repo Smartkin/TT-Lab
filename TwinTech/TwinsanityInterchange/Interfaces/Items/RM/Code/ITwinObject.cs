@@ -57,7 +57,10 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code
         /// <summary>
         /// Unknown type value. Used when creating object's instance
         /// </summary>
-        Byte UnkTypeValue { get; set; }
+        /// <summary>
+        /// Bits 12-19 of the header, 1 on nearly every object, 16 and 17 pick a pickup's node
+        /// </summary>
+        Byte SubType { get; set; }
         /// <summary>
         /// The amount of react joints that react to camera's movements
         /// </summary>

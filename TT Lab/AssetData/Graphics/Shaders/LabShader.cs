@@ -136,8 +136,8 @@ public class LabShader : IDocumentModel
     [EditorParam(UriLinkViewModel.BrowseType, typeof(Texture))]
     public LabURI TextureId { get; set; } = LabURI.Empty;
     
-    [Editable]
-    public Byte UnkVal1 { get; set; }
+    [Editable(Caption = "Unused value", Hint = "Never read by the game: 4 in every retail material but the UI's, which have 6")]
+    public Byte UnusedValue { get; set; }
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonEnumStringConverter<XScrollFormula>))]
     [Editable]
@@ -147,24 +147,24 @@ public class LabShader : IDocumentModel
     [Editable]
     public YScrollFormula YScrollSettings { get; set; }
     
-    [Editable]
-    public Boolean UnkFlag1 { get; set; }
+    [Editable(Caption = "Unused flag", Hint = "Never read by the game, off in every retail material")]
+    public Boolean UnusedFlag { get; set; }
     
-    [Editable]
-    public Boolean UnkFlag2 { get; set; }
+    [Editable(Caption = "Anti-aliasing", Hint = "The GS's antialiasing (PRMODE AA1), off in every retail material")]
+    public Boolean AntiAliasing { get; set; }
     
-    [Editable]
-    public Boolean UnkFlag3 { get; set; }
-    
-    [System.Text.Json.Serialization.JsonConverter(typeof(ShaderBinaryVector4Converter))]
-    [Newtonsoft.Json.JsonConverter(typeof(BitsVector4Converter))]
-    [Editable]
-    public Vector4 UnkVector1 { get; set; } = new();
+    [Editable(Caption = "Animation drives color", Hint = "With an animation, its color track sets the shader color every frame (RGB times 256, alpha times 127)")]
+    public Boolean AnimationDrivesColor { get; set; }
     
     [System.Text.Json.Serialization.JsonConverter(typeof(ShaderBinaryVector4Converter))]
     [Newtonsoft.Json.JsonConverter(typeof(BitsVector4Converter))]
-    [Editable]
-    public Vector4 UnkVector2 { get; set; } = new();
+    [Editable(Caption = "Leftover vector", Hint = "Leftover memory of the tools, never read")]
+    public Vector4 LeftoverVector { get; set; } = new();
+    
+    [System.Text.Json.Serialization.JsonConverter(typeof(ShaderBinaryVector4Converter))]
+    [Newtonsoft.Json.JsonConverter(typeof(BitsVector4Converter))]
+    [Editable(Caption = "Shader color", Hint = "Only X's integer part reaches the shader's VU1 program as a byte: 0 in the retail materials, 1 in the UI's (1, 1, 1, 64); the rest have (0, 0, 0, 128)")]
+    public Vector4 ShaderColor { get; set; } = new();
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonVector4Converter))]
     [Newtonsoft.Json.JsonConverter(typeof(BitsVector4Converter))]
@@ -172,6 +172,7 @@ public class LabShader : IDocumentModel
     public Vector4 UvScrollSpeed { get; set; } = new();
     
     [System.Text.Json.Serialization.JsonIgnore]
+    [Editable(IsConstructible = true, Hint = "Six tracks (U, V, red, green, blue, alpha) in 1/4096ths, static or a value per frame, looping at the header's frames per second. The FromAnimation scroll modes take U and V as the UV offset, 'Animation drives color' the color. The viewport plays it.")]
     public TwinShaderAnimation? Animation { get; set; }
 
     public LabShader() { }
@@ -207,14 +208,14 @@ public class LabShader : IDocumentModel
         LodParamK = twinShader.LodParamK;
         LodParamL = twinShader.LodParamL;
         TextureId = (twinShader.TextureId == 0) ? LabURI.Empty : AssetManager.Get().GetUriByTwinId<Texture>(owner, twinShader.TextureId);
-        UnkVal1 = twinShader.UnkVal1;
+        UnusedValue = twinShader.UnusedValue;
         XScrollSettings = twinShader.XScrollSettings;
         YScrollSettings = twinShader.YScrollSettings;
-        UnkFlag1 = twinShader.UnkFlag1;
-        UnkFlag2 = twinShader.UnkFlag2;
-        UnkFlag3 = twinShader.UnkFlag3;
-        UnkVector1 = CloneUtils.Clone(twinShader.UnkVector1);
-        UnkVector2 = CloneUtils.Clone(twinShader.UnkVector2);
+        UnusedFlag = twinShader.UnusedFlag;
+        AntiAliasing = twinShader.AntiAliasing;
+        AnimationDrivesColor = twinShader.AnimationDrivesColor;
+        LeftoverVector = CloneUtils.Clone(twinShader.LeftoverVector);
+        ShaderColor = CloneUtils.Clone(twinShader.ShaderColor);
         UvScrollSpeed = CloneUtils.Clone(twinShader.UvScrollSpeed);
         Animation = CloneUtils.DeepClone(twinShader.Animation);
     }
@@ -252,14 +253,14 @@ public class LabShader : IDocumentModel
         result.AppendLine(LodParamK.ToString());
         result.AppendLine(LodParamL.ToString());
         result.AppendLine(TextureId == LabURI.Empty ? "EMPTY" : AssetManager.Get().GetAsset(TextureId).GetDataHash().ToString());
-        result.AppendLine(UnkVal1.ToString());
+        result.AppendLine(UnusedValue.ToString());
         result.AppendLine(XScrollSettings.ToString());
         result.AppendLine(YScrollSettings.ToString());
-        result.AppendLine(UnkFlag1.ToString());
-        result.AppendLine(UnkFlag2.ToString());
-        result.AppendLine(UnkFlag3.ToString());
-        result.AppendLine(UnkVector1.ToString());
-        result.AppendLine(UnkVector2.ToString());
+        result.AppendLine(UnusedFlag.ToString());
+        result.AppendLine(AntiAliasing.ToString());
+        result.AppendLine(AnimationDrivesColor.ToString());
+        result.AppendLine(LeftoverVector.ToString());
+        result.AppendLine(ShaderColor.ToString());
         result.AppendLine(UvScrollSpeed.ToString());
 
         return result.ToString();
@@ -298,7 +299,7 @@ public class LabShader : IDocumentModel
         writer.Write((byte)DAlphaTest);
         writer.Write((byte)DAlphaTestMode);
         writer.Write((byte)DepthTest);
-        writer.Write(UnkVal1);
+        writer.Write(UnusedValue);
         writer.Write((byte)ShdMethod);
         writer.Write((byte)TxtMapping);
         writer.Write((byte)MethodOfSpecifyingTextureCoordinates);
@@ -314,15 +315,15 @@ public class LabShader : IDocumentModel
         writer.Write(FixedAlphaValue);
         writer.Write((byte)TextureFilterWhenTextureIsExpanded);
         writer.Write(AlphaCorrectionValue);
-        writer.Write(UnkFlag1);
-        writer.Write(UnkFlag2);
+        writer.Write(UnusedFlag);
+        writer.Write(AntiAliasing);
         writer.Write((byte)ZValueDrawingMask);
-        writer.Write(UnkFlag3);
+        writer.Write(AnimationDrivesColor);
         writer.Write(Animation != null);
         writer.Write(LodParamK);
         writer.Write(LodParamL);
-        UnkVector1.Write(writer);
-        UnkVector2.Write(writer);
+        LeftoverVector.Write(writer);
+        ShaderColor.Write(writer);
         UvScrollSpeed.Write(writer);
         writer.Write(TextureId == LabURI.Empty ? 0U : AssetManager.Get().GetAsset(TextureId).ExportTwinID);
         writer.Write((UInt32)ShaderType);
@@ -401,12 +402,6 @@ public class LabShader : IDocumentModel
 
         public override Vector4? ReadJson(Newtonsoft.Json.JsonReader reader, Type objectType, Vector4? existingValue, Boolean hasExistingValue, Newtonsoft.Json.JsonSerializer serializer)
         {
-            if (reader.TokenType != Newtonsoft.Json.JsonToken.StartArray)
-            {
-                // Projects saved before kept the floats
-                return Newtonsoft.Json.Linq.JToken.Load(reader).ToObject<Vector4>();
-            }
-
             var bits = serializer.Deserialize<UInt32[]>(reader)!;
             var vector = new Vector4();
             vector.SetBinaryX(bits[0]);

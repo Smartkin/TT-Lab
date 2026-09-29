@@ -208,15 +208,16 @@ public static class AgentLabCompiler
     /// </summary>
     /// <param name="script">AgentLab code</param>
     /// <param name="actionDefinitionsFile">Name of the AgentLab file that contains action definitions</param>
+    /// <param name="behaviourExists">Tells whether the behaviour a state refers to (by name or string) exists, null leaves the references unchecked</param>
     /// <returns>Status with the first found error</returns>
-    public static CompilerStatus Check(string script, string actionDefinitionsFile)
+    public static CompilerStatus Check(string script, string actionDefinitionsFile, Func<string, bool> behaviourExists = null)
     {
         var status = new CompilerStatus();
         try
         {
             var parser = new AgentLabParser(new AgentLabLexer(script));
             var tree = parser.Parse();
-            new AgentLabSymbolTableBuilder().BuildBuiltInTypes().BuildActions(actionDefinitionsFile).BuildConditions().BuildFromAst(tree);
+            new AgentLabSymbolTableBuilder().BuildBuiltInTypes().BuildActions(actionDefinitionsFile).BuildConditions().CheckBehaviours(behaviourExists).BuildFromAst(tree);
         }
         catch (Exception ex)
         {

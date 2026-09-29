@@ -14,43 +14,112 @@ public class PropertyGraph
     /// </summary>
     public TT_Lab.Assets.ChunkOverrideSession? Overrides => Tracker.Overrides;
     
-    private readonly Dictionary<string, PropertyNode> _properties = new();
-    
+    /// <summary>
+    /// Goes up whenever nodes come, go or move, the nodes' paths are worked out again after
+    /// </summary>
+    public int StructureVersion { get; private set; }
+
     public PropertyGraph(PropertyNode root, PropertyGraphTracker tracker)
     {
         Tracker = tracker;
         Root = root;
         Index(root);
-        Root.InitPropertyLinks();
     }
+
+    // How deep linked fields are in following a change
+    private int _consequenceDepth;
+
+    /// <summary>
+    /// Whether undo or redo is putting values back, what linked fields wrote with them included, so linked fields only set up what
+    /// editors show (<see cref="Attributes.IFieldChange.Linked"/>)
+    /// </summary>
+    public bool IsReplaying { get; internal set; }
 
     internal void NotifyChange(PropertyNode node, object? oldValue, object? newValue, PropertyChangeKind kind = PropertyChangeKind.Value, int index = -1)
     {
-        Changed?.Invoke(new PropertyChange(node, oldValue, newValue, kind, index));
+        Changed?.Invoke(new PropertyChange(node, oldValue, newValue, kind, index, _consequenceDepth > 0));
     }
 
+    internal void BeginConsequences() => _consequenceDepth++;
+
+    internal void EndConsequences() => _consequenceDepth--;
+
+    // A node taken out of the graph
     internal void Deindex(PropertyNode node)
     {
-        _properties.Remove(node.Path);
-        foreach (var child in node.Children)
-        {
-            Deindex(child);
-        }
+        StructureVersion++;
     }
 
+    // A node (and everything under it) put into the graph, with its linked fields: nodes made later (a placed trigger, a link pointed
+    // elsewhere, resources put back by undo) had theirs follow nothing
     internal void Index(PropertyNode node)
     {
-        node.SetGraph(this);
-        _properties[node.Path] = node;
+        Attach(node);
+        StructureVersion++;
+        node.InitPropertyLinks();
+    }
 
+    private void Attach(PropertyNode node)
+    {
+        node.SetGraph(this);
         foreach (var child in node.Children)
         {
-            Index(child);
+            Attach(child);
         }
     }
-    
-    public PropertyNode? this[string path] => _properties.TryGetValue(path, out var node) ? node : null;
-    public PropertyNode? Find(string path) => this[path];
+
+    public PropertyNode? this[string path] => Find(path);
+
+    /// <summary>
+    /// The node at the path, walked from the root a segment at a time
+    /// </summary>
+    public PropertyNode? Find(string path)
+    {
+        var rootPath = Root.Path;
+        if (!path.StartsWith(rootPath, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var node = Root;
+        var position = rootPath.Length;
+        while (position < path.Length)
+        {
+            int end;
+            if (path[position] == '[')
+            {
+                end = path.IndexOf(']', position);
+                if (end < 0)
+                {
+                    return null;
+                }
+
+                end++;
+            }
+            else if (path[position] == '.')
+            {
+                end = position + 1;
+                while (end < path.Length && path[end] != '.' && path[end] != '[')
+                {
+                    end++;
+                }
+            }
+            else
+            {
+                return null;
+            }
+
+            node = node.FindChild(path[position..end]);
+            if (node == null)
+            {
+                return null;
+            }
+
+            position = end;
+        }
+
+        return node;
+    }
 }
 
 public enum PropertyChangeKind
@@ -62,4 +131,6 @@ public enum PropertyChangeKind
     Remove,
 }
 
-public record PropertyChange(PropertyNode Node, object? OldValue, object? NewValue, PropertyChangeKind Kind = PropertyChangeKind.Value, int Index = -1);
+/// <param name="IsConsequence">Made by a linked field following another change (a trigger's kind following its header), part of that
+/// change's step</param>
+public record PropertyChange(PropertyNode Node, object? OldValue, object? NewValue, PropertyChangeKind Kind = PropertyChangeKind.Value, int Index = -1, bool IsConsequence = false);

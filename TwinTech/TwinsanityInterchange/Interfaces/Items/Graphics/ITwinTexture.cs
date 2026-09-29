@@ -39,17 +39,17 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items
         /// </summary>
         TextureColorComponent ColorComponent { get; set; }
         /// <summary>
-        /// DO NOT EDIT. Prefer using FromBitmap function
+        /// The header's byte after the color component, 0 and never read by the game
         /// </summary>
-        Byte UnkByte { get; set; }
+        Byte Reserved1 { get; set; }
         /// <summary>
         /// DO NOT EDIT. Prefer using FromBitmap function
         /// </summary>
         TextureFunction TexFun { get; set; }
         /// <summary>
-        /// DO NOT EDIT. Prefer using FromBitmap function
+        /// The two header bytes after the texture function, 0 and never read by the game
         /// </summary>
-        Byte[] UnkBytes1 { get; set; }
+        Byte[] Reserved2 { get; set; }
         /// <summary>
         /// DO NOT EDIT. Prefer using FromBitmap function
         /// </summary>
@@ -71,13 +71,15 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items
         /// </summary>
         Int32 ClutBufferBasePointer { get; set; }
         /// <summary>
-        /// DO NOT EDIT. Prefer using FromBitmap function
+        /// The word after the palette's buffer width: 0xE0 then the texture's size in blocks of 64 uploaded pixels, which the game
+        /// reserves GS memory by (the Xbox version's textures keep 1 and the length of the PS2 texture they were made from
+        /// instead). Set by FromBitmap
         /// </summary>
-        Byte[] UnkBytes2 { get; set; }
+        Byte[] SizeWords { get; set; }
         /// <summary>
-        /// DO NOT EDIT. Prefer using FromBitmap function
+        /// The size in blocks once more, 0 on the textures every chunk has (Crash's) which don't reserve memory. Set by FromBitmap
         /// </summary>
-        Byte[] UnkBytes3 { get; set; }
+        Byte[] ReservedBlocks { get; set; }
         /// <summary>
         /// DO NOT EDIT. Prefer using FromBitmap function
         /// </summary>
