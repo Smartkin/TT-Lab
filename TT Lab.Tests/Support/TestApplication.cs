@@ -27,8 +27,9 @@ public class TestApplication : Application
     public override void OnFrameworkInitializationCompleted()
     {
         // Editors apply their validation on the main thread scheduler, which is the thread pool unless it's set
-        RxApp.MainThreadScheduler = AvaloniaScheduler.Instance;
-        RxSchedulers.MainThreadScheduler = AvaloniaScheduler.Instance;
+        var mainThread = new TestMainThreadScheduler();
+        RxApp.MainThreadScheduler = mainThread;
+        RxSchedulers.MainThreadScheduler = mainThread;
         Splat.Locator.CurrentMutable.RegisterViewsForViewModels(typeof(TT_Lab.App).Assembly);
         base.OnFrameworkInitializationCompleted();
     }

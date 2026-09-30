@@ -61,6 +61,15 @@ public sealed class EditorSavingTests : IDisposable
         return tab;
     }
 
+    // Closing a tab waits for its document, which a busy machine gets to after any fixed delay
+    private static async Task WaitUntil(Func<bool> condition)
+    {
+        for (var i = 0; i < 250 && !condition(); i++)
+        {
+            await Task.Delay(20);
+        }
+    }
+
     private static string Dump(UndoHistory.Entry entry) => $"{entry.Description}{(entry.IsOpen ? "*" : "")}{(entry.Children.Count > 0 ? " > [" + string.Join(" | ", entry.Children.Select(Dump)) + "]" : "")}";
 
     private static Window Show(EditorsViewerViewModel viewer)
@@ -142,7 +151,7 @@ public sealed class EditorSavingTests : IDisposable
         ClickIntoEditor(window);
 
         window.KeyPressQwerty(PhysicalKey.W, RawInputModifiers.Control);
-        await Task.Delay(100);
+        await WaitUntil(() => !viewer.Tabs.Any());
 
         Assert.Empty(viewer.Tabs);
         Assert.True(_project.AssetManager.DoesAssetExist(_project.Project.GlobalPackagePS2.URI));
@@ -158,7 +167,7 @@ public sealed class EditorSavingTests : IDisposable
         ClickIntoEditor(window);
 
         window.KeyPressQwerty(PhysicalKey.W, RawInputModifiers.Control);
-        await Task.Delay(50);
+        await WaitUntil(() => !viewer.Tabs.Any());
 
         Assert.Empty(viewer.Tabs);
     }
@@ -184,7 +193,7 @@ public sealed class EditorSavingTests : IDisposable
         for (var closed = 1; closed <= 3; closed++)
         {
             window.KeyPressQwerty(PhysicalKey.W, RawInputModifiers.Control);
-            await Task.Delay(100);
+            await WaitUntil(() => viewer.Tabs.Count() == 3 - closed);
             Assert.Equal(3 - closed, viewer.Tabs.Count());
         }
     }
@@ -338,7 +347,7 @@ public sealed class EditorSavingTests : IDisposable
         Assert.True(IsSaved(crash, "EDITED_PACK"));
 
         window.KeyPressQwerty(PhysicalKey.W, RawInputModifiers.Control);
-        await Task.Delay(50);
+        await WaitUntil(() => !viewer.Tabs.Any());
         Assert.Empty(viewer.Tabs);
     }
 
