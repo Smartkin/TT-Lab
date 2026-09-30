@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Concurrent;
 using System.IO;
-using System.Reflection;
 using Twinsanity.AgentLab.AbstractSyntaxTree;
+using Twinsanity.Libraries;
 
 namespace Twinsanity.AgentLab.SymbolTable;
 
@@ -49,10 +49,9 @@ public class AgentLabSymbolTableBuilder
 
     private static IAgentLabTreeNode GetDefinitions(string definitionFile)
     {
-        var path = Path.Combine(Path.GetDirectoryName(AppContext.BaseDirectory), "AgentLab", definitionFile);
-        return ParsedDefinitions.GetOrAdd(path, definitionsPath =>
+        return ParsedDefinitions.GetOrAdd(definitionFile, file =>
         {
-            using var reader = new StringReader(File.ReadAllText(definitionsPath));
+            using var reader = new StringReader(EmbeddedFiles.ReadText(file));
             var parser = new AgentLabParser(new AgentLabLexer(reader));
             return parser.Parse();
         });

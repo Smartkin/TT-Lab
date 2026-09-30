@@ -21,17 +21,13 @@ public class TextureService
     {
         _renderContext = renderContext;
 
-        var boatGuy = ManifestResourceLoader.GetPathInExe("Media/boat_guy.png");
-        var bitmap = new Bitmap(boatGuy);
-        RegisterTexture(LabURI.BoatGuy, bitmap);
+        RegisterTexture(LabURI.BoatGuy, ManifestResourceLoader.LoadBitmap("Media/boat_guy.png"));
 
-        var labIcons = ManifestResourceLoader.GetFiledInExeDirectory("Media/LabIcons");
-        foreach (var labIcon in labIcons)
+        foreach (var labIcon in ManifestResourceLoader.GetFilesIn("Media/LabIcons"))
         {
-            var iconName = labIcon[(labIcon.LastIndexOf(Path.DirectorySeparatorChar) + 1)..^4];
-            var iconBitmap = new Bitmap(labIcon);
+            var iconName = Path.GetFileNameWithoutExtension(labIcon);
             LabURI.RegisterLabIcon(iconName);
-            RegisterTexture(LabURI.GetLabIcon(iconName), iconBitmap);
+            RegisterTexture(LabURI.GetLabIcon(iconName), ManifestResourceLoader.LoadBitmap(labIcon));
         }
     }
 

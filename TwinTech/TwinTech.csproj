@@ -12,6 +12,8 @@
     <Title>TwinTech</Title>
     <Authors>Neo_Kesha, Smartkin</Authors>
     <Description>Crash Twinsanity Toolbox to read and write its resources</Description>
+    <!-- TT Lab is published as a single file, where assemblies have no location -->
+    <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
@@ -23,31 +25,10 @@
     <PackageReference Include="SharpHash" Version="1.2.0" />
   </ItemGroup>
 
+  <!-- Read by their file names through Libraries/EmbeddedFiles, programs using TwinTech need nothing next to them -->
   <ItemGroup>
-    <None Update="AgentLabDefsXbox.json">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="AgentLabDefsPS2.json">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="TextureDescriptionHelper.json">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Remove="AgentLab\action_definitions.lab" />
-    <Content Include="AgentLab\ActionDefinitionsPs2.lab">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <None Remove="AgentLab\ConditionDefinitions.lab" />
-    <Content Include="AgentLab\ConditionDefinitions.lab">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <None Remove="AgentLab\ActionDefinitionsXbox.lab" />
-    <Content Include="AgentLab\ActionDefinitionsXbox.lab">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
+    <None Remove="AgentLabDefsPS2.json;AgentLabDefsXbox.json;TextureDescriptionHelper.json;AgentLab\*.lab" />
+    <EmbeddedResource Include="AgentLabDefsPS2.json;AgentLabDefsXbox.json;TextureDescriptionHelper.json;AgentLab\*.lab" LogicalName="%(Filename)%(Extension)" />
   </ItemGroup>
 
 </Project>

@@ -17,12 +17,6 @@ public sealed class BuildCache
 {
     private const int CacheVersion = 1;
     private const string VolatileFingerprint = "VOLATILE";
-    private static readonly string[] ToolDataFiles =
-    [
-        "AgentLabDefsPS2.json",
-        "AgentLabDefsXbox.json",
-        "TextureDescriptionHelper.json"
-    ];
 
     private readonly string _projectPath;
     private readonly string _manifestPath;
@@ -253,26 +247,11 @@ public sealed class BuildCache
 
     private string GetRelativePath(string path) => Path.GetRelativePath(_projectPath, path);
 
-    private string ComputeToolFingerprint()
+    // Deterministic builds derive an assembly's module version ID from its contents, the definition files embedded in it included.
+    // The assemblies' files can't be hashed, a single file build has none
+    private static string ComputeToolFingerprint()
     {
-        var toolFiles = new List<string>
-        {
-            typeof(BuildCache).Assembly.Location,
-            typeof(Twinsanity.AgentLab.AgentLabCompiler).Assembly.Location
-        };
-        toolFiles.AddRange(ToolDataFiles.Select(file => Path.Combine(AppContext.BaseDirectory, file)));
-        var agentLabDirectory = Path.Combine(AppContext.BaseDirectory, "AgentLab");
-        if (Directory.Exists(agentLabDirectory))
-        {
-            toolFiles.AddRange(Directory.GetFiles(agentLabDirectory).Order());
-        }
-
-        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        foreach (var file in toolFiles.Where(File.Exists))
-        {
-            hash.AppendData(Encoding.UTF8.GetBytes(GetFileHash(file)));
-        }
-
-        return Convert.ToHexString(hash.GetHashAndReset());
+        return string.Join("-", new[] { typeof(BuildCache), typeof(Twinsanity.AgentLab.AgentLabCompiler) }
+            .Select(type => type.Assembly.ManifestModule.ModuleVersionId.ToString("N")));
     }
 }

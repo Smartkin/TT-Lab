@@ -1,7 +1,7 @@
 using System;
 using System.IO;
-using System.Reflection;
 using System.Text.Json;
+using Twinsanity.Libraries;
 using Twinsanity.TwinsanityInterchange.Common.AgentLab;
 using Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.AgentLab;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code.AgentLab;
@@ -19,14 +19,11 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.RMX.Code.A
         {
             if (XboxAgentLabDefs == null)
             {
-                string path = Assembly.GetExecutingAssembly().Location;
-                using FileStream stream = new(Path.Combine(Path.GetDirectoryName(path), "AgentLabDefsXbox.json"), FileMode.Open, FileAccess.Read);
-                using StreamReader reader = new(stream);
                 JsonSerializerOptions options = new()
                 {
                     ReadCommentHandling = JsonCommentHandling.Skip
                 };
-                XboxAgentLabDefs = JsonSerializer.Deserialize<AgentLabDefs>(reader.ReadToEnd(), options);
+                XboxAgentLabDefs = JsonSerializer.Deserialize<AgentLabDefs>(EmbeddedFiles.ReadText("AgentLabDefsXbox.json"), options);
             }
             return XboxAgentLabDefs;
         }

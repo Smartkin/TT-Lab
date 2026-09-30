@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text.Json;
@@ -101,10 +100,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.Graphics
         {
             if (TextureDescriptorHelper == null)
             {
-                string path = Assembly.GetExecutingAssembly().Location;
-                using FileStream stream = new(Path.Combine(Path.GetDirectoryName(path), "TextureDescriptionHelper.json"), FileMode.Open, FileAccess.Read);
-                using StreamReader reader = new(stream);
-                TextureDescriptorHelper = JsonSerializer.Deserialize<Dictionary<string, TextureDescriptor>>(reader.ReadToEnd());
+                TextureDescriptorHelper = JsonSerializer.Deserialize<Dictionary<string, TextureDescriptor>>(EmbeddedFiles.ReadText("TextureDescriptionHelper.json"));
             }
             UnusedMetadata = new byte[32];
             HeaderSignature = 0xbbcccdcd;

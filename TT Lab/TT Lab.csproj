@@ -15,6 +15,20 @@
         <IsLinux Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' == 'true'">true</IsLinux>
     </PropertyGroup>
 
+    <!-- Publishing for a runtime makes one executable of TT Lab and every managed library. The native libraries stay next to it:
+         bundled ones are extracted to a folder of their own, where the viewport's SDL loader doesn't look -->
+    <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
+        <PublishSingleFile>true</PublishSingleFile>
+    </PropertyGroup>
+    <PropertyGroup>
+        <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
+        <PublishReferencesDocumentationFiles>false</PublishReferencesDocumentationFiles>
+    </PropertyGroup>
+    <!-- Stack traces in the logs keep their line numbers without a symbols file next to the executable -->
+    <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+        <DebugType>embedded</DebugType>
+    </PropertyGroup>
+
     <PropertyGroup Condition="'$(IsWindows)'=='true'">
         <DefineConstants>_WINDOWS</DefineConstants>
     </PropertyGroup>
@@ -132,14 +146,9 @@
       <EmbeddedResource Include="Tools/Pcsx2/LevelSelectPal.pnach" LogicalName="TT_Lab.Tools.Pcsx2.LevelSelectPal.pnach" />
       <AvaloniaResource Include="Images/AfroGod.png" />
       <AvaloniaResource Include="Images/God_Messenger.png" />
-      <AvaloniaResource Include="Images/SadTransparent.gif" />
       <AvaloniaResource Include="Images/tt_lab_logo_v6_2k.ico" />
-      <Content Include="Images\SadTransparent.gif">
-          <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-      </Content>
-      <Content Include="Media\**\*">
-          <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-      </Content>
+      <!-- Read through Util/ManifestResourceLoader by their paths here. Nothing uses Media's fonts, the app's Inter comes from its package -->
+      <EmbeddedResource Include="Images\SadTransparent.gif;Media\**\*" Exclude="Media\Fonts\**" LogicalName="%(RelativeDir)%(Filename)%(Extension)" />
       <Content Include="BlenderTools\dist\*">
           <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </Content>

@@ -35,7 +35,7 @@ public static class MiscUtils
 
     public static Bitmap GetBoatGuy()
     {
-        _boatguy ??= new Bitmap(ManifestResourceLoader.GetPathInExe("Media/boat_guy.png"));
+        _boatguy ??= ManifestResourceLoader.LoadBitmap("Media/boat_guy.png");
         return _boatguy;
     }
 
@@ -77,7 +77,7 @@ public static class MiscUtils
                 return value;
             }
 
-            LabIconStorage.Add(iconName, new Bitmap(ManifestResourceLoader.GetPathInExe($"Media/LabIcons/{iconName}.png")));
+            LabIconStorage.Add(iconName, ManifestResourceLoader.LoadBitmap($"Media/LabIcons/{iconName}.png"));
 
             return LabIconStorage[iconName];
         }

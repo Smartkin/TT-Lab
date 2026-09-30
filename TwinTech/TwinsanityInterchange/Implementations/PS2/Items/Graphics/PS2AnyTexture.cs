@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Reflection;
 using System.Text.Json;
 using Twinsanity.Libraries;
 using Twinsanity.PS2Hardware;
@@ -217,12 +216,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.Graphics
                 return;
             }
 
-            string codeBase = Assembly.GetExecutingAssembly().Location;
-            UriBuilder uri = new($"file://{codeBase}");
-            string path = Uri.UnescapeDataString(uri.Path);
-            using FileStream stream = new(Path.Combine(Path.GetDirectoryName(path), "TextureDescriptionHelper.json"), FileMode.Open, FileAccess.Read);
-            using StreamReader reader = new(stream);
-            TextureDescriptorHelper = JsonSerializer.Deserialize<Dictionary<string, TextureDescriptor>>(reader.ReadToEnd());
+            TextureDescriptorHelper = JsonSerializer.Deserialize<Dictionary<string, TextureDescriptor>>(EmbeddedFiles.ReadText("TextureDescriptionHelper.json"));
         }
 
         /// <summary>

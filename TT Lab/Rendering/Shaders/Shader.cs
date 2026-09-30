@@ -23,20 +23,7 @@ public class Shader : IDisposable
 
     public Shader(RenderContext context, ShaderType shaderType, string sourceFile, ShaderSwitches switches = ShaderSwitches.None)
     {
-        var initialShaderPath = "";
-        if (sourceFile.Contains('/'))
-        {
-            initialShaderPath = sourceFile[..(sourceFile.LastIndexOf('/') + 1)];
-        }
-        var source = ManifestResourceLoader.LoadTextFile($"Media/Shaders/{sourceFile}");
-        if (switches != 0)
-        {
-            ProcessSwitches(ref source, switches);
-        }
-        
-        source = "#version 460 core\r\n" + source;
-        ProcessIncludes(ref source, initialShaderPath);
-        
+        var source = LoadSource(sourceFile, switches);
         ShaderType = shaderType;
         _context = context;
         _shader = context.Gl.CreateShader(shaderType);
@@ -57,6 +44,24 @@ public class Shader : IDisposable
     {
         _context.Gl.DeleteShader(_shader);
         GC.SuppressFinalize(this);
+    }
+
+    internal static string LoadSource(string sourceFile, ShaderSwitches switches = ShaderSwitches.None)
+    {
+        var initialShaderPath = "";
+        if (sourceFile.Contains('/'))
+        {
+            initialShaderPath = sourceFile[..(sourceFile.LastIndexOf('/') + 1)];
+        }
+        var source = ManifestResourceLoader.LoadTextFile($"Media/Shaders/{sourceFile}");
+        if (switches != 0)
+        {
+            ProcessSwitches(ref source, switches);
+        }
+
+        source = "#version 460 core\r\n" + source;
+        ProcessIncludes(ref source, initialShaderPath);
+        return source;
     }
 
     private static void ProcessSwitches(ref string shaderSource, ShaderSwitches switches)

@@ -42,7 +42,7 @@ public partial class LogViewModel : Document, IActivatableViewModel, IHandle<Pro
 
     public ViewModelActivator Activator { get; } = new();
     
-    public Stream SadEasterEgg => new FileStream(ManifestResourceLoader.GetPathInExe("Images/SadTransparent.gif"), FileMode.Open, FileAccess.Read);
+    public Stream SadEasterEgg => ManifestResourceLoader.Open("Images/SadTransparent.gif");
     
     public Boolean SadEasterEggVisibility => Preferences.GetPreference<Boolean>(Preferences.SillinessEnabled) && _projectManager.IsCreatingProject;
     

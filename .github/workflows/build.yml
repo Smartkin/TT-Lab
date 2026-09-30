@@ -63,7 +63,9 @@ jobs:
           path: TestResults
           if-no-files-found: ignore
 
-      # Platform specific code is picked by the OS doing the build so each platform is built on its own runner
+      # Platform specific code is picked by the OS doing the build so each platform is built on its own runner.
+      # Publishing for a runtime makes one executable (TT Lab.csproj): the managed libraries, shaders, icons and definition files are in it,
+      # the native libraries next to it along with the Blender add-on
       - name: Publish
         run: dotnet publish "TT Lab/TT Lab.csproj" -c Release -r ${{ matrix.runtime }} --self-contained false -o publish
 

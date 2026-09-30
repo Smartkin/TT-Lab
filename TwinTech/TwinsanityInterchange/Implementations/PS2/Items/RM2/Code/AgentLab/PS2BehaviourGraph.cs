@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Text.Json;
 using Twinsanity.AgentLab.AgentLabObjectDescs;
 using Twinsanity.AgentLab.AgentLabObjectDescs.PS2;
@@ -23,16 +22,11 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
         {
             if (AgentLabDefs == null)
             {
-                string codeBase = Assembly.GetExecutingAssembly().Location;
-                UriBuilder uri = new($"file://{codeBase}");
-                string path = Uri.UnescapeDataString(uri.Path);
-                using FileStream stream = new(Path.Combine(Path.GetDirectoryName(path), @"AgentLabDefsPS2.json"), FileMode.Open, FileAccess.Read);
-                using StreamReader reader = new(stream);
                 JsonSerializerOptions options = new()
                 {
                     ReadCommentHandling = JsonCommentHandling.Skip
                 };
-                AgentLabDefs = JsonSerializer.Deserialize<AgentLabDefs>(reader.ReadToEnd(), options);
+                AgentLabDefs = JsonSerializer.Deserialize<AgentLabDefs>(EmbeddedFiles.ReadText("AgentLabDefsPS2.json"), options);
             }
             return AgentLabDefs;
         }
