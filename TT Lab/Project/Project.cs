@@ -860,7 +860,7 @@ public class Project : IProject
             CreatePs2ArchivesAndIso();
         }
 
-        Log.WriteLine($"The whole PS2 build took {FormatDuration(total.Elapsed)}");
+        Log.WriteLine($"The PS2 build took {total.Elapsed}");
     }
 
     public void PackAssetsXbox(BuildProfile? profile = null)
@@ -871,7 +871,7 @@ public class Project : IProject
             CreateXboxGame();
         }
 
-        Log.WriteLine($"The whole Xbox build took {FormatDuration(total.Elapsed)}");
+        Log.WriteLine($"The Xbox build took {total.Elapsed}");
     }
 
     public void Build(BuildProfile profile)
@@ -884,13 +884,6 @@ public class Project : IProject
         {
             PackAssetsPS2(profile);
         }
-    }
-
-    internal static string FormatDuration(TimeSpan elapsed)
-    {
-        return elapsed.TotalHours >= 1.0 ? $"{(int)elapsed.TotalHours} h {elapsed.Minutes} min {elapsed.Seconds} s"
-            : elapsed.TotalMinutes >= 1.0 ? $"{elapsed.Minutes} min {elapsed.Seconds} s"
-            : $"{elapsed.TotalSeconds:F1} s";
     }
 
     // Writes the platform's chunks and global files, the files that didn't change since the last build are kept
