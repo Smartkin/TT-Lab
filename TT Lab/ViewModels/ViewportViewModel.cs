@@ -1617,9 +1617,17 @@ public partial class ViewportViewModel : ReactiveObject
         {
             _scene.Camera.Translate(camLeft * camSpeed * (float)delta);
         }
+        if (_keyboard.IsKeyPressed(Key.Space))
+        {
+            _scene.Camera.Translate(vec3.UnitY * camSpeed * (float)delta);
+        }
+        if (_keyboard.IsKeyPressed(Key.C))
+        {
+            _scene.Camera.Translate(vec3.UnitY * -camSpeed * (float)delta);
+        }
     }
 
-    // W and S move closer and further away, A and D move the camera and what it turns around sideways
+    // W and S move closer and further away, A and D move the camera and what it turns around sideways, Space and C up and down
     private void MoveOrbitCamera(vec3 camLeft, float delta)
     {
         if (!_renderInit)
@@ -1630,13 +1638,14 @@ public partial class ViewportViewModel : ReactiveObject
         var step = _orbit.Distance * delta;
         var zoom = (_keyboard!.IsKeyPressed(Key.S) ? step : 0) - (_keyboard.IsKeyPressed(Key.W) ? step : 0);
         var pan = (_keyboard.IsKeyPressed(Key.D) ? step : 0) - (_keyboard.IsKeyPressed(Key.A) ? step : 0);
-        if (zoom == 0 && pan == 0)
+        var rise = (_keyboard.IsKeyPressed(Key.Space) ? step : 0) - (_keyboard.IsKeyPressed(Key.C) ? step : 0);
+        if (zoom == 0 && pan == 0 && rise == 0)
         {
             return;
         }
 
         var camera = _scene!.Camera;
-        camera.LocalTransform = _orbit.Zoom(_orbit.Pan(camera.LocalTransform, camLeft * pan), _orbit.Distance + zoom);
+        camera.LocalTransform = _orbit.Zoom(_orbit.Pan(camera.LocalTransform, camLeft * pan + vec3.UnitY * rise), _orbit.Distance + zoom);
     }
 
     private void KeyboardOnKeyDown(IKeyboard keyboard, Key key, int scanCode)
@@ -1755,12 +1764,7 @@ public partial class ViewportViewModel : ReactiveObject
             }
 
             var camera = _scene!.Camera;
-            var camPosition = camera.GetPosition();
-            camera.SetPosition(vec3.Zero);
-            camera.Rotate(new vec3(0, glm.Radians(-delta.x), 0));
-            var left = camera.GetLeft() * 0.05f;
-            camera.Rotate(left * delta.y);
-            camera.SetPosition(camPosition);
+            camera.LocalTransform = FlyCamera.Look(camera.LocalTransform, glm.Radians(-delta.x), 0.05f * delta.y);
         }
         else if (!mouse.IsButtonPressed(MouseButton.Left) && _scene != null && _isChunkViewport)
         {

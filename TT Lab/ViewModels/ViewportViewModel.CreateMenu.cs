@@ -48,7 +48,7 @@ public partial class ViewportViewModel
         ViewportMenuEntry Create(Type type, string header) => new(header, () => CreateResource(type, DefaultLayoutFor(type, chunk)), canCreate);
         var entries = new List<ViewportMenuEntry>
         {
-            new(defaultObject == null ? "Object instance (the chunk has no objects)" : $"Object instance of {defaultObject.Alias}",
+            new(defaultObject == null ? "Object instance (the chunk has no objects)" : $"Object instance",
                 () => CreateResource(typeof(ObjectInstance), DefaultLayoutFor(typeof(ObjectInstance), chunk)), canCreate && defaultObject != null),
             Create(typeof(Position), "Position"),
             Create(typeof(Trigger), "Trigger"),
@@ -72,7 +72,8 @@ public partial class ViewportViewModel
 
     // A right click while flying the camera is a look around, not a click for the menu
     private bool IsFlying => _keyboard != null && (_keyboard.IsKeyPressed(Silk.NET.Input.Key.W) || _keyboard.IsKeyPressed(Silk.NET.Input.Key.A)
-                                                   || _keyboard.IsKeyPressed(Silk.NET.Input.Key.S) || _keyboard.IsKeyPressed(Silk.NET.Input.Key.D));
+                                                   || _keyboard.IsKeyPressed(Silk.NET.Input.Key.S) || _keyboard.IsKeyPressed(Silk.NET.Input.Key.D)
+                                                   || _keyboard.IsKeyPressed(Silk.NET.Input.Key.Space) || _keyboard.IsKeyPressed(Silk.NET.Input.Key.C));
 
     /// <summary>
     /// The object new object instances get: the game's wumpa fruit pickup, or failing that any object named after it, or the chunk's first

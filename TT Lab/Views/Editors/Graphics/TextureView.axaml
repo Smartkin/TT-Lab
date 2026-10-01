@@ -18,9 +18,9 @@
     <!--     </EventTrigger> -->
     <!-- </Interaction.Behaviors> -->
     <controls1:GroupBox>
-        <Grid RowDefinitions="50,*,30">
-            <Image Grid.Row="1" VerticalAlignment="Stretch" Stretch="Uniform" Margin="5" Source="{Binding Texture}"/>
-            <Button Command="{Binding ReplaceButton}" Content="Replace" Margin="0" Grid.Row="2"/>
+        <Grid RowDefinitions="*,30">
+            <Image Grid.Row="0" Margin="5" MaxWidth="256" Source="{Binding Texture}"/>
+            <Button Command="{Binding ReplaceButton}" Content="Replace" Margin="0" Grid.Row="1"/>
         </Grid>
     </controls1:GroupBox>
 </UserControl>
