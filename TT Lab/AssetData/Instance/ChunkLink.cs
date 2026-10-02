@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.Serialization;
 using GlmSharp;
 using TT_Lab.Assets;
 using TT_Lab.Attributes;
@@ -72,10 +73,29 @@ public class ChunkLink : IDocumentModel
         Path = LabURI.Empty;
         Visibility = ChunkLinkVisibility.ThroughLoadWall;
         IsLoadWallActive = true;
-        LoadingWall = mat4.Zero.ToTwin();
+        LoadingWall = WallAt(vec3.Zero);
         ObjectMatrix = mat4.Identity.ToTwin();
         ChunkMatrix = mat4.Identity.ToTwin();
         Hulls = [];
+    }
+
+    // New links get a wall to see and drag, links read back without one have none (retail links without a wall, copies, prefabs)
+    [OnDeserializing]
+    private void OnDeserializing(StreamingContext context)
+    {
+        LoadingWall = mat4.Zero.ToTwin();
+    }
+
+    /// <summary>
+    /// A new link's load wall: 10 units square standing on the position and facing +Z, its corners going around from the bottom left
+    /// </summary>
+    public static Matrix4 WallAt(vec3 position)
+    {
+        const float halfWidth = 5.0f;
+        const float height = 10.0f;
+        return new mat4(Corner(-halfWidth, 0.0f), Corner(halfWidth, 0.0f), Corner(halfWidth, height), Corner(-halfWidth, height)).ToTwin();
+
+        vec4 Corner(float x, float y) => new(position.x + x, position.y + y, position.z, 1.0f);
     }
 
     // The linked chunk is the one of the same version of the game, both have chunks at the same paths

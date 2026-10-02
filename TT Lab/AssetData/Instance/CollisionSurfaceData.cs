@@ -36,13 +36,13 @@ public class CollisionSurfaceData : AbstractAssetData
             PhysicsParameters[i] = -1;
         }
 
-        PhysicsParameters[SurfacePhysics.Unread1] = 1000000;
+        PhysicsParameters[SurfacePhysics.Unread5] = 1000000;
         PhysicsParameters[SurfacePhysics.Friction] = 1;
-        PhysicsParameters[SurfacePhysics.Unread2] = 1;
+        PhysicsParameters[SurfacePhysics.Restitution] = 1;
         CollisionMask = SurfaceCollisionFlags.SolidToPlayerProbes | SurfaceCollisionFlags.BlocksCamera | SurfaceCollisionFlags.SolidToObjects |
                         SurfaceCollisionFlags.BlocksLineOfSight | SurfaceCollisionFlags.SolidToPlayer | (SurfaceCollisionFlags)0xFF000;
         UnusedVector = new Vector4(0, 0, 0, 1);
-        ContactMessage = new Vector4[] { new(0, 0, 0, 0), new(0, 0, 0, 0) };
+        ContactMessage = new ContactMessage();
         StepSoundId1 = LabURI.Empty;
         StepSoundId2 = LabURI.Empty;
         ImpactSoundId = LabURI.Empty;
@@ -65,7 +65,7 @@ public class CollisionSurfaceData : AbstractAssetData
 
     [JsonProperty(Required = Required.Always)]
     [Editable(Hint = "Which ray casts and bodies the surface stops: the player's probes (bit 4), the camera (5), objects and rigid bodies (6), lines of sight (7) and the player's body (20). " +
-                     "Bit 9 sends the contact message (the deadly surfaces), 10 slows the player like sticky snow, 11 leaves footprints. Bits 12-19 are set on every surface, the rest the game never reads.")]
+                     "Bit 8 sends the contact message to rigid bodies' agents and 9 to the player (the deadly surfaces), 10 slows the player like sticky snow, 11 leaves footprints. Bits 12-19 are set on every surface, the rest the game never reads.")]
     public SurfaceCollisionFlags CollisionMask { get; set; }
 
     [JsonProperty(Required = Required.Always)]
@@ -141,20 +141,20 @@ public class CollisionSurfaceData : AbstractAssetData
     public Single Friction { get => PhysicsParameters[SurfacePhysics.Friction]; set => PhysicsParameters[SurfacePhysics.Friction] = value; }
 
     [JsonIgnore]
-    [Editable(Caption = "Unread value 1", Hint = "Never read by the game: 1000000 on most surfaces, 5 and 2 on the slippy ones, 120 on liquids and deadly surfaces")]
-    public Single UnreadValue1 { get => PhysicsParameters[SurfacePhysics.Unread1]; set => PhysicsParameters[SurfacePhysics.Unread1] = value; }
+    [Editable(Hint = "What rigid bodies' bounce is multiplied by on the surface: 1 on most surfaces, 0.5 on soft grounds, 0.1 on liquids and deadly surfaces")]
+    public Single Restitution { get => PhysicsParameters[SurfacePhysics.Restitution]; set => PhysicsParameters[SurfacePhysics.Restitution] = value; }
 
     [JsonIgnore]
-    [Editable(Caption = "Unread value 2", Hint = "Never read by the game: 1 on most surfaces, 0.5 on soft grounds, 0.1 on liquids and deadly surfaces")]
-    public Single UnreadValue2 { get => PhysicsParameters[SurfacePhysics.Unread2]; set => PhysicsParameters[SurfacePhysics.Unread2] = value; }
+    [Editable(Caption = "Unread value 5", Hint = "Never read by the game: 1000000 on most surfaces, 5 and 2 on the slippy ones, 120 on liquids and deadly surfaces")]
+    public Single UnreadValue5 { get => PhysicsParameters[SurfacePhysics.Unread5]; set => PhysicsParameters[SurfacePhysics.Unread5] = value; }
 
     [JsonIgnore]
-    [Editable(Caption = "Unread value 3", Hint = "Never read by the game: 35 or 45 on the slippy surfaces")]
-    public Single UnreadValue3 { get => PhysicsParameters[SurfacePhysics.Unread3]; set => PhysicsParameters[SurfacePhysics.Unread3] = value; }
+    [Editable(Caption = "Unread value 8", Hint = "Never read by the game: 35 or 45 on the slippy surfaces")]
+    public Single UnreadValue8 { get => PhysicsParameters[SurfacePhysics.Unread8]; set => PhysicsParameters[SurfacePhysics.Unread8] = value; }
 
     [JsonIgnore]
-    [Editable(Caption = "Unread value 4", Hint = "Never read by the game: 0.98 or 0.99 on the slippy surfaces")]
-    public Single UnreadValue4 { get => PhysicsParameters[SurfacePhysics.Unread4]; set => PhysicsParameters[SurfacePhysics.Unread4] = value; }
+    [Editable(Caption = "Unread value 9", Hint = "Never read by the game: 0.98 or 0.99 on the slippy surfaces")]
+    public Single UnreadValue9 { get => PhysicsParameters[SurfacePhysics.Unread9]; set => PhysicsParameters[SurfacePhysics.Unread9] = value; }
 
     /// <summary>
     /// The 10 floats of the game's surface, edited through the properties above
@@ -166,10 +166,9 @@ public class CollisionSurfaceData : AbstractAssetData
     [Editable(Caption = "Unused vector", Hint = "(0, 0, 0, 1) on every retail surface, never read")]
     public Vector4 UnusedVector { get; set; }
 
-    [JsonProperty("ContactMessage", Required = Required.Always)]
-    [Editable(Caption = "Contact message", Hint = "Handed to the player standing on a surface sending its message (bit 9) and to rigid bodies landing on it when the second's X isn't 0. Leftover memory in the retail data.")]
-    [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
-    public Vector4[] ContactMessage { get; set; }
+    [JsonProperty(Required = Required.Always)]
+    [Editable(Caption = "Contact message", Hint = "What touching the surface does: handed to the player standing on it with bit 9 of the mask and to the agents of rigid bodies touching it with bit 8. The deadly surfaces deal 100 hit points of their kind of hit")]
+    public ContactMessage ContactMessage { get; set; }
 
     protected override void Dispose(Boolean disposing)
     {
@@ -192,11 +191,7 @@ public class CollisionSurfaceData : AbstractAssetData
         StepParticleSystemId = collisionSurface.StepParticleSystemId;
         PhysicsParameters = CloneUtils.CloneArray(collisionSurface.PhysicsParameters);
         UnusedVector = CloneUtils.Clone(collisionSurface.UnusedVector);
-        ContactMessage = new Vector4[2];
-        for (var i = 0; i < ContactMessage.Length; ++i)
-        {
-            ContactMessage[i] = CloneUtils.Clone(collisionSurface.ContactMessage[i]);
-        }
+        ContactMessage = new ContactMessage(collisionSurface.ContactMessage);
     }
 
     private LabURI SoundOf(UInt16 id)
@@ -231,10 +226,7 @@ public class CollisionSurfaceData : AbstractAssetData
         }
 
         UnusedVector.Write(writer);
-        foreach (var vec in ContactMessage)
-        {
-            vec.Write(writer);
-        }
+        ContactMessage.Write(writer);
 
         writer.Flush();
         ms.Position = 0;

@@ -62,6 +62,16 @@ public class TextureData : AbstractAssetData
     }
 
     /// <summary>
+    /// A texture of the pixels (ARGB, top row first), which it keeps
+    /// </summary>
+    public static TextureData FromPixels(IAsset owner, UInt32[] pixels, Int32 width, Int32 height)
+    {
+        var textureData = new TextureData(owner);
+        textureData.SetPixels(pixels, width, height);
+        return textureData;
+    }
+
+    /// <summary>
     /// The biggest size the game's textures come in
     /// </summary>
     public const Int32 MaxGameSize = 256;
@@ -90,7 +100,7 @@ public class TextureData : AbstractAssetData
         return Math.Clamp(1 << (Int32)Math.Round(Math.Log2(Math.Max(size, 1))), 16, MaxGameSize);
     }
 
-    private static UInt32[] Resample(UInt32[] pixels, Int32 width, Int32 height, Int32 newWidth, Int32 newHeight)
+    internal static UInt32[] Resample(UInt32[] pixels, Int32 width, Int32 height, Int32 newWidth, Int32 newHeight)
     {
         var info = new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Unpremul);
         var result = new UInt32[newWidth * newHeight];
@@ -163,7 +173,7 @@ public class TextureData : AbstractAssetData
     }
 
     // PNGs go through Skia as they are, Avalonia premultiplies the alpha of the ones it loads and saves which darkens every partly transparent pixel
-    private static (UInt32[] Pixels, Int32 Width, Int32 Height) DecodePng(Stream stream)
+    internal static (UInt32[] Pixels, Int32 Width, Int32 Height) DecodePng(Stream stream)
     {
         using var codec = SKCodec.Create(stream) ?? throw new InvalidDataException("Not an image");
         var info = new SKImageInfo(codec.Info.Width, codec.Info.Height, SKColorType.Bgra8888, SKAlphaType.Unpremul);
@@ -185,7 +195,7 @@ public class TextureData : AbstractAssetData
         return (pixels, info.Width, info.Height);
     }
 
-    private static Byte[] EncodePng(UInt32[] pixels, Int32 width, Int32 height)
+    internal static Byte[] EncodePng(UInt32[] pixels, Int32 width, Int32 height)
     {
         var info = new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Unpremul);
         var handle = GCHandle.Alloc(pixels, GCHandleType.Pinned);

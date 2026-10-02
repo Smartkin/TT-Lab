@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -14,6 +16,13 @@ public static class Log
     private static readonly object SessionLock = new();
     private const int MaxLines = 500;
     private const int MaxSessionLogs = 5;
+    // Lines wait for the panel and go in together, below input and rendering: a dispatcher job and an edit of the panel's text per
+    // line ran ahead of both, a few thousand lines a second froze the UI for tens of seconds
+    private static readonly TimeSpan FlushInterval = TimeSpan.FromMilliseconds(100);
+    private static readonly Queue<string> PendingLines = new();
+    private static readonly object PendingLock = new();
+    private static readonly Stopwatch SinceFlush = Stopwatch.StartNew();
+    private static bool isFlushScheduled;
 
     public enum LogType
     {
@@ -28,7 +37,7 @@ public static class Log
 
     public static string? SessionLogPath { get; private set; }
 
-    public static void SetViewModel(LogViewModel log)
+    public static void SetViewModel(LogViewModel? log)
     {
         logBox = log;
     }
@@ -64,7 +73,7 @@ public static class Log
         TaskScheduler.UnobservedTaskException += (_, args) => WriteToSessionLog(FormatLine(LogType.Error.ToString(), $"Unobserved task exception: {args.Exception}"));
     }
 
-    public static async void WriteLine(string text, LogType type = LogType.Info)
+    public static void WriteLine(string text, LogType type = LogType.Info)
     {
         var line = FormatLine(type.ToString(), text);
         WriteToSessionLog(line);
@@ -74,23 +83,88 @@ public static class Log
             return;
         }
 
-        await Dispatcher.UIThread.InvokeAsync(() =>
+        lock (PendingLock)
         {
-            // Edited in place, replacing the whole text copied the log for every line and builds log thousands of them
-            var document = logBox.Text;
-            document.Insert(document.TextLength, line + Environment.NewLine);
-            if (document.LineCount > MaxLines)
+            PendingLines.Enqueue(line);
+            // The panel shows the last lines, the session log has them all
+            if (PendingLines.Count > MaxLines)
             {
-                document.Remove(0, document.GetLineByNumber(document.LineCount - MaxLines + 1).Offset);
-                logBox.CaretOffset = document.TextLength;
+                PendingLines.Dequeue();
             }
-        });
+
+            if (isFlushScheduled)
+            {
+                return;
+            }
+
+            isFlushScheduled = true;
+        }
+
+        Dispatcher.UIThread.Post(ScheduleFlush, DispatcherPriority.Background);
     }
 
     public static void Clear()
     {
         if (logBox == null) throw new ArgumentNullException("logBox was not set to write the logs in!");
+        lock (PendingLock)
+        {
+            PendingLines.Clear();
+        }
+
         Dispatcher.UIThread.Post(() => logBox.Clear());
+    }
+
+    private static void ScheduleFlush()
+    {
+        var wait = FlushInterval - SinceFlush.Elapsed;
+        if (wait > TimeSpan.Zero)
+        {
+            DispatcherTimer.RunOnce(FlushPendingLines, wait, DispatcherPriority.Background);
+            return;
+        }
+
+        FlushPendingLines();
+    }
+
+    private static void FlushPendingLines()
+    {
+        string[] lines;
+        lock (PendingLock)
+        {
+            lines = PendingLines.ToArray();
+            PendingLines.Clear();
+            isFlushScheduled = false;
+        }
+
+        SinceFlush.Restart();
+        var panel = logBox;
+        if (panel == null || lines.Length == 0)
+        {
+            return;
+        }
+
+        // One edit for all of them, the panel highlights and scrolls after every edit
+        var document = panel.Text;
+        var trimmed = false;
+        document.BeginUpdate();
+        try
+        {
+            document.Insert(document.TextLength, string.Join(Environment.NewLine, lines) + Environment.NewLine);
+            if (document.LineCount > MaxLines)
+            {
+                document.Remove(0, document.GetLineByNumber(document.LineCount - MaxLines + 1).Offset);
+                trimmed = true;
+            }
+        }
+        finally
+        {
+            document.EndUpdate();
+        }
+
+        if (trimmed)
+        {
+            panel.CaretOffset = document.TextLength;
+        }
     }
 
     private static string FormatLine(string type, string text)

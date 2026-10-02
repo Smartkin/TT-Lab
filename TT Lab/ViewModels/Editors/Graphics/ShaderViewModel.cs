@@ -241,7 +241,7 @@ public class ShaderViewModel : Conductor<IScreen>.Collection.AllActive, IHavePar
         }
     }
 
-    public Bitmap TexturePath => TexID == LabURI.Empty ? ManifestResourceLoader.LoadBitmap("Media/boat_guy.png") : new Bitmap(AssetManager.Get().GetAsset(TexID).FullDataPath);
+    public Bitmap TexturePath => TexID == LabURI.Empty ? ManifestResourceLoader.LoadBitmap(MiscUtils.BoatGuyPath) : new Bitmap(AssetManager.Get().GetAsset(TexID).FullDataPath);
 
     public Boolean HasIntParam => _type is TwinShader.Type.UnlitClothDeformation or TwinShader.Type.UnlitClothDeformation2;
 

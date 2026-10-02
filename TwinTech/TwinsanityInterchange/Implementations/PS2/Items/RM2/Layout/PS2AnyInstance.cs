@@ -11,37 +11,32 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Layout
     public class PS2AnyInstance : BaseTwinItem, ITwinInstance
     {
         public Vector4 Position { get; set; }
-        public Vector4 Rotation { get; set; }
-        public TwinIntegerRotation RotationX { get; set; }
-        public TwinIntegerRotation RotationY { get; set; }
-        public TwinIntegerRotation RotationZ { get; set; }
-        public UInt32 InstancesRelated { get; set; }
+        public Int32 RotationX { get; set; }
+        public Int32 RotationY { get; set; }
+        public Int32 RotationZ { get; set; }
+        public UInt32 InstancesGrowth { get; set; }
         public List<UInt16> Instances { get; set; }
-        public UInt32 PositionsRelated { get; set; }
+        public UInt32 PositionsGrowth { get; set; }
         public List<UInt16> Positions { get; set; }
-        public UInt32 PathsRelated { get; set; }
+        public UInt32 PathsGrowth { get; set; }
         public List<UInt16> Paths { get; set; }
         public UInt16 ObjectId { get; set; }
         public Int16 RefListIndex { get; set; }
-        public UInt16 OnSpawnHeaderScriptID { get; set; }
-        public UInt32 StateFlags { get; set; }
-        public List<UInt32> ParamList1 { get; set; }
-        public List<Single> ParamList2 { get; set; }
-        public List<UInt32> ParamList3 { get; set; }
+        public UInt16 SpawnScriptId { get; set; }
+        public Enums.InstanceState StateFlags { get; set; }
+        public List<UInt32> TaggedProperties { get; set; }
+        public List<Single> FloatProperties { get; set; }
+        public List<Int32> IntProperties { get; set; }
 
         public PS2AnyInstance()
         {
             Position = new Vector4();
-            Rotation = new Vector4(0, 0, 0, 1);
-            RotationX = new TwinIntegerRotation();
-            RotationY = new TwinIntegerRotation();
-            RotationZ = new TwinIntegerRotation();
             Instances = new List<ushort>();
             Positions = new List<ushort>();
             Paths = new List<ushort>();
-            ParamList1 = new List<uint>();
-            ParamList2 = new List<float>();
-            ParamList3 = new List<uint>();
+            TaggedProperties = new List<UInt32>();
+            FloatProperties = new List<Single>();
+            IntProperties = new List<Int32>();
         }
 
         public override int GetLength()
@@ -50,39 +45,40 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Layout
                 12 + Instances.Count * 2 +
                 12 + Positions.Count * 2 +
                 12 + Paths.Count * 2 + 14 +
-                4 + ParamList1.Count * 4 +
-                4 + ParamList2.Count * 4 +
-                4 + ParamList3.Count * 4;
+                4 + TaggedProperties.Count * 4 +
+                4 + FloatProperties.Count * 4 +
+                4 + IntProperties.Count * 4;
         }
 
         public override void Read(BinaryReader reader, int length)
         {
             Position.Read(reader, Constants.SIZE_VECTOR4);
-            RotationX.Read(reader, Constants.SIZE_UINT32);
-            RotationY.Read(reader, Constants.SIZE_UINT32);
-            RotationZ.Read(reader, Constants.SIZE_UINT32);
+            RotationX = reader.ReadInt32();
+            RotationY = reader.ReadInt32();
+            RotationZ = reader.ReadInt32();
 
-            reader.ReadInt32();
+            // Each list is its count, its room (the same in the files) and its growth, then the IDs
             Int32 instances_cnt = reader.ReadInt32();
-            InstancesRelated = reader.ReadUInt32();
+            reader.ReadInt32();
+            InstancesGrowth = reader.ReadUInt32();
             Instances.Clear();
             for (int i = 0; i < instances_cnt; ++i)
             {
                 Instances.Add(reader.ReadUInt16());
             }
 
-            reader.ReadInt32();
             Int32 positions_cnt = reader.ReadInt32();
-            PositionsRelated = reader.ReadUInt32();
+            reader.ReadInt32();
+            PositionsGrowth = reader.ReadUInt32();
             Positions.Clear();
             for (int i = 0; i < positions_cnt; ++i)
             {
                 Positions.Add(reader.ReadUInt16());
             }
 
-            reader.ReadInt32();
             Int32 paths_cnt = reader.ReadInt32();
-            PathsRelated = reader.ReadUInt32();
+            reader.ReadInt32();
+            PathsGrowth = reader.ReadUInt32();
             Paths.Clear();
             for (int i = 0; i < paths_cnt; ++i)
             {
@@ -92,42 +88,42 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Layout
             ObjectId = reader.ReadUInt16();
 
             RefListIndex = reader.ReadInt16();
-            OnSpawnHeaderScriptID = reader.ReadUInt16();
-            // Flags, floats and ints amount + pad byte
+            SpawnScriptId = reader.ReadUInt16();
+            // The counts of the tagged values, floats and ints, and a pad byte
             reader.ReadUInt32();
-            StateFlags = reader.ReadUInt32();
+            StateFlags = (Enums.InstanceState)reader.ReadUInt32();
 
-            Int32 param1_cnt = reader.ReadInt32();
-            ParamList1.Clear();
-            for (int i = 0; i < param1_cnt; ++i)
+            Int32 taggedCount = reader.ReadInt32();
+            TaggedProperties.Clear();
+            for (int i = 0; i < taggedCount; ++i)
             {
-                ParamList1.Add(reader.ReadUInt32());
+                TaggedProperties.Add(reader.ReadUInt32());
             }
 
-            Int32 param2_cnt = reader.ReadInt32();
-            ParamList2.Clear();
-            for (int i = 0; i < param2_cnt; ++i)
+            Int32 floatCount = reader.ReadInt32();
+            FloatProperties.Clear();
+            for (int i = 0; i < floatCount; ++i)
             {
-                ParamList2.Add(reader.ReadSingle());
+                FloatProperties.Add(reader.ReadSingle());
             }
 
-            Int32 param3_cnt = reader.ReadInt32();
-            ParamList3.Clear();
-            for (int i = 0; i < param3_cnt; ++i)
+            Int32 intCount = reader.ReadInt32();
+            IntProperties.Clear();
+            for (int i = 0; i < intCount; ++i)
             {
-                ParamList3.Add(reader.ReadUInt32());
+                IntProperties.Add(reader.ReadInt32());
             }
         }
         public override void Write(BinaryWriter writer)
         {
             Position.Write(writer);
-            RotationX.Write(writer);
-            RotationY.Write(writer);
-            RotationZ.Write(writer);
+            writer.Write(RotationX);
+            writer.Write(RotationY);
+            writer.Write(RotationZ);
 
             writer.Write(Instances.Count);
             writer.Write(Instances.Count);
-            writer.Write(InstancesRelated);
+            writer.Write(InstancesGrowth);
             foreach (UInt16 id in Instances)
             {
                 writer.Write(id);
@@ -135,7 +131,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Layout
 
             writer.Write(Positions.Count);
             writer.Write(Positions.Count);
-            writer.Write(PositionsRelated);
+            writer.Write(PositionsGrowth);
             foreach (UInt16 id in Positions)
             {
                 writer.Write(id);
@@ -143,7 +139,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Layout
 
             writer.Write(Paths.Count);
             writer.Write(Paths.Count);
-            writer.Write(PathsRelated);
+            writer.Write(PathsGrowth);
             foreach (UInt16 id in Paths)
             {
                 writer.Write(id);
@@ -151,29 +147,29 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Layout
 
             writer.Write(ObjectId);
             writer.Write(RefListIndex);
-            writer.Write(OnSpawnHeaderScriptID);
-            writer.Write((Byte)ParamList1.Count);
-            writer.Write((Byte)ParamList2.Count);
-            writer.Write((Byte)ParamList3.Count);
+            writer.Write(SpawnScriptId);
+            writer.Write((Byte)TaggedProperties.Count);
+            writer.Write((Byte)FloatProperties.Count);
+            writer.Write((Byte)IntProperties.Count);
             writer.Write((Byte)0);
-            writer.Write(StateFlags);
+            writer.Write((UInt32)StateFlags);
 
-            writer.Write(ParamList1.Count);
-            foreach (UInt32 id in ParamList1)
+            writer.Write(TaggedProperties.Count);
+            foreach (var value in TaggedProperties)
             {
-                writer.Write(id);
+                writer.Write(value);
             }
 
-            writer.Write(ParamList2.Count);
-            foreach (Single id in ParamList2)
+            writer.Write(FloatProperties.Count);
+            foreach (var value in FloatProperties)
             {
-                writer.Write(id);
+                writer.Write(value);
             }
 
-            writer.Write(ParamList3.Count);
-            foreach (UInt32 id in ParamList3)
+            writer.Write(IntProperties.Count);
+            foreach (var value in IntProperties)
             {
-                writer.Write(id);
+                writer.Write(value);
             }
         }
 

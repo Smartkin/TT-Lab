@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using DynamicData;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
+using Splat;
 using TT_Lab.Assets;
 using TT_Lab.Command;
 using TT_Lab.Controls;
@@ -74,6 +75,26 @@ public partial class DocumentViewModel : ReactiveObject
 
     [Reactive]
     private DocumentNodeViewModel? _inspector;
+
+    private readonly InspectorTrail _inspectorTrail = new();
+
+    /// <summary>
+    /// The inspector's trail, what following links went through, the inspected node marked
+    /// </summary>
+    [Reactive(SetModifier = AccessModifier.Private)]
+    private IReadOnlyList<InspectorCrumb> _inspectorCrumbs = [];
+
+    [Reactive(SetModifier = AccessModifier.Private)]
+    private bool _canInspectBack;
+
+    [Reactive(SetModifier = AccessModifier.Private)]
+    private bool _canInspectForward;
+
+    /// <summary>
+    /// The asset other chunks share that the inspected node is this chunk's version of, its own editor edits it for every chunk
+    /// </summary>
+    [Reactive(SetModifier = AccessModifier.Private)]
+    private IAsset? _inspectedSharedAsset;
 
     public enum DocumentClosing
     {
@@ -218,7 +239,16 @@ public partial class DocumentViewModel : ReactiveObject
             replacement = asset == null ? null : replacement.Children.FirstOrDefault(child => child.FindChild("[data]")?.Target == asset);
         }
 
-        OpenInspector(replacement == anchor ? null : replacement);
+        if (replacement != null && replacement != anchor)
+        {
+            _inspectorTrail.ReplaceCurrent(replacement);
+            ShowInInspector(replacement, null);
+            return;
+        }
+
+        // Nothing took its place: back along the trail to what's still there, or nothing
+        _inspectorTrail.Prune(IsInGraph);
+        ShowInInspector(_inspectorTrail.Current, null);
     }
 
     private bool IsInGraph(PropertyNode node)
@@ -237,13 +267,78 @@ public partial class DocumentViewModel : ReactiveObject
         return current == PropertyGraph.Root;
     }
 
+    /// <summary>
+    /// Inspects what got picked (in the scene, among the resources), the inspector's trail starts over. Picking what's already inspected
+    /// keeps the trail
+    /// </summary>
     public void OpenInspector(PropertyNode? docToInspect, PropertyNode? focus = null)
+    {
+        if (docToInspect == null || Inspector?.Property != docToInspect)
+        {
+            _inspectorTrail.Start(docToInspect);
+        }
+
+        ShowInInspector(docToInspect, focus);
+    }
+
+    /// <summary>
+    /// Inspects where a link of what's inspected leads, a step along the trail the inspector goes back on
+    /// </summary>
+    public void FollowInInspector(PropertyNode node, PropertyNode? focus = null)
+    {
+        if (Inspector == null)
+        {
+            _inspectorTrail.Start(node);
+        }
+        else
+        {
+            _inspectorTrail.Follow(node);
+        }
+
+        ShowInInspector(node, focus);
+    }
+
+    [ReactiveCommand(CanExecute = nameof(CanInspectBackChanges))]
+    public void InspectBack() => GoAlongTrail(trail => trail.Back());
+
+    [ReactiveCommand(CanExecute = nameof(CanInspectForwardChanges))]
+    public void InspectForward() => GoAlongTrail(trail => trail.Forward());
+
+    public void InspectCrumb(InspectorCrumb crumb) =>
+        GoAlongTrail(trail => crumb.Index < trail.Nodes.Count && trail.Nodes[crumb.Index] == crumb.Node ? trail.GoTo(crumb.Index) : null);
+
+    /// <summary>
+    /// The shared asset the inspector shows this chunk's version of, in its own editor
+    /// </summary>
+    [ReactiveCommand]
+    public void OpenSharedAsset()
+    {
+        if (InspectedSharedAsset is { } shared)
+        {
+            Locator.Current.GetService<ILabManager>()?.OpenEditor(shared);
+        }
+    }
+
+    private IObservable<bool> CanInspectBackChanges => this.WhenAnyValue(x => x.CanInspectBack);
+
+    private IObservable<bool> CanInspectForwardChanges => this.WhenAnyValue(x => x.CanInspectForward);
+
+    // What left the graph since is passed over, there's nothing of it to inspect
+    private void GoAlongTrail(Func<InspectorTrail, PropertyNode?> step)
+    {
+        step(_inspectorTrail);
+        _inspectorTrail.Prune(IsInGraph);
+        ShowInInspector(_inspectorTrail.Current, null);
+    }
+
+    private void ShowInInspector(PropertyNode? docToInspect, PropertyNode? focus)
     {
         Highlight(null);
         // Selecting another part of what's already inspected keeps everything expanded the way it is
         if (docToInspect != null && Inspector?.Property == docToInspect)
         {
             RevealInInspector(focus);
+            UpdateInspectorTrail();
             return;
         }
 
@@ -268,6 +363,29 @@ public partial class DocumentViewModel : ReactiveObject
             Inspector.IsVisible = true;
             RevealInInspector(focus);
         }
+
+        UpdateInspectorTrail();
+    }
+
+    private void UpdateInspectorTrail()
+    {
+        CanInspectBack = _inspectorTrail.CanGoBack;
+        CanInspectForward = _inspectorTrail.CanGoForward;
+        InspectorCrumbs = _inspectorTrail.Nodes.Select((node, index) => InspectorCrumb.Of(index, node, index == _inspectorTrail.Position)).ToList();
+        InspectedSharedAsset = Inspector?.Property.GetValue() is SerializableAsset { OverriddenAsset: { } shared } ? shared : null;
+    }
+
+    /// <summary>
+    /// A resource of the chunk the document is of, where the chunk's resources have it: what the scene and the resources panel inspect
+    /// </summary>
+    public PropertyNode? FindChunkResource(LabURI uri)
+    {
+        if (DocumentModel is not LevelChunk)
+        {
+            return null;
+        }
+
+        return PropertyGraph.Root.FindChild($".{nameof(LevelChunk.ChunkResources)}")?.Children.FirstOrDefault(element => Equals(element.GetValue(), uri))?.FindChild("[data]");
     }
 
     private void RevealInInspector(PropertyNode? focus)

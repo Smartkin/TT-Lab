@@ -13,6 +13,7 @@ using TT_Lab.ViewModels;
 using TT_Lab.ViewModels.Editors.PropertyGraph;
 using TT_Lab.ViewModels.Interfaces;
 using Twinsanity.TwinsanityInterchange.Common;
+using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout;
 
@@ -41,8 +42,8 @@ public class AiPositionData : AbstractAssetData
     public float Radius { get; set; }
         
     [JsonProperty(Required = Required.Always)]
-    [Editable]
-    public UInt16 Flags { get; set; }
+    [Editable(Hint = "Route searches can ask for some flags and rule some out, scripts' conditions test them on a route's step. Blocked keeps every route out")]
+    public Enums.AiPositionFlags Flags { get; set; }
 
     protected override void Dispose(Boolean disposing)
     {
@@ -63,7 +64,7 @@ public class AiPositionData : AbstractAssetData
         using var writer = new BinaryWriter(ms);
         Coords.Write(writer);
         writer.Write(Radius);
-        writer.Write(Flags);
+        writer.Write((UInt16)Flags);
 
         writer.Flush();
         ms.Position = 0;

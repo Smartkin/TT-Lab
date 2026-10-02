@@ -1,3 +1,4 @@
+using Twinsanity.Libraries;
 using Twinsanity.PS2Hardware;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.Graphics;
@@ -70,6 +71,99 @@ public class TextureTests
         Assert.Equal(new byte[] { 0xE0, (byte)size, (byte)(size >> 8), 0 }, texture.SizeWords);
         Assert.Equal(new byte[] { (byte)size, (byte)(size >> 8) }, texture.ReservedBlocks);
         Assert.Equal(expected, texture.Colors.Select(color => color.ToARGB()));
+    }
+
+    // A picture of more colors than a palette holds gets a palette made of its colors and is diffused into it: a smooth area next to a
+    // few rows of every color stays close to itself, where the old median cut spent the palette on the few (a blurred error of 2.2)
+    [Fact]
+    public void PicturesOfMoreColorsThanAPaletteHoldStayClose()
+    {
+        const int size = 64;
+        var random = new Random(7);
+        var image = Enumerable.Range(0, size * size).Select(i => i / size < 58
+            ? new Color((byte)(150 + i % size), (byte)(100 + i / size), (byte)(80 + (i % size + i / size) / 4), 255)
+            : new Color((byte)random.Next(256), (byte)random.Next(256), (byte)random.Next(256), 255)).ToList();
+        var texture = new PS2AnyTexture();
+
+        texture.FromBitmap(image, size, ITwinTexture.TextureFunction.MODULATE, ITwinTexture.TexturePixelFormat.PSMT8);
+        texture.CalculateData();
+
+        Assert.Equal(4096, image.Select(color => color.ToARGB()).Distinct().Count());
+        Assert.InRange(BlurredError(image, texture.Colors, size, size), 0.0, 1.6);
+    }
+
+    // Their mips are their pixels averaged and their palette has the averages too, the GS draws every level with it: dark and bright
+    // columns are in between in the distance, every other index made them all dark
+    [Fact]
+    public void MipsOfQuantizedPicturesAverageTheirPixels()
+    {
+        const int size = 64;
+        var image = Enumerable.Range(0, size * size).Select(i =>
+        {
+            var (x, y) = (i % size, i / size);
+            var value = x % 2 == 0 ? 40 : 200;
+            return new Color((byte)(value + y % 16), (byte)(value + x / 4), (byte)value, 255);
+        }).ToList();
+        var texture = new PS2AnyTexture();
+
+        texture.FromBitmap(image, size, ITwinTexture.TextureFunction.MODULATE, ITwinTexture.TexturePixelFormat.PSMT8, true);
+
+        var mip = DecodeMip(texture, 1, size / 2, size / 2);
+        Assert.InRange(mip.Average(color => (double)color.B), 110, 130);
+        Assert.True(mip.Count(color => Math.Abs(color.B - 120) <= 20) > mip.Count * 0.9);
+    }
+
+    // How far the picture is from what it was made of up close, where the eye takes dithering in as its average: a 3x3 blur of both
+    private static double BlurredError(List<Color> expected, List<Color> actual, int width, int height)
+    {
+        double error = 0;
+        for (var y = 0; y < height; y++)
+        {
+            for (var x = 0; x < width; x++)
+            {
+                var difference = new double[4];
+                for (var dy = -1; dy <= 1; dy++)
+                {
+                    for (var dx = -1; dx <= 1; dx++)
+                    {
+                        var at = Math.Clamp(y + dy, 0, height - 1) * width + Math.Clamp(x + dx, 0, width - 1);
+                        difference[0] += expected[at].R - actual[at].R;
+                        difference[1] += expected[at].G - actual[at].G;
+                        difference[2] += expected[at].B - actual[at].B;
+                        difference[3] += expected[at].A - actual[at].A;
+                    }
+                }
+
+                error += difference.Sum(channel => channel / 9 * (channel / 9));
+            }
+        }
+
+        return Math.Sqrt(error / (width * height * 4));
+    }
+
+    // A mip level's pixels, read the way CalculateData reads the first
+    private static List<Color> DecodeMip(PS2AnyTexture texture, int level, int width, int height)
+    {
+        var gif = VIFInterpreter.InterpretCode(texture.TextureData).GetGifMem();
+        var transfer = gif[0].Data[1].Output;
+        var raw = EzSwizzle.writeTexPSMCT32(0, 1, 0, 0, (int)(transfer & 0xFFFFFFFF), (int)(transfer >> 32), EzSwizzle.TagToBytes(gif[1]));
+        var indexes = EzSwizzle.readTexPSMT8(texture.MipLevelsTBP[level - 1], texture.MipLevelsTBW[level - 1], 0, 0, width, height, raw, false);
+        var palette = EzSwizzle.BytesToColors(EzSwizzle.readTexPSMCT32(texture.ClutBufferBasePointer, 1, 0, 0, 16, 16, raw, false));
+        // Entries 8-15 and 16-23 of every 32 are stored swapped
+        for (var i = 0; i < 8; i++)
+        {
+            for (var j = 8; j < 16; j++)
+            {
+                (palette[j + i * 32], palette[j + i * 32 + 8]) = (palette[j + i * 32 + 8], palette[j + i * 32]);
+            }
+        }
+
+        foreach (var color in palette)
+        {
+            color.ScaleAlphaUp();
+        }
+
+        return indexes.Select(index => palette[index]).ToList();
     }
 
     // The icons of PSM files have zeros where the textures of chunks have leftovers of the tools

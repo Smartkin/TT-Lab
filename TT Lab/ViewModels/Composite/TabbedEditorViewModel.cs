@@ -138,13 +138,14 @@ public abstract partial class TabbedEditorViewModel : Document
             {
                 SaveTab();
             }
-            else
+            // Nothing changed stays as it is: other editors may be using the data, and it's let go of once none does
+            else if (Document.IsDirty)
             {
                 await using System.IO.FileStream fs = new($"{_asset.FullPath}{System.IO.Path.DirectorySeparatorChar}{_asset.Name}.json", System.IO.FileMode.Open, System.IO.FileAccess.Read);
                 using System.IO.StreamReader reader = new(fs);
                 var json = await reader.ReadToEndAsync();
                 _asset.Deserialize(json);
-                _asset.Dispose();
+                DiscardData();
             }
 
             Cleanup();
@@ -152,6 +153,23 @@ public abstract partial class TabbedEditorViewModel : Document
         }
 
         return false;
+    }
+
+    // The changes go by loading the data again. Data another open editor uses stays with it: a chunk's view of a behaviour, a model, a
+    // picture or a sound shares its asset's data, and disposing it emptied what the chunk showed (a behaviour's script). A chunk's own
+    // resources go back with it, chunks linking it reference it as well
+    private void DiscardData()
+    {
+        var editors = Locator.Current.GetService<EditorsViewModel>();
+        var usedElsewhere = _asset is not LevelChunk && editors != null && editors.ScenesEditorsViewModel.Tabs.Concat(editors.ResourcesEditorsViewModel.Tabs)
+            .Any(tab => tab != this && tab.IsLoaded && tab.GetReferencedAssets().Contains(_asset.URI));
+        if (usedElsewhere)
+        {
+            _asset.UnloadData();
+            return;
+        }
+
+        _asset.Dispose();
     }
 
     private void Cleanup()

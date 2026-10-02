@@ -229,6 +229,49 @@ public class MeshFactory
         return new Mesh(_renderContext, [buffer]);
     }
 
+    /// <summary>
+    /// A sphere of radius 1 standing on the floor with the material on it, what the material editor shows it on. Lit materials double
+    /// the vertexes' colors, so their sphere is half as bright
+    /// </summary>
+    public Mesh CreateMaterialPreview(MaterialData material)
+    {
+        const int rings = 24;
+        const int segments = 48;
+        var brightness = material.Shaders.Any(shader => MaterialFactory.IsLit(shader.ShaderType)) ? 0.5f : 1.0f;
+        var color = new Vector4(brightness, brightness, brightness, 1.0f);
+        var vertexes = new List<Vertex>();
+        for (var ring = 0; ring <= rings; ring++)
+        {
+            var v = ring / (float)rings;
+            var polar = v * MathF.PI;
+            for (var segment = 0; segment <= segments; segment++)
+            {
+                var u = segment / (float)segments;
+                var azimuth = u * MathF.PI * 2.0f;
+                var normal = new vec3(MathF.Sin(polar) * MathF.Cos(azimuth), MathF.Cos(polar), MathF.Sin(polar) * MathF.Sin(azimuth));
+                vertexes.Add(new Vertex(new Vector4(normal.x, normal.y + 1.0f, normal.z, 1.0f), color, new Vector4(u, v, 0.0f, 0.0f))
+                {
+                    Normal = new Vector4(normal.x, normal.y, normal.z, 0.0f)
+                });
+            }
+        }
+
+        var faces = new List<IndexedFace>();
+        for (var ring = 0; ring < rings; ring++)
+        {
+            for (var segment = 0; segment < segments; segment++)
+            {
+                var corner = ring * (segments + 1) + segment;
+                var below = corner + segments + 1;
+                faces.Add(new IndexedFace { Indexes = [corner, corner + 1, below] });
+                faces.Add(new IndexedFace { Indexes = [corner + 1, below + 1, below] });
+            }
+        }
+
+        var buffer = new ModelBuffer(_renderContext, _meshBuilder.BuildRigidVaoFromVertexes(vertexes, faces), _materialFactory, material);
+        return new Mesh(_renderContext, [buffer]);
+    }
+
     private Mesh CreateUntexturedMesh(ModelData data)
     {
         var material = new MaterialData(null);
@@ -265,14 +308,14 @@ public class MeshFactory
         material.Shaders[0].ShaderType = TwinShader.Type.StandardUnlit;
         List<ModelBuffer> buffers = [new(_renderContext,
             _meshBuilder.BuildRigidVaoFromVertexes(
-                collisionData.Vectors.Select(v => new Vertex(new Vector4(v.X, v.Y, v.Z, v.W))).ToList(),
+                collisionData.Vertexes.Select(v => new Vertex(new Vector4(v.X, v.Y, v.Z, v.W))).ToList(),
                 collisionData.Triangles.Select(t => t.Face).ToList(),
                 i =>
                 {
                     var surface = assetManager.GetAsset(collisionData.Triangles[i].Surface);
                     return CollisionSurface.GetEditorColor(surface).GetVector();
                 }),
-            _materialFactory, material)];
+            _materialFactory, material) { EditorShading = true }];
         
         return new CollisionMesh(_renderContext, buffers);
     }

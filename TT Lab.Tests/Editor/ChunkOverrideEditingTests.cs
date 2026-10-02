@@ -22,7 +22,7 @@ namespace TT_Lab.Tests.Editor;
 public sealed class ChunkOverrideEditingTests : IDisposable
 {
     // The new chunk's resources are its scenery, links, particles and the instance of Crash
-    private const string CrashFloat = "Root.ChunkResources[3][data].AssetData.ObjectId[data].AssetData.InstFloats[0]";
+    private const string CrashFloat = "Root.ChunkResources[3][data].AssetData.ObjectId[data].AssetData.FloatProperties[0]";
 
     private readonly TestProject _project = new();
     private readonly Package _package;
@@ -34,7 +34,7 @@ public sealed class ChunkOverrideEditingTests : IDisposable
         _project.BuildProjectTree(Path.Combine(_package.Name, "levels"), Path.Combine(_package.Name, "Graphics"));
         _crash = _project.Add(new GameObject(), "Crash", 0x0);
         var crashData = new GameObjectData(_crash) { Name = "Crash" };
-        crashData.InstFloats.Add(1.5f);
+        crashData.FloatProperties.Add(1.5f);
         _crash.SetData(crashData);
         _crash.Serialize(SerializationFlags.SaveData | SerializationFlags.PreserveData);
         var surface = new CollisionSurface { Chunk = "default" };
@@ -83,8 +83,8 @@ public sealed class ChunkOverrideEditingTests : IDisposable
 
         var @override = Assert.Single(chunk.Overrides);
         Assert.Equal(_crash.URI, @override.Asset);
-        Assert.Equal(2.5f, (float)@override.Values["AssetData.InstFloats[0]"]);
-        Assert.Equal([1.5f], ((IAsset)_crash).GetData<GameObjectData>().InstFloats);
+        Assert.Equal(2.5f, (float)@override.Values["AssetData.FloatProperties[0]"]);
+        Assert.Equal([1.5f], ((IAsset)_crash).GetData<GameObjectData>().FloatProperties);
         // The chunk shows its own value when it's opened again, other chunks the shared one
         Assert.Equal(2.5f, Open(chunk).PropertyGraph.Find(CrashFloat)!.GetValue());
         Assert.Equal(1.5f, Open(CreateChunk("beach")).PropertyGraph.Find(CrashFloat)!.GetValue());
@@ -111,7 +111,7 @@ public sealed class ChunkOverrideEditingTests : IDisposable
         Assert.False(editor.IsOverridden);
         document.Save();
         Assert.Empty(chunk.Overrides);
-        Assert.Equal([4.0f], ((IAsset)_crash).GetData<GameObjectData>().InstFloats);
+        Assert.Equal([4.0f], ((IAsset)_crash).GetData<GameObjectData>().FloatProperties);
     }
 
     [AvaloniaFact]
@@ -149,14 +149,14 @@ public sealed class ChunkOverrideEditingTests : IDisposable
     public void ObjectsNamesArentTheChunksOwn()
     {
         var chunk = CreateChunk("hub");
-        chunk.Overrides.Add(new AssetOverride { Asset = _crash.URI, Values = { ["AssetData.InstFloats[0]"] = 2.5f } });
+        chunk.Overrides.Add(new AssetOverride { Asset = _crash.URI, Values = { ["AssetData.FloatProperties[0]"] = 2.5f } });
         var document = Open(chunk);
 
         var view = Assert.IsAssignableFrom<SerializableAsset>(document.PropertyGraph.Find("Root.ChunkResources[3][data].AssetData.ObjectId[data]")!.Target);
 
         Assert.Equal("Crash", ((IAsset)view).GetData<GameObjectData>().Name);
         Assert.Equal(2.5f, document.PropertyGraph.Find(CrashFloat)!.GetValue());
-        Assert.Equal(["AssetData.InstFloats[0]"], document.PropertyGraph.Overrides!.GetOwnValues(view).Keys);
+        Assert.Equal(["AssetData.FloatProperties[0]"], document.PropertyGraph.Overrides!.GetOwnValues(view).Keys);
     }
 
     [AvaloniaFact]
@@ -187,7 +187,7 @@ public sealed class ChunkOverrideEditingTests : IDisposable
         document.PropertyGraph.Find(CrashFloat)!.SetValue(2.5f);
         document.Save();
 
-        Assert.Equal(["AssetData.InstFloats[0]"], Assert.Single(chunk.Overrides).Values.Keys);
+        Assert.Equal(["AssetData.FloatProperties[0]"], Assert.Single(chunk.Overrides).Values.Keys);
         Assert.False(commands.IsOverridden);
         Assert.Equal("SetSurface(0x01FF0008);", crash.BehaviourPack);
     }
@@ -210,7 +210,7 @@ public sealed class ChunkOverrideEditingTests : IDisposable
         var graph = PropertyGraphBuilder.Build(new TwoLinks { Shallow = _crash.URI, Deep = _crash.URI });
 
         Assert.Null(graph.Find("Root.Shallow[data].AssetData"));
-        Assert.NotNull(graph.Find("Root.Deep[data].AssetData.InstFloats[0]"));
+        Assert.NotNull(graph.Find("Root.Deep[data].AssetData.FloatProperties[0]"));
     }
 
     [AvaloniaFact]

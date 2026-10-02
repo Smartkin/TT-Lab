@@ -9,10 +9,16 @@ namespace TT_Lab.Rendering.Factories;
 
 public class MaterialFactory(TextureService textureService)
 {
+    /// <summary>
+    /// Shader types lit by the game's lights, whose vertex colors count double (128 is full)
+    /// </summary>
+    public static bool IsLit(TwinShader.Type type) => type is TwinShader.Type.StandardLit or TwinShader.Type.LitSkinnedModel or TwinShader.Type.LitEnvironmentMap
+        or TwinShader.Type.LitMetallic or TwinShader.Type.LitReflectionSurface;
+
     public TwinMaterialDesc GetTwinMaterialFromShader(LabShader shader)
     {
         var texture = textureService.GetTexture(shader.TextureId);
-        var unlit = true;
+        var unlit = !IsLit(shader.ShaderType);
         var uvScrollSpeed = vec2.Zero;
         var deformMode = 0;
         var deformSpeed = 0.0f;
@@ -33,26 +39,21 @@ public class MaterialFactory(TextureService textureService)
             case TwinShader.Type.StandardUnlit:
                 break;
             case TwinShader.Type.StandardLit:
-                unlit = false;
                 break;
             case TwinShader.Type.LitSkinnedModel:
-                unlit = false;
                 break;
             case TwinShader.Type.UnlitSkydome:
                 break;
             case TwinShader.Type.ColorOnly:
                 break;
             case TwinShader.Type.LitEnvironmentMap:
-                unlit = false;
                 envMap = true;
                 break;
             case TwinShader.Type.UiShader:
                 break;
             case TwinShader.Type.LitMetallic:
-                unlit = false;
                 break;
             case TwinShader.Type.LitReflectionSurface:
-                unlit = false;
                 break;
             case TwinShader.Type.SHADER_17:
                 break;

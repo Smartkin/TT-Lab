@@ -29,6 +29,8 @@ void main()
         surfaceNormal = -surfaceNormal;
     }
     vec3 eyeDirection = normalize(EyePosition - ViewPosition);
+    // The editor's flat shading goes by the triangle's own normal, taken before the alpha test can discard fragments of the quad
+    vec3 faceNormal = twin_material.editor_shading > 0.0 ? normalize(cross(dFdx(ViewPosition), dFdy(ViewPosition))) : vec3(0.0);
 
     // The picture read where the game's VU1 program reads it, by the half vector's dot products with the strongest lights (EnvUv)
     if (twin_material.env_map > 0.0)
@@ -54,6 +56,14 @@ void main()
     resultBlend.rgb *= Diffuse.rgb * twin_material.animated_color.rgb;
     resultBlend.a *= twin_material.animated_color.a;
     resultBlend.a = mix(resultBlend.a, resultBlend.a * Diffuse.a, twin_material.alpha_blend);
+
+    // Flat by the triangle the fragment is on, lit from above and from the eye: collision's triangles face either way
+    if (twin_material.editor_shading > 0.0)
+    {
+        float key = abs(dot(faceNormal, normalize(vec3(0.35, 1.0, 0.55))));
+        float head = abs(dot(faceNormal, eyeDirection));
+        resultBlend.rgb *= 0.3 + 0.45 * key + 0.25 * head;
+    }
 
     // Fog
     float cameraDistance = distance(EyePosition, ViewPosition);

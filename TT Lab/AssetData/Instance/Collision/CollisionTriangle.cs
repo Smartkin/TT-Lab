@@ -23,7 +23,7 @@ public class CollisionTriangle
 
     public CollisionTriangle(TwinCollisionTriangle triangle, ImmutableList<CollisionSurface> surfaces)
     {
-        Face = new IndexedFace(triangle.Vector1Index, triangle.Vector2Index, triangle.Vector3Index);
+        Face = new IndexedFace(triangle.Vertex1Index, triangle.Vertex2Index, triangle.Vertex3Index);
         var surface = surfaces.First(s => s.ID == triangle.SurfaceIndex);
         Surface = surface.URI;
     }

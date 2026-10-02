@@ -13,8 +13,10 @@ tlm = load_addon_module("tlm")
 tlm_math = load_addon_module("tlm_math")
 tlm_mesh = load_addon_module("tlm_mesh")
 project = load_addon_module("project")
+save_icon = load_addon_module("save_icon")
 
 FIXTURE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "ogi.tlm")
+SAVE_ICON_FIXTURE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "save_icon.tlm")
 
 
 class FileTests(unittest.TestCase):
@@ -283,6 +285,64 @@ class MeshTests(unittest.TestCase):
         for original, part in zip(body["parts"], written["parts"]):
             for key in tlm_mesh.OPTIONAL_KEYS:
                 self.assertEqual(key in part, key in original, key)
+
+
+class SaveIconTests(unittest.TestCase):
+    """The save icon's one part keeps its shapes, which are written for what's shaped though it's no skin."""
+
+    def setUp(self):
+        self.file = tlm.TlmFile.load(SAVE_ICON_FIXTURE)
+        self.part = self.file.root["mesh"]["parts"][0]
+
+    def test_the_icon_is_a_shaped_mesh_with_its_texture(self):
+        self.assertEqual(self.file.root["kind"], "save_icon")
+        self.assertEqual(len(self.part["shapes"]), 1)
+        self.assertIn("png", self.file.materials[self.part["material"]]["image"])
+        self.assertEqual([frame["shape"] for frame in self.file.root["animation"]["frames"]], [0, 1])
+
+    def test_unedited_icons_come_back_with_their_shapes(self):
+        data = tlm_mesh.from_parts(self.file, self.file.root["mesh"], False)
+        target = tlm.TlmFile()
+
+        written = tlm_mesh.to_parts(target, _corner_mesh(data), False, shaped=True)
+
+        part = written["parts"][0]
+        for key in ("faces", "position", "twin_normal", "color"):
+            self.assertEqual(list(target.read_view(part[key])), list(self.file.read_view(self.part[key])), key)
+
+        self.assertEqual(list(target.read_view(part["shapes"][0])), list(self.file.read_view(self.part["shapes"][0])))
+        self.assertNotIn("shapes", tlm_mesh.to_parts(tlm.TlmFile(), _corner_mesh(data), False)["parts"][0])
+
+
+class SaveIconAnimationTests(unittest.TestCase):
+    """The first shape's weight is what the shape keys leave over, so the console's blend of the shapes is what Blender shows."""
+
+    def test_weights_go_in_straight_lines_between_the_keys(self):
+        keys = [0.0, 0.0, 30.0, 1.0, 60.0, 0.0]
+        self.assertEqual(save_icon.weight_at(keys, -5.0), 0.0)
+        self.assertEqual(save_icon.weight_at(keys, 15.0), 0.5)
+        self.assertEqual(save_icon.weight_at(keys, 30.0), 1.0)
+        self.assertEqual(save_icon.weight_at(keys, 90.0), 0.0)
+        self.assertEqual(save_icon.weight_at([5.0, 0.25], 0.0), 0.25)
+        self.assertEqual(save_icon.weight_at([], 10.0), 0.0)
+
+    def test_the_first_shape_takes_what_the_others_leave(self):
+        self.assertEqual(save_icon.basis_keys([[0.0, 0.0, 30.0, 0.5, 60.0, 0.0]]), [0.0, 1.0, 30.0, 0.5, 60.0, 1.0])
+        self.assertEqual(save_icon.basis_keys([]), [0.0, 1.0])
+
+    def test_the_console_draws_what_blender_shows(self):
+        first = [0.0, 0.0, 20.0, 1.0]
+        second = [10.0, 0.0, 40.0, 0.5]
+        basis = save_icon.basis_keys([first, second])
+        self.assertEqual(basis[0::2], [0.0, 10.0, 20.0, 40.0])
+        # A coordinate of a vertex in the three shapes: the console takes every shape times its weight over the weights' sum, Blender
+        # the shape keys' offsets from the first times their values
+        shapes = [0.0, 3.0, -2.0]
+        for time in (-1.0, 0.0, 5.0, 12.5, 20.0, 33.0, 50.0):
+            weights = [save_icon.weight_at(keys, time) for keys in (basis, first, second)]
+            console = sum(weight * shape for weight, shape in zip(weights, shapes)) / sum(weights)
+            blender = shapes[0] + weights[1] * (shapes[1] - shapes[0]) + weights[2] * (shapes[2] - shapes[0])
+            self.assertAlmostEqual(console, blender, msg=str(time))
 
 
 class ProjectTests(unittest.TestCase):

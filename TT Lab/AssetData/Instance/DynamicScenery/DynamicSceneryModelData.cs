@@ -41,7 +41,7 @@ public class DynamicSceneryModelData
     public TwinDynamicSceneryAnimation Animation { get; set; }
     
     [System.Text.Json.Serialization.JsonIgnore]
-    public Byte LodFlag { get; set; }
+    public Boolean UsesLod { get; set; }
     
     [System.Text.Json.Serialization.JsonIgnore]
     public LabURI Mesh { get; set; }
@@ -62,7 +62,7 @@ public class DynamicSceneryModelData
         CollisionHulls = CloneUtils.DeepClone(model.CollisionHulls);
         AnimatedFrames = model.AnimatedFrames;
         Animation = CloneUtils.DeepClone(model.Animation);
-        LodFlag = model.LodFlag;
+        UsesLod = model.UsesLod;
         Mesh = AssetManager.Get().GetUriByTwinId<Mesh>(owner, model.MeshID);
         BoundingBox = [new Vector4(), new Vector4()];
         for (Int32 i = 0; i < BoundingBox.Count; i++)
@@ -81,7 +81,7 @@ public class DynamicSceneryModelData
         var node = TlmNodes.Create(TlmKind, $"Dynamic Model {order}", new JsonObject
         {
             ["Order"] = order,
-            ["LodFlag"] = (Int32)LodFlag,
+            ["UsesLod"] = UsesLod,
             ["BoundingBoxMin"] = TlmJson.ToJson(BoundingBox[0]),
             ["BoundingBoxMax"] = TlmJson.ToJson(BoundingBox[1])
         });
@@ -127,7 +127,7 @@ public class DynamicSceneryModelData
         var data = node.Data;
         var result = new DynamicSceneryModelData
         {
-            LodFlag = (Byte)data.GetInt("LodFlag"),
+            UsesLod = data.GetBool("UsesLod"),
             BoundingBox = [data.GetVector4("BoundingBoxMin", new Vector4(0, 0, 0, 1)), data.GetVector4("BoundingBoxMax", new Vector4(10, 10, 10, 1))],
             CollisionHulls = node.Children.Where(child => child.Kind == TlmHulls.Kind).Select(child => TlmHulls.Read(file, child.Json)).ToList()
         };
@@ -260,7 +260,7 @@ public class DynamicSceneryModelData
         }
         writer.Write(AnimatedFrames);
         Animation.Write(writer);
-        writer.Write(LodFlag);
+        writer.Write((Byte)(UsesLod ? 1 : 0));
         writer.Write(AssetManager.Get().GetAsset(Mesh).ExportTwinID);
         foreach (var v in BoundingBox)
         {

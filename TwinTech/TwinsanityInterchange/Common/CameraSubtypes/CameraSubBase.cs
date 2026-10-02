@@ -13,13 +13,27 @@ namespace Twinsanity.TwinsanityInterchange.Common.CameraSubtypes
     public abstract class CameraSubBase : ITwinSerializable
     {
         /// <summary>
-        /// The tools' flags word, 1 on every retail camera but the zones' 0, set by the game's constructors as well
+        /// How the camera rig's point followers move to the points the subtype gives (CameraSubtype::flags): neither bit goes straight
+        /// there. 1 on every retail camera but the zones' 0, the game's constructors set 1 as well
         /// </summary>
-        public UInt32 Flags { get; set; }
+        [Flags]
+        public enum FollowFlags : UInt32
+        {
+            /// <summary>
+            /// The followers' own way, at their default rate
+            /// </summary>
+            OwnWay = 1 << 0,
+            /// <summary>
+            /// At <see cref="FollowRate"/>
+            /// </summary>
+            AtRate = 1 << 1,
+        }
+
+        public FollowFlags Follow { get; set; }
         /// <summary>
-        /// Leftover memory, never read
+        /// With <see cref="FollowFlags.AtRate"/>, the share of the way a second the followers move to the subtype's points
         /// </summary>
-        public Single Leftover { get; set; }
+        public Single FollowRate { get; set; }
         /// <summary>
         /// How far along the line, path or spline the camera leads (positive) or trails the target's nearest point, in units. A
         /// spline only takes it when its flags say so, points, zones and boss cameras never read it.
@@ -28,7 +42,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.CameraSubtypes
 
         public CameraSubBase()
         {
-            Flags = 1;
+            Follow = FollowFlags.OwnWay;
         }
 
         public virtual int GetLength()
@@ -43,15 +57,15 @@ namespace Twinsanity.TwinsanityInterchange.Common.CameraSubtypes
 
         public virtual void Read(BinaryReader reader, int length)
         {
-            Flags = reader.ReadUInt32();
-            Leftover = reader.ReadSingle();
+            Follow = (FollowFlags)reader.ReadUInt32();
+            FollowRate = reader.ReadSingle();
             Offset = reader.ReadSingle();
         }
 
         public virtual void Write(BinaryWriter writer)
         {
-            writer.Write(Flags);
-            writer.Write(Leftover);
+            writer.Write((UInt32)Follow);
+            writer.Write(FollowRate);
             writer.Write(Offset);
         }
 

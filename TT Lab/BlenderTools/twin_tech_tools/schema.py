@@ -412,9 +412,9 @@ SCENE_TYPES: typing.List["TwinType"] = []
 
 JOINT = TwinType("Joint", "Joint", [
         Field("Index", "int", minimum=0, description="Which of the game's joints the bone is, skins and animations refer to joints by it"),
-        Field("ReactId", "byte", default=255, description="255 for joints that don't react"),
+        Field("Id", "byte", default=255, description="The ID the game finds the joint by (animations' progress, head tracking), 255 for none"),
         Field("AdditionalAnimationRotation", "vec4", default=(0.0, 0.0, 0.0, 1.0), description="Rotation animations can add, as a quaternion"),
-        Field("ChildrenAmt2", "int", label="Second Children Amount", advanced=True),
+        Field("Detail", "int", description="Level of detail below which the joint's children aren't animated, the game always animates at 0", advanced=True),
         Field("UnusedRotation", "vec4", advanced=True),
         Field("LocalTranslation", "vec4", description="Kept while the bone isn't moved", advanced=True),
         Field("LocalRotation", "vec4", description="Kept while the bone isn't turned", advanced=True),
@@ -464,7 +464,7 @@ OBJECT_TYPES = [
     TwinType("PointLight", "Point light", _light_fields() + [
         Field("AttenuationPower", "short", description="How many times the distance attenuation 25 / (d² + 25) multiplies the intensity, 0 to 2 in the game's levels"),
     ], "Lights what's around it, fading with the distance"),
-    TwinType("NegativeLight", "Spot light", _light_fields() + [
+    TwinType("SpotLight", "Spot light", _light_fields() + [
         Field("ConeAngle", "uint", default=16384, description="Angle of the whole cone lit at full intensity, in 65536ths of a turn (182 per degree)"),
         Field("FalloffAngle", "uint", default=910, description="Angle the light fades out over past the cone, in 65536ths of a turn (182 per degree)"),
         Field("AttenuationPower", "ushort", description="How many times the distance attenuation 25 / (d² + 25) multiplies the intensity"),
@@ -480,11 +480,21 @@ OBJECT_TYPES = [
     TwinType("DynamicScenery", "Dynamic scenery", [], "Holds the dynamic models"),
     TwinType("DynamicSceneryModel", "Dynamic model", [
         Field("Order", "int", description="Position among the dynamic models"),
-        Field("LodFlag", "byte"),
+        Field("UsesLod", "bool", label="Uses LOD", description="Draws through a LOD instead of a mesh"),
         Field("BoundingBoxMin", "vec4", default=(0.0, 0.0, 0.0, 1.0)),
         Field("BoundingBoxMax", "vec4", default=(1.0, 1.0, 1.0, 1.0)),
     ], "A scenery mesh moving by its animation, its collision hulls are under it"),
     TwinType("SkydomeMesh", "Skydome mesh", [Field("Order", "int", description="Position among the skydome's meshes")]),
+    TwinType("SaveIcon", "Save icon", [
+        Field("TextureType", "uint", default=7, description="The texture's kind, 6 or 7 as it is, 14 or 15 (bit 3) run length encoded"),
+        Field("FrameLength", "uint", default=1, description="The animation's length, as the game's icon has it"),
+        Field("AnimationSpeed", "float", default=1.0, description="How fast the animation plays, as the game's icon has it"),
+        Field("PlayOffset", "uint", description="Where the animation starts, as the game's icon has it"),
+        Field("FileId", "uint", label="File ID", default=0x10000, description="0x10000 in the game's icon", advanced=True),
+        Field("HeaderValue", "uint", default=0x3F800000, description="The bits of 1.0 in the game's icon", advanced=True),
+        Field("AnimationTag", "uint", default=1, description="1 in the game's icon", advanced=True),
+    ], "The PS2 memory card icon saves get: one mesh whose shape keys are the shapes its animation blends, the curves of their values the "
+       "animation's keys. The material's image is its 128x128 texture"),
     TwinType("Collision", "Collision", [
         Field("UnusedVertexes", "ints", advanced=True),
         Field("UnusedPositions", "floats", advanced=True),

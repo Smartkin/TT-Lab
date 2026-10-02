@@ -20,7 +20,7 @@ public sealed class UndoHistoryTests : IDisposable
     private (DocumentViewModel Document, PathData Data) OpenPath(string name = "Path")
     {
         var path = _project.Add(new Path(), name);
-        var data = new PathData(path) { Points = Enumerable.Range(0, 3).Select(i => new Vector3(i, 0, 0)).ToList(), Parameters = [] };
+        var data = new PathData(path) { Points = Enumerable.Range(0, 3).Select(i => new Vector3(i, 0, 0)).ToList(), ArcLengths = [], InverseSteps = [] };
         path.SetData(data);
         var document = new DocumentViewModel(path);
         document.Initialize();

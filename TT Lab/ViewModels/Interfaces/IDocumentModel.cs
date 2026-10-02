@@ -29,6 +29,7 @@ public enum ViewportObjectCategory
     Other,
     Scenery,
     DynamicScenery,
+    DynamicSceneryBounds,
     Collision,
     Skydome,
     LinkedScenery,

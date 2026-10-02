@@ -58,12 +58,12 @@ public sealed class UndoCoverageTests : IDisposable
 
         Change(document, "Root.AssetData.StateFlags.SnapToGround", true);
         Change(document, "Root.AssetData.StateFlags.Visible", false);
-        Change(document, "Root.AssetData.OnSpawnScriptId", graph.URI);
+        Change(document, "Root.AssetData.SpawnScript", graph.URI);
         Assert.Equal(Enums.InstanceState.SnapToGround, data.StateFlags);
-        Assert.Equal(graph.URI, data.OnSpawnScriptId);
+        Assert.Equal(graph.URI, data.SpawnScript);
 
         document.Undo();
-        Assert.Equal(LabURI.Empty, data.OnSpawnScriptId);
+        Assert.Equal(LabURI.Empty, data.SpawnScript);
         document.Undo();
         Assert.Equal(Enums.InstanceState.Visible | Enums.InstanceState.SnapToGround, data.StateFlags);
         document.Undo();
@@ -72,7 +72,7 @@ public sealed class UndoCoverageTests : IDisposable
         document.Redo();
         document.Redo();
         document.Redo();
-        Assert.Equal(graph.URI, data.OnSpawnScriptId);
+        Assert.Equal(graph.URI, data.SpawnScript);
         Assert.Equal(Enums.InstanceState.SnapToGround, data.StateFlags);
     }
 
@@ -107,7 +107,7 @@ public sealed class UndoCoverageTests : IDisposable
     {
         var camera = _project.Add(new Camera { Chunk = "default", LayoutID = 4 }, "Camera");
         var zone = new CameraZone();
-        var spline = new CameraSpline { PathPoints = [new Vector4(0, 0, 0, 0), new Vector4(1, 0, 0, 0)], Tangents = [new Vector4(1, 0, 0, 1), new Vector4(1, 0, 0, 1)], Parameters = [new Vector2 { X = 1, Y = 0.2f }] };
+        var spline = new CameraSpline { PathPoints = [new Vector4(0, 0, 0, 0), new Vector4(1, 0, 0, 0)], Tangents = [new Vector4(1, 0, 0, 1), new Vector4(1, 0, 0, 1)], ArcLengths = [1], InverseSteps = [0.2f] };
         camera.SetData(new CameraData(camera) { MainCamera1 = zone, MainCamera2 = spline });
         var document = Open(camera);
 
@@ -337,7 +337,7 @@ public sealed class UndoCoverageTests : IDisposable
         Assert.Equal(-2.0f, data.Links[0].ObjectMatrix.Column4.X);
 
         // A link without a wall is stored without one, read back it got a zero wall every save wrote
-        Assert.DoesNotContain(nameof(ChunkLink.LoadingWall), Newtonsoft.Json.JsonConvert.SerializeObject(new ChunkLink()));
+        Assert.DoesNotContain(nameof(ChunkLink.LoadingWall), Newtonsoft.Json.JsonConvert.SerializeObject(new ChunkLink { LoadingWall = new Matrix4() }));
     }
 
     // Shaders keep bits of the tools' memory as NaNs, float equality took them all for the same value and undo left another NaN

@@ -24,7 +24,7 @@ public sealed class AssetOverrideTests : IDisposable
         var gameObject = new GameObject { Variation = variation };
         _project.Add(gameObject, name, id, _project.Project.Ps2Package);
         var data = new GameObjectData(gameObject) { Name = "|Hub|act_BIRD", BehaviourPack = "SetObject(0x60050000, 0x000000C0);\n" };
-        data.InstFlags.AddRange([1, 2, 3]);
+        data.TaggedProperties.AddRange([new(1), new(2), new(3)]);
         edit?.Invoke(data);
         gameObject.SetData(data);
         gameObject.Serialize(SerializationFlags.SaveData);
@@ -66,19 +66,19 @@ public sealed class AssetOverrideTests : IDisposable
         var bird = AddObject("Bird");
         var values = new SortedDictionary<string, JToken>(StringComparer.Ordinal)
         {
-            ["AssetData.InstFlags[1]"] = 9
+            ["AssetData.TaggedProperties[1]"] = 9
         };
 
         var view = AssetOverrides.CreateView(bird, values);
 
         var viewData = ((IAsset)view).GetData<GameObjectData>();
         Assert.Equal("|Hub|act_BIRD", viewData.Name);
-        Assert.Equal([1u, 9u, 3u], viewData.InstFlags);
+        Assert.Equal([1u, 9u, 3u], viewData.TaggedProperties.Select(tagged => tagged.Bits));
         Assert.Equal(bird.URI, view.URI);
         Assert.Same(bird, view.OverriddenAsset);
         var birdData = ((IAsset)bird).GetData<GameObjectData>();
         Assert.Equal("|Hub|act_BIRD", birdData.Name);
-        Assert.Equal([1u, 2u, 3u], birdData.InstFlags);
+        Assert.Equal([1u, 2u, 3u], birdData.TaggedProperties.Select(tagged => tagged.Bits));
 
         // Views share the asset's file, saving one would overwrite the asset
         var written = File.GetLastWriteTimeUtc(bird.FullDataPath);
@@ -136,15 +136,15 @@ public sealed class AssetOverrideTests : IDisposable
         var school = AddChunk("levels/school/crash/crgpa01");
         var other = AddChunk("levels/school/crash/crgpa02");
         var wumpa = AddObject("Wumpa");
-        var variant = AddObject("Wumpa", "levels_earth_cavern_cavent", edit: data => data.InstFlags[0] = 7);
+        var variant = AddObject("Wumpa", "levels_earth_cavern_cavent", edit: data => data.TaggedProperties[0] = new(7));
         cavern.ItemVersions.Add(variant.URI);
         school.ItemVersions.Add(variant.URI);
         other.ItemVersions.Add(wumpa.URI);
 
         new VariantMerger(_project.AssetManager, _project.AssetsPath).Merge();
 
-        Assert.Equal(["AssetData.InstFlags[0]"], Assert.Single(cavern.Overrides).Values.Keys);
-        Assert.Equal(["AssetData.InstFlags[0]"], Assert.Single(school.Overrides).Values.Keys);
+        Assert.Equal(["AssetData.TaggedProperties[0]"], Assert.Single(cavern.Overrides).Values.Keys);
+        Assert.Equal(["AssetData.TaggedProperties[0]"], Assert.Single(school.Overrides).Values.Keys);
         Assert.Empty(other.Overrides);
         Assert.Equal([wumpa.URI], school.ItemVersions);
     }
@@ -154,7 +154,7 @@ public sealed class AssetOverrideTests : IDisposable
     {
         var hub = AddChunk("levels/earth/hub/hubb");
         AddObject("Bird");
-        var variant = AddObject("Bird", "levels_earth_hub_hubb", edit: data => data.InstFlags[0] = 7);
+        var variant = AddObject("Bird", "levels_earth_hub_hubb", edit: data => data.TaggedProperties[0] = new(7));
 
         Assert.Equal(1, new VariantMerger(_project.AssetManager, _project.AssetsPath).Merge());
         Assert.Empty(hub.Overrides);

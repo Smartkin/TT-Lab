@@ -19,7 +19,10 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code
             ANIMATIONS = 1 << 2,
             CODE_MODELS = 1 << 3,
             SCRIPTS = 1 << 4,
-            UNKNOWN = 1 << 5,
+            /// <summary>
+            /// A kind of resource the game never loads or lets go of
+            /// </summary>
+            UNUSED = 1 << 5,
             SOUNDS = 1 << 6,
         }
 
@@ -102,17 +105,12 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code
         /// </summary>
         Enums.InstanceState InstanceStateFlags { get; set; }
         /// <summary>
-        /// Default instance flags for the instance of this object
+        /// The tagged values instances of the object get when the instance factory takes the object's properties instead of the
+        /// instance's own (see <see cref="Layout.ITwinInstance.TaggedProperties"/>)
         /// </summary>
-        List<UInt32> InstFlags { get; set; }
-        /// <summary>
-        /// Default float values for the instance of this object
-        /// </summary>
-        List<Single> InstFloats { get; set; }
-        /// <summary>
-        /// Default integer values for the instance of this object
-        /// </summary>
-        List<UInt32> InstIntegers { get; set; }
+        List<UInt32> TaggedProperties { get; set; }
+        List<Single> FloatProperties { get; set; }
+        List<Int32> IntProperties { get; set; }
         /// <summary>
         /// Objects referenced by this object
         /// </summary>
@@ -134,9 +132,9 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code
         /// </summary>
         List<UInt16> RefBehaviours { get; set; }
         /// <summary>
-        /// Unknown item referenced by this object. UNUSED BY THE GAME. SECTION ALSO COMPLETELY UNUSED
+        /// IDs of the resource kind the game never loads or lets go of (its sixth list, ResourceUnused)
         /// </summary>
-        List<UInt16> RefUnknowns { get; set; }
+        List<UInt16> RefUnused { get; set; }
         /// <summary>
         /// Sound effects referenced by this object
         /// </summary>

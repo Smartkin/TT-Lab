@@ -63,7 +63,7 @@ public class EditableObject : Renderable
     /// <summary>
     /// Where the object's box used for picking and outlining its selection is, maps the cube from -1 to 1 onto it
     /// </summary>
-    public mat4 GetBoundsTransform()
+    public virtual mat4 GetBoundsTransform()
     {
         return WorldTransform * mat4.Translate(Offset + Size * 0.5f) * mat4.Scale(Size * 0.5f);
     }

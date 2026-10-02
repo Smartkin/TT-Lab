@@ -757,10 +757,10 @@ class Program
         var root = new PS2AnyTwinsanityRM2();
         root.Read(reader, data.Length);
         var collision = root.GetItem<Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.PS2AnyCollisionData>(Constants.LEVEL_COLLISION_ITEM);
-        var faces = collision.Triangles.Select(triangle => new TT_Lab.AssetData.Instance.Collision.BvhBuilder.Face(triangle.Vector1Index, triangle.Vector2Index, triangle.Vector3Index)).ToList();
-        var retail = TT_Lab.AssetData.Instance.Collision.BvhBuilder.FromTwin(collision.Triggers, collision.Groups, collision.Triangles.Count);
-        Console.WriteLine($"{Path.GetFileName(chunkPath)}: {collision.Triangles.Count} triangles, {collision.Vectors.Count} vertexes");
-        Console.WriteLine($"  game:   {TT_Lab.AssetData.Instance.Collision.BvhStats.Measure(retail, faces, collision.Vectors)}");
+        var faces = collision.Triangles.Select(triangle => new TT_Lab.AssetData.Instance.Collision.BvhBuilder.Face(triangle.Vertex1Index, triangle.Vertex2Index, triangle.Vertex3Index)).ToList();
+        var retail = TT_Lab.AssetData.Instance.Collision.BvhBuilder.FromTwin(collision.Nodes, collision.Groups, collision.Triangles.Count);
+        Console.WriteLine($"{Path.GetFileName(chunkPath)}: {collision.Triangles.Count} triangles, {collision.Vertexes.Count} vertexes");
+        Console.WriteLine($"  game:   {TT_Lab.AssetData.Instance.Collision.BvhStats.Measure(retail, faces, collision.Vertexes)}");
         foreach (var (strategy, leaf) in new[]
                  {
                      (TT_Lab.AssetData.Instance.Collision.BvhBuilder.Strategy.MedianWidestAxis, 30),
@@ -772,9 +772,9 @@ class Program
                  })
         {
             var watch = System.Diagnostics.Stopwatch.StartNew();
-            var ours = TT_Lab.AssetData.Instance.Collision.BvhBuilder.Build(faces, collision.Vectors, leaf, strategy);
+            var ours = TT_Lab.AssetData.Instance.Collision.BvhBuilder.Build(faces, collision.Vertexes, leaf, strategy);
             var built = watch.Elapsed;
-            Console.WriteLine($"  {strategy,-16} {leaf,2}: {TT_Lab.AssetData.Instance.Collision.BvhStats.Measure(ours, faces, collision.Vectors)} (built in {built.TotalMilliseconds:F0} ms)");
+            Console.WriteLine($"  {strategy,-16} {leaf,2}: {TT_Lab.AssetData.Instance.Collision.BvhStats.Measure(ours, faces, collision.Vertexes)} (built in {built.TotalMilliseconds:F0} ms)");
         }
     }
 

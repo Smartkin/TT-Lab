@@ -8,7 +8,9 @@ using TT_Lab.AssetData.Instance.Collision;
 using TT_Lab.AssetData.Instance.DynamicScenery;
 using TT_Lab.AssetData.Instance.Scenery;
 using TT_Lab.Assets;
+using TT_Lab.AssetData.Global;
 using TT_Lab.Assets.Code;
+using TT_Lab.Assets.Global;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Assets.Graphics;
 using TT_Lab.Assets.Instance;
@@ -18,6 +20,7 @@ using Twinsanity.PS2Hardware;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Common.Lights;
 using Twinsanity.TwinsanityInterchange.Enumerations;
+using Twinsanity.TwinsanityInterchange.Implementations.PS2;
 using Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SubItems;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.SM;
 using static TT_Lab.Tests.Support.TestGeometry;
@@ -37,6 +40,56 @@ public sealed class TestAssets(TestProject project, int seed = 31)
     private readonly Random _random = new(seed);
 
     public PS2ItemFactory Factory { get; } = new() { GlobalPackage = project.Project.GlobalPackagePS2, ChunkPath = "levels/test" };
+
+    /// <summary>
+    /// A save icon of two shapes: a quad and a roof over it that the second shape raises, an animation blending them, and a texture of
+    /// stripes (runs) with a gradient row (texels that differ)
+    /// </summary>
+    public static PS2SaveIcon MakeSaveIcon(bool compressed = false)
+    {
+        var icon = new PS2SaveIcon { ShapeCount = 2, TextureType = compressed ? 0xFu : 0x6u, FrameLength = 60, AnimationSpeed = 1.5f, PlayOffset = 2 };
+        // The icon's Y goes down: the roof's top is above the quad
+        (short X, short Y, short Z, short U, short V)[] corners =
+        [
+            (-4096, 0, 0, 0, 4096), (4096, 0, 0, 4096, 4096), (4096, -8192, 0, 4096, 2048),
+            (-4096, 0, 0, 0, 4096), (4096, -8192, 0, 4096, 2048), (-4096, -8192, 0, 0, 2048),
+            (-4096, -8192, 0, 0, 2048), (4096, -8192, 0, 4096, 2048), (0, -12288, 0, 2048, 0),
+            (-4096, -8192, 0, 0, 2048), (0, -12288, 0, 2048, 0), (0, -12288, 2048, 2048, 0)
+        ];
+        foreach (var (x, y, z, u, v) in corners)
+        {
+            var raised = (short)(y <= -12288 ? y - 2048 : y);
+            icon.Vertexes.Add(new SaveIconVertex
+            {
+                Positions = [x, y, z, 0, x, raised, z, 0],
+                Normal = [0, 0, -4096, 0],
+                U = u,
+                V = v,
+                Color = 0xFFBFBFBF
+            });
+        }
+
+        icon.Frames.Add(new SaveIconFrame { Shape = 0, Keys = [new SaveIconKey(0, 1), new SaveIconKey(30, 0), new SaveIconKey(60, 1)] });
+        icon.Frames.Add(new SaveIconFrame { Shape = 1, Keys = [new SaveIconKey(0, 0), new SaveIconKey(30, 1), new SaveIconKey(60, 0)] });
+        for (var row = 0; row < PS2SaveIcon.TextureSize; row++)
+        {
+            for (var column = 0; column < PS2SaveIcon.TextureSize; column++)
+            {
+                icon.Texture[row * PS2SaveIcon.TextureSize + column] = row == 5
+                    ? PS2SaveIcon.FromRgba((byte)(column * 2), 0x40, 0xC0, 0xFF)
+                    : PS2SaveIcon.FromRgba((byte)(row / 16 * 32), 0x80, (byte)(column / 32 * 64), 0xFF);
+            }
+        }
+
+        return icon;
+    }
+
+    public SaveIcon AddSaveIcon(string name = "Crash", PS2SaveIcon? icon = null)
+    {
+        var saveIcon = project.Add(new SaveIcon { GlobalPath = "Startup" }, name);
+        saveIcon.SetData(new SaveIconData(saveIcon, SaveIconTlm.ToBytes(icon ?? MakeSaveIcon())));
+        return saveIcon;
+    }
 
     public Model AddModel(string name)
     {
@@ -137,11 +190,11 @@ public sealed class TestAssets(TestProject project, int seed = 31)
             // The game has rotations that aren't unit quaternions and negative zeros
             Joints =
             [
-                new TwinJoint { Index = 0, ParentIndex = 255, ReactId = 255, ChildrenAmt1 = 1, ChildrenAmt2 = 1, LocalTranslation = new Vector4(0, 0, -0.0f, 1), LocalRotation = new Vector4(0, 0, 0, 0.5f),
+                new TwinJoint { Index = 0, ParentIndex = 255, Id = 255, ChildCount = 1, Detail = 1, LocalTranslation = new Vector4(0, 0, -0.0f, 1), LocalRotation = new Vector4(0, 0, 0, 0.5f),
                     WorldTranslation = new Vector4(0, 0, -0.0f, 1), UnusedRotation = new Vector4(0.1f, 0.2f, 0.3f, 0.4f), AdditionalAnimationRotation = new Vector4(0, 0, 0, 1) },
-                new TwinJoint { Index = 1, ParentIndex = 0, ReactId = 3, ChildrenAmt1 = 1, ChildrenAmt2 = 0, LocalTranslation = new Vector4(0, 1.1f, 0.2f, 1), LocalRotation = new Vector4(0.5f, -0.0f, 0, 0.5f),
+                new TwinJoint { Index = 1, ParentIndex = 0, Id = 3, ChildCount = 1, Detail = 0, LocalTranslation = new Vector4(0, 1.1f, 0.2f, 1), LocalRotation = new Vector4(0.5f, -0.0f, 0, 0.5f),
                     WorldTranslation = new Vector4(0, 1.1f, 0.2f, 1), UnusedRotation = new Vector4(0, 0, 0, 1), AdditionalAnimationRotation = new Vector4(0, 0.25f, 0, 0.97f) },
-                new TwinJoint { Index = 2, ParentIndex = 1, ReactId = 255, LocalTranslation = new Vector4(0.3f, 0.4f, 0, 1), LocalRotation = new Vector4(0, 0, 0, 1),
+                new TwinJoint { Index = 2, ParentIndex = 1, Id = 255, LocalTranslation = new Vector4(0.3f, 0.4f, 0, 1), LocalRotation = new Vector4(0, 0, 0, 1),
                     WorldTranslation = new Vector4(0.3f, 1.5f, 0.2f, 1), UnusedRotation = new Vector4(0, 0, 0, 1), AdditionalAnimationRotation = new Vector4(0, 0, 0, 1) }
             ],
             SkinInverseMatrices = Enumerable.Range(0, 3).Select(i => System.Numerics.Matrix4x4.CreateTranslation(0, -i * 0.7f, 0.01f * i).ToTwin()).ToList(),
@@ -213,7 +266,7 @@ public sealed class TestAssets(TestProject project, int seed = 31)
         var dynamicScenery = new DynamicScenery { Package = scenery.Package, Chunk = scenery.Chunk, InvariantName = "Dynamic Scenery", Alias = "Dynamic Scenery", IsInternal = true, InternalOwner = scenery };
         var dynamicSceneryData = new DynamicSceneryData(dynamicScenery)
         {
-            DynamicModels = [new DynamicSceneryModelData { Mesh = tree.URI, LodFlag = 1, BoundingBox = [new Vector4(-1, -1, -1, 1), new Vector4(1, 1, 1, 1)] }]
+            DynamicModels = [new DynamicSceneryModelData { Mesh = tree.URI, UsesLod = true, BoundingBox = [new Vector4(-1, -1, -1, 1), new Vector4(1, 1, 1, 1)] }]
         };
         dynamicSceneryData.DynamicModels[0].ReadAnimationFromKeys(4, [0, 0, 0, 1, 0, 0, 2, 0.5f, 0, 3, 1, 0], [0, 0, 0, 0, 0.25f, 0, 0, 0.5f, 0, 0, 0.75f, 0.1f]);
         dynamicScenery.SetData(dynamicSceneryData);
@@ -237,7 +290,7 @@ public sealed class TestAssets(TestProject project, int seed = 31)
             AmbientLights = [new AmbientLight { Color = new Vector4(0.2f, 0.2f, 0.3f, 1), Position = new Vector4(1, 2, 3, 1), Enabled = false, Intensity = 10 }],
             DirectionalLights = [new DirectionalLight { Direction = new Vector4(0.6f, 0.8f, 0, 0), Leftover = 3, Intensity = 1.5f, Position = new Vector4(0, 50, 0, 1), Color = new Vector4(1, 1, 0.9f, 1) }],
             PointLights = [new PointLight { AttenuationPower = -2, Position = new Vector4(10, 3, 10, 1), Intensity = 7.5f, Color = new Vector4(1, 0.5f, 0, 1) }],
-            NegativeLights = [new NegativeLight { Direction = new Vector4(1, 2, 3, 4), InnerConeCosine = 0.5f, OuterConeCosine = 0.4f, ConeAngle = 21845, FalloffAngle = 1166, AttenuationPower = 65535, SpotExponent = 3, Intensity = 2, Position = new Vector4(-10, 0, 0, 1) }],
+            SpotLights = [new SpotLight { Direction = new Vector4(1, 2, 3, 4), InnerConeCosine = 0.5f, OuterConeCosine = 0.4f, ConeAngle = 21845, FalloffAngle = 1166, AttenuationPower = 65535, SpotExponent = 3, Intensity = 2, Position = new Vector4(-10, 0, 0, 1) }],
             Sceneries = [root, node, leaf, otherLeaf],
             Collision = collision.URI,
             DynamicScenery = dynamicScenery.URI
@@ -311,11 +364,11 @@ public sealed class TestAssets(TestProject project, int seed = 31)
         {
             for (var x = 0; x < 3; x++)
             {
-                data.Vectors.Add(new Vector4(x * 5, x * z, z * 5, 1));
+                data.Vertexes.Add(new Vector4(x * 5, x * z, z * 5, 1));
             }
         }
 
-        data.Vectors.Insert(4, new Vector4(99, 99, 99, 1));
+        data.Vertexes.Insert(4, new Vector4(99, 99, 99, 1));
         int[][] faces = [[0, 1, 3], [1, 5, 3], [1, 2, 5], [2, 6, 5], [3, 5, 7], [5, 8, 7], [5, 6, 8], [6, 9, 8]];
         for (var i = 0; i < faces.Length; i++)
         {

@@ -25,6 +25,11 @@ public class ModelBuffer(RenderContext context, ModelBufferBuild build, Material
     
     public uint IndexCount => build.IndicesAmount;
 
+    /// <summary>
+    /// Shades the part flat for the editor, whatever its shaders say
+    /// </summary>
+    public bool EditorShading { get; init; }
+
     public TwinMaterial? GetMaterial() => _currentRenderMaterial;
     public VertexArrayObject<float, uint> GetVertexArrayObject() => build.Vao;
 
@@ -78,7 +83,8 @@ public class ModelBuffer(RenderContext context, ModelBufferBuild build, Material
         build.Vao.Bind();
         if (!_materials.TryGetValue(shader, out _currentRenderMaterial))
         {
-            _currentRenderMaterial = new TwinMaterial(context, materialFactory.GetTwinMaterialFromShader(shader));
+            var desc = materialFactory.GetTwinMaterialFromShader(shader);
+            _currentRenderMaterial = new TwinMaterial(context, EditorShading ? desc with { EditorShading = true } : desc);
             _materials[shader] = _currentRenderMaterial;
         }
         _currentRenderMaterial.Bind();

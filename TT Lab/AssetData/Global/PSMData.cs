@@ -5,6 +5,7 @@ using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Assets.Global;
 using TT_Lab.Attributes;
+using TT_Lab.ViewModels.Editors.Descs;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 
 namespace TT_Lab.AssetData.Global;
@@ -22,8 +23,11 @@ public class PSMData : AbstractAssetData
         SetTwinItem(psm);
     }
 
+    /// <summary>
+    /// The parts, a texture and a material each: the tiles of a picture or the HUD's icons, edited as the picture with <see cref="PsmEditorDesc"/>
+    /// </summary>
     [JsonProperty(Required = Required.Always)]
-    [Editable]
+    [Editable(Caption = "Picture", EditorDescType = typeof(PsmEditorDesc), EditorOrientation = Avalonia.Controls.Dock.Top)]
     [OnReferenceDeleted(DeletedReferenceAction.Remove)]
     public List<LabURI> PTCs { get; set; }
 

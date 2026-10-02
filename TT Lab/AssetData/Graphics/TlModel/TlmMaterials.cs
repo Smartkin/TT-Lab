@@ -13,8 +13,6 @@ using TT_Lab.Project;
 using Splat;
 using TT_Lab.ServiceProviders;
 using Twinsanity.TwinsanityInterchange.Common;
-using Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.Graphics;
-using Twinsanity.TwinsanityInterchange.Interfaces.Items;
 using static Twinsanity.TwinsanityInterchange.Enumerations.Enums;
 
 namespace TT_Lab.AssetData.Graphics.TlModel;
@@ -210,13 +208,7 @@ public sealed class TlmMaterials(TlmFile file, IAsset? owner = null)
                         Log.WriteLine($"Resized the {size.Width}x{size.Height} image of {name} made in Blender to {data.Bitmap.PixelSize.Width}x{data.Bitmap.PixelSize.Height}, the biggest the game takes is {TextureData.MaxGameSize}x{TextureData.MaxGameSize}");
                     }
 
-                    // Textures of the sizes the game's tools laid out get a palette and smaller versions for the distance, like the
-                    // game's small textures, the rest are stored with every color like its big ones
-                    var palette = PS2AnyTexture.HasPaletteLayout(data.Bitmap.PixelSize.Width, data.Bitmap.PixelSize.Height);
-                    var textureAsset = (Texture)asset;
-                    textureAsset.PixelFormat = palette ? ITwinTexture.TexturePixelFormat.PSMT8 : ITwinTexture.TexturePixelFormat.PSMCT32;
-                    textureAsset.TextureFunction = ITwinTexture.TextureFunction.MODULATE;
-                    textureAsset.GenerateMipmaps = palette;
+                    ((Texture)asset).UseGameLayout(data.Bitmap.PixelSize.Width, data.Bitmap.PixelSize.Height);
                     asset.SetData(data);
                     return AssetCreationStatus.Success;
                 });

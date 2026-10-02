@@ -7,6 +7,7 @@ using TT_Lab.ViewModels.Editors;
 using TT_Lab.ViewModels.Editors.Graphics;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Enumerations;
+using Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.Graphics;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items;
 
 namespace TT_Lab.Assets.Graphics;
@@ -52,6 +53,18 @@ public class Texture : SerializableAsset
 
     public Texture()
     {
+    }
+
+    /// <summary>
+    /// What a texture TT Lab makes of a picture of the size gets: the sizes the game's tools laid out get a palette and smaller versions
+    /// for the distance like the game's small textures, the rest are stored with every color like its big ones
+    /// </summary>
+    public void UseGameLayout(Int32 width, Int32 height)
+    {
+        var palette = PS2AnyTexture.HasPaletteLayout(width, height);
+        PixelFormat = palette ? ITwinTexture.TexturePixelFormat.PSMT8 : ITwinTexture.TexturePixelFormat.PSMCT32;
+        TextureFunction = ITwinTexture.TextureFunction.MODULATE;
+        GenerateMipmaps = palette;
     }
 
     public override Type GetEditorType()

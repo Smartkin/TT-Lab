@@ -20,6 +20,11 @@ namespace TT_Lab.Util;
 
 public static class MiscUtils
 {
+    /// <summary>
+    /// The picture of what has no texture: the viewport draws it for parts without a material, and placeholder textures are made of it
+    /// </summary>
+    public const string BoatGuyPath = "Media/boat_guy.png";
+
     private static Bitmap? _boatguy;
     private static readonly Dictionary<string, Bitmap> LabIconStorage = new();
 
@@ -35,7 +40,7 @@ public static class MiscUtils
 
     public static Bitmap GetBoatGuy()
     {
-        _boatguy ??= ManifestResourceLoader.LoadBitmap("Media/boat_guy.png");
+        _boatguy ??= ManifestResourceLoader.LoadBitmap(BoatGuyPath);
         return _boatguy;
     }
 

@@ -11,7 +11,11 @@ namespace TT_Lab.Rendering;
 
 public class MeshBuilder(RenderContext renderContext)
 {
-    public ModelBufferBuild BuildRigidVaoFromVertexes(List<Vertex> vertexes, List<IndexedFace> faces, Func<int, Vector4>? colorSelector = null)
+    // A rigid vertex's floats: its position, color, UV, normal, emit color, joint indexes and joint weights
+    public const int RigidVertexFloats = 22;
+
+    // A dynamic build keeps its vertexes' floats, a corner after another, to change and upload again
+    public ModelBufferBuild BuildRigidVaoFromVertexes(List<Vertex> vertexes, List<IndexedFace> faces, Func<int, Vector4>? colorSelector = null, bool dynamic = false)
     {
         var indices = new uint[faces.Count * 3];
         var rawData = new List<float>();
@@ -74,9 +78,16 @@ public class MeshBuilder(RenderContext renderContext)
         }
 
         var ebo = new BufferObject<uint>(renderContext, indices, BufferTargetARB.ElementArrayBuffer);
-        var vbo = new BufferObject<float>(renderContext, rawData.ToArray(), BufferTargetARB.ArrayBuffer);
+        var data = rawData.ToArray();
+        var vbo = new BufferObject<float>(renderContext, data, BufferTargetARB.ArrayBuffer, dynamic ? BufferUsageARB.DynamicDraw : BufferUsageARB.StaticDraw);
+        // A dynamic buffer object leaves its data to be given
+        if (dynamic)
+        {
+            vbo.BufferData(data);
+        }
+
         var vao = new VertexArrayObject<float, uint>(renderContext, vbo, ebo);
-        const uint vertexSize = 22U;
+        const uint vertexSize = RigidVertexFloats;
         // Position
         vao.VertexAttributePointer(0, 3, VertexAttribPointerType.Float, vertexSize, 0);
         // Color
@@ -92,7 +103,7 @@ public class MeshBuilder(RenderContext renderContext)
         // Joint weight
         vao.VertexAttributePointer(6, 3, VertexAttribPointerType.Float, vertexSize, 19);
         
-        return new ModelBufferBuild(vao, (uint)indices.Length);
+        return new ModelBufferBuild(vao, (uint)indices.Length) { VertexData = dynamic ? data : null, VertexBuffer = dynamic ? vbo : null };
     }
 
     public ModelBufferBuild BuildSkinnedVaoFromVertexes(List<Vertex> vertexes, List<IndexedFace> faces)
@@ -184,6 +195,10 @@ public class MeshBuilder(RenderContext renderContext)
     }
 }
 
-public record ModelBufferBuild(VertexArrayObject<float, uint> Vao, uint IndicesAmount);
+public record ModelBufferBuild(VertexArrayObject<float, uint> Vao, uint IndicesAmount)
+{
+    public float[]? VertexData { get; init; }
+    public BufferObject<float>? VertexBuffer { get; init; }
+}
 public record BlendSkinModelBufferBuild(ModelBufferBuild Model, BlendSkinShapeBuild ShapeBuild, vec3 BlendShape);
 public record BlendSkinShapeBuild(int[] ShapesOffsets, int ShapeStart);

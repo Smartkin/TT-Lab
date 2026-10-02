@@ -27,9 +27,9 @@ namespace Twinsanity.TwinsanityInterchange.Common
         /// </summary>
         public Single CheckInterval { get; set; }
         /// <summary>
-        /// The instance list's growth step from the tools' list header (always 10), the game keeps it and never reads it
+        /// The room the tools' list header gives the instance list to grow by (always 10), the game keeps it and never reads it
         /// </summary>
-        public UInt32 InstanceExtensionValue { get; set; }
+        public UInt32 InstancesGrowth { get; set; }
         public Vector4 Rotation { get; set; }
         public Vector4 Position { get; set; }
         public Vector4 Scale { get; set; }
@@ -60,9 +60,10 @@ namespace Twinsanity.TwinsanityInterchange.Common
             Rotation.Read(reader, Constants.SIZE_VECTOR4);
             Position.Read(reader, Constants.SIZE_VECTOR4);
             Scale.Read(reader, Constants.SIZE_VECTOR4);
-            reader.ReadUInt32(); // instances amount
+            // The instance list's count, its room (the same in the files) and its growth
             UInt32 instances_cnt = reader.ReadUInt32();
-            InstanceExtensionValue = reader.ReadUInt32();
+            reader.ReadUInt32();
+            InstancesGrowth = reader.ReadUInt32();
             Instances.Clear();
             for (int i = 0; i < instances_cnt; ++i)
             {
@@ -80,7 +81,7 @@ namespace Twinsanity.TwinsanityInterchange.Common
             Scale.Write(writer);
             writer.Write(Instances.Count);
             writer.Write(Instances.Count);
-            writer.Write(InstanceExtensionValue);
+            writer.Write(InstancesGrowth);
             for (int i = 0; i < Instances.Count; ++i)
             {
                 writer.Write(Instances[i]);

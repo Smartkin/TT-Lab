@@ -3,6 +3,8 @@ using System.Reactive.Disposables.Fluent;
 using System.Runtime.CompilerServices;
 using Avalonia.Controls;
 using Avalonia.Data;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using ReactiveUI;
 using ReactiveUI.Avalonia;
 using TT_Lab.Controls;
@@ -20,12 +22,42 @@ public partial class ChunkInspectorView : ReactiveUserControl<ChunkInspectorView
     public ChunkInspectorView()
     {
         InitializeComponent();
+        // The mouse's back and forward buttons go along the inspector's trail
+        AddHandler(PointerPressedEvent, OnPointerPressed, RoutingStrategies.Tunnel);
         this.WhenActivated(disposables =>
         {
             this.WhenAnyValue(x => x.ViewModel!.Document)
                 .Subscribe(ShowDocument)
                 .DisposeWith(disposables);
         });
+    }
+
+    private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        var properties = e.GetCurrentPoint(this).Properties;
+        if (ViewModel?.Document is not { } document || !(properties.IsXButton1Pressed || properties.IsXButton2Pressed))
+        {
+            return;
+        }
+
+        if (properties.IsXButton1Pressed)
+        {
+            document.InspectBack();
+        }
+        else
+        {
+            document.InspectForward();
+        }
+
+        e.Handled = true;
+    }
+
+    private void CrumbClicked(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Control { DataContext: InspectorCrumb crumb })
+        {
+            ViewModel?.Document?.InspectCrumb(crumb);
+        }
     }
 
     private void ShowDocument(DocumentViewModel? document)

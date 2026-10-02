@@ -25,7 +25,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.CameraSubtypes
 
         public CameraZone()
         {
-            Flags = 0;
+            Follow = 0;
             CameraBox = DefaultBox();
             TargetBox = DefaultBox();
         }

@@ -54,13 +54,13 @@ public sealed class TlmSceneryTests : IDisposable
     public void CollisionKeepsItsOrder()
     {
         var (collision, data) = _assets.AddCollision(_project.Add(new Collision { Chunk = "levels/test" }, "Collision"));
-        var vectors = data.Vectors.Select(Tuple).ToList();
+        var vectors = data.Vertexes.Select(Tuple).ToList();
         var triangles = data.Triangles.Select(Tuple).ToList();
         var before = _assets.Export(collision);
 
         var read = _assets.Reload<CollisionData>(collision);
 
-        Assert.Equal(vectors, read.Vectors.Select(Tuple));
+        Assert.Equal(vectors, read.Vertexes.Select(Tuple));
         Assert.Equal(triangles, read.Triangles.Select(Tuple));
         Assert.Equal(before, _assets.Export(collision));
     }
@@ -70,7 +70,7 @@ public sealed class TlmSceneryTests : IDisposable
     {
         var (collision, data) = _assets.AddCollision(_project.Add(new Collision { Chunk = "levels/test" }, "Collision"));
         var triangles = Placed(data);
-        var usedVectors = data.Vectors.Count - 1;
+        var usedVectors = data.Vertexes.Count - 1;
         collision.Serialize(SerializationFlags.SaveData);
         // Faces added or removed in Blender leave the order TT Lab wrote behind
         Edit(collision, root =>
@@ -85,7 +85,7 @@ public sealed class TlmSceneryTests : IDisposable
         var read = ((IAsset)collision).GetData<CollisionData>();
 
         Assert.Equal(triangles, Placed(read));
-        Assert.Equal(usedVectors, read.Vectors.Count);
+        Assert.Equal(usedVectors, read.Vertexes.Count);
     }
 
     [Fact]
@@ -121,12 +121,12 @@ public sealed class TlmSceneryTests : IDisposable
         {
             // Turned half a turn about Y, the arrow now points along -Z
             FindNode(root, node => node["kind"]?.ToString() == SceneryData.DirectionalLightKind)["rotation"] = new JsonArray(0.0f, 1.0f, 0.0f, 0.0f);
-            FindNode(root, node => node["kind"]?.ToString() == SceneryData.NegativeLightKind)["rotation"] = new JsonArray(0.70710677f, 0.0f, 0.0f, 0.70710677f);
+            FindNode(root, node => node["kind"]?.ToString() == SceneryData.SpotLightKind)["rotation"] = new JsonArray(0.70710677f, 0.0f, 0.0f, 0.70710677f);
         });
         var turned = ((IAsset)scenery).GetData<SceneryData>();
 
         var directional = turned.DirectionalLights[0].Direction;
-        var spot = turned.NegativeLights[0].Direction;
+        var spot = turned.SpotLights[0].Direction;
         Assert.Equal((0f, 0f, -1f, 0f), (MathF.Round(directional.X, 4), MathF.Round(directional.Y, 4), MathF.Round(directional.Z, 4), directional.W));
         // A quarter turn about X takes Z to -Y
         Assert.Equal((0f, -1f, 0f, 0f), (MathF.Round(spot.X, 4), MathF.Round(spot.Y, 4), MathF.Round(spot.Z, 4), spot.W));
@@ -138,21 +138,21 @@ public sealed class TlmSceneryTests : IDisposable
     {
         var scenery = _assets.AddScenery();
         var data = ((IAsset)scenery).GetData<SceneryData>();
-        data.NegativeLights[0].SetCone(104.128f, 5.037f);
-        data.NegativeLights[0].InnerConeCosine = 0.615f;
+        data.SpotLights[0].SetCone(104.128f, 5.037f);
+        data.SpotLights[0].InnerConeCosine = 0.615f;
         var before = _assets.Export(scenery);
 
         var read = _assets.Reload<SceneryData>(scenery);
         Assert.Equal(before, _assets.Export(scenery));
-        Assert.Equal(0.615f, read.NegativeLights[0].InnerConeCosine);
+        Assert.Equal(0.615f, read.SpotLights[0].InnerConeCosine);
 
         Edit(scenery, root =>
         {
-            var light = FindNode(root, node => node["kind"]?.ToString() == SceneryData.NegativeLightKind)["data"]!.AsObject();
+            var light = FindNode(root, node => node["kind"]?.ToString() == SceneryData.SpotLightKind)["data"]!.AsObject();
             light["ConeAngle"] = 10923;
             light["FalloffAngle"] = 1820;
         });
-        var edited = ((IAsset)scenery).GetData<SceneryData>().NegativeLights[0];
+        var edited = ((IAsset)scenery).GetData<SceneryData>().SpotLights[0];
 
         Assert.Equal((10923u, 1820u), (edited.ConeAngle, edited.FalloffAngle));
         Assert.Equal(MathF.Cos(30 * MathF.PI / 180), edited.InnerConeCosine, 1e-4f);
@@ -322,7 +322,7 @@ public sealed class TlmSceneryTests : IDisposable
         skydome.SetData(skydomeData);
         var material = _assets.AddMaterial("Fur");
         IAsset[] assets = [_assets.AddScenery(), skydome, _assets.AddOgi(), _assets.AddModel("Rock"), _assets.AddRigidModel("Chair", material.URI), _assets.AddMesh("Stone"),
-            _assets.AddSkin(material.URI, "Skin"), _assets.AddBlendSkin(material.URI, "Face")];
+            _assets.AddSkin(material.URI, "Skin"), _assets.AddBlendSkin(material.URI, "Face"), _assets.AddSaveIcon()];
         var checkedTypes = new HashSet<string>();
         foreach (var asset in assets)
         {
@@ -361,8 +361,9 @@ public sealed class TlmSceneryTests : IDisposable
         ["ogi"] = "Ogi", ["armature"] = null, ["skin"] = "Skin", ["shape"] = "BlendSkin", ["rigid_bodies"] = null, ["body"] = "Body", ["exit_points"] = null,
         ["exit_point"] = "ExitPoint", ["collision_hulls"] = null, ["hull"] = "CollisionHull", ["model"] = "Model", ["rigid_model"] = "RigidModel", ["mesh"] = "Mesh", ["scenery"] = "Scenery", ["tree_node"] = "SceneryTreeNode",
         ["scenery_mesh"] = "SceneryMesh", ["scenery_lod"] = "SceneryLod", ["lod_mesh"] = "LodMesh", ["lights"] = null, ["ambient_light"] = "AmbientLight",
-        ["directional_light"] = "DirectionalLight", ["point_light"] = "PointLight", ["negative_light"] = "NegativeLight", ["collision"] = "Collision",
-        ["dynamic_scenery"] = "DynamicScenery", ["dynamic_model"] = "DynamicSceneryModel", ["skydome"] = "Skydome", ["skydome_mesh"] = "SkydomeMesh"
+        ["directional_light"] = "DirectionalLight", ["point_light"] = "PointLight", ["spot_light"] = "SpotLight", ["collision"] = "Collision",
+        ["dynamic_scenery"] = "DynamicScenery", ["dynamic_model"] = "DynamicSceneryModel", ["skydome"] = "Skydome", ["skydome_mesh"] = "SkydomeMesh",
+        ["save_icon"] = "SaveIcon"
     };
 
     private TlmFile? _file;
@@ -403,7 +404,7 @@ public sealed class TlmSceneryTests : IDisposable
     {
         return data.Triangles.Select(triangle =>
         {
-            var corners = triangle.Face.Indexes!.Select(index => $"{data.Vectors[index].X},{data.Vectors[index].Y},{data.Vectors[index].Z}").ToArray();
+            var corners = triangle.Face.Indexes!.Select(index => $"{data.Vertexes[index].X},{data.Vertexes[index].Y},{data.Vertexes[index].Z}").ToArray();
             var first = Array.IndexOf(corners, corners.Min(StringComparer.Ordinal));
             return $"{corners[first]} {corners[(first + 1) % 3]} {corners[(first + 2) % 3]} {triangle.Surface}";
         }).Order(StringComparer.Ordinal).ToList();

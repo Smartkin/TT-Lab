@@ -16,11 +16,11 @@ public class CameraSubtypeTests
             new CameraPoint2 { Point = new Vector4(4, 5, 6, 1), Distance = 0.7f, Mode = 1 },
             new CameraLine { LineStart = new Vector4(0, 0, 0, 1), LineEnd = new Vector4(10, 0, 0, 1), Offset = -3 },
             new CameraLine2 { LineStart = new Vector4(0, 0, 0, 1), LineEnd = new Vector4(10, 0, 0, 1), NearDistance = 2, FarDistance = 15 },
-            new CameraPath { PathPoints = [new Vector4(0, 0, 0, 1), new Vector4(1, 0, 0, 1), new Vector4(2, 0, 0, 1), new Vector4(3, 0, 0, 1)], Parameters = [new Vector2 { X = 1, Y = 0.2f }], Offset = -9 },
+            new CameraPath { PathPoints = [new Vector4(0, 0, 0, 1), new Vector4(1, 0, 0, 1), new Vector4(2, 0, 0, 1), new Vector4(3, 0, 0, 1)], ArcLengths = [1], InverseSteps = [0.2f], Offset = -9 },
             new CameraSpline
             {
                 StepLength = 1, PathPoints = [new Vector4(0, 0, 0, 0), new Vector4(1, 0, 0, 0)], Tangents = [new Vector4(1, 0, 0, 1), new Vector4(1, 0, 0, 1)],
-                Parameters = [new Vector2 { X = 1, Y = 0.2f }], SplineFlags = 15, Offset = 6
+                ArcLengths = [1], InverseSteps = [0.2f], SplineFlags = 15, Offset = 6
             },
             new CameraZone(),
             new BossCamera { Orbit = new Vector4(35, 65, 2, 0), UsesDistanceCurves = true, RadiusBlend = 0.3f, NearHeightOffset = 6, FarHeightOffset = 4, MaxTurnRate = 1, DistanceIncludesHeight = true },

@@ -29,7 +29,8 @@ public class PathData : AbstractAssetData
     public PathData(IAsset asset) : base(asset)
     {
         Points = [];
-        Parameters = [];
+        ArcLengths = [];
+        InverseSteps = [];
     }
 
     public PathData(IAsset asset, ITwinPath path) : this(asset)
@@ -42,10 +43,17 @@ public class PathData : AbstractAssetData
     public List<Vector3> Points { get; set; }
     
     /// <summary>
-    /// Made from the points (<see cref="PathParameters"/>), the game's are kept until the points change
+    /// Every segment's arc length from the start, made from the points (<see cref="PathParameters"/>), the game's are kept until the
+    /// points change
     /// </summary>
     [JsonProperty(Required = Required.Always)]
-    public List<Vector2> Parameters { get; set; }
+    public List<Single> ArcLengths { get; set; }
+
+    /// <summary>
+    /// 1 over the steps every segment takes, made with the arc lengths
+    /// </summary>
+    [JsonProperty(Required = Required.Always)]
+    public List<Single> InverseSteps { get; set; }
 
     // Points get edited in place by the inspector and the viewport, so the parameters catch up whenever they're saved or built
     [OnSerializing]
@@ -64,8 +72,8 @@ public class PathData : AbstractAssetData
                 return;
             }
 
-            _stepLength ??= PathParameters.FindStepLength(Parameters, _parametersPoints.Length - 3) ?? PathParameters.DefaultStepLength;
-            Parameters = PathParameters.Create(points, _stepLength.Value);
+            _stepLength ??= PathParameters.FindStepLength(ArcLengths, InverseSteps, _parametersPoints.Length - 3) ?? PathParameters.DefaultStepLength;
+            (ArcLengths, InverseSteps) = PathParameters.Create(points, _stepLength.Value);
             _parametersPoints = points;
         }
     }
@@ -82,7 +90,8 @@ public class PathData : AbstractAssetData
     protected override void Dispose(Boolean disposing)
     {
         Points.Clear();
-        Parameters.Clear();
+        ArcLengths.Clear();
+        InverseSteps.Clear();
     }
 
     public override void Import(LabURI package, String? variant, Int32? layoutId)
@@ -93,7 +102,8 @@ public class PathData : AbstractAssetData
         {
             Points.Add(new Vector3(point.X, point.Y, point.Z));
         }
-        Parameters = CloneUtils.CloneList(path.ParameterList);
+        ArcLengths = [..path.ArcLengths];
+        InverseSteps = [..path.InverseSteps];
         KeepParameters();
     }
 
@@ -108,11 +118,8 @@ public class PathData : AbstractAssetData
             pos.Write(writer);
         }
 
-        writer.Write(Parameters.Count);
-        foreach (var parameter in Parameters)
-        {
-            parameter.Write(writer);
-        }
+        writer.Write(ArcLengths.Count);
+        TwinPathParameters.Write(writer, ArcLengths, InverseSteps);
 
         writer.Flush();
         ms.Position = 0;

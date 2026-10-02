@@ -5,13 +5,13 @@ using Twinsanity.TwinsanityInterchange.Enumerations;
 namespace Twinsanity.TwinsanityInterchange.Common.Lights
 {
     /// <summary>
-    /// A spot light ("negative light" in the tools' terms): a point light shining along <see cref="Direction"/> within a cone.
+    /// A spot light (the game's SpotLight, the tools' "negative light"): a point light shining along <see cref="Direction"/> within a cone.
     /// At a vertex the game takes the cosine between the direction to the light and the cone's axis, gives nothing below
     /// <see cref="OuterConeCosine"/>, fades up to full between it and <see cref="InnerConeCosine"/> and raises the cosine to
     /// <see cref="SpotExponent"/> (FUN_001c8f18). The angles are what the tools made the cosines from, the game only builds the
     /// light's bounds with them.
     /// </summary>
-    public class NegativeLight : Light
+    public class SpotLight : Light
     {
         /// <summary>
         /// Unit vector the light shines along, W 0.
@@ -44,12 +44,12 @@ namespace Twinsanity.TwinsanityInterchange.Common.Lights
 
         public const Single TurnsPerUnit = 1.0f / 65536.0f;
 
-        public NegativeLight() : base()
+        public SpotLight() : base()
         {
             Direction = new Vector4();
         }
 
-        public override LightType Type => LightType.Negative;
+        public override LightType Type => LightType.Spot;
 
         protected override Single BoundsExtent => Intensity * 100.0f;
 

@@ -9,6 +9,8 @@ gets what a modder does to it (the skin's object moved, a shape key, bodies and 
 ogi_customized_in_blender.tlm, and with --swap its skin and shape are swapped for meshes made in Blender, making
 ogi_swapped_in_blender.tlm. With --retarget its animations are retargeted to a second copy of it whose bone "Joint 1" was moved
 and "Joint 2" renamed, so the joint animates from where it was moved to, and the copy is exported as ogi_retargeted_in_blender.tlm.
+A save icon (fixtures/save_icon.tlm) makes save_icon_from_blender.tlm, with --edit its first vertex is moved half a unit along X and the
+second shape's middle key halved, making save_icon_edited_in_blender.tlm.
 They write what TT Lab should read next to the file, as JSON. With --blend the scene is also saved, to look at it.
 """
 
@@ -52,6 +54,19 @@ def _edit(root):
 
 
 # Blender adds shape keys at full weight, the face has to start at rest while no facial animation plays
+def _edit_icon(root):
+    """Moves a save icon's first vertex half a unit along X in every shape and halves the second shape's middle key."""
+    mesh_object = next(child for child in root.children if child.type == "MESH")
+    key = mesh_object.data.shape_keys
+    for block in key.key_blocks:
+        block.data[0].co.x += 0.5
+
+    bag = tlm_blender._existing_channelbag(key.animation_data.action, key.animation_data.action_slot)
+    fcurve = next(fcurve for fcurve in bag.fcurves if fcurve.data_path == 'key_blocks["Shape 1"].value')
+    fcurve.keyframe_points[1].co.y = 0.5
+    fcurve.update()
+
+
 def _check_face_at_rest():
     for blender_object in bpy.data.objects:
         key = blender_object.data.shape_keys if blender_object.type == "MESH" else None
@@ -233,7 +248,10 @@ def main():
     _check_face_at_rest()
     expectations = None
     if "--edit" in modes:
-        _edit(root)
+        if root.get(tlm_blender.KIND_PROPERTY) == "save_icon":
+            _edit_icon(root)
+        else:
+            _edit(root)
 
     if "--customize" in modes:
         expectations = _customize(root)

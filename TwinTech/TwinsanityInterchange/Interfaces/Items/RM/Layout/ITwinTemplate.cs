@@ -45,8 +45,11 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout
         /// The instance state flags of the instances the template makes, laid out like an object's
         /// </summary>
         Enums.InstanceState InstanceStateFlags { get; set; }
-        List<UInt32> Flags { get; set; }
-        List<Single> Floats { get; set; }
-        List<UInt32> Ints { get; set; }
+        /// <summary>
+        /// The template's tagged values (see <see cref="ITwinInstance.TaggedProperties"/>), floats and ints
+        /// </summary>
+        List<UInt32> TaggedProperties { get; set; }
+        List<Single> FloatProperties { get; set; }
+        List<Int32> IntProperties { get; set; }
     }
 }

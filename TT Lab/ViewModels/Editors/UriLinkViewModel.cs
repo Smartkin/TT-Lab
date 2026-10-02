@@ -202,18 +202,23 @@ public partial class UriLinkViewModel : DocumentDataViewModel<LabURI>
             return;
         }
 
-        // A chunk's document edits the assets it shares with other chunks through its views of them, their own editors edit them for
-        // every chunk
+        // A chunk's document edits the assets it shares with other chunks through its views of them and its own resources where its list
+        // has them, both in its inspector, a step along the trail it goes back on. The assets' own editors edit them for every chunk
         var data = Property.Find("[data]");
-        if (_openInInspector || data?.Target is SerializableAsset { OverriddenAsset: not null })
+        if (data != null && (_openInInspector || data.Target is SerializableAsset { OverriddenAsset: not null }))
         {
-            Document.OpenInspector(data);
+            Document.FollowInInspector(data);
+            return;
         }
-        else
+
+        if (Document.FindChunkResource(uri!) is { } resource)
         {
-            var shell = Locator.Current.GetService<ILabManager>()!;
-            shell.OpenEditor(AssetManager.Get().GetAsset(uri!));
+            Document.FollowInInspector(resource);
+            return;
         }
+
+        var shell = Locator.Current.GetService<ILabManager>()!;
+        shell.OpenEditor(AssetManager.Get().GetAsset(uri!));
     }
 
     public const string BrowseType = "URI_LINK_FIELD_BROWSE_TYPE_NAME";

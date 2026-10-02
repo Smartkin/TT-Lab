@@ -13,7 +13,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox.Sections.RMX
             idToClassDictionary.Add(Constants.CODE_ANIMATIONS_SECTION, typeof(XboxAnyAnimationsSection));
             idToClassDictionary.Add(Constants.CODE_OGIS_SECTION, typeof(XboxAnyOGIsSection));
             idToClassDictionary.Add(Constants.CODE_BEHAVIOUR_COMMANDS_SEQUENCES_SECTION, typeof(XboxAnyBehaviourCommandsSequencesSection));
-            idToClassDictionary.Add(Constants.CODE_UNK_ITEM, typeof(BaseTwinItem));
+            idToClassDictionary.Add(Constants.CODE_UNUSED_SECTION, typeof(BaseTwinItem));
             idToClassDictionary.Add(Constants.CODE_SOUND_EFFECTS_SECTION, typeof(XboxAnySoundsSection));
             idToClassDictionary.Add(Constants.CODE_LANG_ENG_SECTION, typeof(XboxAnySoundsSection));
             idToClassDictionary.Add(Constants.CODE_LANG_FRE_SECTION, typeof(XboxAnySoundsSection));

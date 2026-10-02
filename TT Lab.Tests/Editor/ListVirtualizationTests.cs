@@ -82,7 +82,7 @@ public sealed class ListVirtualizationTests : IDisposable
     public void AListOfFieldsIsVirtualized()
     {
         var path = _project.Add(new Path(), "Path");
-        path.SetData(new PathData(path) { Points = Enumerable.Range(0, 3000).Select(i => new Vector3(i, 0, 0)).ToList(), Parameters = [] });
+        path.SetData(new PathData(path) { Points = Enumerable.Range(0, 3000).Select(i => new Vector3(i, 0, 0)).ToList(), ArcLengths = [], InverseSteps = [] });
         var (document, window) = Show(new DocumentViewModel(path));
         var points = (DocumentCompositeViewModel)document.Root.Nodes.Single(node => node.Property.Name == nameof(PathData.Points));
 

@@ -9,7 +9,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.CameraSubtypes
     /// <summary>
     /// A curve sampled every <see cref="StepLength"/> units, the camera slides along it (a cubic Hermite spline between the samples
     /// with their tangents, FUN_0018a7a8) to the point nearest the target plus an offset, <see cref="CameraSubBase.Offset"/> when
-    /// bit 0 of <see cref="Flags"/> is set (FUN_0027cfe8, FUN_00279f80).
+    /// bit 0 of <see cref="SplineFlags"/> is set (FUN_0027cfe8, FUN_00279f80).
     /// </summary>
     public class CameraSpline : CameraSubBase
     {
@@ -23,9 +23,13 @@ namespace Twinsanity.TwinsanityInterchange.Common.CameraSubtypes
         /// </summary>
         public List<Vector4> Tangents { get; set; }
         /// <summary>
-        /// One pair per segment between samples: the arc lengths from the start, then 1 over the steps each takes, like a path's
+        /// Every segment's (between two samples) arc length from the start, like a path's (<see cref="TwinPathParameters"/>)
         /// </summary>
-        public List<Vector2> Parameters { get; set; }
+        public List<Single> ArcLengths { get; set; }
+        /// <summary>
+        /// 1 over the steps each segment takes
+        /// </summary>
+        public List<Single> InverseSteps { get; set; }
         /// <summary>
         /// Bit 0 takes <see cref="CameraSubBase.Offset"/> as the offset along the curve, the rest are leftovers (15 or 0xCDCD in the retail data)
         /// </summary>
@@ -35,12 +39,13 @@ namespace Twinsanity.TwinsanityInterchange.Common.CameraSubtypes
         {
             PathPoints = new List<Vector4>();
             Tangents = new List<Vector4>();
-            Parameters = new List<Vector2>();
+            ArcLengths = new List<Single>();
+            InverseSteps = new List<Single>();
         }
 
         public override int GetLength()
         {
-            return base.GetLength() + 4 + 4 + PathPoints.Count * Constants.SIZE_VECTOR4 + Tangents.Count * Constants.SIZE_VECTOR4 + Parameters.Count * Constants.SIZE_VECTOR2 + 2;
+            return base.GetLength() + 4 + 4 + PathPoints.Count * Constants.SIZE_VECTOR4 + Tangents.Count * Constants.SIZE_VECTOR4 + 4 * (ArcLengths.Count + InverseSteps.Count) + 2;
         }
 
         public override void Read(BinaryReader reader, int length)
@@ -60,13 +65,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.CameraSubtypes
                 Tangents.Add(tangent);
             }
 
-            Parameters.Clear();
-            for (var i = 0; i < segments; ++i)
-            {
-                Vector2 parameter = new Vector2();
-                parameter.Read(reader, Constants.SIZE_VECTOR2);
-                Parameters.Add(parameter);
-            }
+            TwinPathParameters.Read(reader, segments, ArcLengths, InverseSteps);
 
             SplineFlags = reader.ReadUInt16();
         }
@@ -74,7 +73,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.CameraSubtypes
         public override void Write(BinaryWriter writer)
         {
             base.Write(writer);
-            writer.Write(Parameters.Count);
+            writer.Write(ArcLengths.Count);
             writer.Write(StepLength);
             for (var i = 0; i < PathPoints.Count; ++i)
             {
@@ -82,10 +81,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.CameraSubtypes
                 Tangents[i].Write(writer);
             }
 
-            foreach (var parameter in Parameters)
-            {
-                parameter.Write(writer);
-            }
+            TwinPathParameters.Write(writer, ArcLengths, InverseSteps);
 
             writer.Write(SplineFlags);
         }

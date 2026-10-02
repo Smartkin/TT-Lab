@@ -88,12 +88,12 @@ public sealed class PrefabLibraryTests : IDisposable
             Position = new Vector3(1, 2, 3),
             Rotation = new Vector3(0, 90, 0),
             ObjectId = _crash.URI,
-            OnSpawnScriptId = _script.URI,
+            SpawnScript = _script.URI,
             RefListIndex = 7,
             StateFlags = Enums.InstanceState.Visible | Enums.InstanceState.CollisionActive,
-            ParamList1 = [1, 2],
-            ParamList2 = [0.5f],
-            ParamList3 = [9],
+            TaggedProperties = [new(1), new(2)],
+            FloatProperties = [0.5f],
+            IntProperties = [9],
             Instances = [other.URI],
             Positions = [position.URI],
             Paths = [path.URI],
@@ -127,11 +127,11 @@ public sealed class PrefabLibraryTests : IDisposable
         Assert.Empty(data["Positions"]!);
         Assert.Empty(data["Paths"]!);
         Assert.Equal(_crash.URI.ToString(), data["ObjectId"]!["_uri"]!.ToString());
-        Assert.Equal(_script.URI.ToString(), data["OnSpawnScriptId"]!["_uri"]!.ToString());
+        Assert.Equal(_script.URI.ToString(), data["SpawnScript"]!["_uri"]!.ToString());
         Assert.Equal(7, data["RefListIndex"]!.Value<int>());
         Assert.Equal(90f, data["Rotation"]!["Y"]!.Value<float>());
-        Assert.Equal([1u, 2u], data["ParamList1"]!.Select(value => value.Value<uint>()));
-        Assert.Equal(0.5f, data["ParamList2"]![0]!.Value<float>());
+        Assert.Equal([1u, 2u], data["TaggedProperties"]!.Select(value => value.Value<uint>()));
+        Assert.Equal(0.5f, data["FloatProperties"]![0]!.Value<float>());
         // The instance itself keeps its links
         var own = ((IAsset)crate).GetData<ObjectInstanceData>();
         Assert.Single(own.Instances);
@@ -180,10 +180,10 @@ public sealed class PrefabLibraryTests : IDisposable
         Assert.DoesNotContain(placed.ID, others.Select(instance => instance.ID));
         var data = ((IAsset)placed).GetData<ObjectInstanceData>();
         Assert.Equal(_crash.URI, data.ObjectId);
-        Assert.Equal(_script.URI, data.OnSpawnScriptId);
+        Assert.Equal(_script.URI, data.SpawnScript);
         Assert.Equal(7, data.RefListIndex);
         Assert.Equal(Enums.InstanceState.Visible | Enums.InstanceState.CollisionActive, data.StateFlags);
-        Assert.Equal([0.5f], data.ParamList2);
+        Assert.Equal([0.5f], data.FloatProperties);
         Assert.Empty(data.Instances);
         Assert.Empty(data.Positions);
         Assert.Empty(data.Paths);
@@ -231,7 +231,7 @@ public sealed class PrefabLibraryTests : IDisposable
         Assert.True(PrefabLibrary.TryGetSource(crate, null, out source, out _));
         Assert.Equal(PrefabKind.Instance, source.Kind);
         Assert.Equal("Crate", source.DefaultName);
-        Assert.False(PrefabLibrary.TryGetSource(crate, crate.Find("[data].AssetData.ParamList1[0]"), out _, out reason));
+        Assert.False(PrefabLibrary.TryGetSource(crate, crate.Find("[data].AssetData.TaggedProperties[0]"), out _, out reason));
         Assert.Equal("It's a part of object instance Crate, save that instead", reason);
     }
 

@@ -35,10 +35,6 @@ namespace TT_Lab.ViewModels.Editors.Instance.Cameras
             
             parameters = new BindableCollection<Vector2ViewModel>();
             DirtyTracker.AddBindableCollection(parameters);
-            foreach (var d in baseCam.Parameters)
-            {
-                parameters.Add(new Vector2ViewModel(d));
-            }
         }
 
         public override void Save(CameraSubBase? cam)
@@ -55,11 +51,6 @@ namespace TT_Lab.ViewModels.Editors.Instance.Cameras
                     Z = p.Z,
                     W = p.W
                 });
-            }
-            pathCam.Parameters.Clear();
-            foreach (var d in Parameters)
-            {
-                pathCam.Parameters.Add(new Twinsanity.TwinsanityInterchange.Common.Vector2 { X = d.X, Y = d.Y });
             }
             
             base.Save(cam);

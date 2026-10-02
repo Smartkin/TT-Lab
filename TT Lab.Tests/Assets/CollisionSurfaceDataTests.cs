@@ -33,7 +33,8 @@ public sealed class CollisionSurfaceDataTests : IDisposable
         Assert.Equal(0.8f, data.PhysicsParameters[SurfacePhysics.ImpactSoundVolume]);
         Assert.Equal(0.75f, data.PhysicsParameters[SurfacePhysics.StepSoundVolume]);
         Assert.Equal(-1f, data.LandSoundVolume);
-        Assert.Equal(1000000f, data.UnreadValue1);
+        Assert.Equal(1000000f, data.UnreadValue5);
+        Assert.Equal(1f, data.Restitution);
         Assert.True(data.CollisionMask.HasFlag(Enums.SurfaceCollisionFlags.SolidToPlayer | Enums.SurfaceCollisionFlags.SolidToObjects));
 
         surface.SetData(data);

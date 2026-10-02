@@ -21,7 +21,7 @@ public class TextureService
     {
         _renderContext = renderContext;
 
-        RegisterTexture(LabURI.BoatGuy, ManifestResourceLoader.LoadBitmap("Media/boat_guy.png"));
+        RegisterTexture(LabURI.BoatGuy, ManifestResourceLoader.LoadBitmap(MiscUtils.BoatGuyPath));
 
         foreach (var labIcon in ManifestResourceLoader.GetFilesIn("Media/LabIcons"))
         {
@@ -57,6 +57,21 @@ public class TextureService
             texture.GenerateMipmaps();
         }
         
+        return texture;
+    }
+
+    /// <summary>
+    /// A picture that's no texture asset (a save icon's), drawn by materials naming the URI it's given; giving the URI again replaces it
+    /// </summary>
+    public TextureBuffer SetTexture(LabURI uri, byte[] bgra, uint width, uint height)
+    {
+        if (_textures.Remove(uri, out var previous))
+        {
+            previous.Dispose();
+        }
+
+        var texture = new TextureBuffer(_renderContext, bgra, width, height);
+        _textures.Add(uri, texture);
         return texture;
     }
 

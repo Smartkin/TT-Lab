@@ -20,10 +20,10 @@ namespace TT_Lab.ViewModels.Editors.Instance
         private UInt32 flags;
         private UInt16 switches;
         private Single blendTime;
-        private Vector4ViewModel leftoverVector1;
-        private Vector4ViewModel leftoverVector2;
-        private Single leftoverFloat1;
-        private Single leftoverFloat2;
+        private Vector4ViewModel targetBoxMin;
+        private Vector4ViewModel targetBoxMax;
+        private Single framingDistance;
+        private Single framingShare;
         private UInt32 fovStart;
         private UInt32 fovEnd;
         private UInt32 pitchStart;
@@ -32,9 +32,9 @@ namespace TT_Lab.ViewModels.Editors.Instance
         private UInt32 yawEnd;
         private Single distanceStart;
         private Single distanceEnd;
-        private Single camera2Value;
-        private Single camera1Value;
-        private UInt32 yawExtra;
+        private Single positionFollowRate;
+        private Single targetFollowRate;
+        private UInt32 yawSpeed;
         private UInt32 blendInYaw;
         private Single blendInDistance;
         private Byte group;
@@ -64,26 +64,26 @@ namespace TT_Lab.ViewModels.Editors.Instance
             data.Flags = (ITwinCamera.CameraFlags)Flags;
             data.Switches = (ITwinCamera.CameraSwitches)Switches;
             data.BlendTime = BlendTime;
-            data.LeftoverFloat1 = LeftoverFloat1;
-            data.LeftoverFloat2 = LeftoverFloat2;
+            data.FramingDistance = FramingDistance;
+            data.FramingShare = FramingShare;
             data.DistanceStart = DistanceStart;
             data.DistanceEnd = DistanceEnd;
-            data.Camera2Value = Camera2Value;
-            data.Camera1Value = Camera1Value;
+            data.PositionFollowRate = PositionFollowRate;
+            data.TargetFollowRate = TargetFollowRate;
             data.BlendInDistance = BlendInDistance;
-            data.LeftoverVector1 = new Twinsanity.TwinsanityInterchange.Common.Vector4
+            data.TargetBoxMin = new Twinsanity.TwinsanityInterchange.Common.Vector4
             {
-                X = LeftoverVector1.X,
-                Y = LeftoverVector1.Y,
-                Z = LeftoverVector1.Z,
-                W = LeftoverVector1.W,
+                X = TargetBoxMin.X,
+                Y = TargetBoxMin.Y,
+                Z = TargetBoxMin.Z,
+                W = TargetBoxMin.W,
             };
-            data.LeftoverVector2 = new Twinsanity.TwinsanityInterchange.Common.Vector4
+            data.TargetBoxMax = new Twinsanity.TwinsanityInterchange.Common.Vector4
             {
-                X = LeftoverVector2.X,
-                Y = LeftoverVector2.Y,
-                Z = LeftoverVector2.Z,
-                W = LeftoverVector2.W,
+                X = TargetBoxMax.X,
+                Y = TargetBoxMax.Y,
+                Z = TargetBoxMax.Z,
+                W = TargetBoxMax.W,
             };
             data.FovStart = FovStart;
             data.FovEnd = FovEnd;
@@ -91,7 +91,7 @@ namespace TT_Lab.ViewModels.Editors.Instance
             data.PitchEnd = PitchEnd;
             data.YawStart = YawStart;
             data.YawEnd = YawEnd;
-            data.YawExtra = YawExtra;
+            data.YawSpeed = YawSpeed;
             data.BlendInYaw = BlendInYaw;
             data.Group = Group;
             if (MainCamera1 != null)
@@ -123,14 +123,14 @@ namespace TT_Lab.ViewModels.Editors.Instance
             flags = (UInt32)data.Flags;
             switches = (UInt16)data.Switches;
             blendTime = data.BlendTime;
-            leftoverVector1 = new Vector4ViewModel(data.LeftoverVector1);
-            leftoverVector2 = new Vector4ViewModel(data.LeftoverVector2);
-            DirtyTracker.AddChild(leftoverVector1);
-            DirtyTracker.AddChild(leftoverVector2);
-            ActivateItemAsync(leftoverVector1);
-            ActivateItemAsync(leftoverVector2);
-            leftoverFloat1 = data.LeftoverFloat1;
-            leftoverFloat2 = data.LeftoverFloat2;
+            targetBoxMin = new Vector4ViewModel(data.TargetBoxMin);
+            targetBoxMax = new Vector4ViewModel(data.TargetBoxMax);
+            DirtyTracker.AddChild(targetBoxMin);
+            DirtyTracker.AddChild(targetBoxMax);
+            ActivateItemAsync(targetBoxMin);
+            ActivateItemAsync(targetBoxMax);
+            framingDistance = data.FramingDistance;
+            framingShare = data.FramingShare;
             fovStart = data.FovStart;
             fovEnd = data.FovEnd;
             pitchStart = data.PitchStart;
@@ -139,9 +139,9 @@ namespace TT_Lab.ViewModels.Editors.Instance
             yawEnd = data.YawEnd;
             distanceStart = data.DistanceStart;
             distanceEnd = data.DistanceEnd;
-            camera2Value = data.Camera2Value;
-            camera1Value = data.Camera1Value;
-            yawExtra = data.YawExtra;
+            positionFollowRate = data.PositionFollowRate;
+            targetFollowRate = data.TargetFollowRate;
+            yawSpeed = data.YawSpeed;
             blendInYaw = data.BlendInYaw;
             blendInDistance = data.BlendInDistance;
             group = data.Group;
@@ -217,25 +217,25 @@ namespace TT_Lab.ViewModels.Editors.Instance
             }
         }
 
-        public Vector4ViewModel LeftoverVector1
+        public Vector4ViewModel TargetBoxMin
         {
-            get => leftoverVector1;
+            get => targetBoxMin;
         }
 
-        public Vector4ViewModel LeftoverVector2
+        public Vector4ViewModel TargetBoxMax
         {
-            get => leftoverVector2;
+            get => targetBoxMax;
         }
 
         [MarkDirty]
-        public Single LeftoverFloat1
+        public Single FramingDistance
         {
-            get => leftoverFloat1;
+            get => framingDistance;
             set
             {
-                if (leftoverFloat1 != value)
+                if (framingDistance != value)
                 {
-                    leftoverFloat1 = value;
+                    framingDistance = value;
                     
                     NotifyOfPropertyChange();
                 }
@@ -243,14 +243,14 @@ namespace TT_Lab.ViewModels.Editors.Instance
         }
 
         [MarkDirty]
-        public Single LeftoverFloat2
+        public Single FramingShare
         {
-            get => leftoverFloat2;
+            get => framingShare;
             set
             {
-                if (leftoverFloat2 != value)
+                if (framingShare != value)
                 {
-                    leftoverFloat2 = value;
+                    framingShare = value;
                     
                     NotifyOfPropertyChange();
                 }
@@ -369,42 +369,42 @@ namespace TT_Lab.ViewModels.Editors.Instance
             }
         }
         [MarkDirty]
-        public Single Camera2Value
+        public Single PositionFollowRate
         {
-            get => camera2Value;
+            get => positionFollowRate;
             set
             {
-                if (camera2Value != value)
+                if (positionFollowRate != value)
                 {
-                    camera2Value = value;
+                    positionFollowRate = value;
                     
                     NotifyOfPropertyChange();
                 }
             }
         }
         [MarkDirty]
-        public Single Camera1Value
+        public Single TargetFollowRate
         {
-            get => camera1Value;
+            get => targetFollowRate;
             set
             {
-                if (camera1Value != value)
+                if (targetFollowRate != value)
                 {
-                    camera1Value = value;
+                    targetFollowRate = value;
                     
                     NotifyOfPropertyChange();
                 }
             }
         }
         [MarkDirty]
-        public UInt32 YawExtra
+        public UInt32 YawSpeed
         {
-            get => yawExtra;
+            get => yawSpeed;
             set
             {
-                if (yawExtra != value)
+                if (yawSpeed != value)
                 {
-                    yawExtra = value;
+                    yawSpeed = value;
                     
                     NotifyOfPropertyChange();
                 }

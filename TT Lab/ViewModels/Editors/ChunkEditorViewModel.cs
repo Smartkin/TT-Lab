@@ -561,9 +561,9 @@ public class ChunkEditorViewModel :
             {
                 var hitPos = new vec3();
                 var distance = float.MaxValue;
-                var p1 = _colData.Vectors[triangle.Face.Indexes![0]];
-                var p2 = _colData.Vectors[triangle.Face.Indexes[1]];
-                var p3 = _colData.Vectors[triangle.Face.Indexes[2]];
+                var p1 = _colData.Vertexes[triangle.Face.Indexes![0]];
+                var p2 = _colData.Vertexes[triangle.Face.Indexes[1]];
+                var p3 = _colData.Vertexes[triangle.Face.Indexes[2]];
                 if (!MathExtension.IntersectRayTriangle(rayOrigin, rayDirection, new vec3(p1.X, p1.Y, p1.Z),
                         new vec3(p2.X, p2.Y, p2.Z), new vec3(p3.X, p3.Y, p3.Z), ref distance, ref hitPos))
                 {

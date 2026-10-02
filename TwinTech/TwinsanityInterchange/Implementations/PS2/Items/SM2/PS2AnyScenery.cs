@@ -22,7 +22,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SM2
         public List<AmbientLight> AmbientLights { get; set; }
         public List<DirectionalLight> DirectionalLights { get; set; }
         public List<PointLight> PointLights { get; set; }
-        public List<NegativeLight> NegativeLights { get; set; }
+        public List<SpotLight> SpotLights { get; set; }
         public List<TwinSceneryBaseType> Sceneries { get; set; }
         public List<Int32> LightOrder { get; set; }
 
@@ -32,7 +32,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SM2
             AmbientLights = new List<AmbientLight>();
             DirectionalLights = new List<DirectionalLight>();
             PointLights = new List<PointLight>();
-            NegativeLights = new List<NegativeLight>();
+            SpotLights = new List<SpotLight>();
             Sceneries = new List<TwinSceneryBaseType>();
         }
 
@@ -42,7 +42,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SM2
                 (SkydomeID != 0 ? 4 : 0) +
                 (HasLighting ? 0x400 + 4 * 5 + AmbientLights.Sum(a => a.GetLength()) +
                     DirectionalLights.Sum(d => d.GetLength()) + PointLights.Sum(p => p.GetLength()) +
-                    NegativeLights.Sum(n => n.GetLength()) : 0) +
+                    SpotLights.Sum(n => n.GetLength()) : 0) +
                 Sceneries.Sum(s => s.GetLength());
         }
 
@@ -68,7 +68,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SM2
                 var ambientLights = reader.ReadInt32();
                 var dirLights = reader.ReadInt32();
                 var pointLights = reader.ReadInt32();
-                var negativeLights = reader.ReadInt32();
+                var spotLights = reader.ReadInt32();
                 LightOrder.Clear();
                 for (var i = 0; i < Math.Min(totalLights, 0x80); ++i)
                 {
@@ -76,7 +76,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SM2
                     LightOrder.Add(BitConverter.ToInt32(accessors, i * 8 + 4));
                 }
 
-                if (LightOrder.SequenceEqual(GetDefaultLightOrder(ambientLights, dirLights, pointLights, negativeLights)))
+                if (LightOrder.SequenceEqual(GetDefaultLightOrder(ambientLights, dirLights, pointLights, spotLights)))
                 {
                     LightOrder.Clear();
                 }
@@ -99,11 +99,11 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SM2
                     point.Read(reader, point.GetLength());
                     PointLights.Add(point);
                 }
-                for (var i = 0; i < negativeLights; ++i)
+                for (var i = 0; i < spotLights; ++i)
                 {
-                    var negative = new NegativeLight();
-                    negative.Read(reader, negative.GetLength());
-                    NegativeLights.Add(negative);
+                    var spot = new SpotLight();
+                    spot.Read(reader, spot.GetLength());
+                    SpotLights.Add(spot);
                 }
             }
             if (sceneryType == 0x160A)
@@ -137,20 +137,20 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SM2
             }
             if (HasLighting)
             {
-                var defaultOrder = GetDefaultLightOrder(AmbientLights.Count, DirectionalLights.Count, PointLights.Count, NegativeLights.Count);
+                var defaultOrder = GetDefaultLightOrder(AmbientLights.Count, DirectionalLights.Count, PointLights.Count, SpotLights.Count);
                 // An order that no longer lists every light once goes back to the default one
                 var order = LightOrder.Count == defaultOrder.Count && Pairs(LightOrder).OrderBy(pair => pair).SequenceEqual(Pairs(defaultOrder).OrderBy(pair => pair)) ? LightOrder : defaultOrder;
                 foreach (var value in order)
                 {
                     writer.Write(value);
                 }
-                var totalLightCount = AmbientLights.Count + DirectionalLights.Count + PointLights.Count + NegativeLights.Count;
+                var totalLightCount = AmbientLights.Count + DirectionalLights.Count + PointLights.Count + SpotLights.Count;
                 writer.Write(ITwinScenery.GetReservedBlob(), 0, 0x400 - (8 * totalLightCount));
                 writer.Write(totalLightCount);
                 writer.Write(AmbientLights.Count);
                 writer.Write(DirectionalLights.Count);
                 writer.Write(PointLights.Count);
-                writer.Write(NegativeLights.Count);
+                writer.Write(SpotLights.Count);
                 foreach (var l in AmbientLights)
                 {
                     l.Write(writer);
@@ -163,7 +163,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SM2
                 {
                     l.Write(writer);
                 }
-                foreach (var l in NegativeLights)
+                foreach (var l in SpotLights)
                 {
                     l.Write(writer);
                 }
@@ -182,10 +182,10 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SM2
             return $"Scenery {id:X}";
         }
 
-        private static List<Int32> GetDefaultLightOrder(Int32 ambient, Int32 directional, Int32 point, Int32 negative)
+        private static List<Int32> GetDefaultLightOrder(Int32 ambient, Int32 directional, Int32 point, Int32 spot)
         {
             var order = new List<Int32>();
-            var counts = new[] { ambient, directional, point, negative };
+            var counts = new[] { ambient, directional, point, spot };
             for (var kind = 0; kind < counts.Length; ++kind)
             {
                 for (var i = 0; i < counts[kind]; ++i)

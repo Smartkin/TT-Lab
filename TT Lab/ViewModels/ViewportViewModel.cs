@@ -181,6 +181,7 @@ public partial class ViewportViewModel : ReactiveObject
         [
             new ViewportLayerToggle("Scenery", ViewportObjectCategory.Scenery, true),
             new ViewportLayerToggle("Dynamic scenery", ViewportObjectCategory.DynamicScenery, true),
+            new ViewportLayerToggle("Dynamic scenery bounds", ViewportObjectCategory.DynamicSceneryBounds, true),
             new ViewportLayerToggle("Collision", ViewportObjectCategory.Collision, false),
             new ViewportLayerToggle("Skydome", ViewportObjectCategory.Skydome, true),
             new ViewportLayerToggle("Linked scenery", ViewportObjectCategory.LinkedScenery, true),
@@ -653,9 +654,9 @@ public partial class ViewportViewModel : ReactiveObject
         {
             var hitPos = new vec3();
             var distance = float.MaxValue;
-            var p1 = colData.Vectors[triangle.Face.Indexes![0]];
-            var p2 = colData.Vectors[triangle.Face.Indexes[1]];
-            var p3 = colData.Vectors[triangle.Face.Indexes[2]];
+            var p1 = colData.Vertexes[triangle.Face.Indexes![0]];
+            var p2 = colData.Vertexes[triangle.Face.Indexes[1]];
+            var p3 = colData.Vertexes[triangle.Face.Indexes[2]];
             if (!MathExtension.IntersectRayTriangle(ray.Origin, ray.Direction, new vec3(p1.X, p1.Y, p1.Z), new vec3(p2.X, p2.Y, p2.Z), new vec3(p3.X, p3.Y, p3.Z), ref distance, ref hitPos)
                 || !(distance < closestHit))
             {

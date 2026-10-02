@@ -7,8 +7,8 @@ using TT_Lab.Assets.Code;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Assets.Graphics;
 using TT_Lab.ServiceProviders;
+using TT_Lab.Util;
 using Twinsanity.TwinsanityInterchange.Enumerations;
-using Twinsanity.TwinsanityInterchange.Interfaces.Items;
 
 namespace TT_Lab.Assets;
 
@@ -35,13 +35,13 @@ public static class PlaceholderAssets
             });
             return AssetCreationStatus.Success;
         },
+        // The boat guy the viewport draws for parts without a material, at a size and in a layout the game takes
         [typeof(Texture)] = asset =>
         {
-            var texture = (Texture)asset;
-            texture.PixelFormat = ITwinTexture.TexturePixelFormat.PSMT8;
-            texture.TextureFunction = ITwinTexture.TextureFunction.MODULATE;
-            texture.GenerateMipmaps = true;
-            asset.SetData(TextureData.CreateSolidColor(asset, 16, 0xFFFFFFFF));
+            using var png = ManifestResourceLoader.Open(MiscUtils.BoatGuyPath);
+            var data = TextureData.FromPng(asset, png).ResizedForTheGame();
+            ((Texture)asset).UseGameLayout(data.Bitmap!.PixelSize.Width, data.Bitmap.PixelSize.Height);
+            asset.SetData(data);
             return AssetCreationStatus.Success;
         },
     };

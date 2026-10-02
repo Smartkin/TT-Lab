@@ -23,6 +23,7 @@ public struct TwinMaterialDesc()
     public const string BlendFuncPath = "twin_material.blend_func";
     public const string UseTexturePath = "twin_material.use_texture";
     public const string PerformFogPath = "twin_material.perform_fog";
+    public const string EditorShadingPath = "twin_material.editor_shading";
     
     public TextureBuffer? Texture { get; init; }
     public TwinShader.AlphaBlendPresets BlendFunc { get; init; } = TwinShader.AlphaBlendPresets.Mix;
@@ -48,4 +49,8 @@ public struct TwinMaterialDesc()
     public bool DepthWrite { get; init; } = false;
     public bool PerformFog { get; init; } = false;
     public TwinShader.DepthTestMethod DepthTest { get; init; } = TwinShader.DepthTestMethod.GEQUAL;
+    /// <summary>
+    /// Shaded flat by its triangles' facing for the editor (collision has nothing of its own to light it by)
+    /// </summary>
+    public bool EditorShading { get; init; }
 }

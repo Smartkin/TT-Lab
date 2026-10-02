@@ -27,12 +27,10 @@ namespace TT_Lab.ViewModels.Editors.Instance
         private UInt16 unkId5;
         private BindableCollection<PrimitiveWrapperViewModel<Single>> physicsParameters = new();
         private Vector4ViewModel unusedVector = new();
-        private BoundingBoxViewModel contactMessage = new();
 
         public CollisionSurfaceViewModel()
         {
             DirtyTracker.AddChild(unusedVector);
-            DirtyTracker.AddChild(contactMessage);
             DirtyTracker.AddBindableCollection(physicsParameters);
         }
 
@@ -64,20 +62,6 @@ namespace TT_Lab.ViewModels.Editors.Instance
                 Z = UnusedVector.Z,
                 W = UnusedVector.W
             };
-            data.ContactMessage[0] = new Twinsanity.TwinsanityInterchange.Common.Vector4
-            {
-                X = ContactMessage.TopLeft.X,
-                Y = ContactMessage.TopLeft.Y,
-                Z = ContactMessage.TopLeft.Z,
-                W = ContactMessage.TopLeft.W
-            };
-            data.ContactMessage[1] = new Twinsanity.TwinsanityInterchange.Common.Vector4
-            {
-                X = ContactMessage.BottomRight.X,
-                Y = ContactMessage.BottomRight.Y,
-                Z = ContactMessage.BottomRight.Z,
-                W = ContactMessage.BottomRight.W
-            };
             
             base.Save();
         }
@@ -102,11 +86,8 @@ namespace TT_Lab.ViewModels.Editors.Instance
             hardImpactSoundId = surfData.HardImpactSoundId;
             stepParticleSystemId = surfData.StepParticleSystemId;
             DirtyTracker.RemoveChild(unusedVector);
-            DirtyTracker.RemoveChild(contactMessage);
             unusedVector = new Vector4ViewModel(surfData.UnusedVector);
-            contactMessage = new BoundingBoxViewModel(surfData.ContactMessage);
             DirtyTracker.AddChild(unusedVector);
-            DirtyTracker.AddChild(contactMessage);
             layId = MiscUtils.ConvertEnum<Layouts>(asset.LayoutID!.Value);
         }
 
@@ -303,11 +284,6 @@ namespace TT_Lab.ViewModels.Editors.Instance
         public Vector4ViewModel UnusedVector
         {
             get => unusedVector;
-        }
-
-        public BoundingBoxViewModel ContactMessage
-        {
-            get => contactMessage;
         }
     }
 }

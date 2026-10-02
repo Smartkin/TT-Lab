@@ -4,10 +4,13 @@ using Twinsanity.TwinsanityInterchange.Interfaces;
 
 namespace Twinsanity.TwinsanityInterchange.Common.Collision
 {
-    public class TwinGroupInformation : ITwinSerializable
+    /// <summary>
+    /// The triangles a leaf of the collision's tree has: how many, from which
+    /// </summary>
+    public class TwinCollisionGroup : ITwinSerializable
     {
-        public UInt32 Size;
-        public UInt32 Offset;
+        public UInt32 Count;
+        public UInt32 FirstTriangle;
 
         public Int32 GetLength()
         {
@@ -21,14 +24,14 @@ namespace Twinsanity.TwinsanityInterchange.Common.Collision
 
         public void Read(BinaryReader reader, Int32 length)
         {
-            Size = reader.ReadUInt32();
-            Offset = reader.ReadUInt32();
+            Count = reader.ReadUInt32();
+            FirstTriangle = reader.ReadUInt32();
         }
 
         public void Write(BinaryWriter writer)
         {
-            writer.Write(Size);
-            writer.Write(Offset);
+            writer.Write(Count);
+            writer.Write(FirstTriangle);
         }
     }
 }

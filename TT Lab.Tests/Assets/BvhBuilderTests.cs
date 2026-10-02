@@ -1,4 +1,4 @@
-using TT_Lab.AssetData.Instance.Collision;
+﻿using TT_Lab.AssetData.Instance.Collision;
 using Twinsanity.TwinsanityInterchange.Common;
 
 namespace TT_Lab.Tests.Assets;
@@ -135,13 +135,13 @@ public sealed class BvhBuilderTests
     {
         var (faces, vectors) = Grid(10);
         var tree = BvhBuilder.Build(faces, vectors);
-        var triggers = tree.Nodes.Select(node => new Twinsanity.TwinsanityInterchange.Common.Collision.TwinCollisionTrigger
+        var nodes = tree.Nodes.Select(node => new Twinsanity.TwinsanityInterchange.Common.Collision.TwinCollisionNode
         {
-            V1 = new Vector3(node.Min.x, node.Min.y, node.Min.z), V2 = new Vector3(node.Max.x, node.Max.y, node.Max.z), MinTriggerIndex = node.Left, MaxTriggerIndex = node.Right
+            Min = new Vector3(node.Min.x, node.Min.y, node.Min.z), Max = new Vector3(node.Max.x, node.Max.y, node.Max.z), FirstChild = node.Left, SecondChild = node.Right
         }).ToList();
-        var groups = tree.Groups.Select(group => new Twinsanity.TwinsanityInterchange.Common.Collision.TwinGroupInformation { Offset = (uint)group.Offset, Size = (uint)group.Size }).ToList();
+        var groups = tree.Groups.Select(group => new Twinsanity.TwinsanityInterchange.Common.Collision.TwinCollisionGroup { FirstTriangle = (uint)group.Offset, Count = (uint)group.Size }).ToList();
 
-        var read = BvhBuilder.FromTwin(triggers, groups, faces.Count);
+        var read = BvhBuilder.FromTwin(nodes, groups, faces.Count);
 
         Assert.Equal(tree.Nodes, read.Nodes);
         Assert.Equal(tree.Groups, read.Groups);

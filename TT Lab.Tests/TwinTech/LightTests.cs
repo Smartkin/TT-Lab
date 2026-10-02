@@ -11,19 +11,19 @@ public class LightTests
     [Fact]
     public void HeaderIsTheTypeAndTheEnabledBit()
     {
-        var lights = new Light[] { new AmbientLight(), new DirectionalLight(), new PointLight(), new NegativeLight { Enabled = false } };
+        var lights = new Light[] { new AmbientLight(), new DirectionalLight(), new PointLight(), new SpotLight { Enabled = false } };
 
         var headers = lights.Select(light => BitConverter.ToUInt32(Write(light), 0)).ToList();
 
         Assert.Equal(new uint[] { 0x100, 0x101, 0x102, 0x3 }, headers);
-        Assert.False(Read<NegativeLight>(Write(lights[3])).Enabled);
+        Assert.False(Read<SpotLight>(Write(lights[3])).Enabled);
         Assert.True(Read<PointLight>(Write(lights[2])).Enabled);
     }
 
     [Fact]
     public void LightsComeBackFromTheirBytes()
     {
-        var spot = new NegativeLight
+        var spot = new SpotLight
         {
             Intensity = 2.5f, Color = new Vector4(1, 0.5f, 0.25f, 1), Position = new Vector4(1, 2, 3, 1), Direction = new Vector4(0, -1, 0, 0),
             InnerConeCosine = 0.6f, OuterConeCosine = 0.5f, ConeAngle = 18956, FalloffAngle = 917, AttenuationPower = 1, SpotExponent = 4
@@ -36,10 +36,10 @@ public class LightTests
         Assert.Equal(spot.GetLength(), bytes.Spot.Length);
         Assert.Equal(point.GetLength(), bytes.Point.Length);
         Assert.Equal(directional.GetLength(), bytes.Directional.Length);
-        Assert.Equal(bytes.Spot, Write(Read<NegativeLight>(bytes.Spot)));
+        Assert.Equal(bytes.Spot, Write(Read<SpotLight>(bytes.Spot)));
         Assert.Equal(bytes.Point, Write(Read<PointLight>(bytes.Point)));
         Assert.Equal(bytes.Directional, Write(Read<DirectionalLight>(bytes.Directional)));
-        var read = Read<NegativeLight>(bytes.Spot);
+        var read = Read<SpotLight>(bytes.Spot);
         Assert.Equal((18956u, 917u, (ushort)1, (ushort)4), (read.ConeAngle, read.FalloffAngle, read.AttenuationPower, read.SpotExponent));
     }
 
@@ -74,7 +74,7 @@ public class LightTests
     [Fact]
     public void SpotConesGiveTheGamesCosines()
     {
-        var light = new NegativeLight();
+        var light = new SpotLight();
 
         light.SetCone(104.128f, 5.037f);
 
@@ -83,7 +83,7 @@ public class LightTests
         Assert.Equal(0.6149f, light.InnerConeCosine, 1e-3f);
         Assert.Equal(0.5432f, light.OuterConeCosine, 1e-3f);
         Assert.Equal(104.128f, light.ConeAngleDegrees, 1e-2f);
-        Assert.Equal((light.InnerConeCosine, light.OuterConeCosine), NegativeLight.ConeCosines(18956, 917));
+        Assert.Equal((light.InnerConeCosine, light.OuterConeCosine), SpotLight.ConeCosines(18956, 917));
     }
 
     private static byte[] Write(ITwinSerializable item)

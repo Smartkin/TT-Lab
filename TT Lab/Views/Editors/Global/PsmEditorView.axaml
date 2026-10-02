@@ -1,0 +1,40 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:TT_Lab.Controls"
+             xmlns:global="clr-namespace:TT_Lab.ViewModels.Editors.Global"
+             x:DataType="global:PsmEditorViewModel"
+             mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="640"
+             x:Class="TT_Lab.Views.Editors.Global.PsmEditorView">
+    <DockPanel LastChildFill="True">
+        <WrapPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0, 0, 0, 2">
+            <Button Content="Replace the picture..." Click="ReplacePictureClicked" IsVisible="{Binding IsPicture}" Margin="0, 0, 6, 4" VerticalAlignment="Center"
+                    ToolTip.Tip="Puts an image in place of the whole picture, every tile gets its part. An image of another size is resized to the picture's. It replaces the tiles' textures right away, which no history can undo"/>
+            <Button Content="Replace the picked part..." Click="ReplacePartClicked" IsEnabled="{Binding HasSelection}" Margin="0, 0, 6, 4" VerticalAlignment="Center"
+                    ToolTip.Tip="Puts an image the right way up in place of the picked part, resized to the part's size when it's another. It replaces the part's texture right away, which no history can undo"/>
+            <Button Content="Save the picture as PNG..." Click="SavePictureClicked" Margin="0, 0, 6, 4" VerticalAlignment="Center"
+                    ToolTip.Tip="The picture as it's shown, the right way up"/>
+            <Button Content="Save the part as PNG..." Click="SavePartClicked" IsEnabled="{Binding HasSelection}" Margin="0, 0, 10, 4" VerticalAlignment="Center"
+                    ToolTip.Tip="The picked part the right way up"/>
+            <TextBlock Text="Zoom" VerticalAlignment="Center" Margin="0, 0, 6, 4"/>
+            <Slider x:Name="ZoomSlider" Minimum="0.5" Maximum="4" Value="1" Width="120" VerticalAlignment="Center" Margin="0, 0, 0, 4"/>
+        </WrapPanel>
+        <TextBlock DockPanel.Dock="Top" Text="{Binding Summary}" TextWrapping="Wrap" Opacity="0.8" Margin="0, 0, 0, 2"/>
+        <TextBlock DockPanel.Dock="Top" Text="{Binding SelectionText}" TextWrapping="Wrap" Margin="0, 0, 0, 4"/>
+        <Grid ColumnDefinitions="*,8,240">
+            <ScrollViewer Grid.Column="0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Height="540">
+                <controls:PsmPicture x:Name="PictureView" Picture="{Binding Picture}" Parts="{Binding Places}" SelectedIndex="{Binding SelectedIndex}"
+                                     Zoom="{Binding #ZoomSlider.Value}" HorizontalAlignment="Left" VerticalAlignment="Top"
+                                     ToolTip.Tip="Click a part to pick it"/>
+            </ScrollViewer>
+            <ListBox Grid.Column="2" x:Name="PartList" ItemsSource="{Binding Parts}" SelectedIndex="{Binding SelectedIndex}" Height="540">
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="global:PsmPart">
+                        <TextBlock Text="{Binding Caption}"/>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Grid>
+    </DockPanel>
+</UserControl>

@@ -12,16 +12,18 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Layout
     public class PS2AnyPath : BaseTwinItem, ITwinPath
     {
         public List<Vector4> PointList { get; set; }
-        public List<Vector2> ParameterList { get; set; }
+        public List<Single> ArcLengths { get; set; }
+        public List<Single> InverseSteps { get; set; }
         public PS2AnyPath()
         {
             PointList = new List<Vector4>();
-            ParameterList = new List<Vector2>();
+            ArcLengths = new List<Single>();
+            InverseSteps = new List<Single>();
         }
 
         public override int GetLength()
         {
-            return 8 + Constants.SIZE_VECTOR4 * PointList.Count + Constants.SIZE_VECTOR2 * ParameterList.Count;
+            return 8 + Constants.SIZE_VECTOR4 * PointList.Count + 4 * (ArcLengths.Count + InverseSteps.Count);
         }
 
         public override void Read(BinaryReader reader, int length)
@@ -34,14 +36,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Layout
                 point.Read(reader, Constants.SIZE_VECTOR4);
                 PointList.Add(point);
             }
-            Int32 parameters = reader.ReadInt32();
-            ParameterList.Clear();
-            for (int i = 0; i < parameters; ++i)
-            {
-                Vector2 param = new Vector2();
-                param.Read(reader, Constants.SIZE_VECTOR2);
-                ParameterList.Add(param);
-            }
+            TwinPathParameters.Read(reader, reader.ReadInt32(), ArcLengths, InverseSteps);
         }
 
         public override void Write(BinaryWriter writer)
@@ -51,11 +46,8 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Layout
             {
                 e.Write(writer);
             }
-            writer.Write(ParameterList.Count);
-            foreach (ITwinSerializable e in ParameterList)
-            {
-                e.Write(writer);
-            }
+            writer.Write(ArcLengths.Count);
+            TwinPathParameters.Write(writer, ArcLengths, InverseSteps);
         }
 
         public override String GetName()

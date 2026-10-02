@@ -23,13 +23,13 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Layout
         public UInt16 ScrapeSoundId { get; set; }
         public Single[] PhysicsParameters { get; set; }
         public Vector4 UnusedVector { get; set; }
-        public Vector4[] ContactMessage { get; set; }
+        public TwinContactMessage ContactMessage { get; set; }
 
         public PS2AnyCollisionSurface()
         {
             PhysicsParameters = new float[SurfacePhysics.Count];
             UnusedVector = new Vector4();
-            ContactMessage = new Vector4[2];
+            ContactMessage = new TwinContactMessage();
         }
 
         public override int GetLength()
@@ -56,11 +56,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Layout
                 PhysicsParameters[i] = reader.ReadSingle();
             }
             UnusedVector.Read(reader, Constants.SIZE_VECTOR4);
-            for (int i = 0; i < ContactMessage.Length; ++i)
-            {
-                ContactMessage[i] = new Vector4();
-                ContactMessage[i].Read(reader, Constants.SIZE_VECTOR4);
-            }
+            ContactMessage.Read(reader, ContactMessage.GetLength());
         }
 
         public override void Write(BinaryWriter writer)
@@ -82,10 +78,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Layout
                 writer.Write(PhysicsParameters[i]);
             }
             UnusedVector.Write(writer);
-            for (int i = 0; i < ContactMessage.Length; ++i)
-            {
-                ContactMessage[i].Write(writer);
-            }
+            ContactMessage.Write(writer);
         }
 
         public override String GetName()

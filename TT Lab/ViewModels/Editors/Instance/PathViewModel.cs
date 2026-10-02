@@ -33,13 +33,6 @@ public class PathViewModel : InstanceSectionResourceEditorViewModel
             var v = new Twinsanity.TwinsanityInterchange.Common.Vector4();
             p.Save(v);
         }
-        data.Parameters.Clear();
-        foreach (var p in Arguments)
-        {
-            var v = new Twinsanity.TwinsanityInterchange.Common.Vector2();
-            p.Save(v);
-            data.Parameters.Add(v);
-        }
             
         base.Save();
     }
@@ -52,10 +45,6 @@ public class PathViewModel : InstanceSectionResourceEditorViewModel
         DirtyTracker.AddBindableCollection(_points);
         
         _arguments = [];
-        foreach (var vm in pathData.Parameters.Select(p => new Vector2ViewModel(p)))
-        {
-            _arguments.Add(vm);
-        }
         DirtyTracker.AddBindableCollection(_arguments);
         
         _layoutId = MiscUtils.ConvertEnum<Enums.Layouts>(asset.LayoutID!.Value);

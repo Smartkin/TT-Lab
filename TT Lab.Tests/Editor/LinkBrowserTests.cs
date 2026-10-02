@@ -50,7 +50,7 @@ public sealed class LinkBrowserTests : IDisposable
         var document = new DocumentViewModel(instance);
         document.Initialize();
 
-        var link = Show(document, "Root.AssetData.OnSpawnScriptId");
+        var link = Show(document, "Root.AssetData.SpawnScript");
         var candidates = link.GetBrowseCandidates();
 
         Assert.Contains(graph.URI, candidates);

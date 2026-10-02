@@ -5,13 +5,27 @@ using Twinsanity.TwinsanityInterchange.Interfaces;
 
 namespace Twinsanity.TwinsanityInterchange.Common
 {
+    /// <summary>
+    /// A joint of an OGI (the game's JointStruct, ReadJoint 0x297x): stored as words, of which the game keeps a byte each
+    /// </summary>
     public class TwinJoint : ITwinSerializable
     {
-        public Int32 ReactId { get; set; }
+        /// <summary>
+        /// The joint's ID, 255 for none. The joints with IDs are the ones the game finds by ID (an animation's progress on a joint,
+        /// the callbacks taking part in a joint's animation), the OGI's header counts them
+        /// </summary>
+        public Int32 Id { get; set; }
         public Int32 Index { get; set; }
         public Int32 ParentIndex { get; set; }
-        public Int32 ChildrenAmt1 { get; set; }
-        public Int32 ChildrenAmt2 { get; set; }
+        /// <summary>
+        /// How many children the joint has. The game keeps its low 4 bits as the low half of the joint's detail byte and never reads them
+        /// </summary>
+        public Int32 ChildCount { get; set; }
+        /// <summary>
+        /// The level of detail below which the joint's children aren't animated (the high half of its detail byte). Every retail caller
+        /// animates with detail 0, so it never leaves any out
+        /// </summary>
+        public Int32 Detail { get; set; }
         public Vector4 LocalTranslation { get; set; }
         public Vector4 WorldTranslation { get; set; }
         public Vector4 LocalRotation { get; set; }
@@ -38,11 +52,11 @@ namespace Twinsanity.TwinsanityInterchange.Common
 
         public void Read(BinaryReader reader, int length)
         {
-            ReactId = (Int32)(reader.ReadUInt32() & 0xFF);
+            Id = (Int32)(reader.ReadUInt32() & 0xFF);
             Index = (Int32)(reader.ReadUInt32() & 0xFF);
             ParentIndex = (Int32)(reader.ReadUInt32() & 0xFF);
-            ChildrenAmt1 = (Int32)(reader.ReadUInt32() & 0xFF);
-            ChildrenAmt2 = (Int32)(reader.ReadUInt32() & 0xFF);
+            ChildCount = (Int32)(reader.ReadUInt32() & 0xFF);
+            Detail = (Int32)(reader.ReadUInt32() & 0xFF);
             LocalTranslation.Read(reader, Constants.SIZE_VECTOR4);
             WorldTranslation.Read(reader, Constants.SIZE_VECTOR4);
             LocalRotation.Read(reader, Constants.SIZE_VECTOR4);
@@ -52,11 +66,11 @@ namespace Twinsanity.TwinsanityInterchange.Common
 
         public void Write(BinaryWriter writer)
         {
-            writer.Write(ReactId);
+            writer.Write(Id);
             writer.Write(Index);
             writer.Write(ParentIndex);
-            writer.Write(ChildrenAmt1);
-            writer.Write(ChildrenAmt2);
+            writer.Write(ChildCount);
+            writer.Write(Detail);
             LocalTranslation.Write(writer);
             WorldTranslation.Write(writer);
             LocalRotation.Write(writer);

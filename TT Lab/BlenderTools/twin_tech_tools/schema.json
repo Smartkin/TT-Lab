@@ -22,17 +22,18 @@
       "AmbientLight": ["Order", "Color", "Intensity", "Enabled", "PositionW", "BoundsMin", "BoundsMax"],
       "DirectionalLight": ["Order", "Color", "Intensity", "Enabled", "PositionW", "BoundsMin", "BoundsMax", "Leftover", "Direction"],
       "PointLight": ["Order", "Color", "Intensity", "Enabled", "PositionW", "BoundsMin", "BoundsMax", "AttenuationPower"],
-      "NegativeLight": ["Order", "Color", "Intensity", "Enabled", "PositionW", "BoundsMin", "BoundsMax", "ConeAngle", "FalloffAngle", "AttenuationPower", "SpotExponent", "Direction", "InnerConeCosine", "OuterConeCosine"],
+      "SpotLight": ["Order", "Color", "Intensity", "Enabled", "PositionW", "BoundsMin", "BoundsMax", "ConeAngle", "FalloffAngle", "AttenuationPower", "SpotExponent", "Direction", "InnerConeCosine", "OuterConeCosine"],
       "ExitPoint": ["Id"],
       "CollisionHull": [],
       "DynamicScenery": [],
-      "DynamicSceneryModel": ["Order", "LodFlag", "BoundingBoxMin", "BoundingBoxMax"],
+      "DynamicSceneryModel": ["Order", "UsesLod", "BoundingBoxMin", "BoundingBoxMax"],
       "SkydomeMesh": ["Order"],
+      "SaveIcon": ["TextureType", "FrameLength", "AnimationSpeed", "PlayOffset", "FileId", "HeaderValue", "AnimationTag"],
       "Collision": ["UnusedVertexes", "UnusedPositions"],
       "SceneryTreeNode": ["LightsEnabler", "Kind", "Slot", "BoundsMin", "BoundsMax", "BoundsCenter", "BoundsHalfSize", "TreeDepth", "SceneryTypes"]
     },
     "Bone": {
-      "Joint": ["Index", "ReactId", "AdditionalAnimationRotation", "ChildrenAmt2", "UnusedRotation", "LocalTranslation", "LocalRotation", "WorldTranslation", "InverseBindMatrix"]
+      "Joint": ["Index", "Id", "AdditionalAnimationRotation", "Detail", "UnusedRotation", "LocalTranslation", "LocalRotation", "WorldTranslation", "InverseBindMatrix"]
     },
     "Material": {
       "CollisionSurface": ["Surface"]

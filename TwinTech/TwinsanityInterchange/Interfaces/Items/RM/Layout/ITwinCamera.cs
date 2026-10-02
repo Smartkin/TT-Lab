@@ -21,21 +21,25 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout
         /// </summary>
         Single BlendTime { get; set; } // 10
         /// <summary>
-        /// Leftover memory of the tools (pointers, strings), never read
+        /// With <see cref="CameraFlags.GivesTargetBox"/>, the first corner of the box the follow camera's target takes in place of its
+        /// own: the camera looks at the followed object's place plus the point halfway across the box, turned with the object unless
+        /// <see cref="CameraFlags.TargetBoxUnturned"/> (FollowCameraTarget, (0, 1.6, 0) on many cameras). The tools' memory without the flag
         /// </summary>
-        Vector4 LeftoverVector1 { get; set; }
+        Vector4 TargetBoxMin { get; set; }
         /// <summary>
-        /// Leftover memory of the tools, never read
+        /// The target box's other corner, see <see cref="TargetBoxMin"/>
         /// </summary>
-        Vector4 LeftoverVector2 { get; set; } // 42
+        Vector4 TargetBoxMax { get; set; } // 42
         /// <summary>
-        /// Leftover memory of the tools, never read
+        /// With <see cref="CameraFlags.FramesInstances"/>, the furthest the follow camera's target moves toward the middle of the camera
+        /// trigger's instances. The tools' memory without the flag
         /// </summary>
-        Single LeftoverFloat1 { get; set; }
+        Single FramingDistance { get; set; }
         /// <summary>
-        /// Leftover memory of the tools, never read
+        /// With <see cref="CameraFlags.FramesInstances"/>, the share of the way from the followed object to the middle of the camera
+        /// trigger's instances the target moves (up to <see cref="FramingDistance"/>). The tools' memory without the flag
         /// </summary>
-        Single LeftoverFloat2 { get; set; } // 50
+        Single FramingShare { get; set; } // 50
         /// <summary>
         /// The angle the first angle blender (probably the field of view) starts from with <see cref="CameraFlags.SetsFov"/>, or its
         /// value at the start of the camera's line, path or spline with <see cref="CameraFlags.ValuesAlongGeometry"/>
@@ -73,17 +77,20 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout
         /// </summary>
         Single DistanceEnd { get; set; }
         /// <summary>
-        /// Handed to the second subtype when <see cref="CameraFlags.PassesValueToCamera2"/> is set, and kept by the controller
+        /// With <see cref="CameraFlags.SetsPositionFollowRate"/>, the rate the camera rig's point follower moves the camera's place to
+        /// where the camera puts it (the share of the way a second), which the follow camera also moves at
         /// </summary>
-        Single Camera2Value { get; set; }
+        Single PositionFollowRate { get; set; }
         /// <summary>
-        /// Handed to the first subtype when <see cref="CameraFlags.PassesValueToCamera1"/> is set
+        /// With <see cref="CameraFlags.SetsTargetFollowRate"/>, the rate the camera rig's point follower moves the point the camera
+        /// looks at (the share of the way a second)
         /// </summary>
-        Single Camera1Value { get; set; } // 90
+        Single TargetFollowRate { get; set; } // 90
         /// <summary>
-        /// An angle given to the yaw blender with <see cref="CameraFlags.SetsYawExtra"/>, 0 in the game's levels
+        /// With <see cref="CameraFlags.SetsYawSpeed"/>, the yaw blender's speed (65536ths of a turn a second), slowed by the sine of
+        /// how far it has left to turn. 0 in the game's levels, the scripts' SetCameraNodeValue sets it on the follow camera's own camera
         /// </summary>
-        UInt32 YawExtra { get; set; }
+        UInt32 YawSpeed { get; set; }
         /// <summary>
         /// The yaw the camera blends in from instead of the start and end with <see cref="CameraFlags.BlendsInFromYaw"/>
         /// </summary>
@@ -121,8 +128,8 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout
         }
 
         /// <summary>
-        /// The camera's flags word. The bits without a name (1, 8, 9, 14, 25, 28) are set on cameras of the game's levels and never
-        /// read, the ones named Controller are copied into the camera controller's own flags where their effect wasn't traced
+        /// The camera's flags word: what the follow camera (FollowCameraPositioner, FollowCameraTarget) and the camera controller take
+        /// from the camera. Bits 1 and 14 are set on cameras of the game's levels and never read
         /// </summary>
         [Flags]
         enum CameraFlags : UInt32
@@ -131,6 +138,7 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout
             /// The second subtype gives its position at the controller's parameter instead of for the target's position
             /// </summary>
             SecondCameraAtParameter = 1 << 0,
+            Unused1 = 1 << 1,
             /// <summary>
             /// The pitch blender takes <see cref="PitchStart"/> and <see cref="PitchEnd"/>
             /// </summary>
@@ -139,7 +147,10 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout
             /// The distance takes <see cref="DistanceStart"/> and <see cref="DistanceEnd"/>
             /// </summary>
             SetsDistance = 1 << 3,
-            Controller4 = 1 << 4,
+            /// <summary>
+            /// The follow camera's probes stay on: it steers around walls (the follow camera's own camera always has it)
+            /// </summary>
+            Steers = 1 << 4,
             /// <summary>
             /// The camera cuts in instead of blending over <see cref="BlendTime"/>
             /// </summary>
@@ -149,27 +160,40 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout
             /// </summary>
             SetsYaw = 1 << 6,
             /// <summary>
-            /// The first angle blender takes <see cref="FovStart"/> and <see cref="FovEnd"/>
+            /// The field of view's blender takes <see cref="FovStart"/> and <see cref="FovEnd"/>
             /// </summary>
             SetsFov = 1 << 7,
+            /// <summary>
+            /// The follow camera's target takes <see cref="TargetBoxMin"/> and <see cref="TargetBoxMax"/> as its box
+            /// </summary>
+            GivesTargetBox = 1 << 8,
+            /// <summary>
+            /// The follow camera's target moves toward the middle of the camera trigger's instances by <see cref="FramingShare"/>, up
+            /// to <see cref="FramingDistance"/>
+            /// </summary>
+            FramesInstances = 1 << 9,
             /// <summary>
             /// The start and end values are the values at the start and the end of the camera's geometry, taken by how far along
             /// it the target is, instead of the two targets of a blend over time
             /// </summary>
             ValuesAlongGeometry = 1 << 10,
-            Controller11 = 1 << 11,
             /// <summary>
-            /// Hands <see cref="Camera2Value"/> to the second subtype
+            /// The follow camera takes the camera's values even while it ignores cameras' values
             /// </summary>
-            PassesValueToCamera2 = 1 << 12,
+            AlwaysTakesValues = 1 << 11,
             /// <summary>
-            /// Hands <see cref="Camera1Value"/> to the first subtype
+            /// The rig's point follower moves the camera's place at <see cref="PositionFollowRate"/>
             /// </summary>
-            PassesValueToCamera1 = 1 << 13,
+            SetsPositionFollowRate = 1 << 12,
             /// <summary>
-            /// Gives the yaw blender <see cref="YawExtra"/>
+            /// The rig's point follower moves the point the camera looks at at <see cref="TargetFollowRate"/>
             /// </summary>
-            SetsYawExtra = 1 << 15,
+            SetsTargetFollowRate = 1 << 13,
+            Unused14 = 1 << 14,
+            /// <summary>
+            /// The yaw blender turns at <see cref="YawSpeed"/>
+            /// </summary>
+            SetsYawSpeed = 1 << 15,
             /// <summary>
             /// While blending in the yaw comes from <see cref="BlendInYaw"/>
             /// </summary>
@@ -182,15 +206,34 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout
             /// While blending in the distance comes from <see cref="BlendInDistance"/>
             /// </summary>
             BlendsInFromDistance = 1 << 18,
-            Controller19 = 1 << 19,
-            Controller20 = 1 << 20,
-            Controller21 = 1 << 21,
-            Controller22 = 1 << 22,
-            Controller23 = 1 << 23,
+            /// <summary>
+            /// The follow camera only turns to look at the target
+            /// </summary>
+            OnlyLooksAtTarget = 1 << 19,
+            /// <summary>
+            /// The follow camera keeps its height and looks at the target
+            /// </summary>
+            KeepsHeight = 1 << 20,
+            /// <summary>
+            /// The follow camera doesn't move
+            /// </summary>
+            HoldsStill = 1 << 21,
+            /// <summary>
+            /// The follow camera tilts toward the way the target faces
+            /// </summary>
+            Tilts = 1 << 22,
+            /// <summary>
+            /// The follow camera's probes are off
+            /// </summary>
+            NoProbes = 1 << 23,
             /// <summary>
             /// The camera cuts in when the camera it replaces has this as well
             /// </summary>
             CutsFromSameKind = 1 << 24,
+            /// <summary>
+            /// The follow camera's target blends to the camera's point even when it's near
+            /// </summary>
+            BlendsWhenNear = 1 << 25,
             /// <summary>
             /// The camera is only accepted while another camera is running
             /// </summary>
@@ -200,9 +243,22 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout
             /// doesn't tell (FUN_001434a0)
             /// </summary>
             IgnoresPlayerState = 1 << 27,
-            Controller29 = 1 << 29,
-            Controller30 = 1 << 30,
-            Controller31 = 1U << 31
+            /// <summary>
+            /// The target box's point isn't turned with the followed object
+            /// </summary>
+            TargetBoxUnturned = 1 << 28,
+            /// <summary>
+            /// The follow camera blends its place along the line from where the blend started
+            /// </summary>
+            BlendsAlongLine = 1 << 29,
+            /// <summary>
+            /// The follow camera doesn't check its view of the target
+            /// </summary>
+            SkipsViewCheck = 1 << 30,
+            /// <summary>
+            /// The follow camera adds its own extra yaw (not the camera's) to the yaw
+            /// </summary>
+            AddsExtraYaw = 1U << 31
         }
 
         /// <summary>
@@ -215,7 +271,10 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout
             /// The camera is kept as the player's second camera when the controller allows one (FUN_001434a0)
             /// </summary>
             SecondSlot = 1 << 0,
-            Controller1 = 1 << 1,
+            /// <summary>
+            /// With <see cref="CameraFlags.NoProbes"/>, the probes stay on while the follow camera ignores cameras' values
+            /// </summary>
+            KeepsProbesWhileIgnoring = 1 << 1,
             /// <summary>
             /// Becoming the camera resets the controller
             /// </summary>

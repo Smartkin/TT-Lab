@@ -211,9 +211,10 @@ def _to_byte(value: float) -> int:
     return max(0, min(255, int(round(value * 255.0))))
 
 
-def to_parts(file: TlmFile, mesh: CornerMesh, skinned: bool) -> typing.Dict[str, typing.Any]:
+def to_parts(file: TlmFile, mesh: CornerMesh, skinned: bool, shaped: typing.Optional[bool] = None) -> typing.Dict[str, typing.Any]:
     """The mesh's parts. Vertexes keep the order they have in Blender, a vertex whose corners need different values in a part is
-    written once more for every other value, after the others."""
+    written once more for every other value, after the others. Shapes are written for skins, or for what's shaped (a save icon)."""
+    shaped = skinned if shaped is None else shaped
     triangle_count = len(mesh.corner_vertices) // 3
     groups: typing.Dict[typing.Tuple[int, int], typing.List[int]] = {}
     for triangle in range(triangle_count):
@@ -246,7 +247,7 @@ def to_parts(file: TlmFile, mesh: CornerMesh, skinned: bool) -> typing.Dict[str,
         is_original = number < len(mesh.parts) and slot == number
         optional = kept.get("optional", default_optional)
         parts.append(_write_part(file, mesh, groups.get((number, slot), []), loose.get(number, []) if is_original or number >= len(mesh.parts) else [],
-                                 kept if is_original else {"optional": optional}, slot, skinned))
+                                 kept if is_original else {"optional": optional}, slot, skinned, shaped))
 
     return {"parts": parts}
 
@@ -281,7 +282,7 @@ def _has_normal(mesh: CornerMesh, corner: int) -> bool:
 
 
 def _write_part(file: TlmFile, mesh: CornerMesh, triangles: typing.List[int], loose: typing.List[int], kept: typing.Dict[str, typing.Any], slot: int,
-                skinned: bool) -> typing.Dict[str, typing.Any]:
+                skinned: bool, shaped: bool) -> typing.Dict[str, typing.Any]:
     first_corner: typing.Dict[int, int] = {}
     for triangle in triangles:
         for corner in range(triangle * 3, triangle * 3 + 3):
@@ -391,11 +392,11 @@ def _write_part(file: TlmFile, mesh: CornerMesh, triangles: typing.List[int], lo
             part["group_joints"] = file.write_view(joints, "i32")
             part["group_weights"] = file.write_view(weights, "f32")
 
-        if len(mesh.shapes) > 0:
-            part["shapes"] = [file.write_view([value for vertex, _ in sources for value in shape[vertex * 3:vertex * 3 + 3]], "f32") for shape in mesh.shapes]
-            twin_shapes = [shape if shape is not None else mesh.shapes[index] for index, shape in enumerate(mesh.twin_shapes[:len(mesh.shapes)])]
-            if len(twin_shapes) == len(mesh.shapes):
-                part["twin_shapes"] = [file.write_view([value for vertex, _ in sources for value in shape[vertex * 3:vertex * 3 + 3]], "f32") for shape in twin_shapes]
+    if shaped and len(mesh.shapes) > 0:
+        part["shapes"] = [file.write_view([value for vertex, _ in sources for value in shape[vertex * 3:vertex * 3 + 3]], "f32") for shape in mesh.shapes]
+        twin_shapes = [shape if shape is not None else mesh.shapes[index] for index, shape in enumerate(mesh.twin_shapes[:len(mesh.shapes)])]
+        if len(twin_shapes) == len(mesh.shapes):
+            part["twin_shapes"] = [file.write_view([value for vertex, _ in sources for value in shape[vertex * 3:vertex * 3 + 3]], "f32") for shape in twin_shapes]
 
     for key in PART_KEYS:
         if key in kept:

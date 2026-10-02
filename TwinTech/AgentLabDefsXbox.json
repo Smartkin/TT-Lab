@@ -2672,11 +2672,11 @@
 		},
 		"113": {
 			"Name": "SetRotationComponents",
-			"Arguments": [ "tfloat", "single", "single", "single" ],
-			"ArgumentNames": [ "rotX", "rotY", "rotZ", "set" ],
+			"Arguments": [ "hex", "single", "single", "single" ],
+			"ArgumentNames": [ "components", "x", "y", "z" ],
 			"Aliases": [ "AUnknown_113" ],
 			"ArgumentFields": {
-				"3": [ { "Name": "x", "Bit": 0, "Width": 1, "Type": "bool" }, { "Name": "y", "Bit": 1, "Width": 1, "Type": "bool" }, { "Name": "z", "Bit": 2, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 3, "Width": 29, "Type": "int" } ]
+				"0": [ { "Name": "x", "Bit": 0, "Width": 1, "Type": "bool" }, { "Name": "y", "Bit": 1, "Width": 1, "Type": "bool" }, { "Name": "z", "Bit": 2, "Width": 1, "Type": "bool" }, { "Name": "unused", "Bit": 3, "Width": 29, "Type": "int" } ]
 			}
 		},
 		"114": {
@@ -2775,7 +2775,7 @@
 		},
 		"130": {
 			"Name": "SetPhysicsSizes",
-			"Arguments": [ "int32", "int32", "hex", "tangle" ],
+			"Arguments": [ "single", "single", "hex", "tangle" ],
 			"ArgumentNames": [ "size", "size2", "mode1", "mode2" ],
 			"Aliases": [ "AUnknown_130" ],
 			"ArgumentFields": {
@@ -3376,7 +3376,7 @@
 		},
 		"215": {
 			"Name": "SetSoundParams",
-			"Arguments": [ "tfloat", "single", "int32" ],
+			"Arguments": [ "tfloat", "single", "single" ],
 			"ArgumentNames": [ "set", "pitch", "volume" ],
 			"Aliases": [ "AUnknown_215" ],
 			"ArgumentFields": {
@@ -3706,8 +3706,8 @@
 		},
 		"563": {
 			"Name": "DamageOriginator",
-			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "single", "tint", "hex", "hex" ],
-			"ArgumentNames": [ "unused1", "unused2", "unused3", "unused4", "unused5", "unused6", "unused7", "unused8", "unused9", "value10", "hitPoints", "unused12", "unused13" ]
+			"Arguments": [ "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "hex", "tint", "hex", "hex" ],
+			"ArgumentNames": [ "unused1", "unused2", "unused3", "unused4", "unused5", "unused6", "unused7", "unused8", "unused9", "contactKinds", "hitPoints", "unused12", "unused13" ]
 		}, // End officially known and confirmed
 		"564": {
 			"Name": "RequestFocus2",
@@ -3820,7 +3820,7 @@
 		},
 		"577": {
 			"Name": "BecomeSticky",
-			"Arguments": [ "int32", "int32", "hex", "int32" ],
+			"Arguments": [ "int32", "single", "hex", "int32" ],
 			"ArgumentNames": [ "value1", "value2", "objectId", "message" ],
 			"ArgumentFields": {
 				"2": [ { "Name": "objectId", "Bit": 0, "Width": 16, "Type": "int" }, { "Name": "unused", "Bit": 16, "Width": 16, "Type": "int" } ]
@@ -4152,7 +4152,7 @@
 		},
 		"631": {
 			"Name": "SetPlayerVehicleValue",
-			"Arguments": [ "int32" ],
+			"Arguments": [ "single" ],
 			"ArgumentNames": [ "value" ],
 			"Aliases": [ "AUnknown_631" ]
 		},
@@ -4334,7 +4334,7 @@
 		},
 		"657": {
 			"Name": "DisplayBottomTextInstance",
-			"Arguments": [ "int32", "int32", "single", "single", "single", "single" ],
+			"Arguments": [ "single", "single", "single", "single", "single", "single" ],
 			"ArgumentNames": [ "x", "y", "value3", "value4", "value5", "value6" ]
 		},
 		"658": {

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Splat;
 using TT_Lab.ViewModels.Editors.PropertyGraph;
+using TT_Lab.ViewModels.Interfaces;
 using TT_Lab.Extensions;
 using TT_Lab.AssetData.Instance.Particle;
 using GlmSharp;
@@ -43,6 +44,7 @@ public partial class ViewportViewModel
         var canCreate = _editingContext.IsCursorPlaced;
         var defaultObject = DefaultObjectFor(chunk);
         var aiPositions = SelectedAiPositions();
+        var aiPaths = SelectedAiPaths();
         var hasLinks = FindResourceData(typeof(ChunkLinks)) != null;
         var hasParticles = FindResourceData(typeof(Particles)) != null;
         ViewportMenuEntry Create(Type type, string header) => new(header, () => CreateResource(type, DefaultLayoutFor(type, chunk)), canCreate);
@@ -56,6 +58,7 @@ public partial class ViewportViewModel
             Create(typeof(AiPosition), "AI position"),
             new(aiPositions.Count == 2 ? $"AI path from {aiPositions[0].Alias} to {aiPositions[1].Alias}" : "AI path (select two AI positions first, Shift+click)",
                 () => CreateAiPath(aiPositions[0], aiPositions[1]), aiPositions.Count == 2),
+            new(aiPaths.Count > 1 ? $"Reverse the {aiPaths.Count} selected AI paths" : "Reverse the selected AI path", () => ReverseAiPaths(aiPaths), aiPaths.Count > 0),
             Create(typeof(Path), "Path"),
             new(hasLinks ? "Chunk link" : "Chunk link (the chunk has no links resource)", () => CreateChunkLink(), canCreate && hasLinks),
             new(hasParticles ? "Particle emitter" : "Particle emitter (the chunk has no particles resource)", () => CreateParticleEmitter(), canCreate && hasParticles),
@@ -265,6 +268,33 @@ public partial class ViewportViewModel
         return SelectedObjects.Select(viewportObject => viewportObject.Property.Find("[data]")?.GetValue()).OfType<AiPosition>().Distinct().ToList();
     }
 
+    // The AI paths selected
+    internal List<ViewportObject> SelectedAiPaths()
+    {
+        return SelectedObjects.Where(viewportObject => viewportObject.Property.Find("[data]")?.GetValue() is AiPath).Distinct().ToList();
+    }
+
+    /// <summary>
+    /// Swaps the positions every AI path joins, so it goes the other way, in one step
+    /// </summary>
+    internal void ReverseAiPaths(IReadOnlyList<ViewportObject> paths)
+    {
+        using var step = _document!.History.BeginGroup(paths.Count > 1 ? $"Reversed {paths.Count} AI paths" : "Reversed an AI path");
+        foreach (var path in paths)
+        {
+            var begin = path.Property.Find($"[data].AssetData.{nameof(AiPathData.PathBegin)}");
+            var end = path.Property.Find($"[data].AssetData.{nameof(AiPathData.PathEnd)}");
+            if (begin == null || end == null)
+            {
+                continue;
+            }
+
+            var from = begin.GetValue();
+            begin.SetValue(end.GetValue());
+            end.SetValue(from);
+        }
+    }
+
     /// <summary>
     /// A new AI path of the chunk from one AI position to another, in the layout of the first
     /// </summary>
@@ -281,7 +311,8 @@ public partial class ViewportViewModel
     }
 
     /// <summary>
-    /// A new link of the chunk at the cursor, to the first other chunk of its package until another is picked
+    /// A new link of the chunk at the cursor, to the first other chunk of its package until another is picked, its load wall standing on
+    /// the cursor
     /// </summary>
     internal PropertyNode? CreateChunkLink()
     {
@@ -291,8 +322,9 @@ public partial class ViewportViewModel
             .Where(other => other.URI != chunk.URI && other.Name != "default")
             .OrderBy(other => other.Package == chunk.Package ? 0 : 1).ThenBy(other => other.URI.ToString(), StringComparer.Ordinal)
             .FirstOrDefault();
-        var at = mat4.Translate(NewResourcePosition()).ToTwin();
-        var link = new ChunkLink { Path = target?.URI ?? LabURI.Empty, ObjectMatrix = at, ChunkMatrix = at };
+        var position = NewResourcePosition();
+        var at = mat4.Translate(position).ToTwin();
+        var link = new ChunkLink { Path = target?.URI ?? LabURI.Empty, ObjectMatrix = at, ChunkMatrix = at, LoadingWall = ChunkLink.WallAt(position) };
         return CreateElement(typeof(ChunkLinks), $"AssetData.{nameof(ChunkLinksData.Links)}", link, "Placed a chunk link");
     }
 

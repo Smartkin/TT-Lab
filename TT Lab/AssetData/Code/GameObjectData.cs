@@ -9,6 +9,7 @@ using Avalonia.Controls;
 using Splat;
 using TT_Lab.AssetData.Code.Behaviour;
 using TT_Lab.AssetData.Code.Object;
+using TT_Lab.AssetData.Instance;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
 using TT_Lab.Assets.Factory;
@@ -45,9 +46,9 @@ namespace TT_Lab.AssetData.Code
             BehaviourSlots = new List<LabURI>();
             ObjectSlots = new List<LabURI>();
             SoundSlots = new List<LabURI>();
-            InstFlags = new List<UInt32>();
-            InstFloats = new List<float>();
-            InstIntegers = new List<UInt32>();
+            TaggedProperties = new List<TaggedProperty>();
+            FloatProperties = new List<Single>();
+            IntProperties = new List<Int32>();
             RefObjects = new List<LabURI>();
             RefBehaviours = new List<LabURI>();
             RefSounds = new List<LabURI>();
@@ -134,22 +135,22 @@ namespace TT_Lab.AssetData.Code
         public Enums.InstanceState InstanceStateFlags { get; set; }
         
         [JsonProperty(Required = Required.Always)]
-        [Editable(Caption = "Template Instance Flags", EditorOrientation = Avalonia.Controls.Dock.Top)]
-        [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Flag")]
+        [Editable(Caption = "Template Instance Tagged Values", Hint = "The tagged values instances of the object get when the factory takes the object's properties. " + "Values the scripts read as an int, an angle or a float, or the index of another property. A plain number keeps the value's type, Int(x), Float(x) and Angle(x) change it", EditorOrientation = Avalonia.Controls.Dock.Top)]
+        [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Tagged")]
         [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
-        public List<UInt32> InstFlags { get; set; }
+        public List<TaggedProperty> TaggedProperties { get; set; }
         
         [JsonProperty(Required = Required.Always)]
         [Editable(Caption = "Template Instance Floats", EditorOrientation = Avalonia.Controls.Dock.Top)]
         [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Float")]
         [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
-        public List<Single> InstFloats { get; set; }
+        public List<Single> FloatProperties { get; set; }
         
         [JsonProperty(Required = Required.Always)]
         [Editable(Caption = "Template Instance Integers", EditorOrientation = Avalonia.Controls.Dock.Top)]
         [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Integer")]
         [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
-        public List<UInt32> InstIntegers { get; set; }
+        public List<Int32> IntProperties { get; set; }
         
         [JsonProperty(Required = Required.Always)]
         [Editable(Caption = "Object's AgentLab Commands", EditorOrientation = Avalonia.Controls.Dock.Top, EditorDescType = typeof(CodeEditorDesc))]
@@ -191,9 +192,9 @@ namespace TT_Lab.AssetData.Code
             BehaviourSlots.Clear();
             ObjectSlots.Clear();
             SoundSlots.Clear();
-            InstFlags.Clear();
-            InstFloats.Clear();
-            InstIntegers.Clear();
+            TaggedProperties.Clear();
+            FloatProperties.Clear();
+            IntProperties.Clear();
             RefObjects.Clear();
             RefOGIs.Clear();
             RefAnimations.Clear();
@@ -391,9 +392,9 @@ namespace TT_Lab.AssetData.Code
             }
             ReferencesResources = gameObject.ReferencesResources;
             InstanceStateFlags = gameObject.InstanceStateFlags;
-            InstFlags = CloneUtils.CloneList(gameObject.InstFlags);
-            InstFloats = CloneUtils.CloneList(gameObject.InstFloats);
-            InstIntegers = CloneUtils.CloneList(gameObject.InstIntegers);
+            TaggedProperties = gameObject.TaggedProperties.Select(bits => new TaggedProperty(bits)).ToList();
+            FloatProperties = CloneUtils.CloneList(gameObject.FloatProperties);
+            IntProperties = CloneUtils.CloneList(gameObject.IntProperties);
             BehaviourPack = AgentLabDecompiler.Decompile(gameObject.BehaviourPack);
         }
 
@@ -404,9 +405,9 @@ namespace TT_Lab.AssetData.Code
             CheckCount("behaviour slots", BehaviourSlots.Count, MaxSlots);
             CheckCount("object slots", ObjectSlots.Count, MaxSlots);
             CheckCount("sound slots", SoundSlots.Count, MaxSlots);
-            CheckCount("instance flag properties", InstFlags.Count, MaxSlots);
-            CheckCount("instance float properties", InstFloats.Count, MaxSlots);
-            CheckCount("instance integer properties", InstIntegers.Count, MaxSlots);
+            CheckCount("instance tagged values", TaggedProperties.Count, MaxSlots);
+            CheckCount("instance float properties", FloatProperties.Count, MaxSlots);
+            CheckCount("instance integer properties", IntProperties.Count, MaxSlots);
             var assetManager = AssetManager.Get();
             using var ms = new MemoryStream();
             using var writer = new BinaryWriter(ms);
@@ -494,9 +495,9 @@ namespace TT_Lab.AssetData.Code
                     writeFunc(item);
                 }
             }
-            writeParamsList(InstFlags, writer.Write);
-            writeParamsList(InstFloats, writer.Write);
-            writeParamsList(InstIntegers, writer.Write);
+            writeParamsList(TaggedProperties, tagged => writer.Write(tagged.Bits));
+            writeParamsList(FloatProperties, writer.Write);
+            writeParamsList(IntProperties, writer.Write);
 
             // The game's copies of the startup chunk's objects in levels don't list what they use
             if (!ListsResources(factory))

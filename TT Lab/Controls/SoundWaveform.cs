@@ -8,7 +8,7 @@ namespace TT_Lab.Controls;
 
 /// <summary>
 /// A sound's waveform with its loop shaded between two handles, the samples after the loop (never played) dimmed and where playback is.
-/// Dragging a handle moves that end of the loop, clicking elsewhere moves playback there
+/// Dragging a handle moves that end of the loop, clicking or dragging anywhere else moves playback there
 /// </summary>
 public class SoundWaveform : Control
 {
@@ -31,7 +31,8 @@ public class SoundWaveform : Control
     {
         None,
         LoopStart,
-        LoopEnd
+        LoopEnd,
+        Playhead
     }
 
     private Drag _drag;
@@ -158,6 +159,17 @@ public class SoundWaveform : Control
 
         var playhead = ToX(Playhead);
         context.DrawLine(Playback, new Point(playhead, 0), new Point(playhead, bounds.Height));
+        // A grip at the bottom, the loop's flags are at the top
+        var grip = new StreamGeometry();
+        using (var geometry = grip.Open())
+        {
+            geometry.BeginFigure(new Point(playhead, bounds.Height - 8), true);
+            geometry.LineTo(new Point(playhead + 6, bounds.Height));
+            geometry.LineTo(new Point(playhead - 6, bounds.Height));
+            geometry.EndFigure(true);
+        }
+
+        context.DrawGeometry(Playback.Brush, null, grip);
     }
 
     // A line with a flag pointing into the loop
@@ -197,15 +209,17 @@ public class SoundWaveform : Control
             }
         }
 
+        e.Pointer.Capture(this);
+        e.Handled = true;
         if (_drag == Drag.None)
         {
+            // Playback follows the pointer until it's let go of
+            _drag = Drag.Playhead;
             Seeked?.Invoke(ToSample(x));
             return;
         }
 
-        e.Pointer.Capture(this);
         LoopDragStarted?.Invoke();
-        e.Handled = true;
     }
 
     protected override void OnPointerMoved(PointerEventArgs e)
@@ -214,13 +228,18 @@ public class SoundWaveform : Control
         var x = e.GetPosition(this).X;
         if (_drag == Drag.None)
         {
-            Cursor = HasLoop && (Math.Abs(x - ToX(LoopStart)) <= HandleReach || Math.Abs(x - ToX(LoopEnd)) <= HandleReach)
+            var onHandle = HasLoop && (Math.Abs(x - ToX(LoopStart)) <= HandleReach || Math.Abs(x - ToX(LoopEnd)) <= HandleReach);
+            Cursor = onHandle || (SampleCount > 0 && Math.Abs(x - ToX(Playhead)) <= HandleReach)
                 ? _resizeCursor ??= new Cursor(StandardCursorType.SizeWestEast)
                 : Cursor.Default;
             return;
         }
 
-        if (_drag == Drag.LoopStart)
+        if (_drag == Drag.Playhead)
+        {
+            Seeked?.Invoke(ToSample(x));
+        }
+        else if (_drag == Drag.LoopStart)
         {
             LoopStartDragged?.Invoke(ToSample(x));
         }
@@ -238,9 +257,13 @@ public class SoundWaveform : Control
             return;
         }
 
+        var wasLoop = _drag != Drag.Playhead;
         _drag = Drag.None;
         e.Pointer.Capture(null);
-        LoopDragEnded?.Invoke();
+        if (wasLoop)
+        {
+            LoopDragEnded?.Invoke();
+        }
     }
 
     protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
@@ -251,7 +274,11 @@ public class SoundWaveform : Control
             return;
         }
 
+        var wasLoop = _drag != Drag.Playhead;
         _drag = Drag.None;
-        LoopDragEnded?.Invoke();
+        if (wasLoop)
+        {
+            LoopDragEnded?.Invoke();
+        }
     }
 }

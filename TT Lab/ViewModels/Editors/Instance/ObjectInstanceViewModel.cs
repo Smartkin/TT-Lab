@@ -80,26 +80,26 @@ public sealed class ObjectInstanceViewModel : ViewportEditableInstanceViewModel
         }
         data.ObjectId = objectId;
         data.RefListIndex = RefListIndex;
-        data.OnSpawnScriptId = LabURI.Empty;
+        data.SpawnScript = LabURI.Empty;
         if (UseOnSpawnScript)
         {
-            data.OnSpawnScriptId = onSpawnScriptId;
+            data.SpawnScript = onSpawnScriptId;
         }
         data.StateFlags = (Enums.InstanceState)stateFlags.StateFlags;
-        data.ParamList1.Clear();
+        data.TaggedProperties.Clear();
         foreach (var f in FlagParams)
         {
-            data.ParamList1.Add(f.Value);
+            data.TaggedProperties.Add(new TaggedProperty(f.Value));
         }
-        data.ParamList2.Clear();
+        data.FloatProperties.Clear();
         foreach (var s in FloatParams)
         {
-            data.ParamList2.Add(s.Value);
+            data.FloatProperties.Add(s.Value);
         }
-        data.ParamList3.Clear();
+        data.IntProperties.Clear();
         foreach (var i in IntParams)
         {
-            data.ParamList3.Add(i.Value);
+            data.IntProperties.Add((Int32)i.Value);
         }
             
         base.Save();
@@ -134,26 +134,26 @@ public sealed class ObjectInstanceViewModel : ViewportEditableInstanceViewModel
             
         objectId = data.ObjectId;
         refListIndex = data.RefListIndex;
-        onSpawnScriptId = data.OnSpawnScriptId;
+        onSpawnScriptId = data.SpawnScript;
         useOnSpawnScript = onSpawnScriptId != LabURI.Empty;
         DirtyTracker.RemoveChild(stateFlags);
         stateFlags = new InstanceStateFlagsViewModel(MiscUtils.ConvertEnum<Enums.InstanceState>(data.StateFlags));
         DirtyTracker.AddChild(stateFlags);
 
         flagParams.Clear();
-        foreach (var f in data.ParamList1)
+        foreach (var f in data.TaggedProperties)
         {
-            flagParams.Add(new PrimitiveWrapperViewModel<UInt32>(f));
+            flagParams.Add(new PrimitiveWrapperViewModel<UInt32>(f.Bits));
         }
         floatParams.Clear();
-        foreach (var s in data.ParamList2)
+        foreach (var s in data.FloatProperties)
         {
             floatParams.Add(new PrimitiveWrapperViewModel<Single>(s));
         }
         intParams.Clear();
-        foreach (var i in data.ParamList3)
+        foreach (var i in data.IntProperties)
         {
-            intParams.Add(new PrimitiveWrapperViewModel<UInt32>(i));
+            intParams.Add(new PrimitiveWrapperViewModel<UInt32>((UInt32)i));
         }
         
         layoutId = MiscUtils.ConvertEnum<Enums.Layouts>(asset.LayoutID!.Value);

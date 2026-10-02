@@ -1,4 +1,7 @@
+using Avalonia.Headless.XUnit;
 using TT_Lab.AssetData.Code;
+using TT_Lab.AssetData.Graphics;
+using TT_Lab.AssetData.Graphics.Shaders;
 using TT_Lab.AssetData.Instance;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
@@ -6,8 +9,12 @@ using TT_Lab.Assets.Factory;
 using TT_Lab.Assets.Graphics;
 using TT_Lab.Assets.Instance;
 using TT_Lab.ServiceProviders;
+using TT_Lab.Util;
 using Newtonsoft.Json.Linq;
 using TT_Lab.Tests.Support;
+using Twinsanity.TwinsanityInterchange.Common;
+using Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.Graphics;
+using Twinsanity.TwinsanityInterchange.Interfaces.Items;
 using Path = System.IO.Path;
 
 namespace TT_Lab.Tests.Assets;
@@ -93,6 +100,37 @@ public sealed class AssetDeletionTests : IDisposable
         Assert.Equal(PlaceholderAssets.PlaceholderName, placeholder.Name);
         Assert.True(File.Exists(JsonPath(placeholder)));
         Assert.Equal(placeholder.URI, ((IAsset)instance).GetData<ObjectInstanceData>().ObjectId);
+    }
+
+    // The placeholder texture is the boat guy the viewport draws for parts without a material, at a size and in a layout the game takes
+    [AvaloniaFact]
+    public async Task DeletedTexturesGetTheBoatGuy()
+    {
+        var wood = Create<Texture>("Wood", asset =>
+        {
+            asset.SetData(TextureData.CreateSolidColor(asset, 16, 0xFF8B5A2B));
+            return AssetCreationStatus.Success;
+        });
+        var varnish = Create<Material>("Varnish", asset =>
+        {
+            asset.SetData(new MaterialData(asset) { Shaders = [new LabShader { TxtMapping = TwinShader.TextureMapping.ON, TextureId = wood.URI }] });
+            return AssetCreationStatus.Success;
+        });
+        varnish.Serialize(SerializationFlags.FixReferences);
+
+        Assert.True(await AssetDeletion.DeleteAsync(wood));
+
+        var placeholder = Assert.Single(_project.AssetManager.GetAllAssetsOf<Texture>());
+        Assert.Equal(PlaceholderAssets.PlaceholderName, placeholder.Name);
+        Assert.Equal(placeholder.URI, ((IAsset)varnish).GetData<MaterialData>().Shaders[0].TextureId);
+        using var png = ManifestResourceLoader.Open(MiscUtils.BoatGuyPath);
+        var (pixels, width, height) = TextureData.DecodePng(png);
+        var data = ((IAsset)placeholder).GetData<TextureData>();
+        Assert.Equal((128, 128), (width, height));
+        Assert.Equal((width, height), (data.Bitmap!.PixelSize.Width, data.Bitmap.PixelSize.Height));
+        Assert.Equal(pixels, data.GetPixels());
+        var palette = PS2AnyTexture.HasPaletteLayout(width, height);
+        Assert.Equal((palette ? ITwinTexture.TexturePixelFormat.PSMT8 : ITwinTexture.TexturePixelFormat.PSMCT32, palette), (placeholder.PixelFormat, placeholder.GenerateMipmaps));
     }
 
     [Fact]

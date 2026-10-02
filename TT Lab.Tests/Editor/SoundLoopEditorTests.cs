@@ -128,6 +128,33 @@ public sealed class SoundLoopEditorTests : IDisposable
     }
 
     [AvaloniaFact]
+    public void PlaybackFollowsADragOnTheWaveform()
+    {
+        var sound = AddSound(2800);
+        var document = new DocumentViewModel(sound);
+        document.Initialize();
+        var window = new Window { Content = new ContentControl { Content = Editor(document) }, Width = 800, Height = 400 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        var waveform = window.GetVisualDescendants().OfType<SoundWaveform>().Single();
+        var seeks = new List<int>();
+        waveform.Seeked += seeks.Add;
+        Point At(int sample) => waveform.TranslatePoint(new Point(sample / 2800.0 * waveform.Bounds.Width, waveform.Bounds.Height / 2), window)!.Value;
+
+        window.MouseDown(At(1200), MouseButton.Left);
+        window.MouseMove(At(1600));
+        window.MouseMove(At(2000));
+        window.MouseUp(At(2000), MouseButton.Left);
+        window.MouseMove(At(2400));
+
+        Assert.Equal(3, seeks.Count);
+        Assert.All(seeks.Zip([1200, 1600, 2000]), pair => Assert.InRange(pair.First, pair.Second - 5, pair.Second + 5));
+        Assert.Equal((-1, -1), (sound.LoopStart, sound.LoopEnd));
+        Assert.False(document.History.CanUndo);
+        window.Close();
+    }
+
+    [AvaloniaFact]
     public void ImportedSoundsKeepTheirLoop()
     {
         var item = new PS2AnySound { Header = 3, Pitch = 1881, Param1 = 32, Param2 = 16, Param3 = 8192, Param4 = 8192 };

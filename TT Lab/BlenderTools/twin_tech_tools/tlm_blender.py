@@ -21,6 +21,9 @@ An OGI becomes a root empty holding its data, with the armature, the skin, the s
 the rigid bodies and the exit points under it. Bodies and exit points follow their bone through a Child Of constraint. Every
 animation is an action with a slot for the armature and one for the shape's shape keys.
 
+A save icon (the PS2 memory card icon) is a root empty with one mesh: the icon's shapes are its shape keys, its animation the
+shape keys' curves, its texture the material's image.
+
 The game is Y up, the root turns everything under it Z up. Everything under the root is written back relative to it.
 """
 
@@ -40,6 +43,7 @@ from mathutils import Euler, Matrix, Quaternion, Vector
 from . import flags
 from . import project as projects
 from . import retarget
+from . import save_icon
 from . import schema
 from . import tlm
 from . import tlm_math
@@ -67,6 +71,9 @@ MATRIX_PROPERTY = "ttt_matrix"
 # them while the mesh still has those
 HULL_PROPERTY = "ttt_hull"
 HULL_KEYS = ("vertices", "faces", "planes", "edge_directions", "face_normals", "edges")
+# What a save icon keeps that Blender doesn't show: the order of its animation's shapes, the first shape's keys (the basis has no curve)
+# and the icon as the game has it
+SAVE_ICON_PROPERTY = "ttt_save_icon"
 
 PART_ATTRIBUTE = "tt_part"
 VERTEX_PART_ATTRIBUTE = "tt_vertex_part"
@@ -88,8 +95,8 @@ Y_UP = Matrix.Rotation(math.pi / 2, 4, "X")
 KIND_TYPES = {"ogi": "Ogi", "skin": "Skin", "shape": "BlendSkin", "body": "Body", "exit_point": "ExitPoint", "hull": "CollisionHull", "model": "Model",
               "rigid_model": "RigidModel", "mesh": "Mesh", "scenery": "Scenery", "tree_node": "SceneryTreeNode", "scenery_mesh": "SceneryMesh",
               "scenery_lod": "SceneryLod", "lod_mesh": "LodMesh", "ambient_light": "AmbientLight", "directional_light": "DirectionalLight",
-              "point_light": "PointLight", "negative_light": "NegativeLight", "collision": "Collision", "dynamic_scenery": "DynamicScenery",
-              "dynamic_model": "DynamicSceneryModel", "skydome": "Skydome", "skydome_mesh": "SkydomeMesh"}
+              "point_light": "PointLight", "spot_light": "SpotLight", "collision": "Collision", "dynamic_scenery": "DynamicScenery",
+              "dynamic_model": "DynamicSceneryModel", "skydome": "Skydome", "skydome_mesh": "SkydomeMesh", "save_icon": "SaveIcon"}
 # Roots holding a tree of objects
 TREE_KINDS = ("scenery", "skydome", "dynamic_scenery")
 SKINNED_KINDS = ("skin", "shape")
@@ -125,9 +132,12 @@ def _set_node_transform(blender_object: bpy.types.Object, tree_node: typing.Dict
 
 # Materials
 
-def _material_for(project: typing.Optional[projects.Project], entry: typing.Dict[str, typing.Any]) -> bpy.types.Material:
+def _material_for(project: typing.Optional[projects.Project], entry: typing.Dict[str, typing.Any], file: typing.Optional[tlm.TlmFile] = None) -> bpy.types.Material:
     """The Blender material of one of the file's materials, shared by everything showing the same project material."""
     uri = str(entry.get("uri", ""))
+    if not uri and file is not None and isinstance(entry.get("image"), dict):
+        return _embedded_material(file, entry)
+
     for material in bpy.data.materials:
         if uri and material.get(URI_PROPERTY) == uri:
             return material
@@ -139,11 +149,57 @@ def _material_for(project: typing.Optional[projects.Project], entry: typing.Dict
     return material
 
 
+def _embedded_material(file: tlm.TlmFile, entry: typing.Dict[str, typing.Any]) -> bpy.types.Material:
+    """A material the file has with its image, which goes back into the file the same way."""
+    blender_id = str(entry.get("blender_id", ""))
+    for material in bpy.data.materials:
+        if blender_id and material.get(BLENDER_ID_PROPERTY) == blender_id:
+            return material
+
+    material = bpy.data.materials.new(str(entry.get("name", "Material")))
+    material[BLENDER_ID_PROPERTY] = blender_id or uuid.uuid4().hex
+    image_entry = entry["image"]
+    png = file.read_view(image_entry.get("png"), "u8").tobytes()
+    image = None
+    if len(png) > 0:
+        directory = tempfile.mkdtemp()
+        path = os.path.join(directory, "image.png")
+        try:
+            with open(path, "wb") as image_file:
+                image_file.write(png)
+
+            image = bpy.data.images.load(path)
+            image.pack()
+            image.name = str(image_entry.get("name", material.name))
+            image.filepath_raw = ""
+        finally:
+            if os.path.exists(path):
+                os.remove(path)
+
+            os.rmdir(directory)
+
+    _draw_material(material, image)
+    return material
+
+
 def show_project_material(material: bpy.types.Material, project: typing.Optional[projects.Project]) -> None:
     """Draws the material with its project material's texture, multiplied by the vertex colors the way the game does."""
     uri = material.get(URI_PROPERTY, "")
     project_material = project.materials.get(uri) if project is not None else None
     texture = project.texture_of(project_material) if project is not None and project_material is not None else None
+    image = None
+    if texture is not None:
+        image = next((image for image in bpy.data.images if os.path.normpath(bpy.path.abspath(image.filepath)) == os.path.normpath(texture.png_path)), None)
+        if image is None:
+            image = bpy.data.images.load(texture.png_path, check_existing=True)
+
+    _draw_material(material, image)
+    if image is None and project is not None and uri and project_material is None:
+        material.diffuse_color = (1.0, 0.0, 1.0, 1.0)
+
+
+def _draw_material(material: bpy.types.Material, image: typing.Optional[bpy.types.Image]) -> None:
+    """The image multiplied by the vertex colors the way the game does, the vertex colors alone without one."""
     material.use_nodes = True
     nodes = material.node_tree.nodes
     links = material.node_tree.links
@@ -164,16 +220,9 @@ def show_project_material(material: bpy.types.Material, project: typing.Optional
     brighten.inputs["B"].default_value = (2.0, 2.0, 2.0, 1.0)
     brighten.location = (-300, -200)
     links.new(colors.outputs["Color"], brighten.inputs["A"])
-    if texture is None:
-        links.new(brighten.outputs["Result"], shader.inputs["Base Color"])
-        if project is not None and uri and project_material is None:
-            material.diffuse_color = (1.0, 0.0, 1.0, 1.0)
-
-        return
-
-    image = next((image for image in bpy.data.images if os.path.normpath(bpy.path.abspath(image.filepath)) == os.path.normpath(texture.png_path)), None)
     if image is None:
-        image = bpy.data.images.load(texture.png_path, check_existing=True)
+        links.new(brighten.outputs["Result"], shader.inputs["Base Color"])
+        return
 
     image_node = nodes.new("ShaderNodeTexImage")
     image_node.image = image
@@ -233,7 +282,12 @@ class _FileMaterials:
 
 
 def _png_bytes(image: bpy.types.Image) -> typing.Optional[bytes]:
-    """The image as a PNG, the file itself when it's one on the disk that wasn't changed."""
+    """The image as a PNG, the file itself when it's one on the disk or packed that wasn't changed."""
+    if image.packed_file is not None and not image.is_dirty:
+        packed = bytes(image.packed_file.data)
+        if packed.startswith(b"\x89PNG"):
+            return packed
+
     path = bpy.path.abspath(image.filepath) if image.filepath else ""
     if image.packed_file is None and not image.is_dirty and path.lower().endswith(".png") and os.path.exists(path):
         with open(path, "rb") as file:
@@ -417,27 +471,28 @@ def _decimated(blender_object: bpy.types.Object, target: int) -> typing.Tuple[bp
 
 
 def _read_mesh(blender_object: bpy.types.Object, file_materials: typing.Optional[_FileMaterials], skinned: bool,
-               joint_of_group: typing.Optional[typing.Dict[int, int]] = None) -> tlm_mesh.CornerMesh:
+               joint_of_group: typing.Optional[typing.Dict[int, int]] = None, shaped: typing.Optional[bool] = None) -> tlm_mesh.CornerMesh:
+    """The mesh as it's written. Shape keys are shapes of skins, or of what's shaped (a save icon)."""
     mesh: bpy.types.Mesh = blender_object.data
     if len(mesh.vertices) <= MAX_EXPORT_VERTICES:
-        return _read_mesh_data(blender_object, file_materials, skinned, joint_of_group)
+        return _read_mesh_data(blender_object, file_materials, skinned, joint_of_group, shaped)
 
     if mesh.shape_keys is not None:
         _export_notes.append("%s has %d vertexes, the game's biggest skin has 2716: it wasn't decimated because of its shape keys, expect the game to slow down"
                              % (blender_object.name, len(mesh.vertices)))
-        return _read_mesh_data(blender_object, file_materials, skinned, joint_of_group)
+        return _read_mesh_data(blender_object, file_materials, skinned, joint_of_group, shaped)
 
     decimated, remove = _decimated(blender_object, MAX_EXPORT_VERTICES)
     try:
         _export_notes.append("%s has %d vertexes, the game's biggest skin has 2716: written decimated to %d"
                              % (blender_object.name, len(mesh.vertices), len(decimated.data.vertices)))
-        return _read_mesh_data(decimated, file_materials, skinned, joint_of_group)
+        return _read_mesh_data(decimated, file_materials, skinned, joint_of_group, shaped)
     finally:
         remove()
 
 
 def _read_mesh_data(blender_object: bpy.types.Object, file_materials: typing.Optional[_FileMaterials], skinned: bool,
-                    joint_of_group: typing.Optional[typing.Dict[int, int]] = None) -> tlm_mesh.CornerMesh:
+                    joint_of_group: typing.Optional[typing.Dict[int, int]] = None, shaped: typing.Optional[bool] = None) -> tlm_mesh.CornerMesh:
     mesh: bpy.types.Mesh = blender_object.data
     result = tlm_mesh.CornerMesh()
     vertex_count = len(mesh.vertices)
@@ -505,6 +560,8 @@ def _read_mesh_data(blender_object: bpy.types.Object, file_materials: typing.Opt
 
         result.group_influences = [[(joint_of_group.get(group.group, -1), group.weight) for group in vertex.groups
                                     if group.weight > 0 and joint_of_group.get(group.group, -1) >= 0] for vertex in mesh.vertices]
+
+    if (skinned if shaped is None else shaped):
         basis = positions
         for index, key_block in enumerate(list(key_blocks)[1:]):
             shape = array.array("f", [0.0] * vertex_count * 3)
@@ -538,7 +595,7 @@ def import_file(context: bpy.types.Context, path: str) -> bpy.types.Object:
     project = projects.open_project(path)
     collection = bpy.data.collections.new(file.name or os.path.splitext(os.path.basename(path))[0])
     context.scene.collection.children.link(collection)
-    materials = [_material_for(project, entry) for entry in file.materials]
+    materials = [_material_for(project, entry, file) for entry in file.materials]
     root_node = file.root or {"kind": "model"}
     kind = root_node.get("kind", "")
     root = _new_object(root_node.get("name") or file.name, None, None, collection)
@@ -560,10 +617,66 @@ def import_file(context: bpy.types.Context, path: str) -> bpy.types.Object:
         tlm_scenery.import_children(context, file, root_node, root, collection, materials)
     elif kind == "collision":
         tlm_scenery._import_collision(file, root_node, root, collection)
+    elif kind == "save_icon":
+        _import_save_icon(file, root_node, root, collection, materials)
     else:
         _add_mesh_object(root_node.get("name") or file.name, file, dict(root_node, kind="part_mesh"), root, collection, materials, kind in SKINNED_KINDS)
 
     return root
+
+
+def _import_save_icon(file: tlm.TlmFile, root_node: typing.Dict[str, typing.Any], root: bpy.types.Object, collection: bpy.types.Collection,
+                      materials: typing.List[bpy.types.Material]) -> None:
+    """The icon's mesh with its shapes after the first as shape keys, its animation's keys on their values."""
+    name = root_node.get("name") or "Save icon"
+    mesh, data = _build_mesh(name, file, root_node.get("mesh"), False, materials)
+    blender_object = _new_object(name, mesh, root, collection)
+    blender_object[KIND_PROPERTY] = "icon_mesh"
+    if len(data.shapes) > 0:
+        basis = blender_object.shape_key_add(name="Basis", from_mix=False)
+        basis.interpolation = "KEY_LINEAR"
+        for index, offsets in enumerate(data.shapes):
+            mesh.attributes.new(TWIN_SHAPE_ATTRIBUTE + str(index), "FLOAT_VECTOR", "POINT").data.foreach_set("vector", offsets)
+            key = blender_object.shape_key_add(name="Shape %d" % (index + 1), from_mix=False)
+            key.data.foreach_set("co", array.array("f", (position + offset for position, offset in zip(data.positions, offsets))))
+            key.value = 0.0
+
+    meta: typing.Dict[str, typing.Any] = {"frames": []}
+    exact = file.read_view(root_node.get("exact"), "u8")
+    if len(exact) > 0:
+        meta["exact"] = base64.b64encode(exact.tobytes()).decode("ascii")
+
+    key = mesh.shape_keys
+    bag = None
+    for frame in (root_node.get("animation") or {}).get("frames", []):
+        shape = int(frame.get("shape", 0))
+        keys = list(file.read_view(frame.get("keys"), "f32"))
+        # The basis has no value to animate, its keys stay as they are
+        if shape == 0 or key is None or shape >= len(key.key_blocks):
+            meta["frames"].append({"shape": shape, "keys": keys})
+            continue
+
+        keys = keys[:len(keys) // 2 * 2]
+        # What the curve was made from, the first shape's keys stay while it's still that
+        meta["frames"].append({"shape": shape, "imported": keys})
+        if bag is None:
+            action = bpy.data.actions.new(name + " animation")
+            slot = action.slots.new(id_type="KEY", name=key.name)
+            bag = _channelbag(action, slot)
+            key_data = key.animation_data or key.animation_data_create()
+            key_data.action = action
+            key_data.action_slot = slot
+
+        fcurve = bag.fcurves.new('key_blocks["%s"].value' % bpy.utils.escape_identifier(key.key_blocks[shape].name), index=0)
+        points = fcurve.keyframe_points
+        points.add(len(keys) // 2)
+        points.foreach_set("co", array.array("f", keys))
+        for point in points:
+            point.interpolation = "LINEAR"
+
+        fcurve.update()
+
+    root[SAVE_ICON_PROPERTY] = json.dumps(meta)
 
 
 def _import_ogi(context: bpy.types.Context, file: tlm.TlmFile, root_node: typing.Dict[str, typing.Any], root: bpy.types.Object,
@@ -967,6 +1080,8 @@ def export_file(root: bpy.types.Object, path: str) -> typing.List[str]:
         if collision is not None:
             tree["data"] = _write_data(collision)
             tlm_scenery._export_collision(file, collision, tree)
+    elif kind == "save_icon":
+        _export_save_icon(file, root, tree, descendants, materials)
     else:
         mesh_object = next((child for child in descendants if child.type == "MESH"), None)
         if mesh_object is not None:
@@ -981,6 +1096,83 @@ def export_file(root: bpy.types.Object, path: str) -> typing.List[str]:
     warnings.extend(_export_notes)
     _export_notes.clear()
     return warnings
+
+
+def _export_save_icon(file: tlm.TlmFile, root: bpy.types.Object, tree: typing.Dict[str, typing.Any], descendants: typing.List[bpy.types.Object],
+                      materials: "_FileMaterials") -> None:
+    """The icon's mesh where it is under the root, its shape keys as its shapes and their curves as its animation."""
+    meta = json.loads(root.get(SAVE_ICON_PROPERTY, "{}") or "{}")
+    mesh_object = next((child for child in descendants if child.type == "MESH"), None)
+    key = mesh_object.data.shape_keys if mesh_object is not None else None
+    if mesh_object is not None:
+        mesh = _read_mesh(mesh_object, materials, False, shaped=True)
+        _bake_transform(mesh, _relative_to_root(root, mesh_object))
+        tree["mesh"] = tlm_mesh.to_parts(file, mesh, False, shaped=True)
+
+    blocks = list(key.key_blocks) if key is not None else []
+    curves: typing.Dict[str, typing.Any] = {}
+    action = key.animation_data.action if key is not None and key.animation_data is not None else None
+    if action is not None:
+        slot = key.animation_data.action_slot or next((slot for slot in action.slots if slot.target_id_type == "KEY"), None)
+        bag = _existing_channelbag(action, slot) if slot is not None else None
+        if bag is not None:
+            curves = {fcurve.data_path: fcurve for fcurve in bag.fcurves}
+
+    def keys_of(shape: int) -> typing.Optional[typing.List[float]]:
+        fcurve = curves.get('key_blocks["%s"].value' % bpy.utils.escape_identifier(blocks[shape].name))
+        if fcurve is None:
+            return None
+
+        return [value for point in fcurve.keyframe_points for value in point.co]
+
+    frames = []
+    written = set()
+    changed = False
+    for frame in meta.get("frames", [{"shape": 0, "keys": [0.0, 1.0]}]):
+        shape = int(frame.get("shape", 0))
+        if shape == 0:
+            frames.append((0, frame.get("keys", [0.0, 1.0])))
+            continue
+
+        if shape >= len(blocks):
+            changed = changed or "imported" in frame
+            continue
+
+        keys = keys_of(shape)
+        keys = keys if keys is not None else frame.get("keys", [0.0, blocks[shape].value])
+        frames.append((shape, keys))
+        written.add(shape)
+        changed = changed or keys != frame.get("imported", keys)
+
+    # Shape keys made or animated in Blender after the icon's own
+    for shape in range(1, len(blocks)):
+        keys = keys_of(shape)
+        if shape not in written and (keys is not None or blocks[shape].value != 0.0):
+            frames.append((shape, keys if keys is not None else [0.0, blocks[shape].value]))
+            changed = True
+
+    # The console draws the shapes times their weights over the weights' sum, Blender the shape keys over the first: the first shape's
+    # weight is what the others leave over (save_icon.basis_keys)
+    if changed:
+        basis = save_icon.basis_keys([keys for shape, keys in frames if shape != 0])
+        if any(shape == 0 for shape, _ in frames):
+            frames = [(shape, basis if shape == 0 else keys) for shape, keys in frames]
+        else:
+            frames.insert(0, (0, basis))
+
+        # The browser loops over the frame length, the game's own icon has 1 and plays nothing: keys made in Blender play to the last
+        data = tree.get("data") or {}
+        last = max((keys[i] for shape, keys in frames if shape != 0 for i in range(0, len(keys) - 1, 2)), default=0.0)
+        if int(data.get("FrameLength", 1)) <= 1 and math.ceil(last) > 1:
+            data["FrameLength"] = int(math.ceil(last))
+            tree["data"] = data
+            _read_data(root, KIND_TYPES["save_icon"], data)
+            _export_notes.append("%s looped over one frame, its Frame Length is %d now, where its last key is, so the animation plays"
+                                 % (root.name, data["FrameLength"]))
+
+    tree["animation"] = {"frames": [{"shape": shape, "keys": file.write_view(keys, "f32")} for shape, keys in frames]}
+    if "exact" in meta:
+        tree["exact"] = file.write_view(base64.b64decode(meta["exact"]), "u8")
 
 
 def _unapplied_modifiers(descendants: typing.List[bpy.types.Object]) -> typing.List[str]:
@@ -1439,7 +1631,7 @@ def assign_joints(original: bpy.types.Object, incoming: bpy.types.Object) -> typ
         data: typing.Dict[str, typing.Any] = {"Index": match[0]}
         if match[1] is not None:
             original_data = _write_data(original.data.bones[match[1]])
-            for key in ("ReactId", "AdditionalAnimationRotation", "ChildrenAmt2"):
+            for key in ("Id", "AdditionalAnimationRotation", "Detail"):
                 if key in original_data:
                     data[key] = original_data[key]
 

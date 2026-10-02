@@ -2,7 +2,6 @@
 using System.Collections.Concurrent;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Common.CameraSubtypes;
-using Twinsanity.TwinsanityInterchange.Common.ShaderAnimation;
 
 namespace TT_Lab.ViewModels.Editors.PropertyGraph;
 
@@ -42,9 +41,5 @@ public static class DocumentMetadataCache
         Register<CameraPoint2>(true);
         Register<CameraSpline>(true);
         Register<CameraZone>(true);
-        Register<TwinShaderAnimation>(true);
-        Register<AnimationSettings>(true);
-        Register<Transformation>(true);
-        Register<AnimatedTransformation>(true);
     }
 }

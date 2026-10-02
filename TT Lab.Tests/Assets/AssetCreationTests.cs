@@ -102,10 +102,10 @@ public sealed class AssetCreationTests : IDisposable
 
         var scenery = ((IAsset)resources.OfType<Scenery>().Single()).GetData<SceneryData>();
         var collision = _project.AssetManager.GetAssetData<CollisionData>(scenery.Collision);
-        Assert.Equal(4, collision.Vectors.Count);
-        Assert.All(collision.Vectors, vector => Assert.Equal(0f, vector.Y));
-        Assert.Equal(10f, collision.Vectors.Max(vector => vector.X) - collision.Vectors.Min(vector => vector.X));
-        Assert.Equal(10f, collision.Vectors.Max(vector => vector.Z) - collision.Vectors.Min(vector => vector.Z));
+        Assert.Equal(4, collision.Vertexes.Count);
+        Assert.All(collision.Vertexes, vector => Assert.Equal(0f, vector.Y));
+        Assert.Equal(10f, collision.Vertexes.Max(vector => vector.X) - collision.Vertexes.Min(vector => vector.X));
+        Assert.Equal(10f, collision.Vertexes.Max(vector => vector.Z) - collision.Vertexes.Min(vector => vector.Z));
         Assert.Equal(2, collision.Triangles.Count);
         Assert.All(collision.Triangles, triangle => Assert.Equal(surface.URI, triangle.Surface));
     }

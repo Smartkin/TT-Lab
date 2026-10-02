@@ -17,10 +17,10 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Layout
         public ITwinCamera.CameraFlags Flags { get; set; }
         public ITwinCamera.CameraSwitches Switches { get; set; }
         public Single BlendTime { get; set; } // 10
-        public Vector4 LeftoverVector1 { get; set; }
-        public Vector4 LeftoverVector2 { get; set; } // 42
-        public Single LeftoverFloat1 { get; set; }
-        public Single LeftoverFloat2 { get; set; } // 50
+        public Vector4 TargetBoxMin { get; set; }
+        public Vector4 TargetBoxMax { get; set; } // 42
+        public Single FramingDistance { get; set; }
+        public Single FramingShare { get; set; } // 50
         public UInt32 FovStart { get; set; }
         public UInt32 FovEnd { get; set; }
         public UInt32 PitchStart { get; set; }
@@ -29,9 +29,9 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Layout
         public UInt32 YawEnd { get; set; } // 74
         public Single DistanceStart { get; set; }
         public Single DistanceEnd { get; set; }
-        public Single Camera2Value { get; set; }
-        public Single Camera1Value { get; set; } // 90
-        public UInt32 YawExtra { get; set; }
+        public Single PositionFollowRate { get; set; }
+        public Single TargetFollowRate { get; set; } // 90
+        public UInt32 YawSpeed { get; set; }
         public UInt32 BlendInYaw { get; set; } // 98
         public UInt32 BlendInPitch { get; set; }
         public Single BlendInDistance { get; set; } // 106
@@ -43,8 +43,8 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Layout
         public PS2AnyCamera()
         {
             CamTrigger = new TwinTrigger();
-            LeftoverVector1 = new Vector4();
-            LeftoverVector2 = new Vector4();
+            TargetBoxMin = new Vector4();
+            TargetBoxMax = new Vector4();
         }
 
         static PS2AnyCamera()
@@ -75,10 +75,10 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Layout
             Flags = (ITwinCamera.CameraFlags)reader.ReadUInt32();
             Switches = (ITwinCamera.CameraSwitches)reader.ReadUInt16();
             BlendTime = reader.ReadSingle();
-            LeftoverVector1.Read(reader, Constants.SIZE_VECTOR4);
-            LeftoverVector2.Read(reader, Constants.SIZE_VECTOR4);
-            LeftoverFloat1 = reader.ReadSingle();
-            LeftoverFloat2 = reader.ReadSingle();
+            TargetBoxMin.Read(reader, Constants.SIZE_VECTOR4);
+            TargetBoxMax.Read(reader, Constants.SIZE_VECTOR4);
+            FramingDistance = reader.ReadSingle();
+            FramingShare = reader.ReadSingle();
             FovStart = reader.ReadUInt32();
             FovEnd = reader.ReadUInt32();
             PitchStart = reader.ReadUInt32();
@@ -87,9 +87,9 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Layout
             YawEnd = reader.ReadUInt32();
             DistanceStart = reader.ReadSingle();
             DistanceEnd = reader.ReadSingle();
-            Camera2Value = reader.ReadSingle();
-            Camera1Value = reader.ReadSingle();
-            YawExtra = reader.ReadUInt32();
+            PositionFollowRate = reader.ReadSingle();
+            TargetFollowRate = reader.ReadSingle();
+            YawSpeed = reader.ReadUInt32();
             BlendInYaw = reader.ReadUInt32();
             BlendInPitch = reader.ReadUInt32();
             BlendInDistance = reader.ReadSingle();
@@ -115,10 +115,10 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Layout
             writer.Write((UInt32)Flags);
             writer.Write((UInt16)Switches);
             writer.Write(BlendTime);
-            LeftoverVector1.Write(writer);
-            LeftoverVector2.Write(writer);
-            writer.Write(LeftoverFloat1);
-            writer.Write(LeftoverFloat2);
+            TargetBoxMin.Write(writer);
+            TargetBoxMax.Write(writer);
+            writer.Write(FramingDistance);
+            writer.Write(FramingShare);
             writer.Write(FovStart);
             writer.Write(FovEnd);
             writer.Write(PitchStart);
@@ -127,9 +127,9 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Layout
             writer.Write(YawEnd);
             writer.Write(DistanceStart);
             writer.Write(DistanceEnd);
-            writer.Write(Camera2Value);
-            writer.Write(Camera1Value);
-            writer.Write(YawExtra);
+            writer.Write(PositionFollowRate);
+            writer.Write(TargetFollowRate);
+            writer.Write(YawSpeed);
             writer.Write(BlendInYaw);
             writer.Write(BlendInPitch);
             writer.Write(BlendInDistance);

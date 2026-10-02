@@ -118,7 +118,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code
         {
             headerData[(int)ITwinOGI.HeaderInfo.JOINT_AMOUNT] = (Byte)Joints.Count;
             headerData[(int)ITwinOGI.HeaderInfo.EXIT_POINT_AMOUNT] = (Byte)ExitPoints.Count;
-            headerData[(int)ITwinOGI.HeaderInfo.REACT_JOINT_AMOUNT] = GetAmountOfReactJoints();
+            headerData[(int)ITwinOGI.HeaderInfo.REACT_JOINT_AMOUNT] = GetAmountOfJointsWithId();
             headerData[(int)ITwinOGI.HeaderInfo.RIGID_MODELS_AMOUNT] = (Byte)RigidModelIds.Count;
             headerData[(int)ITwinOGI.HeaderInfo.HAS_SKIN] = (Byte)((SkinID == 0) ? 0 : 1);
             headerData[(int)ITwinOGI.HeaderInfo.HAS_BLEND_SKIN] = (Byte)((BlendSkinID == 0) ? 0 : 1);
@@ -158,12 +158,12 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code
             }
         }
 
-        private Byte GetAmountOfReactJoints()
+        private Byte GetAmountOfJointsWithId()
         {
             Byte total = 0;
             foreach (var joint in Joints)
             {
-                if (joint.ReactId < 255)
+                if (joint.Id < 255)
                 {
                     total++;
                 }

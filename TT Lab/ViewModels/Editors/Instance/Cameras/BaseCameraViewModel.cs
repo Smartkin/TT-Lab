@@ -25,9 +25,9 @@ namespace TT_Lab.ViewModels.Editors.Instance.Cameras
 
         public BaseCameraViewModel(CameraSubBase baseCam) : this()
         {
-            flags = baseCam.Flags;
+            flags = (UInt32)baseCam.Follow;
             CameraType = baseCam.GetCameraType();
-            leftover = baseCam.Leftover;
+            leftover = baseCam.FollowRate;
             offset = baseCam.Offset;
         }
 
@@ -52,8 +52,8 @@ namespace TT_Lab.ViewModels.Editors.Instance.Cameras
 
         public virtual void Save(CameraSubBase? cam)
         {
-            cam.Flags = Flags;
-            cam.Leftover = Leftover;
+            cam.Follow = (CameraSubBase.FollowFlags)Flags;
+            cam.FollowRate = Leftover;
             cam.Offset = Offset;
             
             ResetDirty();

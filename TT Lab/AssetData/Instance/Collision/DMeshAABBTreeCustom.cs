@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using g3;
 
@@ -17,9 +17,9 @@ public class DMeshAabbTreeCustom(DMesh3 m, List<CollisionTriangle> triangles, bo
 
     public class TreeTraversalCustom : TreeTraversal
     {
-        public Func<int, AxisAlignedBox3f, CollisionTrigger> BoxEnter = (boxId, box) => new CollisionTrigger();
-        public Action<int, int, CollisionTrigger> BoxExit = (minBoxId, maxBoxId, trigger) => { };
-        public Action<int, int, List<CollisionTriangle>, CollisionTrigger> GroupEnter = (groupId, triangleAmount, triList, trigger) => { };
+        public Func<int, AxisAlignedBox3f, CollisionNode> BoxEnter = (boxId, box) => new CollisionNode();
+        public Action<int, int, CollisionNode> BoxExit = (minBoxId, maxBoxId, trigger) => { };
+        public Action<int, int, List<CollisionTriangle>, CollisionNode> GroupEnter = (groupId, triangleAmount, triList, trigger) => { };
     }
     
     private AxisAlignedBox3f get_box(int iBox)

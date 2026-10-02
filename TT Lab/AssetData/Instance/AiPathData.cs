@@ -13,6 +13,7 @@ using TT_Lab.ViewModels;
 using TT_Lab.ViewModels.Editors;
 using TT_Lab.ViewModels.Editors.PropertyGraph;
 using TT_Lab.ViewModels.Interfaces;
+using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout;
 
@@ -25,7 +26,6 @@ public class AiPathData : AbstractAssetData
     {
         PathBegin = LabURI.Empty;
         PathEnd = LabURI.Empty;
-        Args = new UInt16[3];
     }
 
     public AiPathData(IAsset asset, ITwinAIPath aiPath) : this(asset)
@@ -42,9 +42,16 @@ public class AiPathData : AbstractAssetData
     public LabURI PathEnd { get; set; }
         
     [JsonProperty(Required = Required.Always)]
-    [Editable]
-    [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
-    public UInt16[] Args { get; set; }
+    [Editable(Hint = "Which routes may take the path (a route request rules out the paths with some of them) and what the scripts' conditions find on it: jumps it takes")]
+    public Enums.AiPathFlags Flags { get; set; }
+
+    [JsonProperty(Required = Required.Always)]
+    [Editable(Hint = "The tools' chunk index of the first position, the game puts its own chunk's in when it links the navigation")]
+    public UInt16 ChunkA { get; set; }
+
+    [JsonProperty(Required = Required.Always)]
+    [Editable(Hint = "The tools' chunk index of the second position, the game puts its own chunk's in when it links the navigation")]
+    public UInt16 ChunkB { get; set; }
 
     protected override void Dispose(Boolean disposing)
     {
@@ -54,9 +61,11 @@ public class AiPathData : AbstractAssetData
     public override void Import(LabURI package, String? variant, Int32? layoutId)
     {
         var aiPath = GetTwinItem<ITwinAIPath>();
-        PathBegin = AssetManager.Get().GetUriByTwinId<AiPosition>(Owner, aiPath.Args[0], layoutId);
-        PathEnd = AssetManager.Get().GetUriByTwinId<AiPosition>(Owner, aiPath.Args[1], layoutId);
-        Args = [aiPath.Args[2], aiPath.Args[3], aiPath.Args[4]];
+        PathBegin = AssetManager.Get().GetUriByTwinId<AiPosition>(Owner, aiPath.PositionA, layoutId);
+        PathEnd = AssetManager.Get().GetUriByTwinId<AiPosition>(Owner, aiPath.PositionB, layoutId);
+        Flags = aiPath.Flags;
+        ChunkA = aiPath.ChunkA;
+        ChunkB = aiPath.ChunkB;
     }
 
     public override ITwinItem Export(ITwinItemFactory factory)
@@ -66,10 +75,9 @@ public class AiPathData : AbstractAssetData
         using var writer = new BinaryWriter(ms);
         writer.Write((UInt16)assetManager.GetAsset(PathBegin).ExportTwinID);
         writer.Write((UInt16)assetManager.GetAsset(PathEnd).ExportTwinID);
-        foreach (var arg in Args)
-        {
-            writer.Write(arg);
-        }
+        writer.Write((UInt16)Flags);
+        writer.Write(ChunkA);
+        writer.Write(ChunkB);
 
         writer.Flush();
         ms.Position = 0;

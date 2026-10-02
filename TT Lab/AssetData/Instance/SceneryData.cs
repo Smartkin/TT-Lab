@@ -57,7 +57,7 @@ public class SceneryData : AbstractAssetData
         AmbientLights = new List<AmbientLight>();
         DirectionalLights = new List<DirectionalLight>();
         PointLights = new List<PointLight>();
-        NegativeLights = new List<NegativeLight>();
+        SpotLights = new List<SpotLight>();
         Sceneries = new List<SceneryBaseData>();
     }
 
@@ -90,7 +90,7 @@ public class SceneryData : AbstractAssetData
     
     public List<PointLight> PointLights { get; set; }
     
-    public List<NegativeLight> NegativeLights { get; set; }
+    public List<SpotLight> SpotLights { get; set; }
     
     public List<SceneryBaseData> Sceneries { get; set; }
 
@@ -110,7 +110,7 @@ public class SceneryData : AbstractAssetData
         AmbientLights.Clear();
         DirectionalLights.Clear();
         PointLights.Clear();
-        NegativeLights.Clear();
+        SpotLights.Clear();
         Sceneries.Clear();
     }
     
@@ -124,7 +124,7 @@ public class SceneryData : AbstractAssetData
     public const string AmbientLightKind = "ambient_light";
     public const string DirectionalLightKind = "directional_light";
     public const string PointLightKind = "point_light";
-    public const string NegativeLightKind = "negative_light";
+    public const string SpotLightKind = "spot_light";
 
     /// <summary>
     /// Writes the scenery with the tree the game culls it by as a hierarchy of nodes, every placed mesh and LOD under the node that
@@ -204,7 +204,7 @@ public class SceneryData : AbstractAssetData
                 json["Direction"] = TlmJson.ToJson(light.Direction);
             });
             WriteLights(lights, PointLights, PointLightKind, (light, json) => json["AttenuationPower"] = (Int32)light.AttenuationPower);
-            WriteLights(lights, NegativeLights, NegativeLightKind, (light, json) =>
+            WriteLights(lights, SpotLights, SpotLightKind, (light, json) =>
             {
                 json["Direction"] = TlmJson.ToJson(light.Direction);
                 json["ConeAngle"] = TlmJson.ToJson(light.ConeAngle);
@@ -311,7 +311,7 @@ public class SceneryData : AbstractAssetData
             var direction = light switch
             {
                 DirectionalLight directional => directional.Direction,
-                NegativeLight spot => spot.Direction,
+                SpotLight spot => spot.Direction,
                 _ => null
             };
             var rotation = direction == null ? Quaternion.Identity : RotationTowards(new Vector3(direction.X, direction.Y, direction.Z));
@@ -377,7 +377,7 @@ public class SceneryData : AbstractAssetData
         var nodes = root.Traverse().Skip(1).ToList();
         var treeIndexes = ReadTree(nodes);
         ReadLights(nodes);
-        HasLighting = data.GetBool("HasLighting", AmbientLights.Count + DirectionalLights.Count + PointLights.Count + NegativeLights.Count > 0);
+        HasLighting = data.GetBool("HasLighting", AmbientLights.Count + DirectionalLights.Count + PointLights.Count + SpotLights.Count > 0);
 
         var collisionNodes = nodes.Where(n => n.Kind == CollisionData.TlmKind).ToList();
         var collision = new Assets.Instance.Collision
@@ -608,9 +608,9 @@ public class SceneryData : AbstractAssetData
             Leftover = (Int16)json.GetInt("Leftover"),
             Direction = DirectionOf(node, json)
         });
-        NegativeLights = ReadLights(nodes, NegativeLightKind, (node, json) =>
+        SpotLights = ReadLights(nodes, SpotLightKind, (node, json) =>
         {
-            var light = new NegativeLight
+            var light = new SpotLight
             {
                 Direction = DirectionOf(node, json),
                 AttenuationPower = (UInt16)json.GetInt("AttenuationPower"),
@@ -619,7 +619,7 @@ public class SceneryData : AbstractAssetData
                 FalloffAngle = json.GetUInt("FalloffAngle")
             };
             // The cosines the game lights with are kept while they're still the angles', edited angles get new ones
-            var (inner, outer) = NegativeLight.ConeCosines(light.ConeAngle, light.FalloffAngle);
+            var (inner, outer) = SpotLight.ConeCosines(light.ConeAngle, light.FalloffAngle);
             var stored = (Inner: json.GetFloat("InnerConeCosine", Single.NaN), Outer: json.GetFloat("OuterConeCosine", Single.NaN));
             var kept = Math.Abs(stored.Inner - inner) < 0.005f && Math.Abs(stored.Outer - outer) < 0.005f;
             light.InnerConeCosine = kept ? stored.Inner : inner;
@@ -903,7 +903,7 @@ public class SceneryData : AbstractAssetData
             AmbientLights = CloneUtils.DeepClone(scenery.AmbientLights);
             DirectionalLights = CloneUtils.DeepClone(scenery.DirectionalLights);
             PointLights = CloneUtils.DeepClone(scenery.PointLights);
-            NegativeLights = CloneUtils.DeepClone(scenery.NegativeLights);
+            SpotLights = CloneUtils.DeepClone(scenery.SpotLights);
             LightOrder = [..scenery.LightOrder];
         }
         
@@ -944,10 +944,10 @@ public class SceneryData : AbstractAssetData
                 point.Write(writer);
             }
 
-            writer.Write(NegativeLights.Count);
-            foreach (var negative in NegativeLights)
+            writer.Write(SpotLights.Count);
+            foreach (var spot in SpotLights)
             {
-                negative.Write(writer);
+                spot.Write(writer);
             }
 
             writer.Write(LightOrder.Count);
@@ -1020,6 +1020,12 @@ public class SceneryData : AbstractAssetData
                 IsSelectable = false
             };
             result.Add(new ViewportObject(dynamicSceneryEditingObject, $"DYNAMIC_SCENERY_{property.Path}", property) { Category = ViewportObjectCategory.DynamicScenery });
+            var boundsEditingObject = new EditableObject(viewportContext.RenderContext, new Rendering.Objects.DynamicSceneryBounds(viewportContext.RenderContext, dynamicSceneryVisual),
+                $"DYNAMIC_SCENERY_BOUNDS_{Owner.FullDataPath}")
+            {
+                IsSelectable = false
+            };
+            result.Add(new ViewportObject(boundsEditingObject, $"DYNAMIC_SCENERY_BOUNDS_{property.Path}", property) { Category = ViewportObjectCategory.DynamicSceneryBounds });
         }
 
         if (Collision != LabURI.Empty)

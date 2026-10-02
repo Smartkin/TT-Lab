@@ -43,7 +43,7 @@ SURFACE_PROPERTY = "ttt_surface"
 DYNAMIC_PROPERTY = "ttt_dynamic"
 
 _EMPTY_DISPLAY = {"tree_node": ("CUBE", 1.0), "scenery_lod": ("PLAIN_AXES", 1.0), "lights": ("PLAIN_AXES", 0.5), "ambient_light": ("SPHERE", 0.5),
-                  "directional_light": ("SINGLE_ARROW", 1.0), "point_light": ("SPHERE", 0.5), "negative_light": ("SPHERE", 0.5),
+                  "directional_light": ("SINGLE_ARROW", 1.0), "point_light": ("SPHERE", 0.5), "spot_light": ("SPHERE", 0.5),
                   "dynamic_scenery": ("PLAIN_AXES", 0.5)}
 
 

@@ -1,4 +1,5 @@
 using Avalonia.Headless.XUnit;
+using TT_Lab.ViewModels.Interfaces;
 using TT_Lab.AssetData;
 using TT_Lab.AssetData.Code;
 using TT_Lab.AssetData.Instance;
@@ -6,6 +7,7 @@ using TT_Lab.AssetData.Instance.Particle;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
 using TT_Lab.Assets.Instance;
+using TT_Lab.Extensions;
 using TT_Lab.Tests.Support;
 using TT_Lab.ViewModels;
 using TT_Lab.ViewModels.Editors;
@@ -106,6 +108,26 @@ public sealed class ViewportCreateMenuTests : IDisposable
         Assert.True(document.CanUndo);
     }
 
+    // Selected AI paths turn around in one step
+    [AvaloniaFact]
+    public void AiPathsReverseInOneStep()
+    {
+        var chunk = CreateChunkWithFolder("beach");
+        var from = AddInstance<AiPosition>(chunk, "Start", asset => new AiPositionData(asset) { Coords = new Vector3(1, 0, 0) }, 6);
+        var to = AddInstance<AiPosition>(chunk, "End", asset => new AiPositionData(asset) { Coords = new Vector3(5, 0, 0) }, 6);
+        var viewport = OpenViewport(chunk, out var document);
+        var path = viewport.CreateAiPath(from, to);
+        var node = Enumerable.Range(0, chunk.ChunkResources.Count).Select(i => document.PropertyGraph.Find($"Root.ChunkResources[{i}]"))
+            .First(resource => resource?.Find("[data]")?.GetValue() == path)!;
+
+        viewport.ReverseAiPaths([new ViewportObject(null!, "AI_PATH", node)]);
+
+        var data = path.GetData<AiPathData>();
+        Assert.Equal((to.URI, from.URI), (data.PathBegin, data.PathEnd));
+        document.Undo();
+        Assert.Equal((from.URI, to.URI), (data.PathBegin, data.PathEnd));
+    }
+
     // Links and emitters are elements of the chunk's resources, put at the end of their lists at the cursor
     [AvaloniaFact]
     public void LinksAndEmittersGoAtTheEndOfTheirLists()
@@ -123,6 +145,9 @@ public sealed class ViewportCreateMenuTests : IDisposable
         Assert.Equal("Root.ChunkResources[0][data].AssetData.Links[0]", link!.Path);
         var placed = Assert.Single(((IAsset)links).GetData<ChunkLinksData>().Links);
         Assert.Equal(cave.URI, placed.Path);
+        // Its load wall stands on the cursor, where the link is
+        var at = placed.ChunkMatrix.Column4;
+        Assert.Equal(ChunkLink.WallAt(new GlmSharp.vec3(at.X, at.Y, at.Z)).ToGlm(), placed.LoadingWall.ToGlm());
         Assert.NotNull(emitter);
         var madeEmitter = Assert.Single(((IAsset)particles).GetData<ParticleData>().ParticleInstances);
         Assert.Equal("Fire", madeEmitter.Name);

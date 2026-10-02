@@ -9,6 +9,7 @@
     <Grid ColumnDefinitions="*, 40, 40">
         <TextBox Grid.Column="0" x:Name="UriDisplay" VerticalContentAlignment="Center" IsReadOnly="True"/>
         <Button VerticalAlignment="Stretch" VerticalContentAlignment="Center" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" x:Name="ChangeLink" Grid.Column="1" Content="..."/>
-        <Button VerticalAlignment="Stretch" VerticalContentAlignment="Center" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" x:Name="OpenDocument" Grid.Column="2" Content="->"/>
+        <Button VerticalAlignment="Stretch" VerticalContentAlignment="Center" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" x:Name="OpenDocument" Grid.Column="2" Content="->"
+                ToolTip.Tip="Opens what the link leads to. In a chunk's inspector that's the chunk's version of an asset other chunks share, or the chunk's own resource, and the inspector's back button returns here; anything else opens in its own tab"/>
     </Grid>
 </UserControl>

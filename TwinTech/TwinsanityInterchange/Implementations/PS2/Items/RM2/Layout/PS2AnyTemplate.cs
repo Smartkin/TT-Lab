@@ -19,22 +19,22 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Layout
         public Byte ObjectExitPoints { get; set; }
         public Byte ObjectReactJoints { get; set; }
         public Enums.InstanceState InstanceStateFlags { get; set; }
-        public List<UInt32> Flags { get; set; }
-        public List<Single> Floats { get; set; }
-        public List<UInt32> Ints { get; set; }
+        public List<UInt32> TaggedProperties { get; set; }
+        public List<Single> FloatProperties { get; set; }
+        public List<Int32> IntProperties { get; set; }
 
         public PS2AnyTemplate()
         {
             BehaviourStarters = new List<ushort>();
             BehaviourListGrowth = 10;
-            Floats = new List<float>();
-            Ints = new List<uint>();
-            Flags = new List<uint>();
+            FloatProperties = new List<Single>();
+            IntProperties = new List<Int32>();
+            TaggedProperties = new List<UInt32>();
         }
 
         public override int GetLength()
         {
-            return 4 + Name.Length + 16 + BehaviourStarters.Count * 2 + 22 + Flags.Count * 4 + Floats.Count * 4 + Ints.Count * 4;
+            return 4 + Name.Length + 16 + BehaviourStarters.Count * 2 + 22 + TaggedProperties.Count * 4 + FloatProperties.Count * 4 + IntProperties.Count * 4;
         }
 
         public override void Read(BinaryReader reader, int length)
@@ -57,23 +57,23 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Layout
             // The properties' header packs their amounts, which the lists give again
             reader.ReadUInt32();
             InstanceStateFlags = (Enums.InstanceState)reader.ReadUInt32();
-            Int32 flags = reader.ReadInt32();
-            Flags.Clear();
-            for (int i = 0; i < flags; ++i)
+            Int32 tagged = reader.ReadInt32();
+            TaggedProperties.Clear();
+            for (int i = 0; i < tagged; ++i)
             {
-                Flags.Add(reader.ReadUInt32());
+                TaggedProperties.Add(reader.ReadUInt32());
             }
             Int32 floats = reader.ReadInt32();
-            Floats.Clear();
+            FloatProperties.Clear();
             for (int i = 0; i < floats; ++i)
             {
-                Floats.Add(reader.ReadSingle());
+                FloatProperties.Add(reader.ReadSingle());
             }
             Int32 ints = reader.ReadInt32();
-            Ints.Clear();
+            IntProperties.Clear();
             for (int i = 0; i < ints; ++i)
             {
-                Ints.Add(reader.ReadUInt32());
+                IntProperties.Add(reader.ReadInt32());
             }
         }
 
@@ -93,31 +93,31 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Layout
             }
             writer.Write(ObjectExitPoints);
             writer.Write(ObjectReactJoints);
-            writer.Write(PropertiesHeader(Flags.Count, Floats.Count, Ints.Count));
+            writer.Write(PropertiesHeader(TaggedProperties.Count, FloatProperties.Count, IntProperties.Count));
             writer.Write((UInt32)InstanceStateFlags);
-            writer.Write(Flags.Count);
-            foreach (UInt32 e in Flags)
+            writer.Write(TaggedProperties.Count);
+            foreach (var value in TaggedProperties)
             {
-                writer.Write(e);
+                writer.Write(value);
             }
-            writer.Write(Floats.Count);
-            foreach (Single e in Floats)
+            writer.Write(FloatProperties.Count);
+            foreach (var value in FloatProperties)
             {
-                writer.Write(e);
+                writer.Write(value);
             }
-            writer.Write(Ints.Count);
-            foreach (UInt32 e in Ints)
+            writer.Write(IntProperties.Count);
+            foreach (var value in IntProperties)
             {
-                writer.Write(e);
+                writer.Write(value);
             }
         }
 
         /// <summary>
-        /// The instance properties' header: the amounts of flags, floats and ints as bytes (InstanceProperties 0x0-0x2)
+        /// The instance properties' header: the counts of tagged values, floats and ints as bytes (the game's PropertyList::counts)
         /// </summary>
-        public static UInt32 PropertiesHeader(Int32 flags, Int32 floats, Int32 ints)
+        public static UInt32 PropertiesHeader(Int32 tagged, Int32 floats, Int32 ints)
         {
-            return (UInt32)(flags & 0xFF) | (UInt32)(floats & 0xFF) << 8 | (UInt32)(ints & 0xFF) << 16;
+            return (UInt32)(tagged & 0xFF) | (UInt32)(floats & 0xFF) << 8 | (UInt32)(ints & 0xFF) << 16;
         }
 
         public override String GetName()

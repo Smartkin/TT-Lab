@@ -28,19 +28,22 @@ public sealed class PathDataTests : IDisposable
         return Enumerable.Range(0, points).Select(i => new Vector3(i * spacing, 0, 0)).ToList();
     }
 
-    private static float[] Flatten(IEnumerable<Vector2> parameters) => parameters.SelectMany(parameter => new[] { parameter.X, parameter.Y }).ToArray();
+    private static float[] Flatten(PathParameters.Values parameters) => [..parameters.ArcLengths, ..parameters.InverseSteps];
 
-    private static Vector2[] Pairs(params float[] values)
+    private static float[] Flatten(ITwinPath path) => [..path.ArcLengths, ..path.InverseSteps];
+
+    // The arc lengths, then as many inverse steps
+    private static PathParameters.Values Halves(params float[] values)
     {
-        return Enumerable.Range(0, values.Length / 2).Select(i => new Vector2 { X = values[i * 2], Y = values[i * 2 + 1] }).ToArray();
+        return new PathParameters.Values([..values.Take(values.Length / 2)], [..values.Skip(values.Length / 2)]);
     }
 
     // Read the way a project loads the path's data file
-    private PathData LoadPath(List<Vector3> points, Vector2[] parameters)
+    private PathData LoadPath(List<Vector3> points, PathParameters.Values parameters)
     {
         var path = _project.Add(new Path(), "Path");
         var data = new PathData(path);
-        var json = JsonConvert.SerializeObject(new { Points = points, Parameters = parameters });
+        var json = JsonConvert.SerializeObject(new { Points = points, parameters.ArcLengths, parameters.InverseSteps });
         JsonConvert.PopulateObject(json, data, new JsonSerializerSettings { ObjectCreationHandling = ObjectCreationHandling.Replace });
         path.SetData(data);
         return data;
@@ -67,21 +70,22 @@ public sealed class PathDataTests : IDisposable
     [Fact]
     public void TheStepLengthIsWorkedOutFromTheParameters()
     {
-        var stepLength = PathParameters.FindStepLength(Pairs(10.0f, 30.0f, 37.0f, 1 / 5.0f, 1 / 8.0f, 1 / 5.0f), 3)!.Value;
+        var (arcLengths, inverseSteps) = Halves(10.0f, 30.0f, 37.0f, 1 / 5.0f, 1 / 8.0f, 1 / 5.0f);
+        var stepLength = PathParameters.FindStepLength(arcLengths, inverseSteps, 3)!.Value;
 
         Assert.InRange(stepLength, 2.5f, 20.0f / 7.0f);
-        Assert.Null(PathParameters.FindStepLength(Pairs(10.0f, 1 / 5.0f), 3));
+        Assert.Null(PathParameters.FindStepLength([10.0f], [1 / 5.0f], 3));
     }
 
     [Fact]
     public void UneditedPathsKeepTheGamesParameters()
     {
-        var games = Pairs(10.0001f, 20.0002f, 30.0001f, 1 / 5.0f, 1 / 5.0f, 1 / 5.0f);
+        var games = Halves(10.0001f, 20.0002f, 30.0001f, 1 / 5.0f, 1 / 5.0f, 1 / 5.0f);
         var data = LoadPath(Line(6), games);
 
         var path = (ITwinPath)data.Export(new PS2ItemFactory());
 
-        Assert.Equal(Flatten(games), Flatten(path.ParameterList));
+        Assert.Equal(Flatten(games), Flatten(path));
     }
 
     // Saving the path's data brings them up to date
@@ -89,7 +93,7 @@ public sealed class PathDataTests : IDisposable
     public void MovingPointsMakesTheParametersAgainWithThePathsStepLength()
     {
         // 10 units in 5 steps, steps of at least 2
-        var data = LoadPath(Line(6), Pairs(10.0f, 20.0f, 30.0f, 1 / 5.0f, 1 / 5.0f, 1 / 5.0f));
+        var data = LoadPath(Line(6), Halves(10.0f, 20.0f, 30.0f, 1 / 5.0f, 1 / 5.0f, 1 / 5.0f));
         foreach (var point in data.Points.Skip(3))
         {
             point.X += 10.0f;
@@ -98,25 +102,25 @@ public sealed class PathDataTests : IDisposable
         JsonConvert.SerializeObject(data);
 
         // Segments 11.67, 16.67 and 11.67 long
-        Assert.Equal([35.0f / 3.0f, 85.0f / 3.0f, 40.0f, 1 / 6.0f, 1 / 9.0f, 1 / 6.0f], Flatten(data.Parameters), new FloatComparer(1e-4f));
+        Assert.Equal([35.0f / 3.0f, 85.0f / 3.0f, 40.0f, 1 / 6.0f, 1 / 9.0f, 1 / 6.0f], Flatten(new PathParameters.Values(data.ArcLengths, data.InverseSteps)), new FloatComparer(1e-4f));
     }
 
     [Fact]
     public void AddedPointsGetTheirSegments()
     {
-        var data = LoadPath(Line(4), Pairs(10.0f, 1 / 5.0f));
+        var data = LoadPath(Line(4), Halves(10.0f, 1 / 5.0f));
         data.Points.Add(new Vector3(40, 0, 0));
         data.Points.Insert(0, new Vector3(-10, 0, 0));
 
         var path = (ITwinPath)data.Export(new PS2ItemFactory());
 
-        Assert.Equal([10.0f, 20.0f, 30.0f, 1 / 5.0f, 1 / 5.0f, 1 / 5.0f], Flatten(path.ParameterList), new FloatComparer(1e-4f));
+        Assert.Equal([10.0f, 20.0f, 30.0f, 1 / 5.0f, 1 / 5.0f, 1 / 5.0f], Flatten(path), new FloatComparer(1e-4f));
     }
 
     [AvaloniaFact]
     public void TheInspectorHasNoParameters()
     {
-        var data = LoadPath(Line(4), Pairs(10.0f, 1 / 5.0f));
+        var data = LoadPath(Line(4), Halves(10.0f, 1 / 5.0f));
         var document = new DocumentViewModel(data.GetOwner());
         document.Initialize();
 

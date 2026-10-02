@@ -15,7 +15,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Sections.RM2
             idToClassDictionary.Add(Constants.CODE_ANIMATIONS_SECTION, typeof(PS2AnyAnimationsSection));
             idToClassDictionary.Add(Constants.CODE_OGIS_SECTION, typeof(PS2AnyOGIsSection));
             idToClassDictionary.Add(Constants.CODE_BEHAVIOUR_COMMANDS_SEQUENCES_SECTION, typeof(PS2AnyBehaviourCommandsSequencesSection));
-            idToClassDictionary.Add(Constants.CODE_UNK_ITEM, typeof(BaseTwinItem));
+            idToClassDictionary.Add(Constants.CODE_UNUSED_SECTION, typeof(BaseTwinItem));
             idToClassDictionary.Add(Constants.CODE_SOUND_EFFECTS_SECTION, typeof(PS2AnySoundsSection));
             idToClassDictionary.Add(Constants.CODE_LANG_ENG_SECTION, typeof(PS2AnySoundsSection));
             idToClassDictionary.Add(Constants.CODE_LANG_FRE_SECTION, typeof(PS2AnySoundsSection));

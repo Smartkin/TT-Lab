@@ -43,6 +43,7 @@ public enum KnownUniform
     MaterialAlphaBlend,
     MaterialMetalicSpecular,
     MaterialEnvMap,
+    MaterialEditorShading,
     ViewProjection,
     ViewportSize,
     LightDirection,
@@ -86,6 +87,7 @@ public static class KnownUniforms
                 KnownUniform.MaterialAlphaBlend => TwinMaterialDesc.AlphaBlendPath,
                 KnownUniform.MaterialMetalicSpecular => TwinMaterialDesc.MetalicSpecularPath,
                 KnownUniform.MaterialEnvMap => TwinMaterialDesc.EnvMapPath,
+                KnownUniform.MaterialEditorShading => TwinMaterialDesc.EditorShadingPath,
                 _ => uniform.ToString()
             };
         }

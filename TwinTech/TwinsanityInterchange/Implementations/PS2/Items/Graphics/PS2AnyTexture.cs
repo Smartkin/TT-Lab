@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using Twinsanity.Libraries;
 using Twinsanity.PS2Hardware;
@@ -313,16 +314,31 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.Graphics
                 }
 
                 var useQuantizer = palette.Count > 256;
+                // A picture of more colors than a palette holds gets a palette made for it and is drawn with it. Its mips are its pixels
+                // averaged (the indexes of the picture's pixels alias in the distance), the GS draws every level with the one palette so it's
+                // made of every level's colors
+                List<byte[]> quantizedMips = null;
+                var index = 0;
                 if (useQuantizer)
                 {
-                    palette = ImageQuantizer.Quantize(image);
+                    var levels = new List<(IReadOnlyList<Color> Pixels, Int32 Width, Int32 Height)> { (image, width, height) };
+                    for (var i = 1; i < MipLevels; ++i)
+                    {
+                        var (pixels, levelWidth, levelHeight) = levels[^1];
+                        levels.Add((ImageQuantizer.HalfSize(pixels, levelWidth, levelHeight), levelWidth / 2, levelHeight / 2));
+                    }
+
+                    palette = ImageQuantizer.Quantize(levels.SelectMany(level => level.Pixels).ToList());
+                    textureData = ImageQuantizer.Map(image, width, height, palette);
+                    quantizedMips = levels.Skip(1).Select(level => ImageQuantizer.Map(level.Pixels, level.Width, level.Height, palette)).ToList();
                 }
-                
-                var index = 0;
-                foreach (var c in image)
+                else
                 {
-                    textureData[index] = useQuantizer ? ImageQuantizer.PaletteIndex(c, palette) : (byte)paletteIndices[c.ToARGB()];
-                    ++index;
+                    foreach (var c in image)
+                    {
+                        textureData[index] = (byte)paletteIndices[c.ToARGB()];
+                        ++index;
+                    }
                 }
                 foreach (var c in palette)
                 {
@@ -362,15 +378,19 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.Graphics
                 {
                     mipWidth /= 2;
                     mipHeight /= 2;
-                    var mipData = new byte[mipWidth * mipHeight];
-                    for (var y = 0; y < mipHeight; ++y)
+                    var mipData = quantizedMips?[i - 1];
+                    if (mipData == null)
                     {
-                        for (var x = 0; x < mipWidth; ++x)
+                        mipData = new byte[mipWidth * mipHeight];
+                        for (var y = 0; y < mipHeight; ++y)
                         {
-                            var prevWidth = mipWidth * 2;
-                            var srcX = x * 2;
-                            var srcY = y * 2;
-                            mipData[x + y * mipWidth] = prevData[srcX + srcY * prevWidth];
+                            for (var x = 0; x < mipWidth; ++x)
+                            {
+                                var prevWidth = mipWidth * 2;
+                                var srcX = x * 2;
+                                var srcY = y * 2;
+                                mipData[x + y * mipWidth] = prevData[srcX + srcY * prevWidth];
+                            }
                         }
                     }
                     EzSwizzle.writeTexPSMT8To(MipLevelsTBP[i - 1], MipLevelsTBW[i - 1], 0, 0, mipWidth, mipHeight, mipData, rawTextureData);

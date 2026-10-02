@@ -25,6 +25,12 @@ public class DynamicSceneryMesh : Renderable
         AddChild(mesh);
     }
 
+    // The model's box in its own space, which its animation moves along with it
+    public vec3 BoundsMin { get; init; }
+    public vec3 BoundsMax { get; init; }
+
+    public mat4 ModelTransform => _mesh.WorldTransform;
+
     public override bool DoesUpdates => true;
 
     protected override void UpdateSelf(float delta)

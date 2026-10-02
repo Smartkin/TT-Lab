@@ -15,19 +15,24 @@ namespace Twinsanity.TwinsanityInterchange.Common.CameraSubtypes
     {
         public List<Vector4> PathPoints { get; set; }
         /// <summary>
-        /// The segments' arc lengths from the start, then 1 over the steps each takes, one pair after the other like a path's
+        /// The segments' arc lengths from the start, like a path's (<see cref="TwinPathParameters"/>)
         /// </summary>
-        public List<Vector2> Parameters { get; set; }
+        public List<Single> ArcLengths { get; set; }
+        /// <summary>
+        /// 1 over the steps each segment takes
+        /// </summary>
+        public List<Single> InverseSteps { get; set; }
 
         public CameraPath()
         {
             PathPoints = new List<Vector4>();
-            Parameters = new List<Vector2>();
+            ArcLengths = new List<Single>();
+            InverseSteps = new List<Single>();
         }
 
         public override int GetLength()
         {
-            return base.GetLength() + 4 + PathPoints.Count * Constants.SIZE_VECTOR4 + 4 + Parameters.Count * Constants.SIZE_VECTOR2;
+            return base.GetLength() + 4 + PathPoints.Count * Constants.SIZE_VECTOR4 + 4 + 4 * (ArcLengths.Count + InverseSteps.Count);
         }
 
         public override void Read(BinaryReader reader, int length)
@@ -42,14 +47,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.CameraSubtypes
                 PathPoints.Add(vec);
             }
 
-            int cnt2 = reader.ReadInt32();
-            Parameters.Clear();
-            for (var i = 0; i < cnt2; ++i)
-            {
-                Vector2 parameter = new Vector2();
-                parameter.Read(reader, Constants.SIZE_VECTOR2);
-                Parameters.Add(parameter);
-            }
+            TwinPathParameters.Read(reader, reader.ReadInt32(), ArcLengths, InverseSteps);
         }
 
         public override void Write(BinaryWriter writer)
@@ -61,11 +59,8 @@ namespace Twinsanity.TwinsanityInterchange.Common.CameraSubtypes
                 point.Write(writer);
             }
 
-            writer.Write(Parameters.Count);
-            foreach (var parameter in Parameters)
-            {
-                parameter.Write(writer);
-            }
+            writer.Write(ArcLengths.Count);
+            TwinPathParameters.Write(writer, ArcLengths, InverseSteps);
         }
 
         public override ITwinCamera.CameraType GetCameraType()

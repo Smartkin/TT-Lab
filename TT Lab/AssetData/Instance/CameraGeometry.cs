@@ -59,8 +59,8 @@ public static class CameraGeometry
             case CameraPath path:
             {
                 var points = path.PathPoints.Select(point => new vec3(point.X, point.Y, point.Z)).ToArray();
-                var stepLength = PathParameters.FindStepLength(path.Parameters, path.Parameters.Count) ?? PathParameters.DefaultStepLength;
-                path.Parameters = PathParameters.Create(points, stepLength);
+                var stepLength = PathParameters.FindStepLength(path.ArcLengths, path.InverseSteps, path.ArcLengths.Count) ?? PathParameters.DefaultStepLength;
+                (path.ArcLengths, path.InverseSteps) = PathParameters.Create(points, stepLength);
                 break;
             }
             case CameraSpline spline:
@@ -105,17 +105,17 @@ public static class CameraGeometry
             lengths[i] = total;
         }
 
-        var stepLength = PathParameters.FindStepLength(spline.Parameters, spline.Parameters.Count) ?? PathParameters.DefaultStepLength;
-        var values = new float[segments * 2];
+        var stepLength = PathParameters.FindStepLength(spline.ArcLengths, spline.InverseSteps, spline.ArcLengths.Count) ?? PathParameters.DefaultStepLength;
+        var inverseSteps = new List<Single>(segments);
         for (var i = 0; i < segments; i++)
         {
             var length = lengths[i] - (i > 0 ? lengths[i - 1] : 0.0f);
-            values[i] = lengths[i];
-            values[segments + i] = 1.0f / PathParameters.GetSteps(length, stepLength);
+            inverseSteps.Add(1.0f / PathParameters.GetSteps(length, stepLength));
         }
 
         spline.Tangents = tangents;
-        spline.Parameters = Enumerable.Range(0, segments).Select(i => new Vector2 { X = values[i * 2], Y = values[i * 2 + 1] }).ToList();
+        spline.ArcLengths = [..lengths];
+        spline.InverseSteps = inverseSteps;
         spline.StepLength = segments > 0 ? total / segments : spline.StepLength;
     }
 

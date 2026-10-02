@@ -4,6 +4,7 @@ using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Implementations.Base;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout;
+using static Twinsanity.TwinsanityInterchange.Enumerations.Enums;
 
 namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Layout
 {
@@ -14,7 +15,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Layout
         /// Bits 1, 2 and 4 on some positions of the retail levels, 0 on most. No code of the PAL executable reads AI positions'
         /// values, the section only fills a table
         /// </summary>
-        public UInt16 Flags { get; set; }
+        public AiPositionFlags Flags { get; set; }
 
         public PS2AnyAIPosition()
         {
@@ -29,12 +30,12 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Layout
         public override void Read(BinaryReader reader, int length)
         {
             Position.Read(reader, Constants.SIZE_VECTOR4);
-            Flags = reader.ReadUInt16();
+            Flags = (AiPositionFlags)reader.ReadUInt16();
         }
         public override void Write(BinaryWriter writer)
         {
             Position.Write(writer);
-            writer.Write(Flags);
+            writer.Write((UInt16)Flags);
         }
 
         public override String GetName()

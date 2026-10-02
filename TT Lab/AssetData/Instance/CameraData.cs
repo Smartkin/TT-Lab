@@ -28,7 +28,7 @@ namespace TT_Lab.AssetData.Instance;
 public class CameraData : AbstractAssetData
 {
     private const string AngleHint = "An angle in degrees (the game keeps 65536ths of a turn).";
-    private const string FlagsHint = "What the camera controller takes from the camera: the flags named Sets give it the angles and distance below, No Blend In cuts to it, Values Along Geometry takes the start and end values by where the target is along the line, path or spline. The Controller ones are copied into the controller's own flags";
+    private const string FlagsHint = "What the camera controller takes from the camera: the flags named Sets give it the angles and distance below, No Blend In cuts to it, Values Along Geometry takes the start and end values by where the target is along the line, path or spline. The rest tell the follow camera how to move: Steers keeps its probes on, Gives Target Box and Frames Instances move the point it looks at, Holds Still, Keeps Height and Only Looks At Target hold it back. Bits 1 and 14 are never read";
 
     // What the derived values (a path's parameters, a spline's tangents and parameters, the boss camera's inverse matrix) were made
     // from, so the game's values are kept until the geometry changes
@@ -41,8 +41,8 @@ public class CameraData : AbstractAssetData
     {
         Trigger = new TriggerData(asset) { CheckInterval = 0 };
         Trigger.SetHeader(NewTriggerHeader);
-        LeftoverVector1 = new Vector4(0, 0, 0, 1);
-        LeftoverVector2 = new Vector4(0, 0, 0, 1);
+        TargetBoxMin = new Vector4(0, 0, 0, 1);
+        TargetBoxMax = new Vector4(0, 0, 0, 1);
     }
 
     public CameraData(IAsset asset, Type? mainCam1T, Type? mainCam2T) : base(asset)
@@ -80,20 +80,20 @@ public class CameraData : AbstractAssetData
     public Single BlendTime { get; set; }
 
     [JsonProperty(Required = Required.Always)]
-    [Editable(Hint = "Leftover memory of the game's tools, never read")]
-    public Vector4 LeftoverVector1 { get; set; }
+    [Editable(Hint = "With Gives Target Box, a corner of the box the follow camera looks into: it looks at the followed object's place plus the box's middle, turned with the object unless Target Box Unturned ((0, 1.6, 0) on many cameras). The tools' memory without the flag")]
+    public Vector4 TargetBoxMin { get; set; }
 
     [JsonProperty(Required = Required.Always)]
-    [Editable(Hint = "Leftover memory of the game's tools, never read")]
-    public Vector4 LeftoverVector2 { get; set; }
+    [Editable(Hint = "The target box's other corner, with Gives Target Box. The tools' memory without the flag")]
+    public Vector4 TargetBoxMax { get; set; }
 
     [JsonProperty(Required = Required.Always)]
-    [Editable(Hint = "Leftover memory of the game's tools, never read")]
-    public Single LeftoverFloat1 { get; set; }
+    [Editable(Hint = "With Frames Instances, the furthest the point the follow camera looks at moves toward the middle of the trigger's instances. The tools' memory without the flag")]
+    public Single FramingDistance { get; set; }
 
     [JsonProperty(Required = Required.Always)]
-    [Editable(Hint = "Leftover memory of the game's tools, never read")]
-    public Single LeftoverFloat2 { get; set; }
+    [Editable(Hint = "With Frames Instances, the share of the way from the followed object to the middle of the trigger's instances the point the camera looks at moves. The tools' memory without the flag")]
+    public Single FramingShare { get; set; }
 
     [JsonProperty(Required = Required.Always)]
     [Editable(EditorDescType = typeof(AngleEditorDesc), Hint = AngleHint + " The first angle blender, probably the field of view, starts here with Sets Fov, or has it at the start of the geometry")]
@@ -128,16 +128,16 @@ public class CameraData : AbstractAssetData
     public Single DistanceEnd { get; set; }
 
     [JsonProperty(Required = Required.Always)]
-    [Editable(Hint = "Handed to the second camera with Passes Value To Camera 2")]
-    public Single Camera2Value { get; set; }
+    [Editable(Hint = "With Sets Position Follow Rate, the share of the way a second the camera's place moves to where the camera puts it")]
+    public Single PositionFollowRate { get; set; }
 
     [JsonProperty(Required = Required.Always)]
-    [Editable(Hint = "Handed to the first camera with Passes Value To Camera 1")]
-    public Single Camera1Value { get; set; }
+    [Editable(Hint = "With Sets Target Follow Rate, the share of the way a second the point the camera looks at moves")]
+    public Single TargetFollowRate { get; set; }
 
     [JsonProperty(Required = Required.Always)]
-    [Editable(EditorDescType = typeof(AngleEditorDesc), Hint = AngleHint + " Given to the yaw blender with Sets Yaw Extra, 0 in the game's levels")]
-    public UInt32 YawExtra { get; set; }
+    [Editable(EditorDescType = typeof(AngleEditorDesc), Hint = AngleHint + " With Sets Yaw Speed, how fast the yaw turns a second, slowed by the sine of what it has left to turn. 0 in the game's levels")]
+    public UInt32 YawSpeed { get; set; }
 
     [JsonProperty(Required = Required.Always)]
     [Editable(EditorDescType = typeof(AngleEditorDesc), Hint = AngleHint + " The yaw the camera blends in from with Blends In From Yaw")]
@@ -182,10 +182,10 @@ public class CameraData : AbstractAssetData
         Flags = camera.Flags;
         Switches = camera.Switches;
         BlendTime = camera.BlendTime;
-        LeftoverVector1 = CloneUtils.Clone(camera.LeftoverVector1);
-        LeftoverVector2 = CloneUtils.Clone(camera.LeftoverVector2);
-        LeftoverFloat1 = camera.LeftoverFloat1;
-        LeftoverFloat2 = camera.LeftoverFloat2;
+        TargetBoxMin = CloneUtils.Clone(camera.TargetBoxMin);
+        TargetBoxMax = CloneUtils.Clone(camera.TargetBoxMax);
+        FramingDistance = camera.FramingDistance;
+        FramingShare = camera.FramingShare;
         FovStart = camera.FovStart;
         FovEnd = camera.FovEnd;
         PitchStart = camera.PitchStart;
@@ -194,9 +194,9 @@ public class CameraData : AbstractAssetData
         YawEnd = camera.YawEnd;
         DistanceStart = camera.DistanceStart;
         DistanceEnd = camera.DistanceEnd;
-        Camera2Value = camera.Camera2Value;
-        Camera1Value = camera.Camera1Value;
-        YawExtra = camera.YawExtra;
+        PositionFollowRate = camera.PositionFollowRate;
+        TargetFollowRate = camera.TargetFollowRate;
+        YawSpeed = camera.YawSpeed;
         BlendInYaw = camera.BlendInYaw;
         BlendInPitch = camera.BlendInPitch;
         BlendInDistance = camera.BlendInDistance;
@@ -258,10 +258,10 @@ public class CameraData : AbstractAssetData
         writer.Write((UInt32)Flags);
         writer.Write((UInt16)Switches);
         writer.Write(BlendTime);
-        LeftoverVector1.Write(writer);
-        LeftoverVector2.Write(writer);
-        writer.Write(LeftoverFloat1);
-        writer.Write(LeftoverFloat2);
+        TargetBoxMin.Write(writer);
+        TargetBoxMax.Write(writer);
+        writer.Write(FramingDistance);
+        writer.Write(FramingShare);
         writer.Write(FovStart);
         writer.Write(FovEnd);
         writer.Write(PitchStart);
@@ -270,9 +270,9 @@ public class CameraData : AbstractAssetData
         writer.Write(YawEnd);
         writer.Write(DistanceStart);
         writer.Write(DistanceEnd);
-        writer.Write(Camera2Value);
-        writer.Write(Camera1Value);
-        writer.Write(YawExtra);
+        writer.Write(PositionFollowRate);
+        writer.Write(TargetFollowRate);
+        writer.Write(YawSpeed);
         writer.Write(BlendInYaw);
         writer.Write(BlendInPitch);
         writer.Write(BlendInDistance);

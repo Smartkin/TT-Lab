@@ -182,7 +182,7 @@ public partial class ParticleSystemFieldViewModel(DocumentViewModel document, Pr
     {
         if (document.DocumentModel is LevelChunk)
         {
-            document.OpenInspector(inspected, target);
+            document.FollowInInspector(inspected, target);
             return;
         }
 

@@ -4,13 +4,12 @@ using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout;
 
 namespace Twinsanity.TwinsanityInterchange.Common.CameraSubtypes
 {
+    /// <summary>
+    /// A camera around a point at the target's height (Camera1C0C, no data has one): its read only takes the four bytes of its follow
+    /// flags, nothing gives it its other values
+    /// </summary>
     public class CameraSub1C0C : CameraSubBase
     {
-        public Byte[] UnkData { get; set; }
-        public CameraSub1C0C()
-        {
-            UnkData = new byte[4];
-        }
         public override int GetLength()
         {
             return 4;
@@ -18,12 +17,12 @@ namespace Twinsanity.TwinsanityInterchange.Common.CameraSubtypes
 
         public override void Read(BinaryReader reader, int length)
         {
-            UnkData = reader.ReadBytes(4);
+            Follow = (FollowFlags)reader.ReadUInt32();
         }
 
         public override void Write(BinaryWriter writer)
         {
-            writer.Write(UnkData);
+            writer.Write((UInt32)Follow);
         }
 
         public override ITwinCamera.CameraType GetCameraType()

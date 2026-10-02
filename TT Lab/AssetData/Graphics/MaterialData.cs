@@ -13,6 +13,11 @@ using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Assets.Graphics;
 using TT_Lab.Attributes;
+using TT_Lab.Rendering.Objects;
+using TT_Lab.ViewModels;
+using TT_Lab.ViewModels.Editors.PropertyGraph;
+using TT_Lab.ViewModels.Interfaces;
+using GlmSharp;
 using TT_Lab.Attributes.EditorParamWrappers;
 using TT_Lab.ViewModels.Editors;
 using TT_Lab.ViewModels.Editors.Descs;
@@ -56,7 +61,8 @@ public class MaterialData : AbstractAssetData
     /// never does. Building writes what the shaders need (<see cref="DeriveActivatedShaders"/>), which is what every retail material has
     /// </summary>
     [JsonProperty(Required = Required.Always)]
-    [Editable(Hint = "A bit for each type of shader the material has, the game loads the shaders' programs by it. Building writes it from the shaders")]
+    [Editable(Hint = "The types of the material's shaders: the game keeps a bit for each and loads the shaders' programs by them. Building writes them from the shaders",
+              EditorDescType = typeof(ActivatedShadersEditorDesc), EditorOrientation = Avalonia.Controls.Dock.Top)]
     [EditorReadOnly]
     public AppliedShaders ActivatedShaders { get; set; }
 
@@ -103,6 +109,26 @@ public class MaterialData : AbstractAssetData
     protected override void Dispose(Boolean disposing)
     {
         Shaders.Clear();
+    }
+
+    public override List<ViewportObject> GetViewportObjects(ViewportContext viewportContext, PropertyNode property)
+    {
+        var context = viewportContext.RenderContext;
+        var preview = new MaterialPreview(context, this);
+        var editableObject = new EditableObject(context, preview, "MATERIAL_PREVIEW_EDITABLE", new vec3(-1, 0, -1), new vec3(2, 2, 2))
+        {
+            IsSelectable = false
+        };
+        var data = property.Find(nameof(SerializableAsset.AssetData)) ?? property;
+        return [new ViewportObject(editableObject, $"MATERIAL_PREVIEW_{property.Path}", property)
+        {
+            RenderDependencies = [data],
+            Refresh = () =>
+            {
+                preview.Refresh();
+                return true;
+            }
+        }];
     }
 
     public override String GetStringified()

@@ -74,9 +74,9 @@ public sealed class GameValueTests
     public void TemplateWritesItsPropertiesHeaderFromTheLists()
     {
         var template = new PS2AnyTemplate { Name = "HEALTH", ObjectId = 2, ObjectSubType = 1, ObjectType = 1, InstanceStateFlags = (Enums.InstanceState)0x10E };
-        template.Floats.Add(1.0f);
-        template.Ints.Add(0);
-        template.Ints.Add(255);
+        template.FloatProperties.Add(1.0f);
+        template.IntProperties.Add(0);
+        template.IntProperties.Add(255);
         var bytes = Write(template.Write);
         var read = new PS2AnyTemplate();
         read.Read(new BinaryReader(new MemoryStream(bytes)), bytes.Length);
@@ -101,7 +101,7 @@ public sealed class GameValueTests
     {
         var camera = new PS2AnyCamera
         {
-            Flags = ITwinCamera.CameraFlags.SetsPitch | ITwinCamera.CameraFlags.ValuesAlongGeometry | ITwinCamera.CameraFlags.Controller31,
+            Flags = ITwinCamera.CameraFlags.SetsPitch | ITwinCamera.CameraFlags.ValuesAlongGeometry | ITwinCamera.CameraFlags.AddsExtraYaw,
             Switches = ITwinCamera.CameraSwitches.ResetsController, PitchStart = 3640, PitchEnd = 3640, DistanceStart = 5, Group = 2,
             TypeIndex1 = ITwinCamera.CameraType.Null, TypeIndex2 = ITwinCamera.CameraType.Null
         };

@@ -1,5 +1,6 @@
 using Newtonsoft.Json;
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.IO;
 using TT_Lab.AssetData.Code;
@@ -30,9 +31,9 @@ public class InstanceTemplateData : AbstractAssetData
         TemplateName = "New Instance Template";
         ObjectId = LabURI.Empty;
         BehaviourStarters = new List<LabURI>();
-        Flags = new List<UInt32>();
-        Floats = new List<float>();
-        Ints = new List<UInt32>();
+        TaggedProperties = new List<TaggedProperty>();
+        FloatProperties = new List<Single>();
+        IntProperties = new List<Int32>();
     }
 
     public InstanceTemplateData(IAsset asset, ITwinTemplate template) : this(asset)
@@ -60,26 +61,26 @@ public class InstanceTemplateData : AbstractAssetData
     public Enums.InstanceState InstanceStateFlags { get; set; }
 
     [JsonProperty(Required = Required.Always)]
-    [Editable]
+    [Editable(Caption = "Tagged values", Hint = "Values the scripts read as an int, an angle or a float, or the index of another property. A plain number keeps the value's type, Int(x), Float(x) and Angle(x) change it")]
     [EditorParam(DocumentCollectionViewModel.MaxCount, MaxProperties)]
-    public List<UInt32> Flags { get; set; }
+    public List<TaggedProperty> TaggedProperties { get; set; }
 
     [JsonProperty(Required = Required.Always)]
-    [Editable]
+    [Editable(Caption = "Floats")]
     [EditorParam(DocumentCollectionViewModel.MaxCount, MaxProperties)]
-    public List<Single> Floats { get; set; }
+    public List<Single> FloatProperties { get; set; }
 
     [JsonProperty(Required = Required.Always)]
-    [Editable]
+    [Editable(Caption = "Integers")]
     [EditorParam(DocumentCollectionViewModel.MaxCount, MaxProperties)]
-    public List<UInt32> Ints { get; set; }
+    public List<Int32> IntProperties { get; set; }
 
     protected override void Dispose(Boolean disposing)
     {
         BehaviourStarters.Clear();
-        Flags.Clear();
-        Floats.Clear();
-        Ints.Clear();
+        TaggedProperties.Clear();
+        FloatProperties.Clear();
+        IntProperties.Clear();
     }
 
     public override void Import(LabURI package, String? variant, Int32? layoutId)
@@ -94,16 +95,16 @@ public class InstanceTemplateData : AbstractAssetData
             BehaviourStarters.Add(AssetManager.Get().GetUriByTwinId<BehaviourGraph>(Owner, behaviourId + 1U));
         }
         InstanceStateFlags = template.InstanceStateFlags;
-        Flags = CloneUtils.CloneList(template.Flags);
-        Floats = CloneUtils.CloneList(template.Floats);
-        Ints = CloneUtils.CloneList(template.Ints);
+        TaggedProperties = template.TaggedProperties.Select(bits => new TaggedProperty(bits)).ToList();
+        FloatProperties = CloneUtils.CloneList(template.FloatProperties);
+        IntProperties = CloneUtils.CloneList(template.IntProperties);
     }
 
     public override ITwinItem Export(ITwinItemFactory factory)
     {
-        CheckCount("flag properties", Flags.Count, MaxProperties);
-        CheckCount("float properties", Floats.Count, MaxProperties);
-        CheckCount("integer properties", Ints.Count, MaxProperties);
+        CheckCount("tagged values", TaggedProperties.Count, MaxProperties);
+        CheckCount("float properties", FloatProperties.Count, MaxProperties);
+        CheckCount("integer properties", IntProperties.Count, MaxProperties);
         var assetManager = AssetManager.Get();
         var gameObject = assetManager.GetAsset(ObjectId);
         var objectData = gameObject.GetData<GameObjectData>();
@@ -123,20 +124,20 @@ public class InstanceTemplateData : AbstractAssetData
         }
         writer.Write(objectData.ExitPointAmount);
         writer.Write(objectData.CameraReactJointAmount);
-        writer.Write(PS2AnyTemplate.PropertiesHeader(Flags.Count, Floats.Count, Ints.Count));
+        writer.Write(PS2AnyTemplate.PropertiesHeader(TaggedProperties.Count, FloatProperties.Count, IntProperties.Count));
         writer.Write((UInt32)InstanceStateFlags);
-        writer.Write(Flags.Count);
-        foreach (var flag in Flags)
+        writer.Write(TaggedProperties.Count);
+        foreach (var tagged in TaggedProperties)
         {
-            writer.Write(flag);
+            writer.Write(tagged.Bits);
         }
-        writer.Write(Floats.Count);
-        foreach (var @float in Floats)
+        writer.Write(FloatProperties.Count);
+        foreach (var @float in FloatProperties)
         {
             writer.Write(@float);
         }
-        writer.Write(Ints.Count);
-        foreach (var @int in Ints)
+        writer.Write(IntProperties.Count);
+        foreach (var @int in IntProperties)
         {
             writer.Write(@int);
         }

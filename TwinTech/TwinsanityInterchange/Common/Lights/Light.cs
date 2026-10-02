@@ -13,8 +13,8 @@ namespace Twinsanity.TwinsanityInterchange.Common.Lights
         Ambient = 0,
         Directional = 1,
         Point = 2,
-        /// <summary>A spot light, "negative light" in the tools' terms</summary>
-        Negative = 3,
+        /// <summary>A spot light (the tools called it a negative light)</summary>
+        Spot = 3,
     }
 
     /// <summary>

@@ -17,11 +17,12 @@ public class CollisionSurfaceTests
             CollisionMask = Enums.SurfaceCollisionFlags.SolidToObjects | Enums.SurfaceCollisionFlags.SolidToPlayer | (Enums.SurfaceCollisionFlags)0xFF000,
             SurfaceId = Enums.SurfaceType.SURF_NORMAL_WOOD, StepSoundId1 = 0x9E, StepSoundId2 = 0x9F, ImpactSoundId = 0x9D, LandSoundId = 0x9D,
             HardImpactSoundId = 0x12, ScrapeSoundId = 0xB5, ImpactParticleSystemId = 129, HardImpactParticleSystemId = 0xFFFF, StepParticleSystemId = 77,
-            UnusedVector = new Vector4(0, 0, 0, 1), ContactMessage = [new Vector4(0, 0, 0, 0), new Vector4(0, 0, 0, 0)]
+            UnusedVector = new Vector4(0, 0, 0, 1), ContactMessage = new TwinContactMessage { Kinds = 0x400, Damage = 100 }
         };
         surface.PhysicsParameters[SurfacePhysics.ImpactSoundVolume] = 0.8f;
         surface.PhysicsParameters[SurfacePhysics.Friction] = 0.7f;
-        surface.PhysicsParameters[SurfacePhysics.Unread1] = 1000000;
+        surface.PhysicsParameters[SurfacePhysics.Unread5] = 1000000;
+        surface.ContactMessage.Leftover[0] = 0xCD;
 
         var bytes = Write(surface);
         var read = new PS2AnyCollisionSurface();
@@ -38,6 +39,9 @@ public class CollisionSurfaceTests
         Assert.Equal(0.8f, BitConverter.ToSingle(bytes, 26 + SurfacePhysics.ImpactSoundVolume * 4));
         Assert.Equal(0.7f, BitConverter.ToSingle(bytes, 26 + SurfacePhysics.Friction * 4));
         Assert.Equal((0x9Du, 0x12u, 0xB5u, 0.7f), ((uint)read.ImpactSoundId, (uint)read.HardImpactSoundId, (uint)read.ScrapeSoundId, read.PhysicsParameters[SurfacePhysics.Friction]));
+        // The contact message after the unused vector: its point, its kinds and its damage, then the tools' memory
+        Assert.Equal((0x400u, (byte)100, (byte)0xCD), (BitConverter.ToUInt32(bytes, 98), bytes[102], bytes[103]));
+        Assert.Equal((0x400u, (byte)100), (read.ContactMessage.Kinds, read.ContactMessage.Damage));
     }
 
     private static byte[] Write(PS2AnyCollisionSurface surface)

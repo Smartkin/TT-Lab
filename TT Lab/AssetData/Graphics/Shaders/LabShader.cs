@@ -8,6 +8,7 @@ using TT_Lab.Assets.Graphics;
 using TT_Lab.Attributes;
 using TT_Lab.Util;
 using TT_Lab.ViewModels.Editors;
+using TT_Lab.ViewModels.Editors.Descs;
 using TT_Lab.ViewModels.Editors.Graphics;
 using TT_Lab.ViewModels.Interfaces;
 using Twinsanity.TwinsanityInterchange.Common;
@@ -172,7 +173,8 @@ public class LabShader : IDocumentModel
     public Vector4 UvScrollSpeed { get; set; } = new();
     
     [System.Text.Json.Serialization.JsonIgnore]
-    [Editable(IsConstructible = true, Hint = "Six tracks (U, V, red, green, blue, alpha) in 1/4096ths, static or a value per frame, looping at the header's frames per second. The FromAnimation scroll modes take U and V as the UV offset, 'Animation drives color' the color. The viewport plays it.")]
+    [Editable(IsConstructible = true, EditorDescType = typeof(ShaderAnimationEditorDesc), EditorOrientation = Avalonia.Controls.Dock.Top,
+              Hint = "Six tracks (U, V, red, green, blue, alpha) in 1/4096ths, static or a value per frame, looping at the frames per second. The FromAnimation scroll modes take U and V as the UV offset, 'Animation drives color' the color. The viewport plays it.")]
     public TwinShaderAnimation? Animation { get; set; }
 
     public LabShader() { }

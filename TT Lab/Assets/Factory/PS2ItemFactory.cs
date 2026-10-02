@@ -475,16 +475,16 @@ namespace TT_Lab.Assets.Factory
 
             gameObject.InstanceStateFlags = (Enums.InstanceState)reader.ReadUInt32();
 
-            fillList(gameObject.InstFlags, reader.ReadUInt32);
-            fillList(gameObject.InstFloats, reader.ReadSingle);
-            fillList(gameObject.InstIntegers, reader.ReadUInt32);
+            fillList(gameObject.TaggedProperties, reader.ReadUInt32);
+            fillList(gameObject.FloatProperties, reader.ReadSingle);
+            fillList(gameObject.IntProperties, reader.ReadInt32);
 
             fillList(gameObject.RefObjects, reader.ReadUInt16);
             fillList(gameObject.RefOGIs, reader.ReadUInt16);
             fillList(gameObject.RefAnimations, reader.ReadUInt16);
             fillList(gameObject.RefCodeModels, reader.ReadUInt16);
             fillList(gameObject.RefBehaviours, reader.ReadUInt16);
-            fillList(gameObject.RefUnknowns, reader.ReadUInt16);
+            fillList(gameObject.RefUnused, reader.ReadUInt16);
             fillList(gameObject.RefSounds, reader.ReadUInt16);
 
             gameObject.BehaviourPack = CreateCommandPack();
@@ -631,12 +631,12 @@ namespace TT_Lab.Assets.Factory
                     scenery.PointLights.Add(point);
                 }
 
-                var negativeLights = reader.ReadInt32();
-                for (var i = 0; i < negativeLights; ++i)
+                var spotLights = reader.ReadInt32();
+                for (var i = 0; i < spotLights; ++i)
                 {
-                    var negative = new NegativeLight();
-                    negative.Read(reader, negative.GetLength());
-                    scenery.NegativeLights.Add(negative);
+                    var spot = new SpotLight();
+                    spot.Read(reader, spot.GetLength());
+                    scenery.SpotLights.Add(spot);
                 }
 
                 var lightOrder = reader.ReadInt32();
@@ -1064,7 +1064,7 @@ namespace TT_Lab.Assets.Factory
                 behaviourSequences.SetRoot(root);
                 behaviourSequences.SetParent(code);
                 var unknowns = new BaseTwinItem();
-                unknowns.SetID(Constants.CODE_UNK_ITEM);
+                unknowns.SetID(Constants.CODE_UNUSED_SECTION);
                 unknowns.SetRoot(root);
                 unknowns.SetParent(code);
                 var sfxs = CreateSection<PS2AnySoundsSection>();

@@ -150,6 +150,60 @@ namespace Twinsanity.TwinsanityInterchange.Common.AgentLab
         }
 
         /// <summary>
+        /// A value of its own type the way <see cref="ParseKeepingType"/> reads it back: an int as it is, Float(x) and Angle(x) (degrees),
+        /// Prop(index), and Raw(0x...) for bits no literal gives back or the type none of the three (words the tools left in instances'
+        /// properties)
+        /// </summary>
+        public static String Describe(UInt32 value)
+        {
+            var type = TypeOf(value);
+            if (type == TypeMask)
+            {
+                return $"Raw(0x{value:X8})";
+            }
+
+            if (type == TypeAngle && !IsProperty(value))
+            {
+                var degrees = ShortestDegrees(value);
+                return degrees != null ? "Angle(" + degrees + ")" : $"Raw(0x{value:X8})";
+            }
+
+            var text = Format(value, type);
+            if (IsProperty(value) || type == TypeInt || text.StartsWith("Raw("))
+            {
+                return text;
+            }
+
+            return "Float(" + text + ")";
+        }
+
+        // The fewest decimals of degrees that give the angle's bits back: the tag clears the radians' low bits, so the degrees worked
+        // out from them rarely come back to the same bits themselves
+        private static String ShortestDegrees(UInt32 value)
+        {
+            var degrees = FloatValue(value) * (180.0 / Math.PI);
+            for (var decimals = 0; decimals <= 9; ++decimals)
+            {
+                var literal = FloatLiteral((Single)Math.Round(degrees, decimals));
+                if (literal != null && FromAngle(Single.Parse(literal, CultureInfo.InvariantCulture)) == value)
+                {
+                    return literal;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Reads what <see cref="Describe"/> writes: a plain literal and Prop(index) keep the current value's type
+        /// </summary>
+        public static UInt32 ParseKeepingType(String text, UInt32 current)
+        {
+            var type = TypeOf(current);
+            return Parse(text, type == TypeMask ? TypeInt : type);
+        }
+
+        /// <summary>
         /// Reads what <see cref="Format"/> writes, plus Float(x), Int(x) and Angle(x) for a literal of another type than the parameter's
         /// </summary>
         public static UInt32 Parse(String text, UInt32 expectedType)

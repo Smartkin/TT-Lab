@@ -33,7 +33,7 @@ public class CollisionData : AbstractAssetData
 {
     public CollisionData(IAsset asset) : base(asset)
     {
-        Vectors = new List<Vector4>();
+        Vertexes = new List<Vector4>();
     }
 
     public CollisionData(IAsset asset, ITwinCollision collision) : this(asset)
@@ -41,17 +41,17 @@ public class CollisionData : AbstractAssetData
         SetTwinItem(collision);
     }
 
-    public List<CollisionTrigger> Triggers { get; set; } = new();
-    public List<GroupInformation> Groups { get; set; } = new();
+    public List<CollisionNode> Nodes { get; set; } = new();
+    public List<CollisionGroup> Groups { get; set; } = new();
     public List<CollisionTriangle> Triangles { get; set; } = new();
-    public List<Vector4> Vectors { get; set; }
+    public List<Vector4> Vertexes { get; set; }
 
     protected override void Dispose(Boolean disposing)
     {
-        Triggers.Clear();
+        Nodes.Clear();
         Groups.Clear();
         Triangles.Clear();
-        Vectors.Clear();
+        Vertexes.Clear();
     }
 
     public const string TlmAssetType = "Collision";
@@ -78,11 +78,11 @@ public class CollisionData : AbstractAssetData
     {
         // Vertexes no triangle uses have nowhere else to go
         var used = Triangles.SelectMany(t => t.Face.Indexes!).ToHashSet();
-        var unused = Enumerable.Range(0, Vectors.Count).Where(i => !used.Contains(i)).ToList();
+        var unused = Enumerable.Range(0, Vertexes.Count).Where(i => !used.Contains(i)).ToList();
         var node = TlmNodes.Create(TlmKind, "Collision", new JsonObject
         {
             ["UnusedVertexes"] = TlmJson.ToJson(unused),
-            ["UnusedPositions"] = TlmJson.ToJson(unused.SelectMany(i => new[] { Vectors[i].X, Vectors[i].Y, Vectors[i].Z }))
+            ["UnusedPositions"] = TlmJson.ToJson(unused.SelectMany(i => new[] { Vertexes[i].X, Vertexes[i].Y, Vertexes[i].Z }))
         });
         var assetManager = AssetManager.Get();
         var parts = new JsonArray();
@@ -100,7 +100,7 @@ public class CollisionData : AbstractAssetData
                     {
                         local = vectorIndexes.Count;
                         remap.Add(index, local);
-                        var vector = Vectors[index];
+                        var vector = Vertexes[index];
                         positions.AddRange([vector.X, vector.Y, vector.Z]);
                         vectorIndexes.Add(index);
                     }
@@ -134,7 +134,7 @@ public class CollisionData : AbstractAssetData
     /// </summary>
     public void ReadTlmNodes(TlmFile file, IEnumerable<TlmTreeNode> nodes)
     {
-        Vectors.Clear();
+        Vertexes.Clear();
         Triangles.Clear();
         var assetManager = AssetManager.Get();
         var surfaces = assetManager.GetRelatedAssetsOf<CollisionSurface>(Owner.Package);
@@ -186,9 +186,9 @@ public class CollisionData : AbstractAssetData
                 var key = (BitConverter.SingleToUInt32Bits(position.X), BitConverter.SingleToUInt32Bits(position.Y), BitConverter.SingleToUInt32Bits(position.Z));
                 if (!vertexIndexes.TryGetValue(key, out var index))
                 {
-                    index = Vectors.Count;
+                    index = Vertexes.Count;
                     vertexIndexes.Add(key, index);
-                    Vectors.Add(new Vector4(position.X, position.Y, position.Z, 1.0f));
+                    Vertexes.Add(new Vector4(position.X, position.Y, position.Z, 1.0f));
                 }
 
                 indexes[i] = index;
@@ -257,14 +257,14 @@ public class CollisionData : AbstractAssetData
             return false;
         }
 
-        Vectors = vectors.Select(v => new Vector4(v!.Value.X, v.Value.Y, v.Value.Z, 1.0f)).ToList();
+        Vertexes = vectors.Select(v => new Vector4(v!.Value.X, v.Value.Y, v.Value.Z, 1.0f)).ToList();
         Triangles = triangles.Select(t => t!).ToList();
         return true;
     }
 
     public void RebuildBvh()
     {
-        Triggers.Clear();
+        Nodes.Clear();
         Groups.Clear();
         BvhBuilder.BuildBvh(this);
     }
@@ -272,13 +272,13 @@ public class CollisionData : AbstractAssetData
     public override void Import(LabURI package, String? variant, Int32? layoutId)
     {
         var collision = GetTwinItem<ITwinCollision>();
-        foreach (var trigger in collision.Triggers)
+        foreach (var node in collision.Nodes)
         {
-            Triggers.Add(new CollisionTrigger(trigger));
+            Nodes.Add(new CollisionNode(node));
         }
         foreach (var group in collision.Groups)
         {
-            Groups.Add(new GroupInformation(group));
+            Groups.Add(new CollisionGroup(group));
         }
         var assetManager = AssetManager.Get();
         var surfaces = assetManager.GetRelatedAssetsOf<CollisionSurface>(Owner.Package);
@@ -287,7 +287,7 @@ public class CollisionData : AbstractAssetData
             Triangles.Add(new CollisionTriangle(triangle, surfaces));
         }
         // Clone the vectors instead of reference copying
-        Vectors = CloneUtils.CloneList(collision.Vectors);
+        Vertexes = CloneUtils.CloneList(collision.Vertexes);
     }
 
     public override ITwinItem Export(ITwinItemFactory factory)
@@ -301,23 +301,23 @@ public class CollisionData : AbstractAssetData
         using var ms = new MemoryStream();
         using var writer = new BinaryWriter(ms);
         writer.Write(PS2AnyCollisionData.GameVersion);
-        writer.Write(Triggers.Count);
+        writer.Write(Nodes.Count);
         writer.Write(Groups.Count);
         writer.Write(treeTriangles.Count);
-        writer.Write(Vectors.Count);
+        writer.Write(Vertexes.Count);
 
-        foreach (var trigger in Triggers)
+        foreach (var node in Nodes)
         {
-            trigger.V1.Write(writer);
-            writer.Write(trigger.MinTriggerIndex);
-            trigger.V2.Write(writer);
-            writer.Write(trigger.MaxTriggerIndex);
+            node.Min.Write(writer);
+            writer.Write(node.FirstChild);
+            node.Max.Write(writer);
+            writer.Write(node.SecondChild);
         }
 
         foreach (var group in Groups)
         {
-            writer.Write(group.Size);
-            writer.Write(group.Offset);
+            writer.Write(group.Count);
+            writer.Write(group.FirstTriangle);
         }
 
         var assetManager = AssetManager.Get();
@@ -325,15 +325,15 @@ public class CollisionData : AbstractAssetData
         {
             var twinTri = new TwinCollisionTriangle()
             {
-                Vector1Index = tri.Face.Indexes![0],
-                Vector2Index = tri.Face.Indexes[1],
-                Vector3Index = tri.Face.Indexes[2],
+                Vertex1Index = tri.Face.Indexes![0],
+                Vertex2Index = tri.Face.Indexes[1],
+                Vertex3Index = tri.Face.Indexes[2],
                 SurfaceIndex = (int)assetManager.GetAsset(tri.Surface).ExportTwinID
             };
             twinTri.Write(writer);
         }
 
-        foreach (var vec in Vectors)
+        foreach (var vec in Vertexes)
         {
             vec.Write(writer);
         }

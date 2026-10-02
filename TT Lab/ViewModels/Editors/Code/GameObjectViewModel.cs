@@ -5,6 +5,7 @@ using System.Linq;
 using Caliburn.Micro;
 using Splat;
 using TT_Lab.AssetData.Code;
+using TT_Lab.AssetData.Instance;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
 using TT_Lab.Attributes;
@@ -133,17 +134,17 @@ public class GameObjectViewModel : ResourceEditorViewModel
         DirtyTracker.AddBindableCollection(_instFlags);
         DirtyTracker.AddBindableCollection(_instFloats);
         DirtyTracker.AddBindableCollection(_instIntegers);
-        foreach (var instFlags in data.InstFlags)
+        foreach (var tagged in data.TaggedProperties)
         {
-            _instFlags.Add(new PrimitiveWrapperViewModel<uint>(instFlags, true));
+            _instFlags.Add(new PrimitiveWrapperViewModel<uint>(tagged.Bits, true));
         }
-        foreach (var instFlags in data.InstFloats)
+        foreach (var value in data.FloatProperties)
         {
-            _instFloats.Add(new PrimitiveWrapperViewModel<float>(instFlags, true));
+            _instFloats.Add(new PrimitiveWrapperViewModel<float>(value, true));
         }
-        foreach (var instFlags in data.InstIntegers)
+        foreach (var value in data.IntProperties)
         {
-            _instIntegers.Add(new PrimitiveWrapperViewModel<uint>(instFlags, true));
+            _instIntegers.Add(new PrimitiveWrapperViewModel<uint>((uint)value, true));
         }
     }
 
@@ -176,20 +177,20 @@ public class GameObjectViewModel : ResourceEditorViewModel
             data.SoundSlots.Add(soundSlot.Value);
         }
         
-        data.InstFlags.Clear();
-        data.InstFloats.Clear();
-        data.InstIntegers.Clear();
+        data.TaggedProperties.Clear();
+        data.FloatProperties.Clear();
+        data.IntProperties.Clear();
         foreach (var instFlag in _instFlags)
         {
-            data.InstFlags.Add(instFlag.Value);
+            data.TaggedProperties.Add(new TaggedProperty(instFlag.Value));
         }
         foreach (var instFloat in _instFloats)
         {
-            data.InstFloats.Add(instFloat.Value);
+            data.FloatProperties.Add(instFloat.Value);
         }
         foreach (var instInteger in _instIntegers)
         {
-            data.InstIntegers.Add(instInteger.Value);
+            data.IntProperties.Add((Int32)instInteger.Value);
         }
     }
 

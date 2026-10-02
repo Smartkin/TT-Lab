@@ -37,7 +37,7 @@ public sealed class ChunkVersionTests : IDisposable
         var ownRat = AddObject("GLOBAL_RAT_LIGHTBROWN", 0x54, data =>
         {
             data.Name = "GLOBAL_RAT_LIGHTBROWN";
-            data.InstFloats = [1, 25];
+            data.FloatProperties = [1, 25];
         }, "levels_ice_highseas_gpa04");
         var spawner = AddObject("GLOBAL_RAT_INTERMEDIATE19", 0x92, data =>
         {
@@ -57,7 +57,7 @@ public sealed class ChunkVersionTests : IDisposable
 
         var rat = objects.GetItem<ITwinObject>(0x54);
         Assert.Equal("GLOBAL_RAT_LIGHTBROWN", rat.Name);
-        Assert.Equal(new List<Single> { 1, 25 }, rat.InstFloats);
+        Assert.Equal(new List<Single> { 1, 25 }, rat.FloatProperties);
         Assert.Contains((UInt16)0x54, objects.GetItem<ITwinObject>(0x92).RefObjects);
     }
 }

@@ -1,20 +1,20 @@
 ﻿using System;
+using System.IO;
 using TT_Lab.AssetData;
 using TT_Lab.AssetData.Global;
 using TT_Lab.Assets.Factory;
+using TT_Lab.Attributes;
 
 namespace TT_Lab.Assets.Global;
 
 /// <summary>
-/// Save icons are Sony custom model formats that get displayed at PS2's memory card saves editor.
-/// They are not just a 3D model but can also have animation data baked in.
-/// <para>
-/// TODO: Add support/write a separate library for working with these (Who wouldn't want a custom save icon for their mods?)
-/// </para>
+/// The PS2 memory card icon the game's saves get (Startup\Crash.ico): a model of triangles the console's browser shows, with shapes its
+/// animation blends and a 128x128 texture. Kept as a TT Lab model file the Blender add-on edits, built back into the icon
 /// </summary>
+[SupportsViewport]
 public class SaveIcon : GlobalAsset
 {
-    protected override String DataExt => ".bin";
+    protected override String DataExt => ".tlm";
     protected override String TwinDataExt => "ico";
     public override UInt32 Section => throw new NotImplementedException();
     public override String IconPath => "Save.png";
@@ -40,7 +40,7 @@ public class SaveIcon : GlobalAsset
 
     public override void ExportToFile(ITwinItemFactory factory)
     {
-        GetData().SaveInCurrentDirectory(ExportFileName);
+        File.WriteAllBytes(ExportFileName, ((SaveIconData)GetData()).ToIco());
     }
 
     public override Type GetEditorType()

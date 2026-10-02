@@ -52,12 +52,46 @@ public sealed class ChunkPanelsTests : IDisposable
         Assert.True(condition());
     }
 
+    // The panel's header (a Border) comes before it
+    private static Decorator InspectorHost(ChunkInspectorView view) => view.GetVisualDescendants().OfType<Decorator>().Single(decorator => decorator.Name == "InspectorHost");
+
     private static async Task<TabbedEditorViewModel> OpenScene(ScenesEditorsViewModel scenes, LevelChunk chunk)
     {
         scenes.OpenEditor(chunk);
         var tab = scenes.Tabs.Single(tab => tab.EditableResource == chunk.URI);
         await WaitUntil(() => tab.IsLoaded);
         return tab;
+    }
+
+    // Following a link in the inspector shows the way back in the panel's header, with the shared asset a chunk's version is of
+    [AvaloniaFact]
+    public async Task TheInspectorsHeaderGoesBackAlongFollowedLinks()
+    {
+        var scenes = new ScenesEditorsViewModel();
+        var inspector = new ChunkInspectorViewModel(scenes);
+        var inspectorView = new ChunkInspectorView { DataContext = inspector };
+        var window = new Window { Content = inspectorView, Width = 500, Height = 600 };
+        window.Show();
+        var tab = await OpenScene(scenes, CreateChunk("first"));
+        var document = tab.Document!;
+        var instance = document.PropertyGraph.Find("Root.ChunkResources[3][data]")!;
+        document.OpenInspector(instance);
+        document.FollowInInspector(instance.Find("AssetData.ObjectId[data]")!);
+        await WaitUntil(() => inspector.Inspected == document.Inspector);
+        Button? Find(string content) => inspectorView.GetVisualDescendants().OfType<Button>().FirstOrDefault(button => button.Content as string == content && button.IsEffectivelyVisible);
+        await WaitUntil(() => Find("Open the shared asset") != null);
+
+        List<Button> Crumbs() => inspectorView.GetVisualDescendants().OfType<Button>().Where(button => button.Classes.Contains("crumb")).ToList();
+        await WaitUntil(() => Crumbs().Count == 2);
+        var crumbs = Crumbs();
+        Assert.Equal(["Instance 0", "Crash"], crumbs.Select(crumb => crumb.Content as string));
+        Assert.Contains("current", crumbs[1].Classes);
+
+        Find("◀")!.Command!.Execute(null);
+        await WaitUntil(() => inspector.Inspected?.Property == instance);
+        await WaitUntil(() => Find("Open the shared asset") == null);
+        Assert.True(Find("▶")!.IsEffectivelyEnabled);
+        window.Close();
     }
 
     // An instance made in a scene and taken out again by undo never gets saved: it stayed in the project, and once an editor closing
@@ -110,7 +144,7 @@ public sealed class ChunkPanelsTests : IDisposable
         second.Document.OpenInspector(resource.Find("[data]"));
         await WaitUntil(() => inspector.Inspected == second.Document.Inspector);
         Assert.NotNull(inspector.Inspected);
-        var secondInspectorView = inspectorView.FindDescendantOfType<Decorator>()!.Child;
+        var secondInspectorView = InspectorHost(inspectorView).Child;
         Assert.NotNull(secondInspectorView);
 
         // Going back shows the first scene's view as it was left and what that scene inspects
@@ -118,13 +152,13 @@ public sealed class ChunkPanelsTests : IDisposable
         await WaitUntil(() => resources.Document == first.Document);
         Assert.Same(firstView, view.FindDescendantOfType<Decorator>()!.Child);
         Assert.Null(inspector.Inspected);
-        Assert.NotSame(secondInspectorView, inspectorView.FindDescendantOfType<Decorator>()!.Child);
+        Assert.NotSame(secondInspectorView, InspectorHost(inspectorView).Child);
 
         // The inspector's views aren't built again either, the default chunk's 255 particle systems took seconds each time
         scenes.TabsFactory.RemoveEditor(first);
         await WaitUntil(() => resources.Document == second.Document);
         Assert.Same(second.Document.Inspector, inspector.Inspected);
-        Assert.Same(secondInspectorView, inspectorView.FindDescendantOfType<Decorator>()!.Child);
+        Assert.Same(secondInspectorView, InspectorHost(inspectorView).Child);
 
         scenes.TabsFactory.RemoveEditor(second);
         await WaitUntil(() => resources.Document == null);

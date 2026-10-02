@@ -172,7 +172,7 @@ public sealed class TlmAssetTests : IDisposable
 
         Assert.Equal(4, data.Joints.Count);
         Assert.Equal((3, 2), (data.Joints[3].Index, data.Joints[3].ParentIndex));
-        Assert.Equal(1, data.Joints[2].ChildrenAmt1);
+        Assert.Equal(1, data.Joints[2].ChildCount);
         Assert.Equal(4, data.SkinInverseMatrices.Count);
         Assert.Equal(-2.5f, data.SkinInverseMatrices[3].ToSystem().M42, 4);
     }

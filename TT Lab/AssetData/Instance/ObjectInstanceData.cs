@@ -31,25 +31,27 @@ namespace TT_Lab.AssetData.Instance;
 [ReferencesAssets]
 public class ObjectInstanceData : AbstractAssetData
 {
+    private const Single DegreesPerUnit = 360.0f / 65536.0f;
+
     public ObjectInstanceData() : this(null!)
     {
     }
 
     public ObjectInstanceData(IAsset asset) : base(asset)
     {
-        InstancesRelated = 10;
-        PathsRelated = 10;
-        PositionsRelated = 10;
+        InstancesGrowth = 10;
+        PathsGrowth = 10;
+        PositionsGrowth = 10;
         Position = new Vector3(0, 0, 0);
         Rotation = new Vector3();
         Instances = new List<LabURI>();
         Positions = new List<LabURI>();
         Paths = new List<LabURI>();
         ObjectId = LabURI.Empty;
-        OnSpawnScriptId = LabURI.Empty;
-        ParamList1 = new List<UInt32>();
-        ParamList2 = new List<float>();
-        ParamList3 = new List<UInt32>();
+        SpawnScript = LabURI.Empty;
+        TaggedProperties = new List<TaggedProperty>();
+        FloatProperties = new List<Single>();
+        IntProperties = new List<Int32>();
     }
 
     public ObjectInstanceData(IAsset asset, ITwinInstance instance) : this(asset)
@@ -61,12 +63,15 @@ public class ObjectInstanceData : AbstractAssetData
     [Editable]
     public Vector3 Position { get; set; }
     
+    /// <summary>
+    /// The turns about X, Y and Z in degrees, the game keeps each as a signed word of 65536ths of a turn
+    /// </summary>
     [JsonProperty(Required = Required.Always)]
     [Editable]
     public Vector3 Rotation { get; set; }
     
     [JsonProperty(Required = Required.Always)]
-    public UInt32 InstancesRelated { get; set; }
+    public UInt32 InstancesGrowth { get; set; }
     
     [JsonProperty(Required = Required.Always)]
     [Editable]
@@ -76,7 +81,7 @@ public class ObjectInstanceData : AbstractAssetData
     public List<LabURI> Instances { get; set; }
     
     [JsonProperty(Required = Required.Always)]
-    public UInt32 PositionsRelated { get; set; }
+    public UInt32 PositionsGrowth { get; set; }
     
     [JsonProperty(Required = Required.Always)]
     [Editable]
@@ -86,7 +91,7 @@ public class ObjectInstanceData : AbstractAssetData
     public List<LabURI> Positions { get; set; }
     
     [JsonProperty(Required = Required.Always)]
-    public UInt32 PathsRelated { get; set; }
+    public UInt32 PathsGrowth { get; set; }
     
     [JsonProperty(Required = Required.Always)]
     [Editable]
@@ -107,35 +112,36 @@ public class ObjectInstanceData : AbstractAssetData
     [Editable(Hint = "The behaviour graph run when the instance spawns, the game refers to its starter")]
     [EditorParam(UriLinkViewModel.BrowseType, typeof(BehaviourGraph))]
     [OnReferenceDeleted(DeletedReferenceAction.Clear)]
-    public LabURI OnSpawnScriptId { get; set; }
+    public LabURI SpawnScript { get; set; }
     
     [JsonProperty(Required = Required.Always)]
     [Editable]
     public Enums.InstanceState StateFlags { get; set; }
     
     [JsonProperty(Required = Required.Always)]
-    [Editable(Caption = "Flags")]
+    [Editable(Caption = "Tagged values", Hint = "Values the scripts read as an int, an angle or a float, or the index of another property: the class of the object's type keeps as many as it has room for. " +
+                                                "A plain number keeps the value's type, Int(x), Float(x) and Angle(x) change it")]
     [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
-    public List<UInt32> ParamList1 { get; set; }
+    public List<TaggedProperty> TaggedProperties { get; set; }
     
     [JsonProperty(Required = Required.Always)]
     [Editable(Caption = "Floats")]
     [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
-    public List<Single> ParamList2 { get; set; }
+    public List<Single> FloatProperties { get; set; }
     
     [JsonProperty(Required = Required.Always)]
     [Editable(Caption = "Integers")]
     [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
-    public List<UInt32> ParamList3 { get; set; }
+    public List<Int32> IntProperties { get; set; }
 
     protected override void Dispose(Boolean disposing)
     {
         Instances.Clear();
         Positions.Clear();
         Paths.Clear();
-        ParamList1.Clear();
-        ParamList2.Clear();
-        ParamList3.Clear();
+        TaggedProperties.Clear();
+        FloatProperties.Clear();
+        IntProperties.Clear();
     }
 
     public override void Import(LabURI package, String? variant, Int32? layoutId)
@@ -143,21 +149,20 @@ public class ObjectInstanceData : AbstractAssetData
         var assetManager = AssetManager.Get();
         var instance = GetTwinItem<ITwinInstance>();
         Position = new Vector3(instance.Position.X, instance.Position.Y, instance.Position.Z);
-        Rotation = new Vector3(instance.RotationX.GetRotation(), instance.RotationY.GetRotation(),
-            instance.RotationZ.GetRotation());
-        InstancesRelated = instance.InstancesRelated;
+        Rotation = new Vector3(instance.RotationX * DegreesPerUnit, instance.RotationY * DegreesPerUnit, instance.RotationZ * DegreesPerUnit);
+        InstancesGrowth = instance.InstancesGrowth;
         Instances = new(instance.Instances.Count);
         foreach (var inst in instance.Instances)
         {
             Instances.Add(assetManager.GetUriByTwinId<ObjectInstance>(Owner, inst, layoutId));
         }
-        PositionsRelated = instance.PositionsRelated;
+        PositionsGrowth = instance.PositionsGrowth;
         Positions = new(instance.Positions.Count);
         foreach (var pos in instance.Positions)
         {
             Positions.Add(assetManager.GetUriByTwinId<Position>(Owner, pos, layoutId));
         }
-        PathsRelated = instance.PathsRelated;
+        PathsGrowth = instance.PathsGrowth;
         Paths = new(instance.Paths.Count);
         foreach (var path in instance.Paths)
         {
@@ -165,37 +170,37 @@ public class ObjectInstanceData : AbstractAssetData
         }
         ObjectId = assetManager.GetUriByTwinId<GameObject>(Owner, instance.ObjectId);
         RefListIndex = instance.RefListIndex;
-        OnSpawnScriptId = assetManager.GetUriByTwinId<BehaviourGraph>(Owner, instance.OnSpawnHeaderScriptID + 1U);
-        StateFlags = (Enums.InstanceState)instance.StateFlags;
-        ParamList1 = CloneUtils.CloneList(instance.ParamList1);
-        ParamList2 = CloneUtils.CloneList(instance.ParamList2);
-        ParamList3 = CloneUtils.CloneList(instance.ParamList3);
+        SpawnScript = assetManager.GetUriByTwinId<BehaviourGraph>(Owner, instance.SpawnScriptId + 1U);
+        StateFlags = instance.StateFlags;
+        TaggedProperties = instance.TaggedProperties.Select(bits => new TaggedProperty(bits)).ToList();
+        FloatProperties = CloneUtils.CloneList(instance.FloatProperties);
+        IntProperties = CloneUtils.CloneList(instance.IntProperties);
+    }
+
+    // Whole 65536ths of a turn, signed like the game's words; the game's angles come back exactly
+    private static Int32 AngleUnits(Single degrees)
+    {
+        return (Int32)MathF.Round(degrees / DegreesPerUnit);
     }
 
     public override ITwinItem Export(ITwinItemFactory factory)
     {
         // The properties' header counts them in bytes
-        CheckCount("flag properties", ParamList1.Count, InstanceTemplateData.MaxProperties);
-        CheckCount("float properties", ParamList2.Count, InstanceTemplateData.MaxProperties);
-        CheckCount("integer properties", ParamList3.Count, InstanceTemplateData.MaxProperties);
+        CheckCount("tagged values", TaggedProperties.Count, InstanceTemplateData.MaxProperties);
+        CheckCount("float properties", FloatProperties.Count, InstanceTemplateData.MaxProperties);
+        CheckCount("integer properties", IntProperties.Count, InstanceTemplateData.MaxProperties);
         var assetManager = AssetManager.Get();
         using var ms = new MemoryStream();
         using var writer = new BinaryWriter(ms);
         var position = new Vector4(Position, 1.0f);
         position.Write(writer);
-        var twinRotationX = new TwinIntegerRotation();
-        twinRotationX.SetRotation(Rotation.X);
-        twinRotationX.Write(writer);
-        var twinRotationY = new TwinIntegerRotation();
-        twinRotationY.SetRotation(Rotation.Y);
-        twinRotationY.Write(writer);
-        var twinRotationZ = new TwinIntegerRotation();
-        twinRotationZ.SetRotation(Rotation.Z);
-        twinRotationZ.Write(writer);
+        writer.Write(AngleUnits(Rotation.X));
+        writer.Write(AngleUnits(Rotation.Y));
+        writer.Write(AngleUnits(Rotation.Z));
 
         writer.Write(Instances.Count);
         writer.Write(Instances.Count);
-        writer.Write(InstancesRelated);
+        writer.Write(InstancesGrowth);
         foreach (var inst in Instances)
         {
             writer.Write((UInt16)assetManager.GetAsset(inst).ExportTwinID);
@@ -203,7 +208,7 @@ public class ObjectInstanceData : AbstractAssetData
 
         writer.Write(Positions.Count);
         writer.Write(Positions.Count);
-        writer.Write(PositionsRelated);
+        writer.Write(PositionsGrowth);
         foreach (var pos in Positions)
         {
             writer.Write((UInt16)assetManager.GetAsset(pos).ExportTwinID);
@@ -211,7 +216,7 @@ public class ObjectInstanceData : AbstractAssetData
 
         writer.Write(Paths.Count);
         writer.Write(Paths.Count);
-        writer.Write(PathsRelated);
+        writer.Write(PathsGrowth);
         foreach (var path in Paths)
         {
             writer.Write((UInt16)assetManager.GetAsset(path).ExportTwinID);
@@ -221,29 +226,29 @@ public class ObjectInstanceData : AbstractAssetData
 
         writer.Write(RefListIndex);
 
-        writer.Write(OnSpawnScriptId == LabURI.Empty ? UInt16.MaxValue : (UInt16)(assetManager.GetAsset(OnSpawnScriptId).ExportTwinID - 1));
-        writer.Write((Byte)ParamList1.Count);
-        writer.Write((Byte)ParamList2.Count);
-        writer.Write((Byte)ParamList3.Count);
+        writer.Write(SpawnScript == LabURI.Empty ? UInt16.MaxValue : (UInt16)(assetManager.GetAsset(SpawnScript).ExportTwinID - 1));
+        writer.Write((Byte)TaggedProperties.Count);
+        writer.Write((Byte)FloatProperties.Count);
+        writer.Write((Byte)IntProperties.Count);
         writer.Write((Byte)0);
         writer.Write((UInt32)StateFlags);
 
-        writer.Write(ParamList1.Count);
-        foreach (var flag in ParamList1)
+        writer.Write(TaggedProperties.Count);
+        foreach (var tagged in TaggedProperties)
         {
-            writer.Write(flag);
+            writer.Write(tagged.Bits);
         }
 
-        writer.Write(ParamList2.Count);
-        foreach (var @float in ParamList2)
+        writer.Write(FloatProperties.Count);
+        foreach (var @float in FloatProperties)
         {
             writer.Write(@float);
         }
 
-        writer.Write(ParamList3.Count);
-        foreach (var param in ParamList3)
+        writer.Write(IntProperties.Count);
+        foreach (var integer in IntProperties)
         {
-            writer.Write(param);
+            writer.Write(integer);
         }
 
         writer.Flush();
@@ -266,9 +271,9 @@ public class ObjectInstanceData : AbstractAssetData
         }
 
         assetManager.GetAsset(ObjectId).ResolveChunkResources(factory, objectsSection);
-        if (OnSpawnScriptId != LabURI.Empty)
+        if (SpawnScript != LabURI.Empty)
         {
-            assetManager.GetAsset(OnSpawnScriptId).ResolveChunkResources(factory, behavioursSection);
+            assetManager.GetAsset(SpawnScript).ResolveChunkResources(factory, behavioursSection);
         }
 
         // Positions, paths and instances don't need to be resolved because they are gonna be resolved by themselves anyway

@@ -42,7 +42,7 @@ public class TriggerData : AbstractAssetData
         Rotation = new Vector3(0, 0, 0);
         Scale = new Vector3(1, 1, 1);
         Instances = new List<LabURI>();
-        InstanceExtensionValue = 10;
+        InstancesGrowth = 10;
         Header = NewHeader;
         CheckInterval = NewCheckInterval;
         DeriveFromHeader();
@@ -67,7 +67,7 @@ public class TriggerData : AbstractAssetData
         Header = trigger.Header;
         DeriveFromHeader();
         CheckInterval = trigger.CheckInterval;
-        InstanceExtensionValue = trigger.InstanceExtensionValue;
+        InstancesGrowth = trigger.InstancesGrowth;
         TriggerMessage1 = 0;
         TriggerMessage2 = 0;
         TriggerMessage3 = 0;
@@ -121,7 +121,7 @@ public class TriggerData : AbstractAssetData
     
     [JsonProperty(Required = Required.Always)]
     [Editable(Hint = "The instance list's growth step from the tools, 10 everywhere and never read")]
-    public UInt32 InstanceExtensionValue { get; set; }
+    public UInt32 InstancesGrowth { get; set; }
     
     [Editable(Caption = "On Enter Once Enabled")]
     [EditorLinkedField(typeof(HeaderTrigger1Controller), nameof(Header))]
@@ -217,7 +217,7 @@ public class TriggerData : AbstractAssetData
         Header = trigger.Trigger.Header;
         DeriveFromHeader();
         CheckInterval = trigger.Trigger.CheckInterval;
-        InstanceExtensionValue = trigger.Trigger.InstanceExtensionValue;
+        InstancesGrowth = trigger.Trigger.InstancesGrowth;
         TriggerMessage1 = trigger.TriggerMessages[0];
         TriggerMessage2 = trigger.TriggerMessages[1];
         TriggerMessage3 = trigger.TriggerMessages[2];
@@ -239,7 +239,7 @@ public class TriggerData : AbstractAssetData
             Position = new Vector4(Position.X, Position.Y, Position.Z, 1.0f),
             Rotation = new Vector4(quat.x, quat.y, quat.z, quat.w),
             Scale = new Vector4(Scale.X, Scale.Y, Scale.Z, 1.0f),
-            InstanceExtensionValue = InstanceExtensionValue
+            InstancesGrowth = InstancesGrowth
         };
         foreach (var instance in Instances)
         {

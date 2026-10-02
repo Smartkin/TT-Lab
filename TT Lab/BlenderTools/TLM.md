@@ -1,6 +1,6 @@
 # TT Lab model files (`.tlm`)
 
-TT Lab keeps every model, mesh, skin, blend skin, OGI, scenery, dynamic scenery, collision and skydome in a `.tlm` file. TT Lab
+TT Lab keeps every model, mesh, skin, blend skin, OGI, scenery, dynamic scenery, collision, skydome and the save icon in a `.tlm` file. TT Lab
 writes it (`TT Lab/AssetData/Graphics/TlModel`) and the Blender add-on reads and writes it (`twin_tech_tools/tlm.py`). Both follow
 this document.
 
@@ -34,7 +34,7 @@ All numbers are little endian. Arrays live in the binary data and the JSON point
 ```
 
 `asset.type` is the TT Lab asset the file belongs to: `Ogi`, `Model`, `RigidModel`, `Mesh`, `Skin`, `BlendSkin`, `Scenery`,
-`DynamicScenery`, `Collision` or `Skydome`.
+`DynamicScenery`, `Collision`, `Skydome` or `SaveIcon`.
 
 ### Materials
 
@@ -116,7 +116,7 @@ Dynamic scenery models keep their hulls the same way, as `hull` children without
   "index": 3, "parent": 1, "name": "Joint 3",
   "bind": [16 floats],
   "data": {
-    "ReactId": 255, "ChildrenAmt2": 0, "AdditionalAnimationRotation": [4],
+    "Id": 255, "Detail": 0, "AdditionalAnimationRotation": [4],
     "LocalTranslation": [4], "LocalRotation": [4], "WorldTranslation": [4], "InverseBindMatrix": [16], "UnusedRotation": [4]
   }
 }
@@ -166,7 +166,7 @@ scenery            data: FogColor, UnusedByte, HasLighting, LightOrder
 │  └─ scenery_lod  data: Order, Matrix, BoundingBox, LodType, MinDrawDistance, MaxDrawDistance, ModelsDrawDistances, transform
 │     └─ lod_mesh  data: Level, mesh
 ├─ lights
-│  └─ ambient_light, directional_light, point_light, negative_light   data, transform
+│  └─ ambient_light, directional_light, point_light, spot_light   data, transform
 ├─ collision
 └─ dynamic_scenery
    └─ dynamic_model
@@ -178,7 +178,7 @@ scenery            data: FogColor, UnusedByte, HasLighting, LightOrder
 - `Matrix` of a placed mesh or LOD is the game's matrix (16 floats, translation last), kept while the node's transform is still the one
   it stands for. `BoundingBox` is the box the game culls it with (8 floats), kept while it still holds the mesh.
 - Lights are empties: the node's Z axis (the empty's arrow) is a directional light's `Direction`, pointing at where the light comes
-  from, and a spot light's (`negative_light`, the tools' name), pointing where it shines. `Direction` is kept while the arrow still
+  from, and a spot light's (`spot_light`, the tools' negative light), pointing where it shines. `Direction` is kept while the arrow still
   points along it. Every light has `Intensity` (multiplies `Color`), `Enabled` (the game never reads it), `PositionW` and the bounds
   the tools kept (`BoundsMin`, `BoundsMax`, the game works them out again from the intensity). Point and spot lights fade with
   `AttenuationPower` (intensity · (25 / (d² + 25))^power), a spot light has its `ConeAngle` and `FalloffAngle` in 65536ths of a turn and the
@@ -192,7 +192,7 @@ scenery            data: FogColor, UnusedByte, HasLighting, LightOrder
 
   `triangles` and `vertexes` say where every triangle and vertex was in the collision, the tree the game finds collisions with comes out
   the same while every surface still has them. `data` has the vertexes no triangle uses (`UnusedVertexes`, `UnusedPositions`).
-- `dynamic_model` has `data` (`Order`, `LodFlag`, `BoundingBoxMin`, `BoundingBoxMax`), `hull` children (see Collision hulls), a `mesh` and its
+- `dynamic_model` has `data` (`Order`, `UsesLod`, `BoundingBoxMin`, `BoundingBoxMax`), `hull` children (see Collision hulls), a `mesh` and its
   movement:
 
   ```json
@@ -204,6 +204,37 @@ scenery            data: FogColor, UnusedByte, HasLighting, LightOrder
 
 `Skydome` files have a `skydome` root with a `skydome_mesh` (`data: Order`, `mesh`) for every mesh. `Collision` files have a `collision`
 root, `DynamicScenery` files a `dynamic_scenery` root.
+
+### Save icon
+
+The PS2 memory card icon the game's saves get (`Startup\Crash.ico`, Uka Uka's mask) has one node, the root:
+
+```json
+{
+  "kind": "save_icon", "name": "Crash",
+  "data": { "TextureType": 6, "FrameLength": 1, "AnimationSpeed": 1.0, "PlayOffset": 0, "FileId": 65536, "HeaderValue": 1065353216, "AnimationTag": 1 },
+  "mesh": { "parts": [ ... ] },
+  "animation": { "frames": [ { "shape": 0, "keys": <f32 view> } ] },
+  "exact": <u8 view>
+}
+```
+
+- The icon is triangles of 3 corners, every corner with a position in each shape, a normal, a UV and a color. Its one part has the corners
+  that are the same in everything as one vertex, its faces in the icon's order. The icon's Y goes down, the file has it turned half a
+  turn about X so it stands up like every model. Positions, normals and UVs are the icon's 4096ths, `color` its bytes (RGBA).
+- `shapes` are the icon's shapes after the first, as offsets from the first. The add-on makes them shape keys, `Shape 1` for the second.
+- `animation.frames` are the shapes' weights over the animation, in the icon's order: every frame's `keys` are a time and a weight after
+  another. The console draws every shape times its weight over the weights' sum, the keys joined by straight lines with the first and
+  last weight held, 60 frames a second times `AnimationSpeed`, looping over `FrameLength` (PS2IODB's player, timed against the PS2 BIOS).
+  The add-on makes the keys the curves of the shape keys' values. Blender adds the shape keys' offsets from the basis instead, so once
+  the curves changed the first shape's keys are written as one minus the other shapes' weights at every time any of them has a key,
+  which draws what Blender shows; while they're as imported the first shape's keys stay as they were. A `FrameLength` of 1 plays
+  nothing (the game's icon has one shape and that), so an icon animated in Blender with it gets the frame of its last key instead.
+- The texture is the file's material, embedded with its image (128x128, an image of another size is resized). Its texels are 5 bits of
+  red, green and blue and an alpha bit, the image's 8 bits each spread from them and opaque or transparent.
+- `TextureType` 14 or 15 (bit 3) run length encodes the texture. `FileId`, `HeaderValue` and `AnimationTag` are what the game's icon has.
+- `exact` is the icon as the game has it. The add-on keeps it with the root and writes it back, TT Lab uses it while the file still has
+  everything of it: its corners' fourth words, which the tools wrote 0 into, and the encoding of a run length encoded texture.
 
 ### Meshes
 

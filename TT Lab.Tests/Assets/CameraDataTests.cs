@@ -44,7 +44,7 @@ public sealed class CameraDataTests : IDisposable
             path.PathPoints.Add(new Vector4(i * 10, 0, 0, 1));
         }
 
-        path.Parameters = PathParameters.Create(path.PathPoints.Select(point => new GlmSharp.vec3(point.X, point.Y, point.Z)).ToList(), 0.5f);
+        (path.ArcLengths, path.InverseSteps) = PathParameters.Create(path.PathPoints.Select(point => new GlmSharp.vec3(point.X, point.Y, point.Z)).ToList(), 0.5f);
         return path;
     }
 
@@ -57,10 +57,9 @@ public sealed class CameraDataTests : IDisposable
             spline.Tangents.Add(new Vector4(1, 0, 0, 1));
         }
 
-        // The lengths from the start then 1 over the steps, pair after pair: 2, 4, 6, then 1/31 three times
-        spline.Parameters.Add(new Vector2 { X = 2, Y = 4 });
-        spline.Parameters.Add(new Vector2 { X = 6, Y = 1 / 31.0f });
-        spline.Parameters.Add(new Vector2 { X = 1 / 31.0f, Y = 1 / 31.0f });
+        // The lengths from the start, then 1 over the steps
+        spline.ArcLengths = [2, 4, 6];
+        spline.InverseSteps = [1 / 31.0f, 1 / 31.0f, 1 / 31.0f];
 
         return spline;
     }
@@ -80,21 +79,21 @@ public sealed class CameraDataTests : IDisposable
 
         Assert.NotEqual(before, _assets.Export(camera));
         var path = (CameraPath)moved.MainCamera1!;
-        // The parameters are the segments' lengths from the start then 1 over their steps, pair after pair: the segments got longer
-        // through the raised point and every one keeps taking steps of 0.5
-        Assert.Equal(3, path.Parameters.Count);
-        Assert.True(path.Parameters[0].X > 10.0f);
-        Assert.True(path.Parameters[0].Y > path.Parameters[0].X + 10.0f);
-        Assert.Equal(1 / 21.0f, path.Parameters[1].Y, 1e-4f);
+        // The segments' lengths from the start and 1 over their steps: the segments got longer through the raised point and every one
+        // keeps taking steps of 0.5
+        Assert.Equal(3, path.ArcLengths.Count);
+        Assert.True(path.ArcLengths[0] > 10.0f);
+        Assert.True(path.ArcLengths[1] > path.ArcLengths[0] + 10.0f);
+        Assert.Equal(1 / 21.0f, path.InverseSteps[0], 1e-4f);
         var spline = (CameraSpline)moved.MainCamera2!;
-        Assert.Equal(3, spline.Parameters.Count);
-        // Lengths from the start then 1 over the steps, pair after pair: the two segments around the raised sample got longer
-        Assert.Equal(MathF.Sqrt(8), spline.Parameters[0].X, 1e-4f);
-        Assert.Equal(MathF.Sqrt(8) * 2, spline.Parameters[0].Y, 1e-4f);
-        Assert.Equal(MathF.Sqrt(8) * 2 + 2, spline.Parameters[1].X, 1e-4f);
+        Assert.Equal(3, spline.ArcLengths.Count);
+        // The two segments around the raised sample got longer
+        Assert.Equal(MathF.Sqrt(8), spline.ArcLengths[0], 1e-4f);
+        Assert.Equal(MathF.Sqrt(8) * 2, spline.ArcLengths[1], 1e-4f);
+        Assert.Equal(MathF.Sqrt(8) * 2 + 2, spline.ArcLengths[2], 1e-4f);
         // A segment 2 long taking 31 steps had steps of 2/31 to 2/30, the longer ones take more of them and the unchanged one its 31
-        Assert.InRange(1 / spline.Parameters[1].Y, 42, 45);
-        Assert.Equal(1 / 31.0f, spline.Parameters[2].Y, 1e-6f);
+        Assert.InRange(1 / spline.InverseSteps[0], 42, 45);
+        Assert.Equal(1 / 31.0f, spline.InverseSteps[2], 1e-6f);
         // The tangent at the moved sample points from the one before to the one after
         Assert.Equal((1f, 0f, 0f, 1f), (spline.Tangents[1].X, spline.Tangents[1].Y, spline.Tangents[1].Z, spline.Tangents[1].W));
         Assert.True(spline.Tangents[0].Y > 0.5f);

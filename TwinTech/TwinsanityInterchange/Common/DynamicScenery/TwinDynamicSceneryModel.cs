@@ -21,7 +21,10 @@ namespace Twinsanity.TwinsanityInterchange.Common.DynamicScenery
         public List<TwinCollisionHull> CollisionHulls { get; set; }
         public Int32 AnimatedFrames { get; set; }
         public TwinDynamicSceneryAnimation Animation { get; set; }
-        public Byte LodFlag { get; set; }
+        /// <summary>
+        /// The model draws through a LOD instead of a mesh (a byte the game reads as a bool, 0 on every retail model)
+        /// </summary>
+        public Boolean UsesLod { get; set; }
         public UInt32 MeshID { get; set; }
         public Vector4[] BoundingBox { get; set; }
 
@@ -54,7 +57,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.DynamicScenery
             }
             AnimatedFrames = reader.ReadInt32();
             Animation.Read(reader, length);
-            LodFlag = reader.ReadByte();
+            UsesLod = reader.ReadByte() != 0;
             MeshID = reader.ReadUInt32();
             for (var i = 0; i < 2; ++i)
             {
@@ -73,7 +76,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.DynamicScenery
             }
             writer.Write(AnimatedFrames);
             Animation.Write(writer);
-            writer.Write(LodFlag);
+            writer.Write((Byte)(UsesLod ? 1 : 0));
             writer.Write(MeshID);
             foreach (var v in BoundingBox)
             {

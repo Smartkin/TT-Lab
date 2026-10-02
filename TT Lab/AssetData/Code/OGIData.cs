@@ -128,8 +128,8 @@ public class OGIData : AbstractAssetData
                 ["bind"] = TlmNodes.ToColumnVectorJson(bind),
                 [TlmNodes.DataKey] = new JsonObject
                 {
-                    ["ReactId"] = joint.ReactId,
-                    ["ChildrenAmt2"] = joint.ChildrenAmt2,
+                    ["Id"] = joint.Id,
+                    ["Detail"] = joint.Detail,
                     ["AdditionalAnimationRotation"] = TlmJson.ToJson(joint.AdditionalAnimationRotation),
                     ["LocalTranslation"] = TlmJson.ToJson(joint.LocalTranslation),
                     ["LocalRotation"] = TlmJson.ToJson(joint.LocalRotation),
@@ -286,7 +286,7 @@ public class OGIData : AbstractAssetData
         var jointJsons = (armature?["joints"] as JsonArray ?? []).OfType<JsonObject>().ToList();
         if (jointJsons.Count == 0)
         {
-            Joints.Add(new TwinJoint { Index = 0, ParentIndex = NoParent, ReactId = 0xFF, LocalRotation = new Vector4(0, 0, 0, 1), LocalTranslation = new Vector4(0, 0, 0, 1), AdditionalAnimationRotation = new Vector4(0, 0, 0, 1) });
+            Joints.Add(new TwinJoint { Index = 0, ParentIndex = NoParent, Id = 0xFF, LocalRotation = new Vector4(0, 0, 0, 1), LocalTranslation = new Vector4(0, 0, 0, 1), AdditionalAnimationRotation = new Vector4(0, 0, 0, 1) });
             SkinInverseMatrices.Add(Matrix4x4.Identity.ToTwin());
             return;
         }
@@ -335,7 +335,7 @@ public class OGIData : AbstractAssetData
         {
             if (!byIndex.TryGetValue(index, out var json))
             {
-                Joints.Add(new TwinJoint { Index = index, ParentIndex = 0, ReactId = 0xFF, LocalRotation = new Vector4(0, 0, 0, 1), LocalTranslation = new Vector4(0, 0, 0, 1), AdditionalAnimationRotation = new Vector4(0, 0, 0, 1) });
+                Joints.Add(new TwinJoint { Index = index, ParentIndex = 0, Id = 0xFF, LocalRotation = new Vector4(0, 0, 0, 1), LocalTranslation = new Vector4(0, 0, 0, 1), AdditionalAnimationRotation = new Vector4(0, 0, 0, 1) });
                 SkinInverseMatrices.Add(Matrix4x4.Identity.ToTwin());
                 continue;
             }
@@ -374,9 +374,9 @@ public class OGIData : AbstractAssetData
             {
                 Index = index,
                 ParentIndex = parent,
-                ReactId = data.GetInt("ReactId", 0xFF),
-                ChildrenAmt1 = parents.Count(p => p == index),
-                ChildrenAmt2 = data.GetInt("ChildrenAmt2"),
+                Id = data.GetInt("Id", 0xFF),
+                ChildCount = parents.Count(p => p == index),
+                Detail = data.GetInt("Detail"),
                 LocalTranslation = localTranslation,
                 LocalRotation = localRotation,
                 WorldTranslation = kept[index] && storedWorld.Length == 4

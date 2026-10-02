@@ -181,6 +181,52 @@ namespace Twinsanity.TwinsanityInterchange.Enumerations
         }
 
         /// <summary>
+        /// An AI position's flags (the game's AiPosition): route searches can ask for some and rule some out (the nearest point search with
+        /// flags), the scripts' conditions test the ones of the route's step. Bits 1, 2 and 4 are set on positions of the retail levels
+        /// </summary>
+        [Flags]
+        public enum AiPositionFlags : UInt16
+        {
+            /// <summary>No route goes through the position (the path finder's step cost)</summary>
+            Blocked = 1 << 0,
+            /// <summary>The scripts' NodeIsAirborne condition tests it on the route's step</summary>
+            Airborne = 1 << 1,
+            Flag2 = 1 << 2,
+            Flag3 = 1 << 3,
+            /// <summary>The scripts' SubPathPointFlag4 conditions test it</summary>
+            Flag4 = 1 << 4,
+            /// <summary>The scripts' SubPathPointFlag5 conditions test it</summary>
+            Flag5 = 1 << 5,
+            /// <summary>The scripts' SubPathPointFlag6 conditions test it</summary>
+            Flag6 = 1 << 6,
+        }
+
+        /// <summary>
+        /// An AI path's flags (the game's AiPath): which routes may take it (a route request's bits each rule out the paths with one) and what
+        /// the scripts' conditions find on the path to the route's step
+        /// </summary>
+        [Flags]
+        public enum AiPathFlags : UInt16
+        {
+            Flag0 = 1 << 0,
+            Flag1 = 1 << 1,
+            /// <summary>Crossing it takes a jump (EdgeNeedsJump), requests with bit 17 rule it out</summary>
+            NeedsJump = 1 << 2,
+            /// <summary>Crossing it takes a long jump (EdgeNeedsLongJump), requests with bit 19 rule it out</summary>
+            NeedsLongJump = 1 << 3,
+            /// <summary>Crossing it takes a high jump (EdgeNeedsHighJump), requests with bit 18 rule it out</summary>
+            NeedsHighJump = 1 << 4,
+            /// <summary>Requests with bit 20 rule it out; with bit 24 only paths with one of bits 5-8 are taken</summary>
+            Flag5 = 1 << 5,
+            /// <summary>Requests with bit 21 rule it out</summary>
+            Flag6 = 1 << 6,
+            /// <summary>Requests with bit 22 rule it out</summary>
+            Flag7 = 1 << 7,
+            /// <summary>Requests with bit 23 rule it out, the scripts' PathSegmentFlag0 condition tests it</summary>
+            Flag8 = 1 << 8,
+        }
+
+        /// <summary>
         /// A collision surface's flags, from the PAL executable. The ray casts test one bit each: the player's probes bit 4, the camera's
         /// bit 5, objects' ground and movement checks (CanMoveForwards, SnapToGround) bit 6, lines of sight (CanSeePlayer,
         /// ClearLineOfSightToFocus) bit 7. Bits 12-19 are set on every surface by the surface's constructor and never read.
@@ -203,10 +249,10 @@ namespace Twinsanity.TwinsanityInterchange.Enumerations
             SolidToObjects = 1 << 6,
             /// <summary>Lines of sight stop at it (CanSeePlayer, ClearLineOfSightToFocus, PlayerVisible)</summary>
             BlocksLineOfSight = 1 << 7,
-            /// <summary>Set on every deadly surface next to <see cref="SendsContactMessage"/>, never read</summary>
-            Deadly = 1 << 8,
+            /// <summary>The agents of rigid bodies touching it get the surface's contact message (set on every deadly surface)</summary>
+            SendsContactMessageToObjects = 1 << 8,
             /// <summary>The player standing on it gets the surface's contact message (the deadly surfaces' kill)</summary>
-            SendsContactMessage = 1 << 9,
+            SendsContactMessageToPlayer = 1 << 9,
             /// <summary>Slows the player down like the sticky snow</summary>
             Sticky = 1 << 10,
             /// <summary>The player's steps leave footprints on it</summary>

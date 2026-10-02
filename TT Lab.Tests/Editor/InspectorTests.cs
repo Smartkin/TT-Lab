@@ -30,7 +30,7 @@ public sealed class InspectorTests : IDisposable
     private DocumentViewModel OpenPath(int points)
     {
         var path = _project.Add(new Path(), "Path");
-        path.SetData(new PathData(path) { Points = Enumerable.Range(0, points).Select(i => new Vector3(i, 0, 0)).ToList(), Parameters = [] });
+        path.SetData(new PathData(path) { Points = Enumerable.Range(0, points).Select(i => new Vector3(i, 0, 0)).ToList(), ArcLengths = [], InverseSteps = [] });
         var document = new DocumentViewModel(path);
         document.Initialize();
         return document;

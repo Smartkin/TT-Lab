@@ -1,6 +1,7 @@
 using System.Numerics;
 using System.Text.Json.Nodes;
 using TT_Lab.AssetData.Code;
+using TT_Lab.AssetData.Global;
 using TT_Lab.AssetData.Graphics;
 using TT_Lab.AssetData.Graphics.TlModel;
 using TT_Lab.Extensions;
@@ -29,6 +30,9 @@ public sealed class TlmFixtureTests : IDisposable
     private const string SceneryBlenderExportName = "scenery_from_blender.tlm";
     private const string OgiTemplateName = "ogi_template.tlm";
     private const string SceneryTemplateName = "scenery_template.tlm";
+    private const string SaveIconFixtureName = "save_icon.tlm";
+    private const string SaveIconBlenderExportName = "save_icon_from_blender.tlm";
+    private const string SaveIconBlenderEditName = "save_icon_edited_in_blender.tlm";
 
     private readonly TestProject _project = new();
     private readonly TestAssets _assets;
@@ -89,6 +93,44 @@ public sealed class TlmFixtureTests : IDisposable
     public void SceneryFixtureIsWhatTtLabWrites()
     {
         CheckFixture(SceneryFixtureName, Bytes(((IAsset)_assets.AddScenery()).GetData<SceneryData>().WriteTlm()));
+    }
+
+    [Fact]
+    public void SaveIconFixtureIsWhatTtLabWrites()
+    {
+        CheckFixture(SaveIconFixtureName, Bytes(SaveIconTlm.Write("Crash", TestAssets.MakeSaveIcon())));
+    }
+
+    // Nothing was edited in Blender, the icon comes back as the game has it, and the same from what Blender shows of it
+    [Fact]
+    public void BlendersSaveIconExportIsTheSameIcon()
+    {
+        var expected = SaveIconTlm.ToBytes(TestAssets.MakeSaveIcon());
+        var file = TlmFile.Load(FixturePath(SaveIconBlenderExportName));
+
+        Assert.Equal(expected, SaveIconTlm.ToBytes(SaveIconTlm.Read(file)));
+        file.Root!.Remove("exact");
+        Assert.Equal(expected, SaveIconTlm.ToBytes(SaveIconTlm.Read(file)));
+    }
+
+    // blender_roundtrip.py --edit moved the icon's first vertex half a unit along X and halved the second shape's middle key, the first
+    // shape's weight is what the second's leaves over
+    [Fact]
+    public void SaveIconEditedInBlenderHasTheEdits()
+    {
+        var expected = TestAssets.MakeSaveIcon();
+        foreach (var corner in new[] { 0, 3 })
+        {
+            expected.Vertexes[corner].Positions[0] += 2048;
+            expected.Vertexes[corner].Positions[4] += 2048;
+        }
+
+        expected.Frames[1].Keys[1] = new Twinsanity.TwinsanityInterchange.Implementations.PS2.SaveIconKey(30, 0.5f);
+        expected.Frames[0].Keys[1] = new Twinsanity.TwinsanityInterchange.Implementations.PS2.SaveIconKey(30, 0.5f);
+
+        var icon = SaveIconTlm.Read(TlmFile.Load(FixturePath(SaveIconBlenderEditName)));
+
+        Assert.Equal(SaveIconTlm.ToBytes(expected), SaveIconTlm.ToBytes(icon));
     }
 
     // Nothing was edited in Blender, the tree, the placed meshes, the lights, the collision and the dynamic scenery come back the same
@@ -445,7 +487,7 @@ public sealed class TlmFixtureTests : IDisposable
         var sun = Assert.Single(read.DirectionalLights);
         Assert.True(sun.Direction.Y > 0.9f);
         Assert.Empty(read.PointLights);
-        Assert.Empty(read.NegativeLights);
+        Assert.Empty(read.SpotLights);
         var collision = _assets.Get(read.Collision).GetData<CollisionData>();
         Assert.Equal(2, collision.Triangles.Count);
         Assert.All(collision.Triangles, triangle => Assert.Equal(defaultSurface.URI, triangle.Surface));

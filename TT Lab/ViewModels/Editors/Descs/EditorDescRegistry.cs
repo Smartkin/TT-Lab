@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
+using TT_Lab.AssetData.Instance;
 using TT_Lab.Assets;
 using TT_Lab.ViewModels.Editors.PropertyGraph;
 using Twinsanity.TwinsanityInterchange.Common;
@@ -86,6 +87,7 @@ public static class EditorDescRegistry
         Register<Double>(textFieldFactory);
         Register<Decimal>(textFieldFactory);
         Register<LabURI>((document, node) => new UriLinkEditorDesc { Document = document, Node = node });
+        Register<TaggedProperty>((document, node) => new TaggedPropertyEditorDesc { Document = document, Node = node });
         Register<Vector2>((document, node) => new Vector2EditorDesc { Document = document, Node = node });
         Register<Vector3>((document, node) => new Vector3EditorDesc { Document = document, Node = node });
         Register<Vector4>((document, node) => new Vector4EditorDesc { Document = document, Node = node });

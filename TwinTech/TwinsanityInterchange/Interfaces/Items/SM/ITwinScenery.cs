@@ -52,13 +52,13 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.SM
         /// <summary>
         /// Negative lights present in the scenery
         /// </summary>
-        List<NegativeLight> NegativeLights { get; set; }
+        List<SpotLight> SpotLights { get; set; }
         /// <summary>
         /// Scenery tree
         /// </summary>
         List<TwinSceneryBaseType> Sceneries { get; set; }
         /// <summary>
-        /// Index and kind (ambient 0, directional 1, point 2, negative 3) of every light in the order the scenery lists them, empty when
+        /// Index and kind (ambient 0, directional 1, point 2, spot 3) of every light in the order the scenery lists them, empty when
         /// they're listed kind by kind the way the PS2 version always does
         /// </summary>
         List<Int32> LightOrder { get; set; }

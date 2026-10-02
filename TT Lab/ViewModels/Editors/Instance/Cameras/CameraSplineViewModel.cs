@@ -50,10 +50,6 @@ namespace TT_Lab.ViewModels.Editors.Instance.Cameras
             }
             parameters = new BindableCollection<Vector2ViewModel>();
             DirtyTracker.AddBindableCollection(parameters);
-            foreach (var d in baseCam.Parameters)
-            {
-                parameters.Add(new Vector2ViewModel(d));
-            }
             splineFlags = baseCam.SplineFlags;
         }
 
@@ -83,15 +79,6 @@ namespace TT_Lab.ViewModels.Editors.Instance.Cameras
                     Y = ip.Y,
                     Z = ip.Z,
                     W = ip.W,
-                });
-            }
-            splineCam.Parameters.Clear();
-            foreach (var d in Parameters)
-            {
-                splineCam.Parameters.Add(new Twinsanity.TwinsanityInterchange.Common.Vector2
-                {
-                    X = d.X,
-                    Y = d.Y
                 });
             }
             base.Save(cam);

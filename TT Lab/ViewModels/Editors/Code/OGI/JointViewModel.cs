@@ -15,12 +15,12 @@ public class JointViewModel : Screen, IHaveParentEditor<OGIViewModel>, ISaveable
     private Vector4ViewModel _worldTranslation = new();
     private Vector4ViewModel _worldRotation = new();
     private Vector4ViewModel _additionalAnimationRotation = new();
-    private Int32 _reactId = -1;
+    private Int32 _id = -1;
     private DirtyTracker _dirtyTracker;
     private Int32 _index = 0;
     private Int32 _parentIndex = -1;
-    private Int32 _childrenAmt1 = 0;
-    private Int32 _childrenAmt2 = 0;
+    private Int32 _childCount = 0;
+    private Int32 _detail = 0;
 
     public OGIViewModel ParentEditor { get; set; }
 
@@ -42,17 +42,17 @@ public class JointViewModel : Screen, IHaveParentEditor<OGIViewModel>, ISaveable
         _worldTranslation = new Vector4ViewModel(joint.WorldTranslation);
         _worldRotation = new Vector4ViewModel(joint.UnusedRotation);
         _additionalAnimationRotation = new Vector4ViewModel(joint.AdditionalAnimationRotation);
-        _reactId = joint.ReactId;
+        _id = joint.Id;
         _index = joint.Index;
         _parentIndex = joint.ParentIndex;
-        _childrenAmt1 = joint.ChildrenAmt1;
-        _childrenAmt2 = joint.ChildrenAmt2;
+        _childCount = joint.ChildCount;
+        _detail = joint.Detail;
     }
 
     public void Save(TwinJoint o)
     {
-        o.ChildrenAmt1 =  _childrenAmt1;
-        o.ChildrenAmt2 =  _childrenAmt2;
+        o.ChildCount =  _childCount;
+        o.Detail =  _detail;
         o.Index = _index;
         o.ParentIndex = _parentIndex;
         o.LocalTranslation = new Vector4(_localTranslation.X, _localTranslation.Y, _localTranslation.Z, _localTranslation.W);
@@ -84,13 +84,13 @@ public class JointViewModel : Screen, IHaveParentEditor<OGIViewModel>, ISaveable
     }
 
     [MarkDirty]
-    public Int32 ReactId
+    public Int32 Id
     {
-        get => _reactId;
+        get => _id;
         set
         {
-            if (value == _reactId) return;
-            _reactId = value;
+            if (value == _id) return;
+            _id = value;
             NotifyOfPropertyChange();
         }
     }

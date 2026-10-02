@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -153,10 +153,10 @@ public sealed class BvhBuilder
     /// <summary>
     /// The tree a game file holds, for looking at it
     /// </summary>
-    public static Tree FromTwin(IReadOnlyList<TwinCollisionTrigger> triggers, IReadOnlyList<TwinGroupInformation> groups, int triangleCount)
+    public static Tree FromTwin(IReadOnlyList<TwinCollisionNode> nodes, IReadOnlyList<TwinCollisionGroup> groups, int triangleCount)
     {
-        return new Tree(triggers.Select(trigger => new Node(ToGlm(trigger.V1), ToGlm(trigger.V2), trigger.MinTriggerIndex, trigger.MaxTriggerIndex)).ToList(),
-            groups.Select(group => new Group((int)group.Offset, (int)group.Size)).ToList(), Enumerable.Range(0, triangleCount).ToArray());
+        return new Tree(nodes.Select(node => new Node(ToGlm(node.Min), ToGlm(node.Max), node.FirstChild, node.SecondChild)).ToList(),
+            groups.Select(group => new Group((int)group.FirstTriangle, (int)group.Count)).ToList(), Enumerable.Range(0, triangleCount).ToArray());
     }
 
     public static void BuildBvh(CollisionData collision)
@@ -164,15 +164,15 @@ public sealed class BvhBuilder
         var watch = Stopwatch.StartNew();
         Log.WriteLine("Building collision bounding volume hierarchy...");
         var faces = collision.Triangles.Select(triangle => new Face(triangle.Face.Indexes![0], triangle.Face.Indexes[1], triangle.Face.Indexes[2])).ToList();
-        var tree = Build(faces, collision.Vectors);
-        collision.Triggers = tree.Nodes.Select(node => new CollisionTrigger
+        var tree = Build(faces, collision.Vertexes);
+        collision.Nodes = tree.Nodes.Select(node => new CollisionNode
         {
-            V1 = new Vector3(node.Min.x, node.Min.y, node.Min.z),
-            V2 = new Vector3(node.Max.x, node.Max.y, node.Max.z),
-            MinTriggerIndex = node.Left,
-            MaxTriggerIndex = node.Right,
+            Min = new Vector3(node.Min.x, node.Min.y, node.Min.z),
+            Max = new Vector3(node.Max.x, node.Max.y, node.Max.z),
+            FirstChild = node.Left,
+            SecondChild = node.Right,
         }).ToList();
-        collision.Groups = tree.Groups.Select(group => new GroupInformation { Offset = (uint)group.Offset, Size = (uint)group.Size }).ToList();
+        collision.Groups = tree.Groups.Select(group => new CollisionGroup { FirstTriangle = (uint)group.Offset, Count = (uint)group.Size }).ToList();
         collision.Triangles = tree.TriangleOrder.Select(index => collision.Triangles[index]).ToList();
         Log.WriteLine($"Building collision BVH completed in {watch.Elapsed.TotalSeconds:F2} s: {tree.Nodes.Count} boxes, {tree.Groups.Count} leaves");
     }

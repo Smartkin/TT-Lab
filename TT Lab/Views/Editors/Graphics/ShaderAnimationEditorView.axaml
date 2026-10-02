@@ -1,0 +1,66 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:graphics="clr-namespace:TT_Lab.ViewModels.Editors.Graphics"
+             xmlns:labControls="clr-namespace:TT_Lab.Controls"
+             x:DataType="graphics:ShaderAnimationEditorViewModel"
+             mc:Ignorable="d" d:DesignWidth="420" d:DesignHeight="460"
+             x:Class="TT_Lab.Views.Editors.Graphics.ShaderAnimationEditorView">
+    <UserControl.Styles>
+        <!-- Track names gray out with the rest of their row, a text block has no disabled look of its own -->
+        <Style Selector="Grid.track:disabled > TextBlock">
+            <Setter Property="Opacity" Value="0.45"/>
+        </Style>
+    </UserControl.Styles>
+    <!-- The inspector scrolls sideways, the timeline takes the width it has -->
+    <labControls:FitToScrollViewport>
+        <StackPanel Spacing="4" Margin="0,2">
+            <Button Content="Add an animation" Command="{Binding AddAnimationCommand}" IsVisible="{Binding !HasAnimation}"
+                    ToolTip.Tip="A new animation of one frame: every track static, no UV offset and white"/>
+            <StackPanel Spacing="4" IsVisible="{Binding HasAnimation}">
+                <WrapPanel Orientation="Horizontal">
+                    <Button Content="◀" Command="{Binding PreviousFrameCommand}" Margin="0,0,2,2" ToolTip.Tip="Previous frame"/>
+                    <Button Content="▶" Command="{Binding NextFrameCommand}" Margin="0,0,8,2" ToolTip.Tip="Next frame"/>
+                    <TextBlock Text="{Binding FrameLabel}" VerticalAlignment="Center" Margin="0,0,8,2"/>
+                    <TextBlock Text="FPS" VerticalAlignment="Center" Margin="0,0,4,2"/>
+                    <TextBox Text="{Binding FramesPerSecondText}" Width="44" Margin="0,0,8,2" ToolTip.Tip="Frames a second, 0 to 31"/>
+                    <Button Content="Insert frame" Command="{Binding InsertFrameCommand}" Margin="0,0,2,2" ToolTip.Tip="A copy of the frame at the playhead, put in after it"/>
+                    <Button Content="Delete frame" Command="{Binding RemoveFrameCommand}" Margin="0,0,2,2" ToolTip.Tip="Takes out the frame at the playhead"/>
+                    <Button Content="Remove animation" Command="{Binding RemoveAnimationCommand}" Margin="0,0,2,2"/>
+                </WrapPanel>
+                <WrapPanel Orientation="Horizontal">
+                    <TextBlock Text="The shader takes" VerticalAlignment="Center" Margin="0,0,8,2"/>
+                    <CheckBox Content="U" IsChecked="{Binding MovesU}" Margin="0,0,8,2"
+                              ToolTip.Tip="X Scroll Settings set to FromAnimation: the U track is added to the texture's U, moving it sideways (1 is the texture's whole width)"/>
+                    <CheckBox Content="V" IsChecked="{Binding MovesV}" Margin="0,0,8,2"
+                              ToolTip.Tip="Y Scroll Settings set to FromAnimation: the V track is added to the texture's V, moving it up and down (1 is the texture's whole height)"/>
+                    <CheckBox Content="Color" IsChecked="{Binding DrivesColor}" Margin="0,0,8,2"
+                              ToolTip.Tip="'Animation drives color': the red, green, blue and alpha tracks become the shader's color every frame"/>
+                </WrapPanel>
+                <labControls:ShaderAnimationTimeline x:Name="Timeline" Height="250" MinWidth="240" ToolTip.Tip="{Binding TimelineHint}"
+                                                     Tracks="{Binding Tracks}" Frame="{Binding Frame}" SelectedTrack="{Binding SelectedTrack}"/>
+                <ItemsControl ItemsSource="{Binding Rows}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="graphics:ShaderAnimationTrackRow">
+                            <!-- The row's tooltip says what turns a grayed out track on, a disabled control shows none of its own -->
+                            <Border Background="Transparent" ToolTip.Tip="{Binding UnusedHint}">
+                                <Grid Classes="track" ColumnDefinitions="56,Auto,*" Margin="0,1" IsEnabled="{Binding IsUsed}">
+                                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                                    <CheckBox Grid.Column="1" Content="Animated" IsChecked="{Binding IsAnimated}" Margin="0,0,8,0"
+                                              ToolTip.Tip="A value on every frame, else one value for the whole animation"/>
+                                    <TextBox Grid.Column="2" Text="{Binding ValueText}" ToolTip.Tip="The value at the playhead, in steps of 1/4096"/>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <Grid ColumnDefinitions="Auto,*">
+                    <TextBlock Text="Color" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <Border Grid.Column="1" Height="16" CornerRadius="2" Background="{Binding Swatch}" BorderBrush="Gray" BorderThickness="1"
+                            Opacity="{Binding SwatchOpacity}" ToolTip.Tip="The color tracks at the playhead"/>
+                </Grid>
+            </StackPanel>
+        </StackPanel>
+    </labControls:FitToScrollViewport>
+</UserControl>

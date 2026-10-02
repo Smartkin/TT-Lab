@@ -50,7 +50,7 @@ public static class AssetDataFactory
 
     // Parameters that every Crash instance in the retail levels is placed with
     private static readonly Enums.InstanceState CrashInstanceState = (Enums.InstanceState)0x7D2E;
-    private static readonly UInt32[] CrashInstanceFlags = [65536, 131072, 131072, 364088, 109226, 16384, 262144, 262144, 0];
+    private static readonly UInt32[] CrashInstanceTaggedValues = [65536, 131072, 131072, 364088, 109226, 16384, 262144, 262144, 0];
     private static readonly Single[] CrashInstanceFloats =
     [
         1.0f, 50.0f, 5.2f, 15.0f, 50.0f, 0.0f, 2.5f, 9.0f, 0.0f, 10.0f, 0.4f, 0.15f, 0.15f, 0.5f, 1.0f, 8.0f,
@@ -58,7 +58,7 @@ public static class AssetDataFactory
         10.0f, 400.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.75f, 0.1f, 0.1f, 0.1f, 18.0f, 0.15f, 0.2f, 0.1f,
         0.3f, 0.3f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f
     ];
-    private static readonly UInt32[] CrashInstanceIntegers = [0, 255, 2];
+    private static readonly Int32[] CrashInstanceIntegers = [0, 255, 2];
 
     // A package is a folder of the project's assets folder, named as typed. It depends on the version's package, which brings the
     // version's global one, and the project's package depends on it like on the others
@@ -305,9 +305,9 @@ public static class AssetDataFactory
                 ObjectId = crashObject,
                 RefListIndex = -1,
                 StateFlags = CrashInstanceState,
-                ParamList1 = [..CrashInstanceFlags],
-                ParamList2 = [..CrashInstanceFloats],
-                ParamList3 = [..CrashInstanceIntegers]
+                TaggedProperties = [..CrashInstanceTaggedValues.Select(bits => new TaggedProperty(bits))],
+                FloatProperties = [..CrashInstanceFloats],
+                IntProperties = [..CrashInstanceIntegers]
             });
 
         LevelSelect.AddChunk(chunk);
@@ -366,7 +366,7 @@ public static class AssetDataFactory
         };
         const Single halfSize = DefaultChunkFloorHalfSize;
         var collisionData = new CollisionData(collision);
-        collisionData.Vectors.AddRange([
+        collisionData.Vertexes.AddRange([
             new Vector4(-halfSize, 0.0f, -halfSize, 1.0f),
             new Vector4(halfSize, 0.0f, -halfSize, 1.0f),
             new Vector4(halfSize, 0.0f, halfSize, 1.0f),

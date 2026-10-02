@@ -20,7 +20,7 @@
                                     LoopStart="{Binding LoopStart}"
                                     LoopEnd="{Binding LoopEnd}"
                                     Playhead="{Binding PlayheadSample}"
-                                    ToolTip.Tip="Drag the loop's ends, click to play from there. The PS2 keeps loops in blocks of 28 samples"/>
+                                    ToolTip.Tip="Drag the loop's ends, click or drag anywhere else to move playback there. The PS2 keeps loops in blocks of 28 samples"/>
             <Grid RowDefinitions="*,*" ColumnDefinitions="*,*">
                 <Slider x:Name="PlayerTrack"
                         Margin="0, 0, 0, 5"

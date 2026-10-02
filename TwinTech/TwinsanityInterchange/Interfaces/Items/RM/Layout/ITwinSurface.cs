@@ -33,18 +33,19 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout
         UInt16 ScrapeSoundId { get; set; }
         /// <summary>
         /// The volume scales of the sounds of kinds 0, 4, 5, 1 and 2 (shared), 3 (-1 leaves the volume as it is), then 5 values
-        /// the tools kept of which the game only reads the second, the friction the player and rigid bodies get on the surface
-        /// (0.05 on ice, 1 on most). See <see cref="SurfacePhysics"/>.
+        /// the tools kept of which the game reads the second, the friction the player and rigid bodies get on the surface (0.05 on
+        /// ice, 1 on most), and the third, what rigid bodies' bounce is scaled by. See <see cref="SurfacePhysics"/>.
         /// </summary>
         Single[] PhysicsParameters { get; set; }
         /// <summary>(0, 0, 0, 1) on every retail surface, never read</summary>
         Vector4 UnusedVector { get; set; }
         /// <summary>
-        /// Two vectors handed to the player standing on a surface with <see cref="SurfaceCollisionFlags.SendsContactMessage"/> and to
-        /// rigid bodies landing on the surface when the second's X isn't 0, whose bit 3 the player also checks. Leftover memory in
-        /// the retail data.
+        /// What touching the surface does: handed to the player standing on a surface with
+        /// <see cref="SurfaceCollisionFlags.SendsContactMessageToPlayer"/> and to the agents of rigid bodies touching one with
+        /// <see cref="SurfaceCollisionFlags.SendsContactMessageToObjects"/> (DynamicBody::SurfaceContact). The deadly surfaces deal
+        /// 100 hit points of their kind of hit
         /// </summary>
-        Vector4[] ContactMessage { get; set; }
+        TwinContactMessage ContactMessage { get; set; }
     }
 
     /// <summary>
@@ -58,15 +59,15 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout
         public const Int32 StepSoundVolume = 3;
         public const Int32 LandSoundVolume = 4;
         /// <summary>1000000 on most surfaces, 5 and 2 on the slippy ones, 120 on liquids and deadly surfaces. Never read.</summary>
-        public const Int32 Unread1 = 5;
+        public const Int32 Unread5 = 5;
         /// <summary>What the player and rigid bodies grip the surface with: 1 on most, 0.7 on metal and rock, 0.05 on ice, 0 on the AI walls</summary>
         public const Int32 Friction = 6;
-        /// <summary>1 on most, 0.5 on soft grounds, 0.1 on liquids and deadly surfaces. Never read.</summary>
-        public const Int32 Unread2 = 7;
+        /// <summary>What rigid bodies' restitution (their bounce) is multiplied by on the surface: 1 on most, 0.5 on soft grounds, 0.1 on liquids and deadly surfaces</summary>
+        public const Int32 Restitution = 7;
         /// <summary>35 or 45 on the slippy surfaces, 0 elsewhere. Never read.</summary>
-        public const Int32 Unread3 = 8;
+        public const Int32 Unread8 = 8;
         /// <summary>0.98 or 0.99 on the slippy surfaces, 0 elsewhere. Never read.</summary>
-        public const Int32 Unread4 = 9;
+        public const Int32 Unread9 = 9;
         public const Int32 Count = 10;
     }
 }

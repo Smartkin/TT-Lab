@@ -27,9 +27,9 @@ namespace TT_Lab.ViewModels.Editors.Instance
             var data = (AiPathData)asset.GetData();
             data.PathBegin = pathBegin;
             data.PathEnd = pathEnd;
-            data.Args[0] = Arg1;
-            data.Args[1] = Arg2;
-            data.Args[2] = Arg3;
+            data.Flags = (Enums.AiPathFlags)Arg1;
+            data.ChunkA = Arg2;
+            data.ChunkB = Arg3;
             
             base.Save();
         }
@@ -40,7 +40,7 @@ namespace TT_Lab.ViewModels.Editors.Instance
             var pathData = (AiPathData)asset.GetData();
             pathBegin = pathData.PathBegin;
             pathEnd = pathData.PathEnd;
-            args = CloneUtils.CloneArray(pathData.Args);
+            args = [(UInt16)pathData.Flags, pathData.ChunkA, pathData.ChunkB];
             layId = MiscUtils.ConvertEnum<Enums.Layouts>(asset.LayoutID!.Value);
 
             var tree = ParentEditor.ChunkTree;
