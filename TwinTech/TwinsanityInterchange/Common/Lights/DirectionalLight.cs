@@ -12,11 +12,11 @@ namespace Twinsanity.TwinsanityInterchange.Common.Lights
         /// <summary>
         /// Unit vector pointing at where the light comes from, W 0.
         /// </summary>
-        public Vector4 Direction;
+        public Vector4 Direction { get; set; }
         /// <summary>
         /// Copied from the tools' template and never read by the game (0, 9, -1 or 6922 in the retail data).
         /// </summary>
-        public Int16 Leftover;
+        public Int16 Leftover { get; set; }
 
         public DirectionalLight() : base()
         {

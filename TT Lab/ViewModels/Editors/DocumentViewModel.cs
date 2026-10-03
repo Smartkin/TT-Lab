@@ -103,13 +103,14 @@ public partial class DocumentViewModel : ReactiveObject
         DoNotClose,
     }
 
-    public DocumentViewModel(IDocumentModel documentModel, ViewportViewModel? viewport = null)
+    public DocumentViewModel(IDocumentModel documentModel, ViewportViewModel? viewport = null, ChunkOverrideSession? overrides = null)
     {
         _resourcesInDocument = new SourceCache<LabURI, String>(uri => uri);
         _resourcesInDocument.AddOrUpdate(LabURI.Empty);
         Viewport = viewport;
         
-        PropertyGraph = PropertyGraphBuilder.Build(documentModel);
+        // A scene shows what it's reading while it loads
+        PropertyGraph = PropertyGraphBuilder.Build(documentModel, viewport == null ? null : viewport.ReportRead, overrides);
         History = new UndoHistory(PropertyGraph);
         PropertyGraph.Changed += change =>
         {
@@ -476,6 +477,72 @@ public partial class DocumentViewModel : ReactiveObject
             default:
                 return DocumentClosing.DoNotClose;
         }
+    }
+
+    /// <summary>
+    /// What a document made again over the same data keeps (another program changed files it shows): the assets its unsaved changes are
+    /// in, a chunk's views with what got edited in them, the particle systems renamed and the history, unless a step of it changed what's
+    /// read again
+    /// </summary>
+    internal sealed record Carried(bool IsDirty, IReadOnlyList<IAsset> ChangedAssets, ChunkOverrideSession? Overrides, UndoHistory? History,
+        ParticleSystemLinks ParticleSystemLinks, string Reloaded);
+
+    /// <summary>
+    /// Whether the unsaved changes are in any of the assets, a chunk's views standing for theirs
+    /// </summary>
+    internal bool HasChangesIn(IReadOnlySet<LabURI> assets) =>
+        _changedAssets.Any(asset => assets.Contains(asset.URI) || asset is SerializableAsset { OverriddenAsset: { } shared } && assets.Contains(shared.URI));
+
+    internal Carried Carry(IReadOnlySet<LabURI> reread, string reloaded)
+    {
+        PropertyGraph.Overrides?.Forget(reread);
+        var rereadNodes = new List<string>();
+        FindNodesOf(PropertyGraph.Root, reread, rereadNodes);
+        var history = History.Touches(path => rereadNodes.Any(node => IsWithin(path, node))) ? null : History;
+        return new Carried(IsDirty, _changedAssets.ToList(), PropertyGraph.Overrides, history, _particleSystemLinks, reloaded);
+    }
+
+    // The nodes of the assets, a chunk's views of them included
+    private static void FindNodesOf(PropertyNode node, IReadOnlySet<LabURI> assets, List<string> found)
+    {
+        if (node.Target is IAsset asset && (assets.Contains(asset.URI) || asset is SerializableAsset { OverriddenAsset: { } shared } && assets.Contains(shared.URI)))
+        {
+            found.Add(node.Path);
+            return;
+        }
+
+        foreach (var child in node.Children)
+        {
+            FindNodesOf(child, assets, found);
+        }
+    }
+
+    private static bool IsWithin(string path, string node) =>
+        path.StartsWith(node, StringComparison.Ordinal) && (path.Length == node.Length || path[node.Length] is '.' or '[');
+
+    internal void TakeOver(Carried carried)
+    {
+        foreach (var asset in carried.ChangedAssets)
+        {
+            _changedAssets.Add(asset);
+        }
+
+        _particleSystemLinks.TakeOver(carried.ParticleSystemLinks);
+        if (carried.History != null)
+        {
+            History.Adopt(carried.History);
+        }
+        else
+        {
+            // Unsaved changes stay unsaved however far back the history goes
+            History.Clear($"Reloaded {carried.Reloaded}");
+            if (!carried.IsDirty)
+            {
+                History.MarkSaved();
+            }
+        }
+
+        IsDirty = carried.IsDirty;
     }
 
     public void Save()

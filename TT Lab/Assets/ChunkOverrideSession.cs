@@ -162,6 +162,21 @@ public sealed class ChunkOverrideSession(LevelChunk chunk)
         Invalidate(view);
     }
 
+    /// <summary>
+    /// Lets go of the views of assets whose data got read again, the next view of one is made from what it has now
+    /// </summary>
+    public void Forget(IReadOnlySet<LabURI> assets)
+    {
+        foreach (var uri in assets)
+        {
+            if (_views.Remove(uri, out var view))
+            {
+                _origins.Remove(view);
+                _ownValues.Remove(view);
+            }
+        }
+    }
+
     public IEnumerable<SerializableAsset> Views => _views.Values;
 
     public bool HasOwnValues(SerializableAsset view) => GetOwnValues(view).Count > 0;

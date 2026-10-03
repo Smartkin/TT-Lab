@@ -43,6 +43,7 @@ public class EditingContext
     private readonly BillboardSet _instancesBillboards;
     private readonly BillboardSet _aiPositionsBillboards;
     private readonly BillboardSet _chunkLinksBillboards;
+    private readonly BillboardSet _lightsBillboards;
     private readonly TransformGizmo _gizmo = new();
     private readonly Node _editCtxNode;
     private mat4 _dragStartTransform;
@@ -64,6 +65,7 @@ public class EditingContext
         _pathsBillboards = CreateBillboardSet(context, "PathsBillboards", "Path", KnownColor.LightBlue);
         _particlesBillboards = CreateBillboardSet(context, "ParticlesBillboards", "Particle_Emitter", useDiffuseOnly: false);
         _chunkLinksBillboards = CreateBillboardSet(context, "ChunkLinksBillboard", "Chunk_Link", KnownColor.Red);
+        _lightsBillboards = CreateBillboardSet(context, "LightsBillboards", "Light", KnownColor.Gold);
     }
 
     public TransformGizmo Gizmo => _gizmo;
@@ -152,6 +154,11 @@ public class EditingContext
     public Billboard CreatePathBillboard()
     {
         return _pathsBillboards.CreateBillboard(0, 0, 0);
+    }
+
+    public Billboard CreateLightBillboard()
+    {
+        return _lightsBillboards.CreateBillboard(0, 0, 0);
     }
 
     public RenderContext GetRenderContext()
@@ -399,8 +406,7 @@ public class EditingContext
             if (TransformMode == TransformMode.ROTATE && extra.Rotation is { IsReadOnly: false } rotation)
             {
                 render.SetRotation(moved.Rotation);
-                var degrees = vec3.Degrees(moved.Rotation.ToEulerAngles());
-                rotation.SetValue(new Vector3(degrees.x, degrees.y, degrees.z));
+                rotation.SetValue(extra.RotationData(moved.Rotation));
             }
 
             if (TransformMode == TransformMode.SCALE && extra.Scale is { IsReadOnly: false } scale)
@@ -620,8 +626,7 @@ public class EditingContext
                 break;
             case TransformMode.ROTATE:
                 render.SetRotation(result.Rotation);
-                var degrees = vec3.Degrees(result.Rotation.ToEulerAngles());
-                instance.Rotation?.SetValue(new Vector3(degrees.x, degrees.y, degrees.z));
+                instance.Rotation?.SetValue(instance.RotationData(result.Rotation));
                 break;
             case TransformMode.SCALE:
                 render.SetScale(result.Scale);

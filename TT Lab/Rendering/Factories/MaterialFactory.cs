@@ -100,6 +100,7 @@ public class MaterialFactory(TextureService textureService)
             AlphaTest = shader.ATest == TwinShader.AlphaTest.ON ? shader.AlphaValueToBeComparedTo / 255.0f : 0.0f,
             BillboardRender = shader.ShaderType == TwinShader.Type.UnlitBillboard,
             DoubleColor = unlit ? 1.0f : 2.0f,
+            Lit = !unlit,
             ReflectDist = shader.ShaderType == TwinShader.Type.LitReflectionSurface ? new vec2(1.0f, shader.FloatParam[0]) : vec2.Zero,
             MetalicSpecular = shader.ShaderType is TwinShader.Type.LitMetallic or TwinShader.Type.UnlitGlossy ? 1.0f : 0.0f,
             DeformMode = deformMode,

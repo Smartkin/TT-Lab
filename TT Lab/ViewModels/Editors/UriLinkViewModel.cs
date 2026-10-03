@@ -53,6 +53,7 @@ public partial class UriLinkViewModel : DocumentDataViewModel<LabURI>
         _browseExcludeWhen = GetEditorParameter<string>(BrowseExcludeWhen);
         _browseExcludeOwnerChunk = GetEditorParameter(BrowseExcludeOwnerChunk, false);
         _openInInspector = GetEditorParameter(OpenInInspector, false);
+        _isIncludeEmpty = GetEditorParameter(IncludeEmpty, false);
     }
 
     protected override void OnCurrentValueChanged()
@@ -119,6 +120,11 @@ public partial class UriLinkViewModel : DocumentDataViewModel<LabURI>
         {
             var ownerChunk = GetOwnerChunk();
             resourcesToBrowse.RemoveAll(link => link != LabURI.Empty && link == ownerChunk);
+        }
+
+        if (_isIncludeEmpty)
+        {
+            resourcesToBrowse.Add(LabURI.Empty);
         }
 
         return resourcesToBrowse;
@@ -227,10 +233,12 @@ public partial class UriLinkViewModel : DocumentDataViewModel<LabURI>
     // Name of a boolean property on the browsed assets, assets where it's true can't be linked
     public const string BrowseExcludeWhen = "URI_LINK_FIELD_BROWSE_EXCLUDE_WHEN";
     public const string BrowseExcludeOwnerChunk = "URI_LINK_FIELD_BROWSE_EXCLUDE_OWNER_CHUNK";
+    public const string IncludeEmpty = "URI_LINK_FIELD_BROWSE_INCLUDE_EMPTY";
     
     private Type _browseType = typeof(IAsset);
     private Scope _browseScope = Scope.Project;
     private bool _openInInspector = false;
     private string? _browseExcludeWhen;
+    private bool _isIncludeEmpty = false;
     private bool _browseExcludeOwnerChunk;
 }

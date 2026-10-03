@@ -16,31 +16,31 @@ namespace Twinsanity.TwinsanityInterchange.Common.Lights
         /// <summary>
         /// Unit vector the light shines along, W 0.
         /// </summary>
-        public Vector4 Direction;
+        public Vector4 Direction { get; set; }
         /// <summary>
         /// Cosine of the half angle within which the light is at full intensity, cos(<see cref="ConeAngle"/> / 2).
         /// </summary>
-        public Single InnerConeCosine;
+        public Single InnerConeCosine { get; set; }
         /// <summary>
         /// Cosine of the half angle beyond which the light gives nothing, cos(<see cref="ConeAngle"/> / 2 + <see cref="FalloffAngle"/>).
         /// </summary>
-        public Single OuterConeCosine;
+        public Single OuterConeCosine { get; set; }
         /// <summary>
         /// The whole cone's angle in 65536ths of a turn (18956 is 104 degrees).
         /// </summary>
-        public UInt32 ConeAngle;
+        public UInt32 ConeAngle { get; set; }
         /// <summary>
         /// The angle the light fades out over past the cone, in 65536ths of a turn.
         /// </summary>
-        public UInt32 FalloffAngle;
+        public UInt32 FalloffAngle { get; set; }
         /// <summary>
         /// How many times the distance attenuation multiplies the intensity, like a point light's.
         /// </summary>
-        public UInt16 AttenuationPower;
+        public UInt16 AttenuationPower { get; set; }
         /// <summary>
         /// Power the cosine is raised to within the cone, 0 to 255 (0 in the retail data).
         /// </summary>
-        public UInt16 SpotExponent;
+        public UInt16 SpotExponent { get; set; }
 
         public const Single TurnsPerUnit = 1.0f / 65536.0f;
 

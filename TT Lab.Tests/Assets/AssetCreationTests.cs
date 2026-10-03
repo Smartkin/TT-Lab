@@ -79,8 +79,11 @@ public sealed class AssetCreationTests : IDisposable
         return dialogue.CreatableAssets.Select(model => model.DisplayName).ToList();
     }
 
-    [Fact]
-    public void NewChunkHasCrashAndAFloor()
+    // A new chunk is a level to walk around right away: Crash on a checkered ground 20 units across with its collision, lit like the
+    // game's levels (an ambient light of a third of white at 4.5 and a light from above), the lights on in the root node the game
+    // gathers them by, which left Crash black before
+    [AvaloniaFact]
+    public void NewChunkHasCrashOnALitGround()
     {
         var crash = AddCrash();
         var surface = AddSurface();
@@ -100,14 +103,39 @@ public sealed class AssetCreationTests : IDisposable
         Assert.Equal(crash.URI, instanceData.ObjectId);
         Assert.Equal((0f, 0f, 0f), (instanceData.Position.X, instanceData.Position.Y, instanceData.Position.Z));
 
-        var scenery = ((IAsset)resources.OfType<Scenery>().Single()).GetData<SceneryData>();
+        var sceneryAsset = resources.OfType<Scenery>().Single();
+        var scenery = ((IAsset)sceneryAsset).GetData<SceneryData>();
+        Assert.True(scenery.HasLighting);
+        var ambient = Assert.Single(scenery.AmbientLights);
+        Assert.Equal((1.0f / 3.0f, 4.5f), (ambient.Color.X, ambient.Intensity));
+        var sun = Assert.Single(scenery.DirectionalLights);
+        Assert.InRange(sun.Direction.Y, 0.9f, 1.0f);
+        Assert.Equal([true, true, false], scenery.Sceneries[0].LightsEnabler.Take(3));
+        // Its tree's root is the box the game keeps the chunk's objects in, the ground's own flat cell left Crash nothing under him
+        var root = scenery.Sceneries[0];
+        Assert.Equal((-200f, -100f, -200f, 200f, 100f, 200f), (root.BoundsMin.X, root.BoundsMin.Y, root.BoundsMin.Z, root.BoundsMax.X, root.BoundsMax.Y, root.BoundsMax.Z));
+
+        var ground = _project.AssetManager.GetAssetData<MeshData>(Assert.Single(scenery.Sceneries[0].MeshIDs));
+        var material = _project.AssetManager.GetAsset<Material>(Assert.Single(ground.Materials));
+        Assert.False(material.IsInternal);
+        var shader = Assert.Single(((IAsset)material).GetData<MaterialData>().Shaders);
+        Assert.Equal(Twinsanity.TwinsanityInterchange.Common.TwinShader.Type.StandardUnlit, shader.ShaderType);
+        Assert.Equal(64, _project.AssetManager.GetAssetData<TextureData>(shader.TextureId).Bitmap!.PixelSize.Width);
+        // Crash's shadow falls on it like on the game's scenery: with the GS's FBA on it had none
+        Assert.True(shader.AlphaCorrectionValue);
+
         var collision = _project.AssetManager.GetAssetData<CollisionData>(scenery.Collision);
         Assert.Equal(4, collision.Vertexes.Count);
         Assert.All(collision.Vertexes, vector => Assert.Equal(0f, vector.Y));
-        Assert.Equal(10f, collision.Vertexes.Max(vector => vector.X) - collision.Vertexes.Min(vector => vector.X));
-        Assert.Equal(10f, collision.Vertexes.Max(vector => vector.Z) - collision.Vertexes.Min(vector => vector.Z));
+        Assert.Equal(20f, collision.Vertexes.Max(vector => vector.X) - collision.Vertexes.Min(vector => vector.X));
+        Assert.Equal(20f, collision.Vertexes.Max(vector => vector.Z) - collision.Vertexes.Min(vector => vector.Z));
         Assert.Equal(2, collision.Triangles.Count);
         Assert.All(collision.Triangles, triangle => Assert.Equal(surface.URI, triangle.Surface));
+
+        // The next chunk's ground has the same material
+        var next = CreateChunk(_project.GetFolder(_package, "levels"), "nextlevel")!;
+        var nextScenery = ((IAsset)next.ChunkResources.Select(_project.AssetManager.GetAsset).OfType<Scenery>().Single()).GetData<SceneryData>();
+        Assert.Equal(material.URI, _project.AssetManager.GetAssetData<MeshData>(nextScenery.Sceneries[0].MeshIDs[0]).Materials[0]);
     }
 
     [Fact]

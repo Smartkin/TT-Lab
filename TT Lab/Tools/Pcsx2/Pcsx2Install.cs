@@ -125,13 +125,17 @@ public sealed class Pcsx2Install
             ["HostFs"] = "true",
             ["EnablePINE"] = "true",
             ["PINESlot"] = PineSlot.ToString(),
+            // A run is booted fresh every time, a state saved for resuming it would never be used
+            ["SaveStateOnShutdown"] = "false",
         };
         if (release.LevelSelectPatch != null)
         {
             keys["EnablePatches"] = "true";
         }
 
-        var updated = WithEmuCoreKeys(existing, keys);
+        var updated = WithKeys(existing, "EmuCore", keys);
+        // Closing the game's window ends the run without asking first (the game settings layer over PCSX2.ini, UI keys included)
+        updated = WithKeys(updated, "UI", new Dictionary<string, string> { ["ConfirmShutdown"] = "false" });
         if (updated != existing)
         {
             File.WriteAllText(path, updated);
@@ -162,8 +166,8 @@ public sealed class Pcsx2Install
         File.WriteAllText(path, patches);
     }
 
-    // The keys TT Lab needs set in the file's EmuCore section, whatever else the user keeps there stays
-    internal static string WithEmuCoreKeys(string ini, IReadOnlyDictionary<string, string> keys)
+    // The keys TT Lab needs set in a section of the file, whatever else the user keeps there stays
+    internal static string WithKeys(string ini, string sectionName, IReadOnlyDictionary<string, string> keys)
     {
         var lines = ini.Replace("\r\n", "\n").Split('\n').ToList();
         if (lines.Count > 0 && lines[^1] == "")
@@ -171,7 +175,7 @@ public sealed class Pcsx2Install
             lines.RemoveAt(lines.Count - 1);
         }
 
-        var section = lines.FindIndex(line => line.Trim() == "[EmuCore]");
+        var section = lines.FindIndex(line => line.Trim() == $"[{sectionName}]");
         if (section == -1)
         {
             if (lines.Count > 0)
@@ -179,7 +183,7 @@ public sealed class Pcsx2Install
                 lines.Add("");
             }
 
-            lines.Add("[EmuCore]");
+            lines.Add($"[{sectionName}]");
             section = lines.Count - 1;
         }
 

@@ -22,6 +22,7 @@ public partial class ChunkInspectorView : ReactiveUserControl<ChunkInspectorView
     public ChunkInspectorView()
     {
         InitializeComponent();
+        FocusKeeper.KeepFocusIn(this);
         // The mouse's back and forward buttons go along the inspector's trail
         AddHandler(PointerPressedEvent, OnPointerPressed, RoutingStrategies.Tunnel);
         this.WhenActivated(disposables =>

@@ -63,6 +63,7 @@ public class MeshFactory
             return _builtInConstructors.TryGetValue(uri, out var primitiveConstructor) ? primitiveConstructor() : null;
         }
         
+        _renderContext.ReadAssets.TryAdd(uri, true);
         var assetManager = AssetManager.Get();
         var asset = assetManager.GetAsset(uri);
         Debug.Assert(_constructors.ContainsKey(asset.GetType()), $"Unsupported mesh type {asset.GetType()}");
@@ -282,6 +283,12 @@ public class MeshFactory
         return new Mesh(_renderContext, buffers);
     }
 
+    private MaterialData ReadMaterial(LabURI material)
+    {
+        _renderContext.ReadAssets.TryAdd(material, true);
+        return AssetManager.Get().GetAssetData<MaterialData>(material);
+    }
+
     private Mesh CreateRigidMesh(RigidModelData rigidModelData)
     {
         var assetManager = AssetManager.Get();
@@ -292,8 +299,7 @@ public class MeshFactory
                 return MaterialData.GetEmptyMaterial();
             }
             
-            var material = assetManager.GetAssetData<MaterialData>(m);
-            return material;
+            return ReadMaterial(m);
         }).ToList();
         var modelData = assetManager.GetAssetData<ModelData>(rigidModelData.Model);
         var buffers = modelData.Vertexes.Select((t, i) =>
@@ -322,10 +328,9 @@ public class MeshFactory
 
     private SkinnedMesh CreateSkinnedMesh(SkinData skin)
     {
-        var assetManager = AssetManager.Get();
         var buffers = skin.SubSkins.Select(ss =>
         {
-            var material = ss.Material == LabURI.Empty ? MaterialData.GetEmptyMaterial() : assetManager.GetAssetData<MaterialData>(ss.Material);
+            var material = ss.Material == LabURI.Empty ? MaterialData.GetEmptyMaterial() : ReadMaterial(ss.Material);
             return new ModelBuffer(_renderContext, _meshBuilder.BuildSkinnedVaoFromVertexes(ss.Vertexes, ss.Faces), _materialFactory, material);
         }).ToList();
         
@@ -336,13 +341,12 @@ public class MeshFactory
     private BlendSkinnedMesh CreateBlendSkinnedMesh(BlendSkinData blendSkin)
     {
         const int offsetTextureWidth = 1024;
-        var assetManager = AssetManager.Get();
         var buffers = new List<ModelBufferBlendSkin>();
         var offsets = new List<float>();
         var shapesAmount = blendSkin.BlendsAmount;
         foreach (var blend in blendSkin.Blends)
         {
-            var material = blend.Material == LabURI.Empty ? MaterialData.GetEmptyMaterial() : assetManager.GetAssetData<MaterialData>(blend.Material);
+            var material = blend.Material == LabURI.Empty ? MaterialData.GetEmptyMaterial() : ReadMaterial(blend.Material);
             var corners = blend.Faces.SelectMany(face => face.Indexes!).ToList();
             var shapeStart = offsets.Count / 4;
             var shapeOffsets = new int[shapesAmount];

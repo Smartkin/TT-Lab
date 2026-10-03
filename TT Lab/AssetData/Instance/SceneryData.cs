@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using GlmSharp;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -16,6 +17,7 @@ using TT_Lab.Assets.Graphics;
 using TT_Lab.Attributes;
 using TT_Lab.Extensions;
 using TT_Lab.Rendering;
+using TT_Lab.Rendering.Lighting;
 using TT_Lab.Rendering.Objects;
 using TT_Lab.Util;
 using TT_Lab.ViewModels;
@@ -75,7 +77,13 @@ public class SceneryData : AbstractAssetData
     public UInt32 FogColor { get; set; }
     
     public Byte UnusedByte { get; set; }
-    
+
+    [Editable(Hint = "The box the game keeps the chunk's objects in, its scenery tree's root: an object outside of it has nothing under it, so it has to hold every place objects go. The viewport's Scenery bounds layer shows it, moved and sized by the handle on its top")]
+    [JsonIgnore]
+    [System.Text.Json.Serialization.JsonIgnore]
+    public SceneryBounds Bounds => new(this);
+
+    [Editable(Hint = "Whether the scenery has lights. The game lights the objects whose materials are lit by them and draws them black without any")]
     public Boolean HasLighting { get; set; }
 
     /// <summary>
@@ -83,13 +91,25 @@ public class SceneryData : AbstractAssetData
     /// lists them in other orders, which its tree nodes' lights refer to
     /// </summary>
     public List<Int32> LightOrder { get; set; } = [];
-    
+
+    [Editable(Caption = "Ambient Lights", Hint = "Light every object gets wherever it is, every light's color times its intensity added up")]
+    [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Ambient")]
+    [EditorParam(DocumentCollectionViewModel.MaxCount, MaxLights)]
     public List<AmbientLight> AmbientLights { get; set; }
-    
+
+    [Editable(Caption = "Directional Lights", Hint = "Light from one direction, the same everywhere. Of the directional, point and spot lights the game lights an object by the 3 strongest where it is")]
+    [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Directional")]
+    [EditorParam(DocumentCollectionViewModel.MaxCount, MaxLights)]
     public List<DirectionalLight> DirectionalLights { get; set; }
-    
+
+    [Editable(Caption = "Point Lights", Hint = "Light from a point, weaker further away")]
+    [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Point")]
+    [EditorParam(DocumentCollectionViewModel.MaxCount, MaxLights)]
     public List<PointLight> PointLights { get; set; }
-    
+
+    [Editable(Caption = "Spot Lights", Hint = "Light from a point shining within a cone, weaker further away")]
+    [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Spot")]
+    [EditorParam(DocumentCollectionViewModel.MaxCount, MaxLights)]
     public List<SpotLight> SpotLights { get; set; }
     
     public List<SceneryBaseData> Sceneries { get; set; }
@@ -375,6 +395,8 @@ public class SceneryData : AbstractAssetData
         UnusedByte = (Byte)data.GetInt("UnusedByte", UnusedByte);
         LightOrder = data.GetInts("LightOrder").ToList();
         var nodes = root.Traverse().Skip(1).ToList();
+        var treeRoot = nodes.Where(node => node.Kind == TreeNodeKind).FirstOrDefault(node => FindAncestor(node.Parent, other => other.Kind == TreeNodeKind) == null);
+        var rootKept = treeRoot?.Data["BoundsMin"] != null && treeRoot.Data["BoundsMax"] != null;
         var treeIndexes = ReadTree(nodes);
         ReadLights(nodes);
         HasLighting = data.GetBool("HasLighting", AmbientLights.Count + DirectionalLights.Count + PointLights.Count + SpotLights.Count > 0);
@@ -420,7 +442,43 @@ public class SceneryData : AbstractAssetData
 
         ReadInstances(file, materials, nodes, collisionNodes, dynamicModels, treeIndexes);
         FixEmptyTreeNodes();
+        WidenRoot(rootKept, collisionData);
+        EnableEveryLight();
         return materials.AddedToProject;
+    }
+
+    // The root holds the chunk's objects (SceneryBounds): one the file left to what got placed in it (made in Blender) or one without room
+    // (the flat ground's new chunks had) gets a box like the game's around the collision and what's placed
+    private void WidenRoot(Boolean kept, CollisionData collision)
+    {
+        if (Sceneries.FirstOrDefault() is not { } root || (kept && SceneryBounds.HoldsAnything(root)))
+        {
+            return;
+        }
+
+        var min = new vec3(Single.PositiveInfinity);
+        var max = new vec3(Single.NegativeInfinity);
+        foreach (var vertex in UsedVertexes(collision))
+        {
+            min = vec3.Min(min, new vec3(vertex.X, vertex.Y, vertex.Z));
+            max = vec3.Max(max, new vec3(vertex.X, vertex.Y, vertex.Z));
+        }
+
+        if (Single.IsFinite(root.BoundsMin.X) && Single.IsFinite(root.BoundsMax.X))
+        {
+            min = vec3.Min(min, new vec3(root.BoundsMin.X, root.BoundsMin.Y, root.BoundsMin.Z));
+            max = vec3.Max(max, new vec3(root.BoundsMax.X, root.BoundsMax.Y, root.BoundsMax.Z));
+        }
+
+        SceneryBounds.Widen(root, min, max);
+    }
+
+    // The tools left vertexes no triangle uses in some collisions
+    private static IEnumerable<Vector4> UsedVertexes(CollisionData collision)
+    {
+        return collision.Triangles.SelectMany(triangle => triangle.Face.Indexes ?? []).Distinct()
+            .Where(index => index >= 0 && index < collision.Vertexes.Count)
+            .Select(index => collision.Vertexes[index]);
     }
 
     // The tree is made of the nodes marked as tree nodes, each one a child of the tree node above it. Nodes the game's tree can't
@@ -912,10 +970,41 @@ public class SceneryData : AbstractAssetData
         {
             Sceneries.Add((SceneryBaseData)Activator.CreateInstance(ScIndexToType[sc.GetObjectIndex()], Owner, sc)!);
         }
+
+        EnableEveryLight();
+    }
+
+    /// <summary>
+    /// How many lights the root tree node's flags can turn on
+    /// </summary>
+    public const Int32 MaxLights = 128;
+
+    public Int32 LightCount => AmbientLights.Count + DirectionalLights.Count + PointLights.Count + SpotLights.Count;
+
+    /// <summary>
+    /// The game only gathers the lights whose bit the root tree node has (<c>FUN_001c7f50</c>, the scenery's order of lights), and every
+    /// retail scenery's root has the bits of all of its lights and no others. Kept that way: a light put in lights the level, and
+    /// sceneries made in Blender, whose nodes come without bits, aren't left dark
+    /// </summary>
+    internal void EnableEveryLight()
+    {
+        if (Sceneries.Count == 0)
+        {
+            return;
+        }
+
+        var lights = HasLighting ? LightCount : 0;
+        var enabler = Sceneries[0].LightsEnabler;
+        for (var i = 0; i < enabler.Length; i++)
+        {
+            enabler[i] = i < lights;
+        }
     }
 
     public override ITwinItem Export(ITwinItemFactory factory)
     {
+        CheckCount("lights", HasLighting ? LightCount : 0, MaxLights);
+        WarnAboutCollisionOutsideBounds();
         var assetManager = AssetManager.Get();
         using var ms = new MemoryStream();
         using var writer = new BinaryWriter(ms);
@@ -956,6 +1045,7 @@ public class SceneryData : AbstractAssetData
                 writer.Write(value);
             }
         }
+        EnableEveryLight();
         writer.Write(Sceneries.Count);
         foreach (var scenery in Sceneries)
         {
@@ -966,6 +1056,25 @@ public class SceneryData : AbstractAssetData
         writer.Flush();
         ms.Position = 0;
         return factory.GenerateScenery(ms);
+    }
+
+    private void WarnAboutCollisionOutsideBounds()
+    {
+        var assetManager = AssetManager.Get();
+        if (Sceneries.FirstOrDefault() is not { } root || Collision == LabURI.Empty || !assetManager.DoesAssetExist(Collision))
+        {
+            return;
+        }
+
+        const Single play = 0.01f;
+        var outside = UsedVertexes(assetManager.GetAssetData<CollisionData>(Collision))
+            .Count(vertex => vertex.X < root.BoundsMin.X - play || vertex.Y < root.BoundsMin.Y - play || vertex.Z < root.BoundsMin.Z - play ||
+                             vertex.X > root.BoundsMax.X + play || vertex.Y > root.BoundsMax.Y + play || vertex.Z > root.BoundsMax.Z + play);
+        if (outside > 0)
+        {
+            Log.WriteLine($"{Owner.Chunk}'s scenery bounds leave {outside} of its collision's vertexes outside, objects there have nothing under them in the game: the scenery's Bounds set them, or the viewport's Scenery bounds layer",
+                Log.LogType.Warning);
+        }
     }
 
     public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, uint id,
@@ -1002,14 +1111,38 @@ public class SceneryData : AbstractAssetData
         PropertyNode property)
     {
         var result = new List<ViewportObject>();
-        // The chunk's strongest lights are what its environment mapped materials look up by
-        viewportContext.RenderContext.EnvLights = Rendering.EnvLights.Of(DirectionalLights);
-        var sceneryVisual = new Rendering.Objects.Scenery(viewportContext.RenderContext, viewportContext.RenderContext.MeshService, this);
-        var editingObject = new EditableObject(viewportContext.RenderContext, sceneryVisual, $"SCENERY_{Owner.FullDataPath}")
+        var renderContext = viewportContext.RenderContext;
+        // The chunk's lights light its objects, its strongest directional lights are what its environment mapped materials look up by
+        void ApplyLights()
+        {
+            renderContext.Lights = SceneLights.Of(this);
+            renderContext.EnvLights = Rendering.EnvLights.Of(DirectionalLights);
+        }
+
+        ApplyLights();
+        var sceneryVisual = new Rendering.Objects.Scenery(renderContext, renderContext.MeshService, this);
+        var editingObject = new EditableObject(renderContext, sceneryVisual, $"SCENERY_{Owner.FullDataPath}")
         {
             IsSelectable = false
         };
-        result.Add(new ViewportObject(editingObject, $"SCENERY_{property.Path}", property) { Category = ViewportObjectCategory.Scenery });
+        PropertyNode?[] lighting = [property.Find($"[data].AssetData.{nameof(HasLighting)}"), property.Find($"[data].AssetData.{nameof(AmbientLights)}"),
+            property.Find($"[data].AssetData.{nameof(DirectionalLights)}"), property.Find($"[data].AssetData.{nameof(PointLights)}"),
+            property.Find($"[data].AssetData.{nameof(SpotLights)}")];
+        result.Add(new ViewportObject(editingObject, $"SCENERY_{property.Path}", property)
+        {
+            Category = ViewportObjectCategory.Scenery,
+            RenderDependencies = lighting.OfType<PropertyNode>().ToList(),
+            Refresh = () =>
+            {
+                ApplyLights();
+                return true;
+            },
+        });
+        result.AddRange(GetLightObjects(viewportContext, property));
+        if (GetBoundsObject(viewportContext, property) is { } bounds)
+        {
+            result.Add(bounds);
+        }
         
         if (DynamicScenery != LabURI.Empty)
         {
@@ -1040,6 +1173,83 @@ public class SceneryData : AbstractAssetData
             collisionEditing.IsVisible = false;
         }
         
+        return result;
+    }
+
+    // The box the game keeps the chunk's objects in, picked and dragged by the handle on its top
+    private ViewportObject? GetBoundsObject(ViewportContext viewportContext, PropertyNode property)
+    {
+        var bounds = property.Find($"[data].AssetData.{nameof(Bounds)}");
+        var center = bounds?.FindChild($".{nameof(SceneryBounds.Center)}");
+        var halfSize = bounds?.FindChild($".{nameof(SceneryBounds.HalfSize)}");
+        if (bounds == null || center == null || halfSize == null || Sceneries.FirstOrDefault() is not { } root)
+        {
+            return null;
+        }
+
+        var top = new SceneryBoundsTop(halfSize);
+        var handle = new SceneryBoundsHandle(viewportContext.RenderContext, $"{Owner.FullDataPath}_BOUNDS");
+        handle.SetPosition(top.ToPosition(center.GetValue()));
+        handle.SetScale(SceneryBounds.HalfSizeOf(root));
+        _ = new SceneryBoundsVisual(viewportContext.RenderContext, handle);
+        return new ViewportObject(handle, $"SCENERY_BOUNDS_{property.Path}", property)
+        {
+            Position = center,
+            PositionConverter = top,
+            Scale = halfSize,
+            Category = ViewportObjectCategory.SceneryBounds,
+            InspectorFocus = bounds,
+        };
+    }
+
+    // Every light at its place with its icon, a directional or spot light turned the way of its direction
+    private List<ViewportObject> GetLightObjects(ViewportContext viewportContext, PropertyNode property)
+    {
+        var result = new List<ViewportObject>();
+        var renderContext = viewportContext.RenderContext;
+        (string List, IReadOnlyList<Light> Lights)[] kinds = [(nameof(AmbientLights), AmbientLights), (nameof(DirectionalLights), DirectionalLights),
+            (nameof(PointLights), PointLights), (nameof(SpotLights), SpotLights)];
+        foreach (var (list, lights) in kinds)
+        {
+            for (var i = 0; i < lights.Count; i++)
+            {
+                var light = lights[i];
+                var lightNode = property.Find($"[data].AssetData.{list}[{i}]");
+                var positionNode = lightNode?.FindChild($".{nameof(Light.Position)}");
+                if (lightNode == null || positionNode == null)
+                {
+                    continue;
+                }
+
+                var billboard = viewportContext.EditingContext.CreateLightBillboard();
+                var editableObject = new EditableObject(renderContext, billboard, $"{Owner.FullDataPath}_{list}{i}", -vec3.Ones, vec3.Ones * 2.0f);
+                editableObject.SetPosition(new vec3(light.Position.X, light.Position.Y, light.Position.Z));
+                var visual = new SceneryLightVisual(renderContext, editableObject, light);
+                var directionNode = light is DirectionalLight or SpotLight ? lightNode.FindChild(".Direction") : null;
+                var rotation = directionNode == null ? null : new LightDirectionRotation(directionNode);
+                if (rotation != null)
+                {
+                    editableObject.SetRotation(rotation.ToRotation(directionNode!.GetValue()));
+                }
+
+                result.Add(new ViewportObject(editableObject, positionNode.Path, property)
+                {
+                    Position = positionNode,
+                    Rotation = directionNode,
+                    RotationConverter = rotation,
+                    Category = ViewportObjectCategory.Lights,
+                    InspectorFocus = lightNode,
+                    DuplicatedElement = lightNode,
+                    RenderDependencies = [lightNode],
+                    Refresh = () =>
+                    {
+                        visual.Update(light);
+                        return true;
+                    },
+                });
+            }
+        }
+
         return result;
     }
 }

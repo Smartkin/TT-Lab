@@ -92,11 +92,11 @@ public abstract class EditorsViewerViewModel : Document
         TabsFactory.AddEditor(CreateTab(asset));
     }
 
-    public async Task<bool> CloseAllTabs()
+    public async Task<bool> CloseAllTabs(bool discardChanges = false)
     {
         foreach (var tab in Tabs.ToList())
         {
-            if (!await tab.CloseTab())
+            if (!await tab.CloseTab(discardChanges))
             {
                 return false;
             }

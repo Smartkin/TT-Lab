@@ -44,6 +44,8 @@ public enum ViewportObjectCategory
     Particles,
     LoadWalls,
     LinkHulls,
+    Lights,
+    SceneryBounds,
 }
 
 /// <summary>
@@ -65,6 +67,16 @@ public interface IPositionConverter
     object ToData(vec3 position);
 }
 
+/// <summary>
+/// Turns a value kept in a rotation node that isn't Euler angles, like the direction a light shines along, into the object's rotation and
+/// back
+/// </summary>
+public interface IRotationConverter
+{
+    quat ToRotation(object? data);
+    object ToData(quat rotation);
+}
+
 public record ViewportObject(EditableObject Render, string DocumentName, PropertyNode Property, object? UserData = null)
 {
     public PropertyNode? Position { get; init; }
@@ -75,6 +87,11 @@ public record ViewportObject(EditableObject Render, string DocumentName, Propert
     /// </summary>
     public IPositionConverter? PositionConverter { get; init; }
     public PropertyNode? Rotation { get; init; }
+
+    /// <summary>
+    /// Set when the Rotation node holds something else than Euler angles in degrees
+    /// </summary>
+    public IRotationConverter? RotationConverter { get; init; }
     public PropertyNode? Scale { get; init; }
     public PropertyNode? Transform { get; init; }
 
@@ -149,6 +166,20 @@ public record ViewportObject(EditableObject Render, string DocumentName, Propert
     public object PositionData(vec3 position)
     {
         return PositionConverter?.ToData(position) ?? PositionValue(Position!, position);
+    }
+
+    /// <summary>
+    /// The value the rotation node takes for the object turned so
+    /// </summary>
+    public object RotationData(quat rotation)
+    {
+        if (RotationConverter != null)
+        {
+            return RotationConverter.ToData(rotation);
+        }
+
+        var degrees = vec3.Degrees(rotation.ToEulerAngles());
+        return new Twinsanity.TwinsanityInterchange.Common.Vector3(degrees.x, degrees.y, degrees.z);
     }
 
     public Matrix4 GetDataFromTransform(mat4 transform)

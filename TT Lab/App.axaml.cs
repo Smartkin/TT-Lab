@@ -12,6 +12,7 @@ using ReactiveUI.Avalonia;
 using ReactiveUI.Builder;
 using Splat;
 using Splat.Microsoft.Extensions.DependencyInjection;
+using TT_Lab.Controls;
 using TT_Lab.ViewModels;
 using TT_Lab.ViewModels.Interfaces;
 using TT_Lab.Views;
@@ -26,6 +27,7 @@ public partial class App : Application
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
+        ComboBoxDropDowns.KeepScrollRequestsInside();
     }
 
     public override void OnFrameworkInitializationCompleted()

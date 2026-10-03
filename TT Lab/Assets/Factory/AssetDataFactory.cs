@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Avalonia.Media.Imaging;
 using Splat;
@@ -11,6 +12,7 @@ using TT_Lab.AssetData.Code;
 using TT_Lab.AssetData.Code.Behaviour;
 using TT_Lab.AssetData.Graphics;
 using TT_Lab.AssetData.Graphics.SubModels;
+using TT_Lab.AssetData.Graphics.TlModel;
 using TT_Lab.AssetData.Instance;
 using TT_Lab.AssetData.Instance.Collision;
 using TT_Lab.AssetData.Instance.Scenery;
@@ -46,7 +48,15 @@ public static class AssetDataFactory
     private const Single DefaultSkydomeRadius = 120.0f;
     private const Int32 DefaultSkydomeSegments = 16;
     private const Int32 DefaultSkydomeRings = 8;
-    private const Single DefaultChunkFloorHalfSize = 5.0f;
+    // A new chunk is a level to walk around right away: a checkered ground 20 units across with its collision
+    private const Single DefaultChunkFloorHalfSize = 10.0f;
+    private const Int32 DefaultGroundTextureSize = 64;
+    // Two squares of the checker a texture, a square a unit
+    private const Single DefaultGroundUvScale = 0.5f;
+    // Every new chunk's ground in a package shares one material, TlmMaterials finds it again by this
+    private const string DefaultGroundMaterialId = "tt-lab-default-ground";
+    // Lit like the game's levels: every retail scenery has one ambient light of a third of white at 4.5 (most at 4.5, some at 6), and a
+    // white light from above and a little to the side so objects' faces don't all get the same light
 
     // Parameters that every Crash instance in the retail levels is placed with
     private static readonly Enums.InstanceState CrashInstanceState = (Enums.InstanceState)0x7D2E;
@@ -354,18 +364,89 @@ public static class AssetDataFactory
 
     private static SceneryData CreateDefaultSceneryData(Scenery scenery, LabURI floorSurface)
     {
-        var collision = new Collision
+        var sceneryRoot = new SceneryRootData
         {
-            Package = scenery.Package,
-            Chunk = scenery.Chunk,
-            InvariantName = $"{scenery.Chunk}_COLLISION",
-            Alias = "Collision",
-            Variation = string.Empty,
-            IsInternal = true,
-            InternalOwner = scenery
+            TreeDepth = 1,
+            SceneryTypes = Enumerable.Repeat(ITwinScenery.SceneryType.None, 8).ToArray(),
+            BoundingBoxes = [],
+            MeshModelMatrices = [],
+            LodModelMatrices = [],
+            LightsEnabler = new Boolean[SceneryData.MaxLights]
         };
+        // Its cell is the box the game keeps the chunk's objects in, the ground's own left Crash without ground under him
+        SceneryBounds.SetCell(sceneryRoot, GlmSharp.vec3.Zero, SceneryBounds.DefaultHalfSize);
+        var lit = new SceneryData(scenery)
+        {
+            HasLighting = true,
+            AmbientLights = [DefaultLights.Ambient()],
+            DirectionalLights = [DefaultLights.Directional()],
+            Sceneries = [sceneryRoot]
+        };
+
+        // Made through the scenery's model file, which turns the ground into its mesh and model and the material into assets of the package
+        var file = lit.WriteTlm();
+        var tree = file.Root![TlmNodes.ChildrenKey]!.AsArray().OfType<JsonObject>().First(node => node.GetKind() == SceneryData.TreeNodeKind);
+        tree.AddChild(CreateDefaultGround(file));
+        file.Root.AddChild(CreateDefaultCollision(file, scenery, floorSurface));
+        var data = new SceneryData(scenery);
+        data.ReadTlm(file);
+        return data;
+    }
+
+    // A square on the ground facing up, its texture a checker of two greys a unit a square, its vertexes' color 128 (the texture as it is)
+    private static JsonObject CreateDefaultGround(TlmFile file)
+    {
         const Single halfSize = DefaultChunkFloorHalfSize;
-        var collisionData = new CollisionData(collision);
+        const Int32 size = DefaultGroundTextureSize;
+        var pixels = new UInt32[size * size];
+        for (var y = 0; y < size; y++)
+        {
+            for (var x = 0; x < size; x++)
+            {
+                pixels[y * size + x] = ((x < size / 2) ^ (y < size / 2)) ? 0xFFA8A8A8 : 0xFF8C8C8C;
+            }
+        }
+
+        file.Materials.Add(new JsonObject
+        {
+            ["name"] = "Ground",
+            ["blender_id"] = DefaultGroundMaterialId,
+            ["image"] = new JsonObject { ["png"] = file.Write(TextureData.EncodePng(pixels, size, size).AsSpan()), ["name"] = "Ground.png" }
+        });
+        Single[] corners = [-halfSize, -halfSize, halfSize, -halfSize, halfSize, halfSize, -halfSize, halfSize];
+        var positions = new List<Single>();
+        var uvs = new List<Single>();
+        for (var i = 0; i < 4; i++)
+        {
+            positions.AddRange([corners[i * 2], 0.0f, corners[i * 2 + 1]]);
+            uvs.AddRange([(corners[i * 2] + halfSize) * DefaultGroundUvScale, (corners[i * 2 + 1] + halfSize) * DefaultGroundUvScale]);
+        }
+
+        var part = new JsonObject
+        {
+            ["material"] = file.Materials.Count - 1,
+            ["vertices"] = 4,
+            // Counter-clockwise seen from above
+            ["faces"] = file.Write(new UInt32[] { 0, 2, 1, 0, 3, 2 }.AsSpan()),
+            ["position"] = file.Write(positions),
+            ["normal"] = file.Write(Enumerable.Range(0, 4).SelectMany(_ => new[] { 0.0f, 1.0f, 0.0f }).ToList()),
+            ["uv"] = file.Write(uvs),
+            ["color"] = file.Write(Enumerable.Repeat((Byte)0x80, 4 * 4).ToList())
+        };
+        var ground = TlmNodes.Create(SceneryData.MeshInstanceKind, "Ground", new JsonObject
+        {
+            ["Order"] = 0,
+            ["Matrix"] = TlmJson.ToJson(TlmNodes.ToArray(System.Numerics.Matrix4x4.Identity)),
+            ["BoundingBox"] = new JsonArray()
+        });
+        ground[TlmNodes.MeshKey] = new JsonObject { ["parts"] = new JsonArray(part) };
+        return ground;
+    }
+
+    private static JsonObject CreateDefaultCollision(TlmFile file, Scenery scenery, LabURI floorSurface)
+    {
+        const Single halfSize = DefaultChunkFloorHalfSize;
+        var collisionData = new CollisionData(new Collision { Package = scenery.Package, Chunk = scenery.Chunk, InvariantName = $"{scenery.Chunk}_COLLISION" });
         collisionData.Vertexes.AddRange([
             new Vector4(-halfSize, 0.0f, -halfSize, 1.0f),
             new Vector4(halfSize, 0.0f, -halfSize, 1.0f),
@@ -375,28 +456,7 @@ public static class AssetDataFactory
         // Game's walkable floors are wound so their right-handed normal points downwards
         collisionData.Triangles.Add(new CollisionTriangle { Face = new IndexedFace(0, 1, 2), Surface = floorSurface });
         collisionData.Triangles.Add(new CollisionTriangle { Face = new IndexedFace(0, 2, 3), Surface = floorSurface });
-        collision.SetData(collisionData);
-        AssetManager.Get().AddAsset(collision);
-
-        var sceneryRoot = new SceneryRootData
-        {
-            TreeDepth = 1,
-            SceneryTypes = Enumerable.Repeat(ITwinScenery.SceneryType.None, 8).ToArray(),
-            BoundingBoxes = [],
-            MeshModelMatrices = [],
-            LodModelMatrices = [],
-            BoundsCenter = new Vector4(0.0f, 0.0f, 0.0f, halfSize * MathF.Sqrt(2.0f)),
-            BoundsMin = new Vector4(-halfSize, 0.0f, -halfSize, 1.0f),
-            BoundsMax = new Vector4(halfSize, 0.0f, halfSize, 1.0f),
-            BoundsHalfSize = new Vector4(halfSize, 0.0f, halfSize, 1.0f),
-            LightsEnabler = new Boolean[128]
-        };
-
-        return new SceneryData(scenery)
-        {
-            Collision = collision.URI,
-            Sceneries = [sceneryRoot]
-        };
+        return collisionData.WriteTlmNode(file);
     }
 
     public static AssetCreationStatus CreateBehaviourData(IAsset asset)

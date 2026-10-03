@@ -18,6 +18,7 @@ public class TestApplication : Application
     public override void Initialize()
     {
         DataTemplates.Add(new TT_Lab.Util.ViewLocator());
+        TT_Lab.Controls.ComboBoxDropDowns.KeepScrollRequestsInside();
         Styles.Add(new FluentTheme());
         Styles.Add(new Dock.Avalonia.Themes.Simple.DockSimpleTheme());
         Styles.Add(new StyleInclude(new Uri("avares://TT Lab.Tests")) { Source = new Uri("avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml") });

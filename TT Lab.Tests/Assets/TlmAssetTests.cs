@@ -359,10 +359,34 @@ public sealed class TlmAssetTests : IDisposable
         Assert.Equal((ITwinTexture.TexturePixelFormat.PSMCT32, false), (texture.PixelFormat, texture.GenerateMipmaps));
     }
 
-    private static void WithBlenderMaterial(string path, byte[] png)
+    // Shadows fall on what the game's scenery and objects draw, and the characters casting them keep them off their skins, or their own
+    // would darken them (the game's "no FBA" bit of a shader). TT Lab's new shaders take them like nearly every one of the game's
+    [AvaloniaFact]
+    public void MaterialsMadeInBlenderTakeShadowsLikeTheGamesOfTheirKind()
+    {
+        _project.BuildProjectTree("Global PS2_Test/Material", "Global PS2_Test/Texture");
+        var rigidModel = _assets.AddRigidModel("Chair", _assets.AddMaterial("Varnish").URI, _assets.AddMaterial("Paint").URI);
+        rigidModel.Serialize(SerializationFlags.SaveData);
+        var skin = _assets.AddSkin(_assets.AddMaterial("Fur").URI);
+        skin.Serialize(SerializationFlags.SaveData);
+        var png = TextureData.CreateSolidColor(_assets.AddTexture("Scratch", 0), 8, 0xFF20C040).GetPngBytes();
+        WithBlenderMaterial(rigidModel.FullDataPath, png);
+        WithBlenderMaterial(skin.FullDataPath, png, 0, "fur-id");
+
+        var rigid = ShaderOf(((IAsset)rigidModel).GetData<RigidModelData>().Materials[1]);
+        var fur = ShaderOf(((IAsset)skin).GetData<SkinData>().SubSkins[0].Material);
+
+        Assert.Equal((TwinShader.Type.StandardUnlit, true), (rigid.ShaderType, rigid.AlphaCorrectionValue));
+        Assert.Equal((TwinShader.Type.LitSkinnedModel, false), (fur.ShaderType, fur.AlphaCorrectionValue));
+        Assert.True(new LabShader().AlphaCorrectionValue);
+
+        LabShader ShaderOf(LabURI material) => ((IAsset)_assets.Get<Material>(material)).GetData<MaterialData>().Shaders.Single();
+    }
+
+    private static void WithBlenderMaterial(string path, byte[] png, int index = 1, string id = "wood-id")
     {
         var file = TlmFile.Load(path);
-        file.Materials[1] = new JsonObject { ["name"] = "Wood", ["blender_id"] = "wood-id", ["alpha"] = "BLEND", ["image"] = new JsonObject { ["png"] = file.Write(png.AsSpan()), ["name"] = "wood.png" } };
+        file.Materials[index] = new JsonObject { ["name"] = "Wood", ["blender_id"] = id, ["alpha"] = "BLEND", ["image"] = new JsonObject { ["png"] = file.Write(png.AsSpan()), ["name"] = "wood.png" } };
         file.Save(path);
     }
 }

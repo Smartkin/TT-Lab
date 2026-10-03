@@ -34,7 +34,8 @@ public class MaterialService
         {
             return null;
         }
-        
+
+        _renderContext.ReadAssets.TryAdd(material, true);
         return RegisterMaterial(material, AssetManager.Get().GetAssetData<MaterialData>(material));
     }
 

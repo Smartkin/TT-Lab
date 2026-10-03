@@ -6,11 +6,13 @@ using TT_Lab.AssetData.Graphics;
 using TT_Lab.Assets;
 using TT_Lab.Extensions;
 using TT_Lab.Rendering.Buffers;
+using TT_Lab.Rendering.Lighting;
 using TT_Lab.Rendering.Services;
 
 namespace TT_Lab.Rendering.Objects;
 
-public class OGI : Renderable, IPrimitiveRenderable
+// Its parts are lit by the lights where it is, as the game gathers them per object instance
+public class OGI : Renderable, IPrimitiveRenderable, ILightAnchor
 {
     private static readonly vec4 HullColor = new(0.25f, 0.9f, 0.7f, 0.85f);
 

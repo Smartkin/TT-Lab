@@ -20,6 +20,8 @@ public sealed class AssetDataScope : IDisposable
     private readonly object _lock = new();
     private readonly Dictionary<IAsset, AbstractAssetData> _data = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<LabURI, IAsset> _internalAssets = new();
+    // Assets whose data the scope reads from their files even while an editor has it loaded
+    private readonly HashSet<IAsset> _readAgain = new(ReferenceEqualityComparer.Instance);
     private bool _disposed;
 
     public static AssetDataScope? Current => CurrentScope.Value;
@@ -35,6 +37,35 @@ public sealed class AssetDataScope : IDisposable
         lock (_lock)
         {
             return _data.GetValueOrDefault(asset);
+        }
+    }
+
+    /// <summary>
+    /// The scope's data of the asset, none while it's one to read again
+    /// </summary>
+    /// <returns>Whether the scope has data of the asset or reads it again, else it's the asset's own</returns>
+    public bool TryGetData(IAsset asset, out AbstractAssetData? data)
+    {
+        lock (_lock)
+        {
+            if (_data.TryGetValue(asset, out data))
+            {
+                return true;
+            }
+
+            return _readAgain.Contains(asset);
+        }
+    }
+
+    /// <summary>
+    /// The asset's data gets read from its file within the scope, whether or not an editor has it loaded, like checking a file another
+    /// program wrote can be read before the editors let go of what they have
+    /// </summary>
+    public void ReadAgain(IAsset asset)
+    {
+        lock (_lock)
+        {
+            _readAgain.Add(asset);
         }
     }
 

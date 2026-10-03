@@ -42,12 +42,15 @@ public sealed class ProjectTreeTests : IDisposable
         AddObject("Apple");
         AddObject("mango");
         Directory.CreateDirectory(Path.Combine(_project.Project.ProjectPath, "prefabs"));
+        Directory.CreateDirectory(Path.Combine(_project.Project.ProjectPath, "profiles"));
         _project.BuildProjectTree("Global PS2_Test/GameObject/beta", "Global PS2_Test/GameObject/Alpha");
 
         var objects = Assert.Single(PackageElement(_project.Project.GlobalPackagePS2).GetInternalChildren()!, element => element.Alias == "GameObject");
         Assert.Equal(["Alpha", "beta", "Apple", "mango", "zebra"], Names(objects));
-        // The prefabs folder is the Prefabs panel's, the tree doesn't show it
-        Assert.DoesNotContain(Manager.FullProjectTree, element => element.Alias == "prefabs");
+        // What builds write, the prefabs (the Prefabs panel's) and the build profiles aren't assets, the tree doesn't show them
+        Directory.CreateDirectory(Path.Combine(_project.Project.ProjectPath, "build", "archives"));
+        Manager.SyncProjectTree();
+        Assert.DoesNotContain(Manager.FullProjectTree, element => element.Alias is "prefabs" or "profiles" or "build");
         Assert.Contains(Manager.FullProjectTree, element => element.Alias == "assets");
     }
 

@@ -4,6 +4,7 @@ using System.Linq;
 using TT_Lab.AssetData;
 using TT_Lab.Assets;
 using TT_Lab.ViewModels.Editors.PropertyGraph;
+using Twinsanity.TwinsanityInterchange.Common;
 
 namespace TT_Lab.ViewModels.Editors;
 
@@ -358,12 +359,49 @@ public sealed class UndoHistory
     }
 
     // What got changed can't be undone, so the document can't get back to how it was saved either
-    public void Clear()
+    public void Clear(string description = "Couldn't be undone past here")
     {
-        Root = new Entry(null, null, "Couldn't be undone past here", ++_entries, 0);
+        Root = new Entry(null, null, description, ++_entries, 0);
         Current = Root;
         _saved = null;
         _branches = 0;
+        Changed?.Invoke();
+    }
+
+    /// <summary>
+    /// Whether a step anywhere in the history changes something at a path the predicate takes
+    /// </summary>
+    internal bool Touches(Func<string, bool> path)
+    {
+        var entries = new Stack<Entry>([Root]);
+        while (entries.TryPop(out var entry))
+        {
+            if (entry.Step?.Paths.Any(path) == true)
+            {
+                return true;
+            }
+
+            foreach (var child in entry.Children)
+            {
+                entries.Push(child);
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Takes the other history's entries, the document they were made in made again over the same data. Steps are kept by their paths,
+    /// which find the same values in the new graph
+    /// </summary>
+    internal void Adopt(UndoHistory other)
+    {
+        Root = other.Root;
+        Current = other.Current;
+        _saved = other._saved;
+        _entries = other._entries;
+        _branches = other._branches;
+        Current.IsOpen = false;
         Changed?.Invoke();
     }
 
@@ -395,6 +433,10 @@ public sealed class UndoHistory
             null => "nothing",
             LabURI uri => uri == LabURI.Empty ? "nothing" : AssetManager.Get().DoesAssetExist(uri) ? AssetManager.Get().GetAsset(uri).Alias : uri.ToString(),
             string text1 => $"\"{text1.ReplaceLineEndings(" ")}\"",
+            // The game's vectors have no text of their own, a whole one set (the scenery's bounds typed into) showed its type's name
+            Vector2 vector => $"({vector.X}, {vector.Y})",
+            Vector3 vector => $"({vector.X}, {vector.Y}, {vector.Z})",
+            Vector4 vector => $"({vector.X}, {vector.Y}, {vector.Z}, {vector.W})",
             _ => value.ToString() ?? string.Empty,
         };
         return text.Length > 40 ? $"{text[..40]}…" : text;
@@ -421,6 +463,9 @@ public sealed class UndoHistory
         public abstract void Undo(PropertyGraph.PropertyGraph graph);
 
         public abstract void Redo(PropertyGraph.PropertyGraph graph);
+
+        // Of what the step changes, lists for what goes into or out of them
+        public abstract IEnumerable<string> Paths { get; }
     }
 
     private sealed class ValueStep(string path, object? oldValue, object? newValue) : Step
@@ -459,6 +504,8 @@ public sealed class UndoHistory
         public override void Undo(PropertyGraph.PropertyGraph graph) => graph.Find(_path)?.SetValue(oldValue);
 
         public override void Redo(PropertyGraph.PropertyGraph graph) => graph.Find(_path)?.SetValue(_newValue);
+
+        public override IEnumerable<string> Paths => [_path];
     }
 
     private sealed class InsertStep(string list, int index, object? value) : Step
@@ -466,6 +513,8 @@ public sealed class UndoHistory
         public override void Undo(PropertyGraph.PropertyGraph graph) => Remove(graph, list, index);
 
         public override void Redo(PropertyGraph.PropertyGraph graph) => graph.Find(list)?.InsertElement(index, value!);
+
+        public override IEnumerable<string> Paths => [list];
     }
 
     private sealed class RemoveStep(string list, int index, object? value) : Step
@@ -473,6 +522,8 @@ public sealed class UndoHistory
         public override void Undo(PropertyGraph.PropertyGraph graph) => graph.Find(list)?.InsertElement(index, value!);
 
         public override void Redo(PropertyGraph.PropertyGraph graph) => Remove(graph, list, index);
+
+        public override IEnumerable<string> Paths => [list];
     }
 
     private static void Remove(PropertyGraph.PropertyGraph graph, string list, int index)
@@ -514,5 +565,7 @@ public sealed class UndoHistory
                 step.Redo(graph);
             }
         }
+
+        public override IEnumerable<string> Paths => Steps.SelectMany(step => step.Paths);
     }
 }

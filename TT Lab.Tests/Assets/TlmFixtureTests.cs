@@ -6,6 +6,7 @@ using TT_Lab.AssetData.Graphics;
 using TT_Lab.AssetData.Graphics.TlModel;
 using TT_Lab.Extensions;
 using TT_Lab.AssetData.Instance;
+using TT_Lab.AssetData.Instance.Scenery;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
 using TT_Lab.Assets.Instance;
@@ -483,9 +484,12 @@ public sealed class TlmFixtureTests : IDisposable
         Assert.Single(tree.MeshIDs);
         Assert.Empty(tree.LodIDs);
         Assert.True(read.HasLighting);
-        Assert.Single(read.AmbientLights);
+        // The lights new chunks get, a third grey at 4.5 and 3
+        var ambient = Assert.Single(read.AmbientLights);
+        Assert.Equal((DefaultLights.ThirdGrey, DefaultLights.AmbientIntensity), (ambient.Color.X, ambient.Intensity));
         var sun = Assert.Single(read.DirectionalLights);
         Assert.True(sun.Direction.Y > 0.9f);
+        Assert.Equal((DefaultLights.ThirdGrey, DefaultLights.Intensity), (sun.Color.Y, sun.Intensity));
         Assert.Empty(read.PointLights);
         Assert.Empty(read.SpotLights);
         var collision = _assets.Get(read.Collision).GetData<CollisionData>();

@@ -264,11 +264,8 @@ public sealed class TlmSceneryTests : IDisposable
         var tree = Assert.Single(data.Sceneries);
         Assert.Equal(2, tree.MeshIDs.Count);
         Assert.Equal(2, tree.BoundingBoxes.Count);
-        // The root grew from its default size to hold both
-        var box = tree.BoundingBoxes[0];
-        Assert.Equal(-10 + box.V1.X, tree.BoundsMin.X, 1e-4f);
-        Assert.Equal(10 + box.V2.X, tree.BoundsMax.X, 1e-4f);
-        Assert.Equal(5 + box.V2.Z, tree.BoundsMax.Z, 1e-4f);
+        // The root is the box the game keeps the chunk's objects in, made like the game's around both (SceneryBounds)
+        Assert.Equal((-200f, -100f, -200f, 200f, 100f, 200f), Bounds(tree));
         Assert.NotEmpty(_assets.Export(scenery));
     }
 

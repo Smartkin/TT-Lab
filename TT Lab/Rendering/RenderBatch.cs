@@ -65,6 +65,7 @@ public class RenderBatch : Renderable, IInstancedRenderable
         _individualDraws.Clear();
         _instanceCount = 0;
         _baseInstance = instances.Count;
+        var lit = _batchedBuffer.IsLit;
         foreach (var mesh in _meshes)
         {
             if (!mesh.IsVisible || mesh.RequiresIndividualDraw)
@@ -72,7 +73,7 @@ public class RenderBatch : Renderable, IInstancedRenderable
                 continue;
             }
 
-            instances.Add(mesh.RenderTransform, mesh.Diffuse);
+            instances.Add(mesh.RenderTransform, mesh.Diffuse, lit ? instances.LightSetOf(mesh) : InstanceBuffer.NoLightSet);
             _instanceCount++;
         }
 
@@ -80,7 +81,7 @@ public class RenderBatch : Renderable, IInstancedRenderable
         {
             if (mesh.IsVisible && mesh.RequiresIndividualDraw)
             {
-                _individualDraws.Add((mesh, instances.Add(mesh.RenderTransform, mesh.Diffuse)));
+                _individualDraws.Add((mesh, instances.Add(mesh.RenderTransform, mesh.Diffuse, lit ? instances.LightSetOf(mesh) : InstanceBuffer.NoLightSet)));
             }
         }
     }

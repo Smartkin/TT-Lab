@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using ReactiveUI.Avalonia;
+using TT_Lab.Controls;
 using TT_Lab.ViewModels.Composite;
 
 namespace TT_Lab.Views.Composite;
@@ -11,5 +12,6 @@ public partial class TabbedEditorView : ReactiveUserControl<TabbedEditorViewMode
     public TabbedEditorView()
     {
         InitializeComponent();
+        FocusKeeper.KeepFocusIn(this);
     }
 }

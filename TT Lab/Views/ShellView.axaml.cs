@@ -28,14 +28,55 @@ public partial class ShellView : BurnBridgeWindow<ShellViewModel>
         HotKeyManager.SetHotKey(ReopenClosedEditorItem, new KeyGesture(Key.T, KeyModifiers.Control | KeyModifiers.Shift));
     }
 
+    // Closing again once the unsaved changes got saved or discarded goes through
+    private bool _unsavedChangesHandled;
+    private bool _askingAboutUnsavedChanges;
+
     protected override void OnClosing(WindowClosingEventArgs e)
     {
         base.OnClosing(e);
+        if (e.Cancel)
+        {
+            return;
+        }
+
+        // Editors with unsaved changes are asked about first, once for all of them, like closing an editor asks about its own
+        if (!_unsavedChangesHandled && ViewModel?.EditorsViewModel.GetUnsavedEditors().Count > 0)
+        {
+            e.Cancel = true;
+            AskAboutUnsavedChanges();
+            return;
+        }
 
         // Floating dock windows are closed right after this, so the layout has to be captured while they still exist
-        if (!e.Cancel)
+        ViewModel?.SaveLayoutOnExit();
+    }
+
+    private async void AskAboutUnsavedChanges()
+    {
+        if (_askingAboutUnsavedChanges || ViewModel == null)
         {
-            ViewModel?.SaveLayoutOnExit();
+            return;
+        }
+
+        _askingAboutUnsavedChanges = true;
+        try
+        {
+            if (!await ViewModel.EditorsViewModel.SaveOrDiscardUnsavedChanges())
+            {
+                return;
+            }
+
+            _unsavedChangesHandled = true;
+            Close();
+        }
+        catch (Exception exception)
+        {
+            Log.WriteLine($"Couldn't ask about the unsaved changes: {exception}", Log.LogType.Error);
+        }
+        finally
+        {
+            _askingAboutUnsavedChanges = false;
         }
     }
 

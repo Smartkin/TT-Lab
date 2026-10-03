@@ -40,6 +40,7 @@ struct TwinMaterial {
     float env_map; // 0 is off, 1 is on
     int blend_func;
     float editor_shading; // 0 is off, 1 shades flat by the triangles' facing (collision)
+    float lit; // 0 is off, 1 lights the vertex colors with the object's lights
 };
 
 #endif

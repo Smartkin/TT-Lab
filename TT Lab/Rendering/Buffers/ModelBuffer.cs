@@ -31,6 +31,13 @@ public class ModelBuffer(RenderContext context, ModelBufferBuild build, Material
     public bool EditorShading { get; init; }
 
     public TwinMaterial? GetMaterial() => _currentRenderMaterial;
+
+    private bool? _isLit;
+
+    /// <summary>
+    /// Whether any of the material's shaders is lit by the game's lights, its meshes then get their object's
+    /// </summary>
+    public bool IsLit => _isLit ??= _material.Shaders.Any(shader => MaterialFactory.IsLit(shader.ShaderType));
     public VertexArrayObject<float, uint> GetVertexArrayObject() => build.Vao;
 
     private void InvalidateMaterials()
@@ -42,6 +49,7 @@ public class ModelBuffer(RenderContext context, ModelBufferBuild build, Material
     public void ReplaceMaterial(MaterialData newMaterial)
     {
         _material = newMaterial;
+        _isLit = null;
         InvalidateMaterials();
         MaterialReplaced?.Invoke();
     }

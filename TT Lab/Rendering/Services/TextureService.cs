@@ -43,6 +43,7 @@ public class TextureService
             return null;
         }
 
+        _renderContext.ReadAssets.TryAdd(uri, true);
         var assetManager = AssetManager.Get();
         var textureAsset = assetManager.GetAsset<Texture>(uri);
         var textureData = assetManager.GetAssetData<TextureData>(uri);

@@ -18,26 +18,26 @@ namespace Twinsanity.TwinsanityInterchange.Common.Lights
     }
 
     /// <summary>
-    /// A light of a level's scenery. Every light adds its color times its intensity: ambient lights straight away, the others
-    /// through the 3 strongest ones at every vertex. Verified in the PAL executable (FUN_001c7f50).
+    /// A light of a level's scenery. Every light adds its color times its intensity: ambient lights straight away, of the others the 3
+    /// strongest at an object's position light it. Verified in the PAL executable (FUN_001c7f50).
     /// </summary>
     public abstract class Light : ITwinSerializable
     {
         /// <summary>
         /// Bit 8 of the header, set on every retail light and never read by the game. The rest of the header is the light's type.
         /// </summary>
-        public Boolean Enabled = true;
+        public Boolean Enabled { get; set; } = true;
         /// <summary>
         /// Multiplies the color. Point and spot lights fall off with distance on top of it (see their attenuation power).
         /// </summary>
-        public Single Intensity;
-        public Vector4 Color;
-        public Vector4 Position;
+        public Single Intensity { get; set; }
+        public Vector4 Color { get; set; }
+        public Vector4 Position { get; set; }
         /// <summary>
         /// Bounds the tools kept, which the game works out again at load (<see cref="ComputeBounds"/>) and never reads.
         /// </summary>
-        public Vector4 BoundsMin;
-        public Vector4 BoundsMax;
+        public Vector4 BoundsMin { get; set; }
+        public Vector4 BoundsMax { get; set; }
 
         public Light()
         {

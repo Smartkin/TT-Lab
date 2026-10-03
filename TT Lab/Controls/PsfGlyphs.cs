@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Media.Imaging;
@@ -8,6 +9,7 @@ using Avalonia.Platform;
 using TT_Lab.AssetData.Global;
 using TT_Lab.AssetData.Graphics;
 using TT_Lab.Assets;
+using TT_Lab.Assets.Global;
 
 namespace TT_Lab.Controls;
 
@@ -28,10 +30,43 @@ public sealed class PsfGlyphs
 
     public sealed record Glyph(char Character, Bitmap? Image, Size Size);
 
+    private static readonly ConditionalWeakTable<FontData, PsfGlyphs> Made = new();
+
     private readonly Dictionary<char, Glyph> _glyphs = [];
 
     private PsfGlyphs()
     {
+    }
+
+    /// <summary>
+    /// The package's font with the most characters, the one with the controller buttons in both versions of the game
+    /// </summary>
+    public static Font? DefaultFontOf(LabURI package)
+    {
+        return AssetManager.Get().GetRelatedAssetsOf<Font>(package).OrderBy(font => font.Alias)
+            .MaxBy(font => ((IAsset)font).GetData<FontData>().CharacterData.Count(character => character.Size.X > 0));
+    }
+
+    /// <summary>
+    /// The glyphs of the package's default font, cut out once for every font's data
+    /// </summary>
+    public static PsfGlyphs? OfDefaultFont(LabURI package)
+    {
+        return DefaultFontOf(package) is { } font ? Made.GetValue(((IAsset)font).GetData<FontData>(), FromFont) : null;
+    }
+
+    /// <summary>
+    /// Glyphs made some other way than from a font, as tall as the line
+    /// </summary>
+    internal static PsfGlyphs FromGlyphs(IEnumerable<Glyph> glyphs, double lineHeight)
+    {
+        var made = new PsfGlyphs { LineHeight = lineHeight };
+        foreach (var glyph in glyphs)
+        {
+            made._glyphs[glyph.Character] = glyph;
+        }
+
+        return made;
     }
 
     public double LineHeight { get; private init; }

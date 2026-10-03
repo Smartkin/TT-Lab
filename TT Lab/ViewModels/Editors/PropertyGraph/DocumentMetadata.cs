@@ -192,6 +192,14 @@ public record DocumentMetadata : EditorMetadata
     }
 
     private static readonly Dictionary<Type, Func<object>> ConstructorCache = new();
+    /// <summary>
+    /// What makes the elements of the type that get put into lists, in place of its parameterless constructor
+    /// </summary>
+    public static void RegisterFactory<T>(Func<T> factory) where T : class
+    {
+        ConstructorCache[typeof(T)] = factory;
+    }
+
     private static Func<object> GetTypeFactory(Type type)
     {
         if (ConstructorCache.TryGetValue(type, out var result))

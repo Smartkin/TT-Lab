@@ -72,12 +72,10 @@ public partial class TextFileEditorViewModel(DocumentViewModel document, Propert
         return fonts;
     }
 
-    // The font with the most characters, the one with the controller buttons in both versions of the game
     private TextFileFont GetDefaultFont()
     {
-        return Fonts.Where(font => font.Font != null)
-                   .MaxBy(font => ((IAsset)font.Font!).GetData<FontData>().CharacterData.Count(character => character.Size.X > 0))
-               ?? Fonts[0];
+        var font = (Property.Target as AbstractAssetData)?.GetOwner() is { } owner ? PsfGlyphs.DefaultFontOf(owner.Package) : null;
+        return Fonts.FirstOrDefault(item => item.Font != null && item.Font == font) ?? Fonts[0];
     }
 
     private void UseFont(TextFileFont? font)

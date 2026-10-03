@@ -49,6 +49,7 @@ public class LevelChunk : SerializableAsset
     [Editable]
     [EditorParam(DocumentCompositeViewModel.EditorExplicitOrder, -4)]
     [EditorParam(UriLinkViewModel.BrowseType, typeof(Skydome))]
+    [EditorParam(UriLinkViewModel.IncludeEmpty, true)]
     [EditorHiddenWhen(nameof(IsGlobalDefaultChunk))]
     [OnReferenceDeleted(DeletedReferenceAction.Clear)]
     public LabURI Skydome { get; set; } = LabURI.Empty;
@@ -189,8 +190,11 @@ public class LevelChunk : SerializableAsset
     {
         var assetManager = AssetManager.Get();
         var result = new List<ViewportObject>();
+        var total = ChunkResources.Count + (Skydome != LabURI.Empty ? 1 : 0);
+        var done = 0;
         if (Skydome != LabURI.Empty)
         {
+            viewportContext.Progress?.Invoke("Skydome", done++, total);
             var skydomeData = assetManager.GetAssetData(Skydome);
             var skydomeProp = property.Find(nameof(Skydome))!;
             result.AddRange(skydomeData.GetViewportObjects(viewportContext, skydomeProp));
@@ -198,8 +202,12 @@ public class LevelChunk : SerializableAsset
 
         var chunkResourceList = property.Find(nameof(ChunkResources))!;
         var idx = 0;
-        foreach (var data in ChunkResources.Select(assetManager.GetAssetData))
+        foreach (var uri in ChunkResources)
         {
+            var asset = assetManager.GetAsset(uri);
+            // Named like the Chunk Resources panel's folders
+            viewportContext.Progress?.Invoke($"{ChunkResourcesTreeViewModel.KindName(asset.GetType())}: {asset.Alias}", done++, total);
+            var data = assetManager.GetAssetData(uri);
             var dataDoc = chunkResourceList.Find($"[{idx}]");
             if (dataDoc is not null)
             {

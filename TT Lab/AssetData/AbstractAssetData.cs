@@ -50,9 +50,13 @@ public abstract class AbstractAssetData(IAsset owner) : IDocumentModel
     {
         // Resolved up front and the working directory is left alone, assets load and save in parallel
         var projectPath = Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath;
+        var fullPath = System.IO.Path.Combine(projectPath, dataPath);
         try
         {
-            LoadInternal(System.IO.Path.Combine(projectPath, dataPath), settings);
+            LoadInternal(fullPath, settings);
+            // After what loading wrote itself (materials made in Blender added to the project), the project's watcher doesn't take it for
+            // another program's change
+            AssetFileStamps.Record(fullPath);
         }
         catch (JsonException ex)
         {
@@ -83,7 +87,9 @@ public abstract class AbstractAssetData(IAsset owner) : IDocumentModel
         }
         
         var assetsPath = System.IO.Path.Combine(Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath, "assets");
-        SaveInternal(System.IO.Path.Combine(assetsPath, dataPath), settings);
+        var fullPath = System.IO.Path.Combine(assetsPath, dataPath);
+        SaveInternal(fullPath, settings);
+        AssetFileStamps.Record(fullPath);
     }
 
     public virtual string GetStringified()
@@ -104,6 +110,7 @@ public abstract class AbstractAssetData(IAsset owner) : IDocumentModel
     public void SaveInCurrentDirectory(String dataPath, JsonSerializerSettings? settings = null)
     {
         SaveInternal(dataPath, settings);
+        AssetFileStamps.Record(dataPath);
     }
 
     protected virtual void SaveInternal(String dataPath, JsonSerializerSettings? settings = null)

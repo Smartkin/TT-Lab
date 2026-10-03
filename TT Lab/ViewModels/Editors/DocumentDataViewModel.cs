@@ -19,8 +19,7 @@ public class DocumentDataViewModel<T> : DocumentNodeViewModel
     public ReactiveCommand<T?, Unit> SetValueCommand => _setValueCommand ??= ReactiveCommand.CreateFromObservable<T?, Unit>(value =>
     {
         Property.SetValue(value);
-        CurrentValue = GetCurrentValue();
-        OnCurrentValueChanged();
+        ShowCurrentValue();
         return Observable.Empty<Unit>();
     });
 
@@ -35,11 +34,19 @@ public class DocumentDataViewModel<T> : DocumentNodeViewModel
         private set => this.RaiseAndSetIfChanged(ref _currentValue, value);
     }
 
+    // Only shows the node's value again. Setting what it read back changed nothing while getters give back the value they keep, but a
+    // value made anew every time (the scenery's bounds) never equals the last one: it set itself again until the stack ran out
     protected sealed override void PropertyOnChanged()
     {
         base.PropertyOnChanged();
-        
-        SetValueCommand.Execute(GetCurrentValue());
+
+        ShowCurrentValue();
+    }
+
+    private void ShowCurrentValue()
+    {
+        CurrentValue = GetCurrentValue();
+        OnCurrentValueChanged();
     }
 
     protected virtual void OnCurrentValueChanged()

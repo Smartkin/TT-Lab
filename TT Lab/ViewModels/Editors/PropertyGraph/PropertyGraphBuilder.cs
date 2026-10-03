@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
@@ -12,10 +13,12 @@ namespace TT_Lab.ViewModels.Editors.PropertyGraph;
 
 public static class PropertyGraphBuilder
 {
-    public static PropertyGraph Build(IDocumentModel document)
+    /// <param name="assetRead">Told about every asset the graph reads the data of, once each, before it's read</param>
+    /// <param name="overrides">The views of a chunk's document made again over the same data, with what it edited in them</param>
+    public static PropertyGraph Build(IDocumentModel document, Action<IAsset>? assetRead = null, ChunkOverrideSession? overrides = null)
     {
         // A chunk's document edits the assets it shares with other chunks through its views of them
-        var graphTracker = new PropertyGraphTracker { Overrides = document is LevelChunk chunk ? new ChunkOverrideSession(chunk) : null };
+        var graphTracker = new PropertyGraphTracker { Overrides = document is LevelChunk chunk ? overrides ?? new ChunkOverrideSession(chunk) : null, AssetRead = assetRead };
         var rootNode = BuildNode(document, null, "Root", graphTracker);
         return new PropertyGraph(rootNode, graphTracker);
     }
@@ -63,8 +66,42 @@ public static class PropertyGraphBuilder
             return node;
         }
 
+        if (property?.Editable?.IsComputed == true)
+        {
+            BuildComputedParts(node, path);
+            return node;
+        }
+
         BuildObject(node, node.GetValue()!, path, tracker);
         return node;
+    }
+
+    // A value its getter makes anew every time (a vector of the scenery's bounds): its parts are read from the value the getter gives and
+    // set by setting the whole value, like a bit of flags
+    private static void BuildComputedParts(PropertyNode node, string path)
+    {
+        if (node.GetValue() is not { } value)
+        {
+            return;
+        }
+
+        foreach (var part in DocumentMetadataCache.Get(value.GetType()).Properties)
+        {
+            Debug.Assert(IsLeaf(part.PropertyInfo.PropertyType), "Only a computed value's plain parts can be set through it");
+            var name = part.PropertyInfo.Name;
+            node.AddChild(new PropertyNode(name, $"{path}.{name}", value, part)
+            {
+                SetsParent = true,
+                GetValueDelegate = partNode => part.PropertyInfo.GetValue(partNode.Parent!.GetValue())!,
+                SetValueDelegate = (partNode, partValue) =>
+                {
+                    // The getter's value is a copy already
+                    var whole = partNode.Parent!.GetValue()!;
+                    part.PropertyInfo.SetValue(whole, partValue);
+                    partNode.Parent.SetValue(whole);
+                },
+            });
+        }
     }
 
     private static void BuildEnumFlagsCollection(PropertyNode node, object enumFlags, string path)
@@ -123,6 +160,7 @@ public static class PropertyGraphBuilder
         }
         
         var asset = AssetManager.Get().GetAsset(uri);
+        tracker.Read(asset);
         asset.GetData<AbstractAssetData>(); // Load the asset data
         if (tracker.Overrides is { } overrides && overrides.IsShared(asset))
         {
@@ -272,6 +310,18 @@ public static class PropertyGraphBuilder
 public class PropertyGraphTracker
 {
     public ChunkOverrideSession? Overrides { get; init; }
+
+    public Action<IAsset>? AssetRead { get; init; }
+
+    private readonly HashSet<LabURI> _read = [];
+
+    public void Read(IAsset asset)
+    {
+        if (AssetRead != null && _read.Add(asset.URI))
+        {
+            AssetRead(asset);
+        }
+    }
 
     private readonly HashSet<LabURI> _currentVisits = [];
     private readonly HashSet<LabURI> _trackedUris = [];

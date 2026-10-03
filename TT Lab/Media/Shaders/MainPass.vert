@@ -60,6 +60,19 @@ vec2 EnvironmentUv(vec3 worldPosition, vec3 worldNormal)
 	return clamp(vec2(0.5 + 0.5 * d.x, 0.5 - 0.5 * d.y), 0.0, 1.0) + twin_material.uv_offset;
 }
 
+// The lit VU1 programs (0x2dbeb0, 0x2e3b40): the vertex color's bytes times the ambient plus every light's color times the dot product of its
+// direction and the normal (neither normalized) clamped at 0, clamped to 255, which the GS takes as twice the texture's color at most. The
+// game turns the lights into the object's space, dot products are the same in the world's
+vec3 LitColor(LightSet lights, vec3 normal, vec3 color)
+{
+	vec3 light = lights.Ambient.rgb;
+	for (int i = 0; i < 3; i++)
+	{
+		light += lights.Slots[i].Color.rgb * max(dot(lights.Slots[i].Direction.xyz, normal), 0.0);
+	}
+	return min(color * light, vec3(1.0)) * (255.0 / 128.0);
+}
+
 void main()
 {
 	InstanceData instance = instances[gl_BaseInstance + gl_InstanceID];
@@ -72,6 +85,7 @@ void main()
 
 	mat4 viewModel = StartView * modelMatrix;
 	vec3 processedPosition = in_Position;
+	vec3 processedNormal = in_Normal;
 
 	// Cloth deformation
 	if (twin_material.deform_speed != 0.0 || twin_material.deform_amplitude != vec3(0.0))
@@ -98,15 +112,22 @@ void main()
 		vec4 pos2 = (BoneMatrices[uint(in_BoneMatrixIndices.y)] * vec4(processedPosition, 1.0)) * in_BoneWeights.y;
 		vec4 pos3 = (BoneMatrices[uint(in_BoneMatrixIndices.z)] * vec4(processedPosition, 1.0)) * in_BoneWeights.z;
 		processedPosition = mix(processedPosition, pos1.xyz + pos2.xyz + pos3.xyz, in_BoneWeights.x + in_BoneWeights.y + in_BoneWeights.z);
+		vec3 normal1 = mat3(BoneMatrices[uint(in_BoneMatrixIndices.x)]) * in_Normal * in_BoneWeights.x;
+		vec3 normal2 = mat3(BoneMatrices[uint(in_BoneMatrixIndices.y)]) * in_Normal * in_BoneWeights.y;
+		vec3 normal3 = mat3(BoneMatrices[uint(in_BoneMatrixIndices.z)]) * in_Normal * in_BoneWeights.z;
+		processedNormal = mix(in_Normal, normal1 + normal2 + normal3, in_BoneWeights.x + in_BoneWeights.y + in_BoneWeights.z);
 	}
 
 	Position = processedPosition;
 	Emit = in_Emit * twin_material.double_color;
 	ViewPosition = vec3(modelMatrix * vec4(processedPosition, 1.0));
-	EnvUv = twin_material.env_map > 0.0 ? EnvironmentUv(ViewPosition, mat3(modelMatrix) * in_Normal) : vec2(0.0);
+	vec3 worldNormal = mat3(modelMatrix) * processedNormal;
+	EnvUv = twin_material.env_map > 0.0 ? EnvironmentUv(ViewPosition, worldNormal) : vec2(0.0);
 	gl_Position = StartProjection * viewModel * vec4(processedPosition, 1.0);
 	Texpos = in_Texpos;
 	Normal = in_Normal;
-	Color = vec4(in_Color.rgb * twin_material.double_color, in_Color.a);
+	Color = twin_material.lit > 0.5 && instance.Lighting.x >= 0
+		? vec4(LitColor(lightSets[instance.Lighting.x], worldNormal, in_Color.rgb), in_Color.a)
+		: vec4(in_Color.rgb * twin_material.double_color, in_Color.a);
 	InstanceColor = instance.Color;
 }

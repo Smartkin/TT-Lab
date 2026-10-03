@@ -7,7 +7,7 @@ using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code;
 
 namespace TT_Lab.Tests.Editor;
 
-// Changing an object's type froze the game while the beach loaded, the inspector shows it without editing it
+// Changing an object's type froze the game while the beach loaded: the type can be changed, its hint warns about it
 [Collection(ProjectCollection.Name)]
 public sealed class ObjectTypeTests : IDisposable
 {
@@ -16,7 +16,7 @@ public sealed class ObjectTypeTests : IDisposable
     public void Dispose() => _project.Dispose();
 
     [AvaloniaFact]
-    public void AnObjectsTypeIsShownReadOnly()
+    public void AnObjectsTypeIsEditableWithAWarning()
     {
         var crate = _project.Add(new GameObject(), "Crate", 0x3, _project.Project.Ps2Package);
         crate.SetData(new GameObjectData(crate) { Type = ITwinObject.ObjectType.Crate });
@@ -27,6 +27,7 @@ public sealed class ObjectTypeTests : IDisposable
 
         var field = (EnumFieldViewModel)document.Root.Nodes.Single(node => node.Property.Name == nameof(GameObjectData.Type));
         Assert.Equal(ITwinObject.ObjectType.Crate, field.SelectedValue);
-        Assert.False(field.CanWrite);
+        Assert.True(field.CanWrite);
+        Assert.Contains("crash", field.Hint, StringComparison.OrdinalIgnoreCase);
     }
 }

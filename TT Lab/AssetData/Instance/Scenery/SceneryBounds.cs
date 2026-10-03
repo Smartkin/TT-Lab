@@ -1,0 +1,95 @@
+using System;
+using System.Linq;
+using GlmSharp;
+using TT_Lab.Attributes;
+using Twinsanity.TwinsanityInterchange.Common;
+
+namespace TT_Lab.AssetData.Instance.Scenery;
+
+/// <summary>
+/// The root cell of a scenery's tree, the box the game keeps the chunk's objects in. It places every instance in the deepest tree node
+/// whose cell holds the instance's box (<c>FUN_001eb250</c>, <c>FUN_001fa4b0</c> with 5e-05 of play), and an instance in none is left
+/// out of the level's collision checks: on a new chunk whose root was the cell of its flat ground Crash crept along without jumping and
+/// stopped at the edge. Every retail root is a box around the origin well past its level. Edited as its middle and half size, kept the
+/// way the game reads it: the corners, the middle with the radius in W and the half size
+/// </summary>
+public sealed class SceneryBounds(SceneryData scenery)
+{
+    /// <summary>
+    /// What new chunks get, about the size of the game's levels
+    /// </summary>
+    public static readonly vec3 DefaultHalfSize = new(200.0f, 100.0f, 200.0f);
+
+    // A cell thinner than this on an axis holds no object
+    private const float FlatHalfSize = 0.5f;
+    // Roots made from what's in them get this much room around it, like the game's
+    private const float Room = 1.5f;
+
+    private SceneryBaseData? Root => scenery.Sceneries.FirstOrDefault();
+
+    [Editable(IsComputed = true, Hint = "The middle of the box the game keeps the chunk's objects in. An object outside of it has nothing under it: it has to hold every place objects go")]
+    public Vector3 Center
+    {
+        get => Root is { } root ? ToTwin(CenterOf(root)) : new Vector3();
+        set
+        {
+            if (Root is { } root)
+            {
+                SetCell(root, ToGlm(value), HalfSizeOf(root));
+            }
+        }
+    }
+
+    [Editable(Caption = "Half Size", IsComputed = true, Hint = "How far the box reaches from its middle along each axis, the scale tool of the viewport sets it")]
+    public Vector3 HalfSize
+    {
+        get => Root is { } root ? ToTwin(HalfSizeOf(root)) : new Vector3();
+        set
+        {
+            if (Root is { } root)
+            {
+                SetCell(root, CenterOf(root), vec3.Abs(ToGlm(value)));
+            }
+        }
+    }
+
+    public static vec3 CenterOf(SceneryBaseData node) => (new vec3(node.BoundsMin.X, node.BoundsMin.Y, node.BoundsMin.Z) + new vec3(node.BoundsMax.X, node.BoundsMax.Y, node.BoundsMax.Z)) * 0.5f;
+
+    public static vec3 HalfSizeOf(SceneryBaseData node) => (new vec3(node.BoundsMax.X, node.BoundsMax.Y, node.BoundsMax.Z) - new vec3(node.BoundsMin.X, node.BoundsMin.Y, node.BoundsMin.Z)) * 0.5f;
+
+    public static void SetCell(SceneryBaseData node, vec3 center, vec3 halfSize)
+    {
+        node.BoundsMin = new Vector4(center.x - halfSize.x, center.y - halfSize.y, center.z - halfSize.z, 1.0f);
+        node.BoundsMax = new Vector4(center.x + halfSize.x, center.y + halfSize.y, center.z + halfSize.z, 1.0f);
+        node.BoundsCenter = new Vector4(center.x, center.y, center.z, halfSize.Length);
+        node.BoundsHalfSize = new Vector4(halfSize.x, halfSize.y, halfSize.z, 1.0f);
+    }
+
+    /// <summary>
+    /// Whether the cell can hold an object at all
+    /// </summary>
+    public static bool HoldsAnything(SceneryBaseData node)
+    {
+        var halfSize = HalfSizeOf(node);
+        return float.IsFinite(halfSize.x) && float.IsFinite(halfSize.y) && float.IsFinite(halfSize.z) &&
+               halfSize.x >= FlatHalfSize && halfSize.y >= FlatHalfSize && halfSize.z >= FlatHalfSize;
+    }
+
+    /// <summary>
+    /// A box around the origin like the game's roots: the default, or more when the level reaches further, with room to spare
+    /// </summary>
+    public static void Widen(SceneryBaseData node, vec3 levelMin, vec3 levelMax)
+    {
+        var reach = vec3.Zero;
+        if (float.IsFinite(levelMin.x) && float.IsFinite(levelMax.x))
+        {
+            reach = vec3.Max(vec3.Abs(levelMin), vec3.Abs(levelMax)) * Room;
+        }
+
+        SetCell(node, vec3.Zero, vec3.Max(DefaultHalfSize, reach));
+    }
+
+    private static Vector3 ToTwin(vec3 vector) => new(vector.x, vector.y, vector.z);
+
+    private static vec3 ToGlm(Vector3 vector) => new(vector.X, vector.Y, vector.Z);
+}

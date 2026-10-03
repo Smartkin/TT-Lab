@@ -42,7 +42,7 @@ public abstract partial class TabbedEditorViewModel : Document
     public ReactiveCommand<Unit, Unit> RedoCommand { get; }
     
     private readonly IAsset _asset;
-    private readonly IDisposable _creationTask;
+    private IDisposable _creationTask;
 
     protected TabbedEditorViewModel(IAsset asset)
     {
@@ -66,18 +66,43 @@ public abstract partial class TabbedEditorViewModel : Document
             ViewportWidth = new GridLength(5, GridUnitType.Star);
         }
 
-        _creationTask = RxSchedulers.TaskpoolScheduler.Schedule(this, (_, state) =>
+        // Whichever document it has, being made again gives it another
+        this.WhenAnyValue(x => x.Document!.IsDirty).Subscribe(_ => ChangeDisplayName());
+        _creationTask = StartLoading(null);
+    }
+
+    /// <summary>
+    /// What a tab made again keeps: where a chunk's camera was, the path of what the inspector showed and what the document carries over
+    /// </summary>
+    internal sealed record KeptState(GlmSharp.mat4? View, string? Inspected, DocumentViewModel.Carried? Carried);
+
+    // Reads the asset's data and makes the document and the viewport in the background, made again it's the way it was kept
+    private IDisposable StartLoading(KeptState? kept)
+    {
+        return RxSchedulers.TaskpoolScheduler.Schedule(this, (_, state) =>
         {
             try
             {
                 if (HasViewport)
                 {
-                    Viewport = new ViewportViewModel();
+                    var viewport = new ViewportViewModel();
+                    viewport.BeginLoading(_asset);
+                    if (kept?.View is { } view)
+                    {
+                        viewport.KeepView(view);
+                    }
+
+                    Viewport = viewport;
                 }
 
                 _asset.GetData<AbstractAssetData>(); // Load in the asset data
-                Document = new DocumentViewModel(_asset, Viewport);
+                var document = new DocumentViewModel(_asset, Viewport, kept?.Carried?.Overrides);
+                if (kept?.Carried is { } carried)
+                {
+                    document.TakeOver(carried);
+                }
 
+                Document = document;
                 Document.Initialize();
 
                 if (HasViewport)
@@ -85,10 +110,18 @@ public abstract partial class TabbedEditorViewModel : Document
                     Viewport!.Init(Document);
                 }
 
-                Title = _asset.Name;
-                this.WhenAnyValue(x => x.Document!.IsDirty).Subscribe(x => ChangeDisplayName());
-
+                ChangeDisplayName();
                 IsLoaded = true;
+                if (kept?.Inspected is { } inspected)
+                {
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        if (Document == document && document.PropertyGraph.Find(inspected) is { } node)
+                        {
+                            document.OpenInspector(node);
+                        }
+                    });
+                }
             }
             catch (Exception ex)
             {
@@ -100,6 +133,59 @@ public abstract partial class TabbedEditorViewModel : Document
 
             return Disposable.Empty;
         });
+    }
+
+    /// <summary>
+    /// The first half of making the editor again, another program changed files it shows: the tab lets go of its document and viewport and
+    /// stays where it is, loading. Its unsaved changes are discarded when told to (they were in what got changed, the user said to), like
+    /// closing it without saving does, else the new document takes them over: they're in the data, which stays loaded but for what's read
+    /// again. Gives what <see cref="LoadAgain"/> keeps
+    /// </summary>
+    internal async Task<KeptState?> Unload(bool discardChanges, IReadOnlySet<LabURI> reread, string rereadNames)
+    {
+        if (!IsLoaded || Document == null)
+        {
+            return null;
+        }
+
+        var view = Viewport?.CurrentView;
+        KeptState kept;
+        if (discardChanges && Document.IsDirty)
+        {
+            // What's inspected can be somewhere else among what the discarded changes put in or took out
+            kept = new KeptState(view, null, null);
+            try
+            {
+                await RevertToSaved();
+            }
+            catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or Newtonsoft.Json.JsonException)
+            {
+                // Its data still goes, what's read again is the other program's
+                Log.WriteLine($"{_asset.Name}'s saved file couldn't be read back: {ex.Message}", Log.LogType.Warning);
+            }
+
+            if (_asset is LevelChunk chunk)
+            {
+                ForgetUnplacedInstances(chunk);
+            }
+        }
+        else
+        {
+            kept = new KeptState(view, Document.Inspector?.Property.Path, Document.Carry(reread, rereadNames));
+        }
+
+        Viewport?.Close();
+        _creationTask.Dispose();
+        IsLoaded = false;
+        Document = null;
+        Viewport = null;
+        Title = $"{_asset.Name} (Loading)";
+        return kept;
+    }
+
+    internal void LoadAgain(KeptState? kept)
+    {
+        _creationTask = StartLoading(kept);
     }
 
     private void ChangeDisplayName()
@@ -123,7 +209,8 @@ public abstract partial class TabbedEditorViewModel : Document
         Factory?.CloseDockable(this);
     }
 
-    public async Task<Boolean> CloseTab()
+    // Discarding the changes without asking when every editor's were asked about at once (closing them all)
+    public async Task<Boolean> CloseTab(bool discardChanges = false)
     {
         if (!IsLoaded || Document == null)
         {
@@ -131,7 +218,7 @@ public abstract partial class TabbedEditorViewModel : Document
             return true;
         }
         
-        var canClose = await Document.CanCloseDocument();
+        var canClose = discardChanges ? DocumentViewModel.DocumentClosing.CloseAndNotSave : await Document.CanCloseDocument();
         if (canClose is DocumentViewModel.DocumentClosing.CloseAndNotSave or DocumentViewModel.DocumentClosing.CloseAndSave)
         {
             if (canClose == DocumentViewModel.DocumentClosing.CloseAndSave)
@@ -141,11 +228,7 @@ public abstract partial class TabbedEditorViewModel : Document
             // Nothing changed stays as it is: other editors may be using the data, and it's let go of once none does
             else if (Document.IsDirty)
             {
-                await using System.IO.FileStream fs = new($"{_asset.FullPath}{System.IO.Path.DirectorySeparatorChar}{_asset.Name}.json", System.IO.FileMode.Open, System.IO.FileAccess.Read);
-                using System.IO.StreamReader reader = new(fs);
-                var json = await reader.ReadToEndAsync();
-                _asset.Deserialize(json);
-                DiscardData();
+                await RevertToSaved();
             }
 
             Cleanup();
@@ -153,6 +236,16 @@ public abstract partial class TabbedEditorViewModel : Document
         }
 
         return false;
+    }
+
+    // The asset as it was saved: its file read again and its data let go of
+    private async Task RevertToSaved()
+    {
+        await using System.IO.FileStream fs = new($"{_asset.FullPath}{System.IO.Path.DirectorySeparatorChar}{_asset.Name}.json", System.IO.FileMode.Open, System.IO.FileAccess.Read);
+        using System.IO.StreamReader reader = new(fs);
+        var json = await reader.ReadToEndAsync();
+        _asset.Deserialize(json);
+        DiscardData();
     }
 
     // The changes go by loading the data again. Data another open editor uses stays with it: a chunk's view of a behaviour, a model, a
@@ -212,6 +305,9 @@ public abstract partial class TabbedEditorViewModel : Document
             yield return uri;
         }
     }
+
+    // What its document reads or its scene draws, the textures and materials a scene draws are no part of the document
+    internal bool Shows(IReadOnlySet<LabURI> assets) => GetReferencedAssets().Any(assets.Contains) || (Viewport != null && assets.Any(Viewport.HasRead));
 
     public LabURI EditableResource => _asset.URI;
 

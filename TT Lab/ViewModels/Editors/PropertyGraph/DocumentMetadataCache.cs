@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using TT_Lab.AssetData.Instance.Scenery;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Common.CameraSubtypes;
+using Twinsanity.TwinsanityInterchange.Common.Lights;
 
 namespace TT_Lab.ViewModels.Editors.PropertyGraph;
 
@@ -41,5 +43,14 @@ public static class DocumentMetadataCache
         Register<CameraPoint2>(true);
         Register<CameraSpline>(true);
         Register<CameraZone>(true);
+        // A light put into a scenery's list starts as the ones new chunks get, a black light of no intensity does nothing
+        DocumentMetadata.RegisterFactory(DefaultLights.Ambient);
+        DocumentMetadata.RegisterFactory(DefaultLights.Directional);
+        DocumentMetadata.RegisterFactory(DefaultLights.Point);
+        DocumentMetadata.RegisterFactory(DefaultLights.Spot);
+        Register<AmbientLight>(true);
+        Register<DirectionalLight>(true);
+        Register<PointLight>(true);
+        Register<SpotLight>(true);
     }
 }

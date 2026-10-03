@@ -98,6 +98,11 @@ public class TwinMaterial(RenderContext context, TwinMaterialDesc materialDesc) 
         Program.SetUniform(KnownUniform.MaterialEditorShading, @override ? 1.0f : 0.0f);
     }
 
+    public void ApplyLit(bool @override)
+    {
+        Program.SetUniform(KnownUniform.MaterialLit, @override ? 1.0f : 0.0f);
+    }
+
     public void ApplyAlphaBlending(bool @override)
     {
         Program.SetUniform(KnownUniform.MaterialAlphaBlend, @override ? 1.0f : 0.0f);
@@ -169,6 +174,7 @@ public class TwinMaterial(RenderContext context, TwinMaterialDesc materialDesc) 
         ApplyDepthTest(_materialDesc.DepthTest);
         ApplyFog(_materialDesc.PerformFog);
         ApplyEditorShading(_materialDesc.EditorShading);
+        ApplyLit(_materialDesc.Lit);
     }
 
     public override void Unbind()

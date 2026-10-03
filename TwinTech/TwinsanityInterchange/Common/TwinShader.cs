@@ -39,6 +39,11 @@ namespace Twinsanity.TwinsanityInterchange.Common
         public ColorSpecMethod SpecOfColD;
         public byte FixedAlphaValue;
         public TextureFilter TextureFilterWhenTextureIsExpanded;
+        /// <summary>
+        /// The settings' "no FBA" bit (56): set, the GS's FBA is off and the pixels keep their alpha; clear, their alpha's top bit is set,
+        /// and the shadows' pass (bucket 21) only darkens pixels whose alpha has it clear. Set on every retail scenery material, clear on
+        /// the characters that cast shadows.
+        /// </summary>
         public bool AlphaCorrectionValue;
         /// <summary>
         /// Never read by the game, false in every retail material.

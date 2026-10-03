@@ -80,7 +80,7 @@
                         <controls:LabeledCheckBox LayoutOrientation="Horizontal" Checked="{Binding TxtMapping}" x:Name="TextureMappingCheckbox" HorizontalAlignment="Stretch" Margin="0,0,0,0" VerticalAlignment="Stretch" CheckBoxName="Texture mapping"/>
                         <controls:LabeledCheckBox LayoutOrientation="Horizontal" Checked="{Binding Fog}" x:Name="FoggingCheckbox" HorizontalAlignment="Stretch" Margin="0,0,0,0" VerticalAlignment="Stretch" CheckBoxName="Fogging"/>
                         <controls:LabeledCheckBox LayoutOrientation="Horizontal" Checked="{Binding UseCustomAlphaRegSettings}" x:Name="UseCustomAlphaRegSettingsCheckbox" CheckBoxName="Custom alpha reg settings"/>
-                        <controls:LabeledCheckBox LayoutOrientation="Horizontal" Checked="{Binding AlphaCorrectionValue}" x:Name="AlphaCorrectionValueCheckbox" CheckBoxName="Alpha correction value MSB"/>
+                        <controls:LabeledCheckBox LayoutOrientation="Horizontal" Checked="{Binding AlphaCorrectionValue}" x:Name="AlphaCorrectionValueCheckbox" CheckBoxName="Receives shadows (no FBA)"/>
                         <controls:LabeledCheckBox LayoutOrientation="Horizontal" Checked="{Binding UnusedFlag}" x:Name="UnusedFlagCheckbox" CheckBoxName="Unused flag"/>
                         <controls:LabeledCheckBox LayoutOrientation="Horizontal" Checked="{Binding AntiAliasing}" x:Name="AntiAliasingCheckbox" CheckBoxName="Anti-aliasing"/>
                         <controls:LabeledCheckBox LayoutOrientation="Horizontal" Checked="{Binding AnimationDrivesColor}" x:Name="AnimationDrivesColorCheckbox" CheckBoxName="Animation drives color"/>

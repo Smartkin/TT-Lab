@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using Avalonia.Controls;
 using ReactiveUI;
 using ReactiveUI.Avalonia;
+using TT_Lab.Controls;
 using TT_Lab.ViewModels;
 using TT_Lab.ViewModels.Editors;
 
@@ -18,6 +19,7 @@ public partial class ChunkResourcesView : ReactiveUserControl<ChunkResourcesView
     public ChunkResourcesView()
     {
         InitializeComponent();
+        FocusKeeper.KeepFocusIn(this);
         this.WhenActivated(disposables =>
         {
             this.WhenAnyValue(x => x.ViewModel!.Document)

@@ -54,6 +54,19 @@ public sealed class ViewportCreateMenuTests : IDisposable
         return _project.Add(new LevelChunk { AdditionalPath = path }, path.Split('/')[^1], package: package);
     }
 
+    // A sky picked for a chunk that had none has no objects in the scene yet whose link could follow it: the viewport makes the sky's
+    // objects for the chunk's Skydome link itself, the scene stayed without a sky until it was opened again
+    [AvaloniaFact]
+    public void TheViewportFollowsTheChunksSkyLink()
+    {
+        var chunk = AddChunk("levels/earth/hub/beach");
+        var viewport = OpenViewport(chunk, out var document);
+
+        Assert.True(viewport.IsChunkSky(document.PropertyGraph.Find("Root.Skydome")!));
+        Assert.False(viewport.IsChunkSky(document.PropertyGraph.Find("Root.ChunkResources")!));
+        viewport.Close();
+    }
+
     private T AddInstance<T>(LevelChunk chunk, string name, Func<IAsset, AbstractAssetData> data, int layout = 0) where T : SerializableInstance, new()
     {
         var instance = _project.Add(new T { Chunk = chunk.AdditionalPath!, AdditionalPath = chunk.AdditionalPath, LayoutID = layout }, name);
@@ -158,5 +171,24 @@ public sealed class ViewportCreateMenuTests : IDisposable
         // A chunk without the resource makes none
         var bare = AddChunk("levels/earth/hub/bare");
         Assert.Null(OpenViewport(bare, out _).CreateChunkLink());
+    }
+
+    // Lights are elements of the scenery's lists, placing one in a scenery without lighting turns it on in the same step
+    [AvaloniaFact]
+    public void LightsGoIntoTheScenerysListsAndTurnItsLightingOn()
+    {
+        var chunk = AddChunk("levels/earth/hub/beach");
+        var scenery = AddInstance<Scenery>(chunk, "Scenery", asset => new SceneryData(asset));
+        var viewport = OpenViewport(chunk, out var document);
+
+        var light = viewport.CreateLight(Twinsanity.TwinsanityInterchange.Common.Lights.LightType.Spot);
+
+        Assert.Equal("Root.ChunkResources[0][data].AssetData.SpotLights[0]", light!.Path);
+        var data = ((IAsset)scenery).GetData<SceneryData>();
+        Assert.True(data.HasLighting);
+        Assert.Single(data.SpotLights);
+        document.Undo();
+        Assert.False(data.HasLighting);
+        Assert.Empty(data.SpotLights);
     }
 }

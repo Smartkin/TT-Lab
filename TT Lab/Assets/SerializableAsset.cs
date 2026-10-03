@@ -79,7 +79,7 @@ public abstract class SerializableAsset : IAsset
     public AbstractAssetData? AssetData
     {
         // Builds work on their scope's data, or on the asset's own when an editor has it loaded
-        get => (IsInternal ? null : AssetDataScope.Current?.GetData(this)) ?? _assetData;
+        get => IsInternal || AssetDataScope.Current is not { } scope || !scope.TryGetData(this, out var data) ? _assetData : data;
         set => SetData(value);
     }
 

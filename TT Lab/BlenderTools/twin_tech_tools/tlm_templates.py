@@ -36,6 +36,8 @@ SKIN_SIZE = 1.0
 GROUND_SIZE = 20.0
 # The collision's placeholder surface, TT Lab takes the project's surface of the material's name (its first one otherwise)
 DEFAULT_SURFACE = "SURF_DEFAULT_0"
+# The lights' color, white the way the game's tools kept colors: adding up to 1
+THIRD_GREY = 1.0 / 3.0
 
 Geometry = typing.Tuple[typing.List[typing.Tuple[float, float, float]], typing.List[typing.Tuple[int, ...]], typing.List[typing.Tuple[float, float]]]
 
@@ -130,12 +132,13 @@ def new_scenery(context: bpy.types.Context, name: str = "Scenery") -> bpy.types.
     mesh = _mesh_object("Ground", ground(GROUND_SIZE), "scenery_mesh", tree, collection)
     tlm_blender._read_data(mesh, "SceneryMesh", {})
 
+    # The lights TT Lab gives new chunks, the brightness in the intensity: every level has an ambient light of a third grey at 3 to 6
     lights = _empty("Lights", "lights", root, collection, *tlm_scenery._EMPTY_DISPLAY["lights"])
     ambient = _empty("Ambient Light", "ambient_light", lights, collection, *tlm_scenery._EMPTY_DISPLAY["ambient_light"])
-    tlm_blender._read_data(ambient, "AmbientLight", {"Color": (0.5, 0.5, 0.5, 1.0), "Intensity": 1.0})
+    tlm_blender._read_data(ambient, "AmbientLight", {"Color": (THIRD_GREY, THIRD_GREY, THIRD_GREY, 0.0), "Intensity": 4.5})
     ambient.location = (0.0, 5.0, 0.0)
     sun = _empty("Directional Light", "directional_light", lights, collection, *tlm_scenery._EMPTY_DISPLAY["directional_light"])
-    tlm_blender._read_data(sun, "DirectionalLight", {"Color": (1.0, 1.0, 1.0, 1.0), "Intensity": 1.0})
+    tlm_blender._read_data(sun, "DirectionalLight", {"Color": (THIRD_GREY, THIRD_GREY, THIRD_GREY, 0.0), "Intensity": 3.0})
     # The arrow points at where the light comes from: from above, a little to the side so faces don't all get the same light
     sun.rotation_mode = "QUATERNION"
     sun.rotation_quaternion = Vector((0.0, 0.0, 1.0)).rotation_difference(Vector((0.3, 1.0, 0.3)).normalized())

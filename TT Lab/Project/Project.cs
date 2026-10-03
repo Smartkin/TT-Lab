@@ -53,7 +53,7 @@ namespace TT_Lab.Project;
 public class Project : IProject
 {
     // 0.6.0 changed how models, scenery and every other glb asset are stored
-    private const string CURRENT_VERSION = "0.13.0";
+    private const string CURRENT_VERSION = "1.0.0";
 
     public AssetManager AssetManager { get; private set; }
 

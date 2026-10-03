@@ -160,7 +160,14 @@
                     IsHitTestVisible="False" IsVisible="{Binding SelectionInfo, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                 <TextBlock Text="{Binding SelectionInfo}" FontSize="12" Foreground="#FFE0E0E0"/>
             </Border>
-            <TextBlock Text="{Binding SceneStatus}" FontSize="32" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+            <!-- What the scene is loading, in the game's font -->
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="16" Spacing="6" IsHitTestVisible="False" IsVisible="{Binding !CanRender}">
+                <controls:GameText Text="Loading scene" Glyphs="{Binding LoadingGlyphs}" LineHeight="48" HorizontalAlignment="Center"/>
+                <controls:GameText Text="{Binding LoadingStage}" Glyphs="{Binding LoadingGlyphs}" LineHeight="28" HorizontalAlignment="Center"/>
+                <controls:GameText Text="{Binding LoadingDetail}" Glyphs="{Binding LoadingGlyphs}" LineHeight="20" HorizontalAlignment="Center"/>
+                <ProgressBar Width="320" MinWidth="320" Height="6" MinHeight="6" Minimum="0" Maximum="1" HorizontalAlignment="Center"
+                             Value="{Binding LoadingProgress}" IsIndeterminate="{Binding !IsLoadingProgressKnown}"/>
+            </StackPanel>
         </Grid>
     </DockPanel>
 </UserControl>

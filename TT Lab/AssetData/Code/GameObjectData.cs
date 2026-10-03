@@ -71,8 +71,7 @@ namespace TT_Lab.AssetData.Code
         });
 
         [JsonProperty(Required = Required.Always)]
-        [Editable(Hint = "The game builds an instance's nodes by its object's type from the object's properties, slots and scripts, which have to be the type's: changing the types of the beach's objects (crates into characters, the character into a pickup, and objects into projectiles, graples and grabbables) froze the game while it loaded. It's set when the object is made, edit the object's file to change it knowing that")]
-        [EditorReadOnly]
+        [Editable(Hint = "The game builds an instance's nodes by its object's type from the object's properties, slots and scripts. Carefuly of what object type you are using, this could potentially crash the game!")]
         public ITwinObject.ObjectType Type { get; set; }
         
         [JsonProperty(Required = Required.Always)]

@@ -196,6 +196,8 @@ public partial class ViewportViewModel : ReactiveObject
             new ViewportLayerToggle("AI positions", ViewportObjectCategory.AiPositions, true),
             new ViewportLayerToggle("AI paths", ViewportObjectCategory.AiPaths, true),
             new ViewportLayerToggle("Particles", ViewportObjectCategory.Particles, true),
+            new ViewportLayerToggle("Lights", ViewportObjectCategory.Lights, true),
+            new ViewportLayerToggle("Scenery bounds", ViewportObjectCategory.SceneryBounds, true),
         ];
 
         foreach (var toggle in LayerToggles)
@@ -290,6 +292,11 @@ public partial class ViewportViewModel : ReactiveObject
                 // Without a render context the scene gets built once PrepareRender receives one
                 if (_renderInit || _renderContext == null)
                 {
+                    if (!_renderInit)
+                    {
+                        ReportLoading(StartingStage);
+                    }
+
                     return;
                 }
 
@@ -1037,9 +1044,13 @@ public partial class ViewportViewModel : ReactiveObject
             return;
         }
 
+        ReportLoading(BuildingStage);
         if (_document != null)
         {
-            var viewportContext = new ViewportContext(_renderContext!, _editingContext!, _renderer!);
+            var viewportContext = new ViewportContext(_renderContext!, _editingContext!, _renderer!)
+            {
+                Progress = (what, done, total) => ReportLoading(BuildingStage, $"{what} ({done + 1} of {total})", done, total),
+            };
             AddViewportObjects(_document.DocumentModel.GetViewportObjects(viewportContext, _document.PropertyGraph.Root));
         }
 
@@ -1047,6 +1058,21 @@ public partial class ViewportViewModel : ReactiveObject
         FitOrbitToModel();
         FinalizeSceneInit();
     }
+
+    // A chunk's camera as it was before its editor got made again (another program changed what it shows)
+    private mat4? _keptView;
+
+    /// <summary>
+    /// Where a chunk's camera is, a single asset's viewer frames what it shows again
+    /// </summary>
+    internal mat4? CurrentView => _isChunkViewport && _renderInit ? _scene?.Camera.LocalTransform : null;
+
+    internal void KeepView(mat4 view) => _keptView = view;
+
+    /// <summary>
+    /// Whether the scene drew something of the asset (a texture, a material, a mesh), which its document doesn't always reach
+    /// </summary>
+    internal bool HasRead(LabURI asset) => _renderContext?.ReadAssets.ContainsKey(asset) == true;
 
     private void FinalizeSceneInit()
     {
@@ -1056,7 +1082,11 @@ public partial class ViewportViewModel : ReactiveObject
         _renderer.RegisterForRendering(_scene!, true);
         _renderer.RegisterForUpdating(_scene!);
 
-        if (_isChunkViewport)
+        if (_isChunkViewport && _keptView is { } view)
+        {
+            _scene!.Camera.LocalTransform = view;
+        }
+        else if (_isChunkViewport)
         {
             var camForward = -_scene!.Camera.GetForward();
             _scene.Camera.Translate(camForward * -5);
@@ -1068,7 +1098,15 @@ public partial class ViewportViewModel : ReactiveObject
 
         CanRender = true;
         this.RaisePropertyChanged(nameof(CanRender));
-        this.RaisePropertyChanged(nameof(SceneStatus));
+
+        // What got inspected before the scene had its objects (a chunk made again keeps what it inspected) gets selected now
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_document?.Inspector is { } inspector)
+            {
+                SelectInspected(inspector.Property);
+            }
+        });
     }
 
     // Scene graph changes happen on the render thread
@@ -1128,6 +1166,8 @@ public partial class ViewportViewModel : ReactiveObject
         }
     }
 
+    internal bool IsChunkSky(PropertyNode node) => _isChunkViewport && node == _document?.PropertyGraph.Root.Find(nameof(LevelChunk.Skydome));
+
     private void PropertyGraphOnChanged(PropertyChange change)
     {
         if (!_renderInit)
@@ -1153,6 +1193,12 @@ public partial class ViewportViewModel : ReactiveObject
             {
                 AddRebuild(ref rebuilds, change.Node);
             }
+        }
+
+        // A sky picked for a chunk that had none has no objects yet to follow its link
+        if (change.Kind == PropertyChangeKind.Value && IsChunkSky(change.Node) && _viewportObjects.All(viewportObject => viewportObject.Property != change.Node))
+        {
+            AddRebuild(ref rebuilds, change.Node);
         }
 
         List<PropertyNode>? structureRebuilds = null;
@@ -1289,7 +1335,11 @@ public partial class ViewportViewModel : ReactiveObject
             render.SetPosition(new vec3(point.X, point.Y, point.Z));
         }
 
-        if (viewportObject.Rotation?.GetValue() is Vector3 rotation)
+        if (viewportObject.RotationConverter != null && viewportObject.Rotation != null)
+        {
+            render.SetRotation(viewportObject.RotationConverter.ToRotation(viewportObject.Rotation.GetValue()));
+        }
+        else if (viewportObject.Rotation?.GetValue() is Vector3 rotation)
         {
             render.SetRotation(new quat(rotation.ToRadiansGlm()));
         }
@@ -1312,6 +1362,18 @@ public partial class ViewportViewModel : ReactiveObject
     // A rebuild reading the graph while the UI thread changes it, like undoing many steps in a row, is tried again this many times
     private const int RebuildAttempts = 3;
 
+    // A chunk's resources are links to them, the viewer of a single asset shows the document's own at the root: read as a link, a shader
+    // put into or taken out of a material made its preview again from nothing, and it stayed empty
+    internal LabURI? ResourceOf(PropertyNode property)
+    {
+        return property.GetValue() switch
+        {
+            LabURI link => link,
+            IAsset asset when ReferenceEquals(asset, _document?.DocumentModel) => asset.URI,
+            _ => null,
+        };
+    }
+
     // Makes the resource's objects again and selects the one picked among them (a duplicate, what a prefab placed), shown in the
     // inspector when asked. Placed gets the new objects on the UI thread before the selection, or none when the scene is gone
     private void RebuildViewportObjects(PropertyNode property, Func<ViewportObject, bool>? select, bool openInspector, Action<List<ViewportObject>>? placed = null, int attempt = 0)
@@ -1331,7 +1393,7 @@ public partial class ViewportViewModel : ReactiveObject
 
         // The resource it is now: by the time the render thread gets to it an undo can have taken the node out, which then read another
         // resource at its index and made that one's objects again next to its own
-        var uri = property.Parent?.Children.Contains(property) != false ? property.GetValue() as LabURI : null;
+        var uri = property.Parent?.Children.Contains(property) != false ? ResourceOf(property) : null;
         renderContext.QueueRenderAction(() =>
         {
             var viewportObjects = new List<ViewportObject>();
@@ -1779,7 +1841,12 @@ public partial class ViewportViewModel : ReactiveObject
     public bool CanRender { get; private set; }
 
     public bool IsBuildingScene => _renderContext != null && !_renderInit;
-    public string SceneStatus => CanRender ? "" : "Loading scene...";
 }
 
-public record ViewportContext(RenderContext RenderContext, EditingContext EditingContext, Renderer Renderer);
+public record ViewportContext(RenderContext RenderContext, EditingContext EditingContext, Renderer Renderer)
+{
+    /// <summary>
+    /// Told what's being built while the scene gets made: what, how many are done and how many there are
+    /// </summary>
+    public Action<string, int, int>? Progress { get; init; }
+}

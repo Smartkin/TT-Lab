@@ -29,6 +29,15 @@ internal sealed class ParticleSystemLinks
         graph.Changed += OnChanged;
     }
 
+    // The renames of the document made again over the same data, its systems are the same objects
+    public void TakeOver(ParticleSystemLinks other)
+    {
+        foreach (var (system, renamed) in other._renamed)
+        {
+            _renamed.TryAdd(system, renamed);
+        }
+    }
+
     private void OnChanged(PropertyChange change)
     {
         if (change.IsConsequence)

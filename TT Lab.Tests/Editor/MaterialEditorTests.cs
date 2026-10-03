@@ -9,6 +9,7 @@ using TT_Lab.AssetData.Graphics;
 using TT_Lab.AssetData.Graphics.Shaders;
 using TT_Lab.Assets.Graphics;
 using TT_Lab.Tests.Support;
+using TT_Lab.ViewModels;
 using TT_Lab.ViewModels.Editors;
 using TT_Lab.ViewModels.Editors.Descs;
 using TT_Lab.ViewModels.Editors.Graphics;
@@ -47,6 +48,25 @@ public sealed class MaterialEditorTests : IDisposable
     }
 
     private static IEnumerable<string> Ticked(ActivatedShadersFieldViewModel field) => field.Types.Where(type => type.IsUsed).Select(type => type.Name);
+
+    // A material's preview is its own, at the document's root: putting a shader in or taking one out makes the material's objects again,
+    // which read the root as a link to a chunk's resource and made nothing, and the preview stayed empty through undo and new shaders
+    [AvaloniaFact]
+    public void ThePreviewIsMadeAgainForTheMaterialItself()
+    {
+        var texture = new TestAssets(_project).AddTexture("Tex", 0xFF8080FF);
+        var material = _project.Add(new Material(), "Mat");
+        material.SetData(new MaterialData(material) { Shaders = [new LabShader { ShaderType = TwinShader.Type.StandardUnlit, TextureId = texture.URI }] });
+        var viewport = new ViewportViewModel();
+        var document = new DocumentViewModel(material, viewport);
+        document.Initialize();
+        viewport.Init(document);
+
+        Assert.Equal(material.URI, viewport.ResourceOf(document.PropertyGraph.Root));
+        Assert.Equal(texture.URI, viewport.ResourceOf(document.PropertyGraph.Find("Root.AssetData.Shaders[0].TextureId")!));
+        Assert.Null(viewport.ResourceOf(document.PropertyGraph.Find("Root.AssetData.Shaders")!));
+        viewport.Close();
+    }
 
     [AvaloniaFact]
     public void ActivatedShadersAreTheShadersTypes()

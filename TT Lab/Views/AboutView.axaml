@@ -23,10 +23,12 @@
                     <TextBlock Text="{Binding AboutData.Version}" Grid.Row="0" Grid.Column="1" VerticalAlignment="Center"/>
                     <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center">Authors:</TextBlock>
                     <TextBlock Text="{Binding AboutData.Authors}" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center"/>
-                    <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center">Special Thanks:</TextBlock>
-                    <TextBlock Text="{Binding AboutData.SpecialThanks}" Grid.Row="2" Grid.Column="1" VerticalAlignment="Center"/>
-                    <TextBlock Grid.Row="3" Grid.Column="0" VerticalAlignment="Center">Source Code:</TextBlock>
-                    <TextBlock Grid.Row="3" Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center">Artists:</TextBlock>
+                    <TextBlock Text="{Binding AboutData.Artists}" Grid.Row="2" Grid.Column="1" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Row="3" Grid.Column="0" VerticalAlignment="Center">Special Thanks:</TextBlock>
+                    <TextBlock Text="{Binding AboutData.SpecialThanks}" Grid.Row="3" Grid.Column="1" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Row="4" Grid.Column="0" VerticalAlignment="Center">Source Code:</TextBlock>
+                    <TextBlock Grid.Row="4" Grid.Column="1" VerticalAlignment="Center">
                         <HyperlinkButton NavigateUri="{Binding AboutData.SourceCodeLink}">
                             <TextBlock Text="{Binding AboutData.SourceCodeLink}"/>
                         </HyperlinkButton>

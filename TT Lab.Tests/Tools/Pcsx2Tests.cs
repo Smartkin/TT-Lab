@@ -148,6 +148,9 @@ public sealed class Pcsx2Tests : IDisposable
         private readonly MemoryStream _answers = new();
         public Dictionary<uint, uint> Memory { get; } = [];
         public List<byte[]> Requests { get; } = [];
+        public PineStatus Status { get; set; } = PineStatus.Running;
+        // PCSX2 closed the connection: nothing more to read
+        public bool Closed { get; set; }
 
         public override void Write(byte[] buffer, int offset, int count) => Write(buffer.AsSpan(offset, count));
 
@@ -162,7 +165,7 @@ public sealed class Pcsx2Tests : IDisposable
                 2 => [0, .. BitConverter.GetBytes(Memory.GetValueOrDefault(address))],
                 3 => [0, .. BitConverter.GetBytes(Memory.GetValueOrDefault(address)), .. BitConverter.GetBytes(Memory.GetValueOrDefault(address + 4))],
                 6 => Store(address, BinaryPrimitives.ReadUInt32LittleEndian(request[9..])),
-                15 => [0, .. BitConverter.GetBytes(0u)],
+                15 => [0, .. BitConverter.GetBytes((uint)Status)],
                 _ => [0xff]
             };
             var position = _answers.Position;
@@ -187,7 +190,7 @@ public sealed class Pcsx2Tests : IDisposable
             }
         }
 
-        public override int Read(byte[] buffer, int offset, int count) => _answers.Read(buffer, offset, count);
+        public override int Read(byte[] buffer, int offset, int count) => Closed ? 0 : _answers.Read(buffer, offset, count);
         public override void Flush() { }
         public override bool CanRead => true;
         public override bool CanSeek => false;
@@ -212,6 +215,25 @@ public sealed class Pcsx2Tests : IDisposable
         Assert.Equal<byte>([13, 0, 0, 0, 6, 0, 0x10, 0, 0, 0xef, 0xbe, 0xad, 0xde], pcsx2.Requests[1]);
         Assert.Equal(0xdeadbeefu, pcsx2.Memory[0x1000]);
         Assert.Equal(PineStatus.Running, pine.GetStatus());
+    }
+
+    // PCSX2's shutdown waits for its PINE server, which waits for its client's next request: a session asking nothing once the game
+    // played kept PCSX2 running without a window after its game window got closed. Sessions ask for the status every second, a paused
+    // game still plays, a shut down one or a connection PCSX2 closed doesn't
+    [Fact]
+    public void ASessionTellsItsGameStoppedByThePineStatus()
+    {
+        var pcsx2 = new FakePcsx2();
+        var game = new RunningGame(new PineClient(pcsx2), GameRelease.Pal);
+
+        Assert.False(Pcsx2Session.HasStopped(game));
+        pcsx2.Status = PineStatus.Paused;
+        Assert.False(Pcsx2Session.HasStopped(game));
+        pcsx2.Status = PineStatus.Shutdown;
+        Assert.True(Pcsx2Session.HasStopped(game));
+        pcsx2.Status = PineStatus.Running;
+        pcsx2.Closed = true;
+        Assert.True(Pcsx2Session.HasStopped(game));
     }
 
     [Fact]
@@ -399,11 +421,11 @@ public sealed class Pcsx2Tests : IDisposable
     {
         var keys = new Dictionary<string, string> { ["HostFs"] = "true", ["EnablePINE"] = "true" };
 
-        Assert.Equal("[EmuCore]\nHostFs = true\nEnablePINE = true\n", Pcsx2Install.WithEmuCoreKeys("", keys));
+        Assert.Equal("[EmuCore]\nHostFs = true\nEnablePINE = true\n", Pcsx2Install.WithKeys("", "EmuCore", keys));
         Assert.Equal("[EmuCore/GS]\nupscale_multiplier = 3\n\n[EmuCore]\nHostFs = true\nEnablePINE = true\n",
-            Pcsx2Install.WithEmuCoreKeys("[EmuCore/GS]\nupscale_multiplier = 3\n", keys));
+            Pcsx2Install.WithKeys("[EmuCore/GS]\nupscale_multiplier = 3\n", "EmuCore", keys));
         Assert.Equal("[EmuCore]\nEnableCheats = true\nHostFs = true\nEnablePINE = true\n\n[Patches]\nEnable = Widescreen\n",
-            Pcsx2Install.WithEmuCoreKeys("[EmuCore]\nEnableCheats = true\nHostFs = false\n\n[Patches]\nEnable = Widescreen\n", keys));
+            Pcsx2Install.WithKeys("[EmuCore]\nEnableCheats = true\nHostFs = false\n\n[Patches]\nEnable = Widescreen\n", "EmuCore", keys));
     }
 
     // The PAL release's level select and save state (Ghidra Stuff/Engine_RE/pnach) goes in PCSX2's patches under the patched
@@ -434,6 +456,13 @@ public sealed class Pcsx2Tests : IDisposable
         Assert.All(patches.Take(3), fields => Assert.InRange(Convert.ToUInt32(fields[4], 16) ^ 0x0C000000u, 0xA0000u >> 2, 0xAFFFFu >> 2));
         Assert.All(patches.Skip(3), fields => Assert.InRange(Convert.ToUInt32(fields[2], 16), 0xA0000u, 0xAFFFFu));
         Assert.Contains("EnablePatches = true", File.ReadAllText(install.GameSettingsPath(GameRelease.Pal)));
+        // Closing the game's window ends the run without PCSX2 asking first, and without saving a state to resume it
+        Assert.All(GameRelease.All, release =>
+        {
+            var settings = File.ReadAllText(install.GameSettingsPath(release));
+            Assert.Contains("[UI]\nConfirmShutdown = false\n", settings);
+            Assert.Contains("SaveStateOnShutdown = false", settings);
+        });
         Assert.False(File.Exists(install.PatchesPath(GameRelease.Ntsc100)));
         Assert.DoesNotContain("EnablePatches", File.ReadAllText(install.GameSettingsPath(GameRelease.Ntsc200)));
         // Written once

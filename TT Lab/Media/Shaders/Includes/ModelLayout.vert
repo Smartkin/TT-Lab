@@ -15,11 +15,32 @@ struct InstanceData
 {
     mat4 Model;
     vec4 Color;
+    // x: the object's light set in lightSets, -1 when it isn't lit
+    ivec4 Lighting;
 };
 
 layout (std430, binding = 0) readonly buffer Instances
 {
     InstanceData instances[];
+};
+
+// The game's lights at a lit object (InstanceBuffer.LightSetOf): the ambient color, then the three strongest lights, their colors already
+// times their intensity and half
+struct LightSlot
+{
+    vec4 Direction;
+    vec4 Color;
+};
+
+struct LightSet
+{
+    vec4 Ambient;
+    LightSlot Slots[3];
+};
+
+layout (std430, binding = 5) readonly buffer LightSets
+{
+    LightSet lightSets[];
 };
 
 out vec3 Position;

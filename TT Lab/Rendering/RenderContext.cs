@@ -7,8 +7,10 @@ using System.Threading;
 using GlmSharp;
 using Silk.NET.Core.Native;
 using Silk.NET.OpenGL;
+using TT_Lab.Assets;
 using TT_Lab.Rendering.Buffers;
 using TT_Lab.Rendering.Factories;
+using TT_Lab.Rendering.Lighting;
 using TT_Lab.Rendering.Native;
 using TT_Lab.Rendering.Passes;
 using TT_Lab.Rendering.Services;
@@ -180,7 +182,19 @@ public class RenderContext : IDisposable
     /// by. A scene without lights gets ones from above and the sides
     /// </summary>
     public vec3[] EnvLights { get; set; } = [new vec3(0.0f, 1.0f, 0.0f), new vec3(1.0f, 0.0f, 0.0f), new vec3(0.0f, 0.0f, 1.0f)];
+
+    /// <summary>
+    /// The lights lit materials are drawn with, a chunk's scenery's. Replaced whole, the render thread gathers from it every frame
+    /// </summary>
+    public SceneLights Lights { get; set; } = SceneLights.Default;
+
     public vec2 ViewportSize { get; set; }
+
+    /// <summary>
+    /// The assets whose data the renderer read for the scene (meshes, materials, textures), which the document showing the scene doesn't
+    /// reach. Another program changing one of their files makes the scene again
+    /// </summary>
+    public ConcurrentDictionary<LabURI, bool> ReadAssets { get; } = new();
 
     public void SetGlAccessibility(bool isAccessible)
     {

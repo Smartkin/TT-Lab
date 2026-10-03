@@ -217,12 +217,14 @@ public sealed class TlmMaterials(TlmFile file, IAsset? owner = null)
         var material = AssetFactory.CreateAsset(typeof(Material), TypeFolder(packageFolder, typeof(Material)), UniqueName<Material>(owner.Package, name), string.Empty,
             TwinIdGeneratorServiceProvider.GetGenerator<Material>(), asset =>
             {
-                // Skins are drawn by the skinned shader only, a rigid one fed a skin's packets hung the game
+                // Skins are drawn by the skinned shader only, a rigid one fed a skin's packets hung the game. Shadows fall on rigid parts
+                // like on the game's scenery, skins keep them off like the characters that cast them (their own would darken them)
                 var shader = new LabShader
                 {
                     ShaderType = use == TlmMaterialUse.Skin ? TwinShader.Type.LitSkinnedModel : TwinShader.Type.StandardUnlit,
                     TxtMapping = texture != null ? TwinShader.TextureMapping.ON : TwinShader.TextureMapping.OFF,
-                    TextureId = texture?.URI ?? LabURI.Empty
+                    TextureId = texture?.URI ?? LabURI.Empty,
+                    AlphaCorrectionValue = use != TlmMaterialUse.Skin
                 };
                 if (entry.GetString("alpha") == "BLEND")
                 {

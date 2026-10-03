@@ -12,7 +12,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.Lights
         /// <summary>
         /// How many times the attenuation multiplies the intensity: 0 lights everything at full intensity, the retail data has 0 to 2.
         /// </summary>
-        public Int16 AttenuationPower;
+        public Int16 AttenuationPower { get; set; }
 
         public override LightType Type => LightType.Point;
 

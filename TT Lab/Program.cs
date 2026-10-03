@@ -16,6 +16,8 @@ class Program
     {
         Log.StartSession();
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+        // Once the windows are gone (their menus still used it), before the process ends
+        TT_Lab.Util.DBusShutdown.Disconnect();
     }
 
     // Avalonia configuration, don't remove; also used by visual designer.

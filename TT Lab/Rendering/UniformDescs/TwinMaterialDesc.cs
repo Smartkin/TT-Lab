@@ -24,6 +24,7 @@ public struct TwinMaterialDesc()
     public const string UseTexturePath = "twin_material.use_texture";
     public const string PerformFogPath = "twin_material.perform_fog";
     public const string EditorShadingPath = "twin_material.editor_shading";
+    public const string LitPath = "twin_material.lit";
     
     public TextureBuffer? Texture { get; init; }
     public TwinShader.AlphaBlendPresets BlendFunc { get; init; } = TwinShader.AlphaBlendPresets.Mix;
@@ -32,6 +33,10 @@ public struct TwinMaterialDesc()
     public vec3 DeformAmplitude { get; init; } = vec3.Zero;
     public bool BillboardRender { get; init; } = false;
     public float DoubleColor { get; init; } = 2.0f;
+    /// <summary>
+    /// Lit by the game's lights: the vertex color times the object's light set (<c>MainPass.vert</c>)
+    /// </summary>
+    public bool Lit { get; init; }
     public vec2 UvScrollSpeed { get; init; } = vec2.Zero;
     /// <summary>
     /// The shader's animation, played for the U and V tracks the scroll modes take and the color when the shader takes it

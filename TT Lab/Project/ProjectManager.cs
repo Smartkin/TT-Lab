@@ -37,6 +37,11 @@ namespace TT_Lab.Project
         private Folder? _treeRoot;
         private ProjectTreeWatcher? _treeWatcher;
 
+        /// <summary>
+        /// Asset data files written in the project, TT Lab's own writes included (<see cref="AssetFileStamps"/> tells them apart), on the UI thread
+        /// </summary>
+        public event Action<IReadOnlyCollection<string>>? AssetFilesChanged;
+
 
         public ProjectManager(IEventAggregator eventAggregator)
         {
@@ -447,6 +452,7 @@ namespace TT_Lab.Project
         public void CloseProject()
         {
             StopTreeWatcher();
+            AssetFileStamps.Clear();
             _treeRoot = null;
             OpenedProject = null;
             WorkableProject = false;
@@ -493,12 +499,12 @@ namespace TT_Lab.Project
             StopTreeWatcher();
             try
             {
-                _treeWatcher = new ProjectTreeWatcher(assetRoot, SyncProjectTree);
+                _treeWatcher = new ProjectTreeWatcher(assetRoot, SyncProjectTree, paths => AssetFilesChanged?.Invoke(paths));
             }
             catch (Exception ex)
             {
-                // Watching is a convenience, the tree stays as opened without it
-                Log.WriteLine($"The project tree won't follow the file system: {ex.Message}", Log.LogType.Warning);
+                // Watching is a convenience, the tree and the editors stay as opened without it
+                Log.WriteLine($"The project tree and the editors won't follow the file system: {ex.Message}", Log.LogType.Warning);
             }
         }
 
@@ -759,8 +765,8 @@ namespace TT_Lab.Project
 
         private static readonly string[] _reservedLockedDirectories = ["assets", "disc", "build"];
         private const string DiscDirectory = "disc";
-        // The project's own folders that aren't assets: the prefabs are the Prefabs panel's
-        private static readonly string[] _hiddenRootDirectories = [Prefabs.PrefabLibrary.FolderName, TT_Lab.Project.Build.BuildProfileLibrary.FolderName];
+        // The project's own folders that aren't assets: what builds write, the prefabs (the Prefabs panel's) and the build profiles
+        private static readonly string[] _hiddenRootDirectories = ["build", Prefabs.PrefabLibrary.FolderName, TT_Lab.Project.Build.BuildProfileLibrary.FolderName];
 
         // Folders and assets in the order of their names, the file system's order looked random
         private static readonly StringComparer TreeOrder = StringComparer.OrdinalIgnoreCase;

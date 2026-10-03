@@ -119,8 +119,10 @@ public class LabShader : IDocumentModel
     [Editable]
     public TextureFilter TextureFilterWhenTextureIsExpanded { get; set; } = TextureFilter.LINEAR;
     
-    [Editable]
-    public Boolean AlphaCorrectionValue { get; set; }
+    // The game's "no FBA" bit of its shader settings (bit 56). Shadows only fall where the screen's alpha has its top bit clear, which
+    // FBA sets: every retail scenery material has it on, the characters casting shadows off so theirs don't darken them
+    [Editable(Caption = "Receives Shadows", Hint = "On, the GS's FBA is off and what the material draws keeps its alpha: the characters' shadows fall on it, like on every scenery material of the game. Off sets the top bit of its alpha, which keeps shadows off it: the characters that cast shadows have it off, so theirs don't darken them")]
+    public Boolean AlphaCorrectionValue { get; set; } = true;
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonEnumStringConverter<ZValueDrawMask>))]
     [Editable]

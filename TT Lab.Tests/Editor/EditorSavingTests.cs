@@ -11,6 +11,7 @@ using TT_Lab.AssetData.Code;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
 using TT_Lab.Assets.Factory;
+using TT_Lab.Controls;
 using TT_Lab.Project;
 using TT_Lab.ServiceProviders;
 using TT_Lab.Tests.Support;
@@ -120,6 +121,45 @@ public sealed class EditorSavingTests : IDisposable
 
         Assert.Contains("Renamed skeleton", File.ReadAllText(Path.Combine(ogi.FullPath, $"{ogi.Name}.json")));
     }
+
+    // The X of a list's element takes the focus and its row away, which left nothing focused: Ctrl+Z went nowhere until a click inside
+    // the editor put the focus back (FocusKeeper)
+    [AvaloniaFact]
+    public async Task CtrlZUndoesRightAfterTheXOfAListsElement()
+    {
+        var crash = CreateGameObject("Crash");
+        var data = ((IAsset)crash).GetData<GameObjectData>();
+        var first = new ModelSlot();
+        var second = new ModelSlot();
+        data.ModelSlots.AddRange([first, second]);
+        var viewer = new ResourcesEditorsViewModel();
+        var window = Show(viewer);
+        viewer.OpenEditor(crash);
+        await WaitUntilLoaded(viewer.Tabs.Single());
+        DocumentCollectionViewModel? Slots() => window.GetVisualDescendants().OfType<Control>().Select(control => control.DataContext).OfType<DocumentCollectionViewModel>()
+            .FirstOrDefault(editor => editor.Property.Name == nameof(GameObjectData.ModelSlots));
+        await WaitUntil(() => Slots() != null);
+        var list = Slots()!;
+        list.IsExpanded = true;
+        await WaitUntil(() => list.Nodes.Count == 2);
+        window.GetVisualDescendants().OfType<Control>().First(control => control.DataContext == list).BringIntoView();
+        await WaitUntil(() => RemoveButton(window, list.Nodes[0]) != null);
+        var x = RemoveButton(window, list.Nodes[0])!;
+        var point = x.TranslatePoint(new Point(x.Bounds.Width / 2, x.Bounds.Height / 2), window)!.Value;
+
+        window.MouseDown(point, MouseButton.Left);
+        window.MouseUp(point, MouseButton.Left);
+        await WaitUntil(() => window.FocusManager?.GetFocusedElement() != null);
+        Assert.Equal([second], data.ModelSlots);
+
+        window.KeyPressQwerty(PhysicalKey.Z, RawInputModifiers.Control);
+        await WaitUntil(() => data.ModelSlots.Count == 2);
+        Assert.Equal([first, second], data.ModelSlots);
+        window.Close();
+    }
+
+    private static Button? RemoveButton(Window window, DocumentNodeViewModel element) =>
+        window.GetVisualDescendants().OfType<Button>().FirstOrDefault(button => button.DataContext == element && Equals(button.Content, "x") && button.IsEffectivelyVisible);
 
     [AvaloniaFact]
     public async Task CtrlSSavesTheEditor()
@@ -349,6 +389,88 @@ public sealed class EditorSavingTests : IDisposable
         window.KeyPressQwerty(PhysicalKey.W, RawInputModifiers.Control);
         await WaitUntil(() => !viewer.Tabs.Any());
         Assert.Empty(viewer.Tabs);
+    }
+
+    private async Task<(EditorsViewModel Editors, ResourcesEditorsViewModel Resources, GameObject Crash, GameObject Aku, List<string> Asked)> EditTwoEditors(
+        UnsavedChangesDialogue.AnswerResult answer)
+    {
+        var crash = CreateGameObject("Crash");
+        var aku = CreateGameObject("Aku");
+        var resources = new ResourcesEditorsViewModel();
+        var editors = new EditorsViewModel(new ScenesEditorsViewModel(), resources, Locator.Current.GetService<ProjectManager>()!);
+        var asked = new List<string>();
+        editors.AskAboutUnsavedChanges = what =>
+        {
+            asked.Add(what);
+            return Task.FromResult(answer);
+        };
+        Show(resources);
+        resources.OpenEditor(crash);
+        resources.OpenEditor(aku);
+        foreach (var tab in resources.Tabs.ToList())
+        {
+            await WaitUntilLoaded(tab);
+            tab.Document!.PropertyGraph.Find(BehaviourPack)!.SetValue($"EDITED_{tab.AssetName}");
+        }
+
+        return (editors, resources, crash, aku, asked);
+    }
+
+    // Closing every editor (opening another project, closing this one) asks once about all of their changes, each asked on its own before
+    [AvaloniaFact]
+    public async Task ClosingEveryEditorAsksOnceAndSavesThemAll()
+    {
+        var (editors, resources, crash, aku, asked) = await EditTwoEditors(UnsavedChangesDialogue.AnswerResult.YES);
+
+        Assert.True(await editors.CloseAllEditors());
+
+        Assert.Equal(["Crash and Aku"], asked);
+        Assert.True(IsSaved(crash, "EDITED_Crash"));
+        Assert.True(IsSaved(aku, "EDITED_Aku"));
+        Assert.Empty(resources.Tabs);
+    }
+
+    [AvaloniaFact]
+    public async Task DiscardingEveryEditorsChangesClosesThemWithoutSaving()
+    {
+        var (editors, resources, crash, aku, asked) = await EditTwoEditors(UnsavedChangesDialogue.AnswerResult.DISCARD);
+
+        Assert.True(await editors.CloseAllEditors());
+
+        Assert.Single(asked);
+        Assert.Empty(resources.Tabs);
+        Assert.False(IsSaved(crash, "EDITED_Crash"));
+        Assert.False(IsSaved(aku, "EDITED_Aku"));
+        Assert.Equal(string.Empty, ((IAsset)crash).GetData<GameObjectData>().BehaviourPack);
+    }
+
+    [AvaloniaFact]
+    public async Task CancellingKeepsEveryEditorOpenWithItsChanges()
+    {
+        var (editors, resources, _, _, asked) = await EditTwoEditors(UnsavedChangesDialogue.AnswerResult.CANCEL);
+
+        Assert.False(await editors.CloseAllEditors());
+
+        Assert.Single(asked);
+        Assert.Equal(2, resources.Tabs.Count());
+        Assert.All(resources.Tabs, tab => Assert.True(tab.Document!.IsDirty));
+    }
+
+    // Closing TT Lab asks the same once (ShellView.OnClosing), and nothing when every change is saved
+    [AvaloniaFact]
+    public async Task QuittingAsksOnceAboutEveryUnsavedEditor()
+    {
+        var (editors, resources, crash, _, asked) = await EditTwoEditors(UnsavedChangesDialogue.AnswerResult.DISCARD);
+
+        Assert.True(await editors.SaveOrDiscardUnsavedChanges());
+        Assert.Single(asked);
+        Assert.False(IsSaved(crash, "EDITED_Crash"));
+
+        editors.Save();
+        Assert.Empty(editors.GetUnsavedEditors());
+        Assert.True(await editors.SaveOrDiscardUnsavedChanges());
+        Assert.Single(asked);
+        Assert.Equal(2, resources.Tabs.Count());
     }
 
     [AvaloniaFact]

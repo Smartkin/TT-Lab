@@ -9,12 +9,14 @@ using TT_Lab.AssetData.Instance.Particle;
 using GlmSharp;
 using TT_Lab.AssetData;
 using TT_Lab.AssetData.Instance;
+using TT_Lab.AssetData.Instance.Scenery;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Assets.Instance;
 using TT_Lab.Project;
 using TT_Lab.Project.Prefabs;
+using Twinsanity.TwinsanityInterchange.Common.Lights;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 
 namespace TT_Lab.ViewModels;
@@ -47,6 +49,9 @@ public partial class ViewportViewModel
         var aiPaths = SelectedAiPaths();
         var hasLinks = FindResourceData(typeof(ChunkLinks)) != null;
         var hasParticles = FindResourceData(typeof(Particles)) != null;
+        var hasScenery = FindResourceData(typeof(Scenery)) != null;
+        ViewportMenuEntry Light(LightType type, string header) =>
+            new(hasScenery ? header : $"{header} (the chunk has no scenery)", () => CreateLight(type), canCreate && hasScenery);
         ViewportMenuEntry Create(Type type, string header) => new(header, () => CreateResource(type, DefaultLayoutFor(type, chunk)), canCreate);
         var entries = new List<ViewportMenuEntry>
         {
@@ -62,6 +67,11 @@ public partial class ViewportViewModel
             Create(typeof(Path), "Path"),
             new(hasLinks ? "Chunk link" : "Chunk link (the chunk has no links resource)", () => CreateChunkLink(), canCreate && hasLinks),
             new(hasParticles ? "Particle emitter" : "Particle emitter (the chunk has no particles resource)", () => CreateParticleEmitter(), canCreate && hasParticles),
+            ViewportMenuEntry.Separator,
+            Light(LightType.Point, "Point light"),
+            Light(LightType.Spot, "Spot light"),
+            Light(LightType.Directional, "Directional light"),
+            Light(LightType.Ambient, "Ambient light"),
             ViewportMenuEntry.Separator,
             new("Select every instance (Ctrl+A)", SelectAll),
         };
@@ -342,6 +352,32 @@ public partial class ViewportViewModel
         var cursor = NewResourcePosition();
         emitter.Position = new Twinsanity.TwinsanityInterchange.Common.Vector3(cursor.x, cursor.y, cursor.z);
         return CreateElement(typeof(Particles), $"AssetData.{nameof(ParticleData.ParticleInstances)}", emitter, "Placed a particle emitter");
+    }
+
+    /// <summary>
+    /// A new light of the chunk's scenery at the cursor, like the ones new chunks get, turning the scenery's lighting on when it's off
+    /// </summary>
+    internal PropertyNode? CreateLight(LightType type)
+    {
+        (Light Light, string List, string Name) made = type switch
+        {
+            LightType.Ambient => (DefaultLights.Ambient(), nameof(SceneryData.AmbientLights), "an ambient light"),
+            LightType.Directional => (DefaultLights.Directional(), nameof(SceneryData.DirectionalLights), "a directional light"),
+            LightType.Spot => (DefaultLights.Spot(), nameof(SceneryData.SpotLights), "a spot light"),
+            _ => (DefaultLights.Point(), nameof(SceneryData.PointLights), "a point light"),
+        };
+        var cursor = NewResourcePosition();
+        made.Light.Position = new Twinsanity.TwinsanityInterchange.Common.Vector4(cursor.x, cursor.y, cursor.z, 1.0f);
+        made.Light.ComputeBounds();
+        var description = $"Placed {made.Name}";
+        using var step = _document!.History.BeginGroup(description);
+        var hasLighting = FindResourceData(typeof(Scenery))?.Find($"AssetData.{nameof(SceneryData.HasLighting)}");
+        if (hasLighting?.GetValue() is false)
+        {
+            hasLighting.SetValue(true);
+        }
+
+        return CreateElement(typeof(Scenery), $"AssetData.{made.List}", made.Light, description);
     }
 
 }
