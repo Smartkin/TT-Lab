@@ -133,7 +133,7 @@ public sealed class ExternalChangeTests : IDisposable
         document.OpenInspector(document.PropertyGraph.Find(slot));
 
         await File.WriteAllTextAsync(graph.FullDataPath, EditedElsewhere);
-        await WaitUntil(() => tab.IsLoaded && tab.Document != document && tab.Document.Inspector != null);
+        await WaitUntil(() => tab.IsLoaded && tab.Document is { Inspector: not null } shown && shown != document);
 
         Assert.Equal(EditedElsewhere, tab.Document!.PropertyGraph.Find(slotScript)!.GetValue());
         // What was inspected is again
@@ -319,6 +319,22 @@ public sealed class ExternalChangeTests : IDisposable
         Assert.False(AssetFileStamps.IsAsRecorded(path));
 
         File.Delete(path);
+        Assert.False(AssetFileStamps.IsAsRecorded(path));
+    }
+
+    // Windows keeps write times to its timer's tick: another program writing as many bytes right after TT Lab saved got the same length
+    // and time, and the editors never saw it
+    [AvaloniaFact]
+    public void AWriteOfTheSameLengthAtTheSameTimeIsToldApartByItsContent()
+    {
+        var path = Path.Combine(_project.Root, "same_tick.lab");
+        File.WriteAllText(path, "COM_EDITED_IN_TT_LAB");
+        AssetFileStamps.Record(path);
+        var writeTime = File.GetLastWriteTimeUtc(path);
+
+        File.WriteAllText(path, "COM_EDITED_ELSEWHERE");
+        File.SetLastWriteTimeUtc(path, writeTime);
+
         Assert.False(AssetFileStamps.IsAsRecorded(path));
     }
 
