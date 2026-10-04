@@ -103,6 +103,15 @@ public sealed class FontEditorTests : IDisposable
         }
     }
 
+    // Clicks and captured frames go by what the compositor got last, which only takes a frame once the render timer took the one before
+    // it: a window another test showed can still hold one (the Windows runner captured the page's background where its picture was)
+    private static void Render()
+    {
+        Dispatcher.UIThread.RunJobs();
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        Dispatcher.UIThread.RunJobs();
+    }
+
     private (DocumentViewModel Document, FontEditorViewModel Editor, Window Window) Open(Font font)
     {
         var document = new DocumentViewModel(font);
@@ -111,6 +120,7 @@ public sealed class FontEditorTests : IDisposable
         var window = new Window { Content = new ContentControl { Content = editor }, Width = 1000, Height = 700 };
         window.Show();
         Pump();
+        Render();
         return (document, editor, window);
     }
 
@@ -205,11 +215,19 @@ public sealed class FontEditorTests : IDisposable
         var box = editor.Boxes.Single(box => box.Index == 'A' - ' ');
         Assert.Equal(new Rect(2, PageSize - 6, 4, 5), page.GetShownRect(box));
 
-        var frame = window.CaptureRenderedFrame()!;
         var topLeft = page.TranslatePoint(new Point(zoom / 2, zoom / 2), window)!.Value;
         var bottomLeft = page.TranslatePoint(new Point(zoom / 2, PageSize * zoom - zoom / 2), window)!.Value;
-        Assert.Equal(PixelAt(0, 0, PageSize - 1), PixelOf(frame, topLeft));
-        Assert.Equal(PixelAt(0, 0, 0), PixelOf(frame, bottomLeft));
+        var expected = (Top: PixelAt(0, 0, PageSize - 1), Bottom: PixelAt(0, 0, 0));
+        // Polled like any view, a frame of the page shows a render tick after the one before it
+        var shown = (Top: 0u, Bottom: 0u);
+        for (var tries = 0; tries < 10 && shown != expected; tries++)
+        {
+            Render();
+            var frame = window.CaptureRenderedFrame()!;
+            shown = (PixelOf(frame, topLeft), PixelOf(frame, bottomLeft));
+        }
+
+        Assert.Equal(expected, shown);
     }
 
     private static UInt32 PixelOf(WriteableBitmap frame, Point point)

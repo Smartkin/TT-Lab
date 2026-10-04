@@ -356,6 +356,8 @@ public sealed class EditorSavingTests : IDisposable
         var tab = await WaitUntilLoaded(resources.Tabs.Single());
         var pack = tab.Document!.PropertyGraph.Find(BehaviourPack)!;
         pack.SetValue("F");
+        // The panel follows the loaded tab and its steps through the dispatcher, on one slow core it still had no rows here
+        await WaitUntil(() => history.Entries.Count == 2);
         var rows = history.Entries;
         var typed = rows[^1];
         pack.SetValue("FI");
