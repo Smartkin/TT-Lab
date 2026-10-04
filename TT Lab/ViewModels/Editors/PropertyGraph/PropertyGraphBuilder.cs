@@ -111,7 +111,7 @@ public static class PropertyGraphBuilder
         foreach (var enumValue in enumValues)
         {
             var childPath = $"{path}.{enumValue}";
-            var child = new PropertyNode($"{enumValue}", childPath, enumFlags, node.Metadata, index: shiftIdx)
+            var child = new PropertyNode($"{enumValue}", childPath, enumFlags, node.Metadata?.ForParts(), index: shiftIdx)
             {
                 SetsParent = true,
                 SetValueDelegate = (property, value) =>
@@ -233,7 +233,7 @@ public static class PropertyGraphBuilder
             var nodeMetadata = node.Metadata;
             if (nodeMetadata != null)
             {
-                nodeMetadata = nodeMetadata with { ContainedTypeConstructor = null };
+                nodeMetadata = nodeMetadata.ForParts();
             }
             
             var child = BuildNode(collection, nodeMetadata, childPath, tracker, innerType: item.GetType(), index: i);

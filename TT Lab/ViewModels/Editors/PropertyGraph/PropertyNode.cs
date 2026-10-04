@@ -241,7 +241,7 @@ public class PropertyNode
         var nodeMetadata = Metadata;
         if (nodeMetadata != null)
         {
-            nodeMetadata = nodeMetadata with { ContainedTypeConstructor = null };
+            nodeMetadata = nodeMetadata.ForParts();
         }
         var index = Children.Count;
         var node = PropertyGraphBuilder.BuildNode(list, nodeMetadata, childPath, Graph!.Tracker, innerType: addedValue.GetType(), index: index);
@@ -265,7 +265,7 @@ public class PropertyNode
         var nodeMetadata = Metadata;
         if (nodeMetadata != null)
         {
-            nodeMetadata = nodeMetadata with { ContainedTypeConstructor = null };
+            nodeMetadata = nodeMetadata.ForParts();
         }
 
         var node = PropertyGraphBuilder.BuildNode(list, nodeMetadata, $"{Path}[{index}]", Graph!.Tracker, innerType: value.GetType(), index: index);

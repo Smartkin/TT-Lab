@@ -60,6 +60,9 @@ public sealed class WhatTheGameReadsTests : IDisposable
         Assert.False(Grayed(document, $"{system}.DrawFlag"));
         Assert.True(Grayed(document, $"{system}.GhostSeparation"));
         Assert.True(Grayed(document, $"{system}.CollisionRadius"));
+        // A list follows what it's linked to, its elements don't: they looked for the list's siblings among their own and logged a
+        // warning each (every key of every system, every instance and every activator bit of every trigger of a chunk)
+        Assert.All(document.PropertyGraph.Find($"{system}.CollisionRadius")!.Children, key => Assert.Empty(key.Metadata!.FieldReactors));
 
         document.PropertyGraph.Find($"{system}.GenSort")!.SetValue(TwinParticleSystem.GenSortType.Ranges);
         Assert.False(Grayed(document, $"{system}.StartBase"));
@@ -258,6 +261,9 @@ public sealed class WhatTheGameReadsTests : IDisposable
         Assert.True(Grayed(document, "Root.AssetData.TriggerMessage1"));
         document.PropertyGraph.Find("Root.AssetData.TriggerArgument1Enabled")!.SetValue(true);
         Assert.False(Grayed(document, "Root.AssetData.TriggerMessage1"));
+
+        // Neither do the bits of a value of flags
+        Assert.All(document.PropertyGraph.Find("Root.AssetData.ObjectActivatorMask")!.Children, bit => Assert.Empty(bit.Metadata!.FieldReactors));
 
         document.PropertyGraph.Find("Root.AssetData.Kind")!.SetValue((Byte)0);
         foreach (var field in new[] { "ObjectActivatorMask", "Instances", "CheckInterval", "NotPolled", "TriggerArgument1Enabled", "TriggerMessage1" })

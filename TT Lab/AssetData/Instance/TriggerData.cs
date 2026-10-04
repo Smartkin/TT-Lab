@@ -97,7 +97,7 @@ public class TriggerData : AbstractAssetData
     
     [JsonProperty(Required = Required.Always)]
     [Editable(Hint = "Object instances of the trigger's layout also told the messages the trigger sends, with what set it off as the event's argument. The game finds them by their index among the layout's object instances and keeps 35")]
-    [EditorCaptionIn("Camera", hint: "Object instances of the camera's layout: the follow camera frames them with Frames Instances, and each gets a camera event when something enters the box. The game finds them by their index among the layout's object instances and keeps 35")]
+    [EditorCaptionIn("Camera", hint: "Object instances of the camera's layout: the follow camera frames them with Frames Instances, and each gets a camera event when something enters the box. The game finds them by their index among the layout's object instances and keeps 35. The camera layouts (1 and 4) hold no object instances, only cameras in a layout with some can list them (the game's 5 boss cameras of layout 0)")]
     [EditorParam(UriLinkViewModel.BrowseType, typeof(ObjectInstance))]
     [EditorParam(UriLinkViewModel.BrowseScope, UriLinkViewModel.Scope.Chunk)]
     [EditorParam(DocumentCollectionViewModel.MaxCount, MaxInstances)]
