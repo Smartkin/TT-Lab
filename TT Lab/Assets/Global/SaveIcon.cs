@@ -38,9 +38,9 @@ public class SaveIcon : GlobalAsset
         return AssetData;
     }
 
-    public override void ExportToFile(ITwinItemFactory factory)
+    public override void ExportToFile(ITwinItemFactory factory, string directory)
     {
-        File.WriteAllBytes(ExportFileName, ((SaveIconData)GetData()).ToIco());
+        File.WriteAllBytes(Path.Combine(directory, ExportFileName), ((SaveIconData)GetData()).ToIco());
     }
 
     public override Type GetEditorType()

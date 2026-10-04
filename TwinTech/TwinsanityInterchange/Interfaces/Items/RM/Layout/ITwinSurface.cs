@@ -32,12 +32,15 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout
         /// <summary>Kind 5's sound: objects scraping along the surface</summary>
         UInt16 ScrapeSoundId { get; set; }
         /// <summary>
-        /// The volume scales of the sounds of kinds 0, 4, 5, 1 and 2 (shared), 3 (-1 leaves the volume as it is), then 5 values
-        /// the tools kept of which the game reads the second, the friction the player and rigid bodies get on the surface (0.05 on
-        /// ice, 1 on most), and the third, what rigid bodies' bounce is scaled by. See <see cref="SurfacePhysics"/>.
+        /// The volume scales of the sounds of kinds 0, 4, 5, 1 and 2 (shared), 3 (-1 leaves the volume as it is), then how fast the
+        /// characters on it get to their steered velocity, the friction, what rigid bodies' bounce is scaled by, and how hard and
+        /// from which slope it pulls the characters downhill. See <see cref="SurfacePhysics"/>.
         /// </summary>
         Single[] PhysicsParameters { get; set; }
-        /// <summary>(0, 0, 0, 1) on every retail surface, never read</summary>
+        /// <summary>
+        /// The flow: a velocity along the ground (X and Z) the surface carries the characters on it along at (AccelerateOnSurface adds it
+        /// to where they're steered). (0, 0, 0, 1) on every retail surface
+        /// </summary>
         Vector4 UnusedVector { get; set; }
         /// <summary>
         /// What touching the surface does: handed to the player standing on a surface with
@@ -58,15 +61,25 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout
         public const Int32 ScrapeSoundVolume = 2;
         public const Int32 StepSoundVolume = 3;
         public const Int32 LandSoundVolume = 4;
-        /// <summary>1000000 on most surfaces, 5 and 2 on the slippy ones, 120 on liquids and deadly surfaces. Never read.</summary>
+        /// <summary>
+        /// How fast a character standing on the surface gets to its steered velocity plus the flow, in units a second per second
+        /// (AccelerateOnSurface): 1000000 on most surfaces, 5 and 2 on the slippy ones, 120 on liquids and deadly surfaces. A held
+        /// crouch slide's time runs 3.5 over it slower
+        /// </summary>
         public const Int32 Unread5 = 5;
-        /// <summary>What the player and rigid bodies grip the surface with: 1 on most, 0.7 on metal and rock, 0.05 on ice, 0 on the AI walls</summary>
+        /// <summary>
+        /// How hard rigid bodies grip the surface (with their own friction) and how fast a character who left it steers in the air
+        /// (10 + 40 times it a second): 1 on most, 0.7 on metal and rock, 0.05 on ice, 0 on the AI walls
+        /// </summary>
         public const Int32 Friction = 6;
         /// <summary>What rigid bodies' restitution (their bounce) is multiplied by on the surface: 1 on most, 0.5 on soft grounds, 0.1 on liquids and deadly surfaces</summary>
         public const Int32 Restitution = 7;
-        /// <summary>35 or 45 on the slippy surfaces, 0 elsewhere. Never read.</summary>
+        /// <summary>
+        /// How hard ground steeper than <see cref="Unread9"/> pulls a character downhill, in units a second per second, all of it from
+        /// 30 degrees on (AccelerateOnSurface): 35 or 45 on the slippy surfaces, 0 elsewhere
+        /// </summary>
         public const Int32 Unread8 = 8;
-        /// <summary>0.98 or 0.99 on the slippy surfaces, 0 elsewhere. Never read.</summary>
+        /// <summary>The ground's normal's Y below which the downhill pull works: 0.98 or 0.99 on the slippy surfaces, 0 elsewhere</summary>
         public const Int32 Unread9 = 9;
         public const Int32 Count = 10;
     }

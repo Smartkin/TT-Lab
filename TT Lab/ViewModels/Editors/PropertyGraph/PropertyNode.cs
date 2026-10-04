@@ -437,10 +437,17 @@ public class PropertyNode
         if (value != null && Graph != null)
         {
             var built = PropertyGraphBuilder.BuildNode(Target, Metadata, Path, Graph.Tracker, value.GetType(), Index);
-            foreach (var child in built.Children)
+            // Every child under this node before any gets linked: a linked field is found among its siblings, and before they were
+            // looked for under the node they were built in, which isn't in the graph
+            var children = built.Children.ToList();
+            foreach (var child in children)
+            {
+                AddChild(child);
+            }
+
+            foreach (var child in children)
             {
                 Graph.Index(child);
-                AddChild(child);
             }
         }
 

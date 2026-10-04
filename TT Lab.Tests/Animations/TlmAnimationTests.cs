@@ -293,6 +293,40 @@ public class TlmAnimationTests
         Assert.Equal(TlmAnimations.GetExactBytes(animation), TlmAnimations.GetExactBytes(read));
     }
 
+    // The header keeps the frames a second in 5 bits and the game plays an animation for its frames over them: 60 would be written as 28,
+    // 0 divides by zero
+    [Theory]
+    [InlineData(25, 25)]
+    [InlineData(31, 31)]
+    [InlineData(32, 31)]
+    [InlineData(60, 31)]
+    [InlineData(0, 1)]
+    public void RatesTheGameCantPlayAreClamped(int fps, int read)
+    {
+        var animation = RoundTrip(Create("Run", 0x5, 0), out _, file => Animation(file)["fps"] = fps);
+
+        Assert.Equal(read, animation.DefaultFPS);
+    }
+
+    // The game reads the weights at the main animation's frame (SetAnimationData): the face of an animation made longer, which the add-on
+    // kept at its old length, holds its last weights
+    [Fact]
+    public void FacesCoverTheFramesOfTheirAnimation()
+    {
+        var animation = Create("Talk", 0x4, 0);
+        animation.FacialAnimation = CreateFacialAnimation();
+
+        var read = RoundTrip(animation, out var fromKeys, file => Animation(file)["frames"] = Frames + 2);
+
+        Assert.True(fromKeys);
+        Assert.Equal((Frames + 2, Frames + 2), (read.TotalFrames, read.FacialAnimation.TotalFrames));
+        Assert.Equal(Frames + 2, read.FacialAnimation.AnimatedTransformations.Count);
+        for (var frame = 0; frame < Frames + 2; frame++)
+        {
+            Assert.Equal(TlmAnimations.GetFacialRawValues(animation.FacialAnimation, Math.Min(frame, Frames - 1)), TlmAnimations.GetFacialRawValues(read.FacialAnimation, frame));
+        }
+    }
+
     private static TwinMorphAnimation CreateFacialAnimation()
     {
         var settings = new MorphJointSettings { FacialShapesAmount = 3, UnusedFlag = true };

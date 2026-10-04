@@ -15,11 +15,17 @@ namespace Twinsanity.TwinsanityInterchange.Common
     {
         /// <summary>
         /// The trigger's flags. The low byte is the kind the tools gave it (50 on most, 60, 65, 5 and 100 on a few), the game only
-        /// tells 0 apart: such a trigger becomes a plain box of its chunk (up to 7) the sound code tests the player against instead
-        /// of a trigger node. Bits 8-11 say which of the 4 messages are sent (<see cref="TriggerFlags"/>), bit 12 stops the
-        /// game from polling the trigger's box, the rest is never read
+        /// tells 0 apart: such a trigger becomes a box of its chunk's second reverb (up to 7) instead of a trigger node, the sounds
+        /// taking the chunk's box reverb while the listener is in one. A camera's low byte is its priority among the cameras the
+        /// character is in (OfferCamera). Bits 8-11 say which of the 4 messages are sent (<see cref="TriggerFlags"/>), bit 12
+        /// stops the game from polling the trigger's box, the rest is never read
         /// </summary>
         public UInt32 Header { get; set; }
+        /// <summary>
+        /// What sets the trigger off (GameFactoryTriggerNode). The playable characters check the triggers of the character's bit
+        /// alone (only the player then) or of none (any playable character) themselves every frame, unless they tell what leaves
+        /// them; the others are polled for instances with the nodes of those types. Cameras need the character's bit
+        /// </summary>
         public TriggerActivatorObjects ObjectActivatorMask { get; set; }
         /// <summary>
         /// Seconds between two checks of what's inside the box (0.3 on nearly every retail trigger, cameras mostly leave it 0),
@@ -32,7 +38,14 @@ namespace Twinsanity.TwinsanityInterchange.Common
         public UInt32 InstancesGrowth { get; set; }
         public Vector4 Rotation { get; set; }
         public Vector4 Position { get; set; }
+        /// <summary>
+        /// Half the box's size along its axes
+        /// </summary>
         public Vector4 Scale { get; set; }
+        /// <summary>
+        /// Object instances of the trigger's layout, by their index there: a trigger tells them its messages too, a camera frames
+        /// them. The node keeps 35 and doesn't check
+        /// </summary>
         public List<UInt16> Instances { get; }
         public TwinTrigger()
         {

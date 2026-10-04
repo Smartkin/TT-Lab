@@ -22,6 +22,8 @@ namespace TT_Lab.AssetData.Instance;
 
 public class PathData : AbstractAssetData
 {
+    public const int MinPoints = 4;
+
     private readonly object _parametersLock = new();
     private vec3[] _parametersPoints = [];
     private float? _stepLength;
@@ -39,7 +41,7 @@ public class PathData : AbstractAssetData
     }
 
     [JsonProperty(Required = Required.Always)]
-    [Editable]
+    [Editable(Hint = "The control points of the path's uniform cubic B-spline, which runs from near the second point to near the second to last: a segment for every point past the third, so the game needs at least 4")]
     public List<Vector3> Points { get; set; }
     
     /// <summary>
@@ -109,6 +111,11 @@ public class PathData : AbstractAssetData
 
     public override ITwinItem Export(ITwinItemFactory factory)
     {
+        if (Points.Count < MinPoints)
+        {
+            throw new InvalidOperationException($"{Owner.Alias} has {Points.Count} points, the game needs at least {MinPoints}");
+        }
+
         UpdateParameters();
         using var ms = new MemoryStream();
         using var writer = new BinaryWriter(ms);

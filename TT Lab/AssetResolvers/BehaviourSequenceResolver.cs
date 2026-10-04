@@ -22,7 +22,7 @@ public class BehaviourSequenceResolver : AssetResolver<ITwinBehaviourCommandsSeq
 
     protected override IAsset CreateAsset(ITwinSection chunk, Package package, ITwinBehaviourCommandsSequence item, bool needVariant, string variant)
     {
-        return new BehaviourCommandsSequence(package.URI, needVariant, variant, item.GetID(), item.GetName(), item);
+        return new BehaviourCommandsSequence(package.URI, needVariant, variant, item.GetID(), RetailNames.Of(DefaultHashes.BehaviourCommandsSequences, item.GetID(), item.GetName()), item);
     }
 
     protected override String GetTwinItemHash(ITwinBehaviourCommandsSequence item)

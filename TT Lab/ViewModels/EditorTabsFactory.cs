@@ -8,7 +8,6 @@ using Avalonia.Threading;
 using Dock.Avalonia.Controls;
 using Dock.Model.Controls;
 using Dock.Model.Core;
-using Dock.Model.ReactiveUI;
 using Dock.Model.ReactiveUI.Controls;
 using TT_Lab.Extensions;
 using TT_Lab.Util;
@@ -16,7 +15,7 @@ using TT_Lab.ViewModels.Composite;
 
 namespace TT_Lab.ViewModels;
 
-public class EditorTabsFactory : Factory
+public class EditorTabsFactory : DockFactoryBase
 {
     private static readonly FieldInfo? ActivationOrderField = typeof(DockControl).GetField("_activationOrder", BindingFlags.Instance | BindingFlags.NonPublic);
     

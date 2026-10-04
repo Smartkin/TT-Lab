@@ -159,7 +159,6 @@ public class ChunkEditorViewModel :
         {
             _tabDisplayName = tabbedEditorViewModel.Title;
         }
-        TwinIdGeneratorServiceProvider.RegisterGeneratorServiceForChunk(AssetManager.Get().GetAsset<LevelChunk>(EditableResource));
         ResetDirty();
     }
 
@@ -173,11 +172,6 @@ public class ChunkEditorViewModel :
 
     protected override Task OnDeactivateAsync(Boolean close, CancellationToken cancellationToken)
     {
-        if (close)
-        {
-            TwinIdGeneratorServiceProvider.DeregisterGeneratorServiceForChunk(AssetManager.Get().GetAsset<LevelChunk>(EditableResource).Variation);
-        }
-            
         _activeChunkService.SetCurrentChunkEditor(null);
             
         foreach (var item in Items.Select(s => s).ToArray())
@@ -218,7 +212,7 @@ public class ChunkEditorViewModel :
         var chunk = AssetManager.Get().GetAsset<LevelChunk>(EditableResource);
         var newInstance = AssetFactory.CreateAsset(basedOn.Type, chunk.GetChunkFolder(),
             $"New {basedOn.GetType().Name} {(uint)Guid.NewGuid().GetHashCode()}", chunk.AdditionalPath!,
-            TwinIdGeneratorServiceProvider.GetGeneratorForChunk(basedOn.Type, chunk.AdditionalPath!, (Enums.Layouts)basedOn.LayoutID!),
+            TwinIdGeneratorServiceProvider.GetGeneratorForChunk(basedOn.Type, chunk.AdditionalPath!, chunk.Package, (Enums.Layouts)basedOn.LayoutID!),
             (asset) =>
             {
                 var instanceAsset = (SerializableInstance)asset;
@@ -705,7 +699,7 @@ public class ChunkEditorViewModel :
             }
 
             _sceneryRender = new Scenery(_renderContext, _renderContext.MeshService, scenery);
-            var fogColor = TT_Lab.Assets.Instance.Scenery.FogColors[scenery.FogColor];
+            var fogColor = TT_Lab.AssetData.Instance.Scenery.SceneryFog.Colors[scenery.FogColor];
             scene.Camera.SetFogColor(fogColor.GetVector().ToGlm().xyz);
             scene.AddChild(_sceneryRender);
 

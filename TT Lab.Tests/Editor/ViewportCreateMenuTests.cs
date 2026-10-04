@@ -97,7 +97,6 @@ public sealed class ViewportCreateMenuTests : IDisposable
         var folder = _project.GetFolder(package, "levels");
         var chunk = (LevelChunk)TT_Lab.Assets.Factory.AssetFactory.CreateAsset(typeof(LevelChunk), folder, name, string.Empty,
             TT_Lab.ServiceProviders.TwinIdGeneratorServiceProvider.GetGenerator<LevelChunk>(), asset => TT_Lab.Assets.Factory.AssetDataFactory.CreateChunkData(folder, asset))!;
-        TT_Lab.ServiceProviders.TwinIdGeneratorServiceProvider.RegisterGeneratorServiceForChunk(chunk);
         return chunk;
     }
 

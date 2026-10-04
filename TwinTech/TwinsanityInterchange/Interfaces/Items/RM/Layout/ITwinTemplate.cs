@@ -5,8 +5,8 @@ using Twinsanity.TwinsanityInterchange.Enumerations;
 namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout
 {
     /// <summary>
-    /// An instance template of a layout (the startup chunk's crates, pickups and grass): the object it makes an instance of, the
-    /// starters it runs and the instance properties. The PAL executable reads templates into a table nothing looks up again, so
+    /// An instance template of a layout (the startup chunk's crates, pickups and grass): the object the tools made instances of it
+    /// of, the starters it lists and the instance properties. The PAL executable reads templates into a table nothing looks up again, so
     /// every value is the tools' (LoadInstanceTemplate 0x26ddb8, FUN_00263978)
     /// </summary>
     public interface ITwinTemplate : ITwinItem
@@ -22,7 +22,7 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout
         /// </summary>
         Byte ObjectType { get; set; }
         /// <summary>
-        /// IDs of the behaviour starters (the ID before their graph's) the template runs
+        /// IDs of the behaviour starters (the ID before their graph's) the template lists
         /// </summary>
         List<UInt16> BehaviourStarters { get; set; }
         /// <summary>

@@ -72,6 +72,7 @@ public static class DependencyInjection
         services.AddSingleton<IActiveChunkService, ActiveChunkService>();
         services.AddSingleton<IAudioService, AudioService>();
         services.AddSingleton<Pcsx2Service>();
+        services.AddSingleton<Project.Prefabs.PrefabPictures>();
         services.AddTransient<IDataValidatorService, DataValidatorService>();
         
         return services;

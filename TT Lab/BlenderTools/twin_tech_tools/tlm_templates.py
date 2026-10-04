@@ -34,6 +34,8 @@ from . import tlm_scenery
 # Sizes in the game's units: the skin a box a unit wide standing on the ground, the scenery's ground 20 units across
 SKIN_SIZE = 1.0
 GROUND_SIZE = 20.0
+# Half the size of the box the game keeps the chunk's objects in, around the origin, what TT Lab gives new chunks (SceneryBounds)
+SCENERY_HALF_SIZE = (200.0, 100.0, 200.0)
 # The collision's placeholder surface, TT Lab takes the project's surface of the material's name (its first one otherwise)
 DEFAULT_SURFACE = "SURF_DEFAULT_0"
 # The lights' color, white the way the game's tools kept colors: adding up to 1
@@ -93,8 +95,9 @@ def _mesh_object(name: str, geometry: Geometry, kind: str, parent: bpy.types.Obj
 
 
 def new_ogi(context: bpy.types.Context, name: str = "OGI") -> bpy.types.Object:
-    """A new OGI: the root with its bounding box around the skin, an armature whose only bone is joint 0, a box skin weighted to it,
-    and the empty holders bodies, exit points and hulls go under."""
+    """A new OGI: the root with its bounding box around the skin, an armature of joint 0 and joint 1 under it, a box skin weighted to
+    joint 1, and the empty holders bodies, exit points and hulls go under. The game gives a model of one joint and no exit points no
+    animator and draws only its rigid models (ModelNode::SetOgi): a skin weighted to joint 0 alone never showed."""
     root, collection = _root(context, name, "Ogi", "ogi")
     half = SKIN_SIZE / 2.0
     tlm_blender._read_data(root, "Ogi", {"BoundingBoxMin": (-half, 0.0, -half, 1.0), "BoundingBoxMax": (half, SKIN_SIZE, half, 1.0)})
@@ -104,16 +107,21 @@ def new_ogi(context: bpy.types.Context, name: str = "OGI") -> bpy.types.Object:
     armature[tlm_blender.KIND_PROPERTY] = "armature"
     context.view_layer.objects.active = armature
     bpy.ops.object.mode_set(mode="EDIT")
-    bone = armature_data.edit_bones.new("Joint 0")
-    bone.head = (0.0, 0.0, 0.0)
-    bone.tail = (0.0, half, 0.0)
+    root_bone = armature_data.edit_bones.new("Joint 0")
+    root_bone.head = (0.0, 0.0, 0.0)
+    root_bone.tail = (0.0, half, 0.0)
+    body_bone = armature_data.edit_bones.new("Joint 1")
+    body_bone.head = (0.0, half, 0.0)
+    body_bone.tail = (0.0, SKIN_SIZE, 0.0)
+    body_bone.parent = root_bone
     bpy.ops.object.mode_set(mode="OBJECT")
-    tlm_blender._read_data(armature_data.bones["Joint 0"], "Joint", {"Index": 0})
-    armature.pose.bones["Joint 0"].rotation_mode = "QUATERNION"
+    for index, bone_name in enumerate(("Joint 0", "Joint 1")):
+        tlm_blender._read_data(armature_data.bones[bone_name], "Joint", {"Index": index})
+        armature.pose.bones[bone_name].rotation_mode = "QUATERNION"
 
     skin = _mesh_object("Skin", box(SKIN_SIZE, SKIN_SIZE, SKIN_SIZE), "skin", root, collection)
     tlm_blender._read_data(skin, "Skin", {})
-    skin.vertex_groups.new(name="Joint 0").add(list(range(len(skin.data.vertices))), 1.0, "REPLACE")
+    skin.vertex_groups.new(name="Joint 1").add(list(range(len(skin.data.vertices))), 1.0, "REPLACE")
     skin.modifiers.new("Armature", "ARMATURE").object = armature
     for holder_name, kind in (("Rigid Bodies", "rigid_bodies"), ("Exit Points", "exit_points"), ("Collision Hulls", "collision_hulls")):
         _empty(holder_name, kind, root, collection, "PLAIN_AXES", 0.1)
@@ -122,14 +130,14 @@ def new_ogi(context: bpy.types.Context, name: str = "OGI") -> bpy.types.Object:
 
 
 def new_scenery(context: bpy.types.Context, name: str = "Scenery") -> bpy.types.Object:
-    """A new scenery: the root with lighting on, the tree node the game culls it with holding a ground mesh, an ambient and a
-    directional light, the ground again as the collision with a placeholder surface, and an empty dynamic scenery."""
+    """A new scenery: the root with the box the game keeps the chunk's objects in that TT Lab gives new chunks, a ground mesh in its
+    Meshes and no LODs yet, an ambient and a directional light, the ground again as the collision with a placeholder surface, and an
+    empty dynamic scenery."""
     root, collection = _root(context, name, "Scenery", "scenery")
-    tlm_blender._read_data(root, "Scenery", {"HasLighting": True})
-    display, size = tlm_scenery._EMPTY_DISPLAY["tree_node"]
-    tree = _empty("Scenery Tree", "tree_node", root, collection, display, GROUND_SIZE / 2.0)
-    tlm_blender._read_data(tree, "SceneryTreeNode", {})
-    mesh = _mesh_object("Ground", ground(GROUND_SIZE), "scenery_mesh", tree, collection)
+    tlm_blender._read_data(root, "Scenery", {"BoundsMin": list(-value for value in SCENERY_HALF_SIZE), "BoundsMax": list(SCENERY_HALF_SIZE)})
+    meshes = _empty("Meshes", "scenery_meshes", root, collection, *tlm_scenery._EMPTY_DISPLAY["scenery_meshes"])
+    _empty("LODs", "scenery_lods", root, collection, *tlm_scenery._EMPTY_DISPLAY["scenery_lods"])
+    mesh = _mesh_object("Ground", ground(GROUND_SIZE), "scenery_mesh", meshes, collection)
     tlm_blender._read_data(mesh, "SceneryMesh", {})
 
     # The lights TT Lab gives new chunks, the brightness in the intensity: every level has an ambient light of a third grey at 3 to 6
@@ -146,19 +154,7 @@ def new_scenery(context: bpy.types.Context, name: str = "Scenery") -> bpy.types.
 
     collision = _mesh_object("Collision", ground(GROUND_SIZE), "collision", root, collection)
     tlm_blender._read_data(collision, "Collision", {})
-    collision.data.materials.append(_surface_material(DEFAULT_SURFACE))
+    collision.data.materials.append(tlm_scenery.placeholder_surface(DEFAULT_SURFACE))
     dynamic = _empty("Dynamic Scenery", "dynamic_scenery", root, collection, *tlm_scenery._EMPTY_DISPLAY["dynamic_scenery"])
     tlm_blender._read_data(dynamic, "DynamicScenery", {})
     return root
-
-
-def _surface_material(name: str) -> bpy.types.Material:
-    material = bpy.data.materials.get(name)
-    if material is not None and material.get(tlm_scenery.SURFACE_PROPERTY) is not None:
-        return material
-
-    material = bpy.data.materials.new(name)
-    material[tlm_scenery.SURFACE_PROPERTY] = ""
-    tlm_blender._read_data(material, "CollisionSurface", {"Surface": ""})
-    material.diffuse_color = (0.5, 0.5, 0.5, 1.0)
-    return material

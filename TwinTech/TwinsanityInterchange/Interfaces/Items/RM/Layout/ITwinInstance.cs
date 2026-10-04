@@ -22,7 +22,8 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout
         Int32 RotationY { get; set; }
         Int32 RotationZ { get; set; }
         /// <summary>
-        /// The instances of its layout the instance names, by their index (the scripts' linked objects)
+        /// The instances of its layout the instance names, by their index, linked to it when its layout is read (the scripts' linked
+        /// objects, LayoutInstances::Finish): its attachments node keeps 16 and leaves out the rest
         /// </summary>
         List<UInt16> Instances { get; set; }
         /// <summary>
@@ -30,12 +31,12 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout
         /// </summary>
         UInt32 InstancesGrowth { get; set; }
         /// <summary>
-        /// The positions of its layout the instance names, by their index
+        /// The positions of its layout the instance names, by their index: the keys of its waypoints, counted in a byte
         /// </summary>
         List<UInt16> Positions { get; set; }
         UInt32 PositionsGrowth { get; set; }
         /// <summary>
-        /// The paths of its layout the instance names, by their index
+        /// The paths of its layout the instance names, by their index: the paths of its waypoints, counted in a byte
         /// </summary>
         List<UInt16> Paths { get; set; }
         UInt32 PathsGrowth { get; set; }
@@ -44,18 +45,19 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout
         /// </summary>
         UInt16 ObjectId { get; set; }
         /// <summary>
-        /// The instance's index among its behaviour starter's receivers, -1 none
+        /// The behaviour starters' receiver the instance is (its low byte, SetReceiverInstance), -1 none
         /// </summary>
         Int16 RefListIndex { get; set; }
         /// <summary>
-        /// The behaviour starter the instance's spawn runs (its graph's ID minus 1), 0xFFFF none
+        /// The behaviour starter the instance's agent runs whenever it starts (its graph's ID minus 1), 0xFFFF none: the object's
+        /// behaviour slot 0 then
         /// </summary>
         UInt16 SpawnScriptId { get; set; }
         Enums.InstanceState StateFlags { get; set; }
         /// <summary>
         /// The instance's tagged values (<see cref="Common.AgentLab.TaggedValue"/>): an int, an angle or a float, or an instance
-        /// property's index; the tools left some raw words. The class of its object's type keeps as many as it has room for in its
-        /// property holder, the rest in extras
+        /// property's index; the tools left some raw words. The class of its object's type keeps its first ones in its property
+        /// holder and puts the rest of all three lists aside in 7 words it allocates with no check (PropertyExtras)
         /// </summary>
         List<UInt32> TaggedProperties { get; set; }
         List<Single> FloatProperties { get; set; }

@@ -69,7 +69,7 @@ Every node has a `kind` and a `name`. Nodes may have:
 ### OGI
 
 ```
-ogi              data: BoundingBoxMin, BoundingBoxMax
+ogi              data: BoundingBoxMin, BoundingBoxMax, JointIdCount
 ├─ armature      joints, animations
 ├─ skin          mesh with joints and weights
 ├─ shape         mesh with shapes (the blend skin), as many as the mesh has shape keys
@@ -86,7 +86,8 @@ into the vertexes, they're in the model's space like the bind poses. A `body` mo
 the joint's rest, TT Lab moves the vertexes by it; the add-on works it out from where the object follows its bone (through its Child
 Of constraint or as the bone's child) with the armature at rest, whatever pose is on. `matrix` of an exit point is the game's matrix
 (16 floats, translation last), kept while the node's transform still is the one it stands for; the add-on carries it with the object
-without showing it, like the bones' bind poses.
+without showing it, like the bones' bind poses. The game finds an exit point by its place and never reads its `Id`: exit points are
+in the order of their IDs and their IDs are their places, 0 to n-1 (the add-on writes them so, TT Lab renumbers others with a warning).
 
 #### Collision hulls
 
@@ -123,6 +124,13 @@ Dynamic scenery models keep their hulls the same way, as `hull` children without
 ```
 
 - `parent` is the parent's `index`, -1 for the root. Bones added in Blender have no `index` and get the next free ones.
+- A skeleton has one root, joint 0, and its joints are numbered 0 to n-1 in the order the game walks it: from the root down, a
+  joint's children in the order of their indexes, each with everything under it. The game works out the joints' matrices in that walk
+  and draws the joint of an index with the matrix of that place in it. A joint has 12 children at most and a skin is drawn with 63
+  joints at most. The add-on refuses to export an armature of several root bones or past those limits, and numbers every bone in the
+  walk's order when the indexes its bones have don't follow it. TT Lab refuses files that break it.
+- `Id` is the ID the game finds the joint by, 255 for none (most of the game's models have none): an object's header counts the IDs
+  its animations and scripts use, which find their joint by it (N. Gin's joint 4 has ID 0, joint 3 ID 1).
 - `bind` is the joint's matrix in model space (column vectors, 16 floats row after row) that bones get as their rest pose. It's the
   inverse of the game's inverse bind matrix, which can have a scale bones can't.
 - `data` holds the game's values, which TT Lab keeps while the bone is still where `bind` put it, ignoring the scale. A moved bone
@@ -151,20 +159,27 @@ Dynamic scenery models keep their hulls the same way, as `hull` children without
   action and writes it back, edited or not. TT Lab keeps the game's values of every joint, frame and track whose keys still round to
   them (translations, scales and weights to the same 1/4096, rotations closer than half of the game's 1/4096 of a turn) and makes
   the rest from the keys. An animation whose keys all hold is `exact`.
-- `joint_count` is the amount of joints the animation has, which can be more than the skeleton's. Joints without keys keep their
-  values from `exact`.
+- `joint_count` is the amount of joints the animation has, which can be more or fewer than the skeleton's (a few of the game's are).
+  Joints without keys keep their values from `exact`. Every joint of the model reads the settings of its index from the animation
+  playing, with no check, so the add-on gives an animation one for every bone once the model has more bones than when the animation
+  was imported (each action keeps that count, `model_joints`, retargeted copies the source model's).
+- The root's `JointIdCount` is the game's count of joint IDs it binds (every ID below it), kept while as many joints have an ID; only
+  the game's models whose IDs have gaps have one (else -1 or none), TT Lab binds every ID of the others.
+- `fps` is 1 to 31 (5 bits of the game's header, which plays an animation for `frames` over it; the game's all have 25). The add-on
+  writes a faster action every few frames at a rate that keeps its length, TT Lab clamps what's out of range with a warning.
+- `facial.frames` is `frames`: the game reads the weights at the main animation's frame, the weights of fewer frames hold their last.
 - Animations without `id` are new and get IDs from `0x8000` up. An animation with the `id` of one before it is a copy, and gets a
-  new one too.
+  new one too. The add-on gives them their IDs when it exports and keeps them with the actions, TT Lab only numbers older files'.
 
 ### Scenery
 
 ```
-scenery            data: FogColor, UnusedByte, HasLighting, LightOrder
-├─ tree_node       data: Kind, Slot, BoundsCenter, BoundsMin, BoundsMax, BoundsHalfSize, LightsEnabler, SceneryTypes, TreeDepth (the root)
-│  ├─ tree_node    the node's children, in the slots they had
-│  ├─ scenery_mesh data: Order, Matrix, BoundingBox, transform, mesh
-│  └─ scenery_lod  data: Order, Matrix, BoundingBox, LodType, MinDrawDistance, MaxDrawDistance, ModelsDrawDistances, transform
-│     └─ lod_mesh  data: Level, mesh
+scenery              data: FogColor, TreeDepth, BoundsMin, BoundsMax, UnusedByte, LightOrder, TreeNodes
+├─ scenery_meshes    "Meshes"
+│  └─ scenery_mesh   data: Order, Node, Matrix, BoundingBox, transform, mesh
+├─ scenery_lods      "LODs"
+│  └─ scenery_lod    data: Order, Node, Matrix, BoundingBox, LodType, MinDrawDistance, MaxDrawDistance, ModelsDrawDistances, transform
+│     └─ lod_mesh    data: Level, mesh
 ├─ lights
 │  └─ ambient_light, directional_light, point_light, spot_light   data, transform
 ├─ collision
@@ -172,9 +187,17 @@ scenery            data: FogColor, UnusedByte, HasLighting, LightOrder
    └─ dynamic_model
 ```
 
-- The tree is the hierarchy of `tree_node`s, every mesh and LOD under the node the game culls it with. A mesh keeps its node while it wasn't
-  moved or is still in the node's box, a mesh that left it or isn't under any node (any node with a mesh and no known kind is a placed
-  mesh) goes to the deepest node it's in. Nodes grow to hold what's in them, nodes made in Blender take the box of what's placed in them.
+- TT Lab writes the placed meshes under `Meshes` and the LODs under `LODs`, numbered in their group. They can be anywhere under the
+  root (any node with a mesh and no known kind is a placed mesh, and so is a `lod_mesh` outside a LOD), in the order of their `Order`
+  (their place among all of them), new ones last. Made in Blender, a mesh in `Meshes` or `LODs` is written as a placed mesh, an empty in
+  `LODs` as a LOD and the meshes under it as its levels. TT Lab makes the tree the game culls them with when it builds the scenery: an octree of the box
+  `BoundsMin`/`BoundsMax` (the box the game keeps the chunk's objects in), `TreeDepth` levels deep. `Node` is the tree node a mesh is in,
+  its octants from the root (`0` to `7`, bit 0 X, bit 1 Y, bit 2 Z, a set bit the lower half, empty for the root). A mesh stays in its
+  node while the node's cell grown twice around its middle holds the mesh, the others and new ones go down the octants their middle is
+  in for as long as that holds. `TreeNodes` (a dictionary keyed by index) holds the game's values of the nodes TT Lab doesn't work out
+  to the bit: `Path`, `BoundsCenter`, `BoundsMin`, `BoundsMax`, `BoundsHalfSize` and, for a node whose light bits aren't the root's,
+  `LightsEnabler` (128 booleans). They're kept while they're still within a hair of what TT Lab works out. A file without a usable box
+  gets one around the collision and what's placed.
 - `Matrix` of a placed mesh or LOD is the game's matrix (16 floats, translation last), kept while the node's transform is still the one
   it stands for. `BoundingBox` is the box the game culls it with (8 floats), kept while it still holds the mesh.
 - Lights are empties: the node's Z axis (the empty's arrow) is a directional light's `Direction`, pointing at where the light comes

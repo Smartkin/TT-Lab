@@ -30,5 +30,10 @@ public class MaterialKeyTests
         Assert.Equal(AppliedShaders.StandardUnlit, Material(0, TwinShader.Type.UnlitBillboard).DeriveActivatedShaders());
         // No retail material has these types, their bits aren't known
         Assert.Equal((AppliedShaders)0x1234, Material((AppliedShaders)0x1234, TwinShader.Type.SHADER_17).DeriveActivatedShaders());
+        // The screen copy and the waves get bits no other type has, so they never pass for another type's programs
+        Assert.Equal(AppliedShaders.ScreenCopy | AppliedShaders.WaveDeformation,
+            Material(0, TwinShader.Type.ScreenCopy, TwinShader.Type.WaveDeformation).DeriveActivatedShaders());
+        Assert.Equal(0UL, (UInt64)(AppliedShaders.ScreenCopy | AppliedShaders.WaveDeformation) & (UInt64)Enum.GetValues<AppliedShaders>()
+            .Where(bit => bit is not (AppliedShaders.ScreenCopy or AppliedShaders.WaveDeformation)).Aggregate((all, bit) => all | bit));
     }
 }

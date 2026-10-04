@@ -89,13 +89,19 @@ public sealed class ListLimitTests : IDisposable
         Assert.Contains("4 pages", Assert.Throws<InvalidOperationException>(() => fontData.Export(new PS2ItemFactory())).Message);
     }
 
+    // The game copies a hull's vertexes into 64 places on its stack (HullsIntersect) and a distance for each plane into 64 (SphereInPlanes)
     [Fact]
-    public void HullsTheFormatCantIndexArentWritten()
+    public void HullsPastWhatTheGameCollidesWithArentWritten()
     {
         var hull = TwinCollisionHull.CreateBox(new Vector4(-1, -1, -1, 1), new Vector4(1, 1, 1, 1));
-        hull.Vertexes.AddRange(Enumerable.Range(0, 300).Select(i => new Vector4(i, 0, 0, 1)));
+        hull.Vertexes.AddRange(Enumerable.Range(0, TwinCollisionHull.MostVertexes - hull.Vertexes.Count).Select(i => new Vector4(i, 0, 0, 1)));
         using var writer = new BinaryWriter(new MemoryStream());
+        hull.Write(writer);
 
-        Assert.Throws<InvalidOperationException>(() => hull.Write(writer));
+        hull.Vertexes.Add(new Vector4(0, 0, 0, 1));
+        Assert.Contains("65 vertexes", Assert.Throws<InvalidOperationException>(() => hull.Write(writer)).Message);
+        hull.Vertexes.RemoveAt(hull.Vertexes.Count - 1);
+        hull.Planes.AddRange(Enumerable.Range(0, TwinCollisionHull.MostPlanes + 1 - hull.Planes.Count).Select(_ => new Vector4(0, 1, 0, 1)));
+        Assert.Contains("65 planes", Assert.Throws<InvalidOperationException>(() => hull.Write(writer)).Message);
     }
 }

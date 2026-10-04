@@ -22,9 +22,12 @@ import os
 import bpy
 from bpy_extras.io_utils import ExportHelper, ImportHelper
 
+from . import collision_builder
 from . import project as projects
+from . import retarget
 from . import tlm
 from . import tlm_blender
+from . import tlm_scenery
 from . import tlm_templates
 
 
@@ -86,7 +89,12 @@ class TTT_OT_ExportTlm(bpy.types.Operator, ExportHelper):
             bpy.ops.object.mode_set(mode="OBJECT")
 
         context.view_layer.update()
-        warnings = tlm_blender.export_file(root, self.filepath)
+        try:
+            warnings = tlm_blender.export_file(root, self.filepath)
+        except (OSError, tlm.TlmError, ValueError) as error:
+            self.report({"ERROR"}, "Couldn't export %s: %s" % (os.path.basename(self.filepath), error))
+            return {"CANCELLED"}
+
         for warning in warnings:
             self.report({"WARNING"}, warning)
 
@@ -153,11 +161,11 @@ class TTT_MT_Add(bpy.types.Menu):
 
 class TTT_OT_RetargetAndReplace(bpy.types.Operator, ImportHelper):
     """Imports another TT Lab model file and puts it in this model's place, playing this model's animations: its bones get this
-    model's joint names, indexes and settings (a bone with one of the joint indexes is that joint, then bones named like this
-    model's, then the hierarchy in order, the rest new joints), every animation of this model becomes one of the new model's, in
-    which the matched bones turn from their own rests as much as this model's do on every frame and move as far, and this model is
-    removed with its own animations. The file's own animations are dropped, the new model takes this model's file and name. Export
-    the model afterwards"""
+    model's joint names, indexes and settings (a bone with one of the joint indexes is that joint while the file's skeleton is this
+    model's, then bones named like this model's, then the hierarchy in order, the rest new joints), every animation of this model
+    becomes one of the new model's, in which the matched bones turn from their own rests as much as this model's do on every frame and
+    move as far, and this model is removed with its own animations. The file's own animations are dropped, the new model takes this
+    model's file and name. Export the model afterwards"""
 
     bl_idname = "ttt.retarget_and_replace"
     bl_label = "Retarget Another TLM And Replace The Current Model"
@@ -165,6 +173,14 @@ class TTT_OT_RetargetAndReplace(bpy.types.Operator, ImportHelper):
 
     filename_ext = ".tlm"
     filter_glob: bpy.props.StringProperty(default="*.tlm", options={"HIDDEN"})
+    match: bpy.props.EnumProperty(
+        name="Match Bones By",
+        items=[
+            (retarget.MATCH_AUTO, "Automatically", "Joint indexes when the file's skeleton is this model's (every joint they share has the same parent), names and then the hierarchy otherwise"),
+            (retarget.MATCH_INDEX, "Joint Indexes", "A bone with one of this model's joint indexes is that joint, whatever its place: for a copy of this model's skeleton"),
+            (retarget.MATCH_NAME, "Names, Then The Hierarchy", "Indexes are left out, exporting numbers any rig's bones: bones named like this model's joints are those, the rest by their place in the hierarchy"),
+        ],
+        default=retarget.MATCH_AUTO)
 
     @classmethod
     def poll(cls, context):
@@ -180,13 +196,97 @@ class TTT_OT_RetargetAndReplace(bpy.types.Operator, ImportHelper):
         _in_object_mode(context)
         name = root.name
         try:
-            replaced, count = tlm_blender.retarget_and_replace(context, root, self.filepath)
+            replaced, count, matched = tlm_blender.retarget_and_replace(context, root, self.filepath, self.match)
         except (OSError, tlm.TlmError, ValueError) as error:
             self.report({"ERROR"}, "Couldn't put %s in the model's place: %s" % (self.filepath, error))
             return {"CANCELLED"}
 
         _select_only(context, replaced)
-        self.report({"INFO"}, "%s is now %s, playing %d retargeted animations" % (name, os.path.basename(self.filepath), count))
+        how = ", ".join("%d by %s" % (matched[way], label) for way, label in ((retarget.BY_INDEX, "joint index"), (retarget.BY_NAME, "name"),
+                                                                             (retarget.BY_ORDER, "the hierarchy"), (retarget.NEW, "none, new joints")) if matched.get(way))
+        self.report({"INFO"}, "%s is now %s, playing %d retargeted animations; bones matched %s" % (name, os.path.basename(self.filepath), count, how))
+        return {"FINISHED"}
+
+
+_surface_items_cache = []
+
+
+def _surface_items(self, context):
+    """The collision's surfaces first, then the file's other surface materials, the placeholder surface when there's none"""
+    root = tlm_blender.find_root(context.object) if context is not None else None
+    collision = tlm_scenery.collision_of(root) if root is not None else None
+    names = [material.name for material in collision.data.materials if material is not None] if collision is not None else []
+    names += sorted(material.name for material in bpy.data.materials if tlm_scenery.is_surface(material) and material.name not in names)
+    if not names:
+        names.append(tlm_templates.DEFAULT_SURFACE)
+
+    _surface_items_cache[:] = [(name, name, "Every triangle made goes on this surface") for name in names]
+    return _surface_items_cache
+
+
+class TTT_OT_GenerateCollision(bpy.types.Operator):
+    """Makes the scenery's collision out of the meshes it draws, the selected object's and every mesh under it or the whole
+    scenery's (the closest level of LODs, never the dynamic scenery), every triangle on one surface. It's as coarse as the game's:
+    the game only collides the player with 32 triangles at a time and slows Crash down to a fifth where there are more, so meshes
+    become their convex hulls where those stay close and the rest is made coarser. Corners closer than the weld distance become one
+    vertex and flat triangles are left out, adding to the collision leaves out the triangles it already has"""
+
+    bl_idname = "ttt.generate_collision"
+    bl_label = "Generate Collision"
+    bl_options = {"REGISTER", "UNDO"}
+
+    source: bpy.props.EnumProperty(name="From", items=[
+        ("SELECTED", "Selected Object", "The selected object's mesh and every mesh under it"),
+        ("SCENERY", "Whole Scenery", "Every mesh of the scenery"),
+    ], default="SELECTED")
+    mode: bpy.props.EnumProperty(name="Collision", items=[
+        ("REPLACE", "Replace", "The collision is made anew out of the meshes"),
+        ("ADD", "Add", "The meshes' triangles are added to the collision, but the ones it has"),
+    ], default="REPLACE")
+    surface: bpy.props.EnumProperty(name="Surface", items=_surface_items, description="The collision surface every triangle made goes on")
+    weld: bpy.props.FloatProperty(name="Weld Distance", default=0.001, min=0.0, soft_max=0.1, precision=4,
+                                  description="Corners closer than this, in the game's units, become one vertex")
+    flip: bpy.props.BoolProperty(name="Wound Like The Game's", default=True,
+                                 description="Turns the triangles around, the game winds its collision so a triangle's normal points into the solid (a floor's down)")
+    tolerance: bpy.props.FloatProperty(name="Tolerance", default=collision_builder.TOLERANCE, min=0.0, soft_max=0.5, precision=3,
+                                       description="How far, in the game's units, the collision may be from the meshes. 0 with a hull distance of 0 keeps every triangle")
+    hull_distance: bpy.props.FloatProperty(name="Hull Distance", default=collision_builder.HULL_DISTANCE, min=0.0, soft_max=1.0, precision=3,
+                                           description="A mesh, or a part of one, becomes its convex hull while the hull stays this close to it: gaps narrower than about twice it get filled (Crash is 1.2 units across). 0 makes no hulls")
+    coarser_where_crowded: bpy.props.BoolProperty(name="Coarser Where Crowded", default=True,
+                                                  description="Makes a mesh coarser still while Crash standing on it would touch more triangles than the game takes")
+
+    @classmethod
+    def poll(cls, context):
+        root = tlm_blender.find_root(context.object)
+        return root is not None and root.get(tlm_blender.KIND_PROPERTY) == "scenery"
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self)
+
+    def execute(self, context):
+        root = tlm_blender.find_root(context.object)
+        if root is None:
+            self.report({"ERROR"}, "Select an object of a scenery")
+            return {"CANCELLED"}
+
+        start = root if self.source == "SCENERY" else context.object
+        if not tlm_scenery.collision_sources(start):
+            self.report({"ERROR"}, "%s has no mesh the scenery draws" % start.name)
+            return {"CANCELLED"}
+
+        _in_object_mode(context)
+        surface = bpy.data.materials.get(self.surface)
+        if not tlm_scenery.is_surface(surface):
+            surface = tlm_scenery.placeholder_surface(self.surface or tlm_templates.DEFAULT_SURFACE)
+
+        result, crowding = tlm_scenery.generate_collision(root, start, surface, self.mode == "REPLACE", self.weld, self.flip, self.tolerance,
+                                                          self.hull_distance, self.coarser_where_crowded)
+        self.report({"INFO"}, "%d triangles on %s made of the meshes' %d: %d convex hulls, %d meshes made coarser where crowded, %d layers lying on others left out, %d triangles already there and %d flat ones"
+                    % (len(result.triangles), surface.name, result.sources, result.hulls, result.coarsened, result.covered, result.skipped, result.dropped))
+        if crowding.places:
+            self.report({"WARNING"}, "Crash would touch up to %d collision triangles at %d places, the most at (%.1f, %.1f, %.1f) in the game's space: the game only takes %d at a time and slows him down where there are more. Leave out small meshes there or raise the tolerance"
+                        % (crowding.most, crowding.places, *crowding.worst, collision_builder.MOST_TRIANGLES))
+
         return {"FINISHED"}
 
 
@@ -206,6 +306,8 @@ class TTT_PT_Model(bpy.types.Panel):
         path = root.get(tlm_blender.PATH_PROPERTY, "")
         layout.label(text=os.path.basename(path) if path else root.name, icon="FILE_3D")
         layout.operator(TTT_OT_ExportTlm.bl_idname, icon="EXPORT")
+        if root.get(tlm_blender.KIND_PROPERTY) == "scenery":
+            layout.operator(TTT_OT_GenerateCollision.bl_idname, icon="MOD_PHYSICS")
 
 
 class TTT_PT_Retargeting(bpy.types.Panel):

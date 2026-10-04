@@ -4,7 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:util="clr-namespace:TT_Lab.Util"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:Class="TT_Lab.Views.Editors.ByteChoiceFieldView">
+             x:Class="TT_Lab.Views.Editors.ChoiceFieldView">
     <ComboBox HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" x:Name="Choices">
         <ComboBox.ItemTemplate>
             <DataTemplate x:DataType="util:NamedChoice">

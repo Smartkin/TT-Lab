@@ -10,6 +10,7 @@ using ReactiveUI;
 using ReactiveUI.SourceGenerators;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Instance;
+using TT_Lab.Extensions;
 using TT_Lab.Project.Prefabs;
 using TT_Lab.Rendering;
 using TT_Lab.Util;
@@ -46,6 +47,24 @@ public partial class ViewportViewModel
             return;
         }
 
+        if (selected == _trianglePivot)
+        {
+            CanSavePrefab = false;
+            PrefabHint = "Collision triangles aren't saved as prefabs, the scenery's meshes are";
+            return;
+        }
+
+        if (IsSceneryMode)
+        {
+            var placements = SelectedPlacements();
+            CanSavePrefab = placements.Count > 0;
+            PrefabDefaultName = placements.Count == 1 ? placements[0].Placement.Description : $"Scenery of {placements.Count}";
+            PrefabHint = placements.Count == 0
+                ? "Select the scenery's meshes to save them as a prefab"
+                : "The meshes are saved with their materials' links, placed around the cursor in any chunk's scenery the way they stand to each other";
+            return;
+        }
+
         if (SelectionCount > 1)
         {
             var members = GroupMembers();
@@ -72,9 +91,9 @@ public partial class ViewportViewModel
     }
 
     /// <summary>
-    /// Saves the selection as a prefab of the project under the name, or the selection's own name when it's empty
+    /// Saves the selection as a prefab of the project into the folder under the name, or the selection's own name when it's empty
     /// </summary>
-    internal async Task<bool> SavePrefabAsync(string name)
+    internal async Task<bool> SavePrefabAsync(string name, string folder = "")
     {
         var library = PrefabLibrary.ForOpenedProject();
         if (library == null || SelectedObject is not { } selected)
@@ -86,7 +105,19 @@ public partial class ViewportViewModel
         try
         {
             Prefab prefab;
-            if (SelectionCount > 1)
+            if (IsSceneryMode)
+            {
+                var placements = SelectedPlacements();
+                if (placements.Count == 0 || FindScenery() is not { } scenery)
+                {
+                    return false;
+                }
+
+                var origin = placements[0].Placement.Matrix.ToSystem().Translation;
+                prefab = library.CaptureScenery(scenery.Asset, placements.Select(entry => entry.Placement).ToList(), origin,
+                    name.Length == 0 ? PrefabDefaultName : name);
+            }
+            else if (SelectionCount > 1)
             {
                 if (GroupMembers() is not { } members)
                 {
@@ -105,6 +136,7 @@ public partial class ViewportViewModel
                 prefab = library.Capture(source, name.Length == 0 ? source.DefaultName : name);
             }
 
+            prefab.Folder = folder;
             var preview = await RenderPrefabPreviewAsync();
             library.Save(prefab, preview);
             Log.WriteLine($"Saved prefab {prefab.Name}", Log.LogType.Info);
@@ -213,6 +245,18 @@ public partial class ViewportViewModel
                 case PrefabKind.Group:
                     var cursor = _editingContext.GetCursorCoordinates();
                     PlaceInstances(library.PlaceGroup(prefab, chunk).Select(placed => ((IAsset)placed.Instance, (vec3?)(cursor + placed.Offset))).ToList(), $"Placed {prefab.Name}");
+                    break;
+                case PrefabKind.Scenery:
+                    if (FindScenery() is not { } scenery)
+                    {
+                        return false;
+                    }
+
+                    // The meshes are edited in the scenery mode
+                    SetEditMode(ViewportEditMode.Scenery);
+                    SetSceneryTarget(false);
+                    var at = NewResourcePosition();
+                    InsertPlacements(library.PlaceScenery(prefab, scenery.Data, new System.Numerics.Vector3(at.x, at.y, at.z)), $"Placed {prefab.Name}");
                     break;
                 default:
                     PlaceElement(library, prefab);

@@ -24,6 +24,14 @@ namespace Twinsanity.TwinsanityInterchange.Common
         /// How far off a plane the game's builder lets a vertex be
         /// </summary>
         public const Single PlaneTolerance = 0.001f;
+        /// <summary>
+        /// The most vertexes the game collides a hull with, the game's own have 24 at most
+        /// </summary>
+        public const Int32 MostVertexes = 64;
+        /// <summary>
+        /// The most planes the game collides a hull with, the game's own have 33 at most
+        /// </summary>
+        public const Int32 MostPlanes = 64;
         private const Int32 HeaderShorts = 11;
 
         /// <summary>
@@ -288,10 +296,11 @@ namespace Twinsanity.TwinsanityInterchange.Common
 
         public void Write(BinaryWriter writer)
         {
-            // Edges keep their vertexes' indexes in a byte each and the faces are found by byte offsets
-            if (Vertexes.Count > 256)
+            // The game copies a hull's vertexes into 64 places on its stack to test it against another (HullsIntersect) and keeps a distance
+            // for each plane in 64 (SphereInPlanes), with no check. The faces are found by byte offsets
+            if (Vertexes.Count > MostVertexes || Planes.Count > MostPlanes)
             {
-                throw new InvalidOperationException($"A collision hull has {Vertexes.Count} vertexes, the game's hulls index 256 at most");
+                throw new InvalidOperationException($"A collision hull has {Vertexes.Count} vertexes and {Planes.Count} planes, the game collides with hulls of {MostVertexes} of each at most");
             }
 
             if (Faces.Count > 0 && Faces.Take(Faces.Count - 1).Sum(face => 1 + face.Count) > Byte.MaxValue)

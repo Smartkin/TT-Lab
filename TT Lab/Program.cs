@@ -48,7 +48,8 @@ class Program
             #if DEBUG
             .LogToDelegate(Console.WriteLine, LogEventLevel.Debug)
             #else
-            .LogToDelegate(Console.WriteLine, LogEventLevel.Information)
+            // Information is two lines for every layout pass, which a Linux desktop puts into the journal
+            .LogToDelegate(Console.WriteLine, LogEventLevel.Warning)
             #endif
             .WithInterFont();
 }

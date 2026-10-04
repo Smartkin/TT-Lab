@@ -22,6 +22,7 @@ public class ChunkLink : IDocumentModel
 {
     [JsonProperty(Required = Required.Always)]
     [Editable(Hint = "A link with loading hulls only loads its chunk while the player is inside one of them, this loads it while there's no player yet as well")]
+    [EditorLinkedField(typeof(LoadsWithoutPlayerRead), nameof(Hulls))]
     public Boolean LoadsWithoutPlayer { get; set; }
     
     [JsonProperty(Required = Required.Always)]
@@ -37,7 +38,7 @@ public class ChunkLink : IDocumentModel
     public ChunkLinkVisibility Visibility { get; set; }
 
     [JsonProperty(Required = Required.Always)]
-    [Editable(Hint = "Whether the load wall can be crossed. With this or Keep Loaded the linked chunk's own links load a level deeper")]
+    [Editable(Hint = "One of the link's keep bits (bit 8): with this or Keep Loaded the linked chunk's own links load a level deeper, and a link without a load wall moves instances into the linked chunk where its scenery has room for them. The wall itself is used whenever the link has one")]
     public Boolean IsLoadWallActive { get; set; }
 
     [JsonProperty(Required = Required.Always)]
@@ -57,7 +58,6 @@ public class ChunkLink : IDocumentModel
     // A zero matrix is no wall, the way the build writes it
     [JsonProperty(Required = Required.Default, NullValueHandling = NullValueHandling.Ignore)]
     [Editable]
-    [EditorLinkedField(typeof(CanEditLoadWall), nameof(IsLoadWallActive))]
     public Matrix4 LoadingWall { get; set; }
 
     // Links without a wall are stored without one, a link read back got a zero wall that every save then wrote into the file
@@ -116,13 +116,9 @@ public class ChunkLink : IDocumentModel
     public string DocumentName => "Chunk Link";
 
 
-    private class CanEditLoadWall : IFieldChange
+    // Only a link with loading hulls reads it (LoadLinkedChunks)
+    private sealed class LoadsWithoutPlayerRead : ReadWhen<ChunkLink>
     {
-        public void DataChanged(PropertyNode listener, PropertyNode linkedViewModel)
-        {
-            listener.IsReadOnly = !linkedViewModel.GetValue<bool>();
-        }
-
-        public void Linked(PropertyNode listener, PropertyNode linkedViewModel) => DataChanged(listener, linkedViewModel);
+        protected override Boolean IsRead(ChunkLink owner) => owner.Hulls is { Count: > 0 };
     }
 }

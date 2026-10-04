@@ -29,9 +29,9 @@ public class TextFile : GlobalAsset
         return AssetData;
     }
 
-    public override void ExportToFile(ITwinItemFactory factory)
+    public override void ExportToFile(ITwinItemFactory factory, String directory)
     {
-        GetData().SaveInCurrentDirectory(ExportFileName);
+        GetData().SaveTo(System.IO.Path.Combine(directory, ExportFileName));
     }
 
     public override Type GetEditorType()

@@ -357,6 +357,11 @@ public class EditingContext
 
     public void EndGizmoDrag()
     {
+        if (_gizmo.IsDragging && SelectedInstance?.TransformTarget is { } target)
+        {
+            target.Commit();
+        }
+
         _gizmo.EndDrag();
     }
 
@@ -375,6 +380,7 @@ public class EditingContext
         _gizmo.EndDrag();
         ApplyTransform(SelectedInstance, start, start);
         ApplyToExtras(start, start);
+        SelectedInstance.TransformTarget?.Cancel();
     }
 
     // The other selected objects follow the gizmo's, only in what their data lets them change
@@ -584,7 +590,7 @@ public class EditingContext
     private static GizmoTransform GetTargetTransform(ViewportObject instance)
     {
         var render = instance.Render;
-        if (instance.Transform != null)
+        if (instance.Transform != null || instance.TransformTarget != null)
         {
             return new GizmoTransform(render.WorldTransform.Column3.xyz, render.GetRotationQuat(), render.GetScale());
         }
@@ -595,7 +601,7 @@ public class EditingContext
     private void ApplyTransform(ViewportObject instance, GizmoTransform start, GizmoTransform result)
     {
         var render = instance.Render;
-        if (instance.Transform != null)
+        if (instance.Transform != null || instance.TransformTarget != null)
         {
             // Changing only what the drag changed keeps whatever else is in the matrix
             var matrix = _dragStartTransform;
@@ -614,7 +620,13 @@ public class EditingContext
             }
 
             render.SetLocalTransform(matrix);
-            instance.Transform.SetValue(instance.GetDataFromTransform(matrix));
+            if (instance.TransformTarget != null)
+            {
+                instance.TransformTarget.Preview(matrix * _dragStartTransform.Inverse);
+                return;
+            }
+
+            instance.Transform!.SetValue(instance.GetDataFromTransform(matrix));
             return;
         }
 

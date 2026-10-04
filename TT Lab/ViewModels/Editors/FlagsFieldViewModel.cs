@@ -22,9 +22,10 @@ public class FlagsFieldViewModel : DocumentCompositeViewModel
 
     protected override void OnExpanded(CompositeDisposable disposables)
     {
-        var enumValues = Property.Children.Select(x => new BoolFieldViewModel(Document, x, this)
+        var enumValues = Property.Children.Where(x => !EnumCaptions.IsNeverRead(Property.PropertyType, x.Name)).Select(x => new BoolFieldViewModel(Document, x, this)
         {
-            Caption = x.Name,
+            Caption = EnumCaptions.Of(Property.PropertyType, x.Name),
+            Hint = EnumCaptions.HintOf(Property.PropertyType, x.Name),
         });
 
         foreach (var enumValue in enumValues)

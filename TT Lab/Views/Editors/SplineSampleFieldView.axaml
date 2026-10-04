@@ -1,0 +1,26 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewmodels="clr-namespace:TT_Lab.ViewModels.Editors"
+             x:DataType="viewmodels:SplineSampleFieldViewModel"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="60"
+             x:Class="TT_Lab.Views.Editors.SplineSampleFieldView">
+    <StackPanel Spacing="2">
+        <UniformGrid Columns="3">
+            <ContentControl Content="{Binding X}"/>
+            <ContentControl Content="{Binding Y}"/>
+            <ContentControl Content="{Binding Z}"/>
+        </UniformGrid>
+        <Grid ColumnDefinitions="Auto,Auto,*,Auto,*">
+            <CheckBox x:Name="KeyField" Grid.Column="0" Content="Key"
+                      ToolTip.Tip="A key's offset and share are what the camera takes between the keys around where it is, the other samples pass over"/>
+            <TextBlock Grid.Column="1" Text="Offset" VerticalAlignment="Center" Margin="8,0,4,0"
+                       ToolTip.Tip="How far along the curve the camera leads (positive) or trails the target's nearest point, in units from -50 to 50. A spline with Takes Offset takes the subtype's instead"/>
+            <TextBox x:Name="OffsetField" Grid.Column="2"/>
+            <TextBlock Grid.Column="3" Text="Share" VerticalAlignment="Center" Margin="8,0,4,0"
+                       ToolTip.Tip="How much of the way from the curve to the target the camera moves, -5 to 5: 0 stays on the curve, 1 reaches the target, below 0 backs away from it"/>
+            <TextBox x:Name="ShareField" Grid.Column="4"/>
+        </Grid>
+    </StackPanel>
+</UserControl>

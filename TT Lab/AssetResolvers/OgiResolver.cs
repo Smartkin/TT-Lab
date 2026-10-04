@@ -53,7 +53,7 @@ public class OgiResolver : AssetResolver<ITwinOGI>
             _rigidModelResolver.CreateAssetFromId(chunk, rigidModelsSection, package, itemRigidModelId);
         }
         
-        return new OGI(package.URI, needVariant, variant, item.GetID(), item.GetName(), item);
+        return new OGI(package.URI, needVariant, variant, item.GetID(), RetailNames.Of(DefaultHashes.Ogis, item.GetID(), item.GetName()), item);
     }
 
     // Every OGI keeps the animations game objects play on it

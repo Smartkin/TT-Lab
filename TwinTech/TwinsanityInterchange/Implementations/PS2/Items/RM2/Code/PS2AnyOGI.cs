@@ -14,6 +14,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code
 
         Byte[] headerData;
         public List<TwinJoint> Joints { get; set; }
+        public Byte JointIdCount { get; set; }
         public List<TwinExitPoint> ExitPoints { get; set; }
         public Vector4[] BoundingBox { get; set; }
         public List<Byte> JointIndices { get; set; }
@@ -60,7 +61,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code
             reader.Read(headerData, 0, headerData.Length);
             Byte jointAmount = headerData[(int)ITwinOGI.HeaderInfo.JOINT_AMOUNT];
             Byte exitPointAmount = headerData[(int)ITwinOGI.HeaderInfo.EXIT_POINT_AMOUNT];
-            Byte reactJointsAmount = headerData[(int)ITwinOGI.HeaderInfo.REACT_JOINT_AMOUNT];
+            JointIdCount = headerData[(int)ITwinOGI.HeaderInfo.REACT_JOINT_AMOUNT];
             Byte rigidModelsAmount = headerData[(int)ITwinOGI.HeaderInfo.RIGID_MODELS_AMOUNT];
             Byte skinFlag = headerData[(int)ITwinOGI.HeaderInfo.HAS_SKIN];
             Byte blendFlag = headerData[(int)ITwinOGI.HeaderInfo.HAS_BLEND_SKIN];
@@ -118,7 +119,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code
         {
             headerData[(int)ITwinOGI.HeaderInfo.JOINT_AMOUNT] = (Byte)Joints.Count;
             headerData[(int)ITwinOGI.HeaderInfo.EXIT_POINT_AMOUNT] = (Byte)ExitPoints.Count;
-            headerData[(int)ITwinOGI.HeaderInfo.REACT_JOINT_AMOUNT] = GetAmountOfJointsWithId();
+            headerData[(int)ITwinOGI.HeaderInfo.REACT_JOINT_AMOUNT] = JointIdCount;
             headerData[(int)ITwinOGI.HeaderInfo.RIGID_MODELS_AMOUNT] = (Byte)RigidModelIds.Count;
             headerData[(int)ITwinOGI.HeaderInfo.HAS_SKIN] = (Byte)((SkinID == 0) ? 0 : 1);
             headerData[(int)ITwinOGI.HeaderInfo.HAS_BLEND_SKIN] = (Byte)((BlendSkinID == 0) ? 0 : 1);
@@ -156,20 +157,6 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code
             {
                 writer.Write(item);
             }
-        }
-
-        private Byte GetAmountOfJointsWithId()
-        {
-            Byte total = 0;
-            foreach (var joint in Joints)
-            {
-                if (joint.Id < 255)
-                {
-                    total++;
-                }
-            }
-
-            return total;
         }
 
         public override String GetName()

@@ -6,6 +6,7 @@ using TT_Lab.Attributes.EditorParamWrappers;
 using TT_Lab.Util;
 using TT_Lab.ViewModels.Editors;
 using TT_Lab.ViewModels.Editors.Descs;
+using TT_Lab.ViewModels.Editors.PropertyGraph;
 using TT_Lab.ViewModels.Interfaces;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Common.Particles;
@@ -92,16 +93,57 @@ public class ParticleSystemInstance : IDocumentModel
     public string? NameLeftover { get; set; }
 
     // The switches and group aren't read by the retail game
-    [Editable] public Int32 SwitchType { get; set; }
-    [Editable] public Int32 SwitchId { get; set; } = -1;
-    [Editable] public Single SwitchValue { get; set; }
-    [Editable] public Int16 UnusedShort { get; set; }
+    [Editable] [EditorHidden] public Int32 SwitchType { get; set; }
+    [Editable] [EditorHidden] public Int32 SwitchId { get; set; } = -1;
+    [Editable] [EditorHidden] public Single SwitchValue { get; set; }
+    [Editable] [EditorHidden] public Int16 UnusedShort { get; set; }
 
     // The Bounce sorts' plane: its height (or the vertical plane's distance) relative to the emitter, the vertical plane's angle about Y
-    [Editable(Caption = "Bounce Plane Angle (degrees, BounceXZ)", EditorDescType = typeof(AngleEditorDesc))] public Int16 BouncePlaneAngle { get; set; }
-    [Editable(Caption = "Plane Offset (Bounce sorts)")] public Single PlaneOffset { get; set; }
-    [Editable(Caption = "Bounce Factor")] public Single BounceFactor { get; set; } = 0.9f;
-    [Editable] public Int16 GroupId { get; set; }
+    [Editable(Caption = "Bounce Plane Angle (degrees, BounceXZ)", EditorDescType = typeof(AngleEditorDesc))]
+    [EditorLinkedField(typeof(BounceRead), nameof(Name))]
+    public Int16 BouncePlaneAngle { get; set; }
+    [Editable(Caption = "Plane Offset (Bounce sorts)")]
+    [EditorLinkedField(typeof(BounceRead), nameof(Name))]
+    public Single PlaneOffset { get; set; }
+    [Editable(Caption = "Bounce Factor")]
+    [EditorLinkedField(typeof(BounceRead), nameof(Name))]
+    public Single BounceFactor { get; set; } = 0.9f;
+    [Editable] [EditorHidden] public Int16 GroupId { get; set; }
 
     public string DocumentName => "Particle System Instance";
+
+    private sealed class BounceRead : IFieldChange
+    {
+        public void DataChanged(PropertyNode listener, PropertyNode changed) => FollowPlayedSystem(listener);
+
+        public void Linked(PropertyNode listener, PropertyNode changed) => FollowPlayedSystem(listener);
+    }
+
+    // The bounce values are read while the system the emitter plays bounces (GenParticle_Bounce, GenParticle_BounceXZ), the angle only
+    // by the vertical plane's; an emitter whose system isn't found has nothing grayed out
+    internal static void FollowPlayedSystem(PropertyNode field)
+    {
+        if (field.Target is not ParticleSystemInstance emitter || field.Name is not (nameof(BouncePlaneAngle) or nameof(PlaneOffset) or nameof(BounceFactor)))
+        {
+            return;
+        }
+
+        var sort = ParticlesOf(field)?.FindSystem(emitter.Name)?.System.GenSort;
+        field.IsReadOnly = sort != null && (field.Name == nameof(BouncePlaneAngle)
+            ? sort != TwinParticleSystem.GenSortType.BounceXZ
+            : sort is not (TwinParticleSystem.GenSortType.Bounce or TwinParticleSystem.GenSortType.BounceXZ));
+    }
+
+    private static ParticleData? ParticlesOf(PropertyNode node)
+    {
+        for (var parent = node.Parent; parent != null; parent = parent.Parent)
+        {
+            if (parent.Target is ParticleData particles)
+            {
+                return particles;
+            }
+        }
+
+        return null;
+    }
 }

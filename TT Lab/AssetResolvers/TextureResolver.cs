@@ -1,5 +1,6 @@
 using TT_Lab.Assets;
 using TT_Lab.Assets.Graphics;
+using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items;
 
@@ -14,7 +15,7 @@ public class TextureResolver(bool isInScenery) : AssetResolver<ITwinTexture>
 
     protected override IAsset CreateAsset(ITwinSection chunk, Package package, ITwinTexture item, bool needVariant, string variant)
     {
-        return new Texture(package.URI, needVariant, variant, item.GetID(), item.GetName(), item)
+        return new Texture(package.URI, needVariant, variant, item.GetID(), RetailNames.Of(DefaultHashes.Textures, item.GetID(), item.GetName()), item)
         {
             AdditionalPath = isInScenery ? ChunkPath : string.Empty
         };

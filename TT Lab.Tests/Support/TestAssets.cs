@@ -19,6 +19,7 @@ using TT_Lab.Util;
 using Twinsanity.PS2Hardware;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Common.Lights;
+using Twinsanity.TwinsanityInterchange.Common.ScenerySubtypes;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Implementations.PS2;
 using Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SubItems;
@@ -167,6 +168,16 @@ public sealed class TestAssets(TestProject project, int seed = 31)
         return material;
     }
 
+    /// <summary>
+    /// A material the game draws skins with: its skinned shader first, like every skin's of the game
+    /// </summary>
+    public Material AddSkinMaterial(string name)
+    {
+        var material = AddMaterial(name);
+        ((IAsset)material).GetData<MaterialData>().Shaders[0].ShaderType = TwinShader.Type.LitSkinnedModel;
+        return material;
+    }
+
     public Texture AddTexture(string name, uint argb)
     {
         var texture = project.Add(new Texture(), name);
@@ -180,13 +191,14 @@ public sealed class TestAssets(TestProject project, int seed = 31)
     public OGI AddOgi(string name = "Crash")
     {
         var ogi = project.Add(new OGI(), name, 0x5);
-        var material = AddMaterial($"{name} Fur");
+        var material = AddSkinMaterial($"{name} Fur");
         var skin = AddSkin(material.URI, $"{name} Skin");
         var blendSkin = AddBlendSkin(material.URI, $"{name} Face");
         var rigidModel = AddRigidModel($"{name} Mask", material.URI, material.URI);
         var data = new OGIData(ogi)
         {
-            BoundingBox = [new Vector4(-1, 0, -1, 1), new Vector4(1, 2, 1, 1)],
+            // Around the meshes at rest, like the game's
+            BoundingBox = [new Vector4(-1, 0, -1, 1), new Vector4(28, 2, 1.5f, 1)],
             // The game has rotations that aren't unit quaternions and negative zeros
             Joints =
             [
@@ -197,8 +209,10 @@ public sealed class TestAssets(TestProject project, int seed = 31)
                 new TwinJoint { Index = 2, ParentIndex = 1, Id = 255, LocalTranslation = new Vector4(0.3f, 0.4f, 0, 1), LocalRotation = new Vector4(0, 0, 0, 1),
                     WorldTranslation = new Vector4(0.3f, 1.5f, 0.2f, 1), UnusedRotation = new Vector4(0, 0, 0, 1), AdditionalAnimationRotation = new Vector4(0, 0, 0, 1) }
             ],
+            // The tools counted the joints with an ID, which leaves ID 3 unbound like the game's models whose IDs have gaps
+            JointIdCount = 1,
             SkinInverseMatrices = Enumerable.Range(0, 3).Select(i => System.Numerics.Matrix4x4.CreateTranslation(0, -i * 0.7f, 0.01f * i).ToTwin()).ToList(),
-            ExitPoints = [new TwinExitPoint { ID = 7, ParentJointIndex = 2, Matrix = MatrixWithNegativeZeros() }],
+            ExitPoints = [new TwinExitPoint { ID = 0, ParentJointIndex = 2, Matrix = MatrixWithNegativeZeros() }],
             RigidModelIds = [rigidModel.URI],
             RigidModelJointIndices = [1],
             CollisionHulls = [TwinCollisionHull.CreateBox(new Vector4(-0.5f, 0, -0.5f, 1), new Vector4(0.5f, 1, 0.5f, 1))],
@@ -252,7 +266,8 @@ public sealed class TestAssets(TestProject project, int seed = 31)
     }
 
     /// <summary>
-    /// A scenery with a tree of 4 nodes, a mesh or LOD placed in each, a light of every kind, a collision and an animated dynamic model
+    /// A scenery with meshes and a LOD placed in 5 nodes of its tree, kept values of two of them, a light of every kind, a collision and an
+    /// animated dynamic model
     /// </summary>
     public Scenery AddScenery()
     {
@@ -272,70 +287,65 @@ public sealed class TestAssets(TestProject project, int seed = 31)
         dynamicScenery.SetData(dynamicSceneryData);
         project.AssetManager.AddAsset(dynamicScenery);
 
-        // The root holds a node with a leaf in it and another leaf, every one of them has something placed in it
-        var root = TreeNode(new SceneryRootData { TreeDepth = 1 }, new Vector3(-100, -20, -100), new Vector3(100, 20, 100), [ITwinScenery.SceneryType.Node, ITwinScenery.SceneryType.None, ITwinScenery.SceneryType.Leaf]);
-        var node = TreeNode(new SceneryNodeData(), new Vector3(-100, -20, -100), new Vector3(0, 20, 0), [ITwinScenery.SceneryType.None, ITwinScenery.SceneryType.None, ITwinScenery.SceneryType.None, ITwinScenery.SceneryType.None, ITwinScenery.SceneryType.None, ITwinScenery.SceneryType.Leaf]);
-        var leaf = TreeNode(new SceneryLeafData(), new Vector3(-100, -20, -100), new Vector3(-50, 20, -50), []);
-        var otherLeaf = TreeNode(new SceneryLeafData(), new Vector3(0, -20, 0), new Vector3(100, 20, 100), []);
-        Place(root, rock, new Vector3(0, 0, 0));
-        Place(leaf, rock, new Vector3(-75, 0, -75));
-        PlaceLod(node, lod, new Vector3(-25, 0, -25));
-        Place(otherLeaf, tree, new Vector3(50, 0, 50));
-        Place(otherLeaf, rock, new Vector3(60, 5, 60));
+        // The rocks are 19 units long along X. The first is kept in the root, which the rule would put two octants down, and the LOD in an
+        // octant the rule would put in one of its octants
         var data = new SceneryData(scenery)
         {
             FogColor = 3,
             UnusedByte = 0x12,
-            HasLighting = true,
+            TreeDepth = 2,
+            BoundsMin = new System.Numerics.Vector3(-100, -20, -100),
+            BoundsMax = new System.Numerics.Vector3(100, 20, 100),
             AmbientLights = [new AmbientLight { Color = new Vector4(0.2f, 0.2f, 0.3f, 1), Position = new Vector4(1, 2, 3, 1), Enabled = false, Intensity = 10 }],
             DirectionalLights = [new DirectionalLight { Direction = new Vector4(0.6f, 0.8f, 0, 0), Leftover = 3, Intensity = 1.5f, Position = new Vector4(0, 50, 0, 1), Color = new Vector4(1, 1, 0.9f, 1) }],
             PointLights = [new PointLight { AttenuationPower = -2, Position = new Vector4(10, 3, 10, 1), Intensity = 7.5f, Color = new Vector4(1, 0.5f, 0, 1) }],
             SpotLights = [new SpotLight { Direction = new Vector4(1, 2, 3, 4), InnerConeCosine = 0.5f, OuterConeCosine = 0.4f, ConeAngle = 21845, FalloffAngle = 1166, AttenuationPower = 65535, SpotExponent = 3, Intensity = 2, Position = new Vector4(-10, 0, 0, 1) }],
-            Sceneries = [root, node, leaf, otherLeaf],
+            Placements =
+            [
+                Place(rock, new Vector3(0, 0, 0), ""),
+                Place(rock, new Vector3(-75, 0, -75), "57"),
+                PlaceLod(lod, new Vector3(-25, 0, -25), "5"),
+                Place(tree, new Vector3(50, 0, 50), "02"),
+                Place(rock, new Vector3(60, 5, 60), "02")
+            ],
             Collision = collision.URI,
             DynamicScenery = dynamicScenery.URI
         };
+        var built = data.BuildTree(_ => 0);
+        // The tools' rounding of a leaf's box and a node's own light bits, and values of a node that isn't there anymore
+        var leaf = built.Single(node => node.MeshIDs.Count == 1 && node is TwinSceneryLeaf);
+        data.TreeNodes =
+        [
+            Kept("57", leaf, 1e-4f, Enumerable.Range(0, 128).Select(i => i % 3 == 0).ToArray()),
+            Kept("", built[0], 0, null),
+            Kept("33", leaf, 0, null)
+        ];
         scenery.SetData(data);
         return scenery;
     }
 
-
-    private static SceneryBaseData TreeNode(SceneryBaseData node, Vector3 min, Vector3 max, ITwinScenery.SceneryType[] children)
+    private static SceneryTreeNode Kept(string path, TwinSceneryBaseType node, float rounding, bool[]? lights)
     {
-        var half = (max - min) / 2;
-        var center = (max + min) / 2;
-        node.BoundsCenter = new Vector4(center.X, center.Y, center.Z, half.Length());
-        node.BoundsMin = new Vector4(min.X, min.Y, min.Z, half.Length());
-        node.BoundsMax = new Vector4(max.X, max.Y, max.Z, half.Length());
-        node.BoundsHalfSize = new Vector4(half.X, half.Y, half.Z, half.Length());
-        node.LightsEnabler = Enumerable.Range(0, 128).Select(i => i % 3 == 0).ToArray();
-        node.MeshIDs = [];
-        node.LodIDs = [];
-        node.MeshModelMatrices = [];
-        node.LodModelMatrices = [];
-        node.BoundingBoxes = [];
-        if (node is SceneryNodeData treeNode)
+        return new SceneryTreeNode
         {
-            treeNode.SceneryTypes = Enumerable.Range(0, 8).Select(i => i < children.Length ? children[i] : ITwinScenery.SceneryType.None).ToArray();
-        }
-
-        return node;
+            Path = path,
+            BoundsCenter = new Vector4(node.BoundsCenter.X + rounding, node.BoundsCenter.Y, node.BoundsCenter.Z, node.BoundsCenter.W - rounding),
+            BoundsMin = new Vector4(node.BoundsMin.X - rounding, node.BoundsMin.Y, node.BoundsMin.Z, node.BoundsMin.W),
+            BoundsMax = new Vector4(node.BoundsMax.X, node.BoundsMax.Y + rounding, node.BoundsMax.Z, node.BoundsMax.W),
+            BoundsHalfSize = new Vector4(node.BoundsHalfSize.X, node.BoundsHalfSize.Y, node.BoundsHalfSize.Z + rounding, node.BoundsHalfSize.W),
+            LightsEnabler = lights
+        };
     }
 
-
-    private void Place(SceneryBaseData node, Mesh mesh, Vector3 position)
+    private SceneryPlacement Place(Mesh mesh, Vector3 position, string node)
     {
-        node.MeshIDs.Add(mesh.URI);
-        node.MeshModelMatrices.Add(System.Numerics.Matrix4x4.CreateTranslation(position).ToTwin());
-        node.BoundingBoxes.Insert(node.MeshIDs.Count - 1, MeshBox(mesh));
+        return new SceneryPlacement { Model = mesh.URI, Matrix = System.Numerics.Matrix4x4.CreateTranslation(position).ToTwin(), Box = MeshBox(mesh), Node = node };
     }
 
-
-    private void PlaceLod(SceneryBaseData node, LodModel lod, Vector3 position)
+    private SceneryPlacement PlaceLod(LodModel lod, Vector3 position, string node)
     {
-        node.LodIDs.Add(lod.URI);
-        node.LodModelMatrices.Add(System.Numerics.Matrix4x4.CreateTranslation(position).ToTwin());
-        node.BoundingBoxes.Add(MeshBox(Get<Mesh>(((IAsset)lod).GetData<LodModelData>().Meshes[0])));
+        var box = MeshBox(Get<Mesh>(((IAsset)lod).GetData<LodModelData>().Meshes[0]));
+        return new SceneryPlacement { Model = lod.URI, IsLod = true, Matrix = System.Numerics.Matrix4x4.CreateTranslation(position).ToTwin(), Box = box, Node = node };
     }
 
 

@@ -3,14 +3,13 @@ using System.IO;
 using System.Linq;
 using Dock.Model.Controls;
 using Dock.Model.Core;
-using Dock.Model.ReactiveUI;
 using Dock.Model.ReactiveUI.Controls;
 using Newtonsoft.Json.Linq;
 using TT_Lab.Extensions;
 
 namespace TT_Lab.ViewModels;
 
-public class DockFactory : Factory
+public class DockFactory : DockFactoryBase
 {
     private const string DocumentsAreaPaneId = "DocumentsAreaPane";
     private const string DocumentsPaneId = "DocumentsPane";

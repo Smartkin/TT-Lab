@@ -1,4 +1,5 @@
-﻿using System;
+﻿using TT_Lab.Attributes.EditorParamWrappers;
+using System;
 using System.IO;
 using System.Text;
 using System.Text.Json;
@@ -31,11 +32,13 @@ public class LabShader : IDocumentModel
     [Editable]
     public TwinShader.Type ShaderType { get; set; } = TwinShader.Type.StandardLit;
     
-    [Editable]
+    [Editable(Hint = "The cloth deformations' mode (types 23 and 26)")]
+    [EditorLinkedField(typeof(ClothRead), nameof(ShaderType))]
     public UInt32 IntParam { get; set; }
     
-    [Editable]
+    [Editable(Hint = "The cloth deformations' speed and amplitudes (types 23 and 26), the screen copies' corner value (16, 17 and 24), the waves' speed and amplitude (28)")]
     [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
+    [EditorLinkedField(typeof(FloatParamRead), nameof(ShaderType))]
     public Single[] FloatParam { get; set; } = new Single[4];
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonEnumStringConverter<AlphaBlending>))]
@@ -67,10 +70,12 @@ public class LabShader : IDocumentModel
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonEnumStringConverter<DestinationAlphaTestMode>))]
     [Editable]
+    [EditorLinkedField(typeof(DestinationAlphaRead), nameof(DAlphaTest))]
     public DestinationAlphaTestMode DAlphaTestMode { get; set; }
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonEnumStringConverter<DepthTestMethod>))]
     [Editable]
+    [EditorLinkedField(typeof(DepthTestRead), nameof(ShaderType))]
     public DepthTestMethod DepthTest { get; set; } = DepthTestMethod.GEQUAL;
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonEnumStringConverter<ShadingMethod>))]
@@ -98,21 +103,27 @@ public class LabShader : IDocumentModel
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonEnumStringConverter<ColorSpecMethod>))]
     [Editable]
+    [EditorLinkedField(typeof(CustomBlendRead), nameof(UseCustomAlphaRegSettings))]
     public ColorSpecMethod SpecOfColA { get; set; }
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonEnumStringConverter<ColorSpecMethod>))]
     [Editable]
+    [EditorLinkedField(typeof(CustomBlendRead), nameof(UseCustomAlphaRegSettings))]
     public ColorSpecMethod SpecOfColB { get; set; }
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonEnumStringConverter<AlphaSpecMethod>))]
     [Editable]
+    [EditorLinkedField(typeof(CustomBlendRead), nameof(UseCustomAlphaRegSettings))]
     public AlphaSpecMethod SpecOfAlphaC { get; set; }
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonEnumStringConverter<ColorSpecMethod>))]
     [Editable]
+    [EditorLinkedField(typeof(CustomBlendRead), nameof(UseCustomAlphaRegSettings))]
     public ColorSpecMethod SpecOfColD { get; set; }
     
     [Editable]
+    [EditorLinkedField(typeof(FixedAlphaRead), nameof(UseCustomAlphaRegSettings))]
+    [EditorLinkedField(typeof(FixedAlphaRead), nameof(SpecOfAlphaC))]
     public Byte FixedAlphaValue { get; set; }
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonEnumStringConverter<TextureFilter>))]
@@ -129,9 +140,20 @@ public class LabShader : IDocumentModel
     public ZValueDrawMask ZValueDrawingMask { get; set; } = ZValueDrawMask.UPDATE;
     
     [Editable]
+    [EditorHidden]
     public UInt16 LodParamK { get; set; }
+
+    // The game reads the halfword signed (SetShaderSettings) and the GS's K is signed fixed point in sixteenths: 65467 is -69, -4.3125
+    [System.Text.Json.Serialization.JsonIgnore]
+    [Newtonsoft.Json.JsonIgnore]
+    [Editable(Caption = "LOD K", Hint = "The GS's level of detail offset (TEX1 K), in mip levels: how much nearer or further than the distance says the texture's mips are picked. -4.3125 in most of the game's materials")]
+    public Single LodK
+    {
+        get => (Int16)LodParamK / 16.0f;
+        set => LodParamK = unchecked((UInt16)(Int16)Math.Clamp(Math.Round(value * 16.0), Int16.MinValue, Int16.MaxValue));
+    }
     
-    [Editable]
+    [Editable(Caption = "LOD L", Hint = "The GS's level of detail shift (TEX1 L): how many times the distance's log2 is doubled before K is added. Only its two low bits reach the GS, 0 in the game's textured materials")]
     public UInt16 LodParamL { get; set; }
     
     [System.Text.Json.Serialization.JsonIgnore]
@@ -140,6 +162,7 @@ public class LabShader : IDocumentModel
     public LabURI TextureId { get; set; } = LabURI.Empty;
     
     [Editable(Caption = "Unused value", Hint = "Never read by the game: 4 in every retail material but the UI's, which have 6")]
+    [EditorHidden]
     public Byte UnusedValue { get; set; }
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonEnumStringConverter<XScrollFormula>))]
@@ -151,27 +174,34 @@ public class LabShader : IDocumentModel
     public YScrollFormula YScrollSettings { get; set; }
     
     [Editable(Caption = "Unused flag", Hint = "Never read by the game, off in every retail material")]
+    [EditorHidden]
     public Boolean UnusedFlag { get; set; }
     
     [Editable(Caption = "Anti-aliasing", Hint = "The GS's antialiasing (PRMODE AA1), off in every retail material")]
     public Boolean AntiAliasing { get; set; }
     
     [Editable(Caption = "Animation drives color", Hint = "With an animation, its color track sets the shader color every frame (RGB times 256, alpha times 127)")]
+    [EditorLinkedField(typeof(AnimationColorRead), nameof(Animation))]
     public Boolean AnimationDrivesColor { get; set; }
     
     [System.Text.Json.Serialization.JsonConverter(typeof(ShaderBinaryVector4Converter))]
     [Newtonsoft.Json.JsonConverter(typeof(BitsVector4Converter))]
     [Editable(Caption = "Leftover vector", Hint = "Leftover memory of the tools, never read")]
+    [EditorHidden]
     public Vector4 LeftoverVector { get; set; } = new();
     
     [System.Text.Json.Serialization.JsonConverter(typeof(ShaderBinaryVector4Converter))]
     [Newtonsoft.Json.JsonConverter(typeof(BitsVector4Converter))]
     [Editable(Caption = "Shader color", Hint = "Only X's integer part reaches the shader's VU1 program as a byte: 0 in the retail materials, 1 in the UI's (1, 1, 1, 64); the rest have (0, 0, 0, 128)")]
+    [EditorLinkedField(typeof(ShaderColorRead), nameof(AnimationDrivesColor))]
+    [EditorLinkedField(typeof(ShaderColorRead), nameof(Animation))]
     public Vector4 ShaderColor { get; set; } = new();
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonVector4Converter))]
     [Newtonsoft.Json.JsonConverter(typeof(BitsVector4Converter))]
-    [Editable]
+    [Editable(Caption = "UV scroll", Hint = "X and Y the U and V scroll's phases in turns, Z and W their speeds in turns a second, for the Scroll and Sway settings. The U's cosine sway moves V instead, a mistake of the game's")]
+    [EditorLinkedField(typeof(ScrollRead), nameof(XScrollSettings))]
+    [EditorLinkedField(typeof(ScrollRead), nameof(YScrollSettings))]
     public Vector4 UvScrollSpeed { get; set; } = new();
     
     [System.Text.Json.Serialization.JsonIgnore]
@@ -289,7 +319,12 @@ public class LabShader : IDocumentModel
                 break;
             case TwinShader.Type.LitReflectionSurface:
             case TwinShader.Type.SHADER_17:
+            case TwinShader.Type.ScreenCopy:
                 writer.Write(FloatParam[0]);
+                break;
+            case TwinShader.Type.WaveDeformation:
+                writer.Write(FloatParam[0]);
+                writer.Write(FloatParam[1]);
                 break;
             default:
                 break;
@@ -417,4 +452,55 @@ public class LabShader : IDocumentModel
     }
 
     public string DocumentName => ShaderName;
+
+    // What the game only reads for some shader types or settings (the decomp's shaderclasses.cpp and shadersettings.cpp), grayed out while
+    // it doesn't
+    private sealed class ClothRead : ReadWhen<LabShader>
+    {
+        protected override Boolean IsRead(LabShader owner) => owner.ShaderType is TwinShader.Type.UnlitClothDeformation or TwinShader.Type.UnlitClothDeformation2;
+    }
+
+    // The cloth's speed and amplitudes, the screen copies' corner value, the waves' speed and amplitude
+    private sealed class FloatParamRead : ReadWhen<LabShader>
+    {
+        protected override Boolean IsRead(LabShader owner) => owner.ShaderType is TwinShader.Type.UnlitClothDeformation or TwinShader.Type.UnlitClothDeformation2
+            or TwinShader.Type.LitReflectionSurface or TwinShader.Type.SHADER_17 or TwinShader.Type.ScreenCopy or TwinShader.Type.WaveDeformation;
+    }
+
+    private sealed class CustomBlendRead : ReadWhen<LabShader>
+    {
+        protected override Boolean IsRead(LabShader owner) => owner.UseCustomAlphaRegSettings;
+    }
+
+    private sealed class FixedAlphaRead : ReadWhen<LabShader>
+    {
+        protected override Boolean IsRead(LabShader owner) => owner.UseCustomAlphaRegSettings && owner.SpecOfAlphaC == AlphaSpecMethod.FIX;
+    }
+
+    private sealed class DestinationAlphaRead : ReadWhen<LabShader>
+    {
+        protected override Boolean IsRead(LabShader owner) => owner.DAlphaTest == DestinationAlphaTest.ON;
+    }
+
+    // Skies always draw with ALWAYS
+    private sealed class DepthTestRead : ReadWhen<LabShader>
+    {
+        protected override Boolean IsRead(LabShader owner) => owner.ShaderType != TwinShader.Type.UnlitSkydome;
+    }
+
+    private sealed class ScrollRead : ReadWhen<LabShader>
+    {
+        protected override Boolean IsRead(LabShader owner) => owner.XScrollSettings >= XScrollFormula.Linear || owner.YScrollSettings >= YScrollFormula.Linear;
+    }
+
+    private sealed class AnimationColorRead : ReadWhen<LabShader>
+    {
+        protected override Boolean IsRead(LabShader owner) => owner.Animation != null;
+    }
+
+    // The animation's color track sets it every frame
+    private sealed class ShaderColorRead : ReadWhen<LabShader>
+    {
+        protected override Boolean IsRead(LabShader owner) => !owner.AnimationDrivesColor || owner.Animation == null;
+    }
 }

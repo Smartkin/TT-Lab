@@ -79,9 +79,17 @@ namespace TT_Lab.AssetData.Code
         public Byte SubType { get; set; }
         
         [JsonProperty(Required = Required.Always)]
+        [Editable(Caption = "Joint IDs", Hint = "How many joint IDs the game binds for the object's instances (the fewer of this and its first model's), which its animations and scripts " +
+                                                "find joints by with no check: one past them is read past the list. Most of the game's objects have their first model's count, some " +
+                                                "fewer when nothing uses the rest")]
+        [EditorParam(TextFieldViewModel.TextFieldNumberRange, new[] { 0, 63 })]
         public Byte CameraReactJointAmount { get; set; }
         
         [JsonProperty(Required = Required.Always)]
+        [Editable(Caption = "Exit Points", Hint = "How many exit points the game makes for the object's instances, which its scripts and code find by their places in its first model " +
+                                                  "(a character's hand is 0, its head 1) with no check: one past them is read past the list. Most of the game's objects have their first model's count, " +
+                                                  "some fewer when nothing uses the rest")]
+        [EditorParam(TextFieldViewModel.TextFieldNumberRange, new[] { 0, 63 })]
         public Byte ExitPointAmount { get; set; }
         
         [JsonProperty(Required = Required.Always)]

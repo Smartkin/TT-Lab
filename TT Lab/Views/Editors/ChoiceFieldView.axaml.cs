@@ -5,9 +5,9 @@ using TT_Lab.ViewModels.Editors;
 
 namespace TT_Lab.Views.Editors;
 
-public partial class ByteChoiceFieldView : DocumentBaseView<ByteChoiceFieldViewModel>
+public partial class ChoiceFieldView : DocumentBaseView<ChoiceFieldViewModel>
 {
-    public ByteChoiceFieldView()
+    public ChoiceFieldView()
     {
         InitializeComponent();
     }

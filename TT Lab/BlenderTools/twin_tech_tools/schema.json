@@ -1,14 +1,13 @@
 {
   "comment": "Twinsanity's enums and the keys of every TwinTech type as TT Lab writes them into the data of TT Lab model files' nodes. TT Lab's tests (SchemaTests, TlmSceneryTests) and the add-on's tests keep both sides in sync with it",
   "enums": {
-    "LodType": [["FULL", 4097], ["COMPRESSED", 4098]],
-    "SceneryType": [["None", 3], ["Node", 5632], ["Leaf", 5637], ["Root", 5642]]
+    "LodType": [["FULL", 4097], ["COMPRESSED", 4098]]
   },
   "types": {
     "Scene": {},
     "Object": {
-      "Ogi": ["BoundingBoxMin", "BoundingBoxMax"],
-      "Scenery": ["FogColor", "HasLighting", "UnusedByte", "LightOrder"],
+      "Ogi": ["BoundingBoxMin", "BoundingBoxMax", "JointIdCount"],
+      "Scenery": ["FogColor", "TreeDepth", "BoundsMin", "BoundsMax", "UnusedByte", "LightOrder", "TreeNodes"],
       "Skydome": [],
       "Skin": [],
       "BlendSkin": [],
@@ -16,8 +15,8 @@
       "Model": [],
       "RigidModel": [],
       "Mesh": [],
-      "SceneryMesh": ["Order", "Matrix", "BoundingBox"],
-      "SceneryLod": ["Order", "Matrix", "LodType", "MinDrawDistance", "MaxDrawDistance", "ModelsDrawDistances", "BoundingBox"],
+      "SceneryMesh": ["Order", "Node", "Matrix", "BoundingBox"],
+      "SceneryLod": ["Order", "Node", "Matrix", "LodType", "MinDrawDistance", "MaxDrawDistance", "ModelsDrawDistances", "BoundingBox"],
       "LodMesh": ["Level"],
       "AmbientLight": ["Order", "Color", "Intensity", "Enabled", "PositionW", "BoundsMin", "BoundsMax"],
       "DirectionalLight": ["Order", "Color", "Intensity", "Enabled", "PositionW", "BoundsMin", "BoundsMax", "Leftover", "Direction"],
@@ -29,8 +28,7 @@
       "DynamicSceneryModel": ["Order", "UsesLod", "BoundingBoxMin", "BoundingBoxMax"],
       "SkydomeMesh": ["Order"],
       "SaveIcon": ["TextureType", "FrameLength", "AnimationSpeed", "PlayOffset", "FileId", "HeaderValue", "AnimationTag"],
-      "Collision": ["UnusedVertexes", "UnusedPositions"],
-      "SceneryTreeNode": ["LightsEnabler", "Kind", "Slot", "BoundsMin", "BoundsMax", "BoundsCenter", "BoundsHalfSize", "TreeDepth", "SceneryTypes"]
+      "Collision": ["UnusedVertexes", "UnusedPositions"]
     },
     "Bone": {
       "Joint": ["Index", "Id", "AdditionalAnimationRotation", "Detail", "UnusedRotation", "LocalTranslation", "LocalRotation", "WorldTranslation", "InverseBindMatrix"]
@@ -38,14 +36,18 @@
     "Material": {
       "CollisionSurface": ["Surface"]
     },
-    "Items": {}
+    "Items": {
+      "SceneryTreeNode": ["Path", "BoundsMin", "BoundsMax", "BoundsCenter", "BoundsHalfSize", "LightsEnabler"]
+    }
   },
   "fogColors": [
-    ["Purple", [128, 0, 128, 255]],
-    ["No color", [0, 0, 0, 0]],
-    ["Light blue", [173, 216, 230, 255]],
-    ["Green", [0, 255, 0, 255]],
-    ["Grey", [127, 127, 127, 255]],
-    ["Beige", [245, 245, 220, 255]]
+    ["Violet", [52, 0, 247, 255]],
+    ["Black", [0, 0, 0, 255]],
+    ["Light blue", [165, 235, 255, 255]],
+    ["Green", [0, 255, 18, 255]],
+    ["White", [255, 255, 255, 255]],
+    ["Light orange", [255, 200, 120, 255]],
+    ["None", [0, 0, 0, 0]],
+    ["Blue to red", [131, 147, 202, 255]]
   ]
 }

@@ -24,6 +24,10 @@ public sealed class TlmFile
         [typeof(UInt16)] = "u16",
         [typeof(Byte)] = "u8"
     };
+    private static readonly Dictionary<string, Int32> TypeSizes = new()
+    {
+        ["f32"] = 4, ["i32"] = 4, ["u32"] = 4, ["i16"] = 2, ["u16"] = 2, ["u8"] = 1
+    };
 
     private readonly MemoryStream _binary = new();
 
@@ -110,6 +114,85 @@ public sealed class TlmFile
         var result = new T[count];
         _binary.GetBuffer().AsSpan(offset, count * size).CopyTo(MemoryMarshal.AsBytes(result.AsSpan()));
         return result;
+    }
+
+    /// <summary>
+    /// A copy of a node of another file with everything under it: the data its views point at goes into this file's binary data and the
+    /// materials its parts use into this file's materials, the map keeping the ones copied already
+    /// </summary>
+    public JsonObject CopyNode(TlmFile from, JsonObject node, Dictionary<Int32, Int32> materials)
+    {
+        return (JsonObject)Copy(from, node, materials)!;
+    }
+
+    private JsonNode? Copy(TlmFile from, JsonNode? node, Dictionary<Int32, Int32> materials)
+    {
+        switch (node)
+        {
+            case JsonObject view when IsView(view):
+                return CopyView(from, view);
+            case JsonObject json:
+                var copy = new JsonObject();
+                foreach (var (key, value) in json)
+                {
+                    copy[key] = key == "material" && value is JsonValue index && index.TryGetValue<Int32>(out var material) && material >= 0
+                        ? CopyMaterial(from, material, materials)
+                        : Copy(from, value, materials);
+                }
+
+                return copy;
+            case JsonArray array:
+                var items = new JsonArray();
+                foreach (var item in array)
+                {
+                    items.Add(Copy(from, item, materials));
+                }
+
+                return items;
+            default:
+                return node?.DeepClone();
+        }
+    }
+
+    private Int32 CopyMaterial(TlmFile from, Int32 material, Dictionary<Int32, Int32> materials)
+    {
+        if (materials.TryGetValue(material, out var copied))
+        {
+            return copied;
+        }
+
+        // A material the file doesn't have stays without one
+        if (material >= from.Materials.Count)
+        {
+            return -1;
+        }
+
+        Materials.Add(Copy(from, from.Materials[material], materials));
+        return materials[material] = Materials.Count - 1;
+    }
+
+    private static Boolean IsView(JsonObject json)
+    {
+        return json.Count == 3 && json["offset"] is JsonValue && json["count"] is JsonValue && json["type"] is JsonValue type
+               && type.TryGetValue<string>(out var name) && TypeSizes.ContainsKey(name);
+    }
+
+    private JsonObject CopyView(TlmFile from, JsonObject view)
+    {
+        var type = view.GetString("type")!;
+        var offset = view.GetInt("offset");
+        var count = view.GetInt("count");
+        var length = count * TypeSizes[type];
+        if (offset < 0 || count < 0 || offset + (Int64)length > from._binary.Length)
+        {
+            throw new InvalidDataException("A view points past the end of the binary data");
+        }
+
+        var padding = (Int32)(-_binary.Length & 3);
+        _binary.Write(new Byte[padding]);
+        var copied = _binary.Length;
+        _binary.Write(from._binary.GetBuffer(), offset, length);
+        return new JsonObject { ["offset"] = copied, ["count"] = count, ["type"] = type };
     }
 
     public void Save(string path)

@@ -29,6 +29,32 @@ public static class ForeignPropertyAttributes
             new EditorLinkedFieldAttribute(typeof(InverseMatrixChange), nameof(BossCamera.ArenaToWorld)),
             new EditorReadOnlyAttribute(),
         ],
+        // Camera subtypes (the decomp's CameraPoint2At, CameraLine2At and CameraSplineCamera)
+        [(typeof(CameraPoint2), nameof(CameraPoint2.Mode))] =
+        [
+            new EditableAttribute { Hint = "Where between the target and the point the camera stands: the distance's share of the way from the target to the point, the distance in units from the target towards the point, or the same but no further than the point (the game's levels use the first two)" },
+        ],
+        [(typeof(CameraPoint2), nameof(CameraPoint2.Distance))] =
+        [
+            new EditableAttribute { Hint = "The share of the way from the target to the point (mode 0, 0 to 1) or the units from the target (modes 1 and 2)" },
+        ],
+        [(typeof(CameraLine2), nameof(CameraLine2.NearDistance))] =
+        [
+            new EditableAttribute { Hint = "Up to this flat distance of the target from the line's start the camera stays at the start. Keep it 0, like every camera of the game's levels: between the distances the game adds it to the share along the line, which puts the camera past the line" },
+        ],
+        [(typeof(CameraLine2), nameof(CameraLine2.FarDistance))] =
+        [
+            new EditableAttribute { Hint = "From this flat distance of the target from the line's start on the camera stays at the line's end, closer it goes along by the share of the way between the distances" },
+        ],
+        [(typeof(CameraSpline), nameof(CameraSpline.PathPoints))] =
+        [
+            new EditableAttribute { Hint = "The samples the camera slides along, each a place and whether it's a key: a key has an offset along the curve and a share of the way toward the target, which the camera takes between the keys around where it is, the other samples pass over (their W is a word of the game's holding these). New samples pass over, new ends are keys of no offset and share" },
+            new EditorParamAttribute(DocumentCollectionViewModel.ElementEditor, typeof(SplineSampleEditorDesc)),
+        ],
+        [(typeof(CameraSpline), nameof(CameraSpline.SplineFlags))] =
+        [
+            new EditableAttribute { Hint = "Takes Offset takes the subtype's offset as the offset along the curve instead of the samples'. The word's other bits are leftovers of the tools the game never reads, kept as they are" },
+        ],
         // Scenery lights (verified in the PAL executable, GatherStrongestLights 0x1c7f50 and the lights' functions)
         [(typeof(Light), nameof(Light.Intensity))] =
         [
@@ -36,7 +62,7 @@ public static class ForeignPropertyAttributes
         ],
         [(typeof(Light), nameof(Light.Color))] =
         [
-            new EditableAttribute { Hint = "Red, green and blue in X, Y and Z, W unused. The game's lights have colors adding up to 1 and their brightness in the intensity" },
+            new EditableAttribute { EditorDescType = typeof(LightColorEditorDesc), Hint = "The light's color. The game's lights have colors whose red, green and blue add up to 1 and their brightness in the intensity: the picker shows the hue at full brightness and keeps that total" },
         ],
         [(typeof(Light), nameof(Light.Position))] =
         [
@@ -93,12 +119,56 @@ public static class ForeignPropertyAttributes
         ],
         [(typeof(SpotLight), nameof(SpotLight.ConeAngleDegrees))] = [new EditorHiddenAttribute()],
         [(typeof(SpotLight), nameof(SpotLight.FalloffAngleDegrees))] = [new EditorHiddenAttribute()],
+        // What camera subtypes never read (the decomp's subtypes: only lines, paths, splines and 1C09 read the offset, zones don't even
+        // have the follow values in their files) and what they read only with a flag
+        [(typeof(CameraSubBase), nameof(CameraSubBase.Follow))] =
+        [
+            new EditableAttribute { Hint = "How the camera rig's followers move to the subtype's points: straight there, their own way at their default rate, or at the follow rate. 1 (own way) on every camera of the game's levels but the zones" },
+        ],
+        [(typeof(CameraSubBase), nameof(CameraSubBase.FollowRate))] =
+        [
+            new EditableAttribute { Hint = "With At Rate, the share of the way a second the followers move to the subtype's points" },
+            new EditorLinkedFieldAttribute(typeof(FollowRateRead), nameof(CameraSubBase.Follow)),
+        ],
+        [(typeof(CameraSpline), nameof(CameraSubBase.Offset))] =
+        [
+            new EditableAttribute { Hint = "With Takes Offset, how far along the spline the camera leads (positive) or trails the target's nearest point, in units" },
+            new EditorLinkedFieldAttribute(typeof(SplineOffsetRead), nameof(CameraSpline.SplineFlags)),
+        ],
+        [(typeof(CameraPoint), nameof(CameraSubBase.Offset))] = [new EditorHiddenAttribute()],
+        [(typeof(CameraPoint2), nameof(CameraSubBase.Offset))] = [new EditorHiddenAttribute()],
+        [(typeof(CameraLine2), nameof(CameraSubBase.Offset))] = [new EditorHiddenAttribute()],
+        [(typeof(BossCamera), nameof(CameraSubBase.Offset))] = [new EditorHiddenAttribute()],
+        [(typeof(CameraZone), nameof(CameraSubBase.Offset))] = [new EditorHiddenAttribute()],
+        [(typeof(CameraZone), nameof(CameraSubBase.Follow))] = [new EditorHiddenAttribute()],
+        [(typeof(CameraZone), nameof(CameraSubBase.FollowRate))] = [new EditorHiddenAttribute()],
+        [(typeof(BossCamera), nameof(BossCamera.RadiusBlend))] =
+        [
+            new EditableAttribute { Hint = "With Uses Distance Curves, the radius becomes the target's distance from the axis plus (radius - distance) times this" },
+            new EditorLinkedFieldAttribute(typeof(BossCurvesRead), nameof(BossCamera.UsesDistanceCurves)),
+        ],
+        [(typeof(BossCamera), nameof(BossCamera.NearHeightOffset))] =
+        [
+            new EditableAttribute { Hint = "With Uses Distance Curves, the height above the target at the arena's axis, fading to the far one at the radius" },
+            new EditorLinkedFieldAttribute(typeof(BossCurvesRead), nameof(BossCamera.UsesDistanceCurves)),
+        ],
+        [(typeof(BossCamera), nameof(BossCamera.FarHeightOffset))] =
+        [
+            new EditableAttribute { Hint = "With Uses Distance Curves, the height above the target at the radius" },
+            new EditorLinkedFieldAttribute(typeof(BossCurvesRead), nameof(BossCamera.UsesDistanceCurves)),
+        ],
+        [(typeof(BossCamera), nameof(BossCamera.DistanceIncludesHeight))] =
+        [
+            new EditableAttribute { Hint = "With Uses Distance Curves, whether the target's distance from the axis counts its height too" },
+            new EditorLinkedFieldAttribute(typeof(BossCurvesRead), nameof(BossCamera.UsesDistanceCurves)),
+        ],
     };
 
-    // An overridden property is declared by the class overriding it, its attributes are its base class's
+    // The class the property is shown for first, a subclass can have its own attributes for a property of its base class. An overridden
+    // property is declared by the class overriding it, its attributes are its base class's
     public static IReadOnlyList<Attribute> Of(PropertyInfo property)
     {
-        for (var type = property.DeclaringType; type != null; type = type.BaseType)
+        for (var type = property.ReflectedType ?? property.DeclaringType; type != null; type = type.BaseType)
         {
             if (Attributes.TryGetValue((type, property.Name), out var attributes))
             {

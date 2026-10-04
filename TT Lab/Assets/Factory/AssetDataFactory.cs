@@ -89,14 +89,11 @@ public static class AssetDataFactory
     public static AssetCreationStatus CreateFolderData(IAsset parent, IAsset asset)
     {
         var projectPath = Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath;
-        Directory.SetCurrentDirectory(projectPath);
         var parentFolder = (Folder)parent;
         var folder = (Folder)asset;
         folder.Parent = parentFolder.URI;
-        
-        Directory.SetCurrentDirectory($".{Path.DirectorySeparatorChar}{parentFolder.GetPath()}");
-        Directory.CreateDirectory(asset.Alias);
-        Directory.SetCurrentDirectory(projectPath);
+        // The folder's path starts at the root, from the project's folder
+        Directory.CreateDirectory(Path.Combine(projectPath, parentFolder.GetPath().TrimStart('/'), asset.Alias));
         return AssetCreationStatus.Success;
     }
     
@@ -364,29 +361,16 @@ public static class AssetDataFactory
 
     private static SceneryData CreateDefaultSceneryData(Scenery scenery, LabURI floorSurface)
     {
-        var sceneryRoot = new SceneryRootData
-        {
-            TreeDepth = 1,
-            SceneryTypes = Enumerable.Repeat(ITwinScenery.SceneryType.None, 8).ToArray(),
-            BoundingBoxes = [],
-            MeshModelMatrices = [],
-            LodModelMatrices = [],
-            LightsEnabler = new Boolean[SceneryData.MaxLights]
-        };
-        // Its cell is the box the game keeps the chunk's objects in, the ground's own left Crash without ground under him
-        SceneryBounds.SetCell(sceneryRoot, GlmSharp.vec3.Zero, SceneryBounds.DefaultHalfSize);
+        // A new scenery's root cell is a box of the game's size (SceneryBounds), the ground's own left Crash without ground under him
         var lit = new SceneryData(scenery)
         {
-            HasLighting = true,
             AmbientLights = [DefaultLights.Ambient()],
-            DirectionalLights = [DefaultLights.Directional()],
-            Sceneries = [sceneryRoot]
+            DirectionalLights = [DefaultLights.Directional()]
         };
 
         // Made through the scenery's model file, which turns the ground into its mesh and model and the material into assets of the package
         var file = lit.WriteTlm();
-        var tree = file.Root![TlmNodes.ChildrenKey]!.AsArray().OfType<JsonObject>().First(node => node.GetKind() == SceneryData.TreeNodeKind);
-        tree.AddChild(CreateDefaultGround(file));
+        file.Root!.AddChild(CreateDefaultGround(file));
         file.Root.AddChild(CreateDefaultCollision(file, scenery, floorSurface));
         var data = new SceneryData(scenery);
         data.ReadTlm(file);
@@ -473,7 +457,9 @@ public static class AssetDataFactory
 
     public static AssetCreationStatus CreateOgiData(IAsset asset)
     {
-        asset.SetData(new OGIData(asset));
+        var data = new OGIData(asset);
+        data.MakePlaceholder();
+        asset.SetData(data);
         return AssetCreationStatus.Success;
     }
 

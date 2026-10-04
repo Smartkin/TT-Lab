@@ -36,9 +36,17 @@ def resume():
     _suspended = False
 
 
+def is_model_armature(blender_object):
+    """Whether the armature is a Twin Tech model's: the per-animation inherit scale previews only touch those, other rigs in the scene keep
+    their bones' settings."""
+    from . import tlm_blender
+
+    return blender_object.type == "ARMATURE" and (blender_object.get(tlm_blender.KIND_PROPERTY) == "armature" or tlm_blender.find_root(blender_object) is not None)
+
+
 def reset_inherit_scale(scene):
     for blender_object in scene.objects:
-        if blender_object.type != "ARMATURE":
+        if not is_model_armature(blender_object):
             continue
 
         for bone in blender_object.data.bones:
@@ -53,7 +61,7 @@ def apply_to_all_armatures(scene):
     from . import tlm_blender
 
     for blender_object in scene.objects:
-        if blender_object.type == "ARMATURE":
+        if is_model_armature(blender_object):
             flags.apply_inherit_scale(blender_object)
             # The shape plays the facial part of the animation the armature plays
             if blender_object.get(tlm_blender.KIND_PROPERTY) == "armature":

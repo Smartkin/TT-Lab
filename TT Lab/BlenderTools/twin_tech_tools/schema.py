@@ -78,7 +78,7 @@ class Field:
         return {
             "int": 0, "uint": 0, "byte": 0, "short": 0, "ushort": 0, "float": 0.0, "bool": False, "string": "",
             "enum": self.enum_items()[0][0] if self.enum is not None else "", "fog": "0",
-            "vec4": (0.0, 0.0, 0.0, 0.0), "color": (1.0, 1.0, 1.0, 1.0), "ivec3": (0, 0, 0),
+            "vec3": (0.0, 0.0, 0.0), "vec4": (0.0, 0.0, 0.0, 0.0), "color": (1.0, 1.0, 1.0, 1.0), "ivec3": (0, 0, 0),
             "matrix": tuple(1.0 if i % 5 == 0 else 0.0 for i in range(16)), "ints": "", "floats": "", "lights": "",
             "vec4s": [], "box": ((0.0,) * 8, False), "list": [],
         }[self.kind]
@@ -110,8 +110,8 @@ class Field:
             index = to_int(value, 0)
             return str(index) if 0 <= index < len(FOG_COLORS) else "0"
 
-        if kind in ("vec4", "color", "matrix"):
-            size = 16 if kind == "matrix" else 4
+        if kind in ("vec3", "vec4", "color", "matrix"):
+            size = {"vec3": 3, "matrix": 16}.get(kind, 4)
             numbers = [to_float(number, 0.0) for number in as_list(value)]
             return tuple(numbers) if len(numbers) == size else self.default_value()
 
@@ -126,7 +126,8 @@ class Field:
             return format_floats(to_float(number, 0.0) for number in as_list(value))
 
         if kind == "lights":
-            return format_ranges(index for index, flag in enumerate(as_list(value)) if to_bool(flag))
+            # Nothing stored is an empty field, no light at all is none
+            return format_ranges(index for index, flag in enumerate(as_list(value)) if to_bool(flag)) or "none"
 
         if kind == "vec4s":
             numbers = [to_float(number, 0.0) for number in as_list(value)]
@@ -159,7 +160,7 @@ class Field:
         if kind == "fog":
             return int(value)
 
-        if kind in ("vec4", "color", "matrix"):
+        if kind in ("vec3", "vec4", "color", "matrix"):
             return [float(number) for number in value]
 
         if kind == "ivec3":
@@ -172,6 +173,9 @@ class Field:
             return parse_floats(value)
 
         if kind == "lights":
+            if not str(value).strip():
+                return None
+
             enabled = set(parse_ranges(value))
             return [index in enabled for index in range(LIGHTS_AMOUNT)]
 
@@ -218,7 +222,10 @@ class TwinType:
 
         result.update(unknown or {})
         for field in self.fields:
-            result[field.key] = field.to_extras(values[field.attr]) if field.attr in values else field.to_extras(field.default_value())
+            value = field.to_extras(values[field.attr]) if field.attr in values else field.to_extras(field.default_value())
+            # A value of the fields that can be left out (a tree node's lights, the root's when there are none)
+            if value is not None:
+                result[field.key] = value
 
         return result
 
@@ -381,19 +388,14 @@ def parse_ranges(text: str) -> typing.List[int]:
 # The types TT Lab writes
 
 TREE_NODE = TwinType("SceneryTreeNode", "Tree node", [
-    Field("LightsEnabler", "lights", label="Lights", description="Lights that light what the node holds, like 0-3, 7"),
-    Field("Kind", "enum", enum="SceneryType", default="Leaf", description="TT Lab works it out from the tree nodes under this one", advanced=True),
-    Field("Slot", "int", minimum=0, maximum=7, description="Which of its parent's 8 children this node is", advanced=True),
-    Field("BoundsMin", "vec4", label="Bounds Min", description="Smallest corner of the node's cell, the game finds the node holding a box by it. Grows to hold what's placed in it",
-          advanced=True),
-    Field("BoundsMax", "vec4", label="Bounds Max", description="Biggest corner of the node's cell, grows to hold what's placed in it",
-          advanced=True),
-    Field("BoundsCenter", "vec4", label="Center And Radius", description="Center of the cell with its radius in W, the game never reads it", advanced=True),
-    Field("BoundsHalfSize", "vec4", label="Half Size", description="Half the size of the cell, the game never reads it", advanced=True),
-    Field("TreeDepth", "uint", description="The tools' depth of the tree, only the root has it and the game never uses it", advanced=True),
-    Field("SceneryTypes", "ints", description="Kinds of the node's children, TT Lab works them out from the tree", advanced=True),
-], "A box of the tree the game culls the scenery with. What's under it is culled with it, TT Lab moves meshes that left its box to the "
-   "node they're in")
+    Field("Path", "string", description="The node's octants from the root down, empty for the root"),
+    Field("BoundsMin", "vec4", label="Bounds Min", description="Smallest corner of the node's box, the game culls what's under the node by it"),
+    Field("BoundsMax", "vec4", label="Bounds Max", description="Biggest corner of the node's box"),
+    Field("BoundsCenter", "vec4", label="Center And Radius", description="Center of the box with its radius in W, the game never reads it"),
+    Field("BoundsHalfSize", "vec4", label="Half Size", description="Half the size of the box, the game never reads it"),
+    Field("LightsEnabler", "lights", label="Lights", description="The node's own light bits like 0-3, 7 or none, empty for the root's. The game only reads the root's"),
+], "The values the game had for a node of the tree it culls the scenery with, which TT Lab makes when it builds. They're kept while "
+   "they're still within a hair of what TT Lab works out")
 
 
 def _light_fields() -> typing.List[Field]:
@@ -411,8 +413,10 @@ def _light_fields() -> typing.List[Field]:
 SCENE_TYPES: typing.List["TwinType"] = []
 
 JOINT = TwinType("Joint", "Joint", [
-        Field("Index", "int", minimum=0, description="Which of the game's joints the bone is, skins and animations refer to joints by it"),
-        Field("Id", "byte", default=255, description="The ID the game finds the joint by (animations' progress, head tracking), 255 for none"),
+        Field("Index", "int", minimum=0, description="Which of the game's joints the bone is, skins and animations refer to joints by it. The root bone is "
+                                                     "joint 0 and the bones are numbered in the order the game walks them, from the root down: exporting numbers them so when they aren't"),
+        Field("Id", "byte", default=255, description="The ID the game finds the joint by (animations' progress, head tracking), 255 for none like most "
+                                                    "of the game's joints: the object's animations and scripts look up the IDs they use"),
         Field("AdditionalAnimationRotation", "vec4", default=(0.0, 0.0, 0.0, 1.0), description="Rotation animations can add, as a quaternion"),
         Field("Detail", "int", description="Level of detail below which the joint's children aren't animated, the game always animates at 0", advanced=True),
         Field("UnusedRotation", "vec4", advanced=True),
@@ -426,28 +430,40 @@ OBJECT_TYPES = [
     TwinType("Ogi", "OGI", [
         Field("BoundingBoxMin", "vec4", default=(0.0, 0.0, 0.0, 1.0)),
         Field("BoundingBoxMax", "vec4", default=(1.0, 1.0, 1.0, 1.0)),
+        Field("JointIdCount", "int", default=-1, label="Joint ID Count", advanced=True,
+              description="How many joint IDs the game binds as the game's model has it, kept while as many joints have an ID. -1 binds every ID, only the game's "
+                          "models whose IDs have gaps have another"),
     ], "A model with a skeleton: its armature, skin, shape, rigid bodies, exit points and collision hulls are under it"),
     TwinType("Skin", "Skin", [], "A mesh the armature deforms"),
     TwinType("BlendSkin", "Blend skin", [], "A mesh the armature deforms, whose shape keys are the shapes the facial animations blend"),
     TwinType("Body", "Rigid body", [Field("Order", "int", description="Position among the model's rigid bodies")],
              "A mesh following the bone its Child Of constraint targets"),
     TwinType("Scenery", "Scenery", [
-        Field("FogColor", "fog"),
-        Field("HasLighting", "bool"),
+        Field("FogColor", "fog", label="Fog", description="The fog the game mixes into the distance while the player is in the chunk"),
+        Field("TreeDepth", "int", minimum=1, maximum=8, default=5,
+              description="How many levels below its root the tree the game culls the scenery with goes, TT Lab makes it from where the meshes are"),
+        Field("BoundsMin", "vec3", label="Bounds Min", description="Smallest corner of the box the game keeps the chunk's objects in, it has to hold every place "
+              "objects go. TT Lab makes one around what's in the scenery when it holds nothing"),
+        Field("BoundsMax", "vec3", label="Bounds Max", description="Biggest corner of the box the game keeps the chunk's objects in"),
         Field("UnusedByte", "byte", description="Read into the chunk and never used, 0 on every level but one", advanced=True),
         Field("LightOrder", "ints", description="Index and kind of every light in the order the Xbox version lists them", advanced=True),
-    ], "A level's scenery: the tree it's culled with, the lights, the collision and the dynamic scenery are under it"),
+        Field("TreeNodes", "list", item=TREE_NODE, description="The game's values of the tree's nodes, kept while they're still what TT Lab works out", advanced=True),
+    ], "A level's scenery: its meshes and LODs, the lights, the collision and the dynamic scenery are under it"),
     TwinType("Skydome", "Skydome", [], "The sky of a level, its meshes are under it"),
     TwinType("Model", "Model", [], "A model's geometry, its parts have no materials"),
     TwinType("RigidModel", "Rigid model", [], "A model drawn with materials"),
     TwinType("Mesh", "Mesh", [], "A model placed by scenery, LODs and skydomes"),
     TwinType("SceneryMesh", "Scenery mesh", [
-        Field("Order", "int", description="Position among the meshes of its tree node, new meshes go last", advanced=True),
+        Field("Order", "int", description="Position among the scenery's meshes and LODs, new ones go last", advanced=True),
+        Field("Node", "string", description="The node of the tree it's culled with, kept while its box still holds the mesh. New meshes go to the deepest "
+              "node holding them", advanced=True),
         Field("Matrix", "matrix", description="Transform as the game has it, the object's replaces it once moved", advanced=True),
         Field("BoundingBox", "box", description="Box the game culls the mesh with, TT Lab works it out when it doesn't hold the mesh", advanced=True),
-    ], "A mesh placed in the scenery, culled with the tree node it's under"),
+    ], "A mesh placed in the scenery"),
     TwinType("SceneryLod", "Scenery LOD", [
-        Field("Order", "int", description="Position among the LODs of its tree node, new LODs go last", advanced=True),
+        Field("Order", "int", description="Position among the scenery's meshes and LODs, new ones go last", advanced=True),
+        Field("Node", "string", description="The node of the tree it's culled with, kept while its box still holds the LOD. New LODs go to the deepest "
+              "node holding them", advanced=True),
         Field("Matrix", "matrix", description="Transform as the game has it, the object's replaces it once moved", advanced=True),
         Field("LodType", "enum", enum="LodType", default="COMPRESSED"),
         Field("MinDrawDistance", "int"),
@@ -473,8 +489,10 @@ OBJECT_TYPES = [
         Field("InnerConeCosine", "float", description="Cosine the game lights with, made from the cone angle when it changed", advanced=True),
         Field("OuterConeCosine", "float", description="Cosine the game lights with, made from the angles when they changed", advanced=True),
     ], "A spot light (the tools' negative light): the arrow points where it shines"),
-    TwinType("ExitPoint", "Exit point", [Field("Id", "uint", label="ID")],
-             "A point other objects attach to, following the bone its Child Of constraint targets"),
+    TwinType("ExitPoint", "Exit point", [
+        Field("Id", "uint", label="ID", description="Its place among the model's exit points, which the game finds them by (a character's hand is 0, its head 1): "
+                                                    "exporting writes them in the order of their IDs, numbered from 0"),
+    ], "A point other objects attach to, following the bone its Child Of constraint targets"),
     TwinType("CollisionHull", "Collision hull", [], "A convex mesh the game collides the model with, following the bone its Child Of constraint targets or "
                                                     "the model when it has none. The planes and axes the game reads are worked out from its faces"),
     TwinType("DynamicScenery", "Dynamic scenery", [], "Holds the dynamic models"),
@@ -499,7 +517,6 @@ OBJECT_TYPES = [
         Field("UnusedVertexes", "ints", advanced=True),
         Field("UnusedPositions", "floats", advanced=True),
     ], "The level's collision, every material is a surface"),
-    TREE_NODE,
 ]
 
 
@@ -512,7 +529,7 @@ MATERIAL_TYPES = [
     ]),
 ]
 
-SUBTYPES: typing.List[TwinType] = []
+SUBTYPES: typing.List[TwinType] = [TREE_NODE]
 
 
 def find_type(types: typing.List[TwinType], name: typing.Any) -> typing.Optional[TwinType]:

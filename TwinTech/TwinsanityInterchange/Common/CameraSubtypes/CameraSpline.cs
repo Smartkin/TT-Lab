@@ -9,13 +9,17 @@ namespace Twinsanity.TwinsanityInterchange.Common.CameraSubtypes
     /// <summary>
     /// A curve sampled every <see cref="StepLength"/> units, the camera slides along it (a cubic Hermite spline between the samples
     /// with their tangents, FUN_0018a7a8) to the point nearest the target plus an offset, <see cref="CameraSubBase.Offset"/> when
-    /// bit 0 of <see cref="SplineFlags"/> is set (FUN_0027cfe8, FUN_00279f80).
+    /// bit 0 of <see cref="SplineFlags"/> is set and the samples' keys' otherwise, then moves the keys' share of the way toward
+    /// the target (FUN_0027cfe8, FUN_00279f80, FUN_00279d78).
     /// </summary>
     public class CameraSpline : CameraSubBase
     {
         public Single StepLength { get; set; }
         /// <summary>
-        /// The samples, W 0
+        /// The samples. Their W is a word (CameraSplineCamera::SampleWord): bit 24 passes over the sample, else the sample is a key
+        /// whose bits 8-23 are an offset along the curve (n × 50 / 32768 - 50 units) and bits 0-7 a share of the way from the curve
+        /// to the target (n × 5 / 128 - 5), interpolated between the keys. The ends are keys on every retail spline (an end without
+        /// one reads 0, an offset of -50 and a share of -5), 0x7FFF80 is a key of neither
         /// </summary>
         public List<Vector4> PathPoints { get; set; }
         /// <summary>
@@ -31,9 +35,10 @@ namespace Twinsanity.TwinsanityInterchange.Common.CameraSubtypes
         /// </summary>
         public List<Single> InverseSteps { get; set; }
         /// <summary>
-        /// Bit 0 takes <see cref="CameraSubBase.Offset"/> as the offset along the curve, the rest are leftovers (15 or 0xCDCD in the retail data)
+        /// Bit 0 takes <see cref="CameraSubBase.Offset"/> as the offset along the curve instead of the samples' keys', the rest are
+        /// leftovers (15 or 0xCDCD in the retail data) kept as they are
         /// </summary>
-        public UInt16 SplineFlags { get; set; }
+        public ITwinCamera.SplineCameraFlags SplineFlags { get; set; }
 
         public CameraSpline()
         {
@@ -67,7 +72,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.CameraSubtypes
 
             TwinPathParameters.Read(reader, segments, ArcLengths, InverseSteps);
 
-            SplineFlags = reader.ReadUInt16();
+            SplineFlags = (ITwinCamera.SplineCameraFlags)reader.ReadUInt16();
         }
 
         public override void Write(BinaryWriter writer)
@@ -83,7 +88,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.CameraSubtypes
 
             TwinPathParameters.Write(writer, ArcLengths, InverseSteps);
 
-            writer.Write(SplineFlags);
+            writer.Write((UInt16)SplineFlags);
         }
 
         public override ITwinCamera.CameraType GetCameraType()

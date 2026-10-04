@@ -20,7 +20,7 @@ bl_info = {
     "author": "Smyshliaev \"Smartkin\" Vladislav",
     "description": "Blender tools to work with TwinTech Lab(TT-Lab) files",
     "blender": (4, 5, 0),
-    "version": (0, 5, 0),
+    "version": (0, 6, 0),
     "location": "Sidebar",
     "category": "Object",
     "warning": "",

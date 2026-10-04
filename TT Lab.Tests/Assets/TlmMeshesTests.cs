@@ -81,6 +81,32 @@ public class TlmMeshesTests
         Assert.Equal(bytes, Serialize(rebuilt));
     }
 
+    // The game draws every model of a sub blend with the first one's shape factors (FUN_001c1ac0): a part's offsets get one scale that
+    // fits them all, a scale of its own moved a model's vertexes by the wrong amounts
+    [Fact]
+    public void TheModelsOfABlendShareTheirShapeFactors()
+    {
+        var random = new Random(23);
+        const int shapes = 2;
+        var original = new PS2AnyBlendSkin { BlendsAmount = shapes, SubBlends = [SubBlend(random, shapes, 0x30, [20, 16])] };
+        original.Compile();
+        var subBlend = Deserialize(new PS2AnyBlendSkin(), Serialize(original)).SubBlends[0];
+        var part = StripParts.FromBlend(subBlend.Models, shapes, out var shapeOffsets);
+        // A vertex of the second model moves ten times as far along X as anything did
+        var far = part.Layout.Batches[1].Vertexes[0].Index;
+        shapeOffsets[1][far] = new TwinVector4(12.7f, 0, 0, 1);
+
+        var rebuilt = new PS2ItemFactory().GenerateBlendSkin(shapes, [new BlendPartExport(0x30, part.Vertexes, shapeOffsets, part.Layout, subBlend.Models[0].Compression)]);
+        rebuilt.Compile();
+        var read = Deserialize(new PS2AnyBlendSkin(), Serialize(rebuilt)).SubBlends[0];
+
+        Assert.Equal(2, read.Models.Count);
+        Assert.All(read.Models, model => Assert.Equal((0.1f, 0.02f, 0.005f), (model.BlendShape.X, model.BlendShape.Y, model.BlendShape.Z)));
+        var readPart = StripParts.FromBlend(read.Models, shapes, out var readOffsets);
+        var readFar = readPart.Layout.Batches[1].Vertexes[0].Index;
+        Assert.Equal(12.7f, readOffsets[1][readFar].X, 3);
+    }
+
     [Fact]
     public void EditedNormalsKeepTheFlagsTheGameStoresInThem()
     {

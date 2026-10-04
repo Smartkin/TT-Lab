@@ -40,11 +40,18 @@ public class DiscFile : SerializableAsset
 
     public override string IconPath => Tool == DiscFileTool.Music ? "UI_Sound_Library.png" : "Camera.png";
 
+    // Where its files are in the project. It's of no package, and an asset's paths went through its package: the hot reload, which looks
+    // for every asset's data file, failed in every project with a disc folder
+    private readonly string _folder;
+
+    protected override string LoadPath => _folder;
+
     public DiscFile(string projectPath, DiscFileTool tool, string mainPath, IReadOnlyList<string> paths)
     {
         Tool = tool;
         MainPath = mainPath;
         Paths = paths;
+        _folder = Path.GetRelativePath(projectPath, Path.GetDirectoryName(mainPath)!);
         InvariantName = Path.GetFileNameWithoutExtension(mainPath);
         Alias = paths.Count > 1
             ? $"{Path.GetFileName(mainPath)}/{string.Join("/", paths.Skip(1).Select(path => Path.GetExtension(path).TrimStart('.')))}"

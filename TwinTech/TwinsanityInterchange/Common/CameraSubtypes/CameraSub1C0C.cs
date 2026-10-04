@@ -17,7 +17,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.CameraSubtypes
 
         public override void Read(BinaryReader reader, int length)
         {
-            Follow = (FollowFlags)reader.ReadUInt32();
+            Follow = (FollowMode)reader.ReadUInt32();
         }
 
         public override void Write(BinaryWriter writer)

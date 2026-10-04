@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using TT_Lab.Attributes.EditorParamWrappers;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -34,23 +35,29 @@ public class AiPathData : AbstractAssetData
     }
 
     [JsonProperty(Required = Required.Always)]
-    [Editable]
+    [Editable(Hint = "One of the two AI positions the path joins, routes go along it both ways. The game finds it by its index among the chunk's AI positions")]
+    [EditorParam(UriLinkViewModel.BrowseType, typeof(AiPosition))]
+    [EditorParam(UriLinkViewModel.BrowseScope, UriLinkViewModel.Scope.Chunk)]
     public LabURI PathBegin { get; set; }
         
     [JsonProperty(Required = Required.Always)]
-    [Editable]
+    [Editable(Hint = "The other AI position the path joins")]
+    [EditorParam(UriLinkViewModel.BrowseType, typeof(AiPosition))]
+    [EditorParam(UriLinkViewModel.BrowseScope, UriLinkViewModel.Scope.Chunk)]
     public LabURI PathEnd { get; set; }
         
     [JsonProperty(Required = Required.Always)]
-    [Editable(Hint = "Which routes may take the path (a route request rules out the paths with some of them) and what the scripts' conditions find on it: jumps it takes")]
+    [Editable(Hint = "Which routes may take the path (a route request rules out the paths with some of them) and what the scripts' conditions find on it: the jumps or flying crossing it takes. Bits 0 and 1 are never read")]
     public Enums.AiPathFlags Flags { get; set; }
 
     [JsonProperty(Required = Required.Always)]
     [Editable(Hint = "The tools' chunk index of the first position, the game puts its own chunk's in when it links the navigation")]
+    [EditorHidden]
     public UInt16 ChunkA { get; set; }
 
     [JsonProperty(Required = Required.Always)]
     [Editable(Hint = "The tools' chunk index of the second position, the game puts its own chunk's in when it links the navigation")]
+    [EditorHidden]
     public UInt16 ChunkB { get; set; }
 
     protected override void Dispose(Boolean disposing)
@@ -71,10 +78,14 @@ public class AiPathData : AbstractAssetData
     public override ITwinItem Export(ITwinItemFactory factory)
     {
         var assetManager = AssetManager.Get();
+        var indexes = LayoutIndexes.Current;
+        AiPositionData.CheckAiLayouts(Owner, indexes);
         using var ms = new MemoryStream();
         using var writer = new BinaryWriter(ms);
-        writer.Write((UInt16)assetManager.GetAsset(PathBegin).ExportTwinID);
-        writer.Write((UInt16)assetManager.GetAsset(PathEnd).ExportTwinID);
+        var begin = assetManager.GetAsset(PathBegin);
+        var end = assetManager.GetAsset(PathEnd);
+        writer.Write((UInt16)(indexes?.InstanceReference(Owner.LayoutID ?? 0, begin) ?? begin.ExportTwinID));
+        writer.Write((UInt16)(indexes?.InstanceReference(Owner.LayoutID ?? 0, end) ?? end.ExportTwinID));
         writer.Write((UInt16)Flags);
         writer.Write(ChunkA);
         writer.Write(ChunkB);

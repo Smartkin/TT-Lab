@@ -7,14 +7,33 @@ namespace Twinsanity.TwinsanityInterchange.Common.CameraSubtypes
 {
     /// <summary>
     /// A point the camera stays between the target and: <see cref="Mode"/> 0 puts it <see cref="Distance"/> of the way from the
-    /// target to the point (0 to 1), 1 that many units from the target towards the point, 2 that many units from the point towards
-    /// the target (FUN_0027a570).
+    /// target to the point (0 to 1), 1 that many units from the target towards the point, 2 the same but no further than the point
+    /// (FUN_0027a570, CameraPoint2At; the retail cameras use 0 and 1).
     /// </summary>
     public class CameraPoint2 : CameraSubBase
     {
+        /// <summary>
+        /// Where between the target and the point the camera stands, compared whole: other values leave the camera where it was
+        /// </summary>
+        public enum PointMode : Byte
+        {
+            /// <summary>
+            /// <see cref="Distance"/> of the way from the target to the point (0 to 1)
+            /// </summary>
+            ShareOfTheWay = 0,
+            /// <summary>
+            /// <see cref="Distance"/> units from the target towards the point
+            /// </summary>
+            FromTheTarget = 1,
+            /// <summary>
+            /// The same, but no further than the point
+            /// </summary>
+            NoFurtherThanThePoint = 2,
+        }
+
         public Vector4 Point { get; set; }
         public Single Distance { get; set; }
-        public Byte Mode { get; set; }
+        public PointMode Mode { get; set; }
 
         public CameraPoint2()
         {
@@ -31,7 +50,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.CameraSubtypes
             base.Read(reader, base.GetLength());
             Point.Read(reader, Constants.SIZE_VECTOR4);
             Distance = reader.ReadSingle();
-            Mode = reader.ReadByte();
+            Mode = (PointMode)reader.ReadByte();
         }
 
         public override void Write(BinaryWriter writer)
@@ -39,7 +58,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.CameraSubtypes
             base.Write(writer);
             Point.Write(writer);
             writer.Write(Distance);
-            writer.Write(Mode);
+            writer.Write((Byte)Mode);
         }
 
         public override ITwinCamera.CameraType GetCameraType()

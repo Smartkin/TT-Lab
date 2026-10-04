@@ -27,9 +27,12 @@ public sealed class AngleAndSampleRateEditorTests : IDisposable
         Assert.Equal(180.0, AngleFieldViewModel.ToDegrees((UInt32)32768));
         Assert.Equal(-90.0, AngleFieldViewModel.ToDegrees((Int16)(-16384)));
         Assert.Equal((UInt32)16384, AngleFieldViewModel.ToUnits(90.0, typeof(UInt32)));
-        // Unsigned values wrap around the turn, signed ones go the shorter way
-        Assert.Equal((UInt32)49152, AngleFieldViewModel.ToUnits(-90.0, typeof(UInt32)));
-        Assert.Equal((UInt32)0, AngleFieldViewModel.ToUnits(360.0, typeof(UInt32)));
+        // The game reads 32 bit angles as signed: l03stock's camera pitches down 361 units, which were 23 million degrees
+        Assert.Equal(-1.98, AngleFieldViewModel.ToDegrees((UInt32)0xFFFFFE97), 2);
+        Assert.Equal(unchecked((UInt32)(-16384)), AngleFieldViewModel.ToUnits(-90.0, typeof(UInt32)));
+        Assert.Equal((UInt32)65536, AngleFieldViewModel.ToUnits(360.0, typeof(UInt32)));
+        // 16 bit unsigned values wrap around the turn, signed ones go the shorter way
+        Assert.Equal((UInt16)49152, AngleFieldViewModel.ToUnits(-90.0, typeof(UInt16)));
         Assert.Equal((Int16)(-16384), AngleFieldViewModel.ToUnits(270.0, typeof(Int16)));
         Assert.Equal((Int16)(-32768), AngleFieldViewModel.ToUnits(180.0, typeof(Int16)));
         Assert.Equal("20", AngleFieldViewModel.Format(AngleFieldViewModel.ToDegrees((UInt32)3640)));
@@ -54,7 +57,7 @@ public sealed class AngleAndSampleRateEditorTests : IDisposable
         Assert.Equal("45", pitch.DegreesText);
         // Typing degrees sets the game's units
         pitch.DegreesText = "-90";
-        Assert.Equal((UInt32)49152, ((CameraData)camera.GetData()).PitchStart);
+        Assert.Equal(unchecked((UInt32)(-16384)), ((CameraData)camera.GetData()).PitchStart);
         Assert.Equal("180", Assert.IsType<AngleFieldViewModel>(EditorDescRegistry.GetDesc(document, document.PropertyGraph.Find("Root.AssetData.YawEnd")!).Construct()).DegreesText);
     }
 

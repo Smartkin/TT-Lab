@@ -1,7 +1,6 @@
 using System.Text.Json.Nodes;
 using Twinsanity.TwinsanityInterchange.Enumerations;
-using Twinsanity.TwinsanityInterchange.Interfaces.Items.SM;
-using Scenery = TT_Lab.Assets.Instance.Scenery;
+using TT_Lab.AssetData.Instance.Scenery;
 
 namespace TT_Lab.Tests.Assets;
 
@@ -12,8 +11,7 @@ public class SchemaTests
 {
     private static readonly Dictionary<string, Type> Enums = new()
     {
-        ["LodType"] = typeof(Enums.LodType),
-        ["SceneryType"] = typeof(ITwinScenery.SceneryType)
+        ["LodType"] = typeof(Enums.LodType)
     };
 
     public static JsonObject Schema { get; } = LoadSchema();
@@ -35,9 +33,12 @@ public class SchemaTests
     [Fact]
     public void AddOnKnowsTheFogColors()
     {
-        var colors = Schema["fogColors"]!.AsArray().Select(item => item![1]!.AsArray().Select(value => value!.GetValue<int>()).ToArray()).ToList();
+        var fogs = Schema["fogColors"]!.AsArray();
+        var names = fogs.Select(item => item![0]!.GetValue<string>()).ToList();
+        var colors = fogs.Select(item => item![1]!.AsArray().Select(value => value!.GetValue<int>()).ToArray()).ToList();
 
-        Assert.Equal(Scenery.FogColors.Select(color => new[] { (int)color.R, color.G, color.B, color.A }), colors);
+        Assert.Equal(SceneryFog.Tables.Select(table => table.Name), names);
+        Assert.Equal(SceneryFog.Colors.Select(color => new[] { (int)color.R, color.G, color.B, color.A }), colors);
     }
 
     /// <summary>

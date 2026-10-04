@@ -20,7 +20,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.ScenerySubtypes
         public Vector4 BoundsCenter;
         /// <summary>
         /// The smallest corner of the node's box, which the game finds the node holding a box by (ReadSceneryBase 0x1e9c78 keeps it
-        /// and <see cref="BoundsMax"/>, FUN_001ebbf8 searches with them). The tree is an octree, every node's box is a cell of it
+        /// and <see cref="BoundsMax"/>, FUN_001ebbf8 searches with them). The tree is an octree, every node's box is its cell grown to hold everything under it, which the draw culls by
         /// </summary>
         public Vector4 BoundsMin;
         /// <summary>
@@ -28,7 +28,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.ScenerySubtypes
         /// </summary>
         public Vector4 BoundsMax;
         /// <summary>
-        /// Half the box's size, the tools' value the game never reads. The W of the three is the parent's radius
+        /// Half the box's size, the tools' value the game never reads. The W of the three is the radius of the parent's cell
         /// </summary>
         public Vector4 BoundsHalfSize;
         public Boolean[] LightsEnabler;

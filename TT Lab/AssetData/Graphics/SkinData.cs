@@ -137,6 +137,7 @@ public class SkinData : AbstractAssetData
 
     public override ITwinItem Export(ITwinItemFactory factory)
     {
+        TlmMaterials.CheckDrawsSkins(Owner, SubSkins.Select(s => s.Material));
         var assetManager = AssetManager.Get();
         return factory.GenerateSkin(SubSkins.Select(s => new SkinPartExport(assetManager.GetAsset(s.Material).ExportTwinID, s.Vertexes,
             StripParts.GetValidLayout(s.Layout, s.Vertexes, s.Faces, StripParts.SkinWinding), s.Compression)).ToList());

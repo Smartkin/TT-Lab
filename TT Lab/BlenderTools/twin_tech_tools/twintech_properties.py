@@ -84,8 +84,8 @@ def _properties(field: schema.Field, item_groups: typing.Dict[str, type]) -> typ
         items = [(str(index), name, "Fog color %d, RGBA %s" % (index, rgba)) for index, (name, rgba) in enumerate(schema.FOG_COLORS)]
         return {field.attr: bpy.props.EnumProperty(items=items, default=default, **common)}
 
-    if kind in ("vec4", "color", "matrix"):
-        size = 16 if kind == "matrix" else 4
+    if kind in ("vec3", "vec4", "color", "matrix"):
+        size = {"vec3": 3, "matrix": 16}.get(kind, 4)
         extra = {"subtype": "COLOR", "soft_min": 0.0, "soft_max": 1.0} if kind == "color" else {}
         return {field.attr: bpy.props.FloatVectorProperty(size=size, default=default, precision=5, **extra, **common)}
 

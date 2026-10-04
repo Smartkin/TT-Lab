@@ -50,11 +50,6 @@ public abstract partial class TabbedEditorViewModel : Document
         Id = asset.URI;
         Title = $"{_asset.Name} (Loading)";
 
-        if (asset is LevelChunk chunk)
-        {
-            TwinIdGeneratorServiceProvider.RegisterGeneratorServiceForChunk(chunk);
-        }
-
         SaveCommand = ReactiveCommand.Create(SaveTab);
         CloseCommand = ReactiveCommand.Create(RequestClose);
         UndoCommand = ReactiveCommand.Create(() => Document?.Undo());
@@ -269,7 +264,6 @@ public abstract partial class TabbedEditorViewModel : Document
     {
         if (_asset is LevelChunk chunk)
         {
-            TwinIdGeneratorServiceProvider.DeregisterGeneratorServiceForChunk(chunk.AdditionalPath!);
             ForgetUnplacedInstances(chunk);
         }
         

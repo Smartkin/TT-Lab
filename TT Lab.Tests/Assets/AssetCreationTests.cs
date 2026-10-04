@@ -4,6 +4,7 @@ using TT_Lab.AssetData.Code;
 using TT_Lab.AssetData.Graphics;
 using TT_Lab.AssetData.Graphics.TlModel;
 using TT_Lab.AssetData.Instance;
+using TT_Lab.AssetData.Instance.Scenery;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
 using TT_Lab.Assets.Factory;
@@ -110,12 +111,16 @@ public sealed class AssetCreationTests : IDisposable
         Assert.Equal((1.0f / 3.0f, 4.5f), (ambient.Color.X, ambient.Intensity));
         var sun = Assert.Single(scenery.DirectionalLights);
         Assert.InRange(sun.Direction.Y, 0.9f, 1.0f);
-        Assert.Equal([true, true, false], scenery.Sceneries[0].LightsEnabler.Take(3));
+        var tree = scenery.BuildTree(_ => 0);
+        Assert.Equal([true, true, false], tree[0].LightsEnabler.Take(3));
         // Its tree's root is the box the game keeps the chunk's objects in, the ground's own flat cell left Crash nothing under him
-        var root = scenery.Sceneries[0];
-        Assert.Equal((-200f, -100f, -200f, 200f, 100f, 200f), (root.BoundsMin.X, root.BoundsMin.Y, root.BoundsMin.Z, root.BoundsMax.X, root.BoundsMax.Y, root.BoundsMax.Z));
+        Assert.Equal((-200f, -100f, -200f, 200f, 100f, 200f), (scenery.BoundsMin.X, scenery.BoundsMin.Y, scenery.BoundsMin.Z, scenery.BoundsMax.X, scenery.BoundsMax.Y, scenery.BoundsMax.Z));
+        // The ground goes down the octants its middle is in while their cells grown twice hold it
+        var placed = Assert.Single(scenery.Placements);
+        Assert.Equal("0777", placed.Node);
+        Assert.Equal(5, tree.Count);
 
-        var ground = _project.AssetManager.GetAssetData<MeshData>(Assert.Single(scenery.Sceneries[0].MeshIDs));
+        var ground = _project.AssetManager.GetAssetData<MeshData>(placed.Model);
         var material = _project.AssetManager.GetAsset<Material>(Assert.Single(ground.Materials));
         Assert.False(material.IsInternal);
         var shader = Assert.Single(((IAsset)material).GetData<MaterialData>().Shaders);
@@ -135,7 +140,7 @@ public sealed class AssetCreationTests : IDisposable
         // The next chunk's ground has the same material
         var next = CreateChunk(_project.GetFolder(_package, "levels"), "nextlevel")!;
         var nextScenery = ((IAsset)next.ChunkResources.Select(_project.AssetManager.GetAsset).OfType<Scenery>().Single()).GetData<SceneryData>();
-        Assert.Equal(material.URI, _project.AssetManager.GetAssetData<MeshData>(nextScenery.Sceneries[0].MeshIDs[0]).Materials[0]);
+        Assert.Equal(material.URI, _project.AssetManager.GetAssetData<MeshData>(nextScenery.Placements[0].Model).Materials[0]);
     }
 
     [Fact]
@@ -239,6 +244,40 @@ public sealed class AssetCreationTests : IDisposable
         AddSurface();
 
         Assert.Null(CreateChunk(_project.GetFolder(_package, "levels"), "testlevel"));
+    }
+
+    // A new model starts as something to see and build on: a cube a unit across standing on the ground, the rigid body of its one joint, on
+    // the checker material of its version of the game, which every new model and scenery placeholder shares. It was an empty model
+    [AvaloniaFact]
+    public void NewOgiIsACheckeredCube()
+    {
+        OGI Create(string name) => (OGI)AssetFactory.CreateAsset(typeof(OGI), _project.GetFolder(_package), name, string.Empty,
+            TwinIdGeneratorServiceProvider.GetGenerator<OGI>(), AssetDataFactory.CreateOgiData)!;
+
+        var data = new TestAssets(_project).Reload<OGIData>(Create("Box"));
+
+        var root = Assert.Single(data.Joints);
+        Assert.Equal((0xFF, 0xFF), (root.Id, root.ParentIndex));
+        Assert.Equal([(Byte)0], data.RigidModelJointIndices);
+        Assert.Equal((-0.5f, 0f, -0.5f, 0.5f, 1f, 0.5f),
+            (data.BoundingBox[0].X, data.BoundingBox[0].Y, data.BoundingBox[0].Z, data.BoundingBox[1].X, data.BoundingBox[1].Y, data.BoundingBox[1].Z));
+        var body = _project.AssetManager.GetAssetData<RigidModelData>(Assert.Single(data.RigidModelIds));
+        var model = _project.AssetManager.GetAssetData<ModelData>(body.Model);
+        Assert.Equal(12, model.Faces.Sum(part => part.Count));
+        var vertexes = model.Vertexes.SelectMany(part => part).ToList();
+        Assert.Equal((-0.5f, 0f, -0.5f), (vertexes.Min(vertex => vertex.Position.X), vertexes.Min(vertex => vertex.Position.Y), vertexes.Min(vertex => vertex.Position.Z)));
+        Assert.Equal((0.5f, 1f, 0.5f), (vertexes.Max(vertex => vertex.Position.X), vertexes.Max(vertex => vertex.Position.Y), vertexes.Max(vertex => vertex.Position.Z)));
+        // Every face goes over the whole picture, the checker's two squares across: a square a unit, like the scenery's, made each face one grey
+        Assert.Equal((0f, 1f), (vertexes.Min(vertex => vertex.UV.X), vertexes.Max(vertex => vertex.UV.X)));
+
+        var material = _project.AssetManager.GetAsset<Material>(Assert.Single(body.Materials));
+        Assert.False(material.IsInternal);
+        Assert.Equal($"{SceneryPlaceholders.CheckerMaterialId}_PS2", material.Parameters[TlmMaterials.BlenderMaterialParameter]?.ToString());
+        var shader = Assert.Single(((IAsset)material).GetData<MaterialData>().Shaders);
+        Assert.Equal(Twinsanity.TwinsanityInterchange.Common.TwinShader.Type.StandardUnlit, shader.ShaderType);
+
+        var next = new TestAssets(_project).Reload<OGIData>(Create("Box 2"));
+        Assert.Equal(body.Materials, _project.AssetManager.GetAssetData<RigidModelData>(next.RigidModelIds[0]).Materials);
     }
 
     [Fact]

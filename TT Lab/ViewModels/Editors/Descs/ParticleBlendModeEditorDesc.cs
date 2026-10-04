@@ -7,7 +7,7 @@ namespace TT_Lab.ViewModels.Editors.Descs;
 /// </summary>
 public record ParticleBlendModeEditorDesc : EditorDesc
 {
-    protected override DocumentNodeViewModel ConstructInternal() => new ByteChoiceFieldViewModel(Document, Node, ParticleBlendModes.Modes, ParticleBlendModes.FindMode);
+    protected override DocumentNodeViewModel ConstructInternal() => new ChoiceFieldViewModel(Document, Node, ParticleBlendModes.Modes, ParticleBlendModes.FindMode);
 }
 
 /// <summary>
@@ -15,5 +15,5 @@ public record ParticleBlendModeEditorDesc : EditorDesc
 /// </summary>
 public record ParticleDrawListEditorDesc : EditorDesc
 {
-    protected override DocumentNodeViewModel ConstructInternal() => new ByteChoiceFieldViewModel(Document, Node, ParticleBlendModes.DrawLists, ParticleBlendModes.FindDrawList);
+    protected override DocumentNodeViewModel ConstructInternal() => new ChoiceFieldViewModel(Document, Node, ParticleBlendModes.DrawLists, ParticleBlendModes.FindDrawList);
 }

@@ -75,7 +75,6 @@ public sealed class InspectorNavigationTests : IDisposable
         var folder = _project.GetFolder(_package, "levels");
         var chunk = (LevelChunk)AssetFactory.CreateAsset(typeof(LevelChunk), folder, name, string.Empty,
             TwinIdGeneratorServiceProvider.GetGenerator<LevelChunk>(), asset => AssetDataFactory.CreateChunkData(folder, asset))!;
-        TwinIdGeneratorServiceProvider.RegisterGeneratorServiceForChunk(chunk);
         return chunk;
     }
 

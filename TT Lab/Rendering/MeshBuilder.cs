@@ -103,7 +103,7 @@ public class MeshBuilder(RenderContext renderContext)
         // Joint weight
         vao.VertexAttributePointer(6, 3, VertexAttribPointerType.Float, vertexSize, 19);
         
-        return new ModelBufferBuild(vao, (uint)indices.Length) { VertexData = dynamic ? data : null, VertexBuffer = dynamic ? vbo : null };
+        return new ModelBufferBuild(vao, (uint)indices.Length) { VertexData = dynamic ? data : null, VertexBuffer = dynamic ? vbo : null, OwnedBuffers = [vbo, ebo] };
     }
 
     public ModelBufferBuild BuildSkinnedVaoFromVertexes(List<Vertex> vertexes, List<IndexedFace> faces)
@@ -199,6 +199,23 @@ public record ModelBufferBuild(VertexArrayObject<float, uint> Vao, uint IndicesA
 {
     public float[]? VertexData { get; init; }
     public BufferObject<float>? VertexBuffer { get; init; }
+
+    /// <summary>
+    /// The buffers the vertex array draws from, freed with it (only kept for rigid models)
+    /// </summary>
+    public IReadOnlyList<IDisposable> OwnedBuffers { get; init; } = [];
+
+    /// <summary>
+    /// Frees the vertex array and its buffers, on the render thread
+    /// </summary>
+    public void Release()
+    {
+        Vao.Dispose();
+        foreach (var buffer in OwnedBuffers)
+        {
+            buffer.Dispose();
+        }
+    }
 }
 public record BlendSkinModelBufferBuild(ModelBufferBuild Model, BlendSkinShapeBuild ShapeBuild, vec3 BlendShape);
 public record BlendSkinShapeBuild(int[] ShapesOffsets, int ShapeStart);

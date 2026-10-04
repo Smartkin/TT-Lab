@@ -9,6 +9,7 @@ using GlmSharp;
 using System.Text.Json.Nodes;
 using TT_Lab.AssetData.Graphics;
 using TT_Lab.AssetData.Graphics.TlModel;
+using TT_Lab.AssetData.Instance.Scenery;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Assets.Graphics;
@@ -36,11 +37,15 @@ public class OGIData : AbstractAssetData
     public OGIData(IAsset asset) : base(asset)
     {
         BoundingBox = [new Vector4(0, 0, 0, 1), new Vector4(10, 10, 10, 1)];
+        // Like the root joint of nearly every model of the game: at the origin, no ID
         var rootJoint = new TwinJoint
         {
+            Id = 0xFF,
             Index = 0,
             LocalRotation = new Vector4(0, 0, 0, 1),
             LocalTranslation = new Vector4(0, 0, 0, 1),
+            WorldTranslation = new Vector4(0, 0, 0, 1),
+            AdditionalAnimationRotation = new Vector4(0, 0, 0, 1),
             ParentIndex = 255
         };
         Joints = new List<TwinJoint>
@@ -95,6 +100,7 @@ public class OGIData : AbstractAssetData
     public const string RigidBodiesKind = "rigid_bodies";
     public const string BodyKind = "body";
     public const string ExitPointsKind = "exit_points";
+    private const string JointIdCountKey = "JointIdCount";
     public const string ExitPointKind = "exit_point";
     public const string CollisionHullsKind = "collision_hulls";
     private const Int32 NoParent = 0xFF;
@@ -102,6 +108,28 @@ public class OGIData : AbstractAssetData
     /// The joint of a hull that isn't on any, in the model's space
     /// </summary>
     public const Byte NoJoint = 0xFF;
+
+    // A new model's cube is a unit across, the checker's squares half a unit so its faces show four
+    private const Single PlaceholderSize = 1.0f;
+    private const Single PlaceholderSquare = 0.5f;
+
+    /// <summary>
+    /// Makes the model what a new one starts as: a cube standing on the ground, the rigid body of its one joint, on the checker material
+    /// of its version of the game (the scenery placeholders', made the first time)
+    /// </summary>
+    internal void MakePlaceholder()
+    {
+        var half = PlaceholderSize / 2.0f;
+        BoundingBox = [new Vector4(-half, 0, -half, 1), new Vector4(half, PlaceholderSize, half, 1)];
+        RigidModelIds = [LabURI.Empty];
+        RigidModelJointIndices = [0];
+        var file = WriteTlm();
+        var material = SceneryPlaceholders.UseCheckerMaterial(file, Owner.Package);
+        var cube = PlaceholderShapes.Make(PlaceholderShape.Cube, PlaceholderSize);
+        var body = file.Root.FindChild(RigidBodiesKind).GetChildren(BodyKind).Single();
+        body[TlmNodes.MeshKey] = new JsonObject { ["parts"] = new JsonArray(SceneryPlaceholders.WritePart(file, cube, material, PlaceholderSquare)) };
+        ReadTlm(file);
+    }
 
     internal TlmFile WriteTlm()
     {
@@ -113,6 +141,11 @@ public class OGIData : AbstractAssetData
             ["BoundingBoxMin"] = TlmJson.ToJson(BoundingBox[0]),
             ["BoundingBoxMax"] = TlmJson.ToJson(BoundingBox[1])
         });
+        // Only kept where it isn't what reading works out, the game's models whose joint IDs have gaps
+        if (JointIdCount != WorkOutJointIdCount(-1))
+        {
+            root.GetData()[JointIdCountKey] = (Int32)JointIdCount;
+        }
 
         var armature = root.AddChild(TlmNodes.Create(ArmatureKind, "Armature"));
         var restWorlds = GetRestWorldMatrices();
@@ -213,7 +246,8 @@ public class OGIData : AbstractAssetData
         var materials = new TlmMaterials(file, Owner);
         ReadRootData(root.GetData());
         var armature = root.FindChild(ArmatureKind);
-        ReadJoints(armature);
+        ReadJoints(armature, IsSkinned(root));
+        JointIdCount = WorkOutJointIdCount(root.GetData().GetInt(JointIdCountKey, -1));
 
         var rigidModels = new List<(Int32 Order, Byte Joint, LabURI Model)>();
         foreach (var body in root.FindChild(RigidBodiesKind).Traverse().Where(node => node.GetKind() == BodyKind))
@@ -233,30 +267,58 @@ public class OGIData : AbstractAssetData
             RigidModelIds.Add(rigidModel);
         }
 
-        ExitPoints.Clear();
-        foreach (var node in root.FindChild(ExitPointsKind).Traverse().Where(node => node.GetKind() == ExitPointKind))
-        {
-            var data = node.GetData();
-            var stored = node.GetFloats(TlmNodes.MatrixKey);
-            ExitPoints.Add(new TwinExitPoint
-            {
-                ID = data.GetUInt("Id"),
-                ParentJointIndex = ToJoint(node),
-                Matrix = TlmNodes.KeepStored(stored, node.GetTransform(), out _).ToTwin()
-            });
-        }
-
-        ExitPoints.Sort((e1, e2) => e1.ID.CompareTo(e2.ID));
+        var renumbered = ReadExitPoints(root);
         ReadHulls(file, root);
         ReadSkins(file, root, materials);
+        // ModelNode::SetOgi gives a model of one joint and no exit points no animator, the game draws only its rigid models then
+        if ((Skin != LabURI.Empty || BlendSkin != LabURI.Empty) && Joints.Count < 2 && ExitPoints.Count == 0)
+        {
+            Log.WriteLine($"{Owner.Name} has one joint and no exit points: the game draws such a model's rigid models only, never its skin. Add a bone under the root " +
+                          "in Blender and weight the skin to it", Log.LogType.Warning);
+        }
+
         var animationsChanged = ReadAnimations(file, armature);
-        return animationsChanged || materials.AddedToProject;
+        return animationsChanged || materials.AddedToProject || renumbered;
+    }
+
+    // The game finds an exit point by its place (BindExitPoints, a character's hand is 0 and its head 1) and never reads its ID: the exit
+    // points go in the order of their IDs, then the file's, and the IDs that aren't their places become them
+    private bool ReadExitPoints(JsonObject root)
+    {
+        ExitPoints = root.FindChild(ExitPointsKind).Traverse().Where(node => node.GetKind() == ExitPointKind).Select(node => new TwinExitPoint
+        {
+            ID = node.GetData().GetUInt("Id"),
+            ParentJointIndex = ToJoint(node),
+            Matrix = TlmNodes.KeepStored(node.GetFloats(TlmNodes.MatrixKey), node.GetTransform(), out _).ToTwin()
+        }).OrderBy(exitPoint => exitPoint.ID).ToList();
+        if (ExitPoints.Select(exitPoint => exitPoint.ID).SequenceEqual(Enumerable.Range(0, ExitPoints.Count).Select(place => (UInt32)place)))
+        {
+            return false;
+        }
+
+        Log.WriteLine($"{Owner.Name}'s exit points have the IDs {string.Join(", ", ExitPoints.Select(exitPoint => exitPoint.ID))}: the game finds an exit point by its place, " +
+                      $"they got their places as IDs in that order", Log.LogType.Warning);
+        for (var place = 0; place < ExitPoints.Count; place++)
+        {
+            ExitPoints[place].ID = (UInt32)place;
+        }
+
+        return true;
     }
 
     private Byte ToJoint(JsonObject node)
     {
         var joint = node.GetInt(TlmNodes.JointKey);
         return (Byte)(joint >= 0 && joint < Joints.Count ? joint : 0);
+    }
+
+    // The game binds the joint IDs below the count (SetAnimatorOgi looks each up among the joints). The game's models have the number of
+    // their joints with an ID, which leaves the higher IDs of the 4 whose IDs have gaps unbound: that's kept while it still is the number,
+    // else every ID gets bound
+    private Byte WorkOutJointIdCount(Int32 stored)
+    {
+        var ids = Joints.Where(joint => joint.Id < NoJoint).Select(joint => joint.Id).ToList();
+        return (Byte)(stored == ids.Count ? stored : ids.Select(id => id + 1).DefaultIfEmpty(0).Max());
     }
 
     private void ReadRootData(JsonObject data)
@@ -279,7 +341,7 @@ public class OGIData : AbstractAssetData
 
     // Bones are placed where the joints' bind poses are. Joints whose bone is still there keep the game's values, the ones moved
     // in Blender get their rest pose and inverse bind matrix from where the bones are now
-    private void ReadJoints(JsonObject? armature)
+    private void ReadJoints(JsonObject? armature, Boolean skinned)
     {
         Joints.Clear();
         SkinInverseMatrices.Clear();
@@ -291,27 +353,18 @@ public class OGIData : AbstractAssetData
             return;
         }
 
-        // Bones added in Blender have no index yet
-        var byIndex = new Dictionary<Int32, JsonObject>();
-        foreach (var json in jointJsons.Where(json => json["index"] != null))
+        var (byIndex, parents) = IndexJoints(jointJsons);
+        if (SkeletonProblem(byIndex, parents, skinned) is { } problem)
         {
-            byIndex.TryAdd(json.GetInt("index"), json);
+            throw new InvalidDataException(problem);
         }
 
-        var nextIndex = byIndex.Keys.DefaultIfEmpty(-1).Max() + 1;
-        foreach (var json in jointJsons.Where(json => json["index"] == null))
-        {
-            byIndex.Add(nextIndex++, json);
-        }
-
-        var jointsAmount = byIndex.Keys.Max() + 1;
+        var jointsAmount = parents.Length;
         var binds = new Matrix4x4[jointsAmount];
         var storedBinds = new Matrix4x4?[jointsAmount];
         var kept = new Boolean[jointsAmount];
-        var parents = new Int32[jointsAmount];
         for (var index = 0; index < jointsAmount; index++)
         {
-            parents[index] = NoParent;
             if (!byIndex.TryGetValue(index, out var json))
             {
                 binds[index] = Matrix4x4.Identity;
@@ -325,10 +378,6 @@ public class OGIData : AbstractAssetData
                 storedBinds[index] = storedBind;
                 kept[index] = IsSamePose(binds[index], storedBind);
             }
-
-            // Bones are identified by their index, a parent found by its name in Blender comes as its index too
-            var parent = json.GetInt("parent", -1);
-            parents[index] = parent >= 0 && parent < jointsAmount && parent != index && byIndex.ContainsKey(parent) ? parent : NoParent;
         }
 
         for (var index = 0; index < jointsAmount; index++)
@@ -387,6 +436,121 @@ public class OGIData : AbstractAssetData
             });
             SkinInverseMatrices.Add((kept[index] ? TlmNodes.ToMatrix(data.GetFloats("InverseBindMatrix")) : Matrix4x4.Invert(bind, out var inverse) ? inverse : Matrix4x4.Identity).ToTwin());
         }
+    }
+
+    // The joints the game's skeletons give a joint at most (GetJointAnimationFromParentJoint has none for a 13th child, whose own children
+    // it then reads from nothing), and the joints a skin is drawn with at most (WriteJoints puts their count in 6 bits of a VIF UNPACK)
+    private const Int32 MaxChildJoints = 12;
+    private const Int32 MaxSkinnedJoints = 63;
+
+    private static Boolean IsSkinned(JsonObject root) => root.FindChild(SkinData.TlmKind) != null || root.FindChild(BlendSkinData.TlmKind) != null;
+
+    // The file's joints by their index, bones added in Blender without one after the others, and every joint's parent (NoParent for none)
+    private static (Dictionary<Int32, JsonObject> ByIndex, Int32[] Parents) IndexJoints(List<JsonObject> jointJsons)
+    {
+        var byIndex = new Dictionary<Int32, JsonObject>();
+        foreach (var json in jointJsons.Where(json => json["index"] != null))
+        {
+            byIndex.TryAdd(json.GetInt("index"), json);
+        }
+
+        var nextIndex = byIndex.Keys.DefaultIfEmpty(-1).Max() + 1;
+        foreach (var json in jointJsons.Where(json => json["index"] == null))
+        {
+            byIndex.Add(nextIndex++, json);
+        }
+
+        var parents = new Int32[byIndex.Keys.Max() + 1];
+        Array.Fill(parents, NoParent);
+        foreach (var (index, json) in byIndex)
+        {
+            // Bones are identified by their index, a parent found by its name in Blender comes as its index too
+            var parent = json.GetInt("parent", -1);
+            parents[index] = parent >= 0 && parent < parents.Length && parent != index && byIndex.ContainsKey(parent) ? parent : NoParent;
+        }
+
+        return (byIndex, parents);
+    }
+
+    /// <summary>
+    /// Why the game can't have the skeleton of a model file's armature, null when it can
+    /// </summary>
+    internal static String? SkeletonProblem(JsonObject root)
+    {
+        var jointJsons = (root.FindChild(ArmatureKind)?["joints"] as JsonArray ?? []).OfType<JsonObject>().ToList();
+        if (jointJsons.Count == 0)
+        {
+            return null;
+        }
+
+        var (byIndex, parents) = IndexJoints(jointJsons);
+        return SkeletonProblem(byIndex, parents, IsSkinned(root));
+    }
+
+    // The game builds a skeleton in joint order, every joint under its parent's, and moves every joint without a parent as its root
+    // (SetJointAnimations). It works out the joints' matrices walking the skeleton from the root down, a joint's children in the order of
+    // their indexes, each with everything under it (TransformJoints), and draws the joint of an index with the matrix of that place in the
+    // walk (DrawOgi): the indexes have to be the walk's. A model of four root bones made in Blender broke the viewer
+    private static String? SkeletonProblem(Dictionary<Int32, JsonObject> byIndex, Int32[] parents, Boolean skinned)
+    {
+        const String exportAgain = "export the model again with the current add-on, which numbers the joints that way";
+        String NameOf(Int32 index) => byIndex.TryGetValue(index, out var json) ? json.GetString("name") ?? $"Joint {index}" : $"Joint {index}";
+        var roots = byIndex.Keys.Where(index => parents[index] == NoParent).Order().ToList();
+        if (roots.Count > 1)
+        {
+            return $"The armature has {roots.Count} root bones ({String.Join(", ", roots.Select(NameOf))}) and the game's skeletons have one, joint 0, which every " +
+                   "other bone is under: parent the others to the bone that should be the root in Blender";
+        }
+
+        if (roots.Count == 1 && roots[0] != 0)
+        {
+            return $"The root bone {NameOf(roots[0])} is joint {roots[0]}, the game's skeletons start with their root: {exportAgain}";
+        }
+
+        var missing = Enumerable.Range(0, parents.Length).Where(index => !byIndex.ContainsKey(index)).ToList();
+        if (missing.Count > 0)
+        {
+            return $"The armature's joints leave out the index{(missing.Count > 1 ? "es" : string.Empty)} {String.Join(", ", missing)}, the game's skeletons number theirs " +
+                   $"one after the other: {exportAgain}";
+        }
+
+        var children = Enumerable.Range(0, parents.Length).Select(_ => new List<Int32>()).ToArray();
+        for (var index = 0; index < parents.Length; index++)
+        {
+            if (parents[index] != NoParent)
+            {
+                children[parents[index]].Add(index);
+            }
+        }
+
+        var crowded = Array.FindIndex(children, list => list.Count > MaxChildJoints);
+        if (crowded >= 0)
+        {
+            return $"{NameOf(crowded)} has {children[crowded].Count} child bones and the game gives a joint {MaxChildJoints} at most";
+        }
+
+        if (skinned && parents.Length > MaxSkinnedJoints)
+        {
+            return $"The armature has {parents.Length} bones and the game draws a skin with {MaxSkinnedJoints} at most";
+        }
+
+        var walk = new List<Int32>();
+        var pending = new Stack<Int32>([0]);
+        while (pending.Count > 0)
+        {
+            var joint = pending.Pop();
+            walk.Add(joint);
+            foreach (var child in Enumerable.Reverse(children[joint]))
+            {
+                pending.Push(child);
+            }
+        }
+
+        var misplaced = Enumerable.Range(0, walk.Count).FirstOrDefault(place => walk[place] != place, -1);
+        return misplaced < 0
+            ? null
+            : $"{NameOf(walk[misplaced])} is joint {walk[misplaced]}, but the game walks a skeleton from the root down, a joint's children in the order of their " +
+              $"indexes and each with everything under it, and gets to it as joint {misplaced}: {exportAgain}";
     }
 
     // Blender's bones can't be scaled, a bone's pose is the same while it's where the bind pose puts it and turned the same way. The
@@ -489,7 +653,16 @@ public class OGIData : AbstractAssetData
         Animations = [];
         for (var i = 0; i < animations.Count; i++)
         {
-            var (_, data, edited) = animations[i];
+            var (json, data, edited) = animations[i];
+            var fps = json.GetInt("fps", data.DefaultFPS);
+            if (fps != data.DefaultFPS)
+            {
+                // The add-on writes faster actions at a rate the game has, sampling every few frames
+                Log.WriteLine($"{data.Name} of {Owner.Name} is {fps} frames a second and the game's animations have 1 to {TlmAnimations.MaxFps}: it plays at {data.DefaultFPS}" +
+                              (fps > TlmAnimations.MaxFps ? ", export it from Blender again to keep its speed" : string.Empty), Log.LogType.Warning);
+                changed = true;
+            }
+
             if (needsId[i])
             {
                 data.ID = Math.Min(nextId++, 0xFFFEU);
@@ -566,6 +739,10 @@ public class OGIData : AbstractAssetData
     /// </summary>
     public List<Byte> CollisionHullJoints { get; set; }
     public List<TwinJoint> Joints { get; set; }
+    /// <summary>
+    /// The joint IDs the game binds, every ID below it (<see cref="ITwinOGI.JointIdCount"/>)
+    /// </summary>
+    public Byte JointIdCount { get; set; }
     public List<Byte> RigidModelJointIndices { get; set; }
     public List<LabURI> RigidModelIds { get; set; }
     public List<Matrix4> SkinInverseMatrices { get; set; }
@@ -595,6 +772,7 @@ public class OGIData : AbstractAssetData
         }
         CollisionHullJoints = CloneUtils.CloneList(ogi.CollisionJointIndices);
         Joints = CloneUtils.DeepClone(ogi.Joints);
+        JointIdCount = ogi.JointIdCount;
         ExitPoints = CloneUtils.DeepClone(ogi.ExitPoints);
         CollisionHulls = CloneUtils.DeepClone(ogi.CollisionHulls);
         SkinInverseMatrices = CloneUtils.CloneListUnsafe(ogi.SkinInverseBindMatrices);
@@ -656,6 +834,7 @@ public class OGIData : AbstractAssetData
 
         writer.Write(Skin == LabURI.Empty ? 0U : assetManager.GetAsset(Skin).ExportTwinID);
         writer.Write(BlendSkin == LabURI.Empty ? 0U : assetManager.GetAsset(BlendSkin).ExportTwinID);
+        writer.Write(WorkOutJointIdCount(JointIdCount));
 
         writer.Flush();
         ms.Position = 0;

@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using TT_Lab.Attributes.EditorParamWrappers;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -108,6 +109,7 @@ public class DefaultParticleData : ParticleData
     // Read into a global the retail game never reads
     [JsonProperty(Required = Required.Always)]
     [Editable]
+    [EditorHidden]
     public Int32 UnusedDecalInt { get; set; }
 
     [JsonProperty(Required = Required.Always)]
@@ -118,6 +120,7 @@ public class DefaultParticleData : ParticleData
     [JsonProperty(Required = Required.Always)]
     [Editable]
     [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
+    [EditorHidden]
     public Int32[] DecalTypeMarkers { get; set; }
 
     [JsonProperty(Required = Required.Always)]

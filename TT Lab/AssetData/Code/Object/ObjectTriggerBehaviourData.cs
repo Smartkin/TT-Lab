@@ -24,7 +24,8 @@ public class ObjectTriggerBehaviourData : IDocumentModel
     public LabURI TriggerBehaviour { get; set; }
     
     [JsonProperty(Required = Required.Always)]
-    [Editable(Caption = "Trigger Message ID")]
+    [Editable(Caption = "Trigger Message ID", Hint = "The trigger message that runs the behaviour, the game keeps 10 bits of it (0 to 1023)")]
+    [EditorParam(TextFieldViewModel.TextFieldNumberRange, new[] { 0, 1023 })]
     public UInt16 MessageID { get; set; }
     
     [JsonProperty(Required = Required.Always)]

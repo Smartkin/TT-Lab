@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
@@ -56,14 +57,15 @@ public record DocumentMetadata : EditorMetadata
 
                 if (property.PropertyType.IsAssignableTo(typeof(IList)) && searchAllAttributes)
                 {
+                    var foreignList = ForeignPropertyAttributes.Of(property);
                     editableProps.Add(new PropertyMetadata
                     {
                         PropertyInfo = property,
                         ContainedTypeConstructor = containedTypeConstructor,
                         EditorDescType = null,
-                        Editable = null,
-                        EditorParams = [],
-                        EditorParamWrappers = [],
+                        Editable = foreignList.OfType<EditableAttribute>().FirstOrDefault(),
+                        EditorParams = foreignList.OfType<EditorParamAttribute>().ToDictionary(x => x.Param, x => x.Value),
+                        EditorParamWrappers = foreignList.OfType<EditorParamWrapperBaseAttribute>().ToArray(),
                         FieldReactors = []
                     });
                     continue;
@@ -191,7 +193,8 @@ public record DocumentMetadata : EditorMetadata
         public List<TypeFactoryNode> Children { get; set; } = [];
     }
 
-    private static readonly Dictionary<Type, Func<object>> ConstructorCache = new();
+    // Documents load on the task pool, two of them building the metadata of their types at once wrote this from two threads
+    private static readonly ConcurrentDictionary<Type, Func<object>> ConstructorCache = new();
     /// <summary>
     /// What makes the elements of the type that get put into lists, in place of its parameterless constructor
     /// </summary>

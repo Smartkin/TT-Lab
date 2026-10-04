@@ -5,6 +5,7 @@
              xmlns:viewmodels="clr-namespace:TT_Lab.ViewModels"
              xmlns:controls="clr-namespace:TT_Lab.Controls"
              xmlns:rendering="clr-namespace:TT_Lab.Rendering"
+             xmlns:interfaces="clr-namespace:TT_Lab.ViewModels.Interfaces"
              x:DataType="viewmodels:ViewportViewModel"
              HorizontalAlignment="Stretch"
              VerticalAlignment="Stretch"
@@ -56,6 +57,7 @@
                             <TextBlock Text="Drag on the scene to select everything within the rectangle, Shift+click adds to or takes from the selection, Ctrl+A selects every instance"/>
                             <TextBlock Text="Ctrl+D duplicates the selection in place, U or Esc deselects, Delete removes the selected resource from the chunk"/>
                             <TextBlock Text="The Prefabs panel saves the selection for any chunk of the project, drag a prefab from it into the scene to place it"/>
+                            <TextBlock Text="Scenery mode edits the scenery: its placed meshes (Meshes) or its collision's triangles (Collision), right click makes placeholders and collision"/>
                         </StackPanel>
                     </ToolTip.Tip>
                     <TextBlock Text="?" FontWeight="Bold"/>
@@ -76,6 +78,48 @@
                     <Border Classes="separator"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="2">
+                    <!-- What the viewport edits: instances, or the scenery's meshes and collision -->
+                    <Button x:Name="InstancesMode" Classes="tool" Classes.active="{Binding IsInstanceMode}" Command="{Binding SetEditModeCommand}"
+                            CommandParameter="{x:Static interfaces:ViewportEditMode.Instances}" ToolTip.Tip="Edit the chunk's instances and the parts of its resources">
+                        <TextBlock Text="Instances"/>
+                    </Button>
+                    <Button x:Name="SceneryMode" Classes="tool" Classes.active="{Binding IsSceneryMode}" Command="{Binding SetEditModeCommand}"
+                            CommandParameter="{x:Static interfaces:ViewportEditMode.Scenery}" ToolTip.Tip="Edit the scenery's placed meshes and its collision">
+                        <TextBlock Text="Scenery"/>
+                    </Button>
+                    <Border Classes="separator"/>
+                    <StackPanel Orientation="Horizontal" Spacing="2" IsVisible="{Binding IsSceneryMode}">
+                        <Button x:Name="EditMeshes" Classes="tool" Classes.active="{Binding IsEditingMeshes}" Command="{Binding EditMeshesCommand}"
+                                ToolTip.Tip="Pick the scenery's placed meshes, move, turn, scale, duplicate and delete them, make placeholders and collision of them">
+                            <TextBlock Text="Meshes"/>
+                        </Button>
+                        <Button x:Name="EditCollision" Classes="tool" Classes.active="{Binding IsEditingTriangles}" Command="{Binding EditCollisionCommand}"
+                                ToolTip.Tip="Pick the collision's triangles, move, turn, scale, duplicate and delete them, put them on another surface">
+                            <TextBlock Text="Collision"/>
+                        </Button>
+                        <ComboBox x:Name="CollisionSurface" MinWidth="150" MaxWidth="220" VerticalAlignment="Center" PlaceholderText="Several surfaces"
+                                  ItemsSource="{Binding Surfaces}" SelectedItem="{Binding CurrentSurface}"
+                                  ToolTip.Tip="The surface new collision goes on, and the one of the selected triangles: picking another puts them on it">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="viewmodels:CollisionSurfaceChoice">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <Border Width="12" Height="12" CornerRadius="2" Background="{Binding Swatch}" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <Button x:Name="GenerateCollision" Classes="tool" IsVisible="{Binding IsEditingMeshes}" Command="{Binding GenerateCollisionCommand}"
+                                ToolTip.Tip="Add collision made of the selected meshes' triangles on the surface, the triangles the collision has already are left out">
+                            <TextBlock Text="Make collision"/>
+                        </Button>
+                        <Button x:Name="DrawTriangle" Classes="tool" Classes.active="{Binding IsDrawingTriangle}" IsVisible="{Binding IsEditingTriangles}"
+                                Command="{Binding ToggleTriangleDrawingCommand}"
+                                ToolTip.Tip="Draw collision triangles by clicking three points each, close to a corner of the collision a point goes on it (Esc stops)">
+                            <PathIcon Data="M12,3 L22,20 L2,20 Z M12,7.5 L5.5,18 L18.5,18 Z"/>
+                        </Button>
+                        <Border Classes="separator"/>
+                    </StackPanel>
                     <Button x:Name="SelectTool" Classes="tool" Classes.active="{Binding IsSelectTool}" Command="{Binding SelectToolCommand}"
                             CommandParameter="{x:Static rendering:TransformMode.SELECTION}" ToolTip.Tip="Select (Q)">
                         <PathIcon Data="M4,2 L4,20 L8.5,15.5 L11.5,22 L14.5,20.6 L11.5,14.2 L18,14.2 Z"/>

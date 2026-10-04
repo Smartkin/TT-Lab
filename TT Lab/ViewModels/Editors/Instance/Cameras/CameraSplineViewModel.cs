@@ -50,7 +50,7 @@ namespace TT_Lab.ViewModels.Editors.Instance.Cameras
             }
             parameters = new BindableCollection<Vector2ViewModel>();
             DirtyTracker.AddBindableCollection(parameters);
-            splineFlags = baseCam.SplineFlags;
+            splineFlags = (UInt16)baseCam.SplineFlags;
         }
 
         public override void Save(CameraSubBase? cam)
@@ -58,7 +58,7 @@ namespace TT_Lab.ViewModels.Editors.Instance.Cameras
             cam ??= new CameraSpline();
             var splineCam = (CameraSpline)cam;
             splineCam.StepLength = StepLength;
-            splineCam.SplineFlags = SplineFlags;
+            splineCam.SplineFlags = (ITwinCamera.SplineCameraFlags)SplineFlags;
             splineCam.PathPoints.Clear();
             foreach (var p in PathPoints)
             {

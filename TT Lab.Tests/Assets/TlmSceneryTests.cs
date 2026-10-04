@@ -22,6 +22,7 @@ using Twinsanity.PS2Hardware;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Common.DynamicScenery;
 using Twinsanity.TwinsanityInterchange.Common.Lights;
+using Twinsanity.TwinsanityInterchange.Common.ScenerySubtypes;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SubItems;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.SM;
@@ -159,11 +160,12 @@ public sealed class TlmSceneryTests : IDisposable
         Assert.Equal(MathF.Cos(40 * MathF.PI / 180), edited.OuterConeCosine, 1e-4f);
     }
 
+    // Meshes made in Blender have no tree node, the build puts them down the octants their middle is in while the octants' cells grown
+    // twice hold them, a mesh outside of every octant into the root, which doesn't grow
     [Fact]
-    public void MeshesAddedInBlenderJoinTheTree()
+    public void MeshesAddedInBlenderGoWhereTheyAre()
     {
         var scenery = _assets.AddScenery();
-        var leafBounds = Bounds(((IAsset)scenery).GetData<SceneryData>().Sceneries[2]);
         scenery.Serialize(SerializationFlags.SaveData);
         Edit(scenery, root =>
         {
@@ -174,23 +176,22 @@ public sealed class TlmSceneryTests : IDisposable
 
         var data = ((IAsset)scenery).GetData<SceneryData>();
 
-        // The first rock lies in the leaf covering where it is and fits into it, the far one only fits into the root once it grows
-        Assert.Contains(data.Sceneries[2].MeshModelMatrices, matrix => matrix.ToSystem().Translation == new Vector3(-90, 0, -90));
-        Assert.Equal(leafBounds, Bounds(data.Sceneries[2]));
-        Assert.Contains(data.Sceneries[0].MeshModelMatrices, matrix => matrix.ToSystem().Translation == new Vector3(500, 0, 0));
-        Assert.True(data.Sceneries[0].BoundsMax.X > 510);
-        Assert.Equal(data.Sceneries[0].MeshIDs.Count + data.Sceneries[0].LodIDs.Count, data.Sceneries[0].BoundingBoxes.Count);
+        Assert.Equal("57", PlacedAt(data, new Vector3(-90, 0, -90)).Node);
+        Assert.Equal("", PlacedAt(data, new Vector3(500, 0, 0)).Node);
+        var tree = data.BuildTree(_ => 0);
+        Assert.Equal((-100f, 100f), (tree[0].BoundsMin.X, tree[0].BoundsMax.X));
+        Assert.NotEmpty(_assets.Export(scenery));
     }
 
+    // A mesh moved out of its node goes where the build puts new ones, the node's left without anything and its kept values with it
     [Fact]
     public void MovedMeshesGoToTheTreeNodeTheyAreIn()
     {
         var scenery = _assets.AddScenery();
-        var leafBounds = Bounds(((IAsset)scenery).GetData<SceneryData>().Sceneries[2]);
         scenery.Serialize(SerializationFlags.SaveData);
         Edit(scenery, root =>
         {
-            var mesh = FindNode(root, node => node.GetString("name") == "Mesh 2.0");
+            var mesh = FindNode(root, node => node.GetString("name") == "Mesh 1");
             mesh["translation"] = new JsonArray(70f, 0f, 70f);
             mesh.Remove("rotation");
             mesh.Remove("scale");
@@ -198,52 +199,86 @@ public sealed class TlmSceneryTests : IDisposable
 
         var data = ((IAsset)scenery).GetData<SceneryData>();
 
-        Assert.Empty(data.Sceneries[2].MeshIDs);
-        Assert.Equal(leafBounds, Bounds(data.Sceneries[2]));
-        Assert.Contains(data.Sceneries[3].MeshModelMatrices, matrix => matrix.ToSystem().Translation == new Vector3(70, 0, 70));
+        Assert.Equal("02", PlacedAt(data, new Vector3(70, 0, 70)).Node);
+        Assert.DoesNotContain(data.Placements, placement => placement.Node!.StartsWith("57"));
+        Assert.DoesNotContain(_assets.Reload<SceneryData>(scenery).TreeNodes, node => node.Path == "57");
     }
 
+    // Blender shows the placed meshes under the root's Meshes and the LODs under its LODs, each numbered in its group and keeping its
+    // place among all of them
     [Fact]
-    public void MeshesStayInTheTreeNodeTheyWerePutUnder()
+    public void PlacedMeshesAndLodsAreInTheirGroups()
+    {
+        var root = ((IAsset)_assets.AddScenery()).GetData<SceneryData>().WriteTlm().Root!;
+
+        var meshes = root.FindChild(SceneryData.MeshesKind)!;
+        var lods = root.FindChild(SceneryData.LodsKind)!;
+        Assert.Equal(("Meshes", "LODs"), (meshes.GetString("name"), lods.GetString("name")));
+        Assert.DoesNotContain(root.GetChildren(), node => node.GetKind() is SceneryData.MeshInstanceKind or SceneryData.LodInstanceKind);
+        Assert.Equal(["Mesh 0", "Mesh 1", "Mesh 2", "Mesh 3"], meshes.GetChildren().Select(node => node.GetString("name")));
+        Assert.All(meshes.GetChildren(), node => Assert.Equal(SceneryData.MeshInstanceKind, node.GetKind()));
+        Assert.Equal([0, 1, 3, 4], meshes.GetChildren().Select(node => node.GetData().GetInt("Order")));
+        var lod = Assert.Single(lods.GetChildren());
+        Assert.Equal(("LOD 0", SceneryData.LodInstanceKind, 2), (lod.GetString("name"), lod.GetKind(), lod.GetData().GetInt("Order")));
+        Assert.Equal(["LOD 0 Level 0", "LOD 0 Level 1"], lod.GetChildren().Select(node => node.GetString("name")));
+    }
+
+    // A LOD's level moved out of its LOD (into the Meshes in Blender) is a placed mesh of its own, it was left out
+    [Fact]
+    public void ALevelMovedOutOfItsLodIsAPlacedMesh()
     {
         var scenery = _assets.AddScenery();
         scenery.Serialize(SerializationFlags.SaveData);
         Edit(scenery, root =>
         {
-            var mesh = FindNode(root, node => node.GetKind() == SceneryData.MeshInstanceKind)[TlmNodes.MeshKey]!;
-            var leaf = FindNode(root, node => node.GetString("name") == "Leaf 3");
-            leaf.AddChild(new JsonObject { ["name"] = "Inside", ["translation"] = new JsonArray(80f, 0f, 80f), ["mesh"] = mesh.DeepClone() });
-            leaf.AddChild(new JsonObject { ["name"] = "Outside", ["translation"] = new JsonArray(-75f, 0f, -75f), ["mesh"] = mesh.DeepClone() });
+            var lod = FindNode(root, node => node.GetKind() == SceneryData.LodInstanceKind);
+            var level = lod.GetChildren().Last();
+            lod["children"]!.AsArray().Remove(level);
+            root.FindChild(SceneryData.MeshesKind)!.AddChild(level);
         });
 
         var data = ((IAsset)scenery).GetData<SceneryData>();
 
-        Assert.Contains(data.Sceneries[3].MeshModelMatrices, matrix => matrix.ToSystem().Translation == new Vector3(80, 0, 80));
-        Assert.Contains(data.Sceneries[2].MeshModelMatrices, matrix => matrix.ToSystem().Translation == new Vector3(-75, 0, -75));
+        Assert.Equal(6, data.Placements.Count);
+        var lod = Assert.Single(data.Placements, placement => placement.IsLod);
+        Assert.Single(_assets.Get(lod.Model).GetData<LodModelData>().Meshes);
     }
 
+    // A mesh keeps the node it was in while that node's cell grown twice still holds it, the root holds everything
     [Fact]
-    public void TreeNodesMadeInBlenderJoinTheTree()
+    public void MeshesStayInTheTreeNodeTheyWereIn()
     {
         var scenery = _assets.AddScenery();
         scenery.Serialize(SerializationFlags.SaveData);
         Edit(scenery, root =>
         {
-            var mesh = FindNode(root, node => node.GetKind() == SceneryData.MeshInstanceKind)[TlmNodes.MeshKey]!;
-            var node = FindNode(root, n => n.GetString("name") == "Scenery Tree").AddChild(TlmNodes.Create(SceneryData.TreeNodeKind, "New Node"));
-            node.AddChild(new JsonObject { ["name"] = "Rock", ["translation"] = new JsonArray(50f, 0f, -50f), ["mesh"] = mesh.DeepClone() });
+            FindNode(root, node => node.GetString("name") == "Mesh 0")["translation"] = new JsonArray(40f, 0f, 40f);
+            FindNode(root, node => node.GetString("name") == "LOD 0")["translation"] = new JsonArray(-10f, 0f, -10f);
         });
 
         var data = ((IAsset)scenery).GetData<SceneryData>();
 
-        Assert.Equal(5, data.Sceneries.Count);
-        var added = data.Sceneries.Single(treeNode => treeNode.MeshModelMatrices.Any(matrix => matrix.ToSystem().Translation == new Vector3(50, 0, -50)));
-        Assert.IsType<SceneryLeafData>(added);
-        // The node takes the box of what got placed in it
-        var box = added.BoundingBoxes[0];
-        Assert.Equal((box.V1.X + 50, box.V1.Z - 50, box.V2.X + 50, box.V2.Z - 50), (added.BoundsMin.X, added.BoundsMin.Z, added.BoundsMax.X, added.BoundsMax.Z));
-        Assert.Equal(ITwinScenery.SceneryType.Leaf, ((SceneryRootData)data.Sceneries[0]).SceneryTypes[1]);
-        Assert.NotEmpty(_assets.Export(scenery));
+        Assert.Equal("", PlacedAt(data, new Vector3(40, 0, 40)).Node);
+        Assert.Equal("5", PlacedAt(data, new Vector3(-10, 0, -10)).Node);
+    }
+
+    // The values a node kept are what the build writes while they're within a hair of what it works out, with the node's own light bits
+    [Fact]
+    public void TreeNodesKeepTheGamesValues()
+    {
+        var scenery = _assets.AddScenery();
+        var data = ((IAsset)scenery).GetData<SceneryData>();
+        var kept = data.TreeNodes.Single(node => node.Path == "57");
+
+        var read = _assets.Reload<SceneryData>(scenery);
+        var leaf = read.BuildTree(_ => 0).Single(node => node.MeshIDs.Count == 1 && node is TwinSceneryLeaf);
+
+        Assert.Equal(Tuple(kept.BoundsCenter), Tuple(leaf.BoundsCenter));
+        Assert.Equal(Tuple(kept.BoundsMin), Tuple(leaf.BoundsMin));
+        Assert.Equal(kept.LightsEnabler, leaf.LightsEnabler);
+        // The kept values of a node the tree doesn't have aren't written, nor the ones that are what the build works out
+        Assert.DoesNotContain(read.TreeNodes, node => node.Path == "33");
+        Assert.DoesNotContain(read.TreeNodes, node => node.Path == "");
     }
 
     [Fact]
@@ -261,11 +296,11 @@ public sealed class TlmSceneryTests : IDisposable
 
         var data = ((IAsset)scenery).GetData<SceneryData>();
 
-        var tree = Assert.Single(data.Sceneries);
-        Assert.Equal(2, tree.MeshIDs.Count);
-        Assert.Equal(2, tree.BoundingBoxes.Count);
+        Assert.Equal(2, data.Placements.Count);
+        Assert.Equal(SceneryTree.DefaultDepth, data.TreeDepth);
         // The root is the box the game keeps the chunk's objects in, made like the game's around both (SceneryBounds)
-        Assert.Equal((-200f, -100f, -200f, 200f, 100f, 200f), Bounds(tree));
+        Assert.Equal((-200f, -100f, -200f, 200f, 100f, 200f), (data.BoundsMin.X, data.BoundsMin.Y, data.BoundsMin.Z, data.BoundsMax.X, data.BoundsMax.Y, data.BoundsMax.Z));
+        Assert.All(data.Placements, placement => Assert.NotEmpty(placement.Node!));
         Assert.NotEmpty(_assets.Export(scenery));
     }
 
@@ -321,6 +356,7 @@ public sealed class TlmSceneryTests : IDisposable
         IAsset[] assets = [_assets.AddScenery(), skydome, _assets.AddOgi(), _assets.AddModel("Rock"), _assets.AddRigidModel("Chair", material.URI), _assets.AddMesh("Stone"),
             _assets.AddSkin(material.URI, "Skin"), _assets.AddBlendSkin(material.URI, "Face"), _assets.AddSaveIcon()];
         var checkedTypes = new HashSet<string>();
+        var treeNodes = 0;
         foreach (var asset in assets)
         {
             asset.Serialize(SerializationFlags.SaveData);
@@ -334,6 +370,13 @@ public sealed class TlmSceneryTests : IDisposable
                     Check(type, node.GetData(), "Object");
                 }
 
+                // The items of the scenery's lists
+                foreach (var treeNode in node.GetData().GetIndexed("TreeNodes"))
+                {
+                    Assert.Subset(SchemaTests.KnownKeys("SceneryTreeNode", "Items")!, treeNode.Select(pair => pair.Key).ToHashSet());
+                    treeNodes++;
+                }
+
                 foreach (var joint in node["joints"] as JsonArray ?? [])
                 {
                     Check("Joint", joint!["data"]!.AsObject(), "Bone");
@@ -342,6 +385,7 @@ public sealed class TlmSceneryTests : IDisposable
         }
 
         Assert.Superset(KindTypes.Values.OfType<string>().ToHashSet(), checkedTypes);
+        Assert.NotEqual(0, treeNodes);
 
         void Check(string type, JsonObject data, string element)
         {
@@ -356,8 +400,9 @@ public sealed class TlmSceneryTests : IDisposable
     private static readonly Dictionary<string, string?> KindTypes = new()
     {
         ["ogi"] = "Ogi", ["armature"] = null, ["skin"] = "Skin", ["shape"] = "BlendSkin", ["rigid_bodies"] = null, ["body"] = "Body", ["exit_points"] = null,
-        ["exit_point"] = "ExitPoint", ["collision_hulls"] = null, ["hull"] = "CollisionHull", ["model"] = "Model", ["rigid_model"] = "RigidModel", ["mesh"] = "Mesh", ["scenery"] = "Scenery", ["tree_node"] = "SceneryTreeNode",
-        ["scenery_mesh"] = "SceneryMesh", ["scenery_lod"] = "SceneryLod", ["lod_mesh"] = "LodMesh", ["lights"] = null, ["ambient_light"] = "AmbientLight",
+        ["exit_point"] = "ExitPoint", ["collision_hulls"] = null, ["hull"] = "CollisionHull", ["model"] = "Model", ["rigid_model"] = "RigidModel", ["mesh"] = "Mesh", ["scenery"] = "Scenery",
+        ["scenery_meshes"] = null, ["scenery_mesh"] = "SceneryMesh", ["scenery_lods"] = null, ["scenery_lod"] = "SceneryLod", ["lod_mesh"] = "LodMesh",
+        ["lights"] = null, ["ambient_light"] = "AmbientLight",
         ["directional_light"] = "DirectionalLight", ["point_light"] = "PointLight", ["spot_light"] = "SpotLight", ["collision"] = "Collision",
         ["dynamic_scenery"] = "DynamicScenery", ["dynamic_model"] = "DynamicSceneryModel", ["skydome"] = "Skydome", ["skydome_mesh"] = "SkydomeMesh",
         ["save_icon"] = "SaveIcon"
@@ -377,10 +422,7 @@ public sealed class TlmSceneryTests : IDisposable
 
     private static JsonObject FindNode(JsonObject root, Func<JsonObject, bool> predicate) => root.Traverse().First(predicate);
 
-    private static (float, float, float, float, float, float) Bounds(SceneryBaseData node)
-    {
-        return (node.BoundsMin.X, node.BoundsMin.Y, node.BoundsMin.Z, node.BoundsMax.X, node.BoundsMax.Y, node.BoundsMax.Z);
-    }
+    private static SceneryPlacement PlacedAt(SceneryData data, Vector3 position) => data.Placements.Single(placement => placement.Matrix.ToSystem().Translation == position);
 
     [Fact]
     public void CollisionSurfacesKeepTheirColors()

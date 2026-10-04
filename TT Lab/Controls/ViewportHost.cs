@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
@@ -28,6 +29,8 @@ public sealed class ViewportHost : IDisposable
     // SDL isn't thread safe and every viewport creates its window and GL context on its own render thread
     private static readonly object SdlLock = new();
     private static bool _isGlLibraryPinned;
+    private static Sdl2Window? _anchorWindow;
+    private static IntPtr _anchorContext;
     private const int GlContextCreationAttempts = 5;
     private const double FrameTime = 1.0 / 60.0;
     // Viewports nobody sees only keep handling queued work, like building their scene
@@ -60,6 +63,8 @@ public sealed class ViewportHost : IDisposable
     private bool _hasPendingReadback;
     private bool _isDisposed;
     private volatile bool _hasFailed;
+    private bool _isOffscreen;
+    private readonly TaskCompletionSource<RenderContext?> _ready = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     /// <summary>
     /// Raised on the UI thread once the context is made, it lives until the host is disposed
@@ -97,6 +102,65 @@ public sealed class ViewportHost : IDisposable
 
         _wakeRenderThread.Set();
         InvalidatePresenter();
+    }
+
+    /// <summary>
+    /// Makes the context without a control showing its frames, for pictures of what no viewport shows: work given to
+    /// <see cref="RunAsync{T}"/> runs as soon as it's given. The context comes back once it's made, none when it couldn't be
+    /// </summary>
+    public Task<RenderContext?> StartOffscreen(PixelSize size)
+    {
+        if (_isDisposed || _renderThread != null)
+        {
+            return _ready.Task;
+        }
+
+        _isOffscreen = true;
+        lock (_frameLock)
+        {
+            _size = size;
+        }
+
+        _renderThread = new Thread(() => RenderThread(_cancellation.Token))
+        {
+            Name = $"Offscreen Render Thread {GetHashCode()}",
+            IsBackground = true
+        };
+        _renderThread.Start();
+        return _ready.Task;
+    }
+
+    /// <summary>
+    /// Runs the work on the render thread, right away on an offscreen host. Cancelled when the host goes before it ran
+    /// </summary>
+    public Task<T> RunAsync<T>(Func<T> work)
+    {
+        var completion = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var context = _context;
+        if (context == null || _isDisposed)
+        {
+            completion.SetCanceled();
+            return completion.Task;
+        }
+
+        var cancelled = _cancellation.Token.Register(() => completion.TrySetCanceled());
+        context.QueueRenderAction(() =>
+        {
+            try
+            {
+                completion.TrySetResult(work());
+            }
+            catch (Exception ex)
+            {
+                completion.TrySetException(ex);
+            }
+            finally
+            {
+                cancelled.Dispose();
+            }
+        });
+        _wakeRenderThread.Set();
+        return completion.Task;
     }
 
     public void Detach(Viewport presenter)
@@ -204,6 +268,7 @@ public sealed class ViewportHost : IDisposable
         if (!TryCreateGlContext(token))
         {
             _hasFailed = true;
+            _ready.TrySetResult(null);
             return;
         }
 
@@ -216,11 +281,19 @@ public sealed class ViewportHost : IDisposable
         {
             Log.WriteLine($"Failed to initialize viewport: {ex.Message}\n Try to reopen the tab or reopen the application.", Log.LogType.Error);
             _hasFailed = true;
+            _ready.TrySetResult(null);
             return;
         }
 
         var context = _context;
         context.SetGlAccessibility(false);
+        _ready.TrySetResult(context);
+        if (_isOffscreen)
+        {
+            OffscreenLoop(context, token);
+            return;
+        }
+
         Dispatcher.UIThread.Post(() =>
         {
             if (!_isDisposed)
@@ -286,6 +359,39 @@ public sealed class ViewportHost : IDisposable
         }
     }
 
+    // Nothing shows the frames, the work queued is all there is to do
+    private void OffscreenLoop(RenderContext context, CancellationToken token)
+    {
+        while (!token.IsCancellationRequested)
+        {
+            WaitHandle.WaitAny([token.WaitHandle, _wakeRenderThread]);
+            if (token.IsCancellationRequested)
+            {
+                return;
+            }
+
+            context.SetGlAccessibility(true);
+            try
+            {
+                SyncOutputSize();
+                // A new context's viewport and scissor box are its hidden window's single pixel
+                context.Gl.Viewport(0, 0, (uint)_outputSize.Width, (uint)_outputSize.Height);
+                context.Gl.Scissor(0, 0, (uint)_outputSize.Width, (uint)_outputSize.Height);
+                context.ProcessRenderQueue();
+            }
+            catch (Exception ex)
+            {
+                ReportError(ex);
+                // What was queued after the work that threw still waits
+                _wakeRenderThread.Set();
+            }
+            finally
+            {
+                context.SetGlAccessibility(false);
+            }
+        }
+    }
+
     // A frame going wrong the same way every time would fill the log
     private void ReportError(Exception ex)
     {
@@ -311,6 +417,7 @@ public sealed class ViewportHost : IDisposable
 
     private void Cleanup()
     {
+        _ready.TrySetResult(null);
         if (_context != null)
         {
             _context.SetGlAccessibility(true);
@@ -378,7 +485,10 @@ public sealed class ViewportHost : IDisposable
     }
 
     // SDL unloads the GL driver once its last GL window is gone. Closing the last viewport then ran the driver's teardown while Avalonia
-    // and viewports on other threads still used it, which crashed the application, so the driver stays loaded
+    // and viewports on other threads still used it, which crashed the application, so the driver stays loaded. A context stays current
+    // on a thread of its own as well: with NVIDIA's EGL on Wayland, once no thread had one any more in a TT Lab that had created a
+    // project (the prefab pictures' viewports come and go right after), no new context could be made (eglMakeCurrent failing with
+    // EGL_SUCCESS) until TT Lab restarted, and a window and context left not current didn't help
     private static void PinGlLibrary()
     {
         if (_isGlLibraryPinned)
@@ -392,6 +502,28 @@ public sealed class ViewportHost : IDisposable
         {
             Log.WriteLine($"Failed to load the OpenGL library: {GetSdlError()}", Log.LogType.Warning);
         }
+
+        // The caller holds the SDL lock until the thread made its context
+        using var made = new ManualResetEventSlim();
+        var anchor = new Thread(() =>
+        {
+            _anchorWindow = new Sdl2Window("TT_LAB_GL_ANCHOR", 0, 0, 1, 1,
+                SDL_WindowFlags.Borderless | SDL_WindowFlags.Hidden | SDL_WindowFlags.SkipTaskbar | SDL_WindowFlags.OpenGL, false);
+            _anchorContext = Sdl2Native.SDL_GL_CreateContext(_anchorWindow.SdlWindowHandle);
+            if (_anchorContext == IntPtr.Zero)
+            {
+                Log.WriteLine($"Failed to make the GL context viewports keep current: {GetSdlError()}", Log.LogType.Debug);
+            }
+
+            made.Set();
+            Thread.Sleep(Timeout.Infinite);
+        })
+        {
+            IsBackground = true,
+            Name = "GL Anchor Thread",
+        };
+        anchor.Start();
+        made.Wait();
     }
 
     private void DestroyGlContext()

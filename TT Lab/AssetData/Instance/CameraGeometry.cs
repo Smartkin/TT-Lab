@@ -82,10 +82,17 @@ public static class CameraGeometry
         }
     }
 
+    // A sample's W is a word of values (the decomp's CameraSplineCamera::SampleWord): bit 24 passes over the sample, else bits 8-23
+    // are an offset along the curve and bits 0-7 a share of the way toward the target, taken between the samples that have them.
+    // A W of 0 reads an offset of -50 units and a share of -5, and an end passing over reads the same past it
+    public const UInt32 InBetweenSample = SplineSampleWord.Passes;
+    public const UInt32 NeutralKeySample = SplineSampleWord.NeutralKey;
+
     // The samples stay where they were put, the tangents point along the curve through them, the segments' lengths are the chords
     // (the game's lengths are, its samples lie a step apart) and every segment keeps taking the steps it took
     private static void UpdateSpline(CameraSpline spline)
     {
+        KeepSampleWords(spline);
         var points = spline.PathPoints.Select(point => new vec3(point.X, point.Y, point.Z)).ToArray();
         var segments = Math.Max(points.Length - 1, 0);
         var tangents = new List<Vector4>(points.Length);
@@ -117,6 +124,21 @@ public static class CameraGeometry
         spline.ArcLengths = [..lengths];
         spline.InverseSteps = inverseSteps;
         spline.StepLength = segments > 0 ? total / segments : spline.StepLength;
+    }
+
+    // New samples (W 0) pass over, the ends have values like on every spline of the game
+    private static void KeepSampleWords(CameraSpline spline)
+    {
+        var samples = spline.PathPoints;
+        for (var i = 0; i < samples.Count; i++)
+        {
+            var isEnd = i == 0 || i == samples.Count - 1;
+            var word = BitConverter.SingleToUInt32Bits(samples[i].W);
+            if (word == 0 || (isEnd && (word & InBetweenSample) != 0))
+            {
+                samples[i].W = BitConverter.UInt32BitsToSingle(isEnd ? NeutralKeySample : InBetweenSample);
+            }
+        }
     }
 
     /// <summary>

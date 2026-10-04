@@ -37,14 +37,17 @@ public class SoundEffect : SerializableAsset
         
     [JsonProperty(Required = Required.Always)]
     [Editable(Hint = "Never read by the game, 16 on every sound of the game")]
+    [EditorHidden]
     public UInt16 Param2 { get; set; }
         
     [JsonProperty(Required = Required.Always)]
     [Editable(Hint = "Never read by the game, 8192 on every sound of the game")]
+    [EditorHidden]
     public UInt16 Param3 { get; set; }
         
     [JsonProperty(Required = Required.Always)]
     [Editable(Hint = "Never read by the game, 8192 on every sound of the game")]
+    [EditorHidden]
     public UInt16 Param4 { get; set; }
 
     /// <summary>

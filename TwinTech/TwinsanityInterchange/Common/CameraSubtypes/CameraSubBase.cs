@@ -13,25 +13,29 @@ namespace Twinsanity.TwinsanityInterchange.Common.CameraSubtypes
     public abstract class CameraSubBase : ITwinSerializable
     {
         /// <summary>
-        /// How the camera rig's point followers move to the points the subtype gives (CameraSubtype::flags): neither bit goes straight
-        /// there. 1 on every retail camera but the zones' 0, the game's constructors set 1 as well
+        /// How the camera rig's point followers move to the points the subtype gives, one choice in the low two bits of its word
+        /// (CameraSubtype::flags, the others are never read). 1 on every retail camera but the zones' 0, the game's constructors set 1
+        /// as well
         /// </summary>
-        [Flags]
-        public enum FollowFlags : UInt32
+        public enum FollowMode : UInt32
         {
+            /// <summary>
+            /// Straight there, as 3 does
+            /// </summary>
+            Straight = 0,
             /// <summary>
             /// The followers' own way, at their default rate
             /// </summary>
-            OwnWay = 1 << 0,
+            OwnWay = 1,
             /// <summary>
             /// At <see cref="FollowRate"/>
             /// </summary>
-            AtRate = 1 << 1,
+            AtRate = 2,
         }
 
-        public FollowFlags Follow { get; set; }
+        public FollowMode Follow { get; set; }
         /// <summary>
-        /// With <see cref="FollowFlags.AtRate"/>, the share of the way a second the followers move to the subtype's points
+        /// With <see cref="FollowMode.AtRate"/>, the share of the way a second the followers move to the subtype's points
         /// </summary>
         public Single FollowRate { get; set; }
         /// <summary>
@@ -42,7 +46,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.CameraSubtypes
 
         public CameraSubBase()
         {
-            Follow = FollowFlags.OwnWay;
+            Follow = FollowMode.OwnWay;
         }
 
         public virtual int GetLength()
@@ -57,7 +61,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.CameraSubtypes
 
         public virtual void Read(BinaryReader reader, int length)
         {
-            Follow = (FollowFlags)reader.ReadUInt32();
+            Follow = (FollowMode)reader.ReadUInt32();
             FollowRate = reader.ReadSingle();
             Offset = reader.ReadSingle();
         }

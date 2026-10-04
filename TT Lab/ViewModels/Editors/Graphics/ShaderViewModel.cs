@@ -251,7 +251,7 @@ public class ShaderViewModel : Conductor<IScreen>.Collection.AllActive, IHavePar
         {
             return _type switch
             {
-                TwinShader.Type.LitReflectionSurface or TwinShader.Type.SHADER_17 or TwinShader.Type.UnlitClothDeformation or TwinShader.Type.UnlitClothDeformation2 => true,
+                TwinShader.Type.LitReflectionSurface or TwinShader.Type.SHADER_17 or TwinShader.Type.ScreenCopy or TwinShader.Type.WaveDeformation or TwinShader.Type.UnlitClothDeformation or TwinShader.Type.UnlitClothDeformation2 => true,
                 _ => false,
             };
         }

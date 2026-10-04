@@ -40,7 +40,6 @@ public sealed class ChunkResourcesTreeTests : IDisposable
         var folder = _project.GetFolder(package, "levels");
         var chunk = (LevelChunk)AssetFactory.CreateAsset(typeof(LevelChunk), folder, "beach", string.Empty,
             TwinIdGeneratorServiceProvider.GetGenerator<LevelChunk>(), asset => AssetDataFactory.CreateChunkData(folder, asset))!;
-        TwinIdGeneratorServiceProvider.RegisterGeneratorServiceForChunk(chunk);
         return chunk;
     }
 

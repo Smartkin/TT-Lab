@@ -4,6 +4,7 @@ using System.Linq;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
 using Twinsanity.Libraries;
+using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code;
 
@@ -41,7 +42,7 @@ public class SoundResolver : AssetResolver<ITwinSound>
         var key = (typeof(T), twinSound.GetID());
         var needVariant = _versions.TryGetValue(key, out var versions) && versions > 0;
         _versions[key] = versions + 1;
-        var soundAsset = (T)Activator.CreateInstance(typeof(T), package.URI, needVariant, ChunkPath, twinSound.GetID(), twinSound.GetName(), twinSound)!;
+        var soundAsset = (T)Activator.CreateInstance(typeof(T), package.URI, needVariant, ChunkPath, twinSound.GetID(), RetailNames.Of(DefaultHashes.Sounds, twinSound.GetID(), twinSound.GetName()), twinSound)!;
         soundAsset.RegenerateLinks();
         var meta = new MetaAsset(soundAsset.URI, soundAsset);
         Assets.Add(meta);

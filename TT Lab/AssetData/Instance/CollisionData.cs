@@ -46,8 +46,25 @@ public class CollisionData : AbstractAssetData
     public List<CollisionTriangle> Triangles { get; set; } = new();
     public List<Vector4> Vertexes { get; set; }
 
+    private CollisionGeometry? _geometry;
+
+    /// <summary>
+    /// The vertexes and triangles as they are now. Setting it replaces them, edits set a new one so the history keeps the old
+    /// </summary>
+    public CollisionGeometry Geometry
+    {
+        get => _geometry ??= CollisionGeometry.Of(Vertexes, Triangles);
+        set
+        {
+            Vertexes = value.Vertexes.Select(v => new Vector4(v.X, v.Y, v.Z, v.W)).ToList();
+            Triangles = value.Triangles.Select(t => new CollisionTriangle { Face = new IndexedFace(t.A, t.B, t.C), Surface = t.Surface }).ToList();
+            _geometry = value;
+        }
+    }
+
     protected override void Dispose(Boolean disposing)
     {
+        _geometry = null;
         Nodes.Clear();
         Groups.Clear();
         Triangles.Clear();
@@ -134,6 +151,7 @@ public class CollisionData : AbstractAssetData
     /// </summary>
     public void ReadTlmNodes(TlmFile file, IEnumerable<TlmTreeNode> nodes)
     {
+        _geometry = null;
         Vertexes.Clear();
         Triangles.Clear();
         var assetManager = AssetManager.Get();
@@ -271,6 +289,7 @@ public class CollisionData : AbstractAssetData
 
     public override void Import(LabURI package, String? variant, Int32? layoutId)
     {
+        _geometry = null;
         var collision = GetTwinItem<ITwinCollision>();
         foreach (var node in collision.Nodes)
         {

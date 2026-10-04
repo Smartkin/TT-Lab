@@ -183,9 +183,10 @@ namespace TT_Lab.Assets.Factory
                     Material = part.Material
                 };
                 var compression = GetFittingCompression(part.Compression, part.Vertexes) ?? sharedCompression;
+                // The game draws every model of a sub blend with the first one's shape factors (FUN_001c1ac0), every retail sub blend's models have the same
+                var blendShape = GetFittingBlendShape(part.Layout.Batches, part.ShapeOffsets, blendsAmount);
                 foreach (var batch in part.Layout.Batches)
                 {
-                    var blendShape = GetFittingBlendShape(batch, part.ShapeOffsets, blendsAmount);
                     var model = new PS2BlendSkinModel(blendsAmount)
                     {
                         Vertexes = [],
@@ -221,13 +222,13 @@ namespace TT_Lab.Assets.Factory
             return blendSkin;
         }
 
-        // The stored scale while the batch's offsets still fit into signed bytes with it, the smallest scale fitting them otherwise
-        private static Vector3 GetFittingBlendShape(MeshProcessor.StripBatch batch, List<List<Vector4>> shapeOffsets, Int32 blendsAmount)
+        // The stored scale while the batches' offsets still fit into signed bytes with it, the smallest scale fitting them otherwise
+        private static Vector3 GetFittingBlendShape(IReadOnlyList<MeshProcessor.StripBatch> batches, List<List<Vector4>> shapeOffsets, Int32 blendsAmount)
         {
             var maximum = new Single[3];
             foreach (var offsets in shapeOffsets.Take(blendsAmount))
             {
-                foreach (var vertex in batch.Vertexes)
+                foreach (var vertex in batches.SelectMany(batch => batch.Vertexes))
                 {
                     var offset = offsets[vertex.Index];
                     maximum[0] = Math.Max(maximum[0], Math.Abs(offset.X));
@@ -236,7 +237,7 @@ namespace TT_Lab.Assets.Factory
                 }
             }
 
-            var stored = batch.BlendShape;
+            var stored = batches.FirstOrDefault()?.BlendShape;
             var result = new Single[3];
             for (var axis = 0; axis < 3; axis++)
             {
@@ -552,6 +553,7 @@ namespace TT_Lab.Assets.Factory
 
             ogi.SkinID = reader.ReadUInt32();
             ogi.BlendSkinID = reader.ReadUInt32();
+            ogi.JointIdCount = reader.ReadByte();
 
             return ogi;
         }

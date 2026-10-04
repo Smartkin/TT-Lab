@@ -29,6 +29,8 @@ public partial class DocumentCollectionViewModel : DocumentCompositeViewModel
     public const string IsCollectionEditable = "DOCUMENT_COLLECTION_IS_EDITABLE";
     // The most elements the game takes, like a material's 4 shaders
     public const string MaxCount = "DOCUMENT_COLLECTION_MAX_COUNT";
+    // The editor desc of the elements, when they need another editor than their type's (a spline's samples)
+    public const string ElementEditor = "DOCUMENT_COLLECTION_ELEMENT_EDITOR";
     
     public DocumentCollectionViewModel(DocumentViewModel document, PropertyNode node, params DocumentNodeViewModel[] dependencies) : base(document, node, dependencies)
     {

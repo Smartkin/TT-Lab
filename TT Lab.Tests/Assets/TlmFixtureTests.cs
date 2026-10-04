@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Text.Json.Nodes;
+using GlmSharp;
 using TT_Lab.AssetData.Code;
 using TT_Lab.AssetData.Global;
 using TT_Lab.AssetData.Graphics;
@@ -29,6 +30,8 @@ public sealed class TlmFixtureTests : IDisposable
     private const string BlenderRetargetedName = "ogi_retargeted_in_blender.tlm";
     private const string SceneryFixtureName = "scenery.tlm";
     private const string SceneryBlenderExportName = "scenery_from_blender.tlm";
+    private const string SceneryCollisionName = "scenery_collision_from_blender.tlm";
+    private const string SceneryAddedName = "scenery_added_in_blender.tlm";
     private const string OgiTemplateName = "ogi_template.tlm";
     private const string SceneryTemplateName = "scenery_template.tlm";
     private const string SaveIconFixtureName = "save_icon.tlm";
@@ -154,6 +157,48 @@ public sealed class TlmFixtureTests : IDisposable
         Assert.Equal(before, _assets.Export(scenery));
     }
 
+    // blender_roundtrip.py --add put a mesh made in Blender into the scenery's Meshes and an empty with two meshes into its LODs: they're a
+    // placed mesh and a LOD of two levels where Blender put them, after the scenery's own
+    [Fact]
+    public void MeshesAndLodsMadeInBlendersGroupsArePlaced()
+    {
+        var scenery = _assets.AddScenery();
+        var before = ((IAsset)scenery).GetData<SceneryData>().Placements.Count;
+        var expected = Expectations(SceneryAddedName);
+        var read = new SceneryData(scenery);
+        read.ReadTlm(TlmFile.Load(FixturePath(SceneryAddedName)));
+        scenery.SetData(read);
+
+        Assert.Equal(expected["Meshes"]!.GetValue<int>() + expected["Lods"]!.GetValue<int>(), read.Placements.Count);
+        Assert.Equal(before + 2, read.Placements.Count);
+        var added = read.Placements.Skip(before).ToList();
+        var mesh = Assert.Single(added, placement => !placement.IsLod);
+        var lod = Assert.Single(added, placement => placement.IsLod);
+        Assert.Equal(Vector(expected, "AddedMesh"), mesh.Matrix.ToSystem().Translation);
+        Assert.Equal(Vector(expected, "AddedLod"), lod.Matrix.ToSystem().Translation);
+        Assert.Equal(expected["AddedLevels"]!.GetValue<int>(), _assets.Get(lod.Model).GetData<LodModelData>().Meshes.Count);
+        Assert.NotEmpty(_assets.Export(scenery));
+    }
+
+    // blender_roundtrip.py --collision made the scenery's collision anew out of its meshes with the Generate Collision button: the
+    // triangles and vertexes Blender made, all on one surface, with nothing of the game's order the build makes a tree for again
+    [Fact]
+    public void CollisionGeneratedInBlenderIsTheScenerysCollision()
+    {
+        var scenery = _assets.AddScenery();
+        var expected = Expectations(SceneryCollisionName);
+        var read = new SceneryData(scenery);
+        read.ReadTlm(TlmFile.Load(FixturePath(SceneryCollisionName)));
+        scenery.SetData(read);
+
+        var collision = _assets.Get(read.Collision);
+        var data = collision.GetData<CollisionData>();
+        Assert.Equal(expected.GetInt("Triangles"), data.Triangles.Count);
+        Assert.Equal(expected.GetInt("Vertexes"), data.Vertexes.Count);
+        Assert.Equal(expected.GetString("Surface"), _assets.Get(Assert.Single(data.Triangles.Select(triangle => triangle.Surface).Distinct())).Alias);
+        Assert.NotEmpty(_assets.Export(collision));
+    }
+
     private static void CheckFixture(string name, byte[] written)
     {
         var path = FixturePath(name);
@@ -257,8 +302,8 @@ public sealed class TlmFixtureTests : IDisposable
     }
 
     // What a modder does to a model in Blender: the skin's object put elsewhere under the root, the shape's weights left unnormalized,
-    // a shape key added, a body and an exit point following bones through constraints and a body parented to a bone, all exported
-    // while an animation is posed (see blender_roundtrip.py --customize)
+    // a shape key added, a body and an exit point following bones through constraints, a body parented to a bone, a bone added and an
+    // animation made longer, all exported while an animation is posed (see blender_roundtrip.py --customize)
     [Fact]
     public void CustomizationsMadeInBlenderComeThrough()
     {
@@ -270,7 +315,7 @@ public sealed class TlmFixtureTests : IDisposable
         var weightsBefore = blendSkinBefore.Blends.Select(blend => blend.Vertexes.Select(vertex => TestGeometry.Serialize(vertex.JointInfo)).ToList()).ToList();
         var bodyBefore = _assets.Export(_assets.Get(data.RigidModelIds[0]));
         var walkBefore = data.Animations[0];
-        var waveBefore = TlmAnimations.GetExactBytes(data.Animations[1]);
+        var waveBefore = data.Animations[1];
         var hullBefore = data.CollisionHulls[0];
 
         var read = new OGIData(_ogi);
@@ -301,6 +346,9 @@ public sealed class TlmFixtureTests : IDisposable
             }
         }
 
+        // The moved skin went past the model's box, which the add-on wrote around the meshes
+        AssertHolds(read.BoundingBox, skin.SubSkins.SelectMany(subSkin => subSkin.Vertexes));
+
         // Halved weights are the same shares, the game's stay. The new shape moves the first vertex of the shape's mesh
         var blendSkin = _assets.Get(read.BlendSkin).GetData<BlendSkinData>();
         Assert.Equal(3, blendSkin.BlendsAmount);
@@ -320,29 +368,73 @@ public sealed class TlmFixtureTests : IDisposable
         var badge = Positions(_assets, read.RigidModelIds[2]);
         AssertClose(Vector(expectations, "badge_offset"), badge.Aggregate(Vector3.Add) / badge.Count);
 
-        Assert.Equal([7U, 9U], read.ExitPoints.Select(exitPoint => exitPoint.ID));
+        // The new exit point's ID 9 became its place
+        Assert.Equal([0U, 1U], read.ExitPoints.Select(exitPoint => exitPoint.ID));
         Assert.Equal(1U, read.ExitPoints[1].ParentJointIndex);
         var hand = read.ExitPoints[1].Matrix.ToSystem();
         AssertClose(Vector(expectations, "hand_offset"), hand.Translation);
         Assert.True(TlmNodes.IsIdentity(hand with { M41 = 0, M42 = 0, M43 = 0 }, 1e-5f));
 
-        // The facial animation got the new shape, the bones' keys are the game's and so is the animation without a face
+        // Every joint reads its settings from the animation playing, the animations got the added bone's. The facial animation got the
+        // new shape, and Walk two frames more of its last pose and weights: the game reads the face at the main animation's frame
+        Assert.Equal(expectations.GetInt("joints"), read.Joints.Count);
+        Assert.Equal((3, 2), (read.Joints[3].Index, read.Joints[3].ParentIndex));
+        Assert.All(read.Animations, animation => Assert.Equal(read.Joints.Count, animation.MainAnimation.JointSettings.Count));
         var walk = read.Animations[0];
+        Assert.Equal(expectations.GetInt("walk_frames"), walk.TotalFrames);
+        Assert.Equal(walk.TotalFrames, walk.FacialAnimation.TotalFrames);
         Assert.Equal(3, walk.FacialAnimation.JointSettings[0].FacialShapesAmount);
         for (var joint = 0; joint < walkBefore.MainAnimation.JointSettings.Count; joint++)
         {
-            for (var frame = 0; frame < walkBefore.TotalFrames; frame++)
+            for (var frame = 0; frame < walk.TotalFrames; frame++)
             {
-                Assert.Equal(TlmAnimations.GetRawValues(walkBefore, joint, frame), TlmAnimations.GetRawValues(walk, joint, frame));
+                Assert.Equal(TlmAnimations.GetRawValues(walkBefore, joint, Math.Min(frame, walkBefore.TotalFrames - 1)), TlmAnimations.GetRawValues(walk, joint, frame));
             }
         }
 
-        for (var frame = 0; frame < walkBefore.TotalFrames; frame++)
+        for (var frame = 0; frame < walk.TotalFrames; frame++)
         {
-            Assert.Equal(TlmAnimations.GetFacialRawValues(walkBefore.FacialAnimation, frame).Append((short)0), TlmAnimations.GetFacialRawValues(walk.FacialAnimation, frame));
+            Assert.Equal(TlmAnimations.GetFacialRawValues(walkBefore.FacialAnimation, Math.Min(frame, walkBefore.TotalFrames - 1)).Append((short)0),
+                TlmAnimations.GetFacialRawValues(walk.FacialAnimation, frame));
         }
 
-        Assert.Equal(waveBefore, TlmAnimations.GetExactBytes(read.Animations[1]));
+        // The animation without a face keeps the game's values of the joints it had, with the bone it turns now in Euler angles
+        var wave = read.Animations[1];
+        for (var joint = 0; joint < waveBefore.MainAnimation.JointSettings.Count; joint++)
+        {
+            for (var frame = 0; frame < waveBefore.TotalFrames; frame++)
+            {
+                Assert.Equal(TlmAnimations.GetRawValues(waveBefore, joint, frame), TlmAnimations.GetRawValues(wave, joint, frame));
+            }
+        }
+
+        // An animation keyed in Blender from frame 1 at 60 frames a second has every other frame of the action's at 30, the bone in
+        // Euler angles turned by its keys
+        var nod = read.Animations[2];
+        var angles = expectations.GetFloats("nod_angles");
+        Assert.Equal((angles.Length, expectations.GetInt("nod_fps"), true), (nod.TotalFrames, nod.DefaultFPS, nod.ID >= 0x8000));
+        var rest = JointRotation(nod, 2, 0);
+        for (var frame = 0; frame < angles.Length; frame++)
+        {
+            var dot = Math.Min(1f, Math.Abs(glm.Dot(rest, JointRotation(nod, 2, frame))));
+            Assert.Equal(angles[frame], 2 * MathF.Acos(dot), 2);
+        }
+    }
+
+    // The game takes the OGI's box for its instances' collision without hulls, shadows and physics
+    private static void AssertHolds(Twinsanity.TwinsanityInterchange.Common.Vector4[] box, IEnumerable<TT_Lab.AssetData.Graphics.SubModels.Vertex> vertexes)
+    {
+        Assert.Equal((1f, 1f), (box[0].W, box[1].W));
+        Assert.All(vertexes, vertex => Assert.True(vertex.Position.X >= box[0].X - 1e-3f && vertex.Position.Y >= box[0].Y - 1e-3f && vertex.Position.Z >= box[0].Z - 1e-3f &&
+                                                   vertex.Position.X <= box[1].X + 1e-3f && vertex.Position.Y <= box[1].Y + 1e-3f && vertex.Position.Z <= box[1].Z + 1e-3f,
+            $"({vertex.Position.X}, {vertex.Position.Y}, {vertex.Position.Z}) is outside the box"));
+    }
+
+    // The game builds a joint's rotation from its angles in 4096ths of a turn
+    private static quat JointRotation(AnimationData animation, int joint, int frame)
+    {
+        var values = TlmAnimations.GetRawValues(animation, joint, frame);
+        return new quat(new vec3(values[3], values[4], values[5]) * (MathF.PI * 2 / 4096));
     }
 
     // The skin and the shape swapped for meshes made in Blender: a cube weighted to two bones without normalizing and a triangle
@@ -361,6 +453,8 @@ public sealed class TlmFixtureTests : IDisposable
 
         var skin = _assets.Get(read.Skin).GetData<SkinData>();
         var part = skin.SubSkins.Single();
+        // The cube went past the model's box, which the add-on wrote around the meshes
+        AssertHolds(read.BoundingBox, part.Vertexes);
         Assert.Equal(8, part.Vertexes.Count);
         Assert.Equal(12, part.Faces.Count);
         var weights = expectations.GetFloats("skin_weights");
@@ -453,9 +547,8 @@ public sealed class TlmFixtureTests : IDisposable
         read.ReadTlm(TlmFile.Load(FixturePath(OgiTemplateName)));
         _ogi.SetData(read);
 
-        var joint = Assert.Single(read.Joints);
-        // The game marks a root joint's parent with 0xFF
-        Assert.Equal((0, 0xFF), (joint.Index, joint.ParentIndex));
+        // The game marks a root joint's parent with 0xFF. One joint and no exit points and the game would draw no skin
+        Assert.Equal([(0, 0xFF), (1, 0)], read.Joints.Select(joint => (joint.Index, joint.ParentIndex)));
         Assert.NotEqual(LabURI.Empty, read.Skin);
         Assert.Equal(LabURI.Empty, read.BlendSkin);
         Assert.Empty(read.Animations);
@@ -468,7 +561,7 @@ public sealed class TlmFixtureTests : IDisposable
         Assert.NotEmpty(_assets.Export(_ogi));
     }
 
-    // The add-on's scenery template is a scenery: a tree of one node with the ground in it, an ambient and a directional light, the
+    // The add-on's scenery template is a scenery: the ground placed in it, an ambient and a directional light, the
     // ground as the collision on the surface its material is named after, and an empty dynamic scenery
     [Fact]
     public void SceneryTemplateMadeInBlenderIsAScenery()
@@ -480,9 +573,7 @@ public sealed class TlmFixtureTests : IDisposable
         read.ReadTlm(TlmFile.Load(FixturePath(SceneryTemplateName)));
         scenery.SetData(read);
 
-        var tree = Assert.Single(read.Sceneries);
-        Assert.Single(tree.MeshIDs);
-        Assert.Empty(tree.LodIDs);
+        Assert.False(Assert.Single(read.Placements).IsLod);
         Assert.True(read.HasLighting);
         // The lights new chunks get, a third grey at 4.5 and 3
         var ambient = Assert.Single(read.AmbientLights);

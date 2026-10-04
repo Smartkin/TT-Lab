@@ -10,11 +10,13 @@ using Avalonia.Data;
 using Avalonia.Threading;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Splat;
 using TT_Lab.AssetData;
 using TT_Lab.Assets;
 using TT_Lab.Command;
 using TT_Lab.Controls;
 using TT_Lab.Project.Messages;
+using TT_Lab.Project.Migration;
 using TT_Lab.Rendering;
 using TT_Lab.Util;
 using TT_Lab.ViewModels;
@@ -267,6 +269,17 @@ namespace TT_Lab.Project
                     asset.PostDeserialize();
                 }
 
+                Log.WriteLine("Making prefabs of the chunks' object instances...");
+                var prefabsStart = DateTime.Now;
+                var project = (Project)OpenedProject;
+                var library = new Prefabs.PrefabLibrary(project);
+                var (prefabs, _) = Prefabs.InstancePrefabs.Make(project, library);
+                Log.WriteLine($"Made {prefabs} prefabs of the different object instances in {DateTime.Now - prefabsStart}");
+                Log.WriteLine("Making prefabs of the sceneries' meshes and LODs...");
+                prefabsStart = DateTime.Now;
+                var (sceneryPrefabs, _) = Prefabs.SceneryPrefabs.Make(project, library);
+                Log.WriteLine($"Made {sceneryPrefabs} prefabs of the different scenery meshes and LODs in {DateTime.Now - prefabsStart}");
+
                 Log.WriteLine("Building project tree...");
                 BuildProjectTree();
 
@@ -281,6 +294,7 @@ namespace TT_Lab.Project
                 _eventAggregator.PublishOnUIThreadAsync(new ProjectManagerMessage(nameof(ProjectTitle)));
                 MiscUtils.CollectReleasedMemory();
                 Log.WriteLine($"Project created in {DateTime.Now - projCreateStart}");
+                TakePrefabPictures();
 #if !DEBUG
                 }
                 catch (Exception ex)
@@ -336,6 +350,11 @@ namespace TT_Lab.Project
                         Log.WriteLine($"Opening project {Path.GetFileName(prFile)}...");
                         var stopwatch = new Stopwatch();
                         stopwatch.Start();
+                        if (!MigrateIfOlder(prFile))
+                        {
+                            return;
+                        }
+
                         Project.Deserialize(prFile);
                         Log.WriteLine($"Building project tree...");
                         BuildProjectTree();
@@ -345,18 +364,19 @@ namespace TT_Lab.Project
                         // _ogreWindowManager.AddResourceLocation(OpenedProject!.ProjectPath);
                         Log.WriteLine($"Project opened in {stopwatch.Elapsed}");
                         MiscUtils.CollectReleasedMemory();
+                        TakePrefabPictures();
                     }
                     // Nothing observes this task, so projects TT Lab can't open have to be reported here even in debug builds
                     catch (ProjectException ex)
                     {
                         ReportOpeningError(ex.Message);
                     }
-#if !DEBUG
                     catch (Exception ex)
                     {
-                        ReportOpeningError(ex.Message);
+                        Log.WriteLine(ex.ToString(), Log.LogType.Debug);
+                        // The assets are read in parallel, an unreadable file comes wrapped
+                        ReportOpeningError((ex is AggregateException aggregate ? aggregate.Flatten().InnerExceptions[0] : ex).Message);
                     }
-#endif
                 });
             }
 #if !DEBUG
@@ -368,6 +388,34 @@ namespace TT_Lab.Project
             }
 #endif
             AddRecentlyOpened(path);
+        }
+
+        /// <summary>
+        /// Asks whether a project an older TT Lab made gets migrated to open it, tests answer it themselves
+        /// </summary>
+        internal Func<string, Task<bool>> AskToMigrate { get; set; } = MigrationDialogue.Ask;
+
+        // A project of a version TT Lab can bring to its own is migrated once the user agrees, false when they don't. Versions it can't
+        // migrate are left to the project's reading, which says why it can't open them
+        private bool MigrateIfOlder(string projectFile)
+        {
+            var version = ProjectMigration.ReadVersion(projectFile);
+            if (version == Project.CURRENT_VERSION || !ProjectMigration.CanMigrate(version))
+            {
+                return true;
+            }
+
+            var name = Path.GetFileNameWithoutExtension(projectFile);
+            var question = $"{name} was made with TT Lab {version}. Migrate it to TT Lab {Project.CURRENT_VERSION} to open it?\n\n" +
+                           $"Every file the migration changes is kept as it was in a backup in the project's folder. TT Lab {version} can't open the project once it's migrated.";
+            if (!Dispatcher.UIThread.InvokeAsync(() => AskToMigrate(question)).GetAwaiter().GetResult())
+            {
+                Log.WriteLine($"Didn't open {name}, it's of TT Lab {version} and wasn't migrated", Log.LogType.Warning);
+                return false;
+            }
+
+            ProjectMigration.Migrate(projectFile);
+            return true;
         }
 
         private static void ReportOpeningError(string message)
@@ -449,10 +497,21 @@ namespace TT_Lab.Project
             return lines;
         }
 
+        // The prefabs saved without a picture (the ones made of the instances) get theirs in the background
+        private void TakePrefabPictures()
+        {
+            if (OpenedProject is Project project)
+            {
+                Locator.Current.GetService<Prefabs.PrefabPictures>()?.TakeMissing(project);
+            }
+        }
+
         public void CloseProject()
         {
+            Locator.Current.GetService<Prefabs.PrefabPictures>()?.Stop();
             StopTreeWatcher();
             AssetFileStamps.Clear();
+            AssetData.Instance.Particle.ParticleSystemNames.Clear();
             _treeRoot = null;
             OpenedProject = null;
             WorkableProject = false;

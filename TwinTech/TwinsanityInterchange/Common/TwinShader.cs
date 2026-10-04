@@ -89,7 +89,8 @@ namespace Twinsanity.TwinsanityInterchange.Common
             int blobLen = (Animation != null) ? Animation.GetLength() : 0;
             int paramLen = (ShaderType == Type.UnlitClothDeformation) ? 12 :
                             (ShaderType == Type.UnlitClothDeformation2) ? 20 :
-                            (ShaderType == Type.LitReflectionSurface || ShaderType == Type.SHADER_17) ? 4 :
+                            (ShaderType == Type.LitReflectionSurface || ShaderType == Type.SHADER_17 || ShaderType == Type.ScreenCopy) ? 4 :
+                            (ShaderType == Type.WaveDeformation) ? 8 :
                             0;
             return 4 + paramLen + 30 + 4 + Constants.SIZE_VECTOR4 * 3 + 8 + blobLen;
         }
@@ -113,7 +114,12 @@ namespace Twinsanity.TwinsanityInterchange.Common
                     break;
                 case Type.LitReflectionSurface:
                 case Type.SHADER_17:
+                case Type.ScreenCopy:
                     FloatParam[0] = reader.ReadSingle();
+                    break;
+                case Type.WaveDeformation:
+                    FloatParam[0] = reader.ReadSingle();
+                    FloatParam[1] = reader.ReadSingle();
                     break;
                 default:
                     break;
@@ -186,7 +192,12 @@ namespace Twinsanity.TwinsanityInterchange.Common
                     break;
                 case Type.LitReflectionSurface:
                 case Type.SHADER_17:
+                case Type.ScreenCopy:
                     writer.Write(FloatParam[0]);
+                    break;
+                case Type.WaveDeformation:
+                    writer.Write(FloatParam[0]);
+                    writer.Write(FloatParam[1]);
                     break;
                 default:
                     break;
@@ -251,9 +262,19 @@ namespace Twinsanity.TwinsanityInterchange.Common
             UnlitGlossy = 21,
             UnlitEnvironmentMap = 22,
             UnlitClothDeformation = 23,
+            /// <summary>
+            /// Copies the screen before drawing (ShaderType18Read, the Distortion particles' shader), <see cref="FloatParam"/>[0] the
+            /// corner value its VU1 program gets, like types 16 and 17. No retail material has it
+            /// </summary>
+            ScreenCopy = 24,
             SHADER_25 = 25,
             UnlitClothDeformation2 = 26,
             UnlitBillboard = 27,
+            /// <summary>
+            /// Moves its vertexes by waves like the cloth deformations (ShaderType1CRead, the decomp's WaveShader):
+            /// <see cref="FloatParam"/>[0] their speed, [1] their amplitude. No retail material has it
+            /// </summary>
+            WaveDeformation = 28,
             SHADER_30 = 30,
             SHADER_31 = 31,
             SHADER_32 = 32,
@@ -385,8 +406,9 @@ namespace Twinsanity.TwinsanityInterchange.Common
         }
 
         /// <summary>
-        /// How the U coordinate moves (FUN_001cd208): 1 takes the shader animation's X track, 2 scrolls by <see cref="UvScrollSpeed"/>.X
-        /// every UvScrollSpeed.Z frames, 3 and 4 sway it
+        /// How the U coordinate moves (UpdateShader, FUN_001cd208): 1 takes the shader animation's U track, 2 scrolls it at
+        /// <see cref="UvScrollSpeed"/>.Z turns a second from the phase UvScrollSpeed.X, wrapped from 0 to 1, 3 sways it by the sine
+        /// of that phase and 4 by its cosine, which the game puts into V's offset instead of U's
         /// </summary>
         public enum XScrollFormula
         {
@@ -397,6 +419,10 @@ namespace Twinsanity.TwinsanityInterchange.Common
             LinearPlus_2 = 0x4,
         }
 
+        /// <summary>
+        /// How the V coordinate moves, like <see cref="XScrollFormula"/> with the animation's V track, <see cref="UvScrollSpeed"/>.W
+        /// turns a second and the phase UvScrollSpeed.Y
+        /// </summary>
         public enum YScrollFormula
         {
             Disabled = 0,

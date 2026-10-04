@@ -32,7 +32,10 @@ public class TriggerData : AbstractAssetData
     {
     }
 
-    // What the game's triggers have: kind 50 (0 makes a plain box the sound code tests the player against) and checks every 0.3 seconds
+    // A trigger's and a camera's node keep 35 (TriggerNode::AddInstance doesn't check, more overwrite the node)
+    public const int MaxInstances = 35;
+
+    // What the game's triggers have: kind 50 (0 makes a box of the chunk's second reverb) and checks every 0.3 seconds
     private const UInt32 NewHeader = 0x32;
     private const Single NewCheckInterval = 0.3f;
 
@@ -75,26 +78,31 @@ public class TriggerData : AbstractAssetData
     }
 
     [JsonProperty(Required = Required.Always)]
-    [Editable]
+    [Editable(Hint = "What sets the trigger off, a bit per type of object. Triggers of the playable character's bit alone (only the player then) or of none (any playable character) are checked by the characters themselves every frame unless they send a message on leaving, the others check their box every check interval for instances of those types")]
+    [EditorCaptionIn("Camera", hint: "A camera needs the playable character's bit, which every camera of the game's levels has alone: the characters offer the cameras they're in to the camera controller every frame. Without it the camera checks its box for nothing")]
+    [EditorLinkedField(typeof(NotASoundBox), nameof(Kind))]
     public TriggerActivatorObjects ObjectActivatorMask { get; set; }
     
     [JsonProperty(Required = Required.Always)]
-    [Editable]
+    [Editable(Hint = "Where the middle of the box is")]
     public Vector3 Position { get; set; }
     
     [JsonProperty(Required = Required.Always)]
-    [Editable]
+    [Editable(Hint = "The box's turns about X, Y and Z in degrees, which the game keeps as a quaternion")]
     public Vector3 Rotation { get; set; }
     
     [JsonProperty(Required = Required.Always)]
-    [Editable]
+    [Editable(Hint = "Half the box's size along each of its axes: it reaches from -scale to scale around its middle")]
     public Vector3 Scale { get; set; }
     
     [JsonProperty(Required = Required.Always)]
-    [Editable]
+    [Editable(Hint = "Object instances of the trigger's layout also told the messages the trigger sends, with what set it off as the event's argument. The game finds them by their index among the layout's object instances and keeps 35")]
+    [EditorCaptionIn("Camera", hint: "Object instances of the camera's layout: the follow camera frames them with Frames Instances, and each gets a camera event when something enters the box. The game finds them by their index among the layout's object instances and keeps 35")]
     [EditorParam(UriLinkViewModel.BrowseType, typeof(ObjectInstance))]
     [EditorParam(UriLinkViewModel.BrowseScope, UriLinkViewModel.Scope.Chunk)]
+    [EditorParam(DocumentCollectionViewModel.MaxCount, MaxInstances)]
     [OnReferenceDeleted(DeletedReferenceAction.Remove)]
+    [EditorLinkedField(typeof(NotASoundBox), nameof(Kind))]
     public List<LabURI> Instances { get; set; }
     
     [JsonProperty(Required = Required.Always)]
@@ -107,63 +115,76 @@ public class TriggerData : AbstractAssetData
     [EditorLinkedField(typeof(NotPolledHeaderController), nameof(NotPolled))]
     public UInt32 Header { get; set; }
 
-    [Editable(Hint = "The kind the game's tools gave the trigger, 50 on most. 0 makes it a plain box the sound code tests the player against instead of a trigger, nothing else of it is read")]
+    [Editable(Hint = "The kind the game's tools gave the trigger, 50 on most, nothing reads it but for 0: that makes the trigger a box of its chunk's second reverb instead (the sounds take the chunk's box reverb, which scripts set with SetSound, while the listener is in one of them; 7 a chunk), which only takes the trigger's position, rotation and scale")]
+    [EditorCaptionIn("Camera", "Priority", "Of the cameras the playable character is in, the camera controller takes the one of the highest priority, the one in use on a tie (0 on most of the game's cameras, up to 80)")]
     [EditorLinkedField(typeof(HeaderKindController), nameof(Header))]
     public Byte Kind { get; set; }
 
-    [Editable(Caption = "Not polled", Hint = "The trigger never checks its box, no trigger of the game's levels has it")]
+    [Editable(Caption = "Not polled", Hint = "The trigger never checks its box itself, only the playable characters' own check sets it off (the player alone unless nothing activates it). No trigger of the game's levels has it")]
     [EditorLinkedField(typeof(HeaderNotPolledController), nameof(Header))]
+    [EditorLinkedField(typeof(NotASoundBox), nameof(Kind))]
     public Boolean NotPolled { get; set; }
     
     [JsonProperty(Required = Required.Always)]
-    [Editable(Caption = "Check interval", Hint = "Seconds between two checks of what's inside the box, 0.3 on nearly every trigger of the game's levels")]
+    [Editable(Caption = "Check interval", Hint = "Seconds between two checks of what's inside the box, 0.3 on nearly every trigger of the game's levels. The triggers the characters check themselves don't use it")]
+    [EditorCaptionIn("Camera", hint: "Seconds between two checks of the box, which send what enters it and the camera's instances a camera event (0, every frame, on most cameras of the game's levels). The characters offer the cameras they're in to the camera controller themselves, whatever it says")]
+    [EditorLinkedField(typeof(NotASoundBox), nameof(Kind))]
     public Single CheckInterval { get; set; }
     
     [JsonProperty(Required = Required.Always)]
     [Editable(Hint = "The instance list's growth step from the tools, 10 everywhere and never read")]
+    [EditorHidden]
     public UInt32 InstancesGrowth { get; set; }
     
-    [Editable(Caption = "On Enter Once Enabled")]
+    [Editable(Caption = "On Enter Once Enabled", Hint = "Header bit 11: the first message is sent to what enters the box until anything has been inside it")]
     [EditorLinkedField(typeof(HeaderTrigger1Controller), nameof(Header))]
+    [EditorLinkedField(typeof(NotASoundBox), nameof(Kind))]
     [EditorHiddenIn("Camera")]
     public Boolean TriggerArgument1Enabled { get; set; }
     
     [JsonProperty(Required = Required.Always)]
     [Editable(Caption = "On Enter Once")]
-    [EditorLinkedField(typeof(TriggerArgumentEnabler), nameof(TriggerArgument1Enabled))]
+    [EditorLinkedField(typeof(Message1Read), nameof(TriggerArgument1Enabled))]
+    [EditorLinkedField(typeof(Message1Read), nameof(Kind))]
     [EditorHiddenIn("Camera")]
     public UInt16 TriggerMessage1 { get; set; }
     
-    [Editable(Caption = "On Enter Enabled")]
+    [Editable(Caption = "On Enter Enabled", Hint = "Header bit 8: the second message is sent to what enters the box when the first isn't")]
     [EditorLinkedField(typeof(HeaderTrigger2Controller), nameof(Header))]
+    [EditorLinkedField(typeof(NotASoundBox), nameof(Kind))]
     [EditorHiddenIn("Camera")]
     public Boolean TriggerArgument2Enabled { get; set; }
     
     [JsonProperty(Required = Required.Always)]
     [Editable(Caption = "On Enter")]
-    [EditorLinkedField(typeof(TriggerArgumentEnabler), nameof(TriggerArgument2Enabled))]
+    [EditorLinkedField(typeof(Message2Read), nameof(TriggerArgument2Enabled))]
+    [EditorLinkedField(typeof(Message2Read), nameof(Kind))]
     [EditorHiddenIn("Camera")]
     public UInt16 TriggerMessage2 { get; set; }
     
-    [Editable(Caption = "On Stay Enabled")]
+    [Editable(Caption = "On Stay Enabled", Hint = "Header bit 9: the third message is sent to what stays in the box at every check, and to what enters it when neither of the first two is")]
     [EditorLinkedField(typeof(HeaderTrigger3Controller), nameof(Header))]
+    [EditorLinkedField(typeof(NotASoundBox), nameof(Kind))]
     [EditorHiddenIn("Camera")]
     public Boolean TriggerArgument3Enabled { get; set; }
     
     [JsonProperty(Required = Required.Always)]
     [Editable(Caption = "On Stay")]
-    [EditorLinkedField(typeof(TriggerArgumentEnabler), nameof(TriggerArgument3Enabled))]
+    [EditorLinkedField(typeof(Message3Read), nameof(TriggerArgument3Enabled))]
+    [EditorLinkedField(typeof(Message3Read), nameof(Kind))]
     [EditorHiddenIn("Camera")]
     public UInt16 TriggerMessage3 { get; set; }
     
-    [Editable(Caption = "On Exit Enabled")]
+    [Editable(Caption = "On Exit Enabled", Hint = "Header bit 10: the fourth message is sent to what leaves the box")]
     [EditorLinkedField(typeof(HeaderTrigger4Controller), nameof(Header))]
+    [EditorLinkedField(typeof(NotASoundBox), nameof(Kind))]
     [EditorHiddenIn("Camera")]
     public Boolean TriggerArgument4Enabled { get; set; }
     
     [JsonProperty(Required = Required.Always)]
     [Editable(Caption = "On Exit")]
-    [EditorLinkedField(typeof(TriggerArgumentEnabler), nameof(TriggerArgument4Enabled))]
+    [EditorLinkedField(typeof(Message4Read), nameof(TriggerArgument4Enabled))]
+    [EditorLinkedField(typeof(Message4Read), nameof(Kind))]
     [EditorHiddenIn("Camera")]
     public UInt16 TriggerMessage4 { get; set; }
     
@@ -241,9 +262,12 @@ public class TriggerData : AbstractAssetData
             Scale = new Vector4(Scale.X, Scale.Y, Scale.Z, 1.0f),
             InstancesGrowth = InstancesGrowth
         };
-        foreach (var instance in Instances)
+        CheckCount("instances", Instances.Count, MaxInstances);
+        var indexes = LayoutIndexes.Current;
+        foreach (var uri in Instances)
         {
-            trigger.Instances.Add((UInt16)assetManager.GetAsset(instance).ExportTwinID);
+            var instance = assetManager.GetAsset(uri);
+            trigger.Instances.Add((UInt16)(indexes?.InstanceReference(Owner.LayoutID ?? 0, instance) ?? instance.ExportTwinID));
         }
         trigger.Write(writer);
         writer.Write(TriggerMessage1);
@@ -316,14 +340,34 @@ public class TriggerData : AbstractAssetData
         }
     }
 
-    private class TriggerArgumentEnabler : IFieldChange
+    // A trigger of kind 0 is a box of its chunk's second reverb, which only takes the trigger's position, rotation and scale
+    // (LayoutInstances::RegisterTrigger, SoundBox::Construct); a camera's kind is its priority
+    private class NotASoundBox : ReadWhen<TriggerData>
     {
-        public void DataChanged(PropertyNode listener, PropertyNode linkedViewModel)
-        {
-            listener.IsReadOnly = !linkedViewModel.GetValue<bool>();
-        }
+        protected override Boolean IsRead(TriggerData owner) => owner.Kind != 0;
 
-        public void Linked(PropertyNode listener, PropertyNode linkedViewModel) => DataChanged(listener, linkedViewModel);
+        protected override Boolean IsRead(TriggerData owner, PropertyNode node) => node.Parent?.Target is CameraData || IsRead(owner);
+    }
+
+    // A message is only sent with its bit
+    private sealed class Message1Read : NotASoundBox
+    {
+        protected override Boolean IsRead(TriggerData owner) => owner.Kind != 0 && owner.TriggerArgument1Enabled;
+    }
+
+    private sealed class Message2Read : NotASoundBox
+    {
+        protected override Boolean IsRead(TriggerData owner) => owner.Kind != 0 && owner.TriggerArgument2Enabled;
+    }
+
+    private sealed class Message3Read : NotASoundBox
+    {
+        protected override Boolean IsRead(TriggerData owner) => owner.Kind != 0 && owner.TriggerArgument3Enabled;
+    }
+
+    private sealed class Message4Read : NotASoundBox
+    {
+        protected override Boolean IsRead(TriggerData owner) => owner.Kind != 0 && owner.TriggerArgument4Enabled;
     }
 
     private class Trigger1HeaderController : IFieldChange

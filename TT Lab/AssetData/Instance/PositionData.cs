@@ -31,7 +31,7 @@ public class PositionData : AbstractAssetData
     }
 
     [JsonProperty(Required = Required.Always)]
-    [Editable]
+    [Editable(Hint = "Where the position is. Instances listing it get it as a key of their waypoints, which their scripts move them to, focus on and measure the distance to")]
     public Vector3 Coords { get; set; }
 
     protected override void Dispose(Boolean disposing)

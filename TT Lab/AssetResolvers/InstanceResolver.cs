@@ -41,6 +41,7 @@ public class InstanceResolver<TInstance, TTwinItem>(int layoutId, int sectionId)
 
     private TInstance CreateInstance(ITwinSection chunk, Package package, TTwinItem item)
     {
-        return (TInstance)Activator.CreateInstance(typeof(TInstance), package.URI, item.GetID(), item.GetName(), ChunkPath, layoutId, item)!;
+        var name = typeof(TInstance) == typeof(InstanceTemplate) ? RetailNames.Of(DefaultHashes.InstanceTemplates, item.GetID(), item.GetName()) : item.GetName();
+        return (TInstance)Activator.CreateInstance(typeof(TInstance), package.URI, item.GetID(), name, ChunkPath, layoutId, item)!;
     }
 }

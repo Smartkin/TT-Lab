@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Reactive.Disposables;
 using Avalonia.Interactivity;
@@ -30,8 +31,11 @@ public partial class PsmEditorView : DocumentBaseView<PsmEditorViewModel>
             return;
         }
 
-        using var stream = new FileStream(file, FileMode.Open, FileAccess.Read);
-        ViewModel?.ReplacePicture(stream);
+        WithFile(file, () =>
+        {
+            using var stream = new FileStream(file, FileMode.Open, FileAccess.Read);
+            ViewModel?.ReplacePicture(stream);
+        });
     }
 
     private async void ReplacePartClicked(object? sender, RoutedEventArgs e)
@@ -42,8 +46,11 @@ public partial class PsmEditorView : DocumentBaseView<PsmEditorViewModel>
             return;
         }
 
-        using var stream = new FileStream(file, FileMode.Open, FileAccess.Read);
-        ViewModel?.ReplacePart(stream);
+        WithFile(file, () =>
+        {
+            using var stream = new FileStream(file, FileMode.Open, FileAccess.Read);
+            ViewModel?.ReplacePart(stream);
+        });
     }
 
     private async void SavePictureClicked(object? sender, RoutedEventArgs e)
@@ -56,7 +63,8 @@ public partial class PsmEditorView : DocumentBaseView<PsmEditorViewModel>
         var file = await MiscUtils.GetSaveFileFromDialogueAsync("Save the picture", "PNG image", ["*.png"], $"{ViewModel.Name}.png", "png");
         if (!string.IsNullOrEmpty(file))
         {
-            await File.WriteAllBytesAsync(file, ViewModel.GetPicturePng());
+            var png = ViewModel.GetPicturePng();
+            WithFile(file, () => File.WriteAllBytes(file, png));
         }
     }
 
@@ -70,7 +78,20 @@ public partial class PsmEditorView : DocumentBaseView<PsmEditorViewModel>
         var file = await MiscUtils.GetSaveFileFromDialogueAsync("Save the part", "PNG image", ["*.png"], $"{part.Name}.png", "png");
         if (!string.IsNullOrEmpty(file) && ViewModel.GetPartPng() is { } png)
         {
-            await File.WriteAllBytesAsync(file, png);
+            WithFile(file, () => File.WriteAllBytes(file, png));
+        }
+    }
+
+    // The file picked can be gone, locked or read-only by the time it's opened
+    private static void WithFile(string file, Action action)
+    {
+        try
+        {
+            action();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Log.WriteLine($"Couldn't use {file}: {ex.Message}", Log.LogType.Error);
         }
     }
 }

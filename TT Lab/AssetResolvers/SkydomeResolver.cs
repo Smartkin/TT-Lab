@@ -39,7 +39,7 @@ public class SkydomeResolver : AssetResolver<ITwinSkydome>
             meshResolver.CreateAssetFromId(chunk, meshSection, package, itemMesh);
         }
 
-        return new Skydome(package.URI, needVariant, variant, item.GetID(), item.GetName(), item);
+        return new Skydome(package.URI, needVariant, variant, item.GetID(), RetailNames.Of(DefaultHashes.Skydomes, item.GetID(), item.GetName()), item);
     }
 
     protected override String GetTwinItemHash(ITwinSkydome item)

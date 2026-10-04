@@ -58,6 +58,7 @@ public sealed class ListVirtualizationTests : IDisposable
         {
             ParticleSystems = Enumerable.Range(0, 255).Select(i => new ParticleSystem { Name = $"System{i}" }).ToList(),
             ParticleInstances = [],
+            TextureIDs = [LabURI.Empty, LabURI.Empty, LabURI.Empty],
         });
         chunk.ChunkResources.Add(defaults.URI);
         var document = new DocumentViewModel(chunk);
@@ -71,11 +72,11 @@ public sealed class ListVirtualizationTests : IDisposable
         var systems = PanelOf(window, asset.Find($"AssetData.{nameof(ParticleData.ParticleSystems)}")!);
         Assert.IsType<StackPanel>(systems);
         Assert.Equal(255, systems!.Children.Count);
-        // The decal markers are 16 plain numbers, rows of one size
-        var markers = asset.Find($"AssetData.{nameof(DefaultParticleData.DecalTypeMarkers)}")!;
-        window.GetVisualDescendants().OfType<DocumentCompositeView>().Single(view => view.ViewModel?.Property == markers).ViewModel!.IsExpanded = true;
+        // The texture pages are links, plain fields, rows of one size
+        var pages = asset.Find($"AssetData.{nameof(DefaultParticleData.TextureIDs)}")!;
+        window.GetVisualDescendants().OfType<DocumentCompositeView>().Single(view => view.ViewModel?.Property == pages).ViewModel!.IsExpanded = true;
         Pump();
-        Assert.IsType<VirtualizingStackPanel>(PanelOf(window, markers));
+        Assert.IsType<VirtualizingStackPanel>(PanelOf(window, pages));
     }
 
     [AvaloniaFact]

@@ -437,16 +437,209 @@ class RetargetTests(unittest.TestCase):
     def test_a_joint_index_a_bone_already_has_wins_over_names_and_order(self):
         incoming = [("Joint 1", None, 2), ("Neck", "Joint 1", None)]
 
-        matches = self.retarget.match_joints(self.original, incoming)
+        matches = self.retarget.match_joints(self.original, incoming, self.retarget.MATCH_INDEX)
 
         self.assertEqual((2, "Joint 2", "index"), matches["Joint 1"])
         # The original's Joint 2 has no children, the neck is new
         self.assertEqual((4, None, "new"), matches["Neck"])
 
+    def test_indexes_another_rig_got_from_its_export_are_left_out(self):
+        # A rig exported from Blender has every bone numbered in its own order: its leg, named to be the original's Joint 3, is its joint 1
+        incoming = [("Hips", None, 0), ("Joint 3", "Hips", 1), ("Spine", "Hips", 2), ("Head", "Spine", 3)]
+
+        matches = self.retarget.match_joints(self.original, incoming)
+
+        self.assertFalse(self.retarget.keeps_skeleton(self.original, incoming))
+        self.assertEqual({"Hips": (0, "Joint 0", "order"), "Joint 3": (3, "Joint 3", "name"), "Spine": (1, "Joint 1", "order"), "Head": (2, "Joint 2", "order")}, matches)
+
+    def test_a_copy_of_the_skeleton_keeps_its_indexes(self):
+        # Bones renamed and one added, every joint the two share under the same parent
+        incoming = [("Root", None, 0), ("Body", "Root", 1), ("Head", "Body", 2), ("Leg", "Root", 3), ("Tail", "Root", 4)]
+
+        matches = self.retarget.match_joints(self.original, incoming)
+
+        self.assertTrue(self.retarget.keeps_skeleton(self.original, incoming))
+        self.assertEqual({"Root": (0, "Joint 0", "index"), "Body": (1, "Joint 1", "index"), "Head": (2, "Joint 2", "index"), "Leg": (3, "Joint 3", "index"),
+                          "Tail": (4, None, "new")}, matches)
+        # Names and the hierarchy alone, when asked
+        self.assertEqual("order", self.retarget.match_joints(self.original, incoming, self.retarget.MATCH_NAME)["Body"][2])
+
     def test_original_bones_without_indexes_count_by_position(self):
         matches = self.retarget.match_joints([("Root", None, None), ("Arm", "Root", None)], [("Base", None, None), ("Arm", "Base", None)])
 
         self.assertEqual({"Base": (0, "Root", "order"), "Arm": (1, "Arm", "name")}, matches)
+
+
+class SkeletonTests(unittest.TestCase):
+    """The game's skeletons have one root, joint 0, their joints numbered in the order the game walks them from the root down (a joint's
+    children by their indexes), 12 children a joint and 63 joints a skin at most: exporting refuses what can't be numbered so and numbers
+    the joints in the walk's order when the bones' own indexes don't follow it."""
+
+    def setUp(self):
+        self.skeleton = load_addon_module("skeleton")
+        # An imported model: a root joint with a spine and a leg, the spine holds a head
+        self.imported = [("Joint 0", None, 0), ("Joint 1", "Joint 0", 1), ("Joint 2", "Joint 1", 2), ("Joint 3", "Joint 0", 3)]
+
+    def test_several_roots_are_refused_with_their_names(self):
+        bones = [("Joint 0", None, 0), ("Joint 1", None, 0), ("Joint 2", "Joint 1", 0), ("Joint 7", None, 0)]
+
+        with self.assertRaises(ValueError) as raised:
+            self.skeleton.check_skeleton(bones)
+
+        self.assertIn("3 root bones (Joint 0, Joint 1, Joint 7)", str(raised.exception))
+        self.skeleton.check_skeleton(self.imported)
+
+    def test_animations_made_in_blender_keep_the_ids_they_get(self):
+        self.assertEqual([16, 17, 0x8000], self.skeleton.animation_ids([16, 17, None]))
+        # A copy repeating an ID gets one of its own, past every ID the model has
+        self.assertEqual([16, 0x8001, 0x8000, 0x8002], self.skeleton.animation_ids([16, 16, 0x8000, None]))
+
+    def test_animations_cover_the_bones_added_to_their_model(self):
+        # Every joint reads the settings of its index from the animation playing: the game's animations keep the count they were imported
+        # with (Crash has animations of 62 joints and one of 2) until the model gets more joints than it had
+        self.assertEqual(2, self.skeleton.animation_joint_count(2, 51, 51))
+        self.assertEqual(62, self.skeleton.animation_joint_count(62, 51, 51))
+        self.assertEqual(51, self.skeleton.animation_joint_count(51, 51, 50))
+        self.assertEqual(52, self.skeleton.animation_joint_count(2, 51, 52))
+        self.assertEqual(52, self.skeleton.animation_joint_count(51, 51, 52))
+        self.assertEqual(62, self.skeleton.animation_joint_count(62, 51, 52))
+        self.assertEqual(63, self.skeleton.animation_joint_count(62, 51, 63))
+
+    def test_bones_past_the_games_limits_are_refused(self):
+        crowded = [("Root", None, None)] + [("Finger %d" % i, "Root", None) for i in range(13)]
+        with self.assertRaises(ValueError) as raised:
+            self.skeleton.check_skeleton(crowded)
+        self.assertIn("Root has 13 child bones", str(raised.exception))
+        self.skeleton.check_skeleton(crowded[:-1])
+
+        chain = [("Bone 0", None, None)] + [("Bone %d" % i, "Bone %d" % (i - 1), None) for i in range(1, 64)]
+        with self.assertRaises(ValueError) as raised:
+            self.skeleton.check_skeleton(chain, skinned=True)
+        self.assertIn("64 bones and the game draws a skin with 63 at most", str(raised.exception))
+        # A model without a skin has no such limit
+        self.skeleton.check_skeleton(chain)
+        self.skeleton.check_skeleton(chain[:-1], skinned=True)
+
+    def test_the_indexes_of_an_imported_model_stay(self):
+        bones = self.imported + [("Tail", "Joint 3", None)]
+
+        joints, renumbered = self.skeleton.number_joints(bones)
+
+        self.assertFalse(renumbered)
+        self.assertEqual({"Joint 0": 0, "Joint 1": 1, "Joint 2": 2, "Joint 3": 3, "Tail": 4}, joints)
+
+    def test_a_bone_added_inside_a_model_takes_its_place_in_the_walk(self):
+        # Every bone after its parent isn't enough: the game would draw the leg with the hair's matrix
+        bones = self.imported + [("Hair", "Joint 2", None)]
+
+        joints, renumbered = self.skeleton.number_joints(bones)
+
+        self.assertTrue(renumbered)
+        self.assertEqual({"Joint 0": 0, "Joint 1": 1, "Joint 2": 2, "Hair": 3, "Joint 3": 4}, joints)
+
+    def test_bones_all_left_at_index_0_go_in_hierarchy_order(self):
+        bones = [("Hips", None, 0), ("Spine", "Hips", 0), ("Head", "Spine", 0), ("Leg", "Hips", 0)]
+
+        joints, renumbered = self.skeleton.number_joints(bones)
+
+        self.assertFalse(renumbered)
+        self.assertEqual({"Hips": 0, "Spine": 1, "Head": 2, "Leg": 3}, joints)
+
+    def test_a_root_added_above_a_model_numbers_it_from_the_root(self):
+        bones = [("Origin", None, None)] + [(name, parent or "Origin", index) for name, parent, index in self.imported]
+
+        joints, renumbered = self.skeleton.number_joints(bones)
+
+        self.assertTrue(renumbered)
+        self.assertEqual({"Origin": 0, "Joint 0": 1, "Joint 1": 2, "Joint 2": 3, "Joint 3": 4}, joints)
+
+    def test_a_bone_numbered_before_its_parent_numbers_them_from_the_root(self):
+        # The leg's children come in the order of the indexes they had
+        bones = [("Root", None, 0), ("Leg", "Root", 5), ("Foot", "Leg", 2), ("Toe", "Leg", 1)]
+
+        joints, renumbered = self.skeleton.number_joints(bones)
+
+        self.assertTrue(renumbered)
+        self.assertEqual({"Root": 0, "Leg": 1, "Toe": 2, "Foot": 3}, joints)
+
+    def test_indexes_left_out_are_numbered_again(self):
+        # A bone deleted from an imported model left its index out, the game's skeletons number their joints one after the other
+        joints, renumbered = self.skeleton.number_joints([("Root", None, 0), ("Arm", "Root", 2)])
+
+        self.assertTrue(renumbered)
+        self.assertEqual({"Root": 0, "Arm": 1}, joints)
+
+
+class ModelBoundsTests(unittest.TestCase):
+    """The game takes an OGI's bounding box for its instances' collision without hulls, shadows and physics. The tools made it around the
+    meshes at rest but not every time, so a model keeps its box until its meshes change and go past it."""
+
+    def setUp(self):
+        self.model_bounds = load_addon_module("model_bounds")
+        self.tlm = load_addon_module("tlm")
+        self.file = self.tlm.TlmFile("OGI", "Test")
+        # A joint resting 2 up, turned a quarter about Z
+        bind = [0.0, -1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 2.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0]
+        self.root = {"kind": "ogi", "children": [
+            {"kind": "armature", "joints": [{"index": 0, "parent": -1, "bind": bind}]},
+            {"kind": "skin", "mesh": {"parts": [{"position": self.file.write_view([-1.0, 0.0, -1.0, 1.0, 1.5, 1.0], "f32")}]}},
+            {"kind": "rigid_bodies", "children": [
+                {"kind": "body", "joint": 0, "translation": [1.0, 0.0, 0.0], "rotation": [0.0, 0.0, 0.0, 1.0],
+                 "mesh": {"parts": [{"position": self.file.write_view([0.0, 0.0, 0.0, 0.5, 0.0, 0.0], "f32")}]}},
+            ]},
+        ]}
+
+    def test_bodies_are_on_their_joints_at_rest(self):
+        # The body's points are 1 and 1.5 along the joint's X, which the joint turns to Y above its 2
+        self.assertEqual(((-1.0, 0.0, -1.0), (1.0, 3.5, 1.0)), self.rounded(self.model_bounds.rest_bounds(self.file, self.root)))
+
+    def test_a_box_stays_until_the_meshes_change_past_it(self):
+        bounds = self.model_bounds.rest_bounds(self.file, self.root)
+        # The game's box of a model that doesn't hold its meshes stays while they're as imported
+        small = ((-0.5, 0.0, -0.5), (0.5, 1.0, 0.5))
+        self.assertIsNone(self.model_bounds.fitted_box(small, bounds, bounds))
+        moved = ((-1.0, 0.0, -1.0), (1.0, 4.0, 1.0))
+        self.assertEqual(moved, self.model_bounds.fitted_box(small, moved, bounds))
+        # A box holding the changed meshes stays, and a model made in Blender has nothing imported
+        self.assertIsNone(self.model_bounds.fitted_box(((-2.0, -1.0, -2.0), (2.0, 5.0, 2.0)), moved, bounds))
+        self.assertEqual(bounds, self.model_bounds.fitted_box(small, bounds, None))
+        self.assertIsNone(self.model_bounds.fitted_box(small, None, None))
+
+    def test_rounding_errors_are_the_same_bounds(self):
+        bounds = ((-1.0, 0.0, -1.0), (1.0, 3.5, 1.0))
+        self.assertTrue(self.model_bounds.same_bounds(bounds, ((-1.0000001, 0.0, -1.0), (1.0, 3.5000002, 1.0))))
+        self.assertFalse(self.model_bounds.same_bounds(bounds, ((-1.0, 0.0, -1.0), (1.0, 3.51, 1.0))))
+
+    @staticmethod
+    def rounded(bounds):
+        return tuple(tuple(round(value, 6) + 0.0 for value in corner) for corner in bounds)
+
+
+class HullTests(unittest.TestCase):
+    """The game collides convex hulls of 64 vertexes and 64 faces at most."""
+
+    def setUp(self):
+        self.hulls = load_addon_module("hulls")
+        self.cube = [(x, y, z) for x in (0.0, 1.0) for y in (0.0, 1.0) for z in (0.0, 1.0)]
+        self.cube_faces = [[0, 1, 3, 2], [4, 6, 7, 5], [0, 4, 5, 1], [2, 3, 7, 6], [0, 2, 6, 4], [1, 5, 7, 3]]
+
+    def test_a_box_is_convex_whichever_way_its_faces_turn(self):
+        self.assertTrue(self.hulls.is_convex(self.cube, self.cube_faces))
+        self.assertTrue(self.hulls.is_convex(self.cube, [list(reversed(face)) for face in self.cube_faces]))
+
+    def test_a_dent_is_not_convex(self):
+        dented = list(self.cube)
+        # The top's corner pushed down below the top's other corners
+        dented[7] = (1.0, 1.0, 0.5)
+        self.assertFalse(self.hulls.is_convex(dented, self.cube_faces))
+
+    def test_hulls_past_the_games_limits_are_refused(self):
+        self.hulls.check_hull("Hull", 64, 64)
+        with self.assertRaises(ValueError) as raised:
+            self.hulls.check_hull("Hull", 65, 30)
+        self.assertIn("Hull has 65 vertexes and 30 faces", str(raised.exception))
+        with self.assertRaises(ValueError):
+            self.hulls.check_hull("Hull", 20, 65)
 
 
 class RetargetPoseTests(unittest.TestCase):

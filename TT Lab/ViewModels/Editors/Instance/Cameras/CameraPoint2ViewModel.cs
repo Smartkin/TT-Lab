@@ -29,7 +29,7 @@ namespace TT_Lab.ViewModels.Editors.Instance.Cameras
             point = new Vector4ViewModel(baseCam.Point);
             DirtyTracker.AddChild(point);
             distance = baseCam.Distance;
-            mode = baseCam.Mode;
+            mode = (Byte)baseCam.Mode;
         }
 
         public override void Save(CameraSubBase? cam)
@@ -44,7 +44,7 @@ namespace TT_Lab.ViewModels.Editors.Instance.Cameras
                 W = point.W,
             };
             pCam.Distance = Distance;
-            pCam.Mode = Mode;
+            pCam.Mode = (CameraPoint2.PointMode)Mode;
             base.Save(cam);
         }
 

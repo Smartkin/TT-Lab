@@ -26,6 +26,11 @@ public static partial class ParticleSystemNames
     private static Task? _reading;
 
     /// <summary>
+    /// Forgets the names read of the closed project's files
+    /// </summary>
+    public static void Clear() => Files.Clear();
+
+    /// <summary>
     /// Reads the names of every particle asset nobody has loaded in the background
     /// </summary>
     public static void Prepare()

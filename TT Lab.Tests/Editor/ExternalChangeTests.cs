@@ -31,6 +31,11 @@ public sealed class ExternalChangeTests : IDisposable
     public ExternalChangeTests()
     {
         var package = _project.Project.GlobalPackagePS2;
+        // Projects list the disc's music and videos in their tree, rows of no package, whose paths failed every reload of a real project
+        var music = Path.Combine(_project.Project.ProjectPath, "disc", "ps2", "Crash6");
+        Directory.CreateDirectory(music);
+        File.WriteAllBytes(Path.Combine(music, "Music.mh"), [1]);
+        File.WriteAllBytes(Path.Combine(music, "Music.mb"), [2]);
         _project.BuildProjectTree(Path.Combine(package.Name, "Code"));
         _folder = _project.GetFolder(package, "Code");
         // Opened the way TT Lab opens projects, nothing waits for a build

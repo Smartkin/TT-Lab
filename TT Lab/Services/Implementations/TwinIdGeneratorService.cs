@@ -24,17 +24,17 @@ public class TwinIdGeneratorService<T> : ITwinIdGeneratorService where T : IAsse
     }
 }
 
-public class TwinIdGeneratorServiceInstance<T>(Enums.Layouts layout, LevelChunk chunk)
-    : TwinIdGeneratorService<SerializableInstance>
-    where T : SerializableInstance
+// The lowest ID free among a kind's elements of a layout of one version's chunk: the PS2 and Xbox chunks of a path are numbered
+// apart, an ID past the other version's elements left a gap in this one's (the default chunk's surfaces are found by their ID)
+public class TwinIdGeneratorServiceInstance(Type type, Enums.Layouts layout, string chunk, LabURI package) : ITwinIdGeneratorService
 {
-    public override UInt32 GenerateTwinId()
+    public UInt32 GenerateTwinId()
     {
-        var currentlyRegistered = AssetManager.Get().GetAllAssetsOf<T>()
-            .Where(a => a.LayoutID.HasValue && a.LayoutID == (int)layout)
-            .Where(a => a.Chunk == chunk.AdditionalPath).ToImmutableList();
+        var taken = AssetManager.Get().GetAllAssetsOf(type).OfType<SerializableInstance>()
+            .Where(a => a.LayoutID == (int)layout && a.Chunk == chunk && a.Package == package)
+            .Select(a => a.ID).ToHashSet();
         var id = 0U;
-        while (currentlyRegistered.Any(a => a.ID == id))
+        while (taken.Contains(id))
         {
             id++;
         }

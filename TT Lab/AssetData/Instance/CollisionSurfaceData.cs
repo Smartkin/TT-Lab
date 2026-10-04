@@ -20,6 +20,8 @@ namespace TT_Lab.AssetData.Instance;
 [ReferencesAssets]
 public class CollisionSurfaceData : AbstractAssetData
 {
+    public const int MaxSurfaces = 128;
+
     private const string SoundKinds = "The game plays a surface's sounds by contact kind (0 impact, 1 and 2 steps, 3 land, 4 hard impact, 5 scrape): " +
                                       "objects landing on it play 0 (4 when hard) and 5 while scraping along, scripts play any with DoSound's surface sound kind. " +
                                       "The player's own footsteps come from the character's sound table by surface ID.";
@@ -60,12 +62,13 @@ public class CollisionSurfaceData : AbstractAssetData
     }
 
     [JsonProperty(Required = Required.Always)]
-    [Editable]
+    [Editable(Hint = "What the surface is: the characters play their footsteps from their own sound tables by it, and particle trails leave footprints on sand and snow")]
     public SurfaceType SurfaceID { get; set; }
 
     [JsonProperty(Required = Required.Always)]
-    [Editable(Hint = "Which ray casts and bodies the surface stops: the player's probes (bit 4), the camera (5), objects and rigid bodies (6), lines of sight (7) and the player's body (20). " +
-                     "Bit 8 sends the contact message to rigid bodies' agents and 9 to the player (the deadly surfaces), 10 slows the player like sticky snow, 11 leaves footprints. Bits 12-19 are set on every surface, the rest the game never reads.")]
+    [Editable(Hint = "Which ray casts and bodies the surface stops: the characters' probes and collision (bit 4), the camera (5), objects and rigid bodies (6), lines of sight (7) and the playable characters' bodies (20). " +
+                     "Bit 8 sends the contact message to rigid bodies' agents and 9 to the player (the deadly surfaces), 10 packs snow on the Rollerbrawl's ball rolling over it, 11 (Soft) is walls Nina clings to and slides down and the ground the Humiliskate's and the Rollerbrawl's skid trails are laid on. " +
+                     "Bits 12-19 are set on every surface, the rest the game never reads.")]
     public SurfaceCollisionFlags CollisionMask { get; set; }
 
     [JsonProperty(Required = Required.Always)]
@@ -137,7 +140,7 @@ public class CollisionSurfaceData : AbstractAssetData
     public Single ScrapeSoundVolume { get => PhysicsParameters[SurfacePhysics.ScrapeSoundVolume]; set => PhysicsParameters[SurfacePhysics.ScrapeSoundVolume] = value; }
 
     [JsonIgnore]
-    [Editable(Hint = "What the player and rigid bodies grip the surface with: 1 on most surfaces, 0.7 on metal and rock, 0.3 in water, 0.05 on ice, 0 on the walls only AI collides with")]
+    [Editable(Hint = "How hard rigid bodies grip the surface, with their own friction, and how fast a character who left it steers in the air (10 + 40 times it a second): 1 on most surfaces, 0.7 on metal and rock, 0.3 in water, 0.05 on ice, 0 on the walls only AI collides with")]
     public Single Friction { get => PhysicsParameters[SurfacePhysics.Friction]; set => PhysicsParameters[SurfacePhysics.Friction] = value; }
 
     [JsonIgnore]
@@ -145,15 +148,17 @@ public class CollisionSurfaceData : AbstractAssetData
     public Single Restitution { get => PhysicsParameters[SurfacePhysics.Restitution]; set => PhysicsParameters[SurfacePhysics.Restitution] = value; }
 
     [JsonIgnore]
-    [Editable(Caption = "Unread value 5", Hint = "Never read by the game: 1000000 on most surfaces, 5 and 2 on the slippy ones, 120 on liquids and deadly surfaces")]
+    [Editable(Caption = "Ground acceleration", Hint = "How fast a character standing on the surface gets to the velocity it's steered at, plus the flow, in units a second per second: 1000000 on most surfaces (at once), 5 and 2 on the slippy ones, 120 on liquids and deadly surfaces. " +
+                                                     "A held crouch slide lasts longer the lower it is, while held at 3.5 or less")]
     public Single UnreadValue5 { get => PhysicsParameters[SurfacePhysics.Unread5]; set => PhysicsParameters[SurfacePhysics.Unread5] = value; }
 
     [JsonIgnore]
-    [Editable(Caption = "Unread value 8", Hint = "Never read by the game: 35 or 45 on the slippy surfaces")]
+    [Editable(Caption = "Downhill pull", Hint = "How hard ground of the surface steeper than the downhill pull slope pulls a character down it, in units a second per second, all of it on ground of 30 degrees or more: 35 or 45 on the slippy surfaces, 0 for none")]
     public Single UnreadValue8 { get => PhysicsParameters[SurfacePhysics.Unread8]; set => PhysicsParameters[SurfacePhysics.Unread8] = value; }
 
     [JsonIgnore]
-    [Editable(Caption = "Unread value 9", Hint = "Never read by the game: 0.98 or 0.99 on the slippy surfaces")]
+    [Editable(Caption = "Downhill pull slope", Hint = "The downhill pull works on ground whose normal's Y is below this: 0.98 (11 degrees of slope) or 0.99 (8 degrees) on the slippy surfaces")]
+    [EditorLinkedField(typeof(DownhillSlopeRead), nameof(UnreadValue8))]
     public Single UnreadValue9 { get => PhysicsParameters[SurfacePhysics.Unread9]; set => PhysicsParameters[SurfacePhysics.Unread9] = value; }
 
     /// <summary>
@@ -163,12 +168,25 @@ public class CollisionSurfaceData : AbstractAssetData
     public Single[] PhysicsParameters { get; set; }
 
     [JsonProperty(Required = Required.Always)]
-    [Editable(Caption = "Unused vector", Hint = "(0, 0, 0, 1) on every retail surface, never read")]
+    [Editable(Caption = "Flow", Hint = "A velocity along the ground (X and Z) the surface carries the characters standing on it along at, added to where they're steered: (0, 0, 0, 1) on every retail surface")]
     public Vector4 UnusedVector { get; set; }
 
     [JsonProperty(Required = Required.Always)]
     [Editable(Caption = "Contact message", Hint = "What touching the surface does: handed to the player standing on it with bit 9 of the mask and to the agents of rigid bodies touching it with bit 8. The deadly surfaces deal 100 hit points of their kind of hit")]
+    [EditorLinkedField(typeof(ContactMessageRead), nameof(CollisionMask))]
     public ContactMessage ContactMessage { get; set; }
+
+    // Only handed on with one of the mask's message bits, the downhill pull's slope only matters with a pull
+    private sealed class ContactMessageRead : ReadWhen<CollisionSurfaceData>
+    {
+        protected override Boolean IsRead(CollisionSurfaceData owner) =>
+            (owner.CollisionMask & (SurfaceCollisionFlags.SendsContactMessageToObjects | SurfaceCollisionFlags.SendsContactMessageToPlayer)) != 0;
+    }
+
+    private sealed class DownhillSlopeRead : ReadWhen<CollisionSurfaceData>
+    {
+        protected override Boolean IsRead(CollisionSurfaceData owner) => owner.UnreadValue8 > 0;
+    }
 
     protected override void Dispose(Boolean disposing)
     {
@@ -204,8 +222,29 @@ public class CollisionSurfaceData : AbstractAssetData
         return sound == LabURI.Empty ? (UInt16)0xFFFF : (UInt16)AssetManager.Get().GetAsset(sound).ExportTwinID;
     }
 
+    // The game copies the default chunk's surfaces into a table of 128 in the order it reads them, which every chunk's collision
+    // finds them in by the IDs it was written with (the decomp's SurfaceTable::Add doesn't check its count)
+    private void CheckPlace()
+    {
+        if (LayoutIndexes.Current?.IndexOf(Owner) is not { } index)
+        {
+            return;
+        }
+
+        if (index >= MaxSurfaces)
+        {
+            throw new InvalidOperationException($"{Owner.Alias} is collision surface {index + 1} of its chunk, the game takes at most {MaxSurfaces}");
+        }
+
+        if (index != Owner.ID)
+        {
+            throw new InvalidOperationException($"{Owner.Alias} has ID {Owner.ID} but is the chunk's surface {index}: the collision finds surfaces by their ID, which has to be their place among the chunk's. Make a surface to fill the gap");
+        }
+    }
+
     public override ITwinItem Export(ITwinItemFactory factory)
     {
+        CheckPlace();
         using var ms = new MemoryStream();
         using var writer = new BinaryWriter(ms);
         writer.Write((UInt32)CollisionMask);

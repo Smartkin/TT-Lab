@@ -107,7 +107,7 @@ public abstract class AbstractAssetData(IAsset owner) : IDocumentModel
         return copy;
     }
 
-    public void SaveInCurrentDirectory(String dataPath, JsonSerializerSettings? settings = null)
+    public void SaveTo(String dataPath, JsonSerializerSettings? settings = null)
     {
         SaveInternal(dataPath, settings);
         AssetFileStamps.Record(dataPath);

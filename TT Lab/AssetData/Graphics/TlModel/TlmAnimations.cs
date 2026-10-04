@@ -22,6 +22,8 @@ namespace TT_Lab.AssetData.Graphics.TlModel;
 public static class TlmAnimations
 {
     private const Byte FallbackFps = 25;
+    // GameAnimation keeps an animation's frames a second in 5 bits and plays it for its frames over them, 0 is a division by zero
+    public const Byte MaxFps = 31;
     // A full turn is 0x10000 but the stored value is shifted down by 4 bits
     private const Single RawRotationUnitsPerTurn = 0x1000;
     private const Single RawValueScale = 4096;
@@ -108,7 +110,7 @@ public static class TlmAnimations
         var animation = FromKeys(file, json, joints, original, out edited);
         animation.ID = json.GetUInt("id");
         animation.Name = json.GetString("name") ?? string.Empty;
-        animation.DefaultFPS = (Byte)json.GetInt("fps", original != null ? 0 : FallbackFps);
+        animation.DefaultFPS = (Byte)Math.Clamp(json.GetInt("fps", FallbackFps), 1, MaxFps);
         animation.TotalFrames = (UInt16)json.GetInt("frames", animation.MainAnimation.TotalFrames);
         return animation;
     }
@@ -231,7 +233,8 @@ public static class TlmAnimations
             return facialAnimation;
         }
 
-        var frames = (UInt16)json.GetInt("frames", mainFrames);
+        // The game reads the weights at the main animation's frame (SetAnimationData), fewer frames read past them
+        var frames = mainFrames;
         var shapesAmount = (Byte)Math.Clamp(json.GetInt("shapes"), 0, 15);
         var weights = file.Read<Single>(json["weights"]);
         var settings = new MorphJointSettings

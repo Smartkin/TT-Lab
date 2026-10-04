@@ -309,21 +309,32 @@ public class MeshFactory
 
     private CollisionMesh CreateCollisionMesh(CollisionData collisionData)
     {
-        var assetManager = AssetManager.Get();
         var material = new MaterialData(null);
         material.Shaders[0].ShaderType = TwinShader.Type.StandardUnlit;
-        List<ModelBuffer> buffers = [new(_renderContext,
-            _meshBuilder.BuildRigidVaoFromVertexes(
-                collisionData.Vertexes.Select(v => new Vertex(new Vector4(v.X, v.Y, v.Z, v.W))).ToList(),
-                collisionData.Triangles.Select(t => t.Face).ToList(),
-                i =>
-                {
-                    var surface = assetManager.GetAsset(collisionData.Triangles[i].Surface);
-                    return CollisionSurface.GetEditorColor(surface).GetVector();
-                }),
-            _materialFactory, material) { EditorShading = true }];
-        
+        List<ModelBuffer> buffers = [new(_renderContext, BuildCollision(collisionData), _materialFactory, material) { EditorShading = true }];
         return new CollisionMesh(_renderContext, buffers);
+    }
+
+    /// <summary>
+    /// Draws the collision's triangles as they are now with the mesh, every copy of it shares its buffer. On the render thread
+    /// </summary>
+    public void RebuildCollisionMesh(CollisionMesh mesh, CollisionData collisionData)
+    {
+        foreach (var model in mesh.GetModels())
+        {
+            model.ReplaceBuild(BuildCollision(collisionData));
+        }
+    }
+
+    // Every triangle in its surface's color
+    private ModelBufferBuild BuildCollision(CollisionData collisionData)
+    {
+        var assetManager = AssetManager.Get();
+        var triangles = collisionData.Triangles;
+        return _meshBuilder.BuildRigidVaoFromVertexes(
+            collisionData.Vertexes.Select(v => new Vertex(new Vector4(v.X, v.Y, v.Z, v.W))).ToList(),
+            triangles.Select(t => t.Face).ToList(),
+            i => CollisionSurface.GetEditorColor(assetManager.DoesAssetExist(triangles[i].Surface) ? assetManager.GetAsset(triangles[i].Surface) : null).GetVector());
     }
 
     private SkinnedMesh CreateSkinnedMesh(SkinData skin)

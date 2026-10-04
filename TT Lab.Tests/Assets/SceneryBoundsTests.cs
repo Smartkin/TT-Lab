@@ -32,31 +32,32 @@ public sealed class SceneryBoundsTests : IDisposable
 
     public void Dispose() => _project.Dispose();
 
-    private static (float, float, float) Min(SceneryBaseData node) => (node.BoundsMin.X, node.BoundsMin.Y, node.BoundsMin.Z);
+    private static (float, float, float) Min(SceneryData data) => (data.BoundsMin.X, data.BoundsMin.Y, data.BoundsMin.Z);
 
-    private static (float, float, float) Max(SceneryBaseData node) => (node.BoundsMax.X, node.BoundsMax.Y, node.BoundsMax.Z);
+    private static (float, float, float) Max(SceneryData data) => (data.BoundsMax.X, data.BoundsMax.Y, data.BoundsMax.Z);
 
+    // The built tree's root is the cell the way the game reads it: the corners, the middle with the radius in W and the half size
     [Fact]
-    public void ACellIsKeptTheWayTheGameReadsIt()
+    public void TheTreesRootIsTheCellTheWayTheGameReadsIt()
     {
-        var root = new SceneryRootData();
+        var data = new SceneryData(_project.Add(new Scenery { Chunk = "levels/test" }, "Scenery 0"));
 
-        SceneryBounds.SetCell(root, new vec3(1, 2, 3), new vec3(10, 20, 30));
+        SceneryBounds.SetCell(data, new vec3(1, 2, 3), new vec3(10, 20, 30));
+        var root = Assert.Single(data.BuildTree(_ => 0));
 
         Assert.Equal((-9f, -18f, -27f, 1f), (root.BoundsMin.X, root.BoundsMin.Y, root.BoundsMin.Z, root.BoundsMin.W));
         Assert.Equal((11f, 22f, 33f, 1f), (root.BoundsMax.X, root.BoundsMax.Y, root.BoundsMax.Z, root.BoundsMax.W));
-        // The middle with the radius in W, and the half size
         Assert.Equal((1f, 2f, 3f), (root.BoundsCenter.X, root.BoundsCenter.Y, root.BoundsCenter.Z));
         Assert.Equal(MathF.Sqrt(1400), root.BoundsCenter.W, 1e-4f);
         Assert.Equal((10f, 20f, 30f, 1f), (root.BoundsHalfSize.X, root.BoundsHalfSize.Y, root.BoundsHalfSize.Z, root.BoundsHalfSize.W));
     }
 
-    private (SceneryBaseData Root, DocumentViewModel Document) Open()
+    private (SceneryData Root, DocumentViewModel Document) Open()
     {
         var scenery = _assets.AddScenery();
         var document = new DocumentViewModel(scenery);
         document.Initialize();
-        return (((IAsset)scenery).GetData<SceneryData>().Sceneries[0], document);
+        return (((IAsset)scenery).GetData<SceneryData>(), document);
     }
 
     [AvaloniaFact]
@@ -134,8 +135,7 @@ public sealed class SceneryBoundsTests : IDisposable
         var (_, collision) = _assets.AddCollision(_project.Add(new Collision { Chunk = "levels/test" }, "Collision"));
         collision.Vertexes[0] = farVertex;
         var file = new TlmFile(SceneryData.TlmAssetType, "Scenery 0");
-        var root = TlmNodes.Create(SceneryData.TlmKind, "Scenery 0");
-        root.AddChild(TlmNodes.Create(SceneryData.TreeNodeKind, "Tree", cell ?? new JsonObject()));
+        var root = TlmNodes.Create(SceneryData.TlmKind, "Scenery 0", cell ?? new JsonObject());
         root.AddChild(collision.WriteTlmNode(file));
         file.Root = root;
         Directory.CreateDirectory(Path.GetDirectoryName(scenery.FullDataPath)!);
@@ -145,10 +145,8 @@ public sealed class SceneryBoundsTests : IDisposable
 
     private static JsonObject Cell(float x, float y, float z) => new()
     {
-        ["BoundsMin"] = new JsonArray(-x, -y, -z, 1f),
-        ["BoundsMax"] = new JsonArray(x, y, z, 1f),
-        ["BoundsCenter"] = new JsonArray(0f, 0f, 0f, new vec3(x, y, z).Length),
-        ["BoundsHalfSize"] = new JsonArray(x, y, z, 1f),
+        ["BoundsMin"] = new JsonArray(-x, -y, -z),
+        ["BoundsMax"] = new JsonArray(x, y, z)
     };
 
     // A root as flat as its ground holds nothing: it gets a box around the origin like the game's, holding the collision with room to spare
@@ -157,9 +155,8 @@ public sealed class SceneryBoundsTests : IDisposable
     {
         var data = LoadWithRoot(Cell(10, 0, 10), new Vector4(-300, 0, 0, 1));
 
-        var root = Assert.Single(data.Sceneries);
-        Assert.Equal((-450f, -100f, -200f), Min(root));
-        Assert.Equal((450f, 100f, 200f), Max(root));
+        Assert.Equal((-450f, -100f, -200f), Min(data));
+        Assert.Equal((450f, 100f, 200f), Max(data));
     }
 
     // Made in Blender, the root has no cell of its own and would only be as big as what's in it
@@ -168,9 +165,8 @@ public sealed class SceneryBoundsTests : IDisposable
     {
         var data = LoadWithRoot(null, new Vector4(-30, 0, 0, 1));
 
-        var root = Assert.Single(data.Sceneries);
-        Assert.Equal((-200f, -100f, -200f), Min(root));
-        Assert.Equal((200f, 100f, 200f), Max(root));
+        Assert.Equal((-200f, -100f, -200f), Min(data));
+        Assert.Equal((200f, 100f, 200f), Max(data));
     }
 
     [Fact]
@@ -178,8 +174,7 @@ public sealed class SceneryBoundsTests : IDisposable
     {
         var data = LoadWithRoot(Cell(50, 20, 50), new Vector4(-30, 0, 0, 1));
 
-        var root = Assert.Single(data.Sceneries);
-        Assert.Equal((-50f, -20f, -50f), Min(root));
-        Assert.Equal((50f, 20f, 50f), Max(root));
+        Assert.Equal((-50f, -20f, -50f), Min(data));
+        Assert.Equal((50f, 20f, 50f), Max(data));
     }
 }

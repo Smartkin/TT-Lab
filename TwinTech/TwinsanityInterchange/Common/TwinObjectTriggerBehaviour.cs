@@ -24,7 +24,8 @@ namespace Twinsanity.TwinsanityInterchange.Common
 
         public UInt32 Compress()
         {
-            UInt32 result = MessageID;
+            // The message has 10 bits, more went into the starter's
+            UInt32 result = (UInt32)(MessageID & 0x3FF);
             result |= (UInt32)((TriggerBehaviour & 0x3FFF) << 0xA);
             result |= (UInt32)((BehaviourCallerIndex & 0x1) << 0x18);
             result |= (UInt32)((UpperBits & 0x7F) << 0x19);

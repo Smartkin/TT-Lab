@@ -16,14 +16,9 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.SM
         /// </summary>
         String Name { get; set; }
         /// <summary>
-        /// Determines the color of the fog in the chunk<para/>
-        /// Currently known values:<para/>
-        /// 0 - Purple
-        /// 1 - No color
-        /// 2 - Light blue
-        /// 3 - Green
-        /// 4 - Grey
-        /// 5 - Beige
+        /// The fog the game tints the distance with while the player is in the chunk, one of the executable's 8 tables of colors
+        /// (0x2f6ff8 in the PAL one), picked by the top byte of each pixel's depth: 0 violet, 1 black, 2 light blue, 3 green, 4 white,
+        /// 5 light orange, 6 none, 7 blue to red. The game's chunks use 0 to 5
         /// </summary>
         UInt32 FogColor { get; set; }
         /// <summary>

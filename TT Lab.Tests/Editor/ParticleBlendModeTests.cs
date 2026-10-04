@@ -48,7 +48,7 @@ public sealed class ParticleBlendModeTests : IDisposable
         var document = new DocumentViewModel(particles);
         document.Initialize();
         var node = document.PropertyGraph.Find("Root.AssetData.ParticleSystems[0].BlendMode")!;
-        var field = Assert.IsType<ByteChoiceFieldViewModel>(EditorDescRegistry.GetDesc(document, node).Construct());
+        var field = Assert.IsType<ChoiceFieldViewModel>(EditorDescRegistry.GetDesc(document, node).Construct());
         var window = new Window { Content = new ContentControl { Content = field }, Width = 400, Height = 100 };
         window.Show();
         Dispatcher.UIThread.RunJobs();
@@ -65,7 +65,7 @@ public sealed class ParticleBlendModeTests : IDisposable
         Assert.Equal(ParticleBlendModes.Additive, data.ParticleSystems[0].BlendMode);
         Assert.Equal("Additive", field.SelectedChoice!.Name);
 
-        var list = Assert.IsType<ByteChoiceFieldViewModel>(EditorDescRegistry.GetDesc(document, document.PropertyGraph.Find("Root.AssetData.ParticleSystems[0].DrawFlag")!).Construct());
+        var list = Assert.IsType<ChoiceFieldViewModel>(EditorDescRegistry.GetDesc(document, document.PropertyGraph.Find("Root.AssetData.ParticleSystems[0].DrawFlag")!).Construct());
         Assert.Equal("Drawn", list.SelectedChoice!.Name);
         window.Close();
     }

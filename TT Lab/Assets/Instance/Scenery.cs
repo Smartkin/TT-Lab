@@ -12,16 +12,6 @@ namespace TT_Lab.Assets.Instance;
 
 public class Scenery : SerializableInstance
 {
-    public static readonly Color[] FogColors =
-    [
-        new(128,0,128,255), // Purple
-        new( 0, 0,0,0), // No color
-        new( 173, 216,230,255), // Light blue
-        new(0, 255, 0,255), // Green
-        new(127,  127, 127,255), // Grey
-        new( 245,  245, 220,255), // Beige
-    ];
-    
     protected override String DataExt => ".tlm";
     
     public override bool IsInScenery => true;

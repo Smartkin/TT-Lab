@@ -221,6 +221,7 @@ public partial class ViewportViewModel : ReactiveObject
         FrameSelectionCommand = ReactiveCommand.Create(FrameSelection);
         InitPrefabs();
         InitGameLaunch();
+        InitSceneryMode();
         this.WhenAnyValue(x => x.ActiveTool).Subscribe(_ =>
         {
             this.RaisePropertyChanged(nameof(IsSelectTool));
@@ -309,7 +310,12 @@ public partial class ViewportViewModel : ReactiveObject
             .DisposeWith(_closeDisposables);
 
         document.PropertyGraph.Changed += PropertyGraphOnChanged;
-        Disposable.Create(() => document.PropertyGraph.Changed -= PropertyGraphOnChanged).DisposeWith(_closeDisposables);
+        document.PropertyGraph.Changed += FollowCollisionShape;
+        Disposable.Create(() =>
+        {
+            document.PropertyGraph.Changed -= PropertyGraphOnChanged;
+            document.PropertyGraph.Changed -= FollowCollisionShape;
+        }).DisposeWith(_closeDisposables);
     }
 
     public RenderContext? GetRenderContext()
@@ -383,6 +389,7 @@ public partial class ViewportViewModel : ReactiveObject
             ApplySnapping();
             _renderer.DrawPrimitives += _editingContext.DrawPrimitives;
             _renderer.DrawPrimitives += DrawFloorGrid;
+            _renderer.DrawPrimitives += DrawSceneryEditing;
 
             if (_document is { IsReady: true })
             {
@@ -433,7 +440,9 @@ public partial class ViewportViewModel : ReactiveObject
     private void BeginDragStep()
     {
         _dragStep?.Dispose();
-        var name = (SelectedObject?.Property.Find("[data]")?.GetValue() as IAsset)?.Alias ?? SelectedObject?.DocumentName ?? "the selection";
+        var name = SelectedObject == _trianglePivot && _selectedTriangles.Length > 0 ? (_selectedTriangles.Length > 1 ? $"{_selectedTriangles.Length} collision triangles" : "a collision triangle")
+            : SelectedObject?.DuplicatedElement?.GetValue() is AssetData.Instance.Scenery.SceneryPlacement ? (SelectionCount > 1 ? $"{SelectionCount} meshes" : "a mesh")
+            : (SelectedObject?.Property.Find("[data]")?.GetValue() as IAsset)?.Alias ?? SelectedObject?.DocumentName ?? "the selection";
         var verb = ActiveTool switch
         {
             TransformMode.ROTATE => "Rotated",
@@ -518,9 +527,15 @@ public partial class ViewportViewModel : ReactiveObject
             return;
         }
 
+        if (IsEditingTriangles)
+        {
+            SelectTrianglesInRubberBand();
+            return;
+        }
+
         var camera = _scene.Camera.GetFrameCamera();
         var rect = RubberBand;
-        var inside = _viewportObjects.Where(viewportObject => viewportObject.Render.IsVisible && viewportObject.Render.IsSelectable
+        var inside = _viewportObjects.Where(viewportObject => IsPickable(viewportObject)
                                                              && viewportObject.PositionConverter == null
                                                              && camera.WorldToScreen(viewportObject.Render.GetBoundsTransform().Column3.xyz, out var screen)
                                                              && rect.Contains(new Point(screen.x, screen.y)))
@@ -573,6 +588,18 @@ public partial class ViewportViewModel : ReactiveObject
 
     private void SelectAll()
     {
+        if (IsEditingTriangles)
+        {
+            SelectAllTriangles();
+            return;
+        }
+
+        if (IsEditingMeshes)
+        {
+            SelectAllPlacements();
+            return;
+        }
+
         SelectObjects(_viewportObjects.Where(viewportObject => viewportObject.Render.IsVisible && viewportObject.Render.IsSelectable
                                                                && viewportObject.PositionConverter == null && viewportObject.Property.Find("[data]")?.GetValue() is SerializableInstance { LayoutID: not null }).ToList(), false);
     }
@@ -590,17 +617,29 @@ public partial class ViewportViewModel : ReactiveObject
             return;
         }
 
+        if (IsDrawingTriangle)
+        {
+            AddTrianglePoint(x, y);
+            return;
+        }
+
+        if (IsEditingTriangles && !_keyboard.IsKeyPressed(Key.ControlLeft))
+        {
+            SelectTriangleAt(x, y);
+            return;
+        }
+
         var ray = _scene.Camera.GetFrameCamera().ScreenRay(new vec2(x, y));
-        var rayOrigin = ray.Origin;
-        var rayDirection = ray.Direction;
         ViewportObject? result = null;
         if (!_keyboard.IsKeyPressed(Key.ControlLeft))
         {
             var minDistance = float.MaxValue;
-            foreach (var viewportObject in _viewportObjects)
+            // Placed meshes are picked by their triangles, the boxes of big ones cover the ones in front of them
+            result = IsEditingMeshes ? PickPlacement(ray) : null;
+            foreach (var viewportObject in IsEditingMeshes ? Array.Empty<ViewportObject>() : _viewportObjects)
             {
                 var instance = viewportObject.Render;
-                if (!instance.IsVisible || !instance.IsSelectable)
+                if (!IsPickable(viewportObject))
                 {
                     continue;
                 }
@@ -713,6 +752,12 @@ public partial class ViewportViewModel : ReactiveObject
     // Parts of something, like a point of a path, open what they belong to and bring themselves into view in it
     private void OpenInspectorFor(ViewportObject viewportObject)
     {
+        if (viewportObject.InspectorRoot != null)
+        {
+            _document?.OpenInspector(viewportObject.InspectorRoot);
+            return;
+        }
+
         var inspected = viewportObject.Property.PropertyType == typeof(LabURI) ? viewportObject.Property["[data]"] : viewportObject.Property;
         _document?.OpenInspector(inspected, viewportObject.InspectorFocus);
     }
@@ -724,7 +769,7 @@ public partial class ViewportViewModel : ReactiveObject
             return;
         }
 
-        var viewportObject = _viewportObjects.FirstOrDefault(viewportObject => viewportObject.Render.IsSelectable && IsInspecting(viewportObject, inspected));
+        var viewportObject = _viewportObjects.FirstOrDefault(viewportObject => viewportObject.Render.IsSelectable && viewportObject.Mode == EditMode && IsInspecting(viewportObject, inspected));
         if (viewportObject != null)
         {
             SelectObject(viewportObject, false);
@@ -733,11 +778,16 @@ public partial class ViewportViewModel : ReactiveObject
 
     private static bool IsInspecting(ViewportObject viewportObject, PropertyNode inspected)
     {
+        if (viewportObject.InspectorRoot != null)
+        {
+            return viewportObject.InspectorRoot == inspected;
+        }
+
         return viewportObject.Property == inspected || viewportObject.Property.Find("[data]") == inspected;
     }
 
     // A path keeps as many points as the game's shortest ones have
-    private const int MinPathPoints = 4;
+    private const int MinPathPoints = PathData.MinPoints;
 
     private void DeleteInstance()
     {
@@ -849,7 +899,7 @@ public partial class ViewportViewModel : ReactiveObject
     /// </summary>
     internal void ShowResource(PropertyNode property)
     {
-        var viewportObject = _viewportObjects.FirstOrDefault(viewportObject => viewportObject.Property == property && viewportObject.Render.IsSelectable);
+        var viewportObject = _viewportObjects.FirstOrDefault(viewportObject => viewportObject.Property == property && viewportObject.Render.IsSelectable && viewportObject.Mode == EditMode);
         if (viewportObject == null)
         {
             return;
@@ -963,10 +1013,8 @@ public partial class ViewportViewModel : ReactiveObject
     private IAsset CreateInstance(Type type, string name, Enums.Layouts layout, Func<IAsset, AssetCreationStatus> createData)
     {
         var chunk = (LevelChunk)_document!.DocumentModel;
-        // Scene tabs register their chunk, documents made elsewhere don't
-        TwinIdGeneratorServiceProvider.RegisterGeneratorServiceForChunk(chunk);
         return AssetFactory.CreateAsset(type, chunk.GetChunkFolder(), name, "",
-            TwinIdGeneratorServiceProvider.GetGeneratorForChunk(type, chunk.AdditionalPath!, layout),
+            TwinIdGeneratorServiceProvider.GetGeneratorForChunk(type, chunk.AdditionalPath!, chunk.Package, layout),
             asset =>
             {
                 var instanceAsset = (SerializableInstance)asset;
@@ -1251,7 +1299,7 @@ public partial class ViewportViewModel : ReactiveObject
                 RaiseSelectionChanged();
             }
 
-            RebuildViewportObjects(property, null, false);
+            QueueStructureRebuild(property);
         }
 
         if (rebuilds == null)
@@ -1263,6 +1311,28 @@ public partial class ViewportViewModel : ReactiveObject
         {
             RebuildViewportObjects(property);
         }
+    }
+
+    // Resources whose lists changed, made again once the changes in a row are done: deleting or undoing many placed meshes made the
+    // scenery's hundreds of objects again for every one of them
+    private readonly HashSet<PropertyNode> _pendingStructureRebuilds = [];
+
+    private void QueueStructureRebuild(PropertyNode property)
+    {
+        if (!_pendingStructureRebuilds.Add(property) || _pendingStructureRebuilds.Count > 1)
+        {
+            return;
+        }
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            var pending = _pendingStructureRebuilds.ToList();
+            _pendingStructureRebuilds.Clear();
+            foreach (var resource in pending)
+            {
+                RebuildViewportObjects(resource, null, false);
+            }
+        }, DispatcherPriority.Background);
     }
 
     private void RemoveObjectsOfGoneResources(PropertyNode chunkResources)
@@ -1722,7 +1792,18 @@ public partial class ViewportViewModel : ReactiveObject
         {
             if (key == Key.D)
             {
-                DuplicateSelection();
+                if (IsEditingTriangles)
+                {
+                    DuplicateSelectedTriangles();
+                }
+                else if (IsEditingMeshes)
+                {
+                    DuplicatePlacements();
+                }
+                else
+                {
+                    DuplicateSelection();
+                }
             }
             else if (key == Key.A)
             {
@@ -1736,6 +1817,21 @@ public partial class ViewportViewModel : ReactiveObject
         {
             IsRubberBanding = false;
             _leftPress = null;
+            return;
+        }
+
+        // Points of a triangle being drawn go first, then the drawing
+        if (key == Key.Escape && IsDrawingTriangle)
+        {
+            if (_trianglePoints.Length > 0)
+            {
+                _trianglePoints = [];
+            }
+            else
+            {
+                SetTriangleDrawing(false);
+            }
+
             return;
         }
 
@@ -1769,6 +1865,9 @@ public partial class ViewportViewModel : ReactiveObject
                 _editingContext.Deselect();
                 SelectedObject = null;
                 RaiseSelectionChanged();
+                break;
+            case Key.Delete when IsEditingTriangles:
+                DeleteSelectedTriangles();
                 break;
             case Key.Delete:
                 DeleteInstance();

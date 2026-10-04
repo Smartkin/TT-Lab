@@ -39,7 +39,8 @@ public sealed class TlmMaterials(TlmFile file, IAsset? owner = null)
     public const string BlenderMaterialParameter = "BlenderMaterial";
 
     private readonly Dictionary<LabURI, Int32> _indexes = new();
-    private readonly Dictionary<Int32, LabURI> _uris = new();
+    // A material of the file can be a rigid part's and a skin's, which can't be the same material of the project
+    private readonly Dictionary<(Int32 Index, TlmMaterialUse Use), LabURI> _uris = new();
 
     /// <summary>
     /// Whether materials made in Blender became the project's, the file has to be written again to refer to them
@@ -84,11 +85,11 @@ public sealed class TlmMaterials(TlmFile file, IAsset? owner = null)
             return uri;
         }
 
-        if (!_uris.TryGetValue(-1, out uri) || uri == LabURI.Empty)
+        if (!_uris.TryGetValue((-1, use), out uri) || uri == LabURI.Empty)
         {
             Log.WriteLine($"A part of {owner.Name} has no material, it's drawn with a plain one", Log.LogType.Warning);
-            uri = CreatePlaceholder(owner, "No material");
-            _uris[-1] = uri;
+            uri = CreatePlaceholder(owner, "No material", use);
+            _uris[(-1, use)] = uri;
         }
 
         return uri;
@@ -99,7 +100,7 @@ public sealed class TlmMaterials(TlmFile file, IAsset? owner = null)
     /// </summary>
     public LabURI Get(Int32 index, TlmMaterialUse use = TlmMaterialUse.Rigid)
     {
-        if (_uris.TryGetValue(index, out var uri))
+        if (_uris.TryGetValue((index, use), out var uri))
         {
             return uri;
         }
@@ -111,6 +112,12 @@ public sealed class TlmMaterials(TlmFile file, IAsset? owner = null)
             if (!string.IsNullOrEmpty(text) && AssetManager.Get().DoesAssetExist(new LabURI(text)))
             {
                 uri = new LabURI(text);
+                // Creating a project reads the files of skins shared by several models back while their materials get written
+                if (use == TlmMaterialUse.Skin && owner != null && !AssetManager.Get().IsCreating && !DrawsSkins(AssetManager.Get().GetAssetData<MaterialData>(uri)))
+                {
+                    Log.WriteLine($"{owner.Name}'s skin is drawn with {AssetManager.Get().GetAsset(uri).Alias}, whose first shader isn't {TwinShader.Type.LitSkinnedModel}: {SkinShaderRisk}",
+                        Log.LogType.Warning);
+                }
             }
             else if (string.IsNullOrEmpty(text) && owner != null)
             {
@@ -120,33 +127,68 @@ public sealed class TlmMaterials(TlmFile file, IAsset? owner = null)
             {
                 var name = material.GetString("name") ?? text ?? $"Material {index}";
                 Log.WriteLine($"The project has no material {text ?? name}{(owner != null ? $", {owner.Name} draws it with a plain one" : string.Empty)}", Log.LogType.Warning);
-                uri = owner != null ? CreatePlaceholder(owner, name) : LabURI.Empty;
+                uri = owner != null ? CreatePlaceholder(owner, name, use) : LabURI.Empty;
             }
         }
 
-        _uris.Add(index, uri);
+        _uris.Add((index, use), uri);
         return uri;
     }
 
-    // Made again whenever the owner loads, like the owner's other internal assets
-    private static LabURI CreatePlaceholder(IAsset owner, string name)
+    // The game draws a skin's parts with their materials' VU1 programs (SetSkinDMA): every PAL and Xbox skin and blend skin has a
+    // LitSkinnedModel material, NTSC's beach has one StandardLit part (Cortex's, which PAL made LitSkinnedModel) and a skin of TT Lab
+    // with a StandardUnlit one hung the game
+    private const string SkinShaderRisk = "every PAL and Xbox skin's material starts with it, and a skin drawn with a StandardUnlit one hung the game";
+
+    /// <summary>
+    /// Whether the material starts with the skinned shader, like the materials of every skin and blend skin of the PAL and Xbox versions
+    /// </summary>
+    public static Boolean DrawsSkins(MaterialData material) => material.Shaders.FirstOrDefault()?.ShaderType == TwinShader.Type.LitSkinnedModel;
+
+    /// <summary>
+    /// Warns about a skin or blend skin drawn with a material of another shader, which the retail data only has once
+    /// </summary>
+    public static void CheckDrawsSkins(IAsset skin, IEnumerable<LabURI> materials)
     {
+        var assetManager = AssetManager.Get();
+        foreach (var material in materials.Distinct())
+        {
+            var data = assetManager.GetAssetData<MaterialData>(material);
+            if (!DrawsSkins(data))
+            {
+                Log.WriteLine($"{skin.Alias} has a part drawn with {assetManager.GetAsset(material).Alias}, whose first shader is " +
+                              $"{data.Shaders.FirstOrDefault()?.ShaderType.ToString() ?? "none"} and not {TwinShader.Type.LitSkinnedModel}: {SkinShaderRisk}", Log.LogType.Warning);
+            }
+        }
+    }
+
+    // Made again whenever the owner loads, like the owner's other internal assets
+    private static LabURI CreatePlaceholder(IAsset owner, string name, TlmMaterialUse use)
+    {
+        var skin = use == TlmMaterialUse.Skin;
         var material = new Material
         {
             Package = owner.Package,
-            InvariantName = $"{owner.Name}_{RigidModelData.SanitizeName(name)}",
+            InvariantName = $"{owner.Name}_{RigidModelData.SanitizeName(name)}{(skin ? "_Skin" : string.Empty)}",
             Alias = name,
             IsInternal = true,
             InternalOwner = owner
         };
-        material.SetData(new MaterialData(material) { Name = name });
+        var data = new MaterialData(material) { Name = name };
+        if (skin)
+        {
+            data.Shaders[0].ShaderType = TwinShader.Type.LitSkinnedModel;
+            data.ActivatedShaders = AppliedShaders.LitSkinnedModel;
+        }
+
+        material.SetData(data);
         AssetManager.Get().TryAddAsset(material);
         return material.URI;
     }
 
     // A material made in Blender becomes a material of the owner's package, drawn the way the game draws most of its textured
     // models, with a texture of its image. Blender keeps exporting it until the model gets imported again, the material made for
-    // it the first time is used again
+    // it the first time is used again: one for skins and one for rigid parts when it's on both, the skinned shader only takes skins
     // The render bucket the game's own materials of the kind are in: opaque ones of a level in 2, of the global packages in 3, blended
     // ones in 16 (unlit) or 14
     private static UInt32 RenderBucket(IAsset owner, LabShader shader)
@@ -166,7 +208,8 @@ public sealed class TlmMaterials(TlmFile file, IAsset? owner = null)
         var assetManager = AssetManager.Get();
         var blenderId = entry.GetString("blender_id");
         var existing = blenderId == null ? null : assetManager.GetAllAssetsOf<Material>()
-            .FirstOrDefault(material => !material.IsInternal && material.Parameters.TryGetValue(BlenderMaterialParameter, out var id) && id?.ToString() == blenderId);
+            .FirstOrDefault(material => !material.IsInternal && material.Parameters.TryGetValue(BlenderMaterialParameter, out var id) && id?.ToString() == blenderId &&
+                                        DrawsSkins(((IAsset)material).GetData<MaterialData>()) == (use == TlmMaterialUse.Skin));
         AddedToProject = true;
         if (existing != null)
         {
@@ -185,7 +228,7 @@ public sealed class TlmMaterials(TlmFile file, IAsset? owner = null)
         {
             Log.WriteLine($"Couldn't add {name} made in Blender to the project, {owner.Name} draws it with a plain material: {exception.Message}", Log.LogType.Warning);
             AddedToProject = false;
-            return CreatePlaceholder(owner, name);
+            return CreatePlaceholder(owner, name, use);
         }
     }
 
@@ -217,7 +260,7 @@ public sealed class TlmMaterials(TlmFile file, IAsset? owner = null)
         var material = AssetFactory.CreateAsset(typeof(Material), TypeFolder(packageFolder, typeof(Material)), UniqueName<Material>(owner.Package, name), string.Empty,
             TwinIdGeneratorServiceProvider.GetGenerator<Material>(), asset =>
             {
-                // Skins are drawn by the skinned shader only, a rigid one fed a skin's packets hung the game. Shadows fall on rigid parts
+                // Skins get the skinned shader like the game's, a rigid one fed a skin's packets hung the game. Shadows fall on rigid parts
                 // like on the game's scenery, skins keep them off like the characters that cast them (their own would darken them)
                 var shader = new LabShader
                 {

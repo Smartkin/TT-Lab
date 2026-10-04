@@ -7,32 +7,33 @@ public class EditorHiddenInAttribute(string editorName, bool partialComparison =
 {
     public override void ApplyTo(DocumentNodeViewModel viewModel)
     {
-        var isHidden = false;
-        if (!string.IsNullOrEmpty(editorName))
-        {
-            var currentParent = viewModel.Property.Parent;
-            while (currentParent != null)
-            {
-                if (PartialComparison)
-                {
-                    isHidden = currentParent.Name.Contains(editorName,
-                        StringComparison.InvariantCultureIgnoreCase);
-                }
-                else
-                {
-                    isHidden = currentParent.Name == editorName;
-                }
-
-                if (isHidden)
-                {
-                    break;
-                }
-                
-                currentParent = currentParent.Parent;
-            }
-        }
-        viewModel.IsVisible = !isHidden;
+        viewModel.IsVisible = !IsWithin(viewModel, editorName, PartialComparison);
     }
     
     public bool PartialComparison => partialComparison;
+
+    // Whether a node above the editor's is named so (or has the name in its own)
+    internal static bool IsWithin(DocumentNodeViewModel viewModel, string editorName, bool partialComparison)
+    {
+        if (string.IsNullOrEmpty(editorName))
+        {
+            return false;
+        }
+
+        var currentParent = viewModel.Property.Parent;
+        while (currentParent != null)
+        {
+            var isWithin = partialComparison
+                ? currentParent.Name.Contains(editorName, StringComparison.InvariantCultureIgnoreCase)
+                : currentParent.Name == editorName;
+            if (isWithin)
+            {
+                return true;
+            }
+
+            currentParent = currentParent.Parent;
+        }
+
+        return false;
+    }
 }

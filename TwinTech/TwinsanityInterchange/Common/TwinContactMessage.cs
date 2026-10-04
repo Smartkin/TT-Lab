@@ -19,8 +19,9 @@ namespace Twinsanity.TwinsanityInterchange.Common
         /// </summary>
         public Vector4 Point;
         /// <summary>
-        /// A bit for every kind of hit the contact was, which the scripts' conditions test (the HitBy* ones). The deadly surfaces have
-        /// 0x4 falling through, 0x80 electric, 0x400 instant death, 0x800008 lava, 0x2800000 drowning; water 0x2000000
+        /// A bit for every kind of hit the contact was (<see cref="Enums.ContactKinds"/>), which the scripts' conditions test (the HitBy*
+        /// ones). The deadly surfaces have 0x4 falling through, 0x80 electric, 0x400 instant death, 0x800008 lava, 0x2800000 drowning;
+        /// water 0x2000000. Rigid bodies touching the level's collision are told of a surface with any kind whatever its flags
         /// </summary>
         public UInt32 Kinds;
         /// <summary>

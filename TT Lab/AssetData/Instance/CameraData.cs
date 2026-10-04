@@ -27,8 +27,8 @@ namespace TT_Lab.AssetData.Instance;
 [JsonObject(ItemTypeNameHandling = TypeNameHandling.Auto, MemberSerialization = MemberSerialization.OptIn)]
 public class CameraData : AbstractAssetData
 {
-    private const string AngleHint = "An angle in degrees (the game keeps 65536ths of a turn).";
-    private const string FlagsHint = "What the camera controller takes from the camera: the flags named Sets give it the angles and distance below, No Blend In cuts to it, Values Along Geometry takes the start and end values by where the target is along the line, path or spline. The rest tell the follow camera how to move: Steers keeps its probes on, Gives Target Box and Frames Instances move the point it looks at, Holds Still, Keeps Height and Only Looks At Target hold it back. Bits 1 and 14 are never read";
+    private const string AngleHint = "An angle in degrees (the game keeps 65536ths of a turn, read as signed).";
+    private const string FlagsHint = "What the camera controller takes from the camera: the flags named Sets give it the angles and distance below, No Blend In cuts to it, Values Along Geometry takes the start and end values by where the target is along the line, path or spline. The rest tell the follow camera how to move: Steers keeps its probes on, Gives Target Box and Frames Instances move the point it looks at, Holds Still, Keeps Height and Only Looks At Target hold it back. Needs Running Camera and Ignores Player State say when it's taken (without the latter only while the character is on the ground), the Blends In From flags take the Blend In values while the yaw is nearer Blend In Yaw. Bit 14 is never read, bit 1 only by a switch back nothing starts. The values below are grayed out while the flags that have them read are off, they hold the tools' memory then";
 
     // What the derived values (a path's parameters, a spline's tangents and parameters, the boss camera's inverse matrix) were made
     // from, so the game's values are kept until the geometry changes
@@ -72,7 +72,7 @@ public class CameraData : AbstractAssetData
     public ITwinCamera.CameraFlags Flags { get; set; }
 
     [JsonProperty(Required = Required.Always)]
-    [Editable(Hint = "0 on nearly every camera of the game's levels")]
+    [Editable(Hint = "0 on nearly every camera of the game's levels. Second Slot makes the camera one for the character's death: it's only taken once the character died and shown while the character is dead")]
     public ITwinCamera.CameraSwitches Switches { get; set; }
 
     [JsonProperty(Required = Required.Always)]
@@ -81,74 +81,92 @@ public class CameraData : AbstractAssetData
 
     [JsonProperty(Required = Required.Always)]
     [Editable(Hint = "With Gives Target Box, a corner of the box the follow camera looks into: it looks at the followed object's place plus the box's middle, turned with the object unless Target Box Unturned ((0, 1.6, 0) on many cameras). The tools' memory without the flag")]
+    [EditorLinkedField(typeof(ReadWithTargetBox), nameof(Flags))]
     public Vector4 TargetBoxMin { get; set; }
 
     [JsonProperty(Required = Required.Always)]
     [Editable(Hint = "The target box's other corner, with Gives Target Box. The tools' memory without the flag")]
+    [EditorLinkedField(typeof(ReadWithTargetBox), nameof(Flags))]
     public Vector4 TargetBoxMax { get; set; }
 
     [JsonProperty(Required = Required.Always)]
     [Editable(Hint = "With Frames Instances, the furthest the point the follow camera looks at moves toward the middle of the trigger's instances. The tools' memory without the flag")]
+    [EditorLinkedField(typeof(ReadWithFraming), nameof(Flags))]
     public Single FramingDistance { get; set; }
 
     [JsonProperty(Required = Required.Always)]
     [Editable(Hint = "With Frames Instances, the share of the way from the followed object to the middle of the trigger's instances the point the camera looks at moves. The tools' memory without the flag")]
+    [EditorLinkedField(typeof(ReadWithFraming), nameof(Flags))]
     public Single FramingShare { get; set; }
 
     [JsonProperty(Required = Required.Always)]
     [Editable(EditorDescType = typeof(AngleEditorDesc), Hint = AngleHint + " The first angle blender, probably the field of view, starts here with Sets Fov, or has it at the start of the geometry")]
+    [EditorLinkedField(typeof(ReadWithFov), nameof(Flags))]
     public UInt32 FovStart { get; set; }
 
     [JsonProperty(Required = Required.Always)]
     [Editable(EditorDescType = typeof(AngleEditorDesc), Hint = AngleHint + " Where the first angle blender goes with Sets Fov, or its value at the end of the geometry")]
+    [EditorLinkedField(typeof(ReadWithFov), nameof(Flags))]
     public UInt32 FovEnd { get; set; }
 
     [JsonProperty(Required = Required.Always)]
     [Editable(EditorDescType = typeof(AngleEditorDesc), Hint = AngleHint + " The pitch starts here with Sets Pitch (20° in the game's levels)")]
+    [EditorLinkedField(typeof(ReadWithPitch), nameof(Flags))]
     public UInt32 PitchStart { get; set; }
 
     [JsonProperty(Required = Required.Always)]
     [Editable(EditorDescType = typeof(AngleEditorDesc), Hint = AngleHint + " Where the pitch goes with Sets Pitch")]
+    [EditorLinkedField(typeof(ReadWithPitch), nameof(Flags))]
     public UInt32 PitchEnd { get; set; }
 
     [JsonProperty(Required = Required.Always)]
     [Editable(EditorDescType = typeof(AngleEditorDesc), Hint = AngleHint + " The yaw starts here with Sets Yaw (half a turn in the game's levels)")]
+    [EditorLinkedField(typeof(ReadAsYawStart), nameof(Flags))]
     public UInt32 YawStart { get; set; }
 
     [JsonProperty(Required = Required.Always)]
     [Editable(EditorDescType = typeof(AngleEditorDesc), Hint = AngleHint + " Where the yaw goes with Sets Yaw")]
+    [EditorLinkedField(typeof(ReadWithYaw), nameof(Flags))]
     public UInt32 YawEnd { get; set; }
 
     [JsonProperty(Required = Required.Always)]
     [Editable(Hint = "Units from the target the camera starts at with Sets Distance (5, 10 and 4.5 in the game's levels), or at the start of the geometry")]
+    [EditorLinkedField(typeof(ReadWithDistance), nameof(Flags))]
     public Single DistanceStart { get; set; }
 
     [JsonProperty(Required = Required.Always)]
     [Editable(Hint = "Units from the target the camera goes to with Sets Distance, or at the end of the geometry")]
+    [EditorLinkedField(typeof(ReadWithDistance), nameof(Flags))]
     public Single DistanceEnd { get; set; }
 
     [JsonProperty(Required = Required.Always)]
     [Editable(Hint = "With Sets Position Follow Rate, the share of the way a second the camera's place moves to where the camera puts it")]
+    [EditorLinkedField(typeof(ReadWithPositionFollowRate), nameof(Flags))]
     public Single PositionFollowRate { get; set; }
 
     [JsonProperty(Required = Required.Always)]
     [Editable(Hint = "With Sets Target Follow Rate, the share of the way a second the point the camera looks at moves")]
+    [EditorLinkedField(typeof(ReadWithTargetFollowRate), nameof(Flags))]
     public Single TargetFollowRate { get; set; }
 
     [JsonProperty(Required = Required.Always)]
     [Editable(EditorDescType = typeof(AngleEditorDesc), Hint = AngleHint + " With Sets Yaw Speed, how fast the yaw turns a second, slowed by the sine of what it has left to turn. 0 in the game's levels")]
+    [EditorLinkedField(typeof(ReadWithYawSpeed), nameof(Flags))]
     public UInt32 YawSpeed { get; set; }
 
     [JsonProperty(Required = Required.Always)]
-    [Editable(EditorDescType = typeof(AngleEditorDesc), Hint = AngleHint + " The yaw the camera blends in from with Blends In From Yaw")]
+    [Editable(EditorDescType = typeof(AngleEditorDesc), Hint = AngleHint + " With Blends In From Yaw, the yaw goes here instead of the yaw's range whenever it's at least as near it as Yaw Start: a camera entered from that side keeps looking that way. The pitch and distance check the same yaw")]
+    [EditorLinkedField(typeof(ReadAsBlendInYaw), nameof(Flags))]
     public UInt32 BlendInYaw { get; set; }
 
     [JsonProperty(Required = Required.Always)]
-    [Editable(EditorDescType = typeof(AngleEditorDesc), Hint = AngleHint + " The pitch the camera blends in from with Blends In From Pitch")]
+    [Editable(EditorDescType = typeof(AngleEditorDesc), Hint = AngleHint + " With Blends In From Pitch, the pitch goes here instead of the pitch's range while the yaw is at least as near Blend In Yaw as Yaw Start")]
+    [EditorLinkedField(typeof(ReadWithBlendInPitch), nameof(Flags))]
     public UInt32 BlendInPitch { get; set; }
 
     [JsonProperty(Required = Required.Always)]
-    [Editable(Hint = "The distance the camera blends in from with Blends In From Distance")]
+    [Editable(Hint = "With Blends In From Distance, the distance goes here instead of the distance's range while the yaw is at least as near Blend In Yaw as Yaw Start")]
+    [EditorLinkedField(typeof(ReadWithBlendInDistance), nameof(Flags))]
     public Single BlendInDistance { get; set; }
 
     [JsonProperty(Required = Required.Always)]
@@ -349,6 +367,94 @@ public class CameraData : AbstractAssetData
         }
 
         return objects;
+    }
+
+    // The camera controller only reads these with their flags (FollowCamera's taking of a camera), without them they hold the tools'
+    // memory: grayed out while the flags are off
+    private abstract class ReadWithFlags : IFieldChange
+    {
+        protected abstract Boolean IsRead(ITwinCamera.CameraFlags flags);
+
+        public void DataChanged(PropertyNode listener, PropertyNode flags)
+        {
+            listener.IsReadOnly = !IsRead(flags.GetValue<ITwinCamera.CameraFlags>());
+        }
+
+        public void Linked(PropertyNode listener, PropertyNode flags) => DataChanged(listener, flags);
+
+        protected static Boolean Has(ITwinCamera.CameraFlags flags, ITwinCamera.CameraFlags wanted) => (flags & wanted) == wanted;
+
+        // The pitch and the distance blend in by Blend In Yaw as well (NearerBlendIn compares the yaw with it and Yaw Start), each only
+        // when it's set at all
+        protected static Boolean BlendsIn(ITwinCamera.CameraFlags flags) =>
+            Has(flags, ITwinCamera.CameraFlags.SetsYaw | ITwinCamera.CameraFlags.BlendsInFromYaw) ||
+            Has(flags, ITwinCamera.CameraFlags.SetsPitch | ITwinCamera.CameraFlags.BlendsInFromPitch) ||
+            Has(flags, ITwinCamera.CameraFlags.SetsDistance | ITwinCamera.CameraFlags.BlendsInFromDistance);
+    }
+
+    private sealed class ReadWithTargetBox : ReadWithFlags
+    {
+        protected override Boolean IsRead(ITwinCamera.CameraFlags flags) => Has(flags, ITwinCamera.CameraFlags.GivesTargetBox);
+    }
+
+    private sealed class ReadWithFraming : ReadWithFlags
+    {
+        protected override Boolean IsRead(ITwinCamera.CameraFlags flags) => Has(flags, ITwinCamera.CameraFlags.FramesInstances);
+    }
+
+    private sealed class ReadWithFov : ReadWithFlags
+    {
+        protected override Boolean IsRead(ITwinCamera.CameraFlags flags) => Has(flags, ITwinCamera.CameraFlags.SetsFov);
+    }
+
+    private sealed class ReadWithPitch : ReadWithFlags
+    {
+        protected override Boolean IsRead(ITwinCamera.CameraFlags flags) => Has(flags, ITwinCamera.CameraFlags.SetsPitch);
+    }
+
+    private sealed class ReadWithYaw : ReadWithFlags
+    {
+        protected override Boolean IsRead(ITwinCamera.CameraFlags flags) => Has(flags, ITwinCamera.CameraFlags.SetsYaw);
+    }
+
+    private sealed class ReadAsYawStart : ReadWithFlags
+    {
+        protected override Boolean IsRead(ITwinCamera.CameraFlags flags) => Has(flags, ITwinCamera.CameraFlags.SetsYaw) || BlendsIn(flags);
+    }
+
+    private sealed class ReadWithDistance : ReadWithFlags
+    {
+        protected override Boolean IsRead(ITwinCamera.CameraFlags flags) => Has(flags, ITwinCamera.CameraFlags.SetsDistance);
+    }
+
+    private sealed class ReadWithPositionFollowRate : ReadWithFlags
+    {
+        protected override Boolean IsRead(ITwinCamera.CameraFlags flags) => Has(flags, ITwinCamera.CameraFlags.SetsPositionFollowRate);
+    }
+
+    private sealed class ReadWithTargetFollowRate : ReadWithFlags
+    {
+        protected override Boolean IsRead(ITwinCamera.CameraFlags flags) => Has(flags, ITwinCamera.CameraFlags.SetsTargetFollowRate);
+    }
+
+    private sealed class ReadWithYawSpeed : ReadWithFlags
+    {
+        protected override Boolean IsRead(ITwinCamera.CameraFlags flags) => Has(flags, ITwinCamera.CameraFlags.SetsYawSpeed);
+    }
+
+    private sealed class ReadAsBlendInYaw : ReadWithFlags
+    {
+        protected override Boolean IsRead(ITwinCamera.CameraFlags flags) => BlendsIn(flags);
+    }
+
+    private sealed class ReadWithBlendInPitch : ReadWithFlags
+    {
+        protected override Boolean IsRead(ITwinCamera.CameraFlags flags) => Has(flags, ITwinCamera.CameraFlags.SetsPitch | ITwinCamera.CameraFlags.BlendsInFromPitch);
+    }
+
+    private sealed class ReadWithBlendInDistance : ReadWithFlags
+    {
+        protected override Boolean IsRead(ITwinCamera.CameraFlags flags) => Has(flags, ITwinCamera.CameraFlags.SetsDistance | ITwinCamera.CameraFlags.BlendsInFromDistance);
     }
 
     private void UpdateCameraPaths(PolylineVisual visual)

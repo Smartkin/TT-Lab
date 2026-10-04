@@ -17,15 +17,17 @@ def vector(*values):
 
 # Twin Tech values the way TT Lab writes them, one of every type
 SAMPLES = {
-    "Ogi": {"Type": "Ogi", "BoundingBoxMin": vector(-1, 0, -1, 1), "BoundingBoxMax": vector(1, 2, 1, 1)},
-    "Scenery": {"Type": "Scenery", "FogColor": 2, "HasLighting": True, "UnusedByte": 18, "LightOrder": [0, 0, 0, 2, 1, 0]},
-    "SceneryTreeNode": {"Type": "SceneryTreeNode", "LightsEnabler": [index % 3 == 0 for index in range(128)], "Kind": "Root", "Slot": 0,
-                        "BoundsMin": vector(-100, -20, -100, 150), "BoundsMax": vector(100, 20, 100, 150), "BoundsCenter": vector(0, 0, 0, 150),
-                        "BoundsHalfSize": vector(100, 20, 100, 150), "TreeDepth": 1, "SceneryTypes": [5632, 3, 5637, 3, 3, 3, 3, 3]},
-    "SceneryMesh": {"Type": "SceneryMesh", "Order": 0, "Matrix": vector(2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 2, 0, 5, -3, 1, 1),
+    "Ogi": {"Type": "Ogi", "BoundingBoxMin": vector(-1, 0, -1, 1), "BoundingBoxMax": vector(1, 2, 1, 1), "JointIdCount": 9},
+    "Scenery": {"Type": "Scenery", "FogColor": 2, "TreeDepth": 4, "BoundsMin": vector(-210, -136, -251), "BoundsMax": vector(210, 136, 251), "UnusedByte": 18,
+                "LightOrder": [0, 0, 0, 2, 1, 0],
+                "TreeNodes": {"0": {"Path": "07", "BoundsMin": vector(-0.5, -20, -100, 150), "BoundsMax": vector(100, 20, 0, 150), "BoundsCenter": vector(49.75, 0, -50, 75),
+                                    "BoundsHalfSize": vector(50.25, 20, 50, 150), "LightsEnabler": [index % 3 == 0 for index in range(128)]},
+                              "1": {"Path": "", "BoundsMin": vector(-210, -136, -251, 1), "BoundsMax": vector(210, 136, 251, 1), "BoundsCenter": vector(0, 0, 0, 353.5),
+                                    "BoundsHalfSize": vector(210, 136, 251, 1)}}},
+    "SceneryMesh": {"Type": "SceneryMesh", "Order": 0, "Node": "073", "Matrix": vector(2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 2, 0, 5, -3, 1, 1),
                     "BoundingBox": vector(-1, -2, -3, 4, 1, 2, 3, 0)},
-    "SceneryLod": {"Type": "SceneryLod", "Order": 1, "Matrix": vector(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1), "LodType": "FULL", "MinDrawDistance": 10, "MaxDrawDistance": 300,
-                   "ModelsDrawDistances": [50, 100, 200], "BoundingBox": []},
+    "SceneryLod": {"Type": "SceneryLod", "Order": 1, "Node": "", "Matrix": vector(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1), "LodType": "FULL", "MinDrawDistance": 10,
+                   "MaxDrawDistance": 300, "ModelsDrawDistances": [50, 100, 200], "BoundingBox": []},
     "LodMesh": {"Type": "LodMesh", "Level": 2},
     "DirectionalLight": {"Type": "DirectionalLight", "Order": 0, "Color": vector(1, 1, 0.5, 1), "Intensity": 7.5, "Enabled": False, "PositionW": 1.0,
                          "BoundsMin": vector(0, 0, 0, 1), "BoundsMax": vector(0, 0, 0, 1), "Leftover": -3, "Direction": vector(0, 1, 0, 0)},
@@ -79,14 +81,10 @@ class SchemaTests(unittest.TestCase):
     # Blender's custom properties turn lists into arrays, dictionaries into groups and booleans into integers
     def test_values_as_blender_keeps_them_are_read(self):
         sample = copy.deepcopy(SAMPLES["Scenery"])
-        sample["HasLighting"] = 1
+        sample["TreeNodes"] = IdProperty({index: IdProperty(dict(node, **({"LightsEnabler": [int(flag) for flag in node["LightsEnabler"]]} if "LightsEnabler" in node else {})))
+                                          for index, node in sample["TreeNodes"].items()})
         _, values, _ = schema.read_twin(schema.OBJECT_TYPES, IdProperty({schema.KEY: IdProperty(sample)}))
         self.assertEqual(schema.write_twin(schema.OBJECT_TYPES, "Scenery", values, ""), SAMPLES["Scenery"])
-
-        node = copy.deepcopy(SAMPLES["SceneryTreeNode"])
-        node["LightsEnabler"] = [int(flag) for flag in node["LightsEnabler"]]
-        _, values, _ = schema.read_twin(schema.OBJECT_TYPES, IdProperty({schema.KEY: IdProperty(node)}))
-        self.assertEqual(schema.write_twin(schema.OBJECT_TYPES, "SceneryTreeNode", values, ""), SAMPLES["SceneryTreeNode"])
 
 
     def test_negative_zeros_stay(self):
@@ -162,14 +160,20 @@ class ContainerTests(unittest.TestCase):
         self.assertEqual(written["BoundingBox"], vector(-1, -1, -1, 2, 1, 1, 1, 0))
 
     def test_lights_are_edited_as_ranges(self):
-        node = Element(schema.OBJECT_TYPES)
-        twintech.read_container(node.ttt, schema.OBJECT_TYPES, extras("SceneryTreeNode"))
-        self.assertEqual(node.ttt.scenery_tree_node.lights_enabler, schema.format_ranges(range(0, 128, 3)))
+        scenery = Element(schema.OBJECT_TYPES)
+        twintech.read_container(scenery.ttt, schema.OBJECT_TYPES, extras("Scenery"))
+        node = scenery.ttt.scenery.tree_nodes[0]
+        self.assertEqual(node.lights_enabler, schema.format_ranges(range(0, 128, 3)))
 
-        node.ttt.scenery_tree_node.lights_enabler = "0-1"
-        written = twintech.write_container(node.ttt, schema.OBJECT_TYPES)
+        node.lights_enabler = "0-1"
+        written = twintech.write_container(scenery.ttt, schema.OBJECT_TYPES)
 
-        self.assertEqual(written["LightsEnabler"][:3], [True, True, False])
+        self.assertEqual(written["TreeNodes"]["0"]["LightsEnabler"][:3], [True, True, False])
+        # A node without lights of its own has the root's, one without any light none
+        self.assertEqual(scenery.ttt.scenery.tree_nodes[1].lights_enabler, "")
+        self.assertNotIn("LightsEnabler", written["TreeNodes"]["1"])
+        node.lights_enabler = "none"
+        self.assertEqual(twintech.write_container(scenery.ttt, schema.OBJECT_TYPES)["TreeNodes"]["0"]["LightsEnabler"], [False] * 128)
 
     def test_a_type_set_by_hand_writes_its_defaults(self):
         element = Element(schema.OBJECT_TYPES)

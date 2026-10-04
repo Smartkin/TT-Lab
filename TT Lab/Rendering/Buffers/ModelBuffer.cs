@@ -22,8 +22,9 @@ public class ModelBuffer(RenderContext context, ModelBufferBuild build, Material
     private readonly Dictionary<string, LabShader?> _passShaders = [];
     private TwinMaterial? _currentRenderMaterial;
     private MaterialData _material = material;
+    private ModelBufferBuild _build = build;
     
-    public uint IndexCount => build.IndicesAmount;
+    public uint IndexCount => _build.IndicesAmount;
 
     /// <summary>
     /// Shades the part flat for the editor, whatever its shaders say
@@ -38,7 +39,18 @@ public class ModelBuffer(RenderContext context, ModelBufferBuild build, Material
     /// Whether any of the material's shaders is lit by the game's lights, its meshes then get their object's
     /// </summary>
     public bool IsLit => _isLit ??= _material.Shaders.Any(shader => MaterialFactory.IsLit(shader.ShaderType));
-    public VertexArrayObject<float, uint> GetVertexArrayObject() => build.Vao;
+    public VertexArrayObject<float, uint> GetVertexArrayObject() => _build.Vao;
+
+    /// <summary>
+    /// Draws the new vertexes from now on, every mesh drawing the buffer with it (an edited collision), and frees the old. On the render
+    /// thread
+    /// </summary>
+    public void ReplaceBuild(ModelBufferBuild newBuild)
+    {
+        var old = _build;
+        _build = newBuild;
+        old.Release();
+    }
 
     private void InvalidateMaterials()
     {
@@ -88,7 +100,7 @@ public class ModelBuffer(RenderContext context, ModelBufferBuild build, Material
             return false;
         }
         
-        build.Vao.Bind();
+        _build.Vao.Bind();
         if (!_materials.TryGetValue(shader, out _currentRenderMaterial))
         {
             var desc = materialFactory.GetTwinMaterialFromShader(shader);

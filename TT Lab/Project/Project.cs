@@ -52,8 +52,8 @@ namespace TT_Lab.Project;
 /// </summary>
 public class Project : IProject
 {
-    // 0.6.0 changed how models, scenery and every other glb asset are stored
-    private const string CURRENT_VERSION = "1.0.0";
+    // 1.1.0 keeps sceneries' meshes and LODs as a list, the build makes the tree the game culls them with
+    internal const string CURRENT_VERSION = "1.1.0";
 
     public AssetManager AssetManager { get; private set; }
 
@@ -246,7 +246,10 @@ public class Project : IProject
         {
             foreach (var asset in assetsList.Result)
             {
-                assets.Add(asset.Key, asset.Value);
+                if (!assets.TryAdd(asset.Key, asset.Value))
+                {
+                    Log.WriteLine($"{asset.Key} is in two folders of the project's assets, {asset.Value.Name} of the second is left out", Log.LogType.Warning);
+                }
             }
         }
         pr.AssetManager.AddAllAssets(assets);
@@ -790,6 +793,7 @@ public class Project : IProject
                 .GroupBy(asset => (asset.GetType(), asset.ID)).ToDictionary(group => group.Key, group => group.First().URI);
             factory.Overrides = new ChunkOverrides(chunk.Overrides);
             using var overrides = factory.Overrides.Use();
+            using var layoutIndexes = new LayoutIndexes(chunk.Alias, chunk.ChunkResources.Select(AssetManager.GetAsset)).Use();
             var rm2 = isDefault ? factory.GenerateDefault() : factory.GenerateRM();
             var sm2 = factory.GenerateSM();
             foreach (var asset in chunk.ChunkResources.Select(AssetManager.GetAsset))
@@ -886,10 +890,10 @@ public class Project : IProject
         }
     }
 
-    // Writes the platform's chunks and global files, the files that didn't change since the last build are kept
+    // Writes the platform's chunks and global files, the files that didn't change since the last build are kept. Every path is
+    // absolute: saving a chunk while the build ran changed the current directory, and the global files went somewhere else or nowhere
     private bool PackAssets(GamePlatform platform, BuildProfile? profile = null)
     {
-        System.IO.Directory.SetCurrentDirectory(ProjectPath);
         var globalPackage = GetGlobalPackage(platform);
         if (!globalPackage.Enabled)
         {
@@ -914,15 +918,13 @@ public class Project : IProject
         System.IO.Directory.CreateDirectory(System.IO.Path.Combine(ProjectPath, "build", "image"));
 
         Log.WriteLine("Building archives...");
-        System.IO.Directory.SetCurrentDirectory(filesPath);
-        System.IO.Directory.CreateDirectory("Extras");
-        System.IO.Directory.CreateDirectory("Language");
-        System.IO.Directory.CreateDirectory("Levels");
-        System.IO.Directory.CreateDirectory("Startup");
-        
+        foreach (var folder in new[] { "Extras", "Language", "Levels", "Startup" })
+        {
+            System.IO.Directory.CreateDirectory(System.IO.Path.Combine(filesPath, folder));
+        }
+
         UInt32 totalGlobals = 0;
         UInt32 currentGlobalsCount = 0;
-        System.IO.Directory.SetCurrentDirectory("Levels");
         Log.WriteLine("Writing Levels...");
         var phaseTimer = Stopwatch.StartNew();
         var chunksFolder = GetLevelsFolders(platform);
@@ -959,33 +961,32 @@ public class Project : IProject
         {
             Log.WriteLine($"Writing {globalFolder}...");
             phaseTimer.Restart();
-            System.IO.Directory.SetCurrentDirectory($"../{globalFolder}");
             var folderUri = globalPackage.GetPackageFolder().FindChild<Folder>(globalFolder);
             if (folderUri != LabURI.Empty)
             {
-                ResolveGlobalAssets(factory, cache, assetManager.GetAsset<Folder>(folderUri).Children, ref totalGlobals, ref currentGlobalsCount);
+                ResolveGlobalAssets(factory, cache, assetManager.GetAsset<Folder>(folderUri).Children, System.IO.Path.Combine(filesPath, globalFolder), ref totalGlobals,
+                    ref currentGlobalsCount);
             }
 
             Log.WriteLine($"Finished writing {globalFolder} in {phaseTimer.Elapsed}");
         }
 
-        System.IO.Directory.SetCurrentDirectory("../Startup");
         Log.WriteLine("Writing Startup...");
         phaseTimer.Restart();
         // Startup and startup are the same folder on Windows but two separate ones on case sensitive file systems
         var startupFolders = globalPackage.GetPackageFolder().Children.Select(assetManager.GetAsset).OfType<Folder>()
             .Where(folder => folder.Name.Equals("Startup", StringComparison.OrdinalIgnoreCase)).ToList();
         var defaultChunk = startupFolders.Select(folder => folder.FindChild<LevelChunk>("default")).First(uri => uri != LabURI.Empty);
-        BuildChunk(factory, cache, assetManager.GetAsset<LevelChunk>(defaultChunk), System.IO.Path.Combine(filesPath, "Startup"), true, platform);
+        var startupPath = System.IO.Path.Combine(filesPath, "Startup");
+        BuildChunk(factory, cache, assetManager.GetAsset<LevelChunk>(defaultChunk), startupPath, true, platform);
         cache.Save();
         // Startup's other files were always exported right after the default chunk, which leaves the factory resolving for it
         factory.IsDefaultResolution = true;
         var childrenCopy = startupFolders.SelectMany(folder => folder.Children).Where(e => !e.GetUri().EndsWith("/default")).ToList();
-        ResolveGlobalAssets(factory, cache, childrenCopy, ref totalGlobals, ref currentGlobalsCount);
+        ResolveGlobalAssets(factory, cache, childrenCopy, startupPath, ref totalGlobals, ref currentGlobalsCount);
         cache.Save();
 
         Log.WriteLine($"Finished writing Startup in {phaseTimer.Elapsed}");
-        System.IO.Directory.SetCurrentDirectory(ProjectPath);
         Log.WriteLine("Finished writing main archive files!");
         return true;
     }
@@ -1117,7 +1118,8 @@ public class Project : IProject
         Log.WriteLine($"Finished creating the ISO in {phaseTimer.Elapsed}! Check the {ProjectPath}/build/image folder!");
     }
 
-    private void ResolveGlobalAssets(ITwinItemFactory factory, BuildCache cache, List<LabURI> assets, ref UInt32 totalGlobals, ref UInt32 currentGlobalsCount)
+    // Writes the assets' files into the directory, a folder's into a directory of its own in it
+    internal void ResolveGlobalAssets(ITwinItemFactory factory, BuildCache cache, List<LabURI> assets, string directory, ref UInt32 totalGlobals, ref UInt32 currentGlobalsCount)
     {
         var assetManager = AssetManager.Get();
         totalGlobals += (UInt32)assets.Select(assetManager.GetAsset).Count(a => a is not Folder && !a.SkipExport);
@@ -1133,7 +1135,7 @@ public class Project : IProject
             if (asset is not Folder folder)
             {
                 currentGlobalsCount++;
-                var output = System.IO.Path.GetFullPath(asset.ExportFileName);
+                var output = System.IO.Path.GetFullPath(System.IO.Path.Combine(directory, asset.ExportFileName));
                 var cacheKey = $"file:{asset.URI}";
                 if (cache.IsUpToDate(cacheKey, [output]))
                 {
@@ -1149,7 +1151,7 @@ public class Project : IProject
                 {
                     try
                     {
-                        asset.ExportToFile(factory);
+                        asset.ExportToFile(factory, directory);
                     }
                     catch (Exception ex) when (ex is not BuildException)
                     {
@@ -1166,10 +1168,9 @@ public class Project : IProject
                 continue;
             }
 
-            System.IO.Directory.CreateDirectory(asset.Name);
-            System.IO.Directory.SetCurrentDirectory(asset.Name);
-            ResolveGlobalAssets(factory, cache, folder.Children, ref totalGlobals, ref currentGlobalsCount);
-            System.IO.Directory.SetCurrentDirectory("..");
+            var subdirectory = System.IO.Path.Combine(directory, asset.Name);
+            System.IO.Directory.CreateDirectory(subdirectory);
+            ResolveGlobalAssets(factory, cache, folder.Children, subdirectory, ref totalGlobals, ref currentGlobalsCount);
         }
     }
 

@@ -14,13 +14,20 @@ using ReactiveUI.Avalonia;
 using Splat;
 using TextMateSharp.Grammars;
 using TT_Lab.ViewModels;
+using TT_Lab.ViewModels.Interfaces;
 
 namespace TT_Lab.Views;
 
 public partial class ShellView : BurnBridgeWindow<ShellViewModel>
 {
-    public ShellView()
+    public ShellView() : this(null)
     {
+    }
+
+    // The dock's theme binds to its layout once the window's XAML gets styled, which logged binding errors while there was no view model yet
+    public ShellView(ILabManager? viewModel)
+    {
+        DataContext = viewModel;
         InitializeComponent();
 
         HotKeyManager.SetHotKey(OpenProjectItem, new KeyGesture(Key.O, KeyModifiers.Control));

@@ -8,7 +8,7 @@ using Splat;
 
 namespace TT_Lab.Util;
 
-public class ViewLocator : IRecyclingDataTemplate
+public class ViewLocator : IRecyclingDataTemplate, IEnableLogger
 {
     // The view type each view model type got, so a view showing another view model of the type can be told apart without resolving it
     private readonly Dictionary<Type, Type> _viewTypes = new();
@@ -37,31 +37,20 @@ public class ViewLocator : IRecyclingDataTemplate
         return control;
     }
 
-    private static Control Resolve(object data)
+    // Views are registered for their view model's class, and several serve the classes deriving from it too. ReactiveUI's locator only looks
+    // at the class itself and warned "Failed to resolve view for view model type 'System.Object'" about each of those before they got found
+    private Control Resolve(object data)
     {
-        var view = ReactiveUI.ViewLocator.Current.ResolveView(data);
-        
-        if (view != null)
+        for (var type = data.GetType(); type != null; type = type.BaseType)
         {
-            view.ViewModel = data;
-            return (Control)view;
-        }
-
-        var baseType = data.GetType().BaseType;
-
-        while (baseType != null)
-        {
-            var viewType = typeof(IViewFor<>).MakeGenericType(baseType);
-
-            if (Locator.Current.GetService(viewType) is IViewFor baseView)
+            if (Locator.Current.GetService(typeof(IViewFor<>).MakeGenericType(type)) is IViewFor view)
             {
-                baseView.ViewModel = data;
-                return (Control)baseView;
+                view.ViewModel = data;
+                return (Control)view;
             }
-            
-            baseType = baseType.BaseType;
         }
 
+        this.Log().Warn($"No view for view model type '{data.GetType().FullName}'");
         return new TextBlock
         {
             Text = "No View found for: " + data.GetType().Name

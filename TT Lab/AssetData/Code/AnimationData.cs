@@ -17,6 +17,7 @@ using TT_Lab.ViewModels.Interfaces;
 using Twinsanity.TwinsanityInterchange.Common.Animation;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code;
+using DefaultHashes = Twinsanity.TwinsanityInterchange.Enumerations.DefaultHashes;
 
 namespace TT_Lab.AssetData.Code;
 
@@ -48,7 +49,7 @@ public class AnimationData
     public AnimationData(ITwinAnimation animation) : this()
     {
         ID = animation.GetID();
-        Name = animation.GetName();
+        Name = RetailNames.Of(DefaultHashes.Animations, animation.GetID(), animation.GetName());
         TotalFrames = animation.TotalFrames;
         DefaultFPS = animation.DefaultFPS;
         MainAnimation = CloneUtils.DeepClone(animation.MainAnimation);

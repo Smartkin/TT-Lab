@@ -32,17 +32,18 @@ public class AiPositionData : AbstractAssetData
     }
 
     [JsonProperty(Required = Required.Always)]
-    [Editable]
+    [Editable(Hint = "Where the position is: routes go from position to position along the chunk's AI paths, and the position nearest a point is found by these coordinates")]
     public Vector3 Coords { get; set; }
     
     // The game's nearest point search goes by the coordinates alone; the W of the position is only read by the
-    // NearestPointEdgeDistanceSquared condition (FUN_00225be0), which takes it off the distance to the point: its radius
+    // NearestPointEdgeDistanceSquared condition (FUN_00225be0) and GetShortRoute's distance limits, which take it off the
+    // distance to the point: its radius
     [JsonProperty(Required = Required.Always)]
-    [Editable(Hint = "How far the position reaches: scripts' NearestPointEdgeDistanceSquared measures to its edge, the nearest position itself is picked by its coordinates")]
+    [Editable(Hint = "How far the position reaches: scripts' NearestPointEdgeDistanceSquared measures to its edge, and GetShortRoute gives up when its start or end is farther than its limits from the nearest positions' edges. The nearest position itself is picked by its coordinates")]
     public float Radius { get; set; }
         
     [JsonProperty(Required = Required.Always)]
-    [Editable(Hint = "Route searches can ask for some flags and rule some out, scripts' conditions test them on a route's step. Blocked keeps every route out")]
+    [Editable(Hint = "Route searches can ask for some flags and rule some out, scripts' conditions test them on a route's step. Blocked keeps every route out, SetFocusPositionToNearestPoint never takes a position with flag 4 and takes one with flag 2 however far it is (others within 30 units), SetNearestPointFlags switches Blocked, Airborne and flag 2")]
     public Enums.AiPositionFlags Flags { get; set; }
 
     protected override void Dispose(Boolean disposing)
@@ -60,6 +61,7 @@ public class AiPositionData : AbstractAssetData
 
     public override ITwinItem Export(ITwinItemFactory factory)
     {
+        CheckAiLayouts(Owner, LayoutIndexes.Current);
         using var ms = new MemoryStream();
         using var writer = new BinaryWriter(ms);
         Coords.Write(writer);
@@ -69,6 +71,16 @@ public class AiPositionData : AbstractAssetData
         writer.Flush();
         ms.Position = 0;
         return factory.GenerateAIPosition(ms);
+    }
+
+    // A chunk has one table of AI positions and paths, which every layout with any of them makes anew (the decomp's
+    // RegisterAiPosition): only the last layout's stayed, and paths in a layout without positions linked nothing
+    internal static void CheckAiLayouts(IAsset owner, LayoutIndexes? indexes)
+    {
+        if (indexes is { AiLayouts.Count: > 1 })
+        {
+            throw new InvalidOperationException($"{owner.Alias}'s chunk has AI positions or paths in layouts {string.Join(", ", indexes.AiLayouts)}, the game keeps one layout's: put them all in one");
+        }
     }
 
     public override List<ViewportObject> GetViewportObjects(ViewportContext viewportContext, PropertyNode property)

@@ -65,11 +65,6 @@ public class Package : SerializableAsset
 
     public override void Serialize(SerializationFlags serializationFlags = SerializationFlags.None)
     {
-        if (serializationFlags.HasFlag(SerializationFlags.SetDirectoryToAssets))
-        {
-            Directory.SetCurrentDirectory($"{Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath}/assets");
-        }
-        
         var path = Path.Combine(Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath, "assets", SavePath);
         Directory.CreateDirectory(path);
         

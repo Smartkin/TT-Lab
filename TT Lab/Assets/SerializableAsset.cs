@@ -64,10 +64,11 @@ public abstract class SerializableAsset : IAsset
     public String FullPath => $"{Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath}/{LoadPath}";
     public UInt32 ID { get; set; }
     public string HashSalt { get; set; } = string.Empty;
-    // Assets identified by their data's hash have the ID of the chunk's view when the chunk being built has values of its own
+    // Assets identified by their data's hash have the ID of the chunk's view when the chunk being built has values of its own, the
+    // layout elements of the chunk being built are numbered the way the game finds them
     public UInt32 ExportTwinID => SetIdFromDataHash && OverriddenAsset == null && Factory.ChunkOverrides.Current?.GetView(this) is { } view
         ? view.ExportTwinID
-        : SetIdFromDataHash ? GetDataHash() : ID;
+        : SetIdFromDataHash ? GetDataHash() : Factory.LayoutIndexes.Current?.IndexOf(this) ?? ID;
     
     [Editable]
     [EditorParam(DocumentCompositeViewModel.EditorExplicitOrder, -5)]
@@ -318,11 +319,11 @@ public abstract class SerializableAsset : IAsset
         return item;
     }
 
-    public virtual void ExportToFile(Factory.ITwinItemFactory factory)
+    public virtual void ExportToFile(Factory.ITwinItemFactory factory, string directory)
     {
         PreResolveResources();
         var item = Export(factory);
-        using var itemFile = new FileStream(ExportFileName, FileMode.Create, FileAccess.Write);
+        using var itemFile = new FileStream(Path.Combine(directory, ExportFileName), FileMode.Create, FileAccess.Write);
         using var binaryWriter = new BinaryWriter(itemFile);
         item.Write(binaryWriter);
         binaryWriter.Flush();

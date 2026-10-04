@@ -92,15 +92,19 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout
         /// </summary>
         UInt32 YawSpeed { get; set; }
         /// <summary>
-        /// The yaw the camera blends in from instead of the start and end with <see cref="CameraFlags.BlendsInFromYaw"/>
+        /// With <see cref="CameraFlags.BlendsInFromYaw"/>, the yaw the yaw blender goes to instead of the start and end whenever the
+        /// camera's yaw is at least as near it as <see cref="YawStart"/> (MainCamera::NearerBlendIn, every frame the camera is taken):
+        /// a camera entered from that side keeps looking that way
         /// </summary>
         UInt32 BlendInYaw { get; set; } // 98
         /// <summary>
-        /// The pitch the camera blends in from instead of the start and end with <see cref="CameraFlags.BlendsInFromPitch"/>
+        /// With <see cref="CameraFlags.BlendsInFromPitch"/>, the pitch the pitch blender goes to instead of the start and end while the
+        /// yaw is at least as near <see cref="BlendInYaw"/> as <see cref="YawStart"/>
         /// </summary>
         UInt32 BlendInPitch { get; set; }
         /// <summary>
-        /// The distance the camera blends in from instead of the start and end with <see cref="CameraFlags.BlendsInFromDistance"/>
+        /// With <see cref="CameraFlags.BlendsInFromDistance"/>, the distance the camera goes to instead of the start and end while the
+        /// yaw is at least as near <see cref="BlendInYaw"/> as <see cref="YawStart"/>
         /// </summary>
         Single BlendInDistance { get; set; } // 106
         CameraType TypeIndex1 { get; set; }
@@ -129,7 +133,8 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout
 
         /// <summary>
         /// The camera's flags word: what the follow camera (FollowCameraPositioner, FollowCameraTarget) and the camera controller take
-        /// from the camera. Bits 1 and 14 are set on cameras of the game's levels and never read
+        /// from the camera. Bits 1 and 14 are set on cameras of the game's levels, bit 14 is never read and bit 1 only by a switch
+        /// back of the follow camera nothing starts
         /// </summary>
         [Flags]
         enum CameraFlags : UInt32
@@ -138,6 +143,9 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout
             /// The second subtype gives its position at the controller's parameter instead of for the target's position
             /// </summary>
             SecondCameraAtParameter = 1 << 0,
+            /// <summary>
+            /// Lets the follow camera's switch back blend to its rig, which nothing starts
+            /// </summary>
             Unused1 = 1 << 1,
             /// <summary>
             /// The pitch blender takes <see cref="PitchStart"/> and <see cref="PitchEnd"/>
@@ -195,15 +203,17 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout
             /// </summary>
             SetsYawSpeed = 1 << 15,
             /// <summary>
-            /// While blending in the yaw comes from <see cref="BlendInYaw"/>
+            /// The yaw goes to <see cref="BlendInYaw"/> while it's at least as near it as <see cref="YawStart"/>
             /// </summary>
             BlendsInFromYaw = 1 << 16,
             /// <summary>
-            /// While blending in the pitch comes from <see cref="BlendInPitch"/>
+            /// The pitch goes to <see cref="BlendInPitch"/> while the yaw is at least as near <see cref="BlendInYaw"/> as
+            /// <see cref="YawStart"/>
             /// </summary>
             BlendsInFromPitch = 1 << 17,
             /// <summary>
-            /// While blending in the distance comes from <see cref="BlendInDistance"/>
+            /// The distance goes to <see cref="BlendInDistance"/> while the yaw is at least as near <see cref="BlendInYaw"/> as
+            /// <see cref="YawStart"/>
             /// </summary>
             BlendsInFromDistance = 1 << 18,
             /// <summary>
@@ -239,8 +249,8 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout
             /// </summary>
             NeedsRunningCamera = 1 << 26,
             /// <summary>
-            /// The camera is accepted whatever the player's state, without it the player has to be in a state the check
-            /// doesn't tell (FUN_001434a0)
+            /// The camera is taken whatever the character does, without it a new camera is only taken on foot while the character is
+            /// on the ground or the follow camera restarted (FUN_001434a0)
             /// </summary>
             IgnoresPlayerState = 1 << 27,
             /// <summary>
@@ -268,7 +278,8 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout
         enum CameraSwitches : UInt16
         {
             /// <summary>
-            /// The camera is kept as the player's second camera when the controller allows one (FUN_001434a0)
+            /// A camera for the character's death: the follow camera only takes it once the character died, keeps it as its second
+            /// camera and switches to it while the character is dead (FUN_001434a0)
             /// </summary>
             SecondSlot = 1 << 0,
             /// <summary>
@@ -279,6 +290,19 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout
             /// Becoming the camera resets the controller
             /// </summary>
             ResetsController = 1 << 2
+        }
+
+        /// <summary>
+        /// The flags a spline camera's game reads (CameraSplineCamera::Read), the other bits of its word are leftovers of the tools
+        /// (15 or 0xCDCD in the retail data)
+        /// </summary>
+        [Flags]
+        enum SplineCameraFlags : UInt16
+        {
+            /// <summary>
+            /// Takes <see cref="CameraSubBase.Offset"/> as the offset along the curve instead of the samples' keys'
+            /// </summary>
+            TakesOffset = 1 << 0
         }
     }
 }

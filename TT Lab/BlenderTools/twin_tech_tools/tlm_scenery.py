@@ -17,10 +17,10 @@
 
 """Sceneries, collisions, dynamic sceneries and skydomes of TT Lab model files in Blender.
 
-Their tree becomes a hierarchy of objects under the root: the tree nodes the game culls the scenery with are empties with the meshes
-and LODs they cull under them, lights are empties, the collision is a mesh with a material for every surface and the dynamic
-models move by an action each. Everything under the root is written back as the hierarchy it's in, TT Lab works out what's in which
-tree node.
+The meshes placed in a scenery are objects under its root's Meshes and its LODs empties under LODs with their levels' meshes, lights are
+empties, the collision is a mesh with a material for every surface and the dynamic models move by an action each. Everything under the
+root is written back as the hierarchy it's in, TT Lab finds the placed meshes anywhere under the root and makes the tree the game culls
+them with when it builds the scenery.
 """
 
 import array
@@ -28,9 +28,11 @@ import base64
 import json
 import typing
 
+import bmesh
 import bpy
 from mathutils import Matrix
 
+from . import collision_builder
 from . import tlm
 from . import tlm_blender
 from . import tlm_mesh
@@ -42,9 +44,9 @@ COLLISION_VERTEX_ATTRIBUTE = "tt_collision_vertex"
 SURFACE_PROPERTY = "ttt_surface"
 DYNAMIC_PROPERTY = "ttt_dynamic"
 
-_EMPTY_DISPLAY = {"tree_node": ("CUBE", 1.0), "scenery_lod": ("PLAIN_AXES", 1.0), "lights": ("PLAIN_AXES", 0.5), "ambient_light": ("SPHERE", 0.5),
-                  "directional_light": ("SINGLE_ARROW", 1.0), "point_light": ("SPHERE", 0.5), "spot_light": ("SPHERE", 0.5),
-                  "dynamic_scenery": ("PLAIN_AXES", 0.5)}
+_EMPTY_DISPLAY = {"scenery_meshes": ("PLAIN_AXES", 0.5), "scenery_lods": ("PLAIN_AXES", 0.5), "scenery_lod": ("PLAIN_AXES", 1.0),
+                  "lights": ("PLAIN_AXES", 0.5), "ambient_light": ("SPHERE", 0.5), "directional_light": ("SINGLE_ARROW", 1.0),
+                  "point_light": ("SPHERE", 0.5), "spot_light": ("SPHERE", 0.5), "dynamic_scenery": ("PLAIN_AXES", 0.5)}
 
 
 def import_children(context: bpy.types.Context, file: tlm.TlmFile, tree_node: typing.Dict[str, typing.Any], parent: bpy.types.Object,
@@ -74,24 +76,12 @@ def _import_node(context: bpy.types.Context, file: tlm.TlmFile, tree_node: typin
         if type_name is not None:
             tlm_blender._read_data(blender_object, type_name, tree_node.get("data"))
 
-    if kind == "tree_node":
-        _fit_to_bounds(blender_object, tree_node.get("data", {}))
-
     if kind == "dynamic_model":
         _import_movement(context, file, tree_node, blender_object)
     else:
         tlm_blender._set_node_transform(blender_object, tree_node)
 
     return blender_object
-
-
-def _fit_to_bounds(blender_object: bpy.types.Object, data: typing.Dict[str, typing.Any]) -> None:
-    """Shows a tree node as its box. The box is only shown, TT Lab works it out from what's under the node."""
-    low, high = data.get("BoundsMin"), data.get("BoundsMax")
-    if not isinstance(low, list) or not isinstance(high, list) or len(low) < 3 or len(high) < 3:
-        return
-
-    blender_object.empty_display_size = max(1e-3, max(abs(h - l) for l, h in zip(low[:3], high[:3])) / 2)
 
 
 def _import_collision(file: tlm.TlmFile, tree_node: typing.Dict[str, typing.Any], parent: bpy.types.Object,
@@ -133,6 +123,30 @@ def _import_collision(file: tlm.TlmFile, tree_node: typing.Dict[str, typing.Any]
     blender_object[tlm_blender.KIND_PROPERTY] = "collision"
     tlm_blender._read_data(blender_object, "Collision", tree_node.get("data"))
     return blender_object
+
+
+def is_surface(material: typing.Optional[bpy.types.Material]) -> bool:
+    if material is None:
+        return False
+
+    if material.get(SURFACE_PROPERTY) is not None:
+        return True
+
+    container = tlm_blender.properties.get(material)
+    return container is not None and container.type == "CollisionSurface"
+
+
+def placeholder_surface(name: str) -> bpy.types.Material:
+    """A collision surface material TT Lab takes the project's surface of the material's name for (its first one otherwise)"""
+    material = bpy.data.materials.get(name)
+    if is_surface(material):
+        return material
+
+    material = bpy.data.materials.new(name)
+    material[SURFACE_PROPERTY] = ""
+    tlm_blender._read_data(material, "CollisionSurface", {"Surface": ""})
+    material.diffuse_color = (0.5, 0.5, 0.5, 1.0)
+    return material
 
 
 def _surface_material(surface: typing.Dict[str, typing.Any]) -> bpy.types.Material:
@@ -305,8 +319,10 @@ def _export_movement(file: tlm.TlmFile, blender_object: bpy.types.Object) -> typ
     animation_data = blender_object.animation_data
     action = animation_data.action if animation_data is not None else None
     frames = int(meta.get("frames", 0))
+    start = 0
     if action is not None and action.use_frame_range:
-        frames = max(1, int(round(action.frame_range[1])) - int(round(action.frame_range[0])) + 1)
+        start, end = (int(round(value)) for value in action.frame_range)
+        frames = max(1, end - start + 1)
     elif action is not None and frames == 0:
         frames = max(1, int(round(action.frame_range[1])) + 1)
 
@@ -321,7 +337,116 @@ def _export_movement(file: tlm.TlmFile, blender_object: bpy.types.Object) -> typ
     bag = tlm_blender._existing_channelbag(action, slot) if slot is not None else None
     curves = {(fcurve.data_path, fcurve.array_index): fcurve for fcurve in bag.fcurves} if bag is not None else {}
     for path, key, rest in (("location", "translation", tuple(blender_object.location)), ("rotation_euler", "rotation", tuple(blender_object.rotation_euler))):
-        tracks = [tlm_blender._sample(curves.get((path, component)), frames, rest[component]) for component in range(3)]
+        tracks = [tlm_blender._sample(curves.get((path, component)), frames, rest[component], start) for component in range(3)]
         movement[key] = file.write_view([track[frame] for frame in range(frames) for track in tracks], "f32")
 
     return movement
+
+
+# Nothing under these is drawn where the scenery has it: the collision itself, the hulls and the dynamic scenery, which moves
+_NOT_COLLISION_SOURCES = ("collision", "hull", "collision_hulls", "dynamic_scenery", "dynamic_model", "lights")
+
+
+def collision_of(root: bpy.types.Object) -> typing.Optional[bpy.types.Object]:
+    return next((child for child in tlm_blender._descendants(root) if child.type == "MESH" and tlm_blender.role_of(child) == "collision"), None)
+
+
+def collision_sources(start: bpy.types.Object) -> typing.List[bpy.types.Object]:
+    """The meshes the scenery draws from the object down: its placed meshes and the closest level of its LODs"""
+    sources = []
+    pending = [start]
+    while pending:
+        blender_object = pending.pop()
+        kind = tlm_blender.role_of(blender_object) or ""
+        if kind in _NOT_COLLISION_SOURCES:
+            continue
+
+        if blender_object.type == "MESH" and (kind in ("", "mesh", "scenery_mesh") or kind == "lod_mesh" and int(tlm_blender._write_data(blender_object).get("Level", 0)) == 0):
+            sources.append(blender_object)
+
+        pending.extend(sorted(blender_object.children, key=lambda child: child.name, reverse=True))
+
+    return sources
+
+
+def generate_collision(root: bpy.types.Object, start: bpy.types.Object, surface: bpy.types.Material, replace: bool = True, weld: float = 1e-3,
+                       flip: bool = True, tolerance: float = collision_builder.TOLERANCE, hull_distance: float = collision_builder.HULL_DISTANCE,
+                       coarser_where_crowded: bool = True) -> typing.Tuple[collision_builder.Result, collision_builder.Crowding]:
+    """Makes the scenery's collision, or adds to it, out of the meshes it draws from the start object down, every triangle on the
+    surface, as coarse as the game's (collision_builder.add_meshes: convex hulls where they stay within the hull distance of a mesh,
+    the rest made coarser within the tolerance, more where the player would touch too many triangles; 0 and 0 keep every triangle).
+    Corners closer than the weld distance become one vertex, flat triangles and ones the collision has are left out. A collision made
+    anew has no order of the game's, TT Lab makes the tree the game finds collisions with for it. Comes with where the player would
+    still touch more triangles than the game takes on the new collision."""
+    collision = collision_of(root)
+    if collision is None:
+        collection = root.users_collection[0] if root.users_collection else bpy.context.scene.collection
+        collision = tlm_blender._new_object("Collision", bpy.data.meshes.new("Collision"), root, collection)
+        collision[tlm_blender.KIND_PROPERTY] = "collision"
+        tlm_blender._read_data(collision, "Collision", {})
+        # A new object's world matrix is only worked out by an update, under the root it turns Y up into Z up
+        bpy.context.view_layer.update()
+
+    to_collision = collision.matrix_world.inverted()
+    sources = []
+    for source in collision_sources(start):
+        mesh = source.data
+        mesh.calc_loop_triangles()
+        matrix = to_collision @ source.matrix_world
+        positions = [tuple(matrix @ vertex.co) for vertex in mesh.vertices]
+        # A mirrored object's triangles face the other way where it is
+        mirrored = matrix.determinant() < 0
+        triangles = []
+        for triangle in mesh.loop_triangles:
+            a, b, c = (positions[index] for index in triangle.vertices)
+            triangles.append((a, c, b) if mirrored else (a, b, c))
+
+        sources.append(triangles)
+
+    mesh = collision.data
+    existing_positions: typing.List[collision_builder.Vector3] = []
+    existing_triangles: typing.List[collision_builder.Triangle] = []
+    if not replace:
+        mesh.calc_loop_triangles()
+        existing_positions = [tuple(vertex.co) for vertex in mesh.vertices]
+        existing_triangles = [tuple(triangle.vertices) for triangle in mesh.loop_triangles]
+
+    result = collision_builder.add_meshes(existing_positions, existing_triangles, sources, weld, flip, tolerance, hull_distance, coarser_where_crowded)
+    positions = list(existing_positions) + list(result.positions)
+    every_triangle = list(existing_triangles) + list(result.triangles)
+    crowding = collision_builder.crowding(positions, every_triangle, range(len(existing_triangles), len(every_triangle)), flip)
+    if replace:
+        # The game's order of triangles and vertexes is gone with them
+        for name in (COLLISION_TRIANGLE_ATTRIBUTE, COLLISION_VERTEX_ATTRIBUTE):
+            if name in mesh.attributes:
+                mesh.attributes.remove(mesh.attributes[name])
+
+    if mesh.materials.find(surface.name) < 0:
+        mesh.materials.append(surface)
+
+    slot = mesh.materials.find(surface.name)
+    target = bmesh.new()
+    if not replace:
+        target.from_mesh(mesh)
+
+    triangle_order = target.faces.layers.int.get(COLLISION_TRIANGLE_ATTRIBUTE)
+    vertex_order = target.verts.layers.int.get(COLLISION_VERTEX_ATTRIBUTE)
+    target.verts.ensure_lookup_table()
+    vertexes = list(target.verts)
+    for position in result.positions:
+        vertex = target.verts.new(position)
+        if vertex_order is not None:
+            vertex[vertex_order] = -1
+
+        vertexes.append(vertex)
+
+    for corners in result.triangles:
+        face = target.faces.new([vertexes[corner] for corner in corners])
+        face.material_index = slot
+        if triangle_order is not None:
+            face[triangle_order] = -1
+
+    target.to_mesh(mesh)
+    target.free()
+    mesh.update()
+    return result, crowding

@@ -91,9 +91,10 @@ public class LabKeyboard : IKeyboard, IDisposable
         _keysPressed[key] = true;
         _scancodesPressed[(int)e.PhysicalKey] = true;
         KeyDown?.Invoke(this, key, (int)e.PhysicalKey);
-        if (e.KeySymbol != null)
+        // Keys that type nothing (dead keys, some modifiers) can have an empty symbol
+        if (!string.IsNullOrEmpty(e.KeySymbol))
         {
-            KeyChar?.Invoke(this, e.KeySymbol.ToCharArray()[0]);
+            KeyChar?.Invoke(this, e.KeySymbol[0]);
         }
 
         // Shortcuts like saving the editor have to reach the key bindings of the views around
@@ -105,9 +106,9 @@ public class LabKeyboard : IKeyboard, IDisposable
         return (e.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Alt | KeyModifiers.Meta)) != 0;
     }
 
-    public Boolean IsKeyPressed(Key key) => _keysPressed.ContainsKey(key) && _keysPressed[key];
+    public Boolean IsKeyPressed(Key key) => _keysPressed.GetValueOrDefault(key);
 
-    public Boolean IsScancodePressed(int scancode) => _scancodesPressed.ContainsKey(scancode) && _scancodesPressed[scancode];
+    public Boolean IsScancodePressed(int scancode) => _scancodesPressed.GetValueOrDefault(scancode);
 
     public void BeginInput()
     {
@@ -128,93 +129,6 @@ public class LabKeyboard : IKeyboard, IDisposable
     public event Action<IKeyboard, Key, Int32>? KeyDown;
     public event Action<IKeyboard, Key, Int32>? KeyUp;
     public event Action<IKeyboard, Char>? KeyChar;
-
-    private static char KeyToChar(Avalonia.Input.Key key)
-    {
-        // if (Keyboard.IsKeyDown(Avalonia.Input.Key.LeftAlt) ||
-        //     Keyboard.IsKeyDown(Avalonia.Input.Key.RightAlt) ||
-        //     Keyboard.IsKeyDown(Avalonia.Input.Key.LeftCtrl) ||
-        //     Keyboard.IsKeyDown(Avalonia.Input.Key.RightAlt))
-        // {
-        //     return '\0';
-        // }
-
-        var caplock = Console.CapsLock;
-        var shift = false;
-        // Keyboard.IsKeyDown(Avalonia.Input.Key.LeftShift) ||
-        //              Keyboard.IsKeyDown(Avalonia.Input.Key.RightShift);
-        var iscap = (caplock && !shift) || (!caplock && shift);
-        return key switch
-        {
-            Avalonia.Input.Key.Enter => '\n',
-            Avalonia.Input.Key.A => (iscap ? 'A' : 'a'),
-            Avalonia.Input.Key.B => (iscap ? 'B' : 'b'),
-            Avalonia.Input.Key.C => (iscap ? 'C' : 'c'),
-            Avalonia.Input.Key.D => (iscap ? 'D' : 'd'),
-            Avalonia.Input.Key.E => (iscap ? 'E' : 'e'),
-            Avalonia.Input.Key.F => (iscap ? 'F' : 'f'),
-            Avalonia.Input.Key.G => (iscap ? 'G' : 'g'),
-            Avalonia.Input.Key.H => (iscap ? 'H' : 'h'),
-            Avalonia.Input.Key.I => (iscap ? 'I' : 'i'),
-            Avalonia.Input.Key.J => (iscap ? 'J' : 'j'),
-            Avalonia.Input.Key.K => (iscap ? 'K' : 'k'),
-            Avalonia.Input.Key.L => (iscap ? 'L' : 'l'),
-            Avalonia.Input.Key.M => (iscap ? 'M' : 'm'),
-            Avalonia.Input.Key.N => (iscap ? 'N' : 'n'),
-            Avalonia.Input.Key.O => (iscap ? 'O' : 'o'),
-            Avalonia.Input.Key.P => (iscap ? 'P' : 'p'),
-            Avalonia.Input.Key.Q => (iscap ? 'Q' : 'q'),
-            Avalonia.Input.Key.R => (iscap ? 'R' : 'r'),
-            Avalonia.Input.Key.S => (iscap ? 'S' : 's'),
-            Avalonia.Input.Key.T => (iscap ? 'T' : 't'),
-            Avalonia.Input.Key.U => (iscap ? 'U' : 'u'),
-            Avalonia.Input.Key.V => (iscap ? 'V' : 'v'),
-            Avalonia.Input.Key.W => (iscap ? 'W' : 'w'),
-            Avalonia.Input.Key.X => (iscap ? 'X' : 'x'),
-            Avalonia.Input.Key.Y => (iscap ? 'Y' : 'y'),
-            Avalonia.Input.Key.Z => (iscap ? 'Z' : 'z'),
-            Avalonia.Input.Key.D0 => (shift ? ')' : '0'),
-            Avalonia.Input.Key.D1 => (shift ? '!' : '1'),
-            Avalonia.Input.Key.D2 => (shift ? '@' : '2'),
-            Avalonia.Input.Key.D3 => (shift ? '#' : '3'),
-            Avalonia.Input.Key.D4 => (shift ? '$' : '4'),
-            Avalonia.Input.Key.D5 => (shift ? '%' : '5'),
-            Avalonia.Input.Key.D6 => (shift ? '^' : '6'),
-            Avalonia.Input.Key.D7 => (shift ? '&' : '7'),
-            Avalonia.Input.Key.D8 => (shift ? '*' : '8'),
-            Avalonia.Input.Key.D9 => (shift ? '(' : '9'),
-            Avalonia.Input.Key.OemPlus => (shift ? '+' : '='),
-            Avalonia.Input.Key.OemMinus => (shift ? '_' : '-'),
-            Avalonia.Input.Key.OemQuestion => (shift ? '?' : '/'),
-            Avalonia.Input.Key.OemComma => (shift ? '<' : ','),
-            Avalonia.Input.Key.OemPeriod => (shift ? '>' : '.'),
-            Avalonia.Input.Key.OemOpenBrackets => (shift ? '{' : '['),
-            Avalonia.Input.Key.OemQuotes => (shift ? '"' : '\''),
-            Avalonia.Input.Key.Oem1 => (shift ? ':' : ';'),
-            Avalonia.Input.Key.Oem3 => (shift ? '~' : '`'),
-            Avalonia.Input.Key.Oem5 => (shift ? '|' : '\\'),
-            Avalonia.Input.Key.Oem6 => (shift ? '}' : ']'),
-            Avalonia.Input.Key.Tab => '\t',
-            Avalonia.Input.Key.Space => ' ',
-            // Number Pad
-            Avalonia.Input.Key.NumPad0 => '0',
-            Avalonia.Input.Key.NumPad1 => '1',
-            Avalonia.Input.Key.NumPad2 => '2',
-            Avalonia.Input.Key.NumPad3 => '3',
-            Avalonia.Input.Key.NumPad4 => '4',
-            Avalonia.Input.Key.NumPad5 => '5',
-            Avalonia.Input.Key.NumPad6 => '6',
-            Avalonia.Input.Key.NumPad7 => '7',
-            Avalonia.Input.Key.NumPad8 => '8',
-            Avalonia.Input.Key.NumPad9 => '9',
-            Avalonia.Input.Key.Subtract => '-',
-            Avalonia.Input.Key.Add => '+',
-            Avalonia.Input.Key.Decimal => '.',
-            Avalonia.Input.Key.Divide => '/',
-            Avalonia.Input.Key.Multiply => '*',
-            _ => '\0'
-        };
-    }
 
     private static Key ConvertKey(Avalonia.Input.Key keys) =>
         keys switch

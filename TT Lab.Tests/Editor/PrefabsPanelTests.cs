@@ -32,7 +32,7 @@ public sealed class PrefabsPanelTests : IDisposable
             Name = "Crate", Kind = PrefabKind.Instance, Platform = "PS2", Package = _project.Project.GlobalPackagePS2.URI, LayoutID = 0,
             AssetType = typeof(ObjectInstance).FullName!, DataType = typeof(ObjectInstanceData).FullName, Data = new JObject()
         });
-        var panel = new PrefabsViewModel(new ScenesEditorsViewModel(), new EventAggregator());
+        var panel = new PrefabsViewModel(new ScenesEditorsViewModel(), new EventAggregator(), new PrefabPictures());
 
         panel.Refresh();
 
@@ -64,7 +64,7 @@ public sealed class PrefabsPanelTests : IDisposable
     {
         var library = new PrefabLibrary(_project.Project);
         var aggregator = new EventAggregator();
-        var panel = new PrefabsViewModel(new ScenesEditorsViewModel(), aggregator);
+        var panel = new PrefabsViewModel(new ScenesEditorsViewModel(), aggregator, new PrefabPictures());
         library.Save(CratePrefab("Crate"));
         Assert.Empty(panel.Prefabs);
 

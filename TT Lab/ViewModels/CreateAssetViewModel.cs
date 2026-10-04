@@ -63,8 +63,8 @@ public class CreateAssetViewModel : Screen, INotifyDataErrorInfo
         if (SelectedCreationModel.IsInstance)
         {
             Debug.Assert(_activeChunkService.CurrentChunkEditor != null, "A chunk must be active for a new instance to be created");
-            idGenerator = TwinIdGeneratorServiceProvider.GetGeneratorForChunk(SelectedCreationModel.AssetType,
-                AssetManager.Get().GetAsset(_activeChunkService.CurrentChunkEditor.EditableResource).AdditionalPath!, LayoutID);
+            var chunk = AssetManager.Get().GetAsset(_activeChunkService.CurrentChunkEditor.EditableResource);
+            idGenerator = TwinIdGeneratorServiceProvider.GetGeneratorForChunk(SelectedCreationModel.AssetType, chunk.AdditionalPath!, chunk.Package, LayoutID);
         }
         else
         {

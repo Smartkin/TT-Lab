@@ -4,6 +4,7 @@ using System.Linq;
 using Avalonia.Media.Imaging;
 using GlmSharp;
 using Silk.NET.OpenGL;
+using TT_Lab.Rendering.Objects;
 using TT_Lab.Util;
 using TT_Lab.ViewModels.Interfaces;
 
@@ -21,7 +22,15 @@ public static class PreviewRender
 
     public static Bitmap? Render(RenderContext context, Renderer renderer, Scene.Scene scene, IReadOnlyList<ViewportObject> objects, Func<ViewportObject, bool> isShown, int size)
     {
-        var shown = objects.Where(isShown).ToList();
+        return Render(context, renderer, scene, objects.Select(viewportObject => viewportObject.Render).ToList(),
+            objects.Where(isShown).Select(viewportObject => viewportObject.Render).ToList(), size);
+    }
+
+    /// <summary>
+    /// The picture of the shown objects, every other object of the scene's hidden while it's taken
+    /// </summary>
+    public static Bitmap? Render(RenderContext context, Renderer renderer, Scene.Scene scene, IReadOnlyList<EditableObject> objects, IReadOnlyList<EditableObject> shown, int size)
+    {
         var width = (int)context.ViewportSize.x;
         var height = (int)context.ViewportSize.y;
         if (shown.Count == 0 || width < 2 || height < 2)
@@ -31,22 +40,29 @@ public static class PreviewRender
 
         var camera = scene.Camera;
         var savedCamera = camera.LocalTransform;
-        var saved = objects.Select(viewportObject => (Object: viewportObject, viewportObject.Render.IsVisible, viewportObject.Render.IsSelected)).ToList();
+        var saved = objects.Select(editableObject => (Object: editableObject, editableObject.IsVisible, editableObject.IsSelected)).ToList();
         var savedPrimitives = renderer.DrawEditorPrimitives;
+        // The models' collision hulls are the editor's wireframes, not what the models look like
+        var hulls = shown.SelectMany(ModelsUnder).Where(model => model.ShowHulls).ToList();
         try
         {
-            foreach (var (viewportObject, _, _) in saved)
+            foreach (var model in hulls)
             {
-                viewportObject.Render.IsVisible = false;
+                model.ShowHulls = false;
+            }
+
+            foreach (var (editableObject, _, _) in saved)
+            {
+                editableObject.IsVisible = false;
             }
 
             // Selected objects are tinted, the picture shows them as they are
-            foreach (var viewportObject in shown)
+            foreach (var editableObject in shown)
             {
-                viewportObject.Render.IsVisible = true;
-                if (viewportObject.Render.IsSelected)
+                editableObject.IsVisible = true;
+                if (editableObject.IsSelected)
                 {
-                    viewportObject.Render.Deselect();
+                    editableObject.Deselect();
                 }
             }
 
@@ -69,12 +85,17 @@ public static class PreviewRender
         finally
         {
             renderer.DrawEditorPrimitives = savedPrimitives;
-            foreach (var (viewportObject, wasVisible, wasSelected) in saved)
+            foreach (var model in hulls)
             {
-                viewportObject.Render.IsVisible = wasVisible;
-                if (wasSelected && !viewportObject.Render.IsSelected)
+                model.ShowHulls = true;
+            }
+
+            foreach (var (editableObject, wasVisible, wasSelected) in saved)
+            {
+                editableObject.IsVisible = wasVisible;
+                if (wasSelected && !editableObject.IsSelected)
                 {
-                    viewportObject.Render.Select();
+                    editableObject.Select();
                 }
             }
 
@@ -83,11 +104,27 @@ public static class PreviewRender
         }
     }
 
-    private static (vec3 Center, float Radius) Bounds(IEnumerable<ViewportObject> objects)
+    private static IEnumerable<OGI> ModelsUnder(Renderable renderable)
+    {
+        if (renderable is OGI model)
+        {
+            yield return model;
+        }
+
+        foreach (var child in renderable.Children)
+        {
+            foreach (var under in ModelsUnder(child))
+            {
+                yield return under;
+            }
+        }
+    }
+
+    private static (vec3 Center, float Radius) Bounds(IEnumerable<EditableObject> objects)
     {
         var min = new vec3(float.MaxValue);
         var max = new vec3(float.MinValue);
-        foreach (var bounds in objects.Select(viewportObject => viewportObject.Render.GetBoundsTransform()))
+        foreach (var bounds in objects.Select(editableObject => editableObject.GetBoundsTransform()))
         {
             var extent = vec3.Abs(bounds.Column0.xyz) + vec3.Abs(bounds.Column1.xyz) + vec3.Abs(bounds.Column2.xyz);
             min = vec3.Min(min, bounds.Column3.xyz - extent);

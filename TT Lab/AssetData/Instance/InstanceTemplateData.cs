@@ -42,22 +42,22 @@ public class InstanceTemplateData : AbstractAssetData
     }
 
     [JsonProperty(Required = Required.Always)]
-    [Editable]
+    [Editable(Hint = "The tools' name of the template. The game reads templates into a table it never looks up, so nothing of a template does anything in the game")]
     public String TemplateName { get; set; }
 
     [JsonProperty(Required = Required.Always)]
-    [Editable]
+    [Editable(Hint = "The object the tools made instances of the template of. The copy of its header the template keeps (exit points, react joints, subtype and type) is written again from it")]
     [EditorParam(UriLinkViewModel.BrowseType, typeof(GameObject))]
     public LabURI ObjectId { get; set; }
 
     [JsonProperty(Required = Required.Always)]
-    [Editable(Caption = "Behaviours", Hint = "The graphs whose starters the template runs")]
+    [Editable(Caption = "Behaviours", Hint = "The graphs whose starters the template lists, which the game never runs from it")]
     [EditorParam(UriLinkViewModel.BrowseType, typeof(BehaviourGraph))]
     [OnReferenceDeleted(DeletedReferenceAction.Remove)]
     public List<LabURI> BehaviourStarters { get; set; }
 
     [JsonProperty(Required = Required.Always)]
-    [Editable(Caption = "Instance state flags")]
+    [Editable(Caption = "Instance state flags", Hint = "The state flags the tools gave the template's instances")]
     public Enums.InstanceState InstanceStateFlags { get; set; }
 
     [JsonProperty(Required = Required.Always)]

@@ -38,12 +38,24 @@ public partial class ViewportViewModel
             return [];
         }
 
-        if (TryHitCollision(x, y, out var hit))
+        // The scenery mode's placeholders can go on the meshes as well
+        if (IsSceneryMode ? TryHitScenery(x, y, out var hit) : TryHitCollision(x, y, out hit))
         {
             _editingContext.SetCursorCoordinates(hit);
         }
 
         var canCreate = _editingContext.IsCursorPlaced;
+        if (IsSceneryMode)
+        {
+            var sceneryEntries = GetSceneryMenu(canCreate).ToList();
+            if (!canCreate)
+            {
+                sceneryEntries.Insert(0, new ViewportMenuEntry("Click the collision to place the cursor first", IsEnabled: false));
+            }
+
+            return sceneryEntries;
+        }
+
         var defaultObject = DefaultObjectFor(chunk);
         var aiPositions = SelectedAiPositions();
         var aiPaths = SelectedAiPaths();
@@ -355,7 +367,7 @@ public partial class ViewportViewModel
     }
 
     /// <summary>
-    /// A new light of the chunk's scenery at the cursor, like the ones new chunks get, turning the scenery's lighting on when it's off
+    /// A new light of the chunk's scenery at the cursor, like the ones new chunks get, which lights the chunk when it had none
     /// </summary>
     internal PropertyNode? CreateLight(LightType type)
     {
@@ -370,13 +382,6 @@ public partial class ViewportViewModel
         made.Light.Position = new Twinsanity.TwinsanityInterchange.Common.Vector4(cursor.x, cursor.y, cursor.z, 1.0f);
         made.Light.ComputeBounds();
         var description = $"Placed {made.Name}";
-        using var step = _document!.History.BeginGroup(description);
-        var hasLighting = FindResourceData(typeof(Scenery))?.Find($"AssetData.{nameof(SceneryData.HasLighting)}");
-        if (hasLighting?.GetValue() is false)
-        {
-            hasLighting.SetValue(true);
-        }
-
         return CreateElement(typeof(Scenery), $"AssetData.{made.List}", made.Light, description);
     }
 

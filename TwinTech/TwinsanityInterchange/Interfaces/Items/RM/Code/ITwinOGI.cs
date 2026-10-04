@@ -24,6 +24,11 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code
         /// </summary>
         List<TwinJoint> Joints { get; set; }
         /// <summary>
+        /// The joint IDs the game binds for animations and scripts to find joints by: every ID below it is looked up among the joints.
+        /// The tools wrote how many joints have an ID, which leaves the higher IDs of models whose IDs have gaps unbound
+        /// </summary>
+        Byte JointIdCount { get; set; }
+        /// <summary>
         /// Also known as point of interests(POI)
         /// </summary>
         List<TwinExitPoint> ExitPoints { get; set; }

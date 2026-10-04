@@ -14,7 +14,6 @@ namespace TT_Lab.ServiceProviders;
 public static class TwinIdGeneratorServiceProvider
 {
     private static Dictionary<Type, ITwinIdGeneratorService> _idGeneratorServices = new();
-    private static Dictionary<string, Dictionary<(Enums.Layouts, Type), ITwinIdGeneratorService>> _chunkIdGeneratorServices = new();
     
     static TwinIdGeneratorServiceProvider()
     {
@@ -52,53 +51,21 @@ public static class TwinIdGeneratorServiceProvider
         _idGeneratorServices.Add(typeof(T), gen);
     }
 
-    public static void RegisterGeneratorServiceForChunk(LevelChunk chunk)
-    {
-        if (_chunkIdGeneratorServices.ContainsKey(chunk.AdditionalPath!))
-        {
-            return;
-        }
-        
-        var chunkGenerators = new Dictionary<(Enums.Layouts, Type), ITwinIdGeneratorService>();
-        for (var i = 0; i < (int)Enums.Layouts.LAYER_8 + 1; ++i)
-        {
-            RegisterChunkGenerator<AiPath>((Enums.Layouts)i, chunk, chunkGenerators);
-            RegisterChunkGenerator<AiPosition>((Enums.Layouts)i, chunk, chunkGenerators);
-            RegisterChunkGenerator<Camera>((Enums.Layouts)i, chunk, chunkGenerators);
-            RegisterChunkGenerator<InstanceTemplate>((Enums.Layouts)i, chunk, chunkGenerators);
-            RegisterChunkGenerator<ObjectInstance>((Enums.Layouts)i, chunk, chunkGenerators);
-            RegisterChunkGenerator<Path>((Enums.Layouts)i, chunk, chunkGenerators);
-            RegisterChunkGenerator<Position>((Enums.Layouts)i, chunk, chunkGenerators);
-            RegisterChunkGenerator<Trigger>((Enums.Layouts)i, chunk, chunkGenerators);
-            RegisterChunkGenerator<CollisionSurface>((Enums.Layouts)i, chunk, chunkGenerators);
-        }
-        _chunkIdGeneratorServices.Add(chunk.AdditionalPath!, chunkGenerators);
-    }
-
-    public static void DeregisterGeneratorServiceForChunk(string chunk)
-    {
-        _chunkIdGeneratorServices.Remove(chunk);
-    }
-
-    private static void RegisterChunkGenerator<T>(Enums.Layouts layout, LevelChunk folder, Dictionary<(Enums.Layouts, Type), ITwinIdGeneratorService> chunkGenerators) where T : SerializableInstance
-    {
-        chunkGenerators.Add((layout, typeof(T)), new TwinIdGeneratorServiceInstance<T>(layout, folder));
-    }
-
     public static ITwinIdGeneratorService GetGenerator<T>() where T : IAsset
     {
         return _idGeneratorServices[typeof(T)];
     }
 
-    public static ITwinIdGeneratorService GetGeneratorForChunk<T>(string chunk, Enums.Layouts layout) where T : SerializableInstance
+    // A chunk's elements go by its path and version, a chunk without a tab (an instance duplicated in the project tree) gets them too
+    public static ITwinIdGeneratorService GetGeneratorForChunk<T>(string chunk, LabURI package, Enums.Layouts layout) where T : SerializableInstance
     {
-        return _chunkIdGeneratorServices[chunk][(layout, typeof(T))];
+        return GetGeneratorForChunk(typeof(T), chunk, package, layout);
     }
     
-    public static ITwinIdGeneratorService GetGeneratorForChunk(Type type, string chunk, Enums.Layouts layout)
+    public static ITwinIdGeneratorService GetGeneratorForChunk(Type type, string chunk, LabURI package, Enums.Layouts layout)
     {
         Debug.Assert(type.IsAssignableTo(typeof(SerializableInstance)), $"{type} does not implement SerializableInstance");
-        return _chunkIdGeneratorServices[chunk][(layout, type)];
+        return new TwinIdGeneratorServiceInstance(type, layout, chunk, package);
     }
 
     public static ITwinIdGeneratorService GetGenerator(Type type)

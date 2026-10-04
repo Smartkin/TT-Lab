@@ -115,7 +115,7 @@ public sealed class SaveIconTlmTests : IDisposable
         try
         {
             Directory.SetCurrentDirectory(directory.FullName);
-            asset.ExportToFile(_assets.Factory);
+            asset.ExportToFile(_assets.Factory, Directory.GetCurrentDirectory());
             Assert.Equal(Bytes(original), File.ReadAllBytes(Path.Combine(directory.FullName, "Crash.ico")));
         }
         finally

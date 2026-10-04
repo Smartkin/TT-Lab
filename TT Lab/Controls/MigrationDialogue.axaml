@@ -1,0 +1,20 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:controls="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+        mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="160"
+        x:Class="TT_Lab.Controls.MigrationDialogue"
+        x:DataType="x:String"
+        Title="Project of an older TT Lab"
+        MinHeight="140" MaxWidth="700" SizeToContent="WidthAndHeight" CanResize="False" ShowInTaskbar="False" Topmost="True" WindowStartupLocation="CenterOwner">
+    <controls:GroupBox>
+        <Grid RowDefinitions="*,Auto">
+            <TextBlock Grid.Row="0" Text="{Binding}" TextWrapping="Wrap" Margin="10" VerticalAlignment="Center"/>
+            <Grid Grid.Row="1" ColumnDefinitions="*,*" MaxWidth="320">
+                <Button x:Name="MigrateButton" Content="Migrate" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5" Padding="3" IsDefault="True" Click="MigrateButton_OnClick"/>
+                <Button x:Name="CancelButton" Grid.Column="1" Content="Don't open it" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="5" Padding="3" IsCancel="True" Click="CancelButton_OnClick"/>
+            </Grid>
+        </Grid>
+    </controls:GroupBox>
+</Window>

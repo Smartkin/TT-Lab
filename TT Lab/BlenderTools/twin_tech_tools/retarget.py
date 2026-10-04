@@ -39,11 +39,32 @@ BY_NAME = "name"
 BY_ORDER = "order"
 NEW = "new"
 
+# How the bones are matched: by their joint indexes while those are the original's (keeps_skeleton), or always, or never (names, then
+# the hierarchy)
+MATCH_AUTO = "AUTO"
+MATCH_INDEX = "INDEX"
+MATCH_NAME = "NAME"
 
-def match_joints(original: typing.Sequence[BoneInfo], incoming: typing.Sequence[BoneInfo]) -> typing.Dict[str, Match]:
-    """Which of the original's joints each incoming bone stands for. A bone that already has one of the original's joint indexes
-    keeps it, then bones named like the original's are those joints, then the hierarchies are walked together: the roots in order
-    and the children of every pair of matched bones in order. What's left gets the next free joint indexes."""
+
+def keeps_skeleton(original: typing.Sequence[BoneInfo], incoming: typing.Sequence[BoneInfo]) -> bool:
+    """Whether the incoming bones' joint indexes are the original's joints: every joint index both have has the same parent's index
+    in both (bones added after the original's don't count). Exporting gives every bone of any rig an index, which only numbers it."""
+    def parents(bones: typing.Sequence[BoneInfo], index_of: typing.Dict[str, int]) -> typing.Dict[int, int]:
+        # -1 the root, -2 a parent of no index
+        return {index_of[name]: -1 if parent is None else index_of.get(parent, -2) for name, parent, _ in bones if name in index_of}
+
+    original_index = {name: index if index is not None else position for position, (name, _, index) in enumerate(original)}
+    original_parents = parents(original, original_index)
+    incoming_parents = parents(incoming, {name: index for name, _, index in incoming if index is not None})
+    shared = original_parents.keys() & incoming_parents.keys()
+    return bool(shared) and all(original_parents[index] == incoming_parents[index] for index in shared)
+
+
+def match_joints(original: typing.Sequence[BoneInfo], incoming: typing.Sequence[BoneInfo], match: str = MATCH_AUTO) -> typing.Dict[str, Match]:
+    """Which of the original's joints each incoming bone stands for. A bone that has one of the original's joint indexes keeps it
+    (while the indexes are the original's joints, see keeps_skeleton, or always with MATCH_INDEX, never with MATCH_NAME), then bones
+    named like the original's are those joints, then the hierarchies are walked together: the roots in order and the children of
+    every pair of matched bones in order. What's left gets the next free joint indexes."""
     original_index = {name: index if index is not None else position for position, (name, _, index) in enumerate(original)}
     original_children: typing.Dict[typing.Optional[str], typing.List[str]] = {}
     for name, parent, _ in original:
@@ -61,9 +82,10 @@ def match_joints(original: typing.Sequence[BoneInfo], incoming: typing.Sequence[
         result[name] = (original_index[original_name], original_name, how)
         used.add(original_name)
 
-    for name, _, index in incoming:
-        if index is not None and index in original_by_index and original_by_index[index] not in used:
-            take(name, original_by_index[index], BY_INDEX)
+    if match == MATCH_INDEX or match == MATCH_AUTO and keeps_skeleton(original, incoming):
+        for name, _, index in incoming:
+            if index is not None and index in original_by_index and original_by_index[index] not in used:
+                take(name, original_by_index[index], BY_INDEX)
 
     for name, _, _ in incoming:
         if name not in result and name in original_index and name not in used:

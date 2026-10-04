@@ -57,14 +57,13 @@ public sealed class PrefabLibraryTests : IDisposable
         var folder = _project.GetFolder(_package, "levels");
         var chunk = (LevelChunk)AssetFactory.CreateAsset(typeof(LevelChunk), folder, name, string.Empty,
             TwinIdGeneratorServiceProvider.GetGenerator<LevelChunk>(), asset => AssetDataFactory.CreateChunkData(folder, asset))!;
-        TwinIdGeneratorServiceProvider.RegisterGeneratorServiceForChunk(chunk);
         return chunk;
     }
 
     private static T AddInstance<T>(LevelChunk chunk, string name, Func<IAsset, AbstractAssetData> data) where T : SerializableInstance
     {
         var instance = (T)AssetFactory.CreateAsset(typeof(T), chunk.GetChunkFolder(), name, string.Empty,
-            TwinIdGeneratorServiceProvider.GetGeneratorForChunk(typeof(T), chunk.AdditionalPath!, Enums.Layouts.LAYER_1), asset =>
+            TwinIdGeneratorServiceProvider.GetGeneratorForChunk(typeof(T), chunk.AdditionalPath!, chunk.Package, Enums.Layouts.LAYER_1), asset =>
             {
                 var instanceAsset = (SerializableInstance)asset;
                 instanceAsset.Chunk = chunk.AdditionalPath!;

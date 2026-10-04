@@ -16,16 +16,80 @@
                 <TextBox x:Name="PrefabName" Text="{Binding PrefabName}" Watermark="Name" IsEnabled="{Binding CanSave}"/>
             </DockPanel>
             <TextBlock Text="{Binding Hint}" TextWrapping="Wrap" FontSize="11" Opacity="0.7"/>
-            <TextBlock Text="Drag a prefab into the scene to place it where it lands, right click it for more" TextWrapping="Wrap" FontSize="11" Opacity="0.7"/>
+            <TextBlock Text="Drag a prefab into a scene to place it where it lands, onto a folder to move it there, right click it for more. Double click a folder to open it, Backspace goes back up" TextWrapping="Wrap" FontSize="11" Opacity="0.7"/>
+            <!-- The folder shown and the way to it, a prefab dragged onto a step of it goes there -->
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="4">
+                    <Button x:Name="NewFolderButton" Content="New folder" Command="{Binding NewFolderCommand}" ToolTip.Tip="A folder in the one shown, named as it's typed"/>
+                    <Button x:Name="MakeInstancePrefabsButton" Content="From the chunks" Command="{Binding MakeInstancePrefabsCommand}"
+                            ToolTip.Tip="Make a prefab of every different object instance, scenery mesh and LOD of the chunks the prefabs have none of yet, in their chunk's folder (the meshes and LODs in its Meshes and LODs) or Global for the global objects', the way a new project gets them, and take the pictures prefabs lack"/>
+                </StackPanel>
+                <ItemsControl x:Name="CrumbList" ItemsSource="{Binding Crumbs}" VerticalAlignment="Center">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="viewModels:PrefabCrumb">
+                            <StackPanel Orientation="Horizontal" DragDrop.AllowDrop="True" Background="Transparent">
+                                <TextBlock Text="›" Opacity="0.5" Margin="2,0" VerticalAlignment="Center" IsVisible="{Binding !IsFirst}"/>
+                                <Button Content="{Binding Name}" Command="{Binding OpenCommand}" Padding="4,1" Background="Transparent" BorderThickness="0"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </DockPanel>
+            <!-- Looks in the folder shown and every folder in it, a prefab by its folders and its name -->
+            <TextBox x:Name="SearchBox" Text="{Binding SearchText}" Classes="clearButton" Watermark="Search here and in the folders in it (Ctrl+F)"
+                     ToolTip.Tip="Prefabs whose folders and name have every word typed, and folders whose name has them">
+                <TextBox.KeyBindings>
+                    <KeyBinding Gesture="Escape" Command="{Binding ClearSearchCommand}"/>
+                </TextBox.KeyBindings>
+            </TextBox>
+            <TextBlock x:Name="PicturesStatus" Text="{Binding PicturesStatus}" FontSize="11" Opacity="0.7" IsVisible="{Binding PicturesStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
         </StackPanel>
-        <TextBlock DockPanel.Dock="Top" Text="No prefabs saved yet" Margin="6,0" Opacity="0.7" IsVisible="{Binding !Prefabs.Count}"/>
-        <ListBox x:Name="PrefabList" ItemsSource="{Binding Prefabs}" SelectionMode="Single" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+        <TextBlock x:Name="ListStatus" DockPanel.Dock="Top" Text="{Binding ListStatus}" Margin="6,0,6,4" Opacity="0.7" TextWrapping="Wrap"
+                   IsVisible="{Binding ListStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+        <!-- The folder's folders, then its prefabs: a folder opens with a double click, a prefab dropped onto one goes into it -->
+        <ListBox x:Name="PrefabList" ItemsSource="{Binding Items}" SelectionMode="Single" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
             <ListBox.ItemsPanel>
                 <ItemsPanelTemplate>
                     <WrapPanel/>
                 </ItemsPanelTemplate>
             </ListBox.ItemsPanel>
-            <ListBox.ItemTemplate>
+            <ListBox.DataTemplates>
+                <DataTemplate x:DataType="viewModels:PrefabFolderEntry">
+                    <StackPanel Background="Transparent" Width="132" Margin="2" Spacing="3" ToolTip.Tip="{Binding Tip}">
+                        <StackPanel.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="Open" Command="{Binding OpenCommand}"/>
+                                <MenuItem Header="Rename" Command="{Binding StartRenameCommand}" InputGesture="F2"/>
+                                <MenuItem Header="Delete..." Command="{Binding AskDeleteCommand}"/>
+                            </ContextMenu>
+                        </StackPanel.ContextMenu>
+                        <Border Width="128" Height="96" Background="#FF1E1E22" BorderBrush="#FF3F3F46" BorderThickness="1" CornerRadius="3" ClipToBounds="True">
+                            <Panel>
+                                <Image Source="{Binding Icon}" Width="96" Height="64" Stretch="Uniform" IsVisible="{Binding !IsAskingDelete}"/>
+                                <StackPanel IsVisible="{Binding IsAskingDelete}" VerticalAlignment="Center" Margin="4" Spacing="4">
+                                    <TextBlock Text="{Binding DeleteQuestion}" TextWrapping="Wrap" TextAlignment="Center" FontSize="11"/>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="4">
+                                        <Button Content="Delete" Command="{Binding DeleteCommand}" Padding="6,1"/>
+                                        <Button Content="Keep" Command="{Binding KeepCommand}" Padding="6,1"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Panel>
+                        </Border>
+                        <TextBlock Text="{Binding Name}" IsVisible="{Binding !IsRenaming}" TextWrapping="Wrap" TextAlignment="Center" MaxLines="2" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding Location}" IsVisible="{Binding HasLocation}" FontSize="10" Opacity="0.6" TextAlignment="Center" TextTrimming="PathSegmentEllipsis"/>
+                        <TextBox x:Name="RenameBox" Text="{Binding EditName}" IsVisible="{Binding IsRenaming}">
+                            <TextBox.KeyBindings>
+                                <KeyBinding Gesture="Enter" Command="{Binding CommitRenameCommand}"/>
+                                <KeyBinding Gesture="Escape" Command="{Binding CancelRenameCommand}"/>
+                            </TextBox.KeyBindings>
+                        </TextBox>
+                    </StackPanel>
+                </DataTemplate>
                 <DataTemplate x:DataType="viewModels:PrefabEntry">
                     <!-- A tile: the picture taken when the prefab got saved with its name under it, the rest in its tooltip -->
                     <StackPanel Background="Transparent" Width="132" Margin="2" Spacing="3">
@@ -49,9 +113,10 @@
                             </Panel>
                         </Border>
                         <TextBlock Text="{Binding Name}" TextWrapping="Wrap" TextAlignment="Center" MaxLines="2" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding Location}" IsVisible="{Binding HasLocation}" FontSize="10" Opacity="0.6" TextAlignment="Center" TextTrimming="PathSegmentEllipsis"/>
                     </StackPanel>
                 </DataTemplate>
-            </ListBox.ItemTemplate>
+            </ListBox.DataTemplates>
         </ListBox>
     </DockPanel>
 </UserControl>

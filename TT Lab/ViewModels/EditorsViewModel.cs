@@ -116,6 +116,8 @@ public class EditorsViewModel
         catch (Exception ex)
         {
             Log.WriteLine($"Couldn't reload what changed outside TT Lab: {ex.Message}", Log.LogType.Warning);
+            // Only the message reached the log, a NullReferenceException after a model exported from Blender couldn't be traced
+            Log.WriteLine(ex.ToString(), Log.LogType.Debug);
         }
         finally
         {

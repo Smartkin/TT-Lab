@@ -49,6 +49,36 @@ public enum ViewportObjectCategory
 }
 
 /// <summary>
+/// What a chunk's viewport edits: the instances and the resources' parts, or the scenery's placed meshes and its collision
+/// </summary>
+public enum ViewportEditMode
+{
+    Instances,
+    Scenery
+}
+
+/// <summary>
+/// Takes the gizmo's drags of an object itself, for what isn't a transform in the data (the selected triangles of a collision)
+/// </summary>
+public interface IViewportTransformTarget
+{
+    /// <summary>
+    /// Where the drag has got to, the transform from where it started
+    /// </summary>
+    void Preview(mat4 transform);
+
+    /// <summary>
+    /// The drag ended where it got to
+    /// </summary>
+    void Commit();
+
+    /// <summary>
+    /// The drag was given up on, nothing of it stays
+    /// </summary>
+    void Cancel();
+}
+
+/// <summary>
 /// Turns data kept in a matrix that isn't a transform, like the corners of a load wall, into its object's transform and back
 /// </summary>
 public interface ITransformConverter
@@ -103,6 +133,21 @@ public record ViewportObject(EditableObject Render, string DocumentName, Propert
     public ViewportObjectCategory Category { get; init; }
 
     /// <summary>
+    /// The edit mode it's picked in, objects of the other mode aren't
+    /// </summary>
+    public ViewportEditMode Mode { get; init; } = ViewportEditMode.Instances;
+
+    /// <summary>
+    /// What the inspector shows when it gets selected instead of the resource it belongs to, a placed mesh shows only itself
+    /// </summary>
+    public PropertyNode? InspectorRoot { get; init; }
+
+    /// <summary>
+    /// Takes the gizmo's drags itself instead of the transform nodes
+    /// </summary>
+    public IViewportTransformTarget? TransformTarget { get; init; }
+
+    /// <summary>
     /// Part of what the object belongs to that the inspector brings into view when it gets selected, a point of a path for example
     /// </summary>
     public PropertyNode? InspectorFocus { get; init; }
@@ -127,6 +172,11 @@ public record ViewportObject(EditableObject Render, string DocumentName, Propert
     // What the inspector doesn't let be edited can't be dragged either, like the load wall of a link that doesn't use it
     public bool IsTransformSupported(TransformMode mode)
     {
+        if (TransformTarget != null)
+        {
+            return true;
+        }
+
         if (Transform != null)
         {
             return !Transform.IsReadOnly;

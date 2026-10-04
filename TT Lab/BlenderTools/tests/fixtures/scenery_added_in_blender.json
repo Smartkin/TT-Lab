@@ -1,0 +1,15 @@
+{
+  "Meshes": 5,
+  "Lods": 2,
+  "AddedLevels": 2,
+  "AddedMesh": [
+    10.0,
+    0.0,
+    10.0
+  ],
+  "AddedLod": [
+    -10.0,
+    0.0,
+    10.0
+  ]
+}

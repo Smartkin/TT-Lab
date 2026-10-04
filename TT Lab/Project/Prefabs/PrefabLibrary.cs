@@ -11,16 +11,21 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Splat;
 using TT_Lab.AssetData;
+using TT_Lab.AssetData.Graphics.TlModel;
+using TT_Lab.AssetData.Instance;
+using TT_Lab.AssetData.Instance.Scenery;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Assets.Instance;
 using TT_Lab.Attributes;
 using TT_Lab.ServiceProviders;
+using TT_Lab.Util;
 using TT_Lab.ViewModels.Editors;
 using TT_Lab.ViewModels.Editors.PropertyGraph;
 using TT_Lab.ViewModels.Interfaces;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Path = System.IO.Path;
+using Scenery = TT_Lab.Assets.Instance.Scenery;
 
 namespace TT_Lab.Project.Prefabs;
 
@@ -57,15 +62,29 @@ public sealed class PrefabLibrary
         return Locator.Current.GetService<ProjectManager>()?.OpenedProject is Project project ? new PrefabLibrary(project) : null;
     }
 
+    public const char FolderSeparator = '/';
+
+    /// <summary>
+    /// Every prefab of the library, in every folder
+    /// </summary>
     public List<Prefab> Load()
     {
-        var prefabs = new List<Prefab>();
-        if (!Directory.Exists(Folder))
-        {
-            return prefabs;
-        }
+        return Directory.Exists(Folder) ? Read(Directory.EnumerateFiles(Folder, "*.json", SearchOption.AllDirectories)) : [];
+    }
 
-        foreach (var file in Directory.EnumerateFiles(Folder, "*.json").Order(StringComparer.Ordinal))
+    /// <summary>
+    /// The prefabs right in the folder, not in the folders in it
+    /// </summary>
+    public List<Prefab> Load(string folder)
+    {
+        var directory = DirectoryOf(folder);
+        return Directory.Exists(directory) ? Read(Directory.EnumerateFiles(directory, "*.json")) : [];
+    }
+
+    private List<Prefab> Read(IEnumerable<string> files)
+    {
+        var prefabs = new List<Prefab>();
+        foreach (var file in files.Order(StringComparer.Ordinal))
         {
             try
             {
@@ -76,8 +95,11 @@ public sealed class PrefabLibrary
                 }
 
                 prefab.FilePath = file;
+                prefab.Folder = FolderOf(Path.GetDirectoryName(file)!);
                 var preview = PreviewPathOf(file);
                 prefab.PreviewPath = File.Exists(preview) ? preview : null;
+                var model = ModelPathOf(file);
+                prefab.ModelPath = File.Exists(model) ? model : null;
                 prefabs.Add(prefab);
             }
             catch (Exception e)
@@ -86,16 +108,199 @@ public sealed class PrefabLibrary
             }
         }
 
-        return prefabs.OrderBy(prefab => prefab.Name, StringComparer.OrdinalIgnoreCase).ToList();
+        return prefabs.OrderBy(prefab => prefab.Name, NaturalStringComparer.Instance).ToList();
     }
 
     /// <summary>
-    /// Writes the prefab's file, a prefab saved under the name of another replaces it. Its picture goes next to it as a PNG
+    /// The prefabs of the files
+    /// </summary>
+    public List<Prefab> Load(IEnumerable<string> files)
+    {
+        return Read(files);
+    }
+
+    /// <summary>
+    /// The folders and prefabs in the folder and every folder in it that have every term in them (without case): a folder in its name, a
+    /// prefab in its folders and its name. Only the first prefabs up to the limit are read, how many there are comes back too
+    /// </summary>
+    public (List<string> Folders, List<Prefab> Prefabs, int Matched) Search(string folder, IReadOnlyCollection<string> terms, int limit)
+    {
+        var directory = DirectoryOf(folder);
+        if (terms.Count == 0 || !Directory.Exists(directory))
+        {
+            return ([], [], 0);
+        }
+
+        bool Matches(string text) => terms.All(term => text.Contains(term, StringComparison.OrdinalIgnoreCase));
+        var folders = Directory.EnumerateDirectories(directory, "*", SearchOption.AllDirectories)
+            .Where(path => Matches(Path.GetFileName(path))).Select(FolderOf).Order(NaturalStringComparer.Instance).ToList();
+        // Found by their files' names, which are their names, without reading every one
+        var files = Directory.EnumerateFiles(directory, "*.json", SearchOption.AllDirectories)
+            .Where(file => Matches(Join(FolderOf(Path.GetDirectoryName(file)!), Path.GetFileNameWithoutExtension(file))))
+            .Order(NaturalStringComparer.Instance).ToList();
+        return (folders, Read(files.Take(limit)), files.Count);
+    }
+
+    /// <summary>
+    /// The files of every prefab without a picture, found without reading them
+    /// </summary>
+    public List<string> FilesWithoutPicture()
+    {
+        return Directory.Exists(Folder)
+            ? Directory.EnumerateFiles(Folder, "*.json", SearchOption.AllDirectories).Where(file => !File.Exists(PreviewPathOf(file))).Order(StringComparer.Ordinal).ToList()
+            : [];
+    }
+
+    /// <summary>
+    /// The names of the folders in the folder
+    /// </summary>
+    public List<string> Folders(string folder)
+    {
+        var directory = DirectoryOf(folder);
+        return Directory.Exists(directory)
+            ? Directory.EnumerateDirectories(directory).Select(Path.GetFileName).OfType<string>().Order(NaturalStringComparer.Instance).ToList()
+            : [];
+    }
+
+    /// <summary>
+    /// A new folder in the folder, numbered when one of the name is there. Its path comes back
+    /// </summary>
+    public string CreateFolder(string parent, string name)
+    {
+        var baseName = FileName(name);
+        var candidate = baseName;
+        for (var number = 2; Directory.Exists(DirectoryOf(Join(parent, candidate))); number++)
+        {
+            candidate = $"{baseName} {number}";
+        }
+
+        var folder = Join(parent, candidate);
+        Directory.CreateDirectory(DirectoryOf(folder));
+        return folder;
+    }
+
+    /// <summary>
+    /// The folder under another name in the same place, its new path comes back. A folder of that name already there keeps it
+    /// </summary>
+    public string RenameFolder(string folder, string name)
+    {
+        var parent = ParentOf(folder);
+        var renamed = Join(parent, FileName(name));
+        if (string.Equals(renamed, folder, StringComparison.Ordinal) || Directory.Exists(DirectoryOf(renamed)))
+        {
+            return folder;
+        }
+
+        Directory.Move(DirectoryOf(folder), DirectoryOf(renamed));
+        return renamed;
+    }
+
+    /// <summary>
+    /// Deletes the folder with every prefab and folder in it
+    /// </summary>
+    public void DeleteFolder(string folder)
+    {
+        if (folder.Length > 0 && Directory.Exists(DirectoryOf(folder)))
+        {
+            Directory.Delete(DirectoryOf(folder), true);
+        }
+    }
+
+    /// <summary>
+    /// Moves the prefab and its picture into the folder, replacing one of its name there
+    /// </summary>
+    public void Move(Prefab prefab, string folder)
+    {
+        if (prefab.FilePath == null || !File.Exists(prefab.FilePath) || string.Equals(prefab.Folder, folder, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        var directory = DirectoryOf(folder);
+        Directory.CreateDirectory(directory);
+        var target = Path.Combine(directory, Path.GetFileName(prefab.FilePath));
+        File.Move(prefab.FilePath, target, true);
+        var preview = PreviewPathOf(prefab.FilePath);
+        if (File.Exists(preview))
+        {
+            File.Move(preview, PreviewPathOf(target), true);
+            prefab.PreviewPath = PreviewPathOf(target);
+        }
+
+        var model = ModelPathOf(prefab.FilePath);
+        if (File.Exists(model))
+        {
+            File.Move(model, ModelPathOf(target), true);
+            prefab.ModelPath = ModelPathOf(target);
+        }
+
+        prefab.FilePath = target;
+        prefab.Folder = folder;
+    }
+
+    public bool FolderExists(string folder) => Directory.Exists(DirectoryOf(folder));
+
+    /// <summary>
+    /// How many prefabs the folder has with the ones of the folders in it
+    /// </summary>
+    public int CountPrefabs(string folder)
+    {
+        var directory = DirectoryOf(folder);
+        return Directory.Exists(directory) ? Directory.EnumerateFiles(directory, "*.json", SearchOption.AllDirectories).Count() : 0;
+    }
+
+    public static string Join(string parent, string name) => parent.Length == 0 ? name : $"{parent}{FolderSeparator}{name}";
+
+    /// <summary>
+    /// The names the prefabs have in every folder, with their files' names, which new prefabs made in them don't take
+    /// </summary>
+    internal static Dictionary<string, HashSet<string>> NamesByFolder(IEnumerable<Prefab> prefabs)
+    {
+        return prefabs.GroupBy(prefab => prefab.Folder, StringComparer.Ordinal).ToDictionary(folder => folder.Key,
+            folder => folder.SelectMany(prefab => new[] { prefab.Name, Path.GetFileNameWithoutExtension(prefab.FilePath) ?? prefab.Name })
+                .ToHashSet(StringComparer.OrdinalIgnoreCase), StringComparer.Ordinal);
+    }
+
+    public static string ParentOf(string folder)
+    {
+        var separator = folder.LastIndexOf(FolderSeparator);
+        return separator < 0 ? string.Empty : folder[..separator];
+    }
+
+    // The folder's directory, only ever within the library's: the folder's names are file names
+    private string DirectoryOf(string folder)
+    {
+        var names = folder.Split(FolderSeparator, StringSplitOptions.RemoveEmptyEntries);
+        if (names.Any(name => name is "." or ".." || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0))
+        {
+            throw new ArgumentException($"{folder} isn't a folder of the prefabs", nameof(folder));
+        }
+
+        return names.Length == 0 ? Folder : Path.Combine([Folder, .. names]);
+    }
+
+    private string FolderOf(string directory)
+    {
+        var relative = Path.GetRelativePath(Folder, directory);
+        return relative == "." ? string.Empty : relative.Replace(Path.DirectorySeparatorChar, FolderSeparator);
+    }
+
+    /// <summary>
+    /// Writes the prefab's file into its folder, a prefab saved under the name of another there replaces it. Its picture goes next to it
+    /// as a PNG, a scenery prefab's model file as a .tlm
     /// </summary>
     public void Save(Prefab prefab, Bitmap? preview = null)
     {
-        Directory.CreateDirectory(Folder);
-        prefab.FilePath ??= Path.Combine(Folder, $"{FileName(prefab.Name)}.json");
+        var directory = DirectoryOf(prefab.Folder);
+        Directory.CreateDirectory(directory);
+        prefab.FilePath ??= Path.Combine(directory, $"{FileName(prefab.Name)}.json");
+        if (prefab.Model != null)
+        {
+            // Written first, a prefab's file without it can't be placed
+            File.WriteAllBytes(ModelPathOf(prefab.FilePath), prefab.Model);
+            prefab.ModelPath = ModelPathOf(prefab.FilePath);
+        }
+
         File.WriteAllText(prefab.FilePath, JsonConvert.SerializeObject(prefab, Formatting.Indented));
         var previewPath = PreviewPathOf(prefab.FilePath);
         if (preview != null)
@@ -109,23 +314,48 @@ public sealed class PrefabLibrary
         }
     }
 
+    /// <summary>
+    /// Puts the picture next to the prefab's file, whether the prefab is still there to have it comes back
+    /// </summary>
+    public bool SavePicture(Prefab prefab, byte[] png)
+    {
+        if (prefab.FilePath == null || !File.Exists(prefab.FilePath))
+        {
+            return false;
+        }
+
+        var path = PreviewPathOf(prefab.FilePath);
+        File.WriteAllBytes(path, png);
+        // Moved or deleted meanwhile, the picture would be another prefab's of the name
+        if (!File.Exists(prefab.FilePath))
+        {
+            File.Delete(path);
+            return false;
+        }
+
+        prefab.PreviewPath = path;
+        return true;
+    }
+
     public void Delete(Prefab prefab)
     {
         if (prefab.FilePath != null && File.Exists(prefab.FilePath))
         {
             File.Delete(prefab.FilePath);
-            var preview = PreviewPathOf(prefab.FilePath);
-            if (File.Exists(preview))
+            foreach (var sidecar in new[] { PreviewPathOf(prefab.FilePath), ModelPathOf(prefab.FilePath) }.Where(File.Exists))
             {
-                File.Delete(preview);
+                File.Delete(sidecar);
             }
         }
 
         prefab.FilePath = null;
         prefab.PreviewPath = null;
+        prefab.ModelPath = null;
     }
 
     private static string PreviewPathOf(string filePath) => Path.ChangeExtension(filePath, ".png");
+
+    private static string ModelPathOf(string filePath) => Path.ChangeExtension(filePath, ".tlm");
 
     /// <summary>
     /// What the selection in a chunk's document can be saved as: the resource's node in the document and the element of it the selection
@@ -214,7 +444,7 @@ public sealed class PrefabLibrary
     }
 
     // The instance's data without its links to the chunk's instances, the data is let go of again when it wasn't loaded
-    private static (string DataType, JObject Data) CaptureInstanceData(SerializableInstance asset)
+    internal static (string DataType, JObject Data) CaptureInstanceData(SerializableInstance asset)
     {
         var wasLoaded = asset.IsLoaded;
         var copy = asset.GetData().CopyFor(asset);
@@ -265,6 +495,60 @@ public sealed class PrefabLibrary
         return prefab;
     }
 
+    // A scenery prefab keeps its meshes as a model file of their own next to it, the way the scenery keeps them
+    internal const string SceneryCountKey = "Count";
+    // What the scenery prefabs made of the chunks' scenery are made of, they aren't made again
+    internal const string SceneryContentKey = "Content";
+
+    /// <summary>
+    /// Placed meshes of a scenery as one prefab, its meshes and LODs with it, each where it stands from the origin
+    /// </summary>
+    public Prefab CaptureScenery(Scenery scenery, IReadOnlyList<SceneryPlacement> placements, System.Numerics.Vector3 origin, string name)
+    {
+        if (placements.Count == 0)
+        {
+            throw new ArgumentException("A scenery prefab needs meshes", nameof(placements));
+        }
+
+        var file = ((IAsset)scenery).GetData<SceneryData>().WritePlacements(placements, origin);
+        using var stream = new MemoryStream();
+        file.WriteTo(stream);
+        return new Prefab
+        {
+            Name = name,
+            Kind = PrefabKind.Scenery,
+            Platform = _project.GetPlatform(scenery.Package).ToString(),
+            Package = scenery.Package,
+            MadeFrom = scenery.Chunk,
+            AssetType = typeof(Scenery).FullName!,
+            Data = new JObject { [SceneryCountKey] = placements.Count },
+            Model = stream.ToArray(),
+        };
+    }
+
+    /// <summary>
+    /// The scenery prefab's meshes and LODs made into meshes and LODs of the scenery, moved by the offset. They aren't among its placed
+    /// ones yet
+    /// </summary>
+    public List<SceneryPlacement> PlaceScenery(Prefab prefab, SceneryData scenery, System.Numerics.Vector3 offset)
+    {
+        if (prefab.Kind != PrefabKind.Scenery || ModelOf(prefab) is not { } model)
+        {
+            throw new InvalidOperationException($"Prefab {prefab.Name} isn't made of scenery meshes, or its model file is gone");
+        }
+
+        using var stream = new MemoryStream(model);
+        return scenery.ReadPlacements(TlmFile.Read(stream), offset);
+    }
+
+    /// <summary>
+    /// A scenery prefab's model file, none when it has none
+    /// </summary>
+    public static byte[]? ModelOf(Prefab prefab)
+    {
+        return prefab.Model ?? (prefab.ModelPath != null && File.Exists(prefab.ModelPath) ? File.ReadAllBytes(prefab.ModelPath) : null);
+    }
+
     /// <summary>
     /// Whether the prefab can go into the chunk: it has to be of the chunk's version of the game, and an element needs the chunk to have
     /// the resource it's a part of, which its open document tells
@@ -277,7 +561,7 @@ public sealed class PrefabLibrary
             return false;
         }
 
-        if (prefab.Kind == PrefabKind.Element && (document == null || FindResource(document, prefab) == null))
+        if (prefab.Kind is PrefabKind.Element or PrefabKind.Scenery && (document == null || FindResource(document, prefab) == null))
         {
             reason = $"The chunk has no {Describe(ResolveType(prefab.AssetType)).ToLowerInvariant()}";
             return false;
@@ -328,7 +612,7 @@ public sealed class PrefabLibrary
         var layout = (Enums.Layouts)layoutId;
         var name = $"{prefabName} {(uint)Guid.NewGuid().GetHashCode():X8}";
         var instance = AssetFactory.CreateAsset(type, chunk.GetChunkFolder(), name, string.Empty,
-            TwinIdGeneratorServiceProvider.GetGeneratorForChunk(type, chunk.AdditionalPath!, layout),
+            TwinIdGeneratorServiceProvider.GetGeneratorForChunk(type, chunk.AdditionalPath!, chunk.Package, layout),
             asset =>
             {
                 var instanceAsset = (SerializableInstance)asset;
@@ -380,6 +664,13 @@ public sealed class PrefabLibrary
         if (prefab.Kind == PrefabKind.Group)
         {
             return $"Group of {prefab.Items?.Count ?? 0} instances, {prefab.Platform}";
+        }
+
+        if (prefab.Kind == PrefabKind.Scenery)
+        {
+            var count = prefab.Data[SceneryCountKey]?.Value<int>() ?? 0;
+            var meshes = count == 1 ? "1 scenery mesh" : $"{count} scenery meshes";
+            return string.IsNullOrEmpty(prefab.MadeFrom) ? $"{meshes}, {prefab.Platform}" : $"{meshes}, {prefab.Platform}, from {prefab.MadeFrom}";
         }
 
         var what = prefab.Kind == PrefabKind.Instance

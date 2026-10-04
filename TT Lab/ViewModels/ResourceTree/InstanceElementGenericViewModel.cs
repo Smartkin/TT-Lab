@@ -23,7 +23,7 @@ public class InstanceElementGenericViewModel<T> : InstanceElementViewModel where
             Chunk = Asset.Chunk,
             LayoutID = Asset.LayoutID,
             Variation = Asset.Chunk + Locator.Current.GetService<ProjectManager>()!.OpenedProject!.BasePackage.ID,
-            ID = TwinIdGeneratorServiceProvider.GetGeneratorForChunk<T>(Asset.Chunk, MiscUtils.ConvertEnum<Enums.Layouts>(Asset.LayoutID!)).GenerateTwinId(),
+            ID = TwinIdGeneratorServiceProvider.GetGeneratorForChunk<T>(Asset.Chunk, Asset.Package, MiscUtils.ConvertEnum<Enums.Layouts>(Asset.LayoutID!)).GenerateTwinId(),
             Package = Asset.Package
         };
         newInstance.InvariantName = Asset.InvariantName + newInstance.ID;

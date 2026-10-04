@@ -62,7 +62,7 @@ def collect(group: typing.Any, twin_type: schema.TwinType) -> typing.Dict[str, t
             values[field.attr] = [tuple(item.value) for item in value]
         elif kind == "list":
             values[field.attr] = [collect(item, field.item) for item in value]
-        elif kind in ("vec4", "color", "matrix", "ivec3"):
+        elif kind in ("vec3", "vec4", "color", "matrix", "ivec3"):
             values[field.attr] = tuple(value)
         else:
             values[field.attr] = value

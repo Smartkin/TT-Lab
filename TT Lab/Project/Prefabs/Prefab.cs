@@ -20,7 +20,13 @@ public enum PrefabKind
     /// <summary>
     /// Several instances saved together, placed around the cursor the way they stood to each other
     /// </summary>
-    Group
+    Group,
+
+    /// <summary>
+    /// Meshes and LODs placed in a scenery, saved with their meshes (a model file next to the prefab's) and placed around the cursor in
+    /// any chunk's scenery
+    /// </summary>
+    Scenery
 }
 
 /// <summary>
@@ -108,8 +114,26 @@ public sealed class Prefab
     public string? FilePath { get; set; }
 
     /// <summary>
+    /// The folder of the library it's in, folders from the library's own separated by '/', empty for the library's own
+    /// </summary>
+    [JsonIgnore]
+    public string Folder { get; set; } = string.Empty;
+
+    /// <summary>
     /// The picture of it taken when it got saved, next to its file
     /// </summary>
     [JsonIgnore]
     public string? PreviewPath { get; set; }
+
+    /// <summary>
+    /// A scenery prefab's meshes as a model file of their own, written next to its file when it's saved
+    /// </summary>
+    [JsonIgnore]
+    public byte[]? Model { get; set; }
+
+    /// <summary>
+    /// The model file next to its file, a scenery prefab's meshes
+    /// </summary>
+    [JsonIgnore]
+    public string? ModelPath { get; set; }
 }

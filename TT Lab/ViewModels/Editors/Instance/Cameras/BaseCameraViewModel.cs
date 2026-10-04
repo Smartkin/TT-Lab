@@ -52,7 +52,7 @@ namespace TT_Lab.ViewModels.Editors.Instance.Cameras
 
         public virtual void Save(CameraSubBase? cam)
         {
-            cam.Follow = (CameraSubBase.FollowFlags)Flags;
+            cam.Follow = (CameraSubBase.FollowMode)Flags;
             cam.FollowRate = Leftover;
             cam.Offset = Offset;
             

@@ -1,4 +1,5 @@
 using Avalonia.Headless.XUnit;
+using Avalonia.VisualTree;
 using GlmSharp;
 using TT_Lab.AssetData.Instance;
 using TT_Lab.AssetData.Instance.Scenery;
@@ -26,7 +27,6 @@ public sealed class SceneryLightEditingTests : IDisposable
         var scenery = _project.Add(new Scenery { Chunk = "default" }, "Scenery");
         var data = new SceneryData(scenery)
         {
-            HasLighting = true,
             AmbientLights = lights.OfType<AmbientLight>().ToList(),
             DirectionalLights = lights.OfType<DirectionalLight>().ToList(),
             PointLights = lights.OfType<PointLight>().ToList(),
@@ -65,6 +65,38 @@ public sealed class SceneryLightEditingTests : IDisposable
         document.Undo();
         Assert.Equal(MathF.Cos(30 * degrees), spot.InnerConeCosine, 1e-4f);
         Assert.Equal(MathF.Cos(45 * degrees), spot.OuterConeCosine, 1e-4f);
+    }
+
+    // The game's lights keep colors adding up to 1 with the brightness in the intensity: the picker shows the hue at full brightness and a
+    // picked color keeps the total
+    [AvaloniaFact]
+    public void LightColorsArePickedAndKeepTheirTotal()
+    {
+        var ambient = DefaultLights.Ambient();
+        ambient.Color = new Vector4(1.0f / 3.0f, 1.0f / 3.0f, 1.0f / 3.0f, 0.25f);
+        var (_, document) = Open(ambient);
+        var field = Assert.IsType<LightColorFieldViewModel>(EditorDescRegistry.GetDesc(document, document.PropertyGraph.Find("Root.AssetData.AmbientLights[0].Color")!).Construct());
+        var window = new Avalonia.Controls.Window { Content = new Avalonia.Controls.ContentControl { Content = field }, Width = 400, Height = 100 };
+        window.Show();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        var picker = window.GetVisualDescendants().OfType<Avalonia.Controls.ColorPicker>().Single();
+
+        Assert.Equal(Avalonia.Media.Colors.White, field.ShownColor);
+        Assert.Equal(Avalonia.Media.Colors.White, picker.Color);
+
+        field.ShownColor = Avalonia.Media.Color.FromRgb(255, 51, 0);
+        Assert.Equal((5.0f / 6.0f, 1.0f / 6.0f, 0.0f, 0.25f), (ambient.Color.X, ambient.Color.Y, ambient.Color.Z, ambient.Color.W));
+        Assert.Equal(Avalonia.Media.Color.FromRgb(255, 51, 0), field.ShownColor);
+
+        document.Undo();
+        Assert.Equal(1.0f / 3.0f, ambient.Color.X);
+        Assert.Equal(Avalonia.Media.Colors.White, field.ShownColor);
+
+        // Picked in the picker itself
+        picker.Color = Avalonia.Media.Color.FromRgb(0, 0, 255);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Assert.Equal((0.0f, 0.0f, 1.0f), (ambient.Color.X, ambient.Color.Y, ambient.Color.Z));
+        window.Close();
     }
 
     // Bit 8 of the header and the bounds the game works out at load are never read

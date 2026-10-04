@@ -18,8 +18,11 @@ namespace TT_Lab.Rendering.Objects;
 
 public class EditableObject : Renderable
 {
+    // The box's least thickness: a ray never hits a box without volume, and flat models have one (the beach's butterflies have no height)
+    private const float MinimumBoxSize = 0.01f;
+
     public virtual bool IsSelectable { get; init; } = true;
-    
+
     protected vec3 Pos = new();
     protected vec3 Rot = new();
     protected vec3 Scl;
@@ -65,7 +68,8 @@ public class EditableObject : Renderable
     /// </summary>
     public virtual mat4 GetBoundsTransform()
     {
-        return WorldTransform * mat4.Translate(Offset + Size * 0.5f) * mat4.Scale(Size * 0.5f);
+        var halfSize = vec3.Max(vec3.Abs(Size), new vec3(MinimumBoxSize)) * 0.5f;
+        return WorldTransform * mat4.Translate(Offset + Size * 0.5f) * mat4.Scale(halfSize);
     }
 
     protected virtual void InitSceneTransform()

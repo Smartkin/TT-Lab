@@ -160,7 +160,7 @@ def _draw_field(layout: typing.Any, group: typing.Any, field: schema.Field, path
             row = column.row(align=True)
             for column_index in range(4):
                 row.prop(group, field.attr, index=row_index * 4 + column_index, text="")
-    elif kind in ("vec4", "color", "ivec3"):
+    elif kind in ("vec3", "vec4", "color", "ivec3"):
         column = layout.column(align=True)
         column.label(text=field.label)
         column.row(align=True).prop(group, field.attr, text="")

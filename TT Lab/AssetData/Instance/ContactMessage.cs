@@ -5,6 +5,7 @@ using TT_Lab.Attributes;
 using TT_Lab.Util;
 using TT_Lab.ViewModels.Interfaces;
 using Twinsanity.TwinsanityInterchange.Common;
+using Twinsanity.TwinsanityInterchange.Enumerations;
 
 namespace TT_Lab.AssetData.Instance;
 
@@ -19,9 +20,10 @@ public class ContactMessage : IDocumentModel
     public Vector4 Point { get; set; } = new(0, 0, 0, 0);
 
     [JsonProperty(Required = Required.Always)]
-    [Editable(Hint = "A bit for every kind of hit the contact is, which the scripts' HitBy conditions test: the deadly surfaces have 0x4 falling through, " +
-                     "0x80 electric, 0x400 instant death, 0x800008 lava, 0x2800000 drowning; water 0x2000000")]
-    public UInt32 Kinds { get; set; }
+    [Editable(Hint = "The kinds of hit the contact is, which the scripts' conditions test (each kind's tooltip says which): the deadly surfaces are " +
+                     "FallingThrough, Electric, GenericHit, Burning and Sinking (lava), Water and Sinking (drowning), water Water. Rigid bodies " +
+                     "touching the level's collision are told of a surface with any kind whatever its flags")]
+    public Enums.ContactKinds Kinds { get; set; }
 
     [JsonProperty(Required = Required.Always)]
     [Editable(Hint = "The hit points the contact takes (100 on the deadly surfaces). At 0 the agent's script never hears of it")]
@@ -42,7 +44,7 @@ public class ContactMessage : IDocumentModel
     public ContactMessage(TwinContactMessage message)
     {
         Point = CloneUtils.Clone(message.Point);
-        Kinds = message.Kinds;
+        Kinds = (Enums.ContactKinds)message.Kinds;
         Damage = message.Damage;
         Leftover = CloneUtils.CloneArray(message.Leftover);
     }
@@ -50,7 +52,7 @@ public class ContactMessage : IDocumentModel
     public void Write(BinaryWriter writer)
     {
         Point.Write(writer);
-        writer.Write(Kinds);
+        writer.Write((UInt32)Kinds);
         writer.Write(Damage);
         writer.Write(Leftover, 0, TwinContactMessage.LeftoverSize);
     }

@@ -10,7 +10,7 @@ using TT_Lab.ViewModels;
 
 namespace TT_Lab.Views;
 
-public partial class ViewportView : ReactiveUserControl<ViewportViewModel>
+public partial class ViewportView : ReactiveUserControl<ViewportViewModel>, IPrefabDropTarget
 {
     private const double ClickDistance = 4.0;
     private Point? _rightPress;
@@ -40,24 +40,20 @@ public partial class ViewportView : ReactiveUserControl<ViewportViewModel>
 
             ShowCreateMenu(position);
         }, RoutingStrategies.Tunnel, true);
-        // Prefabs dragged from the Prefabs panel land where they're dropped
-        DragDrop.SetAllowDrop(ViewportControl, true);
-        ViewportControl.AddHandler(DragDrop.DragOverEvent, (_, e) =>
-        {
-            var accepted = e.Data.Contains(PrefabsViewModel.DragFormat) && (DataContext as ViewportViewModel)?.IsChunkViewport == true;
-            e.DragEffects = accepted ? DragDropEffects.Copy : DragDropEffects.None;
-        });
-        ViewportControl.AddHandler(DragDrop.DropEvent, (_, e) =>
-        {
-            if (e.Data.Get(PrefabsViewModel.DragFormat) is not Prefab prefab || DataContext is not ViewportViewModel viewport)
-            {
-                return;
-            }
+    }
 
-            var position = e.GetPosition(ViewportControl);
-            viewport.PlacePrefabAt(prefab, (float)position.X, (float)position.Y);
-            e.Handled = true;
-        });
+    // Prefabs dragged from the Prefabs panel, whichever window it's in, land where they're dropped
+    public bool CanDrop(Prefab prefab, Visual hit) => (DataContext as ViewportViewModel)?.IsChunkViewport == true;
+
+    public void Drop(Prefab prefab, Visual hit, PixelPoint screen)
+    {
+        if (DataContext is not ViewportViewModel viewport)
+        {
+            return;
+        }
+
+        var position = ViewportControl.PointToClient(screen);
+        viewport.PlacePrefabAt(prefab, (float)position.X, (float)position.Y);
     }
 
     private void ShowCreateMenu(Point position)

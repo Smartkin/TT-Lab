@@ -29,6 +29,10 @@ namespace TT_Lab.Assets;
 public enum SerializationFlags
 {
     None = 0,
+    /// <summary>
+    /// Does nothing anymore: every asset is written to its absolute path and the current directory stays as it is. Saving a chunk set it
+    /// to the project's assets, and a build running at the same time went on from there
+    /// </summary>
     SetDirectoryToAssets = 0x1,
     SaveData = 0x2,
     FixReferences = 0x4,
@@ -326,13 +330,14 @@ public interface IAsset : IDocumentModel
     Twinsanity.TwinsanityInterchange.Interfaces.ITwinItem Export(Factory.ITwinItemFactory factory);
 
     /// <summary>
-    /// Exports the item to a file in Twinsanity's format
+    /// Exports the item to a file in Twinsanity's format, <see cref="ExportFileName"/> in the directory
     /// </summary>
     /// <param name="factory"></param>
-    void ExportToFile(Factory.ITwinItemFactory factory);
+    /// <param name="directory">Where the file goes, never the current directory: saving an asset while a build runs could change that</param>
+    void ExportToFile(Factory.ITwinItemFactory factory, string directory);
 
     /// <summary>
-    /// Name of the file <see cref="ExportToFile"/> writes into the current directory
+    /// Name of the file <see cref="ExportToFile"/> writes into its directory
     /// </summary>
     string ExportFileName { get; }
 

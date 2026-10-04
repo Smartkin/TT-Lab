@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Reactive.Disposables;
 using Avalonia.Interactivity;
@@ -33,7 +34,14 @@ public partial class FontEditorView : DocumentBaseView<FontEditorViewModel>
             return;
         }
 
-        using var stream = new FileStream(file, FileMode.Open, FileAccess.Read);
-        ViewModel?.ReplacePage(stream);
+        try
+        {
+            using var stream = new FileStream(file, FileMode.Open, FileAccess.Read);
+            ViewModel?.ReplacePage(stream);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Log.WriteLine($"Couldn't open {file}: {ex.Message}", Log.LogType.Error);
+        }
     }
 }

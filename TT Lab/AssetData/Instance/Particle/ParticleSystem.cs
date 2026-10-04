@@ -1,11 +1,13 @@
 using Newtonsoft.Json;
 using System;
 using System.IO;
+using System.Linq;
 using TT_Lab.Attributes;
 using TT_Lab.Attributes.EditorParamWrappers;
 using TT_Lab.Util;
 using TT_Lab.ViewModels.Editors;
 using TT_Lab.ViewModels.Editors.Descs;
+using TT_Lab.ViewModels.Editors.PropertyGraph;
 using TT_Lab.ViewModels.Interfaces;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Common.Particles;
@@ -190,7 +192,9 @@ public class ParticleSystem : IDocumentModel
 
     [Editable(Caption = "Off Time Random (frames)")] public UInt16 EmitterOffTimeRandom { get; set; }
 
-    [Editable] public TwinParticleSystem.GenSortType GenSort { get; set; }
+    [Editable]
+    [EditorLinkedField(typeof(EmittersFollowGenerator), nameof(GenSort))]
+    public TwinParticleSystem.GenSortType GenSort { get; set; }
 
     // 0 none, 1 velocity XZ = 2 × start, 2 velocity XZ = -start, 3 velocity XZ = 4 × start, 4 velocity XZ = 16 × start, 5 pulled in with a
     // random lifetime, 6 velocity = 5.4 × start
@@ -200,9 +204,9 @@ public class ParticleSystem : IDocumentModel
     [Editable(EditorDescType = typeof(ParticleBlendModeEditorDesc), Hint = "How the particles are drawn over what's behind them, hover a choice for what the game does with it")]
     public Byte BlendMode { get; set; }
 
-    [Editable] public Byte UnusedByte { get; set; }
+    [Editable] [EditorHidden] public Byte UnusedByte { get; set; }
 
-    [Editable] public Single UnusedFloat1 { get; set; } = 25.0f;
+    [Editable] [EditorHidden] public Single UnusedFloat1 { get; set; } = 25.0f;
 
     [Editable(Caption = "Cut On Radius (camera at least)")] public Single CutOnRadius { get; set; }
 
@@ -210,26 +214,34 @@ public class ParticleSystem : IDocumentModel
 
     [Editable(Caption = "Draw Cut Off (camera at most)")] public Single DrawCutOff { get; set; } = 9999.9f;
 
-    [Editable] public Single UnusedFloat5 { get; set; }
+    [Editable] [EditorHidden] public Single UnusedFloat5 { get; set; }
 
-    [Editable] public Single UnusedFloat6 { get; set; } = 0.5f;
+    [Editable] [EditorHidden] public Single UnusedFloat6 { get; set; } = 0.5f;
 
     // Along the emitter's up, or along the radius of the radial sorts
+    [EditorLinkedField(typeof(VelocityRead), nameof(GenSort))]
+    [EditorLinkedField(typeof(VelocityRead), nameof(CollisionNumSpheres))]
     [Editable] public Single Velocity { get; set; }
 
     // Box sorts: ± velocity per axis. Radial sorts: X ± speed, Y ± turn, Z ± tilt in 65536ths of a turn
+    [EditorLinkedField(typeof(BoxRead), nameof(GenSort))]
     [Editable] public Vector3 RandomEmit { get; set; } = new();
 
     // Box sorts: ± start per axis. Radial sorts: X radius, Y turn, Z tilt from the up in 65536ths of a turn
+    [EditorLinkedField(typeof(BoxRead), nameof(GenSort))]
     [Editable] public Vector3 RandomStart { get; set; } = new();
 
     // The Ranges sorts (2 to 5): start = random × scale + base, the random 0 to 2^31
+    [EditorLinkedField(typeof(RangesRead), nameof(GenSort))]
     [Editable(Caption = "Start Random Scale (Ranges sorts)")] public Vector3 StartRandomScale { get; set; } = new();
 
+    [EditorLinkedField(typeof(RangesRead), nameof(GenSort))]
     [Editable(Caption = "Start Base (Ranges sorts)")] public Vector3 StartBase { get; set; } = new();
 
+    [EditorLinkedField(typeof(RangesRead), nameof(GenSort))]
     [Editable(Caption = "Velocity Random Scale (Ranges sorts)")] public Vector3 VelocityRandomScale { get; set; } = new();
 
+    [EditorLinkedField(typeof(RangesRead), nameof(GenSort))]
     [Editable(Caption = "Velocity Base (Ranges sorts)")] public Vector3 VelocityBase { get; set; } = new();
 
     // A particle is at start + velocity × t + gravity × t² along the gravity up, so negative falls
@@ -238,13 +250,13 @@ public class ParticleSystem : IDocumentModel
     [Editable(Caption = "Particle Life Time (seconds)")] public Single ParticleLifeTime { get; set; } = 1.0f;
 
     // Probably a texture animation, the game works the rate out and then never reads them
-    [Editable(Caption = "Texture Frame Count (never read by the game)")] public UInt16 TextureFrameCount { get; set; }
+    [Editable(Caption = "Texture Frame Count (never read by the game)")] [EditorHidden] public UInt16 TextureFrameCount { get; set; }
 
-    [Editable(Caption = "Texture Frame Start (never read by the game)")] public Byte TextureFrameStart { get; set; }
+    [Editable(Caption = "Texture Frame Start (never read by the game)")] [EditorHidden] public Byte TextureFrameStart { get; set; }
 
-    [Editable(Caption = "Texture Frame Hold (never read by the game)")] public Byte TextureFrameHold { get; set; } = 1;
+    [Editable(Caption = "Texture Frame Hold (never read by the game)")] [EditorHidden] public Byte TextureFrameHold { get; set; } = 1;
 
-    [Editable] [EditorReadOnly] public Single TextureFrameRate { get; set; }
+    [Editable] [EditorReadOnly] [EditorHidden] public Single TextureFrameRate { get; set; }
 
     [Editable(Caption = "Jibber X Freq (cycles per life)")] public Single JibberXFreq { get; set; }
 
@@ -264,6 +276,7 @@ public class ParticleSystem : IDocumentModel
     // Only the Distortion mode's: the hexagon's rim shows what's behind it moved by its offset from the middle times X / 16384 and -Y / 4096
     // in the game's screen units, fading out to nothing 40 units from the camera
     [Editable(Caption = "Distortion (Distortion mode)", Hint = "A positive X pulls what the hexagon shows in towards its middle sideways (magnifying), a positive Y pushes it out up and down, negative values the other way. Both fade out to nothing 40 units away from the camera")]
+    [EditorLinkedField(typeof(DistortionRead), nameof(BlendMode))]
     public Vector2 Distortion { get; set; } = new()
     {
         X = 0.125f,
@@ -271,9 +284,9 @@ public class ParticleSystem : IDocumentModel
     };
 
     // The tools' ranges for the curves, the game doesn't read them
-    [Editable(Caption = "Min Size (editor range)")] public Single MinSize { get; set; }
+    [Editable(Caption = "Min Size (editor range)")] [EditorHidden] public Single MinSize { get; set; }
 
-    [Editable(Caption = "Max Size (editor range)")] public Single MaxSize { get; set; } = 500.0f;
+    [Editable(Caption = "Max Size (editor range)")] [EditorHidden] public Single MaxSize { get; set; } = 500.0f;
 
     [Editable(Caption = "Width (ten thousandths)", EditorDescType = typeof(ParticleCurveEditorDesc), EditorOrientation = Avalonia.Controls.Dock.Top)]
     public Vector2[] SizeWidth { get; set; } = [new(), new(), new(), new(), new(), new(), new(), new()];
@@ -281,17 +294,19 @@ public class ParticleSystem : IDocumentModel
     [Editable(Caption = "Height (ten thousandths)", EditorDescType = typeof(ParticleCurveEditorDesc), EditorOrientation = Avalonia.Controls.Dock.Top)]
     public Vector2[] SizeHeight { get; set; } = [new(), new(), new(), new(), new(), new(), new(), new()];
 
-    [Editable(Caption = "Min Rotation (editor range)")] public Single MinRotation { get; set; } = -360.0f;
+    [Editable(Caption = "Min Rotation (editor range)")] [EditorHidden] public Single MinRotation { get; set; } = -360.0f;
 
-    [Editable(Caption = "Max Rotation (editor range)")] public Single MaxRotation { get; set; } = 360.0f;
+    [Editable(Caption = "Max Rotation (editor range)")] [EditorHidden] public Single MaxRotation { get; set; } = 360.0f;
 
     [Editable(Caption = "Angle (65536ths of a turn)", EditorDescType = typeof(ParticleCurveEditorDesc), EditorOrientation = Avalonia.Controls.Dock.Top)]
     public Vector2[] Rotation { get; set; } = [new(), new(), new(), new(), new(), new(), new(), new()];
 
     [Editable(Caption = "Unused Gradient 1", EditorDescType = typeof(ParticleCurveEditorDesc), EditorOrientation = Avalonia.Controls.Dock.Top)]
+    [EditorHidden]
     public Vector2[] UnusedGradient1 { get; set; } = [new(), new(), new(), new(), new(), new(), new(), new()];
 
     [Editable(Caption = "Unused Gradient 2", EditorDescType = typeof(ParticleCurveEditorDesc), EditorOrientation = Avalonia.Controls.Dock.Top)]
+    [EditorHidden]
     public Vector2[] UnusedGradient2 { get; set; } = [new(), new(), new(), new(), new(), new(), new(), new()];
 
     // Pixels of the page plus 2^19, the game keeps the low 10 bits of the pixel (see ParticleTextureRect). Edited with the page
@@ -300,24 +315,30 @@ public class ParticleSystem : IDocumentModel
     [Editable] [EditorHidden] public Vector2 TextureEnd { get; set; } = new();
 
     [Editable(Caption = "Collision Radius", EditorDescType = typeof(ParticleCurveEditorDesc), EditorOrientation = Avalonia.Controls.Dock.Top)]
+    [EditorLinkedField(typeof(CollisionRead), nameof(CollisionNumSpheres))]
     public Vector2[] CollisionRadius { get; set; } = [new(), new(), new(), new(), new(), new(), new(), new()];
 
     [Editable] public Byte CollisionNumSpheres { get; set; }
 
     // The list the game draws the system from: only list 0 and, for the Distortion mode, list 2 are drawn
     [Editable(Caption = "Draw List", EditorDescType = typeof(ParticleDrawListEditorDesc), Hint = "The list the game draws the system from. List 0 is drawn every frame, list 1 never, list 2 only with the Distortion blend mode (which always goes in it)")]
+    [EditorLinkedField(typeof(DrawListRead), nameof(BlendMode))]
     public Byte DrawFlag { get; set; }
 
     [Editable(Caption = "Scale Factor (super scale)")] public Single ScaleFactor { get; set; }
 
     [Editable] public Int16 ParticleGhostsNum { get; set; }
 
+    [EditorLinkedField(typeof(GhostsRead), nameof(ParticleGhostsNum))]
     [Editable(Caption = "Ghost Separation (seconds)")] public Single GhostSeparation { get; set; }
 
+    [EditorLinkedField(typeof(StarRead), nameof(GenSort))]
     [Editable(Caption = "Star Radial Points (Star sort)")] public Int16 StarRadialPoints { get; set; } = 5;
 
+    [EditorLinkedField(typeof(StarRead), nameof(GenSort))]
     [Editable(Caption = "Star Radius Ratio (Star sort)")] public Single StarRadiusRatio { get; set; } = 0.5f;
 
+    [EditorLinkedField(typeof(RampRead), nameof(GenSort))]
     [Editable(Caption = "Ramp Time (radial sorts, seconds)")] public Single RampTime { get; set; }
 
     // Which of the default chunk's texture pages the picture is on, edited together with the rectangle it takes from it
@@ -329,4 +350,83 @@ public class ParticleSystem : IDocumentModel
     [Editable] public Vector4 BoundingExtents { get; set; } = new() { X = 10, Y = 10, Z = 10 };
 
     public string DocumentName => "Particle System";
+
+    private static Boolean IsRanges(TwinParticleSystem.GenSortType sort) => sort is TwinParticleSystem.GenSortType.Ranges or TwinParticleSystem.GenSortType.Line
+        or TwinParticleSystem.GenSortType.Reuse or TwinParticleSystem.GenSortType.RangesRandomLife;
+
+    // What the game only reads for some generators, blend modes or settings (the decomp's particles.cpp), grayed out while it doesn't
+    private sealed class RangesRead : ReadWhen<ParticleSystem>
+    {
+        protected override Boolean IsRead(ParticleSystem owner) => IsRanges(owner.GenSort);
+    }
+
+    private sealed class BoxRead : ReadWhen<ParticleSystem>
+    {
+        protected override Boolean IsRead(ParticleSystem owner) => !IsRanges(owner.GenSort);
+    }
+
+    // The collision spheres take the velocity as well
+    private sealed class VelocityRead : ReadWhen<ParticleSystem>
+    {
+        protected override Boolean IsRead(ParticleSystem owner) => !IsRanges(owner.GenSort) || owner.CollisionNumSpheres > 0;
+    }
+
+    // Only Radial and Star ramp their radius up, Rotor and Sphere take it as it is
+    private sealed class RampRead : ReadWhen<ParticleSystem>
+    {
+        protected override Boolean IsRead(ParticleSystem owner) => owner.GenSort is TwinParticleSystem.GenSortType.Radial or TwinParticleSystem.GenSortType.Star;
+    }
+
+    private sealed class StarRead : ReadWhen<ParticleSystem>
+    {
+        protected override Boolean IsRead(ParticleSystem owner) => owner.GenSort == TwinParticleSystem.GenSortType.Star;
+    }
+
+    private sealed class DistortionRead : ReadWhen<ParticleSystem>
+    {
+        protected override Boolean IsRead(ParticleSystem owner) => owner.BlendMode == ParticleBlendModes.Distortion;
+    }
+
+    // The Distortion mode's systems all go in the distortion list whatever theirs says
+    private sealed class DrawListRead : ReadWhen<ParticleSystem>
+    {
+        protected override Boolean IsRead(ParticleSystem owner) => owner.BlendMode != ParticleBlendModes.Distortion;
+    }
+
+    private sealed class GhostsRead : ReadWhen<ParticleSystem>
+    {
+        protected override Boolean IsRead(ParticleSystem owner) => owner.ParticleGhostsNum > 0;
+    }
+
+    private sealed class CollisionRead : ReadWhen<ParticleSystem>
+    {
+        protected override Boolean IsRead(ParticleSystem owner) => owner.CollisionNumSpheres > 0;
+    }
+
+    // The emitters of the same particles gray out their bounce values by the generator of the system they play
+    private sealed class EmittersFollowGenerator : IFieldChange
+    {
+        public void DataChanged(PropertyNode listener, PropertyNode changed)
+        {
+            var emitters = listener.Parent?.Parent?.Parent?.FindChild($".{nameof(ParticleData.ParticleInstances)}");
+            if (emitters == null)
+            {
+                return;
+            }
+
+            foreach (var field in emitters.Children.SelectMany(emitter => emitter.Children))
+            {
+                ParticleSystemInstance.FollowPlayedSystem(field);
+            }
+        }
+
+        // The emitters follow on their own when they get linked, undo and redo replay the change
+        public void Linked(PropertyNode listener, PropertyNode changed)
+        {
+            if (listener.Graph?.IsReplaying == true)
+            {
+                DataChanged(listener, changed);
+            }
+        }
+    }
 }

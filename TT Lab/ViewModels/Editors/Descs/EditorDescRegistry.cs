@@ -29,6 +29,14 @@ public static class EditorDescRegistry
 
     public static EditorDesc GetDesc(DocumentViewModel document, PropertyNode node)
     {
+        // A list's elements can have an editor of their own, the list's is the list's
+        if (node.Index != null && node.Metadata is { ContainedTypeConstructor: null, EditorParams: { } parameters }
+            && parameters.TryGetValue(DocumentCollectionViewModel.ElementEditor, out var elementEditor) && elementEditor is Type elementEditorType)
+        {
+            var desc = (EditorDesc)Activator.CreateInstance(elementEditorType)!;
+            return desc with { Document = document, Node = node };
+        }
+
         if (node.Metadata?.EditorDescType is { } metadataEditorType
             && typeof(EditorDesc).IsAssignableFrom(metadataEditorType))
         {

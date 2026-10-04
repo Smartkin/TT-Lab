@@ -7,7 +7,9 @@ namespace Twinsanity.TwinsanityInterchange.Common.CameraSubtypes
 {
     /// <summary>
     /// A line the camera slides along by the target's distance from its start (measured flat, without the height): at the start up to
-    /// <see cref="NearDistance"/>, at the end from <see cref="FarDistance"/> on, between them in between (FUN_0027da60).
+    /// <see cref="NearDistance"/>, at the end from <see cref="FarDistance"/> on, between them at the share of the way between the
+    /// distances plus <see cref="NearDistance"/> (FUN_0027da60, CameraLine2At): every retail camera has a near distance of 0, any
+    /// other puts the camera past the line.
     /// </summary>
     public class CameraLine2 : CameraSubBase
     {

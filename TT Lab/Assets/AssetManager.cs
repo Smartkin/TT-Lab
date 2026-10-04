@@ -44,6 +44,10 @@ public class AssetManager
         return Disposable.Create(() => _lookupHook.Value = previous);
     }
 
+    // A project being created writes its assets in parallel, what one write reads of another asset's data can be half written or
+    // let go of right then
+    internal bool IsCreating => _lookupHook.Value != null;
+
     private T RecordAccess<T>(T asset) where T : IAsset
     {
         _accessedAssets.Value?.TryAdd(asset, 0);
