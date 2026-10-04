@@ -10,6 +10,7 @@ using TT_Lab.AssetData.Graphics;
 using TT_Lab.AssetData.Graphics.TlModel;
 using TT_Lab.AssetData.Instance;
 using TT_Lab.AssetData.Instance.DynamicScenery;
+using Twinsanity.TwinsanityInterchange.Common;
 
 namespace TT_Lab.Project.Migration;
 
@@ -51,7 +52,46 @@ internal static class Version110
             context.Save(file, path);
         }
 
+        // What changed outside the project's files
+        context.Notes.Add("Install the Blender add-on that comes with this TT Lab: the add-on of TT Lab 1.0.0 writes sceneries with the tree 1.1.0 took out " +
+                          "of them, and loses what 1.1.0 keeps of the tree when it exports one");
+        context.Notes.Add("New projects get prefabs of the game's object instances and scenery meshes, the Prefabs panel's From the chunks makes them for this one");
         ReportSkeletons(context);
+        KeepJointIdCounts(context);
+        SplitSharedMaterials(context);
+    }
+
+    // 1.0.0 built every model with the number of its joints with an ID as the count of IDs the game binds, which is the game's own; 1.1.0
+    // keeps that where it's in the model's file and binds every ID where it isn't, which changed the 4 retail models whose IDs have gaps
+    // (and those made in Blender with gaps): their files get the count 1.0.0 built them with
+    private static void KeepJointIdCounts(MigrationContext context)
+    {
+        foreach (var path in Directory.EnumerateFiles(context.AssetsFolder, "*.tlm", SearchOption.AllDirectories)
+                     .Where(path => Path.GetDirectoryName(path)!.Split(Path.DirectorySeparatorChar).Contains("OGI")))
+        {
+            if (ReadJson(path)?["root"] is not JsonObject root || root.GetKind() != OGIData.TlmKind || BuiltJointIdCount(root) is not { } count)
+            {
+                continue;
+            }
+
+            var file = TlmFile.Load(path);
+            DataOf(file.Root!)[OGIData.JointIdCountKey] = count;
+            context.Save(file, path);
+        }
+    }
+
+    // The count 1.0.0 built, none where 1.1.0 works out the same or the file has one
+    private static Int32? BuiltJointIdCount(JsonObject root)
+    {
+        if (root.GetData().ContainsKey(OGIData.JointIdCountKey))
+        {
+            return null;
+        }
+
+        var ids = (root.FindChild(OGIData.ArmatureKind)?["joints"] as JsonArray ?? []).OfType<JsonObject>()
+            .Select(joint => joint.GetData().GetInt("Id", OGIData.NoJoint)).Where(id => id < OGIData.NoJoint).ToList();
+        var bindsEvery = ids.Select(id => id + 1).DefaultIfEmpty(0).Max();
+        return ids.Count != bindsEvery ? ids.Count : null;
     }
 
     // 1.1.0 refuses models whose skeleton the game can't have (several roots, joints out of the order the game walks them in), which
@@ -63,11 +103,152 @@ internal static class Version110
         {
             if (ReadJson(path)?["root"] is JsonObject root && root.GetKind() == OGIData.TlmKind && OGIData.SkeletonProblem(root) is { } problem)
             {
-                Log.WriteLine($"TT Lab {Project.CURRENT_VERSION} can't read {Path.GetRelativePath(context.ProjectFolder, path)} until it's exported again from Blender: {problem}",
+                context.Note($"TT Lab {Project.CURRENT_VERSION} can't read {Path.GetRelativePath(context.ProjectFolder, path)} until it's exported again from Blender: {problem}",
                     Log.LogType.Warning);
             }
         }
     }
+
+    // A material made in Blender as the project has it
+    private sealed record BlenderMaterial(string Uri, string Name, string BlenderId, Boolean DrawsSkins, string? Alpha, Single Cutoff, string? Texture)
+    {
+        // The material as a model file exported from Blender has it, which reading the file makes a material of the project of
+        public JsonObject Embedded(TlmFile file, IReadOnlyDictionary<string, string> pictures)
+        {
+            var entry = new JsonObject { ["name"] = Name, ["blender_id"] = BlenderId };
+            if (Alpha != null)
+            {
+                entry["alpha"] = Alpha;
+                entry["alpha_cutoff"] = Cutoff;
+            }
+
+            if (Texture != null && pictures.TryGetValue(Texture, out var picture) && File.Exists(picture))
+            {
+                entry["image"] = new JsonObject { ["png"] = file.Write(File.ReadAllBytes(picture).AsSpan()), ["name"] = Path.GetFileName(picture) };
+            }
+
+            return entry;
+        }
+    }
+
+    // 1.0.0 gave a material made in Blender the shader of its first use, and the parts of other models it drew whatever they used it for:
+    // a skin drawn with a rigid shader hung the game, rigid parts drawn with the skinned one get packets it doesn't take. Those parts get
+    // the material the way Blender made it, and reading the model gives them one of their kind (TlmMaterials.AddToProject), like 1.1.0
+    // reads a model exported from Blender
+    private static void SplitSharedMaterials(MigrationContext context)
+    {
+        var materials = BlenderMaterials(context);
+        if (materials.Count == 0)
+        {
+            return;
+        }
+
+        var pictures = TexturePictures(context, materials.Values.Select(material => material.Texture).OfType<string>().ToHashSet());
+        foreach (var path in Directory.EnumerateFiles(context.AssetsFolder, "*.tlm", SearchOption.AllDirectories))
+        {
+            if (ReadJson(path) is not JsonObject json || json["root"] is not JsonObject jsonRoot || !Mismatched(jsonRoot, json["materials"] as JsonArray, materials).Any())
+            {
+                continue;
+            }
+
+            var file = TlmFile.Load(path);
+            var embedded = new Dictionary<(string Uri, Boolean Skin), Int32>();
+            foreach (var (part, material, skin) in Mismatched(file.Root!, file.Materials, materials).ToList())
+            {
+                if (!embedded.TryGetValue((material.Uri, skin), out var index))
+                {
+                    index = file.Materials.Count;
+                    file.Materials.Add(material.Embedded(file, pictures));
+                    embedded[(material.Uri, skin)] = index;
+                    context.Note($"{Path.GetRelativePath(context.ProjectFolder, path)} drew its {(skin ? "skin" : "rigid parts")} with {material.Uri}, a material made in Blender " +
+                                 $"{(skin ? "with a rigid shader, which hung the game" : "with the skinned shader")}: they get one of their own the first time TT Lab reads it");
+                }
+
+                part["material"] = index;
+            }
+
+            context.Save(file, path);
+        }
+    }
+
+    // The parts drawn with a material made in Blender of the other kind: skins' and blend skins' with a rigid one, the rest with a skinned one
+    private static IEnumerable<(JsonObject Part, BlenderMaterial Material, Boolean Skin)> Mismatched(JsonObject root, JsonArray? fileMaterials, Dictionary<string, BlenderMaterial> materials)
+    {
+        if (fileMaterials == null)
+        {
+            yield break;
+        }
+
+        foreach (var node in root.Traverse())
+        {
+            var skin = node.GetKind() is SkinData.TlmKind or BlendSkinData.TlmKind;
+            foreach (var part in (node[TlmNodes.MeshKey]?["parts"] as JsonArray ?? []).OfType<JsonObject>())
+            {
+                if (part["material"] is JsonValue index && index.TryGetValue<Int32>(out var at) && at >= 0 && at < fileMaterials.Count &&
+                    fileMaterials[at]?["uri"] is JsonValue uri && uri.TryGetValue<string>(out var text) && materials.TryGetValue(text, out var material) &&
+                    material.DrawsSkins != skin)
+                {
+                    yield return (part, material, skin);
+                }
+            }
+        }
+    }
+
+    // The project's materials made in Blender (TlmMaterials gives them their Blender ID), by URI
+    private static Dictionary<string, BlenderMaterial> BlenderMaterials(MigrationContext context)
+    {
+        var result = new Dictionary<string, BlenderMaterial>(StringComparer.Ordinal);
+        foreach (var path in AssetFiles(context, "Material"))
+        {
+            var text = File.ReadAllText(path);
+            if (!text.Contains(TlmMaterials.BlenderMaterialParameter, StringComparison.Ordinal) || JsonNode.Parse(text) is not JsonObject asset ||
+                asset["Parameters"]?[TlmMaterials.BlenderMaterialParameter] is not JsonValue blenderId || !blenderId.TryGetValue<string>(out var id) ||
+                asset["URI"]?["_uri"] is not JsonValue uri || !uri.TryGetValue<string>(out var uriText))
+            {
+                continue;
+            }
+
+            var dataPath = Path.ChangeExtension(path, ".data");
+            var data = File.Exists(dataPath) ? JsonNode.Parse(File.ReadAllText(dataPath)) : null;
+            var shader = data?["Shaders"]?[0];
+            var skinned = Int(shader?["ShaderType"]) == (Int32)TwinShader.Type.LitSkinnedModel;
+            var alpha = Int(shader?["ABlending"]) == (Int32)TwinShader.AlphaBlending.ON ? "BLEND" : Int(shader?["ATest"]) == (Int32)TwinShader.AlphaTest.ON ? "CLIP" : null;
+            var texture = shader?["TextureId"]?["_uri"] is JsonValue textureUri && textureUri.TryGetValue<string>(out var textureText) ? textureText : null;
+            var name = data?["Name"] is JsonValue dataName && dataName.TryGetValue<string>(out var nameText) ? nameText : Path.GetFileNameWithoutExtension(path);
+            result[uriText] = new BlenderMaterial(uriText, name, id, skinned, alpha, (Int(shader?["AlphaValueToBeComparedTo"]) ?? 128) / 255.0f, texture);
+        }
+
+        return result;
+    }
+
+    // The pictures of the textures, by URI: a texture's PNG is its data file
+    private static Dictionary<string, string> TexturePictures(MigrationContext context, HashSet<string> textures)
+    {
+        var result = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (textures.Count == 0)
+        {
+            return result;
+        }
+
+        foreach (var path in AssetFiles(context, "Texture"))
+        {
+            if (JsonNode.Parse(File.ReadAllText(path))?["URI"]?["_uri"] is JsonValue uri && uri.TryGetValue<string>(out var text) && textures.Contains(text))
+            {
+                result[text] = Path.ChangeExtension(path, ".png");
+            }
+        }
+
+        return result;
+    }
+
+    // The metadata files of a type's assets, in their type's folders
+    private static IEnumerable<string> AssetFiles(MigrationContext context, string typeFolder)
+    {
+        return Directory.EnumerateFiles(context.AssetsFolder, "*.json", SearchOption.AllDirectories)
+            .Where(path => Path.GetDirectoryName(path)!.Split(Path.DirectorySeparatorChar).Contains(typeFolder));
+    }
+
+    private static Int32? Int(JsonNode? node) => node is JsonValue value && value.TryGetValue<Int32>(out var number) ? number : null;
 
     // A model file's JSON without its binary data
     private static JsonNode? ReadJson(string path)
@@ -82,6 +263,11 @@ internal static class Version110
         var length = reader.ReadInt32();
         return JsonNode.Parse(System.Text.Encoding.UTF8.GetString(reader.ReadBytes(length)).TrimEnd(' ', '\0'));
     }
+
+    /// <summary>
+    /// Whether the scenery's file has 1.0.0's tree, which an add-on of then or a Blender scene it imported still writes
+    /// </summary>
+    internal static bool HasTree(JsonObject root) => root.GetChildren().Any(child => child.GetKind() == TreeNodeKind);
 
     /// <summary>
     /// Makes a scenery's file what 1.1.0 reads, returns whether anything changed

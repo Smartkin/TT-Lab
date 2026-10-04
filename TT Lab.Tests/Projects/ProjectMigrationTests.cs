@@ -2,14 +2,18 @@ using System.IO.Compression;
 using System.Text.Json.Nodes;
 using Avalonia.Headless.XUnit;
 using Splat;
+using TT_Lab.AssetData.Code;
+using TT_Lab.AssetData.Graphics;
 using TT_Lab.AssetData.Graphics.TlModel;
 using TT_Lab.AssetData.Instance;
 using TT_Lab.Assets;
+using TT_Lab.Assets.Graphics;
 using TT_Lab.Extensions;
 using TT_Lab.Project;
 using TT_Lab.Project.Migration;
 using TT_Lab.Tests.Support;
 using TT_Lab.ViewModels;
+using Twinsanity.TwinsanityInterchange.Common;
 using Path = System.IO.Path;
 
 namespace TT_Lab.Tests.Projects;
@@ -121,12 +125,24 @@ public sealed class ProjectMigrationTests : IDisposable
             root.GetChildren(SceneryData.MeshesKind).Single().GetChildren().Select(mesh => (mesh.GetData().GetString("Node"), mesh.GetData().GetInt("Order"))));
     }
 
+    // The add-on of 1.0.0, and Blender scenes it imported, still write its tree after a project's migration: reading such a file converts it
+    // the way the migration does, the game's values of the tree kept, and asks for it to be written in this version's list
+    [Fact]
+    public void ASceneryFileWithTheOldTreeIsReadLikeAMigratedOne()
+    {
+        var old = TlmFile.Load(OldSceneryPath());
+        Assert.True(Version110.HasTree(old.Root!));
+        Assert.True(AssertReadsAsTheTree(old));
+        Assert.False(Version110.HasTree(old.Root!));
+        Assert.False(AssertReadsAsTheTree(old));
+    }
+
     // What the tree held, read the way TT Lab reads sceneries: it fits a placement's node to the tree's depth, the tests' tree of then was
     // only one deep with a leaf under a node
-    private void AssertReadsAsTheTree(TlmFile file)
+    private bool AssertReadsAsTheTree(TlmFile file)
     {
         var read = ((IAsset)new TestAssets(_project).AddScenery()).GetData<SceneryData>();
-        read.ReadTlm(file);
+        var writeAgain = read.ReadTlm(file);
         Assert.Equal([(false, 0f, 0f, 0f), (true, -25f, 0f, -25f), (false, -75f, 0f, -75f), (false, 50f, 0f, 50f), (false, 60f, 5f, 60f)],
             read.Placements.Select(placement =>
             {
@@ -134,6 +150,7 @@ public sealed class ProjectMigrationTests : IDisposable
                 return (placement.IsLod, at.X, at.Y, at.Z);
             }));
         Assert.Equal((1u, -100f, 100f), (read.TreeDepth, read.BoundsMin.X, read.BoundsMax.X));
+        return writeAgain;
     }
 
     // The whole project: its file gets the version, the scenery's file its list, both kept in the backup as they were
@@ -148,9 +165,9 @@ public sealed class ProjectMigrationTests : IDisposable
         var oldProjectFile = File.ReadAllBytes(ProjectFile);
         Assert.True(ProjectMigration.CanMigrate("1.0.0"));
 
-        var (changed, backup) = ProjectMigration.Migrate(ProjectFile);
+        var (from, changed, backup, _) = ProjectMigration.Migrate(ProjectFile);
 
-        Assert.Equal(2, changed);
+        Assert.Equal(("1.0.0", 2), (from, changed));
         Assert.Equal(TT_Lab.Project.Project.CURRENT_VERSION, ProjectMigration.ReadVersion(ProjectFile));
         Assert.False(ProjectMigration.CanMigrate(TT_Lab.Project.Project.CURRENT_VERSION));
         using (var archive = ZipFile.OpenRead(backup!))
@@ -160,6 +177,77 @@ public sealed class ProjectMigrationTests : IDisposable
         }
 
         AssertReadsAsTheTree(TlmFile.Load(sceneryFile));
+    }
+
+    // 1.0.0 gave a material made in Blender the shader of its first use and the parts of other models it drew whatever they used it for: a
+    // skin drawn with a rigid one hung the game. The migration gives such parts the material as Blender made it, which reading the model
+    // makes one of their kind, and lists what it did and what it leaves to the user (models 1.1.0 can't read until they're exported again),
+    // the add-on to install first
+    [AvaloniaFact]
+    public void SkinsDrawnWithARigidBlenderMaterialGetOneOfTheirOwn()
+    {
+        _project.BuildProjectTree("Global PS2_Test/Material", "Global PS2_Test/Texture");
+        var assets = new TestAssets(_project);
+        var wood = assets.AddMaterial("Wood", assets.AddTexture("Wood", 0xFF806040).URI);
+        wood.Parameters[TlmMaterials.BlenderMaterialParameter] = "wood-id";
+        var ogi = assets.AddOgi();
+        var ogiData = ((IAsset)ogi).GetData<OGIData>();
+        foreach (var part in ((IAsset)assets.Get<Skin>(ogiData.Skin)).GetData<SkinData>().SubSkins)
+        {
+            part.Material = wood.URI;
+        }
+
+        _project.Project.Serialize();
+        var doubleRootOgi = new TlmFile("OGI", "DoubleRoot");
+        // Two bones without a parent, which Blender allows and the game can't have
+        doubleRootOgi.Root = TlmNodes.Create(OGIData.TlmKind, "DoubleRoot");
+        doubleRootOgi.Root.AddChild(new JsonObject { ["kind"] = OGIData.ArmatureKind, ["name"] = "Armature", ["joints"] = new JsonArray(
+            new JsonObject { ["index"] = 0, ["name"] = "Hips" }, new JsonObject { ["index"] = 1, ["name"] = "Prop" }) });
+        doubleRootOgi.Save(Path.Combine(Path.GetDirectoryName(ogi.FullDataPath)!, "DoubleRoot.tlm"));
+        WriteVersion("1.0.0");
+
+        var result = ProjectMigration.Migrate(ProjectFile);
+
+        Assert.Contains("add-on", result.Notes[0]);
+        Assert.Contains(result.Notes, note => note.Contains("DoubleRoot.tlm") && note.Contains("can't read"));
+        Assert.Contains(result.Notes, note => note.Contains(Path.GetFileName(ogi.FullDataPath)) && note.Contains("skin") && note.Contains(wood.URI.ToString()));
+        Assert.DoesNotContain(result.Notes, note => note.Contains("rigid parts"));
+        var summary = ProjectManager.MigrationSummary("Test", result);
+        Assert.Contains(Path.GetFileName(result.Backup)!, summary);
+        Assert.Contains(result.Notes[2], summary);
+
+        var skinMaterial = SkinMaterialRead();
+        var shader = ((IAsset)assets.Get<Material>(skinMaterial)).GetData<MaterialData>().Shaders.Single();
+        Assert.NotEqual(wood.URI, skinMaterial);
+        Assert.Equal((TwinShader.Type.LitSkinnedModel, "wood-id"), (shader.ShaderType, assets.Get<Material>(skinMaterial).Parameters[TlmMaterials.BlenderMaterialParameter]?.ToString()));
+        Assert.NotEqual(LabURI.Empty, shader.TextureId);
+        // Migrated again, nothing's left to split
+        Assert.Equal(skinMaterial, SkinMaterialRead());
+
+        LabURI SkinMaterialRead()
+        {
+            ogiData.ReadTlm(TlmFile.Load(ogi.FullDataPath));
+            return ((IAsset)assets.Get<Skin>(ogiData.Skin)).GetData<SkinData>().SubSkins[0].Material;
+        }
+    }
+
+    // 1.0.0 built every model with the number of its joints with an ID as the count of IDs the game binds and its files don't keep it: the
+    // models 1.1.0 would bind more IDs of (their IDs have gaps) get that count, so they build like the game's and as they did
+    [AvaloniaFact]
+    public void ModelsKeepTheJointIdCountTheReleaseBuilt()
+    {
+        var ogi = new TestAssets(_project).AddOgi();
+        _project.Project.Serialize();
+        var file = TlmFile.Load(ogi.FullDataPath);
+        Assert.True(file.Root!.GetData().Remove(OGIData.JointIdCountKey));
+        file.Save(ogi.FullDataPath);
+        WriteVersion("1.0.0");
+
+        ProjectMigration.Migrate(ProjectFile);
+
+        var data = ((IAsset)ogi).GetData<OGIData>();
+        data.ReadTlm(TlmFile.Load(ogi.FullDataPath));
+        Assert.Equal(1, data.JointIdCount);
     }
 
     // Opening an older project asks first, a project not migrated stays as it is and doesn't open
@@ -189,8 +277,13 @@ public sealed class ProjectMigrationTests : IDisposable
         Assert.Empty(Directory.GetFiles(_project.Project.ProjectPath, "migration_backup_*"));
 
         projectManager.AskToMigrate = _ => Task.FromResult(true);
+        var told = new List<string>();
+        projectManager.TellMigrated = told.Add;
         projectManager.OpenProject(_project.Project.ProjectPath);
         await WaitUntil(() => projectManager.WorkableProject);
+
+        // What it did and left to the user is told once it's done
+        Assert.Contains("from TT Lab 1.0.0", Assert.Single(told));
 
         Assert.Equal(TT_Lab.Project.Project.CURRENT_VERSION, projectManager.OpenedProject!.Version);
         Assert.Single(Directory.GetFiles(_project.Project.ProjectPath, "migration_backup_*"));

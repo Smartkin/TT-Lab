@@ -100,7 +100,7 @@ public class OGIData : AbstractAssetData
     public const string RigidBodiesKind = "rigid_bodies";
     public const string BodyKind = "body";
     public const string ExitPointsKind = "exit_points";
-    private const string JointIdCountKey = "JointIdCount";
+    internal const string JointIdCountKey = "JointIdCount";
     public const string ExitPointKind = "exit_point";
     public const string CollisionHullsKind = "collision_hulls";
     private const Int32 NoParent = 0xFF;

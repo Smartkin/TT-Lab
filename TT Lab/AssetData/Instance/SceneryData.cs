@@ -17,6 +17,7 @@ using TT_Lab.Assets.Graphics;
 using TT_Lab.Attributes;
 using TT_Lab.Attributes.EditorParamWrappers;
 using TT_Lab.Extensions;
+using TT_Lab.Project.Migration;
 using TT_Lab.Rendering;
 using TT_Lab.Rendering.Lighting;
 using TT_Lab.Rendering.Objects;
@@ -529,9 +530,18 @@ public class SceneryData : AbstractAssetData
         return new Vector4(pointed.X, pointed.Y, pointed.Z, 0);
     }
 
-    /// <returns>Whether the file has to be written again: materials made in Blender became the project's</returns>
+    /// <returns>Whether the file has to be written again: materials made in Blender became the project's, or it had 1.0.0's tree</returns>
     internal Boolean ReadTlm(TlmFile file)
     {
+        // The add-on of TT Lab 1.0.0, or a Blender scene it imported, still writes the tree the migration takes out of projects of then:
+        // read without it, the game's values of the tree were lost
+        var hadTree = file.Root is { } json && Version110.HasTree(json) && Version110.MigrateScenery(json);
+        if (hadTree)
+        {
+            Log.WriteLine($"{Owner.Alias}'s file has the scenery tree of TT Lab 1.0.0, which an older Blender add-on wrote: it's read the way migrating a project brings it to " +
+                          $"{TT_Lab.Project.Project.CURRENT_VERSION}. Install the add-on that comes with this TT Lab", Log.LogType.Warning);
+        }
+
         var root = TlmTreeNode.Of(file.Root ?? new JsonObject());
         var materials = new TlmMaterials(file, Owner);
         var data = root.Data;
@@ -599,7 +609,7 @@ public class SceneryData : AbstractAssetData
             Placements[i].Node = paths[i];
         }
 
-        return materials.AddedToProject;
+        return materials.AddedToProject || hadTree;
     }
 
     // The root holds the chunk's objects (SceneryBounds): one the file left to what got placed in it (made in Blender) or one without room
@@ -848,11 +858,11 @@ public class SceneryData : AbstractAssetData
 
     protected override void LoadInternal(String dataPath, JsonSerializerSettings? settings = null)
     {
-        var addedMaterials = ReadTlm(TlmFile.Load(dataPath));
+        var writeAgain = ReadTlm(TlmFile.Load(dataPath));
         DisposedValue = false;
-        if (addedMaterials)
+        if (writeAgain)
         {
-            // Materials made in Blender are referred to from now on
+            // Materials made in Blender are referred to from now on, a file of 1.0.0's tree has this TT Lab's list
             SaveInternal(dataPath, settings);
         }
     }

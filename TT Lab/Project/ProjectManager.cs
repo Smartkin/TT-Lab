@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Data;
@@ -414,8 +415,33 @@ namespace TT_Lab.Project
                 return false;
             }
 
-            ProjectMigration.Migrate(projectFile);
+            TellMigrated(MigrationSummary(name, ProjectMigration.Migrate(projectFile)));
             return true;
+        }
+
+        /// <summary>
+        /// Tells what migrating a project did and left to the user, tests take it themselves
+        /// </summary>
+        internal Action<string> TellMigrated { get; set; } = summary =>
+            Dispatcher.UIThread.Post(() => new MessageDialogue("Project migrated", summary).ShowDialog(MiscUtils.GetMainWindow()));
+
+        // The first few of what the migration left to the user, the log has every one
+        internal static string MigrationSummary(string name, MigrationResult result)
+        {
+            const int shownNotes = 6;
+            var summary = new StringBuilder($"{name} is migrated from TT Lab {result.From} to {Project.CURRENT_VERSION}: {result.Changed} files changed");
+            summary.Append(result.Backup != null ? $", kept as they were in {Path.GetFileName(result.Backup)} in the project's folder." : ".");
+            foreach (var note in result.Notes.Take(shownNotes))
+            {
+                summary.Append("\n\n• ").Append(note);
+            }
+
+            if (result.Notes.Count > shownNotes)
+            {
+                summary.Append($"\n\n{result.Notes.Count - shownNotes} more are in the log.");
+            }
+
+            return summary.ToString();
         }
 
         private static void ReportOpeningError(string message)

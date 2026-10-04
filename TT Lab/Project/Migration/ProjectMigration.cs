@@ -66,14 +66,15 @@ public static class ProjectMigration
     /// Migrates the project of the project file to TT Lab's version. The project file's version changes last, so a migration that
     /// stopped halfway runs again on what it left: every step leaves what it already did alone
     /// </summary>
-    /// <returns>How many files changed and the archive holding them as they were, none when nothing changed</returns>
-    public static (int Changed, string? Backup) Migrate(string projectFile)
+    /// <returns>How many files changed, the archive holding them as they were (none when nothing changed) and what's left to the user</returns>
+    public static MigrationResult Migrate(string projectFile)
     {
         var version = ReadVersion(projectFile) ?? throw new ProjectException($"The project file has no version, TT Lab can't bring it to {Project.CURRENT_VERSION}");
         var steps = StepsFrom(version) ?? throw new ProjectException($"TT Lab can't bring a project of version {version} to {Project.CURRENT_VERSION}");
         var folder = Path.GetDirectoryName(Path.GetFullPath(projectFile))!;
         var backup = Path.Combine(folder, $"migration_backup_{version}_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.zip");
         var changed = 0;
+        List<string> notes;
         using (var context = new MigrationContext(folder, backup))
         {
             foreach (var (from, to, apply) in steps)
@@ -86,12 +87,17 @@ public static class ProjectMigration
             var text = File.ReadAllText(projectFile);
             context.WriteAllText(projectFile, VersionValue.Replace(text, match => $"{match.Groups[1].Value}\"{Project.CURRENT_VERSION}\"", 1));
             changed = context.Changed.Count;
+            notes = context.Notes;
         }
 
         Log.WriteLine($"Migrated the project from {version} to {Project.CURRENT_VERSION}, {changed} files changed, kept as they were in {Path.GetFileName(backup)}");
-        return (changed, backup);
+        return new MigrationResult(version, changed, backup, notes);
     }
 }
+
+/// <param name="From">The version the project was</param>
+/// <param name="Notes">What the migration couldn't do or the user has to know, like models to export again from Blender</param>
+public sealed record MigrationResult(string From, int Changed, string? Backup, IReadOnlyList<string> Notes);
 
 /// <summary>
 /// What a migration step works with: the project's folder, and the writes that back up a file before its first change
@@ -106,6 +112,17 @@ internal sealed class MigrationContext(string projectFolder, string backupPath) 
     public string AssetsFolder => Path.Combine(ProjectFolder, "assets");
 
     public IReadOnlyCollection<string> Changed => _backedUp;
+
+    public List<string> Notes { get; } = [];
+
+    /// <summary>
+    /// Something the user has to know or do, logged and listed when the migration is done
+    /// </summary>
+    public void Note(string note, Log.LogType type = Log.LogType.Info)
+    {
+        Log.WriteLine(note, type);
+        Notes.Add(note);
+    }
 
     public void WriteAllText(string path, string text)
     {
