@@ -18,16 +18,18 @@ public class BatchStorage(RenderContext context)
     
     public event NewBatchCreatedHandler? NewBatchCreated;
     
-    private readonly Dictionary<ModelBuffer, RenderBatch> _renderBatches = [];
+    // A preview's meshes are drawn in passes of their own, never with the scene's of the same model
+    private readonly Dictionary<(ModelBuffer, bool), RenderBatch> _renderBatches = [];
 
     public void AddMeshToBatch(Mesh mesh)
     {
+        var isPreview = mesh.IsInPreview;
         foreach (var modelBuffer in mesh.GetModels())
         {
-            if (!_renderBatches.TryGetValue(modelBuffer, out var renderBatch))
+            if (!_renderBatches.TryGetValue((modelBuffer, isPreview), out var renderBatch))
             {
-                renderBatch = new RenderBatch(context, modelBuffer);
-                _renderBatches.Add(modelBuffer, renderBatch);
+                renderBatch = new RenderBatch(context, modelBuffer, isPreview);
+                _renderBatches.Add((modelBuffer, isPreview), renderBatch);
                 NewBatchCreated?.Invoke(renderBatch);
             }
 
@@ -37,9 +39,10 @@ public class BatchStorage(RenderContext context)
 
     public void RemoveMeshFromBatch(Mesh mesh)
     {
+        var isPreview = mesh.IsInPreview;
         foreach (var modelBuffer in mesh.GetModels())
         {
-            if (!_renderBatches.TryGetValue(modelBuffer, out var renderBatch))
+            if (!_renderBatches.TryGetValue((modelBuffer, isPreview), out var renderBatch))
             {
                 continue;
             }

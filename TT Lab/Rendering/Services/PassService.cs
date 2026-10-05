@@ -17,6 +17,8 @@ public enum PassPriority
     VolumeInsides = 40000,
     VolumeOutsides = 40001,
     Particles = 50000,
+    Preview = 60000,
+    PreviewSilhouette = 60001,
     Billboards = 100000,
     Primitive = int.MaxValue
 }
@@ -29,6 +31,8 @@ public class PassService
     public const string ParticlesPass = "PARTICLES";
     public const string VolumeInsidesPass = "VOLUME_INSIDES";
     public const string VolumeOutsidesPass = "VOLUME_OUTSIDES";
+    public const string PreviewPassName = "PREVIEW";
+    public const string PreviewSilhouettePassName = "PREVIEW_SILHOUETTE";
     
     private readonly Dictionary<string, RenderPass> _passes = [];
     private readonly SortedList<PassPriority, RenderPass> _sortedPasses = new(new DuplicateKeyComparer<PassPriority>());
@@ -105,6 +109,8 @@ public class PassService
         RegisterPass(ParticlesPass, new ParticlePass(context, ParticlesPass, context.GetProgram("Particle")), PassPriority.Particles);
         RegisterPass(VolumeInsidesPass, new VolumePass(context, VolumeInsidesPass, context.GetProgram("Generic"), TriangleFace.Front), PassPriority.VolumeInsides);
         RegisterPass(VolumeOutsidesPass, new VolumePass(context, VolumeOutsidesPass, context.GetProgram("Generic"), TriangleFace.Back), PassPriority.VolumeOutsides);
+        RegisterPass(PreviewPassName, new PreviewPass(context, PreviewPassName, context.GetProgram("Generic"), false), PassPriority.Preview);
+        RegisterPass(PreviewSilhouettePassName, new PreviewPass(context, PreviewSilhouettePassName, context.GetProgram("Generic"), true), PassPriority.PreviewSilhouette);
 
         _skydomePasses = GetPassesWith(priority => priority == PassPriority.Skydome);
         _opaquePasses = GetPassesWith(priority => priority == PassPriority.Opaque);

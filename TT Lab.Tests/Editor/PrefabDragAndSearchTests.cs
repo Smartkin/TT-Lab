@@ -1,3 +1,4 @@
+using System.Reflection;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -37,15 +38,31 @@ public sealed class PrefabDragAndSearchTests : IDisposable
         _project.Dispose();
     }
 
-    // Takes what's dropped onto it, like a scene's viewport
+    // Takes what's dropped onto it, like a scene's viewport, and hears where a prefab is dragged over it
     private sealed class Scene : Border, IPrefabDropTarget
     {
         public List<(Prefab Prefab, PixelPoint Screen)> Dropped { get; } = [];
 
+        public List<string> Heard { get; } = [];
+
         public bool CanDrop(Prefab prefab, Visual hit) => true;
 
-        public void Drop(Prefab prefab, Visual hit, PixelPoint screen) => Dropped.Add((prefab, screen));
+        public void Drop(Prefab prefab, Visual hit, PixelPoint screen)
+        {
+            Dropped.Add((prefab, screen));
+            Heard.Add($"dropped at {screen}");
+        }
+
+        public void DragOver(Prefab prefab, Visual hit, PixelPoint screen) => Heard.Add($"{prefab.Name} over {screen}");
+
+        public void DragLeave() => Heard.Add("left");
     }
+
+    // The window's cursor: a drag's override, else the one of what's under the pointer
+    private static Cursor? CursorField(TopLevel window, string name) =>
+        (Cursor?)typeof(TopLevel).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(window);
+
+    private static string? ShownCursor(TopLevel window) => (CursorField(window, "_cursorOverride") ?? CursorField(window, "_cursor"))?.ToString();
 
     private Prefab CratePrefab(string name, string folder = "") => new()
     {
@@ -114,6 +131,53 @@ public sealed class PrefabDragAndSearchTests : IDisposable
         var dropped = Assert.Single(scene.Dropped);
         Assert.Equal("Crate", dropped.Prefab.Name);
         Assert.Equal(new PixelPoint(900, 150), dropped.Screen);
+        floating.Close();
+        main.Close();
+    }
+
+    // While the list keeps the pointer the window only took the cursor of what's under it when that was the list itself: the "can't drop"
+    // cursor set as the drag started over a tile (X11's X) stayed all the way into the scene. The scene hears where the prefab is dragged
+    // over it to show where it goes, and that it left before it's dropped onto
+    [AvaloniaFact]
+    public void TheCursorAndTheSceneFollowADraggedPrefab()
+    {
+        _library.Save(CratePrefab("Crate"));
+        var panel = Panel();
+        var view = new PrefabsView { DataContext = panel };
+        var floating = Show(view, 500, 500);
+        var scene = new Scene { Background = Brushes.Black };
+        var main = Show(scene, 1400, 700);
+        PrefabDropTargets.Windows = () => [floating, main];
+        panel.Refresh();
+        Render();
+
+        var tile = view.GetVisualDescendants().OfType<ListBoxItem>().Single();
+        var start = tile.TranslatePoint(new Point(60, 40), floating)!.Value;
+        floating.MouseDown(start, MouseButton.Left);
+        floating.MouseMove(start + new Point(20, 0), RawInputModifiers.LeftMouseButton);
+        Assert.Equal(nameof(StandardCursorType.No), ShownCursor(floating));
+
+        floating.MouseMove(new Point(900, 150), RawInputModifiers.LeftMouseButton);
+        Assert.Equal(nameof(StandardCursorType.DragCopy), ShownCursor(floating));
+        floating.MouseMove(new Point(950, 200), RawInputModifiers.LeftMouseButton);
+        floating.MouseMove(start, RawInputModifiers.LeftMouseButton);
+        Assert.Equal(nameof(StandardCursorType.No), ShownCursor(floating));
+        floating.MouseMove(new Point(1000, 300), RawInputModifiers.LeftMouseButton);
+        floating.MouseUp(new Point(1000, 300), MouseButton.Left);
+
+        Assert.Equal(["Crate over 900, 150", "Crate over 950, 200", "left", "Crate over 1000, 300", "left", "dropped at 1000, 300"], scene.Heard);
+        Assert.Null(CursorField(floating, "_cursorOverride"));
+
+        // Given up with Escape the scene hears it left, nothing's dropped
+        scene.Heard.Clear();
+        floating.MouseDown(start, MouseButton.Left);
+        floating.MouseMove(start + new Point(20, 0), RawInputModifiers.LeftMouseButton);
+        floating.MouseMove(new Point(900, 150), RawInputModifiers.LeftMouseButton);
+        floating.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.LeftMouseButton);
+        floating.MouseUp(new Point(900, 150), MouseButton.Left);
+
+        Assert.Equal(["Crate over 900, 150", "left"], scene.Heard);
+        Assert.Null(CursorField(floating, "_cursorOverride"));
         floating.Close();
         main.Close();
     }

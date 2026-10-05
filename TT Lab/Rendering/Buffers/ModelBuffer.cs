@@ -92,9 +92,14 @@ public class ModelBuffer(RenderContext context, ModelBufferBuild build, Material
         return shader.ShaderType == TwinShader.Type.UnlitSkydome && shader.ForcedShaderName == null ? PassService.SkydomePassName : shader.ShaderName;
     }
     
-    public virtual bool Bind()
+    public bool Bind() => Bind(context.CurrentPass.Name);
+
+    /// <summary>
+    /// Binds the model with its material's shader of the pass, a preview drawing in passes of its own as its material's
+    /// </summary>
+    public virtual bool Bind(string passName)
     {
-        var shader = GetShaderFromPass(context.CurrentPass);
+        var shader = GetShaderFromPass(passName);
         if (shader == null)
         {
             return false;
@@ -117,9 +122,8 @@ public class ModelBuffer(RenderContext context, ModelBufferBuild build, Material
         _currentRenderMaterial?.Unbind();
     }
 
-    private LabShader? GetShaderFromPass(RenderPass renderPass)
+    private LabShader? GetShaderFromPass(string passName)
     {
-        var passName = renderPass.Name;
         if (_passShaders.TryGetValue(passName, out var shader))
         {
             return shader;

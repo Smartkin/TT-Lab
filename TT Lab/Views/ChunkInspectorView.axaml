@@ -14,8 +14,8 @@
         <KeyBinding Command="{Binding UndoCommand}" Gesture="Ctrl+Z"/>
         <KeyBinding Command="{Binding RedoCommand}" Gesture="Ctrl+Y"/>
         <KeyBinding Command="{Binding RedoCommand}" Gesture="Ctrl+Shift+Z"/>
-        <KeyBinding Command="{Binding Document.InspectBackCommand}" Gesture="Alt+Left"/>
-        <KeyBinding Command="{Binding Document.InspectForwardCommand}" Gesture="Alt+Right"/>
+        <KeyBinding Command="{Binding Document?.InspectBackCommand}" Gesture="Alt+Left"/>
+        <KeyBinding Command="{Binding Document?.InspectForwardCommand}" Gesture="Alt+Right"/>
     </UserControl.KeyBindings>
     <UserControl.Styles>
         <Style Selector="Button.crumb">
@@ -34,14 +34,14 @@
         <Border x:Name="Navigation" DockPanel.Dock="Top" Padding="2,2,2,3" BorderThickness="0,0,0,1" BorderBrush="#40808080"
                 IsVisible="{Binding Inspected, Converter={x:Static ObjectConverters.IsNotNull}}">
             <DockPanel>
-                <Button DockPanel.Dock="Left" Content="◀" Command="{Binding Document.InspectBackCommand}" Margin="0,0,2,0" Padding="6,1"
+                <Button DockPanel.Dock="Left" Content="◀" Command="{Binding Document?.InspectBackCommand}" Margin="0,0,2,0" Padding="6,1"
                         ToolTip.Tip="Back to what the inspector showed before following a link (Alt+Left, the mouse's back button)"/>
-                <Button DockPanel.Dock="Left" Content="▶" Command="{Binding Document.InspectForwardCommand}" Margin="0,0,6,0" Padding="6,1"
+                <Button DockPanel.Dock="Left" Content="▶" Command="{Binding Document?.InspectForwardCommand}" Margin="0,0,6,0" Padding="6,1"
                         ToolTip.Tip="Forward again (Alt+Right, the mouse's forward button)"/>
-                <Button DockPanel.Dock="Right" Content="Open the shared asset" Command="{Binding Document.OpenSharedAssetCommand}" Margin="6,0,0,0" Padding="6,1"
-                        IsVisible="{Binding Document.InspectedSharedAsset, Converter={x:Static ObjectConverters.IsNotNull}}"
+                <Button DockPanel.Dock="Right" Content="Open the shared asset" Command="{Binding Document?.OpenSharedAssetCommand}" Margin="6,0,0,0" Padding="6,1"
+                        IsVisible="{Binding Document?.InspectedSharedAsset, Converter={x:Static ObjectConverters.IsNotNull}}"
                         ToolTip.Tip="This is the chunk's version of an asset other chunks share (blue values are the chunk's own). The asset's own tab edits the asset itself, for every chunk"/>
-                <ItemsControl x:Name="Crumbs" ItemsSource="{Binding Document.InspectorCrumbs}" VerticalAlignment="Center">
+                <ItemsControl x:Name="Crumbs" ItemsSource="{Binding Document?.InspectorCrumbs}" VerticalAlignment="Center">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                             <WrapPanel Orientation="Horizontal"/>

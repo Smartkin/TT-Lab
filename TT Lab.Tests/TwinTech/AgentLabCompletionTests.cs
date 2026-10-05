@@ -186,6 +186,37 @@ public class AgentLabCompletionTests
         Assert.NotEmpty(Complete("<attribute>", "[UseObjectSlot(|"));
     }
 
+    // execute and [StartFrom] name states, [ControlPacket] names packets: such a name leads to its declaration
+    [Fact]
+    public void NamedStatesAndPacketsLeadToTheirDeclarations()
+    {
+        var script = Behaviour.Replace("<attribute>", "[ControlPacket(Packet_0)]").Replace("<body>", "execute State_1;");
+        foreach (var marker in new[] { "<settings>", "<data>", "<assigner>", "<state>", "<behaviour>" })
+        {
+            script = script.Replace(marker, string.Empty);
+        }
+
+        AgentLabDeclaration? At(string text, int into = 2) => AgentLabCompletion.GetDeclaration(script, script.IndexOf(text, StringComparison.Ordinal) + into);
+
+        var executed = At("State_1;")!;
+        Assert.Equal(("state", "State_1"), (executed.Keyword, executed.Name));
+        Assert.Equal(script.IndexOf("state State_1", StringComparison.Ordinal) + "state ".Length, executed.Start);
+        Assert.Equal("State_1", script[executed.Start..executed.End]);
+        Assert.Equal(script.IndexOf("state State_0", StringComparison.Ordinal) + "state ".Length, At("State_0)]")!.Start);
+        var packet = At("Packet_0)]")!;
+        Assert.Equal(("packet", script.IndexOf("packet Packet_0", StringComparison.Ordinal) + "packet ".Length), (packet.Keyword, packet.Start));
+
+        // The declarations themselves, other words and names nothing declares lead nowhere
+        Assert.Null(At("State_1()"));
+        Assert.Null(At("Packet_0 {"));
+        Assert.Null(At("Else(0)"));
+        Assert.Null(At("execute", 3));
+        var undeclared = script.Replace("execute State_1;", "execute Nowhere;");
+        Assert.Null(AgentLabCompletion.GetDeclaration(undeclared, undeclared.IndexOf("Nowhere", StringComparison.Ordinal) + 1));
+        var commented = script.Replace("execute State_1;", "// execute State_1;");
+        Assert.Null(AgentLabCompletion.GetDeclaration(commented, commented.IndexOf("State_1;", StringComparison.Ordinal) + 1));
+    }
+
     [Fact]
     public void AttributeAfterItsClosingBracketIsDone()
     {

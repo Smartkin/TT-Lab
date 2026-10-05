@@ -219,6 +219,42 @@ public class AgentLabReference
 }
 
 /// <summary>
+/// A state or control packet declared in a behaviour script, where its name is
+/// </summary>
+public class AgentLabDeclaration
+{
+    /// <summary>
+    /// Creates the declaration
+    /// </summary>
+    public AgentLabDeclaration(string keyword, string name, int start)
+    {
+        Keyword = keyword;
+        Name = name;
+        Start = start;
+    }
+
+    /// <summary>
+    /// What declares it, <c>state</c> or <c>packet</c>
+    /// </summary>
+    public string Keyword { get; }
+
+    /// <summary>
+    /// The declared name
+    /// </summary>
+    public string Name { get; }
+
+    /// <summary>
+    /// Offset of the name's first character
+    /// </summary>
+    public int Start { get; }
+
+    /// <summary>
+    /// Offset after the name's last character
+    /// </summary>
+    public int End => Start + Name.Length;
+}
+
+/// <summary>
 /// Suggests what can be written at a place in a behaviour script. Scripts being edited are rarely valid so they aren't parsed,
 /// the text before the caret is scanned to find out which block and statement the caret is in instead
 /// </summary>
@@ -257,14 +293,16 @@ public static class AgentLabCompletion
 
     private readonly struct Token
     {
-        public Token(TokenKind kind, string text)
+        public Token(TokenKind kind, string text, int start)
         {
             Kind = kind;
             Text = text;
+            Start = start;
         }
 
         public TokenKind Kind { get; }
         public string Text { get; }
+        public int Start { get; }
     }
 
     private sealed class Block
@@ -519,6 +557,62 @@ public static class AgentLabCompletion
 
         var before = Scan(script, open, out var insideOther);
         return !insideOther && IsStateHeader(GetContext(before).Statement) ? new AgentLabReference(script.Substring(open + 1, close - open - 1), open + 1, close, false) : null;
+    }
+
+    /// <summary>
+    /// The declaration of the state or control packet the name at the offset refers to: the state an <c>execute</c> or a
+    /// <c>[StartFrom]</c> names, the packet a <c>[ControlPacket]</c> names. Null anywhere else and for names the script doesn't declare
+    /// </summary>
+    public static AgentLabDeclaration GetDeclaration(string script, int offset)
+    {
+        offset = Math.Clamp(offset, 0, script.Length);
+        var start = offset;
+        while (start > 0 && IsIdentifierChar(script[start - 1]))
+        {
+            start--;
+        }
+
+        var end = offset;
+        while (end < script.Length && IsIdentifierChar(script[end]))
+        {
+            end++;
+        }
+
+        if (start == end || char.IsAsciiDigit(script[start]))
+        {
+            return null;
+        }
+
+        var tokens = Scan(script, start, out var insideCommentOrString);
+        if (insideCommentOrString)
+        {
+            return null;
+        }
+
+        var context = GetContext(tokens);
+        var keyword = context.Statement switch
+        {
+            [{ Text: "execute" }] when context.Block == BlockKind.StateBody => "state",
+            [{ Text: "[" }, { Text: "StartFrom" }, { Text: "(" }] => "state",
+            [{ Text: "[" }, { Text: "ControlPacket" }, { Text: "(" }] => "packet",
+            _ => null
+        };
+        if (keyword == null)
+        {
+            return null;
+        }
+
+        var name = script.Substring(start, end - start);
+        var declared = Scan(script, script.Length, out _);
+        for (var i = 0; i < declared.Count - 1; i++)
+        {
+            if (declared[i].Kind == TokenKind.Identifier && declared[i].Text == keyword && declared[i + 1].Kind == TokenKind.Identifier && declared[i + 1].Text == name)
+            {
+                return new AgentLabDeclaration(keyword, name, declared[i + 1].Start);
+            }
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -1020,18 +1114,18 @@ public static class AgentLabCompletion
                 }
 
                 var text = script[start..i];
-                tokens.Add(new Token(char.IsAsciiDigit(text[0]) || text[0] == '.' ? TokenKind.Number : TokenKind.Identifier, text));
+                tokens.Add(new Token(char.IsAsciiDigit(text[0]) || text[0] == '.' ? TokenKind.Number : TokenKind.Identifier, text, start));
                 continue;
             }
 
             if (character is '>' or '<' or '=' && i + 1 < end && script[i + 1] == '=')
             {
-                tokens.Add(new Token(TokenKind.Symbol, script.Substring(i, 2)));
+                tokens.Add(new Token(TokenKind.Symbol, script.Substring(i, 2), i));
                 i += 2;
                 continue;
             }
 
-            tokens.Add(new Token(TokenKind.Symbol, character.ToString()));
+            tokens.Add(new Token(TokenKind.Symbol, character.ToString(), i));
             i++;
         }
 

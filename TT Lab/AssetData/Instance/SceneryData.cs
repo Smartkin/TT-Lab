@@ -1093,6 +1093,8 @@ public class SceneryData : AbstractAssetData
                 };
             var collisionData = AssetManager.Get().GetAssetData<CollisionData>(Collision);
             var shape = property.Find($"[data].AssetData.{nameof(CollisionShape)}");
+            // Shown or hidden by the Collision layer: hidden here as well, the scenery's objects made again with the layer on (a mesh
+            // placed or deleted in the scenery mode) left it hidden while the layer was ticked
             result.Add(new ViewportObject(collisionEditing, $"COLLISION_{property.Path}", property, collisionData)
             {
                 Category = ViewportObjectCategory.Collision,
@@ -1104,7 +1106,6 @@ public class SceneryData : AbstractAssetData
                     return true;
                 },
             });
-            collisionEditing.IsVisible = false;
         }
 
         return result;

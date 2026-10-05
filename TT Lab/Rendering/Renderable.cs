@@ -308,6 +308,14 @@ public abstract class Renderable
         }
     }
 
+    /// <summary>
+    /// Shows what's about to be placed: its meshes and those under it are drawn after the scene, seen through what's in front of them
+    /// (PreviewPass)
+    /// </summary>
+    public bool DrawsAsPreview { get; init; }
+
+    public bool IsInPreview => DrawsAsPreview || _parent?.IsInPreview == true;
+
     public sealed override Int32 GetHashCode()
     {
         // ReSharper disable once BaseObjectGetHashCodeCallInGetHashCode

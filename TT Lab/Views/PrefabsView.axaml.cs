@@ -1,4 +1,5 @@
 using System;
+using System.Reflection;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -18,11 +19,19 @@ public partial class PrefabsView : ReactiveUserControl<PrefabsViewModel>, IPrefa
     private static readonly Cursor DropCursor = new(StandardCursorType.DragCopy);
     private static readonly Cursor MoveCursor = new(StandardCursorType.DragMove);
     private static readonly Cursor NoDropCursor = new(StandardCursorType.No);
+    // While the list keeps the pointer the window only takes the cursor of what's under the pointer when that's the list itself, never one
+    // of its tiles or another control: the list's cursor, which its tiles inherit, reached the window once, as the drag started over a
+    // tile, and the drag showed "can't drop" (X11's X) all the way into the scene. Avalonia's own drag sets the window's cursor override,
+    // which is internal (recheck it after updating Avalonia)
+    private static readonly MethodInfo? SetCursorOverride = typeof(TopLevel).GetMethod("SetCursorOverride", BindingFlags.Instance | BindingFlags.NonPublic, [typeof(Cursor)]);
     private PrefabEntry? _pressed;
     private Point _pressedAt;
     // The prefab being dragged: the list keeps the pointer while it is and finds where it's let go of itself, in whichever of TT Lab's
     // windows that is (PrefabDropTargets)
     private PrefabEntry? _dragged;
+    // The window the drag started in, which shows its cursor, and the target it's over, told when the prefab leaves it
+    private TopLevel? _dragWindow;
+    private IPrefabDropTarget? _dragTarget;
 
     static PrefabsView()
     {
@@ -146,8 +155,17 @@ public partial class PrefabsView : ReactiveUserControl<PrefabsViewModel>, IPrefa
     {
         if (_dragged != null)
         {
-            var found = PrefabDropTargets.Find(ScreenPoint(e), TopLevel.GetTopLevel(this));
-            PrefabList.Cursor = found is { } target && target.Target.CanDrop(_dragged.Prefab, target.Hit) ? target.Target is PrefabsView ? MoveCursor : DropCursor : NoDropCursor;
+            var screen = ScreenPoint(e);
+            var found = PrefabDropTargets.Find(screen, TopLevel.GetTopLevel(this));
+            var target = found is { } over && over.Target.CanDrop(_dragged.Prefab, over.Hit) ? over.Target : null;
+            if (target != _dragTarget)
+            {
+                _dragTarget?.DragLeave();
+                _dragTarget = target;
+            }
+
+            target?.DragOver(_dragged.Prefab, found!.Value.Hit, screen);
+            ShowDragCursor(target == null ? NoDropCursor : target is PrefabsView ? MoveCursor : DropCursor);
             e.Handled = true;
             return;
         }
@@ -165,8 +183,9 @@ public partial class PrefabsView : ReactiveUserControl<PrefabsViewModel>, IPrefa
 
         _dragged = _pressed;
         _pressed = null;
+        _dragWindow = TopLevel.GetTopLevel(this);
         e.Pointer.Capture(PrefabList);
-        PrefabList.Cursor = NoDropCursor;
+        ShowDragCursor(NoDropCursor);
         e.Handled = true;
     }
 
@@ -199,11 +218,25 @@ public partial class PrefabsView : ReactiveUserControl<PrefabsViewModel>, IPrefa
         }
 
         _dragged = null;
-        PrefabList.Cursor = null;
+        _dragTarget?.DragLeave();
+        _dragTarget = null;
+        ShowDragCursor(null);
+        _dragWindow = null;
         if (pointer?.Captured == PrefabList)
         {
             pointer.Capture(null);
         }
+    }
+
+    private void ShowDragCursor(Cursor? cursor)
+    {
+        if (SetCursorOverride != null && _dragWindow != null)
+        {
+            SetCursorOverride.Invoke(_dragWindow, [cursor]);
+            return;
+        }
+
+        PrefabList.Cursor = cursor;
     }
 
     private static bool IsInTextBox(Visual visual)

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reactive.Disposables.Fluent;
 using System.Threading.Tasks;
@@ -8,11 +9,13 @@ using Avalonia.Media.Imaging;
 using GlmSharp;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
+using TT_Lab.AssetData.Instance.Scenery;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Instance;
 using TT_Lab.Extensions;
 using TT_Lab.Project.Prefabs;
 using TT_Lab.Rendering;
+using TT_Lab.Rendering.Objects;
 using TT_Lab.Util;
 using TT_Lab.ViewModels.Editors.PropertyGraph;
 using TT_Lab.ViewModels.Interfaces;
@@ -32,6 +35,12 @@ public partial class ViewportViewModel
 
     [Reactive(SetModifier = AccessModifier.Private)]
     private string _prefabHint = PrefabsHint;
+
+    // The prefab dragged over the scene, and the one the render thread shows where letting it go places it
+    private PrefabPreview? _prefabPreview;
+    private PrefabPreview? _shownPrefabPreview;
+    // Scenery prefabs' meshes read for the preview by their model file, kept while they're in the project (render thread)
+    private readonly Dictionary<string, List<SceneryPlacement>> _previewSceneries = [];
 
     private void InitPrefabs()
     {
@@ -206,16 +215,122 @@ public partial class ViewportViewModel
     private static readonly TimeSpan PreviewTimeout = TimeSpan.FromSeconds(3);
 
     /// <summary>
+    /// Whether the prefab can go into the chunk the viewport shows
+    /// </summary>
+    internal bool CanPlacePrefab(Prefab prefab)
+    {
+        return IsChunkViewport && _document?.DocumentModel is LevelChunk chunk && PrefabLibrary.ForOpenedProject() is { } library
+               && library.CanPlace(prefab, chunk, _document, out _);
+    }
+
+    /// <summary>
     /// Places the prefab where the ray through the viewport point hits the chunk's collision, or at the cursor when it hits nothing
     /// </summary>
     internal bool PlacePrefabAt(Prefab prefab, float x, float y)
     {
+        HidePrefabPreview();
         if (_editingContext != null && TryHitCollision(x, y, out var hit))
         {
             _editingContext.SetCursorCoordinates(hit);
         }
 
         return PlacePrefab(prefab);
+    }
+
+    // Where a prefab let go of at the viewport point goes: where the ray hits the collision, else the cursor, in front of the camera
+    // without one
+    private vec3 PrefabDropPoint(float x, float y) => TryHitCollision(x, y, out var hit) ? hit : NewResourcePosition();
+
+    /// <summary>
+    /// Shows the prefab dragged over the viewport point where letting it go there places it
+    /// </summary>
+    internal void ShowPrefabPreview(Prefab prefab, float x, float y)
+    {
+        var context = _renderContext;
+        if (context == null || !_renderInit)
+        {
+            return;
+        }
+
+        var at = PrefabDropPoint(x, y);
+        if (_prefabPreview is { } shown && ReferenceEquals(shown.Prefab, prefab))
+        {
+            context.QueueRenderAction(() => shown.MoveTo(at));
+            return;
+        }
+
+        HidePrefabPreview();
+        var preview = new PrefabPreview(prefab, PrefabPreview.PartsOf(prefab));
+        _prefabPreview = preview;
+        context.QueueRenderAction(() =>
+        {
+            if (!_renderInit || _renderContext != context || _scene == null)
+            {
+                return;
+            }
+
+            preview.Show(context, _scene, at, prefab.Kind == PrefabKind.Scenery ? PreviewScenery(prefab) : []);
+            _shownPrefabPreview = preview;
+        });
+    }
+
+    /// <summary>
+    /// Takes the dragged prefab's preview away, it left the viewport or got let go of
+    /// </summary>
+    internal void HidePrefabPreview()
+    {
+        if (_prefabPreview is not { } preview)
+        {
+            return;
+        }
+
+        _prefabPreview = null;
+        _renderContext?.QueueRenderAction(() =>
+        {
+            if (_shownPrefabPreview == preview)
+            {
+                _shownPrefabPreview = null;
+            }
+
+            if (_scene != null)
+            {
+                preview.Remove(_scene);
+            }
+        });
+    }
+
+    // Read the first time the prefab is dragged over the scene and again once its file or its meshes changed. One that doesn't read
+    // shows where it goes all the same
+    private List<SceneryPlacement> PreviewScenery(Prefab prefab)
+    {
+        var key = prefab.ModelPath is { } path && File.Exists(path) ? $"{path}|{File.GetLastWriteTimeUtc(path).Ticks}" : null;
+        var assetManager = AssetManager.Get();
+        if (key != null && _previewSceneries.TryGetValue(key, out var placements) && placements.All(placement => assetManager.DoesAssetExist(placement.Model)))
+        {
+            return placements;
+        }
+
+        try
+        {
+            placements = PrefabPreview.ReadScenery(prefab);
+        }
+        catch (Exception e)
+        {
+            Log.WriteLine($"Prefab {prefab.Name}'s meshes couldn't be read for its preview: {e.Message}", Log.LogType.Debug);
+            return [];
+        }
+
+        if (key != null)
+        {
+            _previewSceneries[key] = placements;
+        }
+
+        return placements;
+    }
+
+    private void DrawPrefabPreview(PrimitiveRenderer renderer, FrameCamera camera)
+    {
+        _shownPrefabPreview?.Draw(renderer, camera);
     }
 
     /// <summary>
@@ -237,14 +352,15 @@ public partial class ViewportViewModel
 
         try
         {
+            // Where everything of it goes, what dragging it over the scene showed
+            var at = NewResourcePosition();
             switch (prefab.Kind)
             {
                 case PrefabKind.Instance:
-                    PlaceInstance(library.PlaceInstance(prefab, chunk), true, $"Placed {prefab.Name}");
+                    PlaceInstances([(library.PlaceInstance(prefab, chunk), at)], $"Placed {prefab.Name}");
                     break;
                 case PrefabKind.Group:
-                    var cursor = _editingContext.GetCursorCoordinates();
-                    PlaceInstances(library.PlaceGroup(prefab, chunk).Select(placed => ((IAsset)placed.Instance, (vec3?)(cursor + placed.Offset))).ToList(), $"Placed {prefab.Name}");
+                    PlaceInstances(library.PlaceGroup(prefab, chunk).Select(placed => ((IAsset)placed.Instance, (vec3?)(at + placed.Offset))).ToList(), $"Placed {prefab.Name}");
                     break;
                 case PrefabKind.Scenery:
                     if (FindScenery() is not { } scenery)
@@ -255,7 +371,6 @@ public partial class ViewportViewModel
                     // The meshes are edited in the scenery mode
                     SetEditMode(ViewportEditMode.Scenery);
                     SetSceneryTarget(false);
-                    var at = NewResourcePosition();
                     InsertPlacements(library.PlaceScenery(prefab, scenery.Data, new System.Numerics.Vector3(at.x, at.y, at.z)), $"Placed {prefab.Name}");
                     break;
                 default:

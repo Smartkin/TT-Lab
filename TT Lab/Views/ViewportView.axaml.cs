@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.VisualTree;
 using ReactiveUI;
 using ReactiveUI.Avalonia;
 using TT_Lab.Project.Prefabs;
@@ -42,8 +43,21 @@ public partial class ViewportView : ReactiveUserControl<ViewportViewModel>, IPre
         }, RoutingStrategies.Tunnel, true);
     }
 
-    // Prefabs dragged from the Prefabs panel, whichever window it's in, land where they're dropped
-    public bool CanDrop(Prefab prefab, Visual hit) => (DataContext as ViewportViewModel)?.IsChunkViewport == true;
+    // Prefabs dragged from the Prefabs panel, whichever window it's in, land where they're dropped on the scene, shown there while they're
+    // dragged over it
+    public bool CanDrop(Prefab prefab, Visual hit) =>
+        (hit == ViewportControl || ViewportControl.IsVisualAncestorOf(hit)) && (DataContext as ViewportViewModel)?.CanPlacePrefab(prefab) == true;
+
+    public void DragOver(Prefab prefab, Visual hit, PixelPoint screen)
+    {
+        if (DataContext is ViewportViewModel viewport)
+        {
+            var position = ViewportControl.PointToClient(screen);
+            viewport.ShowPrefabPreview(prefab, (float)position.X, (float)position.Y);
+        }
+    }
+
+    public void DragLeave() => (DataContext as ViewportViewModel)?.HidePrefabPreview();
 
     public void Drop(Prefab prefab, Visual hit, PixelPoint screen)
     {

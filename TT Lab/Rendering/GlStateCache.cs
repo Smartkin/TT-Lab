@@ -17,6 +17,11 @@ public sealed class GlStateCache(GL gl)
     private BlendingFactor _blendSrcAlpha;
     private BlendingFactor _blendDstAlpha;
     private PolygonMode _polygonMode;
+    private StencilFunction _stencilFunc;
+    private int _stencilRef;
+    private StencilOp _stencilFail;
+    private StencilOp _stencilDepthFail;
+    private StencilOp _stencilPass;
     private uint _program;
 
     public bool Blend => _blend;
@@ -48,6 +53,15 @@ public sealed class GlStateCache(GL gl)
         gl.BlendFuncSeparate(_blendSrcRgb, _blendDstRgb, _blendSrcAlpha, _blendDstAlpha);
         _polygonMode = PolygonMode.Fill;
         gl.PolygonMode(TriangleFace.FrontAndBack, PolygonMode.Fill);
+        // The stencil test is always on, passing everything and writing nothing unless a pass asks for it (PreviewPass)
+        _stencilFunc = StencilFunction.Always;
+        _stencilRef = 0;
+        gl.StencilFunc(StencilFunction.Always, 0, 0xFF);
+        _stencilFail = StencilOp.Keep;
+        _stencilDepthFail = StencilOp.Keep;
+        _stencilPass = StencilOp.Keep;
+        gl.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Keep);
+        gl.StencilMask(0xFF);
         _program = 0;
         gl.UseProgram(0);
     }
@@ -173,6 +187,24 @@ public sealed class GlStateCache(GL gl)
 
         _polygonMode = mode;
         gl.PolygonMode(TriangleFace.FrontAndBack, mode);
+    }
+
+    public void SetStencil(StencilFunction func, int reference, StencilOp fail, StencilOp depthFail, StencilOp pass)
+    {
+        if (_stencilFunc != func || _stencilRef != reference)
+        {
+            _stencilFunc = func;
+            _stencilRef = reference;
+            gl.StencilFunc(func, reference, 0xFF);
+        }
+
+        if (_stencilFail != fail || _stencilDepthFail != depthFail || _stencilPass != pass)
+        {
+            _stencilFail = fail;
+            _stencilDepthFail = depthFail;
+            _stencilPass = pass;
+            gl.StencilOp(fail, depthFail, pass);
+        }
     }
 
     public void UseProgram(uint program)

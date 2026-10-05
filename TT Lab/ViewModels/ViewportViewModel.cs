@@ -390,6 +390,7 @@ public partial class ViewportViewModel : ReactiveObject
             _renderer.DrawPrimitives += _editingContext.DrawPrimitives;
             _renderer.DrawPrimitives += DrawFloorGrid;
             _renderer.DrawPrimitives += DrawSceneryEditing;
+            _renderer.DrawPrimitives += DrawPrefabPreview;
 
             if (_document is { IsReady: true })
             {

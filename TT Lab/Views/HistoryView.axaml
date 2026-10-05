@@ -12,14 +12,35 @@
         <KeyBinding Command="{Binding RedoCommand}" Gesture="Ctrl+Y"/>
         <KeyBinding Command="{Binding RedoCommand}" Gesture="Ctrl+Shift+Z"/>
     </UserControl.KeyBindings>
+    <UserControl.Styles>
+        <Style Selector="Button.tool">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Padding" Value="6,4"/>
+            <Setter Property="MinWidth" Value="30"/>
+            <Setter Property="MinHeight" Value="28"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Button.tool:disabled">
+            <Setter Property="Opacity" Value="0.35"/>
+        </Style>
+        <Style Selector="Button.tool PathIcon">
+            <Setter Property="Width" Value="16"/>
+            <Setter Property="Height" Value="16"/>
+        </Style>
+    </UserControl.Styles>
     <Grid>
         <TextBlock Text="Work in an editor to see what it changed, every editor keeps its own history" TextWrapping="Wrap" Margin="10" Opacity="0.7"
                    IsVisible="{Binding Document, Converter={x:Static ObjectConverters.IsNull}}"/>
         <DockPanel IsVisible="{Binding Document, Converter={x:Static ObjectConverters.IsNotNull}}">
-            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="4" Margin="4">
-                <Button Content="Undo" Command="{Binding UndoCommand}" IsEnabled="{Binding Document.CanUndo, FallbackValue=False}" ToolTip.Tip="Ctrl+Z"/>
-                <Button Content="Redo" Command="{Binding RedoCommand}" IsEnabled="{Binding Document.CanRedo, FallbackValue=False}" ToolTip.Tip="Ctrl+Y or Ctrl+Shift+Z"/>
-                <TextBlock VerticalAlignment="Center" Margin="6, 0, 0, 0" Opacity="0.7" Text="Pick a step to go back or forward to it, branches stay after undoing"/>
+            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="2" Margin="4,2">
+                <Button x:Name="Undo" Classes="tool" Command="{Binding UndoCommand}" ToolTip.Tip="Undo (Ctrl+Z)">
+                    <PathIcon Data="M2,9 L9,2.5 L9,7.5 L14,7.5 A7,7 0 0 1 14,21.5 L10,21.5 L10,18.5 L14,18.5 A4,4 0 0 0 14,10.5 L9,10.5 L9,15.5 Z"/>
+                </Button>
+                <Button x:Name="Redo" Classes="tool" Command="{Binding RedoCommand}" ToolTip.Tip="Redo (Ctrl+Y or Ctrl+Shift+Z)">
+                    <PathIcon Data="M22,9 L15,2.5 L15,7.5 L10,7.5 A7,7 0 0 0 10,21.5 L14,21.5 L14,18.5 L10,18.5 A4,4 0 0 1 10,10.5 L15,10.5 L15,15.5 Z"/>
+                </Button>
             </StackPanel>
             <ListBox x:Name="EntriesList" ItemsSource="{Binding Entries}" SelectedItem="{Binding SelectedEntry}">
                 <ListBox.ItemTemplate>

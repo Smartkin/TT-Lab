@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using Silk.NET.OpenGL;
 using TT_Lab.Rendering.Buffers;
 using TT_Lab.Rendering.Objects;
+using TT_Lab.Rendering.Passes;
+using TT_Lab.Rendering.Services;
 
 namespace TT_Lab.Rendering;
 
@@ -22,15 +24,17 @@ public class RenderBatch : Renderable, IInstancedRenderable
     public event Action? RequestPassSwitch;
 
     private readonly ModelBuffer _batchedBuffer;
+    private readonly bool _isPreview;
     private readonly List<Mesh> _meshes = [];
     private readonly HashSet<Mesh> _batchedMeshes = new(ReferenceEqualityComparer.Instance);
     private readonly List<(Mesh Mesh, int Instance)> _individualDraws = [];
     private int _baseInstance;
     private int _instanceCount;
 
-    public RenderBatch(RenderContext context, ModelBuffer batchedBuffer) : base(context)
+    public RenderBatch(RenderContext context, ModelBuffer batchedBuffer, bool isPreview = false) : base(context)
     {
         _batchedBuffer = batchedBuffer;
+        _isPreview = isPreview;
         _batchedBuffer.MaterialReplaced += BatchedBufferOnMaterialReplaced;
     }
 
@@ -41,7 +45,14 @@ public class RenderBatch : Renderable, IInstancedRenderable
 
     public override (string, int)[] GetPriorityPasses()
     {
-        return _batchedBuffer.GetPriorityPass();
+        var passes = _batchedBuffer.GetPriorityPass();
+        if (!_isPreview)
+        {
+            return passes;
+        }
+
+        var priority = passes.Length == 0 ? 0 : passes[0].Item2;
+        return [(PassService.PreviewPassName, priority), (PassService.PreviewSilhouettePassName, priority)];
     }
 
     public void AddToBatch(Mesh mesh)
@@ -88,11 +99,61 @@ public class RenderBatch : Renderable, IInstancedRenderable
 
     protected override void RenderSelf(float delta)
     {
-        if ((_instanceCount == 0 && _individualDraws.Count == 0) || !_batchedBuffer.Bind())
+        if (_instanceCount == 0 && _individualDraws.Count == 0)
         {
             return;
         }
 
+        if (_isPreview)
+        {
+            RenderPreview();
+            return;
+        }
+
+        if (!_batchedBuffer.Bind())
+        {
+            return;
+        }
+
+        Draw();
+        _batchedBuffer.Unbind();
+    }
+
+    // A preview draws as its material's passes would, then once more as a silhouette over what hides it
+    private void RenderPreview()
+    {
+        if (Context.CurrentPass is not PreviewPass pass)
+        {
+            return;
+        }
+
+        if (!pass.IsSilhouette)
+        {
+            foreach (var (passName, _) in _batchedBuffer.GetPriorityPass())
+            {
+                if (_batchedBuffer.Bind(passName))
+                {
+                    Draw();
+                    _batchedBuffer.Unbind();
+                }
+            }
+
+            return;
+        }
+
+        if (_batchedBuffer.GetPriorityPass() is not [var (firstPass, _), ..] || !_batchedBuffer.Bind(firstPass))
+        {
+            return;
+        }
+
+        pass.BeginSilhouette();
+        Draw();
+        pass.EndSilhouette();
+        _batchedBuffer.Unbind();
+    }
+
+    private void Draw()
+    {
         var gl = Context.Gl;
         if (_instanceCount > 0)
         {
@@ -105,7 +166,5 @@ public class RenderBatch : Renderable, IInstancedRenderable
             gl.DrawArraysInstancedBaseInstance(PrimitiveType.Triangles, 0, _batchedBuffer.IndexCount, 1, (uint)instance);
             mesh.EndIndividualDraw(_batchedBuffer);
         }
-
-        _batchedBuffer.Unbind();
     }
 }

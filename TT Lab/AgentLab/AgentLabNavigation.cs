@@ -8,7 +8,8 @@ using Twinsanity.AgentLab;
 namespace TT_Lab.AgentLab;
 
 /// <summary>
-/// Ctrl+click or F12 on the behaviour a state names opens that behaviour
+/// Ctrl+click or F12 on the behaviour a state names opens that behaviour, on a state or control packet the script names (execute,
+/// [StartFrom], [ControlPacket]) goes to its declaration
 /// </summary>
 public sealed class AgentLabNavigation : IDisposable
 {
@@ -32,11 +33,21 @@ public sealed class AgentLabNavigation : IDisposable
     }
 
     /// <summary>
-    /// Opens the behaviour referred to at the offset, false when there's none or it can't be found
+    /// Selects the declaration of the state or packet named at the offset or opens the behaviour referred to there, false when there's
+    /// none or it can't be found
     /// </summary>
     public bool GoToDefinition(int offset)
     {
-        var reference = AgentLabCompletion.GetBehaviourReference(_editor.Document.Text, offset);
+        var text = _editor.Document.Text;
+        if (AgentLabCompletion.GetDeclaration(text, offset) is { } declaration)
+        {
+            _editor.Select(declaration.Start, declaration.End - declaration.Start);
+            var location = _editor.Document.GetLocation(declaration.Start);
+            _editor.ScrollTo(location.Line, location.Column);
+            return true;
+        }
+
+        var reference = AgentLabCompletion.GetBehaviourReference(text, offset);
         if (reference == null)
         {
             return false;

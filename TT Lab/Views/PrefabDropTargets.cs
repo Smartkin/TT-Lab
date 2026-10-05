@@ -21,6 +21,20 @@ public interface IPrefabDropTarget
     bool CanDrop(Prefab prefab, Visual hit);
 
     void Drop(Prefab prefab, Visual hit, PixelPoint screen);
+
+    /// <summary>
+    /// The prefab is dragged over the part of it under the pointer, which can take it
+    /// </summary>
+    void DragOver(Prefab prefab, Visual hit, PixelPoint screen)
+    {
+    }
+
+    /// <summary>
+    /// The prefab left it, or the drag ended
+    /// </summary>
+    void DragLeave()
+    {
+    }
 }
 
 /// <summary>

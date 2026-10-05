@@ -38,6 +38,12 @@ public partial class HistoryViewModel : Document
     [Reactive(SetModifier = AccessModifier.Private)]
     private IReadOnlyList<HistoryEntry> _entries = [];
 
+    [Reactive(SetModifier = AccessModifier.Private)]
+    private bool _canUndo;
+
+    [Reactive(SetModifier = AccessModifier.Private)]
+    private bool _canRedo;
+
     private ObservableCollection<HistoryEntry> _rows = [];
     private HistoryEntry? _selectedEntry;
     private bool _isShowing;
@@ -49,8 +55,8 @@ public partial class HistoryViewModel : Document
     {
         Id = "History";
         Title = "History";
-        UndoCommand = ReactiveCommand.Create(() => Document?.Undo());
-        RedoCommand = ReactiveCommand.Create(() => Document?.Redo());
+        UndoCommand = ReactiveCommand.Create(() => Document?.Undo(), this.WhenAnyValue(x => x.CanUndo));
+        RedoCommand = ReactiveCommand.Create(() => Document?.Redo(), this.WhenAnyValue(x => x.CanRedo));
 
         // The editor last worked in, its viewer's active one, or the other viewer's when it has none
         var lastUsed = new BehaviorSubject<EditorsViewerViewModel>(scenes);
@@ -95,6 +101,8 @@ public partial class HistoryViewModel : Document
         try
         {
             Document = document;
+            CanUndo = document?.History.CanUndo == true;
+            CanRedo = document?.History.CanRedo == true;
             if (document == null)
             {
                 _rows = [];

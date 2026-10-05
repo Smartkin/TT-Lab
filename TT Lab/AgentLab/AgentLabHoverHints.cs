@@ -47,6 +47,11 @@ public sealed class AgentLabHoverHints : IDisposable
     {
         var text = _editor.Document.Text;
         var hover = AgentLabCompletion.GetHover(text, offset, _actionDefinitionsFile);
+        if (hover != null && AgentLabCompletion.GetDeclaration(text, offset) != null)
+        {
+            return new AgentLabHover(hover.Title, $"{hover.Description}, Ctrl+click or F12 goes to it");
+        }
+
         if (hover is not { IsBehaviourReference: true } || _describeBehaviour == null || AgentLabCompletion.GetBehaviourReference(text, offset) is not { } reference)
         {
             return hover;

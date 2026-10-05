@@ -274,6 +274,50 @@ public class AgentLabCodeCompletionTests
         window.Close();
     }
 
+    // Ctrl+click and F12 on a state or control packet the script names select its declaration, the hint says so
+    [AvaloniaFact]
+    public void CtrlClickOnANamedStateOrPacketGoesToItsDeclaration()
+    {
+        const string script = "behaviour A {\n   packet P {\n   }\n   [ControlPacket(P)]\n   state S() {\n      if Else(0) > 0.5 {\n         execute T;\n      }\n   }\n" +
+                              "   state T() {\n   }\n}\n";
+        var editor = new TextEditor { Document = new TextDocument(script) };
+        var window = new Window { Content = editor, Width = 800, Height = 600 };
+        window.Show();
+        using var navigation = new AgentLabNavigation(editor, _ => null, _ => { });
+        using var hints = new AgentLabHoverHints(editor, "ActionDefinitionsPs2.lab");
+        Dispatcher.UIThread.RunJobs();
+        var executed = script.IndexOf("execute T", StringComparison.Ordinal) + "execute ".Length;
+        var textView = editor.TextArea.TextView;
+        var point = textView.GetVisualPosition(new TextViewPosition(editor.Document.GetLocation(executed)), VisualYPosition.LineMiddle) - textView.ScrollOffset;
+        var inWindow = textView.TranslatePoint(point, window)!.Value;
+        Assert.EndsWith("Ctrl+click or F12 goes to it", hints.GetHover(executed)!.Description);
+
+        window.MouseDown(inWindow, MouseButton.Left, RawInputModifiers.Control);
+        window.MouseUp(inWindow, MouseButton.Left, RawInputModifiers.Control);
+        Assert.Equal((script.IndexOf("state T()", StringComparison.Ordinal) + "state ".Length, "T"), (editor.SelectionStart, editor.SelectedText));
+
+        editor.TextArea.Focus();
+        editor.CaretOffset = script.IndexOf("(P)", StringComparison.Ordinal) + 1;
+        window.KeyPressQwerty(PhysicalKey.F12, RawInputModifiers.None);
+        Assert.Equal((script.IndexOf("packet P", StringComparison.Ordinal) + "packet ".Length, "P"), (editor.SelectionStart, editor.SelectedText));
+
+        // A plain click stays where it's clicked (right after the click before it, it's a double click selecting the word there)
+        window.MouseDown(inWindow, MouseButton.Left);
+        window.MouseUp(inWindow, MouseButton.Left);
+        Assert.Equal(executed, editor.SelectionStart);
+
+        // A declaration out of sight gets scrolled to
+        editor.Document.Insert(script.IndexOf("   state T()", StringComparison.Ordinal), string.Concat(Enumerable.Repeat("   // filler\n", 200)));
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(navigation.GoToDefinition(executed));
+        Dispatcher.UIThread.RunJobs();
+        textView.EnsureVisualLines();
+        var declarationLine = editor.Document.GetLineByOffset(editor.SelectionStart).LineNumber;
+        Assert.Equal("T", editor.SelectedText);
+        Assert.Contains(textView.VisualLines, line => line.FirstDocumentLine.LineNumber == declarationLine);
+        window.Close();
+    }
+
     // Hovering a word shows what it is
     [AvaloniaFact]
     public async Task HoveringAnActionShowsItsSignature()
