@@ -48,7 +48,10 @@ public partial class OgiAnimationsViewModel : DocumentDataViewModel<List<Animati
 
     public double LastFrame => Math.Max((SelectedAnimation?.TotalFrames ?? 1) - 1, 0);
 
-    public string FrameText => SelectedAnimation == null ? string.Empty : $"Frame {Math.Floor(Frame)} of {LastFrame}";
+    // Where the frames' slider ends: looping, past the last frame, which blends into the first on the way there
+    public double EndFrame => Loop && LastFrame > 0 ? LastFrame + 1 : LastFrame;
+
+    public string FrameText => SelectedAnimation == null ? string.Empty : $"Frame {(Loop ? Math.Floor(Frame) % (LastFrame + 1) : Math.Floor(Frame))} of {LastFrame}";
 
     public void PlayAnimation()
     {
@@ -58,7 +61,7 @@ public partial class OgiAnimationsViewModel : DocumentDataViewModel<List<Animati
             return;
         }
 
-        if (Frame >= LastFrame)
+        if (!Loop && Frame >= LastFrame)
         {
             Frame = 0;
         }
@@ -104,6 +107,21 @@ public partial class OgiAnimationsViewModel : DocumentDataViewModel<List<Animati
                 }
 
                 this.RaisePropertyChanged(nameof(LastFrame));
+                this.RaisePropertyChanged(nameof(EndFrame));
+                ApplyPose();
+            })
+            .DisposeWith(disposables);
+        this.WhenAnyValue(x => x.Loop)
+            .Skip(1)
+            .Subscribe(_ =>
+            {
+                if (Frame > LastFrame)
+                {
+                    Frame = LastFrame;
+                }
+
+                this.RaisePropertyChanged(nameof(EndFrame));
+                this.RaisePropertyChanged(nameof(FrameText));
                 ApplyPose();
             })
             .DisposeWith(disposables);
@@ -158,19 +176,24 @@ public partial class OgiAnimationsViewModel : DocumentDataViewModel<List<Animati
             return;
         }
 
+        // The game plays an animation for its frames over its rate (ConstructAnimationSettings): looping, a frame each 1/rate and
+        // the last one blending into the first, once, its steps between the first and the last frame over that time (SetAnimationData)
         var elapsed = _clock.Elapsed.TotalSeconds;
         _clock.Restart();
-        var frame = Frame + elapsed * animation.DefaultFPS * Speed;
+        var frames = LastFrame + 1;
+        var steps = elapsed * animation.DefaultFPS * Speed;
+        if (Loop)
+        {
+            Frame = (Frame + steps) % frames;
+            return;
+        }
+
+        var frame = Frame + steps * LastFrame / frames;
         if (frame >= LastFrame)
         {
-            if (!Loop)
-            {
-                Frame = LastFrame;
-                PauseAnimation();
-                return;
-            }
-
-            frame %= LastFrame;
+            Frame = LastFrame;
+            PauseAnimation();
+            return;
         }
 
         Frame = frame;
@@ -185,7 +208,7 @@ public partial class OgiAnimationsViewModel : DocumentDataViewModel<List<Animati
         }
 
         var animation = SelectedAnimation;
-        var pose = animation != null && !bindPose ? SamplePose(animation, ogi, Frame) : null;
+        var pose = animation != null && !bindPose ? SamplePose(animation, ogi, Frame, Loop) : null;
         context.QueueRenderAction(() =>
         {
             var render = Document.Viewport?.GetViewportObjects().Select(viewportObject => viewportObject.UserData).OfType<Rendering.Objects.OGI>().FirstOrDefault();
@@ -213,11 +236,17 @@ public partial class OgiAnimationsViewModel : DocumentDataViewModel<List<Animati
         });
     }
 
-    internal static Pose SamplePose(AnimationData animation, OGIData ogi, double frame)
+    // Looping, the last frame blends into the first like the game's (SetAnimationData), once, the last frame holds
+    internal static Pose SamplePose(AnimationData animation, OGIData ogi, double frame, bool loops = false)
     {
         var lastFrame = Math.Max(animation.TotalFrames - 1, 0);
+        if (loops)
+        {
+            frame %= lastFrame + 1;
+        }
+
         var first = Math.Clamp((int)Math.Floor(frame), 0, lastFrame);
-        var second = Math.Min(first + 1, lastFrame);
+        var second = first < lastFrame ? first + 1 : loops ? 0 : lastFrame;
         var t = (float)Math.Clamp(frame - first, 0, 1);
 
         var joints = new List<JointPose>();

@@ -248,4 +248,55 @@ public sealed class OgiAnimationEditorTests : IDisposable
             Assert.Equal((from.Z + to.Z) / 2, pose.Joints[joint].Translation.z, 4);
         }
     }
+
+    // The game's looping playback blends the last frame into the first (SetAnimationData), played once the last frame holds
+    [AvaloniaFact]
+    public void LoopingBlendsTheLastFrameIntoTheFirst()
+    {
+        var animation = CreateAnimation(0x1, "Walk");
+        var ogi = ((IAsset)AddOgi("Skeleton", animation)).GetData<OGIData>();
+
+        var looping = OgiAnimationsViewModel.SamplePose(animation, ogi, Frames - 0.5, loops: true);
+        var once = OgiAnimationsViewModel.SamplePose(animation, ogi, Frames - 0.5);
+
+        for (var joint = 0; joint < Joints; joint++)
+        {
+            var parent = ogi.Joints[joint].ParentIndex;
+            var last = animation.GetAnimationSampleForMainAnimation(joint, parent, ogi, Frames - 1).Translation.Item2;
+            var first = animation.GetAnimationSampleForMainAnimation(joint, parent, ogi, 0).Translation.Item2;
+            Assert.Equal((last.X + first.X) / 2, looping.Joints[joint].Translation.x, 4);
+            Assert.Equal(last.X, once.Joints[joint].Translation.x, 4);
+        }
+
+        Assert.Equal(OgiAnimationsViewModel.SamplePose(animation, ogi, 0).Joints[0].Translation,
+            OgiAnimationsViewModel.SamplePose(animation, ogi, Frames, loops: true).Joints[0].Translation);
+    }
+
+    // Playing on from the last frame went straight back to the first, and the frames' slider ended at the last one
+    [AvaloniaFact]
+    public void LoopingPlaysOnPastTheLastFrame()
+    {
+        var ogi = AddOgi("Skeleton", CreateAnimation(0x1, "Walk"));
+        var document = new DocumentViewModel(ogi);
+        document.Initialize();
+        var player = Construct<OgiAnimationsViewModel>(document, "Root.AssetData.Animations");
+        player.SelectedAnimation = player.Animations[0];
+        Pump();
+        Assert.Equal(Frames, player.EndFrame);
+
+        player.Frame = player.LastFrame;
+        player.PlayAnimation();
+        player.Advance();
+
+        Assert.True(player.Frame >= player.LastFrame, $"Playing went back to frame {player.Frame}");
+        player.Frame = Frames - 0.5;
+        Pump();
+        Assert.Equal(Frames - 0.5, player.Frame);
+        player.Loop = false;
+        Pump();
+
+        Assert.Equal(player.LastFrame, player.EndFrame);
+        Assert.Equal(player.LastFrame, player.Frame);
+        player.StopAnimation();
+    }
 }

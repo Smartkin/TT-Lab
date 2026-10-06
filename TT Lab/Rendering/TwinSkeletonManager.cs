@@ -89,23 +89,30 @@ public class TwinSkeletonManager(RenderContext context)
         return CreateSceneNodeSkeleton(parentNode, skeletonData);
     }
     
+    // The root of a model the game animates rests at its own bind pose like the joints under it, which its stored rest positions and
+    // inverse binds include (a character's hips above its feet). Taken as the origin, every part sat off by it and every limb of an
+    // animation by it turned with the limb. The game draws a model it gives no animator (ModelNode::SetOgi: one joint, no exit points)
+    // at its instance
     public TwinSkeleton CreateSceneNodeSkeleton(Renderable parentNode, OGIData ogiData)
     {
         var skeleton = new TwinSkeleton();
         var boneMap = new Dictionary<int, TwinBone>();
         var rootBone = new TwinBone(context, parentNode);
-        rootBone.SetBindingAndInverseMatrix(mat4.Identity);
+        if (HasAnimator(ogiData))
+        {
+            SetRest(rootBone, ogiData.Joints[0]);
+        }
+
         rootBone.ResetPose();
+        rootBone.SetBindingAndInverseMatrix(rootBone.WorldTransform);
         boneMap.Add(ogiData.Joints[0].Index, rootBone);
         var allOtherJoints = ogiData.Joints.Skip(1);
-        
+
         foreach (var joint in allOtherJoints)
         {
             var parentBone = boneMap[joint.ParentIndex];
-            var position = new vec3(joint.LocalTranslation.X, joint.LocalTranslation.Y, joint.LocalTranslation.Z);
-            var quat = new quat(joint.LocalRotation.X, joint.LocalRotation.Y, joint.LocalRotation.Z, joint.LocalRotation.W);
             var bone = new TwinBone(context, parentBone);
-            bone.SetRest(position, quat);
+            SetRest(bone, joint);
             bone.ResetPose();
             bone.SetBindingAndInverseMatrix(bone.WorldTransform);
             boneMap.TryAdd(joint.Index, bone);
@@ -113,5 +120,13 @@ public class TwinSkeletonManager(RenderContext context)
         skeleton.Bones = boneMap;
 
         return skeleton;
+    }
+
+    internal static bool HasAnimator(OGIData ogiData) => ogiData.Joints.Count > 1 || ogiData.ExitPoints.Count > 0;
+
+    private static void SetRest(TwinBone bone, Twinsanity.TwinsanityInterchange.Common.TwinJoint joint)
+    {
+        bone.SetRest(new vec3(joint.LocalTranslation.X, joint.LocalTranslation.Y, joint.LocalTranslation.Z),
+            new quat(joint.LocalRotation.X, joint.LocalRotation.Y, joint.LocalRotation.Z, joint.LocalRotation.W));
     }
 }

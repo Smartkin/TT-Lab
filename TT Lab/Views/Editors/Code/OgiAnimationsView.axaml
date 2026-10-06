@@ -33,7 +33,7 @@
                     </ListBox.ItemTemplate>
                 </ListBox>
                 <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasAnimations}">
-                    <Slider Grid.Column="0" Minimum="0" Maximum="{Binding LastFrame}" Value="{Binding Frame}" SmallChange="1" LargeChange="10"/>
+                    <Slider Grid.Column="0" Minimum="0" Maximum="{Binding EndFrame}" Value="{Binding Frame}" SmallChange="1" LargeChange="10"/>
                     <TextBlock Grid.Column="1" Margin="8,0,5,0" VerticalAlignment="Center" MinWidth="110" TextAlignment="Right" Text="{Binding FrameText}"/>
                 </Grid>
                 <WrapPanel Orientation="Horizontal" ItemSpacing="5" LineSpacing="5" Margin="5" IsVisible="{Binding HasAnimations}">
