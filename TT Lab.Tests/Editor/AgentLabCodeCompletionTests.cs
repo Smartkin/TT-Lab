@@ -66,6 +66,63 @@ public class AgentLabCodeCompletionTests
         }
     }
 
+    // Typing filters the list again and again, Escape and more typing make a new window over the same suggestions: a suggestion kept
+    // one control for its row, filtering made a new row for it while its old row still held it, and the control put in both threw in
+    // the middle of a layout pass, which broke the list's panel and failed every layout pass after it (the whole UI stopped drawing)
+    [AvaloniaFact]
+    public void FilteringAndNewWindowsGiveEveryRowItsOwnControls()
+    {
+        using var fixture = new Fixture();
+        var errors = new List<string>();
+        void Caught(object? sender, DispatcherUnhandledExceptionEventArgs e)
+        {
+            errors.Add(e.Exception.Message);
+            e.Handled = true;
+        }
+
+        void Press(string keys)
+        {
+            foreach (var key in keys)
+            {
+                if (key == '<')
+                {
+                    fixture.Window.KeyPressQwerty(PhysicalKey.Backspace, RawInputModifiers.None);
+                }
+                else if (key == '!')
+                {
+                    fixture.Window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
+                }
+                else
+                {
+                    fixture.Type(key.ToString());
+                }
+
+                // The list selects its best match in posted work, which lays the window out again
+                for (var i = 0; i < 3; i++)
+                {
+                    Dispatcher.UIThread.RunJobs();
+                    AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+                }
+
+                Dispatcher.UIThread.RunJobs();
+            }
+        }
+
+        Dispatcher.UIThread.UnhandledException += Caught;
+        try
+        {
+            Press("Set<<<Do<e<<SetV<<<<!Set<D");
+        }
+        finally
+        {
+            Dispatcher.UIThread.UnhandledException -= Caught;
+        }
+
+        Assert.Empty(errors);
+        var data = fixture.Completion.CompletionWindow!.CompletionList.CompletionData[0];
+        Assert.NotSame(data.Content, data.Content);
+    }
+
     [AvaloniaFact]
     public void TypingAWordShowsMatchingSuggestions()
     {

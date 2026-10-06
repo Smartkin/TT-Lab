@@ -32,16 +32,16 @@ public sealed class AgentLabCompletionData(AgentLabCompletionItem item) : ICompl
     };
     private static readonly (string Badge, IBrush Brush) DefaultBadge = ("?", Brushes.Gray);
 
-    private Control? _content;
-
     public AgentLabCompletionItem Item => item;
 
     public IImage? Image => null;
 
     public string Text => item.Text;
 
-    // Lists can hold every action so their controls are only made once they get shown
-    public object Content => _content ??= CreateContent();
+    // Made for every row that shows the suggestion, only once a row does (lists can hold every action): filtering makes a new row for
+    // a suggestion while its old row still holds its control, and one control kept for both threw in the middle of a layout pass,
+    // which left the list's panel broken and every layout pass after it failing
+    public object Content => CreateContent();
 
     public object Description => item.Description;
 
