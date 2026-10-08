@@ -31,7 +31,7 @@ public static class PreviewImage
     /// </summary>
     public static Bitmap FromPixels(byte[] bottomUpBgra, int width, int height, int left, int top, int side, int size)
     {
-        var square = new WriteableBitmap(new PixelSize(side, side), new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Opaque);
+        using var square = new WriteableBitmap(new PixelSize(side, side), new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Opaque);
         using (var buffer = square.Lock())
         {
             for (var y = 0; y < side; y++)
@@ -52,7 +52,7 @@ public static class PreviewImage
         try
         {
             frame.CopyPixels(rect, handle.AddrOfPinnedObject(), pixels.Length, stride);
-            var cropped = new WriteableBitmap(rect.Size, new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Unpremul);
+            using var cropped = new WriteableBitmap(rect.Size, new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Unpremul);
             using (var buffer = cropped.Lock())
             {
                 for (var y = 0; y < rect.Height; y++)
@@ -74,6 +74,9 @@ public static class PreviewImage
     {
         using var stream = new MemoryStream();
         bitmap.Save(stream);
+        // Avalonia encodes a snapshot of the bitmap's pixels without holding on to the bitmap (WriteableBitmapImpl.Save): one nothing
+        // referenced any more got finalized in the middle of it, its pixels freed, and Release builds crashed in Skia
+        GC.KeepAlive(bitmap);
         stream.Position = 0;
         return Bitmap.DecodeToWidth(stream, size);
     }

@@ -69,6 +69,43 @@ public sealed class PreviewImageTests
         Assert.Equal(0xFFFF0000, PixelAt(picture, 1, 3));
     }
 
+    // Avalonia encodes a writeable bitmap from its pixels without holding on to the bitmap (WriteableBitmapImpl.Save: SKImage.FromPixels),
+    // and a bitmap nothing referenced any more was finalized in the middle of it, its pixels freed: Release builds closed without a word
+    // making the prefabs' pictures. Built optimized (-c Release with DOTNET_TieredCompilation=0) this crashed the test host
+    [AvaloniaFact]
+    public void PicturesAreMadeWhileTheCollectorRuns()
+    {
+        const int width = 480;
+        const int height = 480;
+        var pixels = new byte[width * height * 4];
+        new Random(5).NextBytes(pixels);
+        using var stop = new CancellationTokenSource();
+        var collector = Task.Run(() =>
+        {
+            while (!stop.IsCancellationRequested)
+            {
+                GC.Collect(0);
+                GC.WaitForPendingFinalizers();
+            }
+        });
+
+        try
+        {
+            for (var i = 0; i < 60; i++)
+            {
+                using var picture = PreviewImage.FromPixels(pixels, width, height, 0, 0, 240, PreviewImage.Size);
+                Assert.Equal(PreviewImage.Size, picture.PixelSize.Width);
+                using var square = PreviewImage.Around(picture, new PixelPoint(80, 80), 40);
+                Assert.Equal(40, square.PixelSize.Width);
+            }
+        }
+        finally
+        {
+            stop.Cancel();
+            collector.Wait();
+        }
+    }
+
     [AvaloniaFact]
     public void TheSquareAroundThePointIsCutOutAndScaled()
     {

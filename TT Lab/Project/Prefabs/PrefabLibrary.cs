@@ -306,6 +306,8 @@ public sealed class PrefabLibrary
         if (preview != null)
         {
             preview.Save(previewPath);
+            // Avalonia encodes without holding on to the bitmap, the caller may have let go of it (see PreviewImage.Scale)
+            GC.KeepAlive(preview);
             prefab.PreviewPath = previewPath;
         }
         else if (File.Exists(previewPath))

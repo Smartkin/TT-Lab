@@ -146,7 +146,7 @@ public partial class ViewportViewModel
             }
 
             prefab.Folder = folder;
-            var preview = await RenderPrefabPreviewAsync();
+            using var preview = await RenderPrefabPreviewAsync();
             library.Save(prefab, preview);
             Log.WriteLine($"Saved prefab {prefab.Name}", Log.LogType.Info);
             return true;
