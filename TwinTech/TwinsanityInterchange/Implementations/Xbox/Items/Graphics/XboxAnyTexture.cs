@@ -237,6 +237,13 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.Graphics
             }
         }
 
+        // Only the largest level is stored, the game's Xbox textures have no mips
+        public List<List<Color>> DecodeLevels()
+        {
+            CalculateData();
+            return new List<List<Color>> { new List<Color>(Colors) };
+        }
+
         public void FromBitmap(List<Color> image, Int32 width, ITwinTexture.TextureFunction fun, ITwinTexture.TexturePixelFormat format, bool generateMipmaps = false)
         {
             int height = image.Count / width;

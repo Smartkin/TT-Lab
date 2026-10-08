@@ -18,7 +18,6 @@ public struct TwinMaterialDesc()
     public const string ReflectDistPath = "twin_material.reflect_dist";
     public const string AlphaTestPath = "twin_material.alpha_test";
     public const string AlphaBlendPath = "twin_material.alpha_blend";
-    public const string MetalicSpecularPath = "twin_material.metalic_specular";
     public const string EnvMapPath = "twin_material.env_map";
     public const string BlendFuncPath = "twin_material.blend_func";
     public const string UseTexturePath = "twin_material.use_texture";
@@ -48,7 +47,10 @@ public struct TwinMaterialDesc()
     public vec2 ReflectDist { get; init; } = vec2.Zero;
     public float AlphaTest { get; init; } = 0.0f;
     public float AlphaBlend { get; init; } = 0.0f;
-    public float MetalicSpecular { get; init; } = 0.0f;
+    /// <summary>
+    /// Where the picture is read instead of the UVs: 0 the UVs, 1 like the environment maps, 2 like the metallic shader
+    /// (<see cref="EnvironmentMapping"/>)
+    /// </summary>
     public float EnvMap { get; init; } = 0.0f;
     public float UseTexture { get; init; } = 0.0f;
     public bool DepthWrite { get; init; } = false;

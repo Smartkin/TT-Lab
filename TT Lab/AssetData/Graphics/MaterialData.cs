@@ -21,6 +21,7 @@ using GlmSharp;
 using TT_Lab.Attributes.EditorParamWrappers;
 using TT_Lab.ViewModels.Editors;
 using TT_Lab.ViewModels.Editors.Descs;
+using Twinsanity.Libraries;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces;
@@ -88,6 +89,7 @@ public class MaterialData : AbstractAssetData
     [JsonProperty(Required = Required.Always)]
     [Editable]
     [EditorParam(DocumentModelViewModel.EditorExplicitOrder, -2)]
+    [EditorParam(TextFieldViewModel.TextFieldAsciiOnly, true)]
     public String Name { get; set; }
     
     /// <summary>
@@ -167,7 +169,7 @@ public class MaterialData : AbstractAssetData
         writer.Write((UInt64)DeriveActivatedShaders());
         writer.Write(DmaChainIndex);
         writer.Write(Name.Length + 1);
-        writer.Write((Name + '\0').ToCharArray());
+        GameText.Write(writer, Name + '\0');
         writer.Write(Shaders.Count);
         foreach (var shader in Shaders)
         {

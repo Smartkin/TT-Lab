@@ -369,6 +369,25 @@ public class EditorsViewModel
         return await ScenesEditorsViewModel.CloseTabsReferencing(assets) && await ResourcesEditorsViewModel.CloseTabsReferencing(assets);
     }
 
+    // Editors closed before their assets moved open them where they are now
+    public void FollowMovedAssets(IReadOnlyDictionary<LabURI, LabURI> moved)
+    {
+        var changed = false;
+        for (var i = 0; i < _recentlyClosed.Count; i++)
+        {
+            if (moved.TryGetValue(_recentlyClosed[i].Uri, out var uri))
+            {
+                _recentlyClosed[i] = _recentlyClosed[i] with { Uri = uri };
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            RecentlyClosedChanged?.Invoke();
+        }
+    }
+
     public void ForgetDeletedAssets(IReadOnlySet<LabURI> assets)
     {
         if (_recentlyClosed.RemoveAll(closed => assets.Contains(closed.Uri)) > 0)

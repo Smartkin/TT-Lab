@@ -38,6 +38,7 @@ public sealed class ChunkVersionTests : IDisposable
         {
             data.Name = "GLOBAL_RAT_LIGHTBROWN";
             data.FloatProperties = [1, 25];
+            data.IntProperties = [0, 255];
         }, "levels_ice_highseas_gpa04");
         var spawner = AddObject("GLOBAL_RAT_INTERMEDIATE19", 0x92, data =>
         {

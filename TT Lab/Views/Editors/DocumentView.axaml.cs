@@ -15,4 +15,6 @@ public partial class DocumentView : ReactiveUserControl<DocumentViewModel>
     {
         InitializeComponent();
     }
+
+    private void Caption_OnContextRequested(object? sender, ContextRequestedEventArgs e) => PropertyMenu.Show(sender, e);
 }

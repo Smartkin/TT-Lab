@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Twinsanity.Libraries;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 
@@ -78,7 +79,7 @@ namespace Twinsanity.TwinsanityInterchange.Common
                 LoadsWithoutPlayer = (type & 0x2) != 0;
             }
             int pathLen = reader.ReadInt32();
-            Path = new String(reader.ReadChars(pathLen));
+            Path = GameText.ReadString(reader, pathLen);
             flags = reader.ReadUInt32();
             {
                 Visibility = (ChunkLinkVisibility)(flags & 0x7F);
@@ -135,7 +136,7 @@ namespace Twinsanity.TwinsanityInterchange.Common
             }
             writer.Write(type);
             writer.Write(Path.Length);
-            writer.Write(Path.Replace(System.IO.Path.DirectorySeparatorChar, '\\').ToCharArray());
+            GameText.Write(writer, Path.Replace(System.IO.Path.DirectorySeparatorChar, '\\'));
             writer.Write(flags);
             ObjectMatrix.Write(writer);
             ChunkMatrix.Write(writer);

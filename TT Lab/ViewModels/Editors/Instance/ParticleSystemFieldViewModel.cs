@@ -15,9 +15,9 @@ using TT_Lab.ViewModels.Interfaces;
 
 namespace TT_Lab.ViewModels.Editors.Instance;
 
-public record ParticleSystemChoice(string Name, bool IsDefault)
+public record ParticleSystemChoice(string Name, bool IsDefault, bool Overrides = false)
 {
-    public string Source => IsDefault ? "Default" : "Chunk";
+    public string Source => IsDefault ? "Default" : Overrides ? "Chunk (override)" : "Chunk";
 }
 
 /// <summary>
@@ -58,7 +58,12 @@ public partial class ParticleSystemFieldViewModel(DocumentViewModel document, Pr
     /// </summary>
     public void LoadChoices()
     {
-        _choices = GetParticles()?.GetUsableSystems().Select(usable => new ParticleSystemChoice(usable.System.Name, usable.IsDefault)).ToList() ?? [];
+        // A chunk's system of a default system's name is played in that one's place, which the chunk's emitters can't pick
+        var usable = GetParticles()?.GetUsableSystems().ToList() ?? [];
+        var own = usable.Where(system => !system.IsDefault).Select(system => system.System.Name).ToHashSet();
+        var defaults = usable.Where(system => system.IsDefault).Select(system => system.System.Name).ToHashSet();
+        _choices = usable.Where(system => !system.IsDefault || !own.Contains(system.System.Name))
+            .Select(system => new ParticleSystemChoice(system.System.Name, system.IsDefault, !system.IsDefault && defaults.Contains(system.System.Name))).ToList();
         Search = string.Empty;
         Filter();
     }
@@ -78,12 +83,14 @@ public partial class ParticleSystemFieldViewModel(DocumentViewModel document, Pr
     private void UpdateLinkState()
     {
         var name = Property.GetValue() as string ?? string.Empty;
-        var found = GetParticles()?.FindSystem(name);
+        var particles = GetParticles();
+        var found = particles?.FindSystem(name);
         IsLinkBroken = found == null;
         LinkState = found switch
         {
             null => "No particle system of the chunk or the default chunk has this name",
             { IsDefault: true } => "The default chunk's",
+            _ when particles!.GetUsableSystems().Any(usable => usable.IsDefault && usable.System.Name == name) => "The chunk's, played in place of the default chunk's",
             _ => "The chunk's",
         };
     }

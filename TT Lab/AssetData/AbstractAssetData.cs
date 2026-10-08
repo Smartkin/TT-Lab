@@ -76,7 +76,25 @@ public abstract class AbstractAssetData(IAsset owner) : IDocumentModel
         settings ??= new JsonSerializerSettings();
         settings.ObjectCreationHandling = ObjectCreationHandling.Replace;
         JsonSerializer.Create(settings).Populate(jsonReader, this);
+        OnRead();
         DisposedValue = false;
+    }
+
+    /// <summary>
+    /// What's left to do once the data's JSON is read, loaded from its file or copied from another asset's: data in it that reading made
+    /// has no owner yet (a camera's trigger)
+    /// </summary>
+    protected virtual void OnRead()
+    {
+    }
+
+    /// <summary>
+    /// Fills the data with values kept as JSON the way loading its file does, what's done once they're read included
+    /// </summary>
+    public void PopulateFrom(string json)
+    {
+        JsonConvert.PopulateObject(json, this, new JsonSerializerSettings { ObjectCreationHandling = ObjectCreationHandling.Replace });
+        OnRead();
     }
 
     public void Save(String dataPath, JsonSerializerSettings? settings = null)
@@ -103,7 +121,7 @@ public abstract class AbstractAssetData(IAsset owner) : IDocumentModel
     public AbstractAssetData CopyFor(IAsset asset)
     {
         var copy = (AbstractAssetData)Activator.CreateInstance(GetType(), asset)!;
-        JsonConvert.PopulateObject(JsonConvert.SerializeObject(this), copy, new JsonSerializerSettings { ObjectCreationHandling = ObjectCreationHandling.Replace });
+        copy.PopulateFrom(JsonConvert.SerializeObject(this));
         return copy;
     }
 
@@ -115,9 +133,11 @@ public abstract class AbstractAssetData(IAsset owner) : IDocumentModel
 
     protected virtual void SaveInternal(String dataPath, JsonSerializerSettings? settings = null)
     {
+        // Made before the file is opened, data that doesn't serialize left it empty
+        var json = JsonConvert.SerializeObject(this, Formatting.Indented, settings);
         using System.IO.FileStream fs = new(dataPath, System.IO.FileMode.Create, System.IO.FileAccess.Write);
         using System.IO.BinaryWriter writer = new(fs);
-        writer.Write(JsonConvert.SerializeObject(this, Formatting.Indented, settings).ToCharArray());
+        writer.Write(json.ToCharArray());
         writer.Flush();
         writer.Close();
     }

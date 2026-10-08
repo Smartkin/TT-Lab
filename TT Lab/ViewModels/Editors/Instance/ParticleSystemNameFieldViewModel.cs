@@ -9,8 +9,9 @@ using TT_Lab.ViewModels.Editors.PropertyGraph;
 namespace TT_Lab.ViewModels.Editors.Instance;
 
 /// <summary>
-/// A particle system's name, which no other system of its version of the game may have: emitters play the system they name. A name
-/// another system has shows why and isn't taken
+/// A particle system's name, which no other system of its chunk may have: emitters play the system they name, their chunk's own or the
+/// default chunk's, so a level's system may have a default system's name and is played there in its place. A name another system of the
+/// chunk has shows why and isn't taken
 /// </summary>
 public class ParticleSystemNameFieldViewModel(DocumentViewModel document, PropertyNode data, params DocumentNodeViewModel[] dependencies)
     : TextFieldViewModel(document, data, dependencies)
@@ -20,7 +21,7 @@ public class ParticleSystemNameFieldViewModel(DocumentViewModel document, Proper
         base.ApplyValidationRules(disposables);
         ParticleSystemNames.Prepare();
         this.ValidationRule(viewModel => viewModel.Text, text => FindOther(text) == null,
-            text => FindOther(text) is { } other ? $"{other.Alias} has a particle system named {text} already" : string.Empty).DisposeWith(disposables);
+            text => FindOther(text) is { } other ? $"{other.Alias} has another particle system named {text}" : string.Empty).DisposeWith(disposables);
     }
 
     protected override bool CanCommit(string text) => FindOther(text) == null;

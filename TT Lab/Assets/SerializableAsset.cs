@@ -32,7 +32,8 @@ public abstract class SerializableAsset : IAsset
     private AbstractAssetData? _assetData;
     
     public virtual String SavePath => $"{Package.GetPackageName()}/{SavePathInPackage}";
-    protected virtual String SavePathInPackage => string.IsNullOrEmpty(AdditionalPath) ? $"{Type.Name}" : $"{AdditionalPath}/{Type.Name}";
+    protected virtual String SavePathInPackage => !string.IsNullOrEmpty(FolderInPackage) ? FolderInPackage
+        : string.IsNullOrEmpty(AdditionalPath) ? $"{Type.Name}" : $"{AdditionalPath}/{Type.Name}";
     protected virtual String DataExt => ".data";
     protected virtual String TwinDataExt => "bin";
     protected virtual Boolean SetIdFromDataHash => false;
@@ -60,6 +61,7 @@ public abstract class SerializableAsset : IAsset
     public String Data => $"{Name}{DataExt}";
     public bool MarkedForDeletion { get; private set; }
     public String? AdditionalPath { get; set; }
+    public String? FolderInPackage { get; set; }
     public String FullDataPath => $"{Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath}/{DataLoadPath}";
     public String FullPath => $"{Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath}/{LoadPath}";
     public UInt32 ID { get; set; }
@@ -72,6 +74,7 @@ public abstract class SerializableAsset : IAsset
     
     [Editable]
     [EditorParam(DocumentCompositeViewModel.EditorExplicitOrder, -5)]
+    [EditorParam(TextFieldViewModel.TextFieldAsciiOnly, true)]
     public String Alias { get; set; }
     
     [Editable]
@@ -209,10 +212,12 @@ public abstract class SerializableAsset : IAsset
             return;
         }
         
+        // Made before the file is opened, metadata that doesn't serialize left it empty and the asset out of the project
+        var json = JsonConvert.SerializeObject(this, Formatting.Indented);
         using (FileStream fs = new(Path.Combine(path, $"{Name}.json"), FileMode.Create, FileAccess.Write))
         using (BinaryWriter writer = new(fs))
         {
-            writer.Write(JsonConvert.SerializeObject(this, Formatting.Indented).ToCharArray());
+            writer.Write(json.ToCharArray());
         }
 
         IsUnsaved = false;
@@ -410,6 +415,12 @@ public abstract class SerializableAsset : IAsset
             return;
         }
 
+        // Game objects, their instances and behaviours of the other version run its commands, some of which differ
+        if (factory.GlobalPackage != null && AssetVersions.WhyNotUsableBy(factory.GlobalPackage.URI, this) is { } why)
+        {
+            throw new InvalidOperationException(why);
+        }
+
         if (!factory.Resolution.Begin(this, section))
         {
             return;
@@ -509,6 +520,13 @@ public abstract class SerializableAsset : IAsset
         var props = data.GetType().GetProperties();
         foreach (var prop in props)
         {
+            // Text holds no links, and an indexer takes an index. What isn't stored is made of what is (an OGI's material slots of its
+            // models' parts, whose data importing mustn't read)
+            if (prop.PropertyType == typeof(string) || prop.GetIndexParameters().Length > 0 || prop.GetCustomAttribute<JsonIgnoreAttribute>() != null)
+            {
+                continue;
+            }
+
             if (prop.PropertyType.IsAssignableTo(typeof(LabURI)))
             {
                 var uri = prop.GetValue(data) as LabURI;

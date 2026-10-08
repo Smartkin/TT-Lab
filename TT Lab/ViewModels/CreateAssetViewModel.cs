@@ -34,6 +34,7 @@ public class CreateAssetViewModel : Screen, INotifyDataErrorInfo
     const String ASSET_NAME_EMPTY_ERROR = "Asset name must not be empty";
     const String ASSET_NAME_TOO_LONG_ERROR = "Asset name must be less than 64 characters long";
     const String ASSET_NAME_ALREADY_EXISTS = "Asset with the same name already exists";
+    const String ASSET_NAME_NOT_ASCII_ERROR = "Asset name " + NameRules.AsciiOnly;
 
     public CreateAssetViewModel(IDataValidatorService dataValidatorService, IActiveChunkService activeChunkService)
     {
@@ -126,6 +127,16 @@ public class CreateAssetViewModel : Screen, INotifyDataErrorInfo
         else
         {
             _dataValidatorService.RemoveError(nameof(AssetName), ASSET_NAME_INVALID_CHARS_ERROR);
+        }
+
+        if (!NameRules.IsAscii(name))
+        {
+            _dataValidatorService.AddError(nameof(AssetName), ASSET_NAME_NOT_ASCII_ERROR);
+            isValid = false;
+        }
+        else
+        {
+            _dataValidatorService.RemoveError(nameof(AssetName), ASSET_NAME_NOT_ASCII_ERROR);
         }
         
         var assetManager = AssetManager.Get();

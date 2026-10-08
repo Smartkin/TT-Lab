@@ -23,7 +23,8 @@ public class MaterialFactory(TextureService textureService)
         var deformMode = 0;
         var deformSpeed = 0.0f;
         var deformAmplitude = vec3.Zero;
-        var envMap = false;
+        // Where the picture is read instead of the UVs (EnvironmentMapping)
+        var envMap = 0.0f;
         if (shader.XScrollSettings is not (TwinShader.XScrollFormula.Disabled or TwinShader.XScrollFormula.FromAnimation))
         {
             uvScrollSpeed.x = shader.UvScrollSpeed.Z;
@@ -47,11 +48,12 @@ public class MaterialFactory(TextureService textureService)
             case TwinShader.Type.ColorOnly:
                 break;
             case TwinShader.Type.LitEnvironmentMap:
-                envMap = true;
+                envMap = 1.0f;
                 break;
             case TwinShader.Type.UiShader:
                 break;
             case TwinShader.Type.LitMetallic:
+                envMap = 2.0f;
                 break;
             case TwinShader.Type.LitReflectionSurface:
                 break;
@@ -66,7 +68,7 @@ public class MaterialFactory(TextureService textureService)
             case TwinShader.Type.UnlitGlossy:
                 break;
             case TwinShader.Type.UnlitEnvironmentMap:
-                envMap = true;
+                envMap = 1.0f;
                 break;
             // The mode, the speed and one amplitude (FUN_001dbdf8 reads them so)
             case TwinShader.Type.UnlitClothDeformation:
@@ -102,11 +104,10 @@ public class MaterialFactory(TextureService textureService)
             DoubleColor = unlit ? 1.0f : 2.0f,
             Lit = !unlit,
             ReflectDist = shader.ShaderType == TwinShader.Type.LitReflectionSurface ? new vec2(1.0f, shader.FloatParam[0]) : vec2.Zero,
-            MetalicSpecular = shader.ShaderType is TwinShader.Type.LitMetallic or TwinShader.Type.UnlitGlossy ? 1.0f : 0.0f,
             DeformMode = deformMode,
             DeformSpeed = deformSpeed,
             DeformAmplitude = deformAmplitude,
-            EnvMap = envMap ? 1.0f : 0.0f,
+            EnvMap = envMap,
             UvScrollSpeed = uvScrollSpeed,
             Animation = shader.Animation,
             AnimatesU = shader.XScrollSettings == TwinShader.XScrollFormula.FromAnimation,

@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using Twinsanity.Libraries;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Implementations.Base;
@@ -173,7 +174,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code
                 reader.ReadByte();
             }
             var strLen = reader.ReadInt32();
-            Name = new String(reader.ReadChars(strLen));
+            Name = GameText.ReadString(reader, strLen);
 
             // Read trigger behaviours
             {
@@ -284,7 +285,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code
             if (writeName)
             {
                 writer.Write(Name.Length);
-                writer.Write(Name.ToCharArray(), 0, Name.Length);
+                GameText.Write(writer, Name);
             }
 
             {

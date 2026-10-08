@@ -100,6 +100,50 @@ public sealed class ViewportCreateMenuTests : IDisposable
         return chunk;
     }
 
+    // A game object dragged from the project tree onto the scene becomes an instance of it in the chunk's layout of object instances, with
+    // what its type needs and no starter receiver's index, one step to undo. The other version's objects don't go into the chunk
+    [AvaloniaFact]
+    public void AGameObjectDroppedOnTheSceneBecomesAnInstanceOfIt()
+    {
+        var chunk = CreateChunkWithFolder("beach");
+        var crate = AddObject("CRATE", 0x20);
+        var crateData = (GameObjectData)crate.GetData();
+        crateData.Type = Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code.ITwinObject.ObjectType.Crate;
+        crateData.FloatProperties = [1, 50, 0];
+        crateData.IntProperties = [0, 0];
+        var xbox = AddObject("XBOX CRATE", 0x21, _project.Project.GlobalPackageXbox);
+        var viewport = OpenViewport(chunk, out var document);
+
+        Assert.True(viewport.CanPlaceObject(crate));
+        Assert.False(viewport.CanPlaceObject(xbox));
+        Assert.Null(viewport.PlaceObjectAt(xbox, 10, 10));
+        var instance = Assert.IsType<ObjectInstance>(viewport.PlaceObjectAt(crate, 10, 10));
+
+        Assert.Contains(instance.URI, chunk.ChunkResources);
+        Assert.Equal(0, instance.LayoutID);
+        var data = ((IAsset)instance).GetData<ObjectInstanceData>();
+        Assert.Equal(crate.URI, data.ObjectId);
+        Assert.Equal(-1, data.RefListIndex);
+        Assert.Equal([1, 50, 0], data.FloatProperties);
+        Assert.Equal([0, 0], data.IntProperties);
+        document.Undo();
+        Assert.DoesNotContain(instance.URI, chunk.ChunkResources);
+        viewport.Close();
+    }
+
+    // No starter receiver's index until a script needs one, what an instance was read or copied with stays
+    [Fact]
+    public void NewObjectInstancesHaveNoStarterReceiverIndex()
+    {
+        var instance = _project.Add(new ObjectInstance { Chunk = "levels/test", LayoutID = 0 }, "Instance");
+        var data = new ObjectInstanceData(instance);
+        Assert.Equal(-1, data.RefListIndex);
+
+        data.RefListIndex = 5;
+        var copy = _project.Add(new ObjectInstance { Chunk = "levels/test", LayoutID = 0 }, "Copy", 0x1);
+        Assert.Equal(5, ((ObjectInstanceData)data.CopyFor(copy)).RefListIndex);
+    }
+
     // An AI path joins two AI positions, made in the layout of the first
     [AvaloniaFact]
     public void AiPathsJoinTwoAiPositions()

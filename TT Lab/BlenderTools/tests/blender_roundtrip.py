@@ -289,6 +289,8 @@ def _customize(root):
     # don't have
     bpy.context.scene.render.fps = 60
     nod = bpy.data.actions.new("Nod")
+    # Kept the way a modder keeps an action nothing plays, it'd be deleted without
+    nod.use_fake_user = True
     bag = tlm_blender._channelbag(nod, nod.slots.new(id_type="OBJECT", name=armature.name))
     armature.pose.bones["Joint 2"].rotation_mode = "XYZ"
     fcurve = bag.fcurves.new('pose.bones["Joint 2"].rotation_euler', index=0)

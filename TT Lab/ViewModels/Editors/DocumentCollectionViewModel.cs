@@ -5,6 +5,7 @@ using System.Reactive;
 using System.Reactive.Disposables;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
+using TT_Lab.Assets;
 using TT_Lab.Attributes;
 using TT_Lab.ViewModels.Editors.Descs;
 using TT_Lab.ViewModels.Editors.PropertyGraph;
@@ -26,6 +27,8 @@ public partial class DocumentCollectionViewModel : DocumentCompositeViewModel
 
     public const string ItemIndexAsChars = "DOCUMENT_COLLECTION_ITEM_INDEX_AS_CHARS";
     public const string ItemCaptionPrefix = "DOCUMENT_COLLECTION_FIELD_ITEM_CAPTION_PREFIX";
+    // The elements' field shown next to their index, their Name by default; a link shows its asset's name (an OGI's material slots)
+    public const string ItemCaptionField = "DOCUMENT_COLLECTION_ITEM_CAPTION_FIELD";
     public const string IsCollectionEditable = "DOCUMENT_COLLECTION_IS_EDITABLE";
     // The most elements the game takes, like a material's 4 shaders
     public const string MaxCount = "DOCUMENT_COLLECTION_MAX_COUNT";
@@ -76,12 +79,19 @@ public partial class DocumentCollectionViewModel : DocumentCompositeViewModel
     }
 
     // Elements with a name of their own, like the default chunk's 255 particle systems, show it next to their index and follow it
-    private static PropertyNode? NameOf(DocumentNodeViewModel item) => item.Property.FindChild(".Name") is { PropertyType: var type } name && type == typeof(string) ? name : null;
+    private PropertyNode? NameOf(DocumentNodeViewModel item) =>
+        item.Property.FindChild($".{_captionField ?? "Name"}") is { PropertyType: var type } name && (type == typeof(string) || type.IsAssignableTo(typeof(LabURI))) ? name : null;
 
     private string CaptionOf(DocumentNodeViewModel item, int index)
     {
         var caption = GetItemCaption(index);
-        return NameOf(item)?.GetValue() is string { Length: > 0 } name ? $"{caption} · {name}" : caption;
+        var name = NameOf(item)?.GetValue() switch
+        {
+            string text => text,
+            LabURI link when link != LabURI.Empty && AssetManager.Get().DoesAssetExist(link) => AssetManager.Get().GetAsset(link).Alias,
+            _ => null
+        };
+        return name is { Length: > 0 } ? $"{caption} · {name}" : caption;
     }
 
     private void FollowName(DocumentNodeViewModel item)
@@ -143,6 +153,7 @@ public partial class DocumentCollectionViewModel : DocumentCompositeViewModel
         
         _indexItemsAsChars = GetEditorParameter(ItemIndexAsChars, false);
         _itemPrefix = GetEditorParameter<string>(ItemCaptionPrefix);
+        _captionField = GetEditorParameter<string>(ItemCaptionField);
 
         var itemIndex = 0;
         foreach (var item in Nodes)
@@ -167,6 +178,7 @@ public partial class DocumentCollectionViewModel : DocumentCompositeViewModel
     private bool _isAddingItem;
     private bool _indexItemsAsChars;
     private string? _itemPrefix;
+    private string? _captionField;
 
     protected override void ReindexNodes(int fromIdx)
     {

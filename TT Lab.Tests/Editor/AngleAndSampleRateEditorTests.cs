@@ -3,12 +3,10 @@ using TT_Lab.AssetData.Instance;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
 using TT_Lab.Assets.Instance;
-using TT_Lab.Rendering;
 using TT_Lab.Tests.Support;
 using TT_Lab.ViewModels.Editors;
 using TT_Lab.ViewModels.Editors.Descs;
 using Twinsanity.TwinsanityInterchange.Common;
-using Twinsanity.TwinsanityInterchange.Common.Lights;
 
 namespace TT_Lab.Tests.Editor;
 
@@ -106,20 +104,5 @@ public sealed class AngleAndSampleRateEditorTests : IDisposable
         Assert.Equal(8000, rate.SelectedRate!.Hertz);
         Assert.False(document.CanRedo);
         window.Close();
-    }
-
-    [Fact]
-    public void TheStrongestThreeDirectionalLightsFeedTheEnvironmentMap()
-    {
-        var weak = new DirectionalLight { Intensity = 0.2f, Direction = new Vector4(0, 0, 2, 0) };
-        var strong = new DirectionalLight { Intensity = 1.0f, Direction = new Vector4(3, 0, 0, 0) };
-        var middle = new DirectionalLight { Intensity = 0.5f, Direction = new Vector4(0, 4, 0, 0) };
-        var lights = EnvLights.Of([weak, strong, middle, new DirectionalLight { Intensity = 0.1f, Direction = new Vector4(1, 1, 1, 0) }]);
-
-        Assert.Equal(new GlmSharp.vec3(1, 0, 0), lights[0]);
-        Assert.Equal(new GlmSharp.vec3(0, 1, 0), lights[1]);
-        Assert.Equal(new GlmSharp.vec3(0, 0, 1), lights[2]);
-        // Missing lights are the defaults
-        Assert.Equal(EnvLights.Defaults[1], EnvLights.Of([strong])[1]);
     }
 }

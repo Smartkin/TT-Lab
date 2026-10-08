@@ -38,12 +38,15 @@ BY_INDEX = "index"
 BY_NAME = "name"
 BY_ORDER = "order"
 NEW = "new"
+# A bone no joint is named like with MATCH_NAME_ONLY: a new joint keeping its name
+KEPT = "kept"
 
 # How the bones are matched: by their joint indexes while those are the original's (keeps_skeleton), or always, or never (names, then
-# the hierarchy)
+# the hierarchy), or by their names alone
 MATCH_AUTO = "AUTO"
 MATCH_INDEX = "INDEX"
 MATCH_NAME = "NAME"
+MATCH_NAME_ONLY = "NAME_ONLY"
 
 
 def keeps_skeleton(original: typing.Sequence[BoneInfo], incoming: typing.Sequence[BoneInfo]) -> bool:
@@ -64,7 +67,8 @@ def match_joints(original: typing.Sequence[BoneInfo], incoming: typing.Sequence[
     """Which of the original's joints each incoming bone stands for. A bone that has one of the original's joint indexes keeps it
     (while the indexes are the original's joints, see keeps_skeleton, or always with MATCH_INDEX, never with MATCH_NAME), then bones
     named like the original's are those joints, then the hierarchies are walked together: the roots in order and the children of
-    every pair of matched bones in order. What's left gets the next free joint indexes."""
+    every pair of matched bones in order. What's left gets the next free joint indexes. With MATCH_NAME_ONLY only the names match,
+    the bones named like none of the original's joints are new joints keeping their names (KEPT, see hierarchy_problems)."""
     original_index = {name: index if index is not None else position for position, (name, _, index) in enumerate(original)}
     original_children: typing.Dict[typing.Optional[str], typing.List[str]] = {}
     for name, parent, _ in original:
@@ -81,6 +85,17 @@ def match_joints(original: typing.Sequence[BoneInfo], incoming: typing.Sequence[
     def take(name: str, original_name: str, how: str) -> None:
         result[name] = (original_index[original_name], original_name, how)
         used.add(original_name)
+
+    if match == MATCH_NAME_ONLY:
+        next_index = max(original_index.values(), default=-1) + 1
+        for name, _, _ in incoming:
+            if name in original_index:
+                take(name, name, BY_NAME)
+            else:
+                result[name] = (next_index, None, KEPT)
+                next_index += 1
+
+        return result
 
     if match == MATCH_INDEX or match == MATCH_AUTO and keeps_skeleton(original, incoming):
         for name, _, index in incoming:
@@ -119,9 +134,46 @@ def _pair_by_order(original_names: typing.List[str], incoming_names: typing.List
         pairs.append((original_name, name))
 
 
-def joint_name(match: Match) -> str:
-    """The name the bone gets: the original bone's, or Joint N for a new joint."""
+def joint_name(match: Match, name: str = "") -> str:
+    """The name the bone gets: the original bone's, its own when it's kept as it is, or Joint N for a new joint."""
+    if match[2] == KEPT:
+        return name
+
     return match[1] if match[1] is not None else "Joint %d" % match[0]
+
+
+def hierarchy_problems(original: typing.Sequence[BoneInfo], incoming: typing.Sequence[BoneInfo], matches: typing.Dict[str, Match]) -> typing.List[str]:
+    """Where the matched bones aren't laid out like their joints: every matched bone has to be under the bone of the joint its joint
+    is under, counting only matched ones (bones matching nothing may be in between, joints nothing matched may be left out). Empty when
+    the matched joints form the same tree in both."""
+    original_parents = {name: parent for name, parent, _ in original}
+    incoming_parents = {name: parent for name, parent, _ in incoming}
+    joint_of = {name: match[1] for name, match in matches.items() if match[1] is not None}
+    bone_of = {joint: name for name, joint in joint_of.items()}
+
+    def matched_above(name: str, parents: typing.Dict[str, typing.Optional[str]], matched: typing.Dict[str, str]) -> typing.Optional[str]:
+        parent = parents.get(name)
+        while parent is not None and parent not in matched:
+            parent = parents.get(parent)
+
+        return parent
+
+    problems = []
+    for name, _, _ in incoming:
+        joint = joint_of.get(name)
+        if joint is None:
+            continue
+
+        above = matched_above(name, incoming_parents, joint_of)
+        joint_above = matched_above(joint, original_parents, bone_of)
+        if (joint_of[above] if above is not None else None) == joint_above:
+            continue
+
+        where = "under %s" % above if above is not None else "above every matched bone"
+        should = "under %s" % joint_above if joint_above is not None else "above every matched joint"
+        problems.append("%s is %s, the source has %s %s" % (name, where, joint, should))
+
+    return problems
 
 
 def size_ratio(original: Skeleton, incoming: Skeleton, bones: typing.Dict[str, str]) -> float:

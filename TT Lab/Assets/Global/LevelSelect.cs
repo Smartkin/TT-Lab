@@ -99,6 +99,39 @@ public static class LevelSelect
         return string.Concat(kept.Select(line => line.Text + line.Ending));
     }
 
+    // A level whose chunk moved: its line goes to the end of its new world under its name, the way a new chunk's goes in. A chunk the
+    // level select doesn't list stays out of it
+    public static string WithMovedLevel(string text, string oldPath, string newPath)
+    {
+        if (Entries(text).FirstOrDefault(entry => IsSamePath(entry.Path, oldPath)) is not { Name: not null } entry || IsSamePath(oldPath, newPath))
+        {
+            return text;
+        }
+
+        return WithLevel(WithoutLevel(text, oldPath), entry.Name, newPath);
+    }
+
+    public static void MoveChunk(LevelChunk chunk, string oldAdditionalPath)
+    {
+        if (Locator.Current.GetService<ProjectManager>()?.OpenedProject is not TT_Lab.Project.Project project || string.IsNullOrEmpty(chunk.AdditionalPath)
+            || Find(project, project.GetPlatform(chunk.Package)) is not { } file)
+        {
+            return;
+        }
+
+        var path = GameExecutable.ChunkPath(chunk.AdditionalPath);
+        if (path.Length > MaxPathLength)
+        {
+            Log.WriteLine($"{chunk.Alias}'s line of {file.Alias} wasn't moved, the level select keeps paths of up to {MaxPathLength} characters", Log.LogType.Warning);
+            return;
+        }
+
+        if (Update(file, text => WithMovedLevel(text, GameExecutable.ChunkPath(oldAdditionalPath), path)))
+        {
+            Log.WriteLine($"{file.Alias} has {chunk.Alias} at {path} now");
+        }
+    }
+
     public static void AddChunk(LevelChunk chunk)
     {
         if (Locator.Current.GetService<ProjectManager>()?.OpenedProject is not TT_Lab.Project.Project project || string.IsNullOrEmpty(chunk.AdditionalPath)

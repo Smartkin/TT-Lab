@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using Splat;
 using TT_Lab.Project;
@@ -20,6 +22,7 @@ public static class AssetFactory
         newAsset.Alias = name;
         newAsset.Package = folder.Package;
         newAsset.Variation = variation;
+        newAsset.FolderInPackage = FolderInPackageOf(newAsset, folder);
         newAsset.ID = idGenerator.GenerateTwinId();
         if (layout.HasValue)
         {
@@ -56,11 +59,35 @@ public static class AssetFactory
         var parent = (createdIn ?? containingFolder).GetResourceTreeElement();
         IAsset treeAsset = createdFolder ?? newAsset;
         parent.AddNewChild(treeAsset.GetResourceTreeElement(parent));
-        parent.ClearChildren();
-        parent.LoadChildrenBack();
-        parent.NotifyOfPropertyChange(nameof(parent.Children));
         
         return newAsset;
+    }
+
+    // An asset made in a folder of its package has its files in it, unless its type decides where they go (chunks, instances, packages,
+    // global files) or the folder is where they'd go anyway: the package's own folder or its type's. Every asset went into its type's
+    // folder, the tree then found it there
+    private static string? FolderInPackageOf(IAsset asset, Folder folder)
+    {
+        var savePath = asset.GetType().GetProperty("SavePathInPackage", BindingFlags.Instance | BindingFlags.NonPublic);
+        if (asset is Folder || savePath?.DeclaringType != typeof(SerializableAsset))
+        {
+            return null;
+        }
+
+        var assetManager = AssetManager.Get();
+        var names = new List<string>();
+        for (var current = folder; !current.Mark.HasFlag(FolderMark.IsPackage); current = assetManager.GetAsset<Folder>(current.Parent))
+        {
+            if (current.Parent == LabURI.Empty || !assetManager.DoesAssetExist(current.Parent))
+            {
+                return null;
+            }
+
+            names.Insert(0, current.Alias);
+        }
+
+        var path = string.Join('/', names);
+        return path.Length == 0 || path == asset.GetType().Name ? null : path;
     }
     
     // A new asset is listed in the folder of the directory its file is written to, the same way the project tree gets built from the
@@ -146,6 +173,7 @@ public static class AssetFactory
         newAsset.Alias = name;
         newAsset.Package = folder.Package;
         newAsset.Variation = variation;
+        newAsset.FolderInPackage = FolderInPackageOf(newAsset, folder);
         newAsset.ID = idGenerator.GenerateTwinId();
         if (layout.HasValue)
         {
@@ -176,9 +204,6 @@ public static class AssetFactory
         var parent = (createdIn ?? containingFolder).GetResourceTreeElement();
         IAsset treeAsset = createdFolder ?? newAsset;
         parent.AddNewChild(treeAsset.GetResourceTreeElement(parent));
-        parent.ClearChildren();
-        parent.LoadChildrenBack();
-        parent.NotifyOfPropertyChange(nameof(parent.Children));
         
         return newAsset;
     }

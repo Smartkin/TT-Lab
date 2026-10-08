@@ -17,23 +17,32 @@
 
 """New models to build in Blender, laid out the way imported ones are so they export the same way.
 
-An OGI template is a root with an armature of one joint, a box skin the joint deforms and the holders of the rigid bodies, exit
-points and collision hulls. A scenery template is a root with the tree node the game culls it with holding a ground mesh, its lights,
-its collision and its dynamic scenery. Everything under a root is in the game's space, Y up, the root turns it Z up for Blender.
+An OGI template is a root with an armature of two joints, a box rigid body on the second, an empty skin and blend skin the armature
+deforms and the holders of the rigid bodies, exit points and collision hulls. A scenery template is a root with the tree node the game
+culls it with holding a ground mesh, its lights, its collision and its dynamic scenery. A save icon template is a root with the icon's
+mesh and its textured material. Everything under a root is in the game's space, Y up, the root turns it Z up for Blender.
 """
 
+import json
 import typing
 import uuid
 
 import bpy
 from mathutils import Vector
 
+from . import material_settings
 from . import tlm_blender
 from . import tlm_scenery
 
-# Sizes in the game's units: the skin a box a unit wide standing on the ground, the scenery's ground 20 units across
+# Sizes in the game's units: the OGI's body a box a unit wide standing on the ground, the scenery's ground 20 units across, the save icon
+# a box of 3 (the game's own icon is about 4 wide and 5 tall)
 SKIN_SIZE = 1.0
 GROUND_SIZE = 20.0
+ICON_SIZE = 3.0
+# The save icon's texture, the size the console takes
+ICON_TEXTURE_SIZE = 128
+# The game's icon's header (Startup\Crash.ico): no run length encoding, one frame, played at the console's speed
+ICON_HEADER = {"FileId": 0x10000, "TextureType": 6, "HeaderValue": 0x3F800000, "AnimationTag": 1, "FrameLength": 1, "AnimationSpeed": 1.0, "PlayOffset": 0}
 # Half the size of the box the game keeps the chunk's objects in, around the origin, what TT Lab gives new chunks (SceneryBounds)
 SCENERY_HALF_SIZE = (200.0, 100.0, 200.0)
 # The collision's placeholder surface, TT Lab takes the project's surface of the material's name (its first one otherwise)
@@ -62,6 +71,7 @@ def ground(size: float) -> Geometry:
 def _root(context: bpy.types.Context, name: str, asset_type: str, kind: str) -> typing.Tuple[bpy.types.Object, bpy.types.Collection]:
     collection = bpy.data.collections.new(name)
     context.scene.collection.children.link(collection)
+    tlm_blender.use_standard_view(context)
     root = tlm_blender._new_object(name, None, None, collection)
     root.empty_display_type = "PLAIN_AXES"
     root.matrix_basis = tlm_blender.Y_UP
@@ -80,6 +90,9 @@ def _empty(name: str, kind: str, parent: bpy.types.Object, collection: bpy.types
     return blender_object
 
 
+EMPTY: Geometry = ([], [], [])
+
+
 def _mesh_object(name: str, geometry: Geometry, kind: str, parent: bpy.types.Object, collection: bpy.types.Collection) -> bpy.types.Object:
     """A mesh of the geometry with the attributes imported meshes have, all of it one part."""
     positions, faces, uvs = geometry
@@ -95,9 +108,10 @@ def _mesh_object(name: str, geometry: Geometry, kind: str, parent: bpy.types.Obj
 
 
 def new_ogi(context: bpy.types.Context, name: str = "OGI") -> bpy.types.Object:
-    """A new OGI: the root with its bounding box around the skin, an armature of joint 0 and joint 1 under it, a box skin weighted to
-    joint 1, and the empty holders bodies, exit points and hulls go under. The game gives a model of one joint and no exit points no
-    animator and draws only its rigid models (ModelNode::SetOgi): a skin weighted to joint 0 alone never showed."""
+    """A new OGI: the root with its bounding box around the box, an armature of joint 0 and joint 1 under it, the box a rigid body following
+    joint 1, a skin and a blend skin the armature deforms that are empty, to be filled with the model's meshes (the model has none of them
+    until they are), and the empty holders exit points and hulls go under. The game gives a model of one joint and no exit points no
+    animator and draws only its rigid models (ModelNode::SetOgi): the second joint lets a skin show once it's filled."""
     root, collection = _root(context, name, "Ogi", "ogi")
     half = SKIN_SIZE / 2.0
     tlm_blender._read_data(root, "Ogi", {"BoundingBoxMin": (-half, 0.0, -half, 1.0), "BoundingBoxMax": (half, SKIN_SIZE, half, 1.0)})
@@ -119,11 +133,26 @@ def new_ogi(context: bpy.types.Context, name: str = "OGI") -> bpy.types.Object:
         tlm_blender._read_data(armature_data.bones[bone_name], "Joint", {"Index": index})
         armature.pose.bones[bone_name].rotation_mode = "QUATERNION"
 
-    skin = _mesh_object("Skin", box(SKIN_SIZE, SKIN_SIZE, SKIN_SIZE), "skin", root, collection)
+    skin = _mesh_object("Skin", EMPTY, "skin", root, collection)
     tlm_blender._read_data(skin, "Skin", {})
-    skin.vertex_groups.new(name="Joint 1").add(list(range(len(skin.data.vertices))), 1.0, "REPLACE")
     skin.modifiers.new("Armature", "ARMATURE").object = armature
-    for holder_name, kind in (("Rigid Bodies", "rigid_bodies"), ("Exit Points", "exit_points"), ("Collision Hulls", "collision_hulls")):
+    blend_skin = _mesh_object("Blend Skin", EMPTY, "shape", root, collection)
+    tlm_blender._read_data(blend_skin, "BlendSkin", {})
+    # Its shapes are the shape keys over this one
+    blend_skin.shape_key_add(name="Basis", from_mix=False).interpolation = "KEY_LINEAR"
+    blend_skin.modifiers.new("Armature", "ARMATURE").object = armature
+
+    bodies = _empty("Rigid Bodies", "rigid_bodies", root, collection, "PLAIN_AXES", 0.1)
+    body = _mesh_object("Body", box(SKIN_SIZE, SKIN_SIZE, SKIN_SIZE), "body", bodies, collection)
+    tlm_blender._read_data(body, "Body", {})
+    # Like an imported body: it follows its bone through a Child Of constraint, where it is in the joint's space. Joint 1 rests half way up
+    body[tlm_blender.JOINT_PROPERTY] = 1
+    body.location = (0.0, -half, 0.0)
+    constraint = body.constraints.new("CHILD_OF")
+    constraint.target = armature
+    constraint.subtarget = "Joint 1"
+    constraint.inverse_matrix = root.matrix_basis.inverted()
+    for holder_name, kind in (("Exit Points", "exit_points"), ("Collision Hulls", "collision_hulls")):
         _empty(holder_name, kind, root, collection, "PLAIN_AXES", 0.1)
 
     return root
@@ -157,4 +186,39 @@ def new_scenery(context: bpy.types.Context, name: str = "Scenery") -> bpy.types.
     collision.data.materials.append(tlm_scenery.placeholder_surface(DEFAULT_SURFACE))
     dynamic = _empty("Dynamic Scenery", "dynamic_scenery", root, collection, *tlm_scenery._EMPTY_DISPLAY["dynamic_scenery"])
     tlm_blender._read_data(dynamic, "DynamicScenery", {})
+    return root
+
+
+def _checker_image(name: str, size: int, squares: int) -> bpy.types.Image:
+    """A picture of two greys in squares, packed into the file: what goes into the model file with its material."""
+    image = bpy.data.images.new(name, size, size, alpha=True)
+    cell = max(1, size // squares)
+    pixels = []
+    for y in range(size):
+        for x in range(size):
+            value = 0.6 if (x // cell + y // cell) % 2 == 0 else 0.4
+            pixels.extend((value, value, value, 1.0))
+
+    image.pixels.foreach_set(pixels)
+    image.pack()
+    return image
+
+
+def new_save_icon(context: bpy.types.Context, name: str = "Save Icon") -> bpy.types.Object:
+    """A new PS2 memory card icon (Startup\\Crash.ico, the game has one): the root with the game's icon's header, its one mesh a box standing
+    on the ground with the vertex colors the console draws the texture at (0x80), and a material made in Blender whose 128x128 picture the
+    icon's texture is made of. Shape keys added to the mesh are the icon's shapes and keys on their values its animation, the root's Frame
+    Length how long it loops."""
+    root, collection = _root(context, name, "SaveIcon", "save_icon")
+    tlm_blender._read_data(root, "SaveIcon", dict(ICON_HEADER))
+    root[tlm_blender.SAVE_ICON_PROPERTY] = json.dumps({"frames": [{"shape": 0, "keys": [0.0, 1.0]}]})
+    icon = _mesh_object("Icon", box(ICON_SIZE, ICON_SIZE, ICON_SIZE), "icon_mesh", root, collection)
+    colors = icon.data.color_attributes.new(tlm_blender.COLOR_ATTRIBUTE, "BYTE_COLOR", "POINT")
+    colors.data.foreach_set("color_srgb", [128.0 / 255.0, 128.0 / 255.0, 128.0 / 255.0, 1.0] * len(icon.data.vertices))
+    icon.data.color_attributes.active_color = colors
+    icon.data.color_attributes.render_color_index = icon.data.color_attributes.find(tlm_blender.COLOR_ATTRIBUTE)
+    material = bpy.data.materials.new(name)
+    material[tlm_blender.BLENDER_ID_PROPERTY] = uuid.uuid4().hex
+    material_settings.draw_default(material, _checker_image(name + " Texture", ICON_TEXTURE_SIZE, 8))
+    icon.data.materials.append(material)
     return root

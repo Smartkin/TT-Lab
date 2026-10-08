@@ -238,6 +238,14 @@ public class AssetManager
     }
 
     /// <summary>
+    /// Takes a URI the asset is also known by out, like a command sequence's behaviour packs
+    /// </summary>
+    internal void RemoveUri(LabURI uri)
+    {
+        _assets.Remove(uri);
+    }
+
+    /// <summary>
     /// 
     /// </summary>
     /// <returns>AssetManager for the currently opened project</returns>
@@ -269,11 +277,13 @@ public class AssetManager
         // The game reuses IDs for other pictures in other chunks (a hub's 64x32 texture is a 128x64 one of a Totem scenery), so a
         // requester finds what's in its own folder first (a scenery's material its scenery's texture, a PSM's its own), then what
         // the package shares, and another chunk's folder only when nothing else has the ID. The order the assets were added in
-        // decided before, which gave the hub's materials the Totem's textures
+        // decided before, which gave the hub's materials the Totem's textures. A package depending on both versions' packages finds
+        // its own version's
         var requesterFolder = requester.AdditionalPath ?? string.Empty;
         var savePathFolders = requester.SavePath.Replace('/', '\\').Split('\\');
         return matchedAssets
-            .OrderByDescending(f => !string.IsNullOrEmpty(f.Variation))
+            .OrderByDescending(f => IsSameVersion(package, f.Package))
+            .ThenByDescending(f => !string.IsNullOrEmpty(f.Variation))
             .ThenByDescending(f => (f.AdditionalPath ?? string.Empty) == requesterFolder)
             .ThenByDescending(f => string.IsNullOrEmpty(f.AdditionalPath))
             .ThenByDescending(SavePathMatches)
@@ -450,7 +460,26 @@ public class AssetManager
 
     public Boolean IsRelated(LabURI? package, LabURI? other)
     {
-        return package == other || DependsOn(package, other) || DependsOn(other, package);
+        return (package == other || DependsOn(package, other) || DependsOn(other, package)) && IsSameVersion(package, other);
+    }
+
+    /// <summary>
+    /// The version of the game a package is of, which its project works out (<see cref="TT_Lab.Project.Project.GetPlatform"/>)
+    /// </summary>
+    internal Func<LabURI?, TT_Lab.Project.Project.GamePlatform>? VersionOf { get; set; }
+
+    // A package can depend on the other version's packages to use their assets, what's related to it stays its own version's
+    internal Boolean IsSameVersion(LabURI? package, LabURI? other)
+    {
+        return VersionOf == null || package == other || VersionOf(package) == VersionOf(other);
+    }
+
+    /// <summary>
+    /// The package's first dependency, the one it was made on, without recording the access like <see cref="GetAsset(LabURI)"/> does
+    /// </summary>
+    internal LabURI? FirstDependencyOf(LabURI package)
+    {
+        return _assets.TryGetValue(package, out var asset) && asset is Package { Dependencies.Count: > 0 } dependent ? dependent.Dependencies[0] : null;
     }
 
     /// <summary>
@@ -490,7 +519,8 @@ public class AssetManager
     {
         var variation = !string.IsNullOrEmpty(requester.Variation) ? requester.Variation : ChunkVariation(requester.Chunk);
         var candidates = _assets.GetValuesByType(typeof(T))
-            .Where(asset => IsOwnOrDependency(requester.Package, asset.Package) && (string.IsNullOrEmpty(asset.Variation) || asset.Variation == variation))
+            .Where(asset => IsOwnOrDependency(requester.Package, asset.Package) && IsSameVersion(requester.Package, asset.Package)
+                            && (string.IsNullOrEmpty(asset.Variation) || asset.Variation == variation))
             .Cast<T>().ToList();
         var variants = candidates.Where(asset => !string.IsNullOrEmpty(asset.Variation)).Select(asset => asset.InvariantName).ToHashSet();
         return candidates.Where(asset => !string.IsNullOrEmpty(asset.Variation) || !variants.Contains(asset.InvariantName));

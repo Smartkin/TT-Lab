@@ -83,11 +83,6 @@ public class TwinMaterial(RenderContext context, TwinMaterialDesc materialDesc) 
         Program.SetUniform(KnownUniform.MaterialAlphaTest, @override);
     }
 
-    public void ApplyMetallicSpecular(float @override)
-    {
-        Program.SetUniform(KnownUniform.MaterialMetalicSpecular, @override);
-    }
-
     public void ApplyEnvMap(float @override)
     {
         Program.SetUniform(KnownUniform.MaterialEnvMap, @override);
@@ -164,7 +159,6 @@ public class TwinMaterial(RenderContext context, TwinMaterialDesc materialDesc) 
         ApplyBillboardRender(_materialDesc.BillboardRender);
         ApplyAlphaTest(_materialDesc.AlphaTest);
         ApplyEnvMap(_materialDesc.EnvMap);
-        ApplyMetallicSpecular(_materialDesc.MetalicSpecular);
         ApplyUvScroll(_materialDesc.UvScrollSpeed);
         ApplyAnimation();
         ApplyReflectDistance(_materialDesc.ReflectDist);

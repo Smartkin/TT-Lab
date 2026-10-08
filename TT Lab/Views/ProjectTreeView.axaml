@@ -6,6 +6,15 @@
              x:DataType="viewmodels:ProjectTreeViewModel"
              mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="600"
              x:Class="TT_Lab.Views.ProjectTreeView">
+    <UserControl.Styles>
+        <!-- The folder a dragged row would go into -->
+        <Style Selector="Border.row">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="Border.row.dropTarget">
+            <Setter Property="Background" Value="#6000A2FF"/>
+        </Style>
+    </UserControl.Styles>
     <Grid RowDefinitions="54,470*">
         <TextBox
             ScrollViewer.VerticalScrollBarVisibility="Disabled"
@@ -21,6 +30,7 @@
         HorizontalAlignment="Stretch">
             <TreeView.ItemTemplate>
                 <TreeDataTemplate ItemsSource="{Binding Children}">
+                    <Border Classes="row" Classes.dropTarget="{Binding IsTargetItem}" CornerRadius="2">
                     <StackPanel Background="Transparent" HorizontalAlignment="Stretch" Margin="0,2,0,2" Orientation="Horizontal">
                         <StackPanel.ContextMenu>
                             <ContextMenu ItemsSource="{Binding MenuOptions}">
@@ -58,6 +68,7 @@
                             </Interaction.Behaviors>
                         </TextBox>
                     </StackPanel>
+                    </Border>
                 </TreeDataTemplate>
             </TreeView.ItemTemplate>
         </TreeView>

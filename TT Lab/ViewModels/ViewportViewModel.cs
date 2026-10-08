@@ -153,6 +153,8 @@ public partial class ViewportViewModel : ReactiveObject
     private Renderer? _renderer;
 
     private bool _isChunkViewport = false;
+    private bool _isOgiViewer;
+    private bool _showsSkeletons;
     // Set while the viewport puts an element into a list itself, it shows and selects the element's objects on its own
     private bool _isPlacingElement;
     private IInputContext? _inputContext;
@@ -283,6 +285,12 @@ public partial class ViewportViewModel : ReactiveObject
         _document = document;
         _isChunkViewport = document.DocumentModel is LevelChunk;
         this.RaisePropertyChanged(nameof(IsChunkViewport));
+        // A chunk's scene would draw every instance's skeleton, only the models' own viewers take the preference
+        _isOgiViewer = document.DocumentModel is TT_Lab.Assets.Code.OGI;
+        if (_isOgiViewer)
+        {
+            ShowsSkeletons = Preferences.GetPreference<bool>(Preferences.OgiViewerSkeleton);
+        }
         FollowGameLaunch(document);
 
         this.WhenAnyValue(x => x._document!.IsReady)
@@ -323,6 +331,34 @@ public partial class ViewportViewModel : ReactiveObject
         return _renderContext;
     }
 
+    /// <summary>
+    /// A resource's objects were made again (an OGI's after a material of its slots changed), raised on the UI thread once they're in the
+    /// scene
+    /// </summary>
+    public event Action<PropertyNode>? ObjectsRebuilt;
+
+    /// <summary>
+    /// Whether the models draw their skeletons, their joints and the bones between them, over themselves. An OGI's viewer takes it from
+    /// the preferences and keeps it there, every one of them follows it
+    /// </summary>
+    public bool ShowsSkeletons
+    {
+        get => _showsSkeletons;
+        set
+        {
+            this.RaiseAndSetIfChanged(ref _showsSkeletons, value);
+            if (_renderContext != null)
+            {
+                _renderContext.ShowsSkeletons = value;
+            }
+
+            if (_isOgiViewer)
+            {
+                Preferences.SetPreference(Preferences.OgiViewerSkeleton, value);
+            }
+        }
+    }
+
     public IReadOnlyList<ViewportObject> GetViewportObjects()
     {
         return _viewportObjects;
@@ -359,6 +395,7 @@ public partial class ViewportViewModel : ReactiveObject
     private void PrepareRender(RenderContext renderContext)
     {
         _renderContext = renderContext;
+        renderContext.ShowsSkeletons = _showsSkeletons;
         var inputContext = new LabInputContext(Host);
         _inputContext = inputContext;
         _mouse = inputContext.Mice[0];
@@ -1486,6 +1523,10 @@ public partial class ViewportViewModel : ReactiveObject
                     }
 
                     AddViewportObjects(viewportObjects);
+                    if (ObjectsRebuilt is { } rebuilt)
+                    {
+                        Dispatcher.UIThread.Post(() => rebuilt(property));
+                    }
                 }
             }
 
@@ -1584,6 +1625,11 @@ public partial class ViewportViewModel : ReactiveObject
         if (e.PreferenceName.StartsWith("Viewport", StringComparison.Ordinal))
         {
             LoadSnappingPreferences();
+        }
+
+        if (e.PreferenceName == Preferences.OgiViewerSkeleton && _isOgiViewer)
+        {
+            ShowsSkeletons = Preferences.GetPreference<bool>(Preferences.OgiViewerSkeleton);
         }
     }
 

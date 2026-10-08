@@ -42,6 +42,14 @@ public sealed class LayoutIndexesTests : IDisposable
         return crate;
     }
 
+    // Crates have no waypoints, the game follows positions and paths only on characters, creatures, generic objects and grabbables
+    private GameObject Prop()
+    {
+        var prop = _project.Add(new GameObject(), "Prop", 0x11);
+        prop.SetData(new GameObjectData(prop) { Type = ITwinObject.ObjectType.GenericObject });
+        return prop;
+    }
+
     private IDisposable Use() => new LayoutIndexes("beach", _resources).Use();
 
     private static ITwinInstance Export(ObjectInstance instance) => (ITwinInstance)((IAsset)instance).GetData<ObjectInstanceData>().Export(new PS2ItemFactory());
@@ -102,16 +110,16 @@ public sealed class LayoutIndexesTests : IDisposable
     [Fact]
     public void PositionsAndPathsAreOneListOfTheChunk()
     {
-        var crate = Crate();
+        var prop = Prop();
         var own = Enumerable.Range(0, 2).Select(i => Add<Position>($"Position {i}", (UInt32)i, 0, asset => new PositionData(asset))).ToList();
         var other = Enumerable.Range(0, 3).Select(i => Add<Position>($"Other position {i}", (UInt32)i, 4, asset => new PositionData(asset))).ToList();
         var ownPath = Add<Path>("Path 0", 0, 0, asset => new PathData(asset) { Points = FourPoints() });
         var otherPath = Add<Path>("Other path 0", 0, 4, asset => new PathData(asset) { Points = FourPoints() });
-        var ownInstance = Add<ObjectInstance>("Instance 0", 0, 0, asset => new ObjectInstanceData(asset) { ObjectId = crate.URI, Positions = [own[1].URI], Paths = [ownPath.URI] });
+        var ownInstance = Add<ObjectInstance>("Instance 0", 0, 0, asset => new ObjectInstanceData(asset) { ObjectId = prop.URI, Positions = [own[1].URI], Paths = [ownPath.URI] });
         var otherInstance = Add<ObjectInstance>("Other instance 0", 0, 4,
-            asset => new ObjectInstanceData(asset) { ObjectId = crate.URI, Positions = [other[2].URI, other[0].URI], Paths = [otherPath.URI, ownPath.URI] });
-        var unreachable = Add<ObjectInstance>("Other instance 1", 1, 4, asset => new ObjectInstanceData(asset) { ObjectId = crate.URI, Positions = [own[0].URI] });
-        var tooEarly = Add<ObjectInstance>("Instance 1", 1, 0, asset => new ObjectInstanceData(asset) { ObjectId = crate.URI, Positions = [other[0].URI] });
+            asset => new ObjectInstanceData(asset) { ObjectId = prop.URI, Positions = [other[2].URI, other[0].URI], Paths = [otherPath.URI, ownPath.URI] });
+        var unreachable = Add<ObjectInstance>("Other instance 1", 1, 4, asset => new ObjectInstanceData(asset) { ObjectId = prop.URI, Positions = [own[0].URI] });
+        var tooEarly = Add<ObjectInstance>("Instance 1", 1, 0, asset => new ObjectInstanceData(asset) { ObjectId = prop.URI, Positions = [other[0].URI] });
 
         using var indexes = Use();
 

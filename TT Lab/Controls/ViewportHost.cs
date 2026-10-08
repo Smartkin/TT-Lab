@@ -484,11 +484,31 @@ public sealed class ViewportHost : IDisposable
         return false;
     }
 
+    /// <summary>
+    /// Makes the context that stays current before any viewport, see <see cref="PinGlLibrary"/>
+    /// </summary>
+    internal static void MakeGlAnchor()
+    {
+        try
+        {
+            lock (SdlLock)
+            {
+                PinGlLibrary();
+            }
+        }
+        catch (Exception exception)
+        {
+            Log.WriteLine($"Couldn't make the GL context viewports keep current: {exception.Message}", Log.LogType.Debug);
+        }
+    }
+
     // SDL unloads the GL driver once its last GL window is gone. Closing the last viewport then ran the driver's teardown while Avalonia
     // and viewports on other threads still used it, which crashed the application, so the driver stays loaded. A context stays current
     // on a thread of its own as well: with NVIDIA's EGL on Wayland, once no thread had one any more in a TT Lab that had created a
     // project (the prefab pictures' viewports come and go right after), no new context could be made (eglMakeCurrent failing with
-    // EGL_SUCCESS) until TT Lab restarted, and a window and context left not current didn't help
+    // EGL_SUCCESS) until TT Lab restarted, and a window and context left not current didn't help. The first viewport made it, which
+    // was too late after unpacking the game's assets for a project without them: the context couldn't be made then either, so TT Lab
+    // makes it as it starts (App)
     private static void PinGlLibrary()
     {
         if (_isGlLibraryPinned)

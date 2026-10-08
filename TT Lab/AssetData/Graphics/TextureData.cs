@@ -136,16 +136,7 @@ public class TextureData : AbstractAssetData
 
     private void SetPixels(UInt32[] pixels, Int32 width, Int32 height)
     {
-        var handle = GCHandle.Alloc(pixels, GCHandleType.Pinned);
-        try
-        {
-            Bitmap = new Bitmap(PixelFormat.Bgra8888, AlphaFormat.Unpremul, handle.AddrOfPinnedObject(), new PixelSize(width, height), new Vector(96, 96), width * 4);
-        }
-        finally
-        {
-            handle.Free();
-        }
-
+        Bitmap = BitmapOf(pixels, width, height);
         _pixels = pixels;
     }
 
@@ -279,19 +270,38 @@ public class TextureData : AbstractAssetData
         SetPixels(bits, width, height);
     }
 
+    // A bitmap of the pixels (ARGB, top row first) as they are, not premultiplied
+    internal static Bitmap BitmapOf(UInt32[] pixels, Int32 width, Int32 height)
+    {
+        var handle = GCHandle.Alloc(pixels, GCHandleType.Pinned);
+        try
+        {
+            return new Bitmap(PixelFormat.Bgra8888, AlphaFormat.Unpremul, handle.AddrOfPinnedObject(), new PixelSize(width, height), new Vector(96, 96), width * 4);
+        }
+        finally
+        {
+            handle.Free();
+        }
+    }
+
     public override ITwinItem Export(ITwinItemFactory factory)
     {
-        var texture = factory.GenerateTexture();
         if (Bitmap == null)
         {
-            return texture;
+            return factory.GenerateTexture();
         }
 
-        var textureOwner = (Texture)Owner;
+        return Build(factory, GetPixels(), Bitmap.PixelSize.Width, (Texture)Owner);
+    }
+
+    // What building makes of the pixels with the texture's settings, which the texture's viewer shows level by level
+    internal static ITwinTexture Build(ITwinItemFactory factory, UInt32[] pixels, Int32 width, Texture textureOwner)
+    {
+        var texture = factory.GenerateTexture();
         var fun = textureOwner.TextureFunction;
         var format = textureOwner.PixelFormat;
-        var tex = GetPixels().Select(argb => new Twinsanity.TwinsanityInterchange.Common.Color((Byte)(argb >> 16), (Byte)(argb >> 8), (Byte)argb, (Byte)(argb >> 24))).ToList();
-        texture.FromBitmap(tex, Bitmap.PixelSize.Width, fun, format, textureOwner.GenerateMipmaps);
+        var tex = pixels.Select(argb => new Twinsanity.TwinsanityInterchange.Common.Color((Byte)(argb >> 16), (Byte)(argb >> 8), (Byte)argb, (Byte)(argb >> 24))).ToList();
+        texture.FromBitmap(tex, width, fun, format, textureOwner.GenerateMipmaps);
         if (!textureOwner.ReservesMemory && format is ITwinTexture.TexturePixelFormat.PSMT8 or ITwinTexture.TexturePixelFormat.PSMCT32)
         {
             texture.ReservedBlocks = new Byte[2];

@@ -1,0 +1,17 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:controls="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+        mc:Ignorable="d" d:DesignWidth="500" d:DesignHeight="160"
+        x:Class="TT_Lab.Controls.NameDialogue"
+        MinWidth="380" MaxWidth="720" SizeToContent="WidthAndHeight" CanResize="False" ShowInTaskbar="False" Topmost="True" WindowStartupLocation="CenterOwner">
+    <controls:GroupBox>
+        <StackPanel Margin="10" Spacing="6">
+            <TextBlock x:Name="Message" TextWrapping="Wrap" MaxWidth="680"/>
+            <TextBox x:Name="NameBox" MinWidth="340"/>
+            <TextBlock x:Name="Problem" TextWrapping="Wrap" MaxWidth="680" Foreground="#FFE06060" IsVisible="False"/>
+            <StackPanel x:Name="Answers" Orientation="Horizontal" HorizontalAlignment="Right"/>
+        </StackPanel>
+    </controls:GroupBox>
+</Window>

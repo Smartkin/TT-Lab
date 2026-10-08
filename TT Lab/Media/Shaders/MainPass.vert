@@ -49,14 +49,29 @@ vec3 ClothOffset(vec3 position)
 	return twin_material.deform_amplitude * vec3(ClothWave(rows.x, 0), ClothWave(rows.y, 1), ClothWave(rows.z, 2));
 }
 
-// The game's environment map (VU1 program 0x1D) is a lookup by the scene's strongest lights: H is the half vector of the direction
-// to the eye and the normal, d the dot products of H with the three lights in the object's space, normalized together, and the
-// picture is read at (0.5 + 0.5 d.x, 0.5 - 0.5 d.y) clamped, plus the material's scroll. Dot products don't mind the space, so world here
+// The game's environment and metallic shaders read their pictures by directions of the object's space taken through its clip matrix
+// (VU1 programs 0x1D, 0x14 and 0x17, Rendering/EnvironmentMapping): on the camera's axes, x the shown frame's right (GL's view x mirrored,
+// the frame is shown mirrored), y up, z ahead, scaled by the game's lens (GameClipScale)
+vec3 ToGameClip(vec3 worldDirection)
+{
+	vec3 viewDirection = mat3(StartView) * worldDirection;
+	return vec3(-viewDirection.x, viewDirection.y, -viewDirection.z) * GameClipScale;
+}
+
+// The environment maps: d the way to the eye plus the normal through the clip matrix, normalized, read at (0.5 + 0.5 d.x, 0.5 - 0.5 d.y)
+// clamped, plus the scroll. The metallic one: r the way to the eye reflected off the normal through it as it is, read at
+// (0.5 + 0.5 r.x, 0.5 + 0.5 r.y) clamped, plus the scroll
 vec2 EnvironmentUv(vec3 worldPosition, vec3 worldNormal)
 {
 	vec3 toEye = normalize(EyePosition - worldPosition);
-	vec3 halfVector = normalize(toEye + normalize(worldNormal));
-	vec3 d = normalize(vec3(dot(EnvLight0, halfVector), dot(EnvLight1, halfVector), dot(EnvLight2, halfVector)));
+	vec3 normal = normalize(worldNormal);
+	if (twin_material.env_map > 1.5)
+	{
+		vec3 r = ToGameClip(2.0 * dot(toEye, normal) * normal - toEye);
+		return clamp(vec2(0.5 + 0.5 * r.x, 0.5 + 0.5 * r.y), 0.0, 1.0) + twin_material.uv_offset;
+	}
+
+	vec3 d = normalize(ToGameClip(toEye + normal));
 	return clamp(vec2(0.5 + 0.5 * d.x, 0.5 - 0.5 * d.y), 0.0, 1.0) + twin_material.uv_offset;
 }
 

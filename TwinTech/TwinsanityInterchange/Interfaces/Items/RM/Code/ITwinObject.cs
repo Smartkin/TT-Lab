@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code.AgentLab;
@@ -27,30 +28,55 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code
         }
 
         /// <summary>
-        /// All existing types of the object
+        /// What the game makes of an object's instances (the decomp's instancefactory.cpp, MakeTypeNode): each type's class keeps its own
+        /// share of the instances' properties, and only characters, creatures, generic objects and grabbables follow positions and paths
         /// </summary>
         enum ObjectType
         {
+            /// <summary>
+            /// A playable character, its instances' first integer picks which (0 Crash to 5 the Mecha-Bandicoot)
+            /// </summary>
+            [Description("A playable character: its instances' first integer picks which (0 Crash, 1 Cortex, 2 Crash without probes, 3 Nina, 4 none, 5 the Mecha-Bandicoot), a second one of a kind stands in for the first. Needs a model the game animates and the exit points and joint IDs the character code reads (the game's characters have 11 and 29)")]
             Character,
+            /// <summary>
+            /// Collected by the player, scripted or a custom pickup a pickup code model drives (its sub type)
+            /// </summary>
+            [Description("Collected by the player: scripted, or a custom pickup a pickup code model drives (its sub type). Follows no positions or paths")]
             Pickup,
+            /// <summary>
+            /// A crate, its scripts hear the characters' attacks and what lands on it hard
+            /// </summary>
+            [Description("A crate: its scripts hear the characters' attacks and what lands on it hard, it falls with a gravity of its own. Follows no positions or paths")]
             Crate,
+            /// <summary>
+            /// Enemies and other characters walking routes, with hit points, falling and snapping to the ground
+            /// </summary>
+            [Description("Enemies and other characters walking routes: hit points (third integer), falling and snapping to the ground, hit by attacks and the gun")]
             Creature,
             /// <summary>
-            /// aka Furniture, internal name by Twinsanity's engine
+            /// A scripted prop that stops physics bodies, the game's furniture
             /// </summary>
+            [Description("A scripted prop: solid to physics bodies, told when something walks into it, reads none of its own properties")]
             GenericObject,
             /// <summary>
-            /// aka ChiChiGrass
+            /// What Nina's claw locks onto: a hook to hang from or a point to leap to
             /// </summary>
+            [Description("What Nina's claw locks onto: its first integer 1 makes it a hook to hang from, else it's the count of positions to land on. Needs the target lock's state bit")]
             Grabbable,
             /// <summary>
-            /// Unused by all the objects included in the game
+            /// A wumpa fruit toll gate, no object of the game is one
             /// </summary>
+            [Description("A wumpa fruit toll gate, its third integer the fruit it takes. No object of the game is one. Follows no positions or paths")]
             PayGate,
             /// <summary>
-            /// aka Nina's Hand/Foofie in Evolution
+            /// Nina's claw rope, spawned on her by her scripts
             /// </summary>
+            [Description("Nina's claw rope, spawned on her by her scripts: it moves its model's joints 0 and 1 between her claw and its target. Follows no positions or paths")]
             Graple,
+            /// <summary>
+            /// Shot by scripts, driven by the projectile code model its first integer picks
+            /// </summary>
+            [Description("Shot by scripts, driven by the projectile code model its first integer picks instead of behaviours. Follows no positions or paths")]
             Projectile
         }
         /// <summary>
@@ -58,10 +84,9 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code
         /// </summary>
         ObjectType Type { get; set; }
         /// <summary>
-        /// Unknown type value. Used when creating object's instance
-        /// </summary>
-        /// <summary>
-        /// Bits 12-19 of the header, 1 on nearly every object, 16 and 17 pick a pickup's node
+        /// Bits 12-19 of the header, only pickups read it: 16 and 17 make a custom pickup a pickup code model drives, 16 without its instance's
+        /// properties (MakeTypeNode, MakeAgentObjectNode). The tools wrote the kind of the code model custom objects had, 17 (a pickup's) on
+        /// the red wumpa and 18 (a projectile's) on the projectiles, and 1 on everything else
         /// </summary>
         Byte SubType { get; set; }
         /// <summary>

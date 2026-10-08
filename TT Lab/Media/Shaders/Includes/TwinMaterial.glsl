@@ -36,8 +36,7 @@ struct TwinMaterial {
     vec2 reflect_dist; // x is 1 or 0 for enabled/disabled, y is for actual distance
     float alpha_test;
     float alpha_blend; // 0 is off, 1 is on
-    float metalic_specular;
-    float env_map; // 0 is off, 1 is on
+    float env_map; // 0 is off, 1 reads the picture like the environment maps, 2 like the metallic shader
     int blend_func;
     float editor_shading; // 0 is off, 1 shades flat by the triangles' facing (collision)
     float lit; // 0 is off, 1 lights the vertex colors with the object's lights

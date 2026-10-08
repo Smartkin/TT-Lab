@@ -45,10 +45,26 @@ Parts refer to materials by their index in `materials`. A material is one of the
 ```
 
 or, for a material made in Blender that the project doesn't have yet, an embedded one TT Lab turns into project assets when it
-loads the file:
+loads the file (`blender_id` finds the one it made before):
 
 ```json
-{ "name": "New material", "shaders": [ { ...Twin Tech shader fields... } ], "image": { "png": <u8 view>, "name": "wood.png" } }
+{ "name": "New material", "blender_id": "<uuid>", "alpha": "BLEND", "image": { "png": <u8 view>, "name": "wood.png" } }
+```
+
+which TT Lab makes an unlit material of its image (a skin's the skinned shader), blended with `"alpha": "BLEND"` and a cut-out
+of `alpha_cutoff` with `"alpha": "CLIP"`.
+
+A material with Twin Tech settings in Blender has `data`: the material as TT Lab keeps it in its data file (Newtonsoft's JSON of
+`MaterialData`: `Name`, `DmaChainIndex`, `Shaders` with every `LabShader` field, enums as numbers, the vectors as their floats'
+bits). A project material only has it when it was changed in Blender, with the changes over what the project had when the file
+was written; a material made in Blender always has it, and no `image`. TT Lab gives the material those settings and saves it, then
+writes the file again without them. A shader drawing a picture made in Blender has `"Image": <index>` into the entry's `images`,
+which TT Lab makes textures of the project (found again by their `blender_id`, given the picture's pixels when they changed):
+
+```json
+{ "uri": "res://Global PS2_Project/Material/lambert2", "name": "lambert2",
+  "data": { "Name": "lambert2", "DmaChainIndex": 2, "Shaders": [ { "ShaderType": 2, "ABlending": 1, "Image": 0, ... } ] },
+  "images": [ { "png": <u8 view>, "name": "Painted", "blender_id": "<uuid>" } ] }
 ```
 
 ## Nodes

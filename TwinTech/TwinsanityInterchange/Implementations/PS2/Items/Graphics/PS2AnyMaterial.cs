@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Twinsanity.Libraries;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Implementations.Base;
 using Twinsanity.TwinsanityInterchange.Interfaces;
@@ -31,7 +32,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.Graphics
             ActivatedShaders = (AppliedShaders)reader.ReadUInt64();
             DmaChainIndex = reader.ReadUInt32();
             Int32 NameLen = reader.ReadInt32();
-            Name = new string(reader.ReadChars(NameLen - 1));
+            Name = GameText.ReadString(reader, NameLen - 1);
             reader.ReadChar();
             Int32 shaderCount = reader.ReadInt32();
             Shaders.Clear();
@@ -48,7 +49,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.Graphics
             writer.Write((UInt64)ActivatedShaders);
             writer.Write(DmaChainIndex);
             writer.Write(Name.Length + 1);
-            writer.Write(Name.ToCharArray());
+            GameText.Write(writer, Name);
             writer.Write('\0');
             writer.Write(Shaders.Count);
             foreach (ITwinSerializable shader in Shaders)

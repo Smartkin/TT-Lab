@@ -48,6 +48,8 @@
                         <NumericUpDown Width="120" Minimum="0.05" Maximum="4" Increment="0.25" FormatString="0.##" Value="{Binding Speed}"/>
                     </StackPanel>
                 </WrapPanel>
+                <CheckBox Margin="5,0,5,5" IsChecked="{Binding ShowsSkeleton}" IsVisible="{Binding CanShowSkeleton}" Content="Skeleton"
+                          ToolTip.Tip="Draws the model's joints, the root's bigger, and the bones between them over the model, in the pose it's shown in"/>
             </StackPanel>
         </controls1:GroupBox>
     </labControls:FitToScrollViewport>

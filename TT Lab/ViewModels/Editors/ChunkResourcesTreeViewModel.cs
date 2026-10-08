@@ -416,6 +416,12 @@ public sealed partial class ChunkResourcesTreeViewModel(DocumentViewModel docume
             return;
         }
 
+        if (!NameRules.IsAscii(name))
+        {
+            Log.WriteLine($"{row.Caption} isn't renamed to {name}: a name {NameRules.AsciiOnly}", Log.LogType.Warning);
+            return;
+        }
+
         // Through the document, so it's a step to undo and gets saved with the chunk
         row.Element?.Find($"[data].{nameof(IAsset.Alias)}")?.SetValue(name);
     }

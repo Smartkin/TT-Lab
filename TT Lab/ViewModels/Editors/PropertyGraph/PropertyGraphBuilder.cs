@@ -76,8 +76,9 @@ public static class PropertyGraphBuilder
         return node;
     }
 
-    // A value its getter makes anew every time (a vector of the scenery's bounds): its parts are read from the value the getter gives and
-    // set by setting the whole value, like a bit of flags
+    // A value its getter makes anew every time (the scenery's bounds, the vectors of their middle and half size): its parts are read from the
+    // value the getter gives and set by setting the whole value, like a bit of flags, and parts of parts the same way down to the plain
+    // ones. The whole value is what changes, what the history keeps
     private static void BuildComputedParts(PropertyNode node, string path)
     {
         if (node.GetValue() is not { } value)
@@ -87,9 +88,8 @@ public static class PropertyGraphBuilder
 
         foreach (var part in DocumentMetadataCache.Get(value.GetType()).Properties)
         {
-            Debug.Assert(IsLeaf(part.PropertyInfo.PropertyType), "Only a computed value's plain parts can be set through it");
             var name = part.PropertyInfo.Name;
-            node.AddChild(new PropertyNode(name, $"{path}.{name}", value, part)
+            var partNode = new PropertyNode(name, $"{path}.{name}", value, part)
             {
                 SetsParent = true,
                 GetValueDelegate = partNode => part.PropertyInfo.GetValue(partNode.Parent!.GetValue())!,
@@ -100,7 +100,12 @@ public static class PropertyGraphBuilder
                     part.PropertyInfo.SetValue(whole, partValue);
                     partNode.Parent.SetValue(whole);
                 },
-            });
+            };
+            node.AddChild(partNode);
+            if (!IsLeaf(part.PropertyInfo.PropertyType))
+            {
+                BuildComputedParts(partNode, $"{path}.{name}");
+            }
         }
     }
 
@@ -262,7 +267,11 @@ public static class PropertyGraphBuilder
                     PropertyInfo = node.Metadata!.PropertyInfo,
                 }, target.GetType())
                 {
-                    GetValueDelegate = propertyNode => propertyNode.Target
+                    GetValueDelegate = propertyNode => propertyNode.Target,
+                    // What the custom editor makes anew is its parent's value (a picture or a sound replacing the asset's data): set
+                    // as its own, the parent's property was set on the value itself and threw
+                    SetValueDelegate = (propertyNode, value) => propertyNode.Parent!.SetValue(value),
+                    SetsParent = true
                 };
             node.AddChild(customEditorNode);
             return;
@@ -281,7 +290,7 @@ public static class PropertyGraphBuilder
         }
     }
 
-    private static bool IsLeaf(Type type)
+    internal static bool IsLeaf(Type type)
     {
         return type.IsPrimitive || type.IsEnum || type == typeof(string) || type == typeof(decimal);
     }
@@ -296,7 +305,7 @@ public static class PropertyGraphBuilder
         return type.IsEnum && type.GetCustomAttribute<FlagsAttribute>() != null;
     }
 
-    private static bool IsIndexableCollection(Type type)
+    internal static bool IsIndexableCollection(Type type)
     {
         return type.IsArray || typeof(IList).IsAssignableFrom(type);
     }

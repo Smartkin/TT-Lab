@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using TT_Lab.Command;
 using TT_Lab.Project;
 using TT_Lab.Services;
+using TT_Lab.Util;
 
 namespace TT_Lab.ViewModels;
 
@@ -37,6 +38,8 @@ public class ProjectCreationViewModel : Screen, INotifyDataErrorInfo
 
     const Int32 PROJECT_NAME_LIMIT = 32;
     const String PROJECT_NAME_INVALID_CHARS_ERROR = "Project name must not contain invalid characters";
+    // The project's packages are named after it
+    const String PROJECT_NAME_NOT_ASCII_ERROR = "Project name " + NameRules.AsciiOnly;
     const String PROJECT_NAME_EMPTY_ERROR = "Project name must not be empty";
     const String PROJECT_NAME_TOO_LONG_ERROR = "Project name must be less than 32 characters long";
     const String PROJECT_PATH_EMPTY_ERROR = "Project path must not be empty";
@@ -132,6 +135,16 @@ public class ProjectCreationViewModel : Screen, INotifyDataErrorInfo
         else
         {
             _dataValidatorService.RemoveError(nameof(ProjectName), PROJECT_NAME_INVALID_CHARS_ERROR);
+        }
+
+        if (!NameRules.IsAscii(projectName))
+        {
+            _dataValidatorService.AddError(nameof(ProjectName), PROJECT_NAME_NOT_ASCII_ERROR);
+            isValid = false;
+        }
+        else
+        {
+            _dataValidatorService.RemoveError(nameof(ProjectName), PROJECT_NAME_NOT_ASCII_ERROR);
         }
             
         if (!string.IsNullOrEmpty(projectName) && Directory.Exists(ProjectPath + "/" + projectName))

@@ -11,6 +11,7 @@ using TT_Lab.Assets.Factory;
 using TT_Lab.Attributes;
 using TT_Lab.Util;
 using TT_Lab.ViewModels.Editors;
+using Twinsanity.Libraries;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Layout;
 using Twinsanity.TwinsanityInterchange.Interfaces;
@@ -43,6 +44,7 @@ public class InstanceTemplateData : AbstractAssetData
 
     [JsonProperty(Required = Required.Always)]
     [Editable(Hint = "The tools' name of the template. The game reads templates into a table it never looks up, so nothing of a template does anything in the game")]
+    [EditorParam(TextFieldViewModel.TextFieldAsciiOnly, true)]
     public String TemplateName { get; set; }
 
     [JsonProperty(Required = Required.Always)]
@@ -111,7 +113,7 @@ public class InstanceTemplateData : AbstractAssetData
         using var ms = new MemoryStream();
         using var writer = new BinaryWriter(ms);
         writer.Write(TemplateName.Length);
-        writer.Write(TemplateName.ToCharArray());
+        GameText.Write(writer, TemplateName);
         writer.Write((UInt16)gameObject.ExportTwinID);
         writer.Write(objectData.SubType);
         writer.Write((Byte)objectData.Type);

@@ -18,12 +18,12 @@
 """Importing and exporting TT Lab model files, and picking the project's materials."""
 
 import os
+import traceback
 
 import bpy
 from bpy_extras.io_utils import ExportHelper, ImportHelper
 
 from . import collision_builder
-from . import project as projects
 from . import retarget
 from . import tlm
 from . import tlm_blender
@@ -56,6 +56,31 @@ class TTT_OT_ImportTlm(bpy.types.Operator, ImportHelper):
         return {"FINISHED"}
 
 
+def _model_to_export(context):
+    """The model the export writes, the active object's or else the one the selection is of, and what's wrong when there's none."""
+    root = tlm_blender.find_root(context.object)
+    if root is not None:
+        return root, None
+
+    roots = []
+    for selected in context.selected_objects:
+        found = tlm_blender.find_root(selected)
+        if found is not None and found not in roots:
+            roots.append(found)
+
+    if len(roots) == 1:
+        return roots[0], None
+
+    if len(roots) > 1:
+        return None, "Several models are selected (%s): select the one to export, or click it last" % ", ".join(found.name for found in roots)
+
+    if context.object is None:
+        return None, "Nothing is selected: select the model to export, its root or anything under it"
+
+    return None, ("%s isn't part of a TT Lab model: a model is what's under the root an import or Add > Twin Tech makes. Select the model, or put "
+                  "%s under a model's root (an armature and its meshes under an OGI's)" % (context.object.name, context.object.name))
+
+
 class TTT_OT_ExportTlm(bpy.types.Operator, ExportHelper):
     """Exports the selected TT Lab model back into a TT Lab model file, the file it came from by default"""
 
@@ -66,13 +91,26 @@ class TTT_OT_ExportTlm(bpy.types.Operator, ExportHelper):
     filename_ext = ".tlm"
     filter_glob: bpy.props.StringProperty(default="*.tlm", options={"HIDDEN"})
 
+    # Always offered: pressing it says what keeps the scene from being exported
     @classmethod
     def poll(cls, context):
-        return tlm_blender.find_root(context.object) is not None
+        return True
+
+    def _check(self, context):
+        root, problem = _model_to_export(context)
+        problem = problem or tlm_blender.export_problem(root)
+        if problem is not None:
+            self.report({"ERROR"}, "Can't export: %s" % problem)
+            return None
+
+        return root
 
     def invoke(self, context, event):
-        root = tlm_blender.find_root(context.object)
-        source = root.get(tlm_blender.PATH_PROPERTY, "") if root is not None else ""
+        root = self._check(context)
+        if root is None:
+            return {"CANCELLED"}
+
+        source = root.get(tlm_blender.PATH_PROPERTY, "")
         if source:
             self.filepath = source
 
@@ -80,19 +118,20 @@ class TTT_OT_ExportTlm(bpy.types.Operator, ExportHelper):
         return {"RUNNING_MODAL"}
 
     def execute(self, context):
-        root = tlm_blender.find_root(context.object)
+        _in_object_mode(context)
+        root = self._check(context)
         if root is None:
-            self.report({"ERROR"}, "Select an object of a TT Lab model")
             return {"CANCELLED"}
-
-        if context.object is not None and context.object.mode != "OBJECT":
-            bpy.ops.object.mode_set(mode="OBJECT")
 
         context.view_layer.update()
         try:
             warnings = tlm_blender.export_file(root, self.filepath)
         except (OSError, tlm.TlmError, ValueError) as error:
             self.report({"ERROR"}, "Couldn't export %s: %s" % (os.path.basename(self.filepath), error))
+            return {"CANCELLED"}
+        except Exception as error:  # noqa: BLE001 - a setup nothing checks for yet, said instead of Blender's Python error
+            traceback.print_exc()
+            self.report({"ERROR"}, "Couldn't export %s: %s (%s), the system console has the details" % (os.path.basename(self.filepath), error, type(error).__name__))
             return {"CANCELLED"}
 
         for warning in warnings:
@@ -116,10 +155,10 @@ def _in_object_mode(context):
 
 
 class TTT_OT_NewOgi(bpy.types.Operator):
-    """Makes a new OGI model to build a game object's model in: its root, an armature whose only bone is joint 0, a box skin the
-    joint deforms and the holders the rigid bodies, exit points and collision hulls go under. Replace the box with the model's mesh,
-    add bones and animations as needed, keep the root's bounding box around the skin and export it over an OGI's file in a TT Lab
-    project to make that OGI the model"""
+    """Makes a new OGI model to build a game object's model in: its root, an armature of joint 0 and joint 1, a box rigid body on joint 1,
+    an empty skin and blend skin the armature deforms and the holders the exit points and collision hulls go under. Replace the box or
+    fill the skin with the model's meshes, add bones and animations as needed, keep the root's bounding box around the meshes and export
+    it over an OGI's file in a TT Lab project to make that OGI the model"""
 
     bl_idname = "ttt.new_ogi"
     bl_label = "OGI Model"
@@ -148,6 +187,22 @@ class TTT_OT_NewScenery(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class TTT_OT_NewSaveIcon(bpy.types.Operator):
+    """Makes a new PS2 memory card icon: its root with the game's icon's settings, a box mesh with a material made in Blender whose
+    picture becomes the icon's 128x128 texture. Add shape keys for its shapes and keys on them for its animation, and export it over the
+    startup folder's Crash.ico file in a TT Lab project"""
+
+    bl_idname = "ttt.new_save_icon"
+    bl_label = "PS2 Save Icon"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        _in_object_mode(context)
+        root = tlm_templates.new_save_icon(context)
+        _select_only(context, root)
+        return {"FINISHED"}
+
+
 class TTT_MT_Add(bpy.types.Menu):
     """New models to build in Blender, laid out the way TT Lab's are"""
 
@@ -157,54 +212,61 @@ class TTT_MT_Add(bpy.types.Menu):
     def draw(self, context):
         self.layout.operator(TTT_OT_NewOgi.bl_idname, icon="OUTLINER_OB_ARMATURE")
         self.layout.operator(TTT_OT_NewScenery.bl_idname, icon="WORLD")
+        self.layout.operator(TTT_OT_NewSaveIcon.bl_idname, icon="IMAGE_DATA")
 
 
-class TTT_OT_RetargetAndReplace(bpy.types.Operator, ImportHelper):
-    """Imports another TT Lab model file and puts it in this model's place, playing this model's animations: its bones get this
-    model's joint names, indexes and settings (a bone with one of the joint indexes is that joint while the file's skeleton is this
-    model's, then bones named like this model's, then the hierarchy in order, the rest new joints), every animation of this model
-    becomes one of the new model's, in which the matched bones turn from their own rests as much as this model's do on every frame and
-    move as far, and this model is removed with its own animations. The file's own animations are dropped, the new model takes this
-    model's file and name. Export the model afterwards"""
+_MATCH_ITEMS = [
+    (retarget.MATCH_AUTO, "Automatically", "Joint indexes when the target's skeleton is the source's (every joint they share has the same parent), names and then the hierarchy otherwise"),
+    (retarget.MATCH_INDEX, "Joint Indexes", "A bone with one of the source's joint indexes is that joint, whatever its place: for a copy of the source's skeleton"),
+    (retarget.MATCH_NAME, "Names, Then The Hierarchy", "Indexes are left out, exporting numbers any rig's bones: bones named like the source's joints are those, the rest by their place in the hierarchy"),
+    (retarget.MATCH_NAME_ONLY, "Name Only", "Bones named like the source's joints are those joints and nothing else matches: the target's other bones stay as they are, new "
+                                         "joints keeping their names. The matched bones have to be under each other like the joints are, other bones may be in between"),
+]
 
-    bl_idname = "ttt.retarget_and_replace"
-    bl_label = "Retarget Another TLM And Replace The Current Model"
+
+def _is_armature(self, blender_object):
+    return blender_object.type == "ARMATURE"
+
+
+class TTT_OT_Retarget(bpy.types.Operator):
+    """Plays the source armature's animations on the target armature: the target's bones get the source's joint names, indexes and
+    settings (by joint index while the target's skeleton is the source's, then by name, then by the hierarchy in order, the rest new
+    joints), every animation of the source becomes the target's under the same name and ID, in which the matched bones turn from their own
+    rests as much as the source's do on every frame and move as far, and the source's own animations go. Export the target's model
+    afterwards"""
+
+    bl_idname = "ttt.retarget"
+    bl_label = "Perform Retargeting"
     bl_options = {"REGISTER", "UNDO"}
 
-    filename_ext = ".tlm"
-    filter_glob: bpy.props.StringProperty(default="*.tlm", options={"HIDDEN"})
-    match: bpy.props.EnumProperty(
-        name="Match Bones By",
-        items=[
-            (retarget.MATCH_AUTO, "Automatically", "Joint indexes when the file's skeleton is this model's (every joint they share has the same parent), names and then the hierarchy otherwise"),
-            (retarget.MATCH_INDEX, "Joint Indexes", "A bone with one of this model's joint indexes is that joint, whatever its place: for a copy of this model's skeleton"),
-            (retarget.MATCH_NAME, "Names, Then The Hierarchy", "Indexes are left out, exporting numbers any rig's bones: bones named like this model's joints are those, the rest by their place in the hierarchy"),
-        ],
-        default=retarget.MATCH_AUTO)
-
+    # Always offered: pressing it says what's missing
     @classmethod
     def poll(cls, context):
-        root = tlm_blender.find_root(context.object)
-        return root is not None and root.get(tlm_blender.KIND_PROPERTY) == "ogi" and tlm_blender.armature_of(root) is not None
+        return True
 
     def execute(self, context):
-        root = tlm_blender.find_root(context.object)
-        if root is None:
-            self.report({"ERROR"}, "Select an object of a TT Lab model")
+        scene = context.scene
+        source, target = scene.ttt_retarget_source, scene.ttt_retarget_target
+        problem = tlm_blender.retarget_problem(source, target)
+        if problem is not None:
+            self.report({"ERROR"}, "Can't retarget: %s" % problem)
             return {"CANCELLED"}
 
         _in_object_mode(context)
-        name = root.name
+        source_name, target_name = source.name, target.name
         try:
-            replaced, count, matched = tlm_blender.retarget_and_replace(context, root, self.filepath, self.match)
-        except (OSError, tlm.TlmError, ValueError) as error:
-            self.report({"ERROR"}, "Couldn't put %s in the model's place: %s" % (self.filepath, error))
+            count, matched, taken = tlm_blender.retarget_armature(context, source, target, scene.ttt_retarget_match)
+        except ValueError as error:
+            self.report({"ERROR"}, "Can't retarget: %s" % error)
             return {"CANCELLED"}
 
-        _select_only(context, replaced)
         how = ", ".join("%d by %s" % (matched[way], label) for way, label in ((retarget.BY_INDEX, "joint index"), (retarget.BY_NAME, "name"),
-                                                                             (retarget.BY_ORDER, "the hierarchy"), (retarget.NEW, "none, new joints")) if matched.get(way))
-        self.report({"INFO"}, "%s is now %s, playing %d retargeted animations; bones matched %s" % (name, os.path.basename(self.filepath), count, how))
+                                                                             (retarget.BY_ORDER, "the hierarchy"), (retarget.NEW, "none, new joints"),
+                                                                             (retarget.KEPT, "none, kept as they are")) if matched.get(way))
+        self.report({"INFO"}, "%s plays the %d animations of %s now; bones matched %s" % (target_name, count, source_name, how))
+        if taken:
+            self.report({"WARNING"}, "Other actions are named %s already, so these kept Blender's numbers" % ", ".join(taken))
+
         return {"FINISHED"}
 
 
@@ -216,7 +278,7 @@ def _surface_items(self, context):
     root = tlm_blender.find_root(context.object) if context is not None else None
     collision = tlm_scenery.collision_of(root) if root is not None else None
     names = [material.name for material in collision.data.materials if material is not None] if collision is not None else []
-    names += sorted(material.name for material in bpy.data.materials if tlm_scenery.is_surface(material) and material.name not in names)
+    names += sorted(material.name for material in bpy.data.materials if material.users > 0 and tlm_scenery.is_surface(material) and material.name not in names)
     if not names:
         names.append(tlm_templates.DEFAULT_SURFACE)
 
@@ -311,8 +373,8 @@ class TTT_PT_Model(bpy.types.Panel):
 
 
 class TTT_PT_Retargeting(bpy.types.Panel):
-    """Plays the model's animations on another model: the other model's file takes this one's place with its joints named like
-    this model's and this model's animations retargeted to it"""
+    """Plays one armature's animations on another: the target's bones become the source's joints and the source's animations the
+    target's, retargeted to its bones"""
 
     bl_label = "Twin Tech Animation Retargeting"
     bl_space_type = "PROPERTIES"
@@ -322,132 +384,20 @@ class TTT_PT_Retargeting(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
-        root = tlm_blender.find_root(context.object)
-        return root is not None and root.get(tlm_blender.KIND_PROPERTY) == "ogi"
+        return context.object is not None
 
     def draw(self, context):
         layout = self.layout
-        root = tlm_blender.find_root(context.object)
-        armature = tlm_blender.armature_of(root)
-        if armature is None:
-            layout.label(text="%s has no armature to retarget from" % root.name, icon="ERROR")
-            return
+        scene = context.scene
+        layout.prop(scene, "ttt_retarget_source", icon="ARMATURE_DATA")
+        layout.prop(scene, "ttt_retarget_target", icon="ARMATURE_DATA")
+        layout.prop(scene, "ttt_retarget_match")
+        source = scene.ttt_retarget_source
+        if source is not None and source.type == "ARMATURE":
+            count = len(tlm_blender._owned_actions(tlm_blender.find_root(source), source, [bone.name for bone in source.data.bones]))
+            layout.label(text="%d animations of %s" % (count, source.name), icon="ACTION")
 
-        count = len(tlm_blender.animations_of(root))
-        layout.label(text="%d animations of %s" % (count, root.name), icon="ACTION")
-        column = layout.column(align=True)
-        column.label(text="Another model file takes this model's place,")
-        column.label(text="playing them retargeted to its joints")
-        layout.operator(TTT_OT_RetargetAndReplace.bl_idname, icon="FILE_3D")
-
-
-def _project_of(context):
-    root = tlm_blender.find_root(context.object)
-    path = root.get(tlm_blender.PATH_PROPERTY, "") if root is not None else ""
-    if not path:
-        path = bpy.data.filepath
-
-    return projects.open_project(path) if path else None, root
-
-
-_material_items_cache = []
-
-
-def _material_items(self, context):
-    project, root = _project_of(context)
-    if project is None:
-        _material_items_cache[:] = [("NONE", "No TT Lab project", "The model isn't part of a TT Lab project")]
-        return _material_items_cache
-
-    path = root.get(tlm_blender.PATH_PROPERTY, "") if root is not None else ""
-    package = projects.package_of(project.root, path) if path else None
-    platform = projects.platform_of(package) if package else None
-    _material_items_cache[:] = [(material.uri, material.label, material.uri) for material in project.materials_of_packages([])
-                                if platform is None or projects.platform_of(material.package) in (platform, None)]
-    return _material_items_cache
-
-
-class TTT_OT_PickProjectMaterial(bpy.types.Operator):
-    """Draws the material with one of the project's materials"""
-
-    bl_idname = "ttt.pick_project_material"
-    bl_label = "Pick Project Material"
-    bl_options = {"REGISTER", "UNDO"}
-    bl_property = "material"
-
-    material: bpy.props.EnumProperty(name="Material", items=_material_items)
-
-    @classmethod
-    def poll(cls, context):
-        return context.material is not None
-
-    def invoke(self, context, event):
-        context.window_manager.invoke_search_popup(self)
-        return {"RUNNING_MODAL"}
-
-    def execute(self, context):
-        if self.material == "NONE":
-            return {"CANCELLED"}
-
-        project, _ = _project_of(context)
-        material = context.material
-        material[tlm_blender.URI_PROPERTY] = self.material
-        project_material = project.materials.get(self.material) if project is not None else None
-        if project_material is not None:
-            material.name = project_material.name
-
-        tlm_blender.show_project_material(material, project)
-        return {"FINISHED"}
-
-
-class TTT_OT_ReloadProject(bpy.types.Operator):
-    """Reads the project's materials and textures again, after they were changed in TT Lab"""
-
-    bl_idname = "ttt.reload_project"
-    bl_label = "Reload Project Materials"
-    bl_options = {"REGISTER", "UNDO"}
-
-    def execute(self, context):
-        root = tlm_blender.find_root(context.object)
-        path = root.get(tlm_blender.PATH_PROPERTY, "") if root is not None else ""
-        project = projects.open_project(path, refresh=True) if path else None
-        if project is None:
-            self.report({"WARNING"}, "The model isn't part of a TT Lab project")
-            return {"CANCELLED"}
-
-        for material in bpy.data.materials:
-            if material.get(tlm_blender.URI_PROPERTY):
-                tlm_blender.show_project_material(material, project)
-
-        for image in bpy.data.images:
-            if image.filepath:
-                image.reload()
-
-        return {"FINISHED"}
-
-
-class TTT_PT_ProjectMaterial(bpy.types.Panel):
-    bl_label = "Twin Tech Project Material"
-    bl_space_type = "PROPERTIES"
-    bl_region_type = "WINDOW"
-    bl_context = "material"
-
-    @classmethod
-    def poll(cls, context):
-        return context.material is not None and tlm_blender.find_root(context.object) is not None
-
-    def draw(self, context):
-        layout = self.layout
-        material = context.material
-        uri = material.get(tlm_blender.URI_PROPERTY, "")
-        if uri:
-            layout.label(text=uri, icon="MATERIAL")
-        else:
-            layout.label(text="Made in Blender, TT Lab adds it to the project", icon="INFO")
-
-        row = layout.row()
-        row.operator(TTT_OT_PickProjectMaterial.bl_idname, icon="VIEWZOOM")
-        row.operator(TTT_OT_ReloadProject.bl_idname, icon="FILE_REFRESH", text="")
+        layout.operator(TTT_OT_Retarget.bl_idname, icon="PLAY")
 
 
 def _menu_import(self, context):
@@ -464,6 +414,11 @@ def _menu_add(self, context):
 
 
 def register():
+    bpy.types.Scene.ttt_retarget_source = bpy.props.PointerProperty(type=bpy.types.Object, name="Source Armature", poll=_is_armature,
+                                                                    description="The armature playing the animations, they go to the target")
+    bpy.types.Scene.ttt_retarget_target = bpy.props.PointerProperty(type=bpy.types.Object, name="Target Armature", poll=_is_armature,
+                                                                    description="The armature to play the source's animations, its bones become the source's joints")
+    bpy.types.Scene.ttt_retarget_match = bpy.props.EnumProperty(name="Match Bones By", items=_MATCH_ITEMS, default=retarget.MATCH_AUTO)
     bpy.types.TOPBAR_MT_file_import.append(_menu_import)
     bpy.types.TOPBAR_MT_file_export.append(_menu_export)
     bpy.types.VIEW3D_MT_add.append(_menu_add)
@@ -473,3 +428,6 @@ def unregister():
     bpy.types.VIEW3D_MT_add.remove(_menu_add)
     bpy.types.TOPBAR_MT_file_import.remove(_menu_import)
     bpy.types.TOPBAR_MT_file_export.remove(_menu_export)
+    for name in ("ttt_retarget_source", "ttt_retarget_target", "ttt_retarget_match"):
+        if hasattr(bpy.types.Scene, name):
+            delattr(bpy.types.Scene, name)

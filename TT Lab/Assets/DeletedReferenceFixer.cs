@@ -59,6 +59,12 @@ public sealed class DeletedReferenceFixer(IReadOnlySet<LabURI> deletedAssets, IR
             return;
         }
 
+        // What isn't stored is worked out of what is (an OGI's material slots of its models' parts), reading it loaded what it's made of
+        if (property.GetCustomAttribute<Newtonsoft.Json.JsonIgnoreAttribute>() != null)
+        {
+            return;
+        }
+
         var action = property.GetCustomAttribute<OnReferenceDeletedAttribute>()?.Action ?? DeletedReferenceAction.ReplaceWithPlaceholder;
         switch (property.GetValue(owner))
         {

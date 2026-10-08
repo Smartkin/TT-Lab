@@ -86,4 +86,9 @@ public static class EnumCaptions
     /// Shows an enum value by its caption
     /// </summary>
     public static IValueConverter Converter { get; } = new FuncValueConverter<object?, string?>(value => value is Enum member ? Of(member.GetType(), member.ToString()) : value?.ToString());
+
+    /// <summary>
+    /// What the game does with an enum value, for its choice's tooltip
+    /// </summary>
+    public static IValueConverter HintConverter { get; } = new FuncValueConverter<object?, string?>(value => value is Enum member ? HintOf(member.GetType(), member.ToString()) : null);
 }

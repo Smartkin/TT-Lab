@@ -265,6 +265,8 @@ public partial class PrefabsViewModel : Document, IHandle<ProjectManagerMessage>
         // shown (PrefabsView), so a panel opened after the project shows what the project has
         eventAggregator.SubscribeOnUIThread(this);
         pictures.Taken += prefab => Dispatcher.UIThread.Post(() => ShowPicture(prefab), DispatcherPriority.Background);
+        // Moving assets gives the prefabs' files their new links, the prefabs shown are read again
+        AssetRelocation.Relocated += () => Dispatcher.UIThread.Post(Refresh);
         pictures.ProgressChanged += ShowPicturesProgress;
         ClearSearchCommand = ReactiveCommand.Create(() =>
         {

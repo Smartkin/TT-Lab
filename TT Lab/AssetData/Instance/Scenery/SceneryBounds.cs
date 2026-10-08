@@ -9,10 +9,22 @@ namespace TT_Lab.AssetData.Instance.Scenery;
 /// whose cell holds the instance's box (<c>FUN_001eb250</c>, <c>FUN_001fa4b0</c> with 5e-05 of play), and an instance in none is left
 /// out of the level's collision checks: on a new chunk whose root was the cell of its flat ground Crash crept along without jumping and
 /// stopped at the edge. Every retail root is a box around the origin well past its level. Edited as its middle and half size, kept as its
-/// corners (<see cref="SceneryData.BoundsMin"/>, <see cref="SceneryData.BoundsMax"/>)
+/// corners (<see cref="SceneryData.BoundsMin"/>, <see cref="SceneryData.BoundsMax"/>): a value of the corners, which the history keeps,
+/// so undo puts them back to the bit. Undone through the middle's or the half size's setter they were only as close as floats get, and a
+/// middle typed far enough out to round the half size away lost it for good
 /// </summary>
-public sealed class SceneryBounds(SceneryData scenery)
+public sealed record SceneryBounds
 {
+    public SceneryBounds(System.Numerics.Vector3 min, System.Numerics.Vector3 max)
+    {
+        Min = min;
+        Max = max;
+    }
+
+    public System.Numerics.Vector3 Min { get; private set; }
+
+    public System.Numerics.Vector3 Max { get; private set; }
+
     /// <summary>
     /// What new chunks get, about the size of the game's levels
     /// </summary>
@@ -26,25 +38,42 @@ public sealed class SceneryBounds(SceneryData scenery)
     [Editable(IsComputed = true, Hint = "The middle of the box the game keeps the chunk's objects in. An object outside of it has nothing under it: it has to hold every place objects go")]
     public Vector3 Center
     {
-        get => ToTwin(CenterOf(scenery));
-        set => SetCell(scenery, ToGlm(value), HalfSizeOf(scenery));
+        get => ToTwin(CenterOf(Min, Max));
+        set => (Min, Max) = Corners(ToGlm(value), HalfSizeOf(Min, Max));
     }
 
     [Editable(Caption = "Half Size", IsComputed = true, Hint = "How far the box reaches from its middle along each axis, the scale tool of the viewport sets it")]
     public Vector3 HalfSize
     {
-        get => ToTwin(HalfSizeOf(scenery));
-        set => SetCell(scenery, CenterOf(scenery), vec3.Abs(ToGlm(value)));
+        get => ToTwin(HalfSizeOf(Min, Max));
+        set => (Min, Max) = Corners(CenterOf(Min, Max), vec3.Abs(ToGlm(value)));
     }
 
-    public static vec3 CenterOf(SceneryData scenery) => (ToGlm(scenery.BoundsMin) + ToGlm(scenery.BoundsMax)) * 0.5f;
+    // The middle ± the half size, what the history shows of a step
+    public override string ToString()
+    {
+        var center = CenterOf(Min, Max);
+        var halfSize = HalfSizeOf(Min, Max);
+        return $"({center.x}, {center.y}, {center.z}) ± ({halfSize.x}, {halfSize.y}, {halfSize.z})";
+    }
 
-    public static vec3 HalfSizeOf(SceneryData scenery) => (ToGlm(scenery.BoundsMax) - ToGlm(scenery.BoundsMin)) * 0.5f;
+    public static vec3 CenterOf(SceneryData scenery) => CenterOf(scenery.BoundsMin, scenery.BoundsMax);
+
+    public static vec3 HalfSizeOf(SceneryData scenery) => HalfSizeOf(scenery.BoundsMin, scenery.BoundsMax);
+
+    private static vec3 CenterOf(System.Numerics.Vector3 min, System.Numerics.Vector3 max) => (ToGlm(min) + ToGlm(max)) * 0.5f;
+
+    private static vec3 HalfSizeOf(System.Numerics.Vector3 min, System.Numerics.Vector3 max) => (ToGlm(max) - ToGlm(min)) * 0.5f;
+
+    private static (System.Numerics.Vector3 Min, System.Numerics.Vector3 Max) Corners(vec3 center, vec3 halfSize)
+    {
+        return (new System.Numerics.Vector3(center.x - halfSize.x, center.y - halfSize.y, center.z - halfSize.z),
+            new System.Numerics.Vector3(center.x + halfSize.x, center.y + halfSize.y, center.z + halfSize.z));
+    }
 
     public static void SetCell(SceneryData scenery, vec3 center, vec3 halfSize)
     {
-        scenery.BoundsMin = new System.Numerics.Vector3(center.x - halfSize.x, center.y - halfSize.y, center.z - halfSize.z);
-        scenery.BoundsMax = new System.Numerics.Vector3(center.x + halfSize.x, center.y + halfSize.y, center.z + halfSize.z);
+        (scenery.BoundsMin, scenery.BoundsMax) = Corners(center, halfSize);
     }
 
     /// <summary>

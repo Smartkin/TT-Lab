@@ -1,3 +1,5 @@
+using Newtonsoft.Json;
+using TT_Lab.AssetData.Graphics;
 using TT_Lab.AssetData.Graphics.Shaders;
 using TT_Lab.Rendering.Materials;
 using Twinsanity.TwinsanityInterchange.Common.ShaderAnimation;
@@ -128,5 +130,18 @@ public class ShaderAnimationTracksTests
         Assert.Equal(short.MinValue, ShaderAnimationTracks.ToRaw(-100.0f));
         Assert.Equal(2048, ShaderAnimationTracks.ToRaw(0.5f));
         Assert.Equal(31, ShaderAnimationTracks.SetFramesPerSecond(ShaderAnimationTracks.Create(), 60).FramesPerSecond);
+    }
+
+    // The material's data file keeps every frame's values, which reading it back (replacing what the data had) left out
+    [Fact]
+    public void AnAnimationComesBackFromTheDataFileAsItWas()
+    {
+        var material = new MaterialData(null);
+        material.Shaders[0].Animation = Leftovers();
+
+        var read = new MaterialData(null);
+        read.PopulateFrom(JsonConvert.SerializeObject(material));
+
+        Assert.Equal(Bytes(Leftovers()), Bytes(read.Shaders[0].Animation!));
     }
 }

@@ -67,7 +67,9 @@ public class Project : IProject
 
     public Package XboxPackage { get; private set; }
 
-    public Guid UUID { get; }
+    // Made once, with the project: without a setter it was never read back, every write of the project file got a new one
+    [JsonProperty]
+    public Guid UUID { get; private set; }
 
     public string Name { get; set; }
 
@@ -81,13 +83,17 @@ public class Project : IProject
 
     public string Version { get; private set; } = CURRENT_VERSION;
 
-    public string ProjectPath => System.IO.Path.Combine(Path, Name);
+    // Where the project is when that isn't where it was made (copied, moved, cloned under another name): its file only says where it was made
+    [JsonIgnore]
+    internal string? Location { get; set; }
+
+    public string ProjectPath => Location ?? System.IO.Path.Combine(Path, Name);
 
     public Project()
     {
         LastModified = DateTime.Now;
         UUID = Guid.NewGuid();
-        AssetManager = new();
+        AssetManager = new() { VersionOf = package => GetPlatform(package) };
     }
 
     public Project(string name, string path, string? discContentPathPS2, string? discContentPathXbox) : this()
@@ -106,19 +112,33 @@ public class Project : IProject
         System.IO.Directory.CreateDirectory("disc");
     }
 
-    public void Serialize(Func<IAsset, bool>? isWritten = null)
+    /// <summary>
+    /// Writes the project's file, not its assets
+    /// </summary>
+    internal void WriteProjectFile()
+    {
+        LastModified = DateTime.Now;
+        var json = JsonConvert.SerializeObject(this, Formatting.Indented);
+        using System.IO.FileStream fs = new(System.IO.Path.Combine(ProjectPath, Name + ".tson"), System.IO.FileMode.Create, System.IO.FileAccess.Write);
+        using System.IO.BinaryWriter writer = new(fs);
+        writer.Write(json.ToCharArray());
+    }
+
+    public void Serialize(Func<IAsset, bool>? isWritten = null) => Serialize(isWritten, true, null);
+
+    /// <param name="isWritten">Assets written already, which are left as they are</param>
+    /// <param name="writeProjectFile">Whether the project's file is written too</param>
+    /// <param name="tidiedPackages">The packages whose empty folders go, every package's when none are given</param>
+    public void Serialize(Func<IAsset, bool>? isWritten, bool writeProjectFile, IReadOnlySet<string>? tidiedPackages)
     {
         var path = ProjectPath;
 
-        // Update last modified date
-        LastModified = DateTime.Now;
-
         System.IO.Directory.SetCurrentDirectory(path);
-        using (System.IO.FileStream fs = new(Name + ".tson", System.IO.FileMode.Create, System.IO.FileAccess.Write))
-        using (System.IO.BinaryWriter writer = new(fs))
+        if (writeProjectFile)
         {
-            writer.Write(JsonConvert.SerializeObject(this, Formatting.Indented).ToCharArray());
+            WriteProjectFile();
         }
+
         // Serialize all the assets, every asset writes to its own absolute path so they can all be written in parallel
         System.IO.Directory.SetCurrentDirectory("assets");
         var assetsToSerialize = AssetManager.GetAssets().Where(asset => !asset.IsInternal && isWritten?.Invoke(asset) != true).ToList();
@@ -159,7 +179,7 @@ public class Project : IProject
         System.IO.Directory.SetCurrentDirectory(path);
         System.IO.Directory.SetCurrentDirectory("assets");
         var dirInfo = new System.IO.DirectoryInfo($"{path}/assets");
-        foreach (var packageDirectory in dirInfo.GetDirectories())
+        foreach (var packageDirectory in dirInfo.GetDirectories().Where(directory => tidiedPackages?.Contains(directory.Name) ?? true))
         {
             DeleteEmptyFolders(packageDirectory);
         }
@@ -183,7 +203,11 @@ public class Project : IProject
         }
     }
 
-    public static void Deserialize(string projectPath)
+    /// <summary>
+    /// The project's file, the project where the file is: a project copied or cloned somewhere else has the folder it was made in in its
+    /// file, and the game's files copied into it are in its own disc folder wherever it is
+    /// </summary>
+    internal static Project ReadProjectFile(string projectPath)
     {
         Project? pr;
         using (System.IO.FileStream fs = new(projectPath, System.IO.FileMode.Open, System.IO.FileAccess.Read))
@@ -203,6 +227,32 @@ public class Project : IProject
         {
             throw new ProjectException("Failed to deserialize the project!");
         }
+
+        var location = System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(projectPath))!;
+        var madeIn = string.IsNullOrEmpty(pr.Path) || string.IsNullOrEmpty(pr.Name) ? null : System.IO.Path.GetFullPath(System.IO.Path.Combine(pr.Path, pr.Name));
+        pr.DiscContentPathPS2 = Rebased(pr.DiscContentPathPS2, madeIn, location);
+        pr.DiscContentPathXbox = Rebased(pr.DiscContentPathXbox, madeIn, location);
+        pr.Path = System.IO.Path.GetDirectoryName(location) ?? location;
+        pr.Location = location;
+        return pr;
+    }
+
+    // A folder that was in the project's folder where it was made is in it where it is now
+    private static string? Rebased(string? path, string? madeIn, string location)
+    {
+        if (string.IsNullOrEmpty(path) || madeIn == null || madeIn == location)
+        {
+            return path;
+        }
+
+        var full = System.IO.Path.GetFullPath(path);
+        var relative = System.IO.Path.GetRelativePath(madeIn, full);
+        return relative == "." || relative.StartsWith("..") || System.IO.Path.IsPathRooted(relative) ? path : System.IO.Path.Combine(location, relative);
+    }
+
+    public static void Deserialize(string projectPath)
+    {
+        var pr = ReadProjectFile(projectPath);
         if (pr.Version != CURRENT_VERSION)
         {
             throw new ProjectException($"The project was made with project version {pr.Version} but this version of TT Lab only opens version {CURRENT_VERSION}. " +
@@ -241,7 +291,7 @@ public class Project : IProject
         }
         Log.WriteLine("Finished opening assets...");
         Dictionary<LabURI, IAsset> assets = new();
-        pr.AssetManager = new();
+        pr.AssetManager = new() { VersionOf = package => pr.GetPlatform(package) };
         foreach (var assetsList in completedTasks)
         {
             foreach (var asset in assetsList.Result)
@@ -267,57 +317,34 @@ public class Project : IProject
 
     public void CopyDiscContents()
     {
-        System.IO.Directory.SetCurrentDirectory("disc");
-            
         if (!string.IsNullOrEmpty(DiscContentPathPS2))
         {
-            System.IO.Directory.CreateDirectory("ps2");
-            System.IO.Directory.SetCurrentDirectory("ps2");
-            foreach (var dirPath in System.IO.Directory.GetDirectories(DiscContentPathPS2, "*", System.IO.SearchOption.AllDirectories))
-            {
-                if (System.IO.Directory.Exists(dirPath.Replace(DiscContentPathPS2, "")))
-                {
-                    continue;
-                }
-                
-                System.IO.Directory.CreateDirectory(dirPath.Replace(DiscContentPathPS2, ""));
-            }
-
-            foreach (var newPath in System.IO.Directory.GetFiles(DiscContentPathPS2, "*.*", System.IO.SearchOption.AllDirectories))
-            {
-                System.IO.File.Copy(newPath, newPath.Replace(DiscContentPathPS2, ""), true);
-            }
-
-            DiscContentPathPS2 = $"{ProjectPath}/disc/ps2";
-                
-            System.IO.Directory.SetCurrentDirectory("../");
+            DiscContentPathPS2 = CopyDisc(DiscContentPathPS2, "ps2");
         }
 
         if (!string.IsNullOrEmpty(DiscContentPathXbox))
         {
-            System.IO.Directory.CreateDirectory("xbox");
-            System.IO.Directory.SetCurrentDirectory("xbox");
-            foreach (var dirPath in System.IO.Directory.GetDirectories(DiscContentPathXbox, "*", System.IO.SearchOption.AllDirectories))
-            {
-                if (System.IO.Directory.Exists(dirPath.Replace(DiscContentPathXbox + System.IO.Path.DirectorySeparatorChar, "")))
-                {
-                    continue;
-                }
-                    
-                System.IO.Directory.CreateDirectory(dirPath.Replace(DiscContentPathXbox + System.IO.Path.DirectorySeparatorChar, ""));
-            }
-
-            foreach (var newPath in System.IO.Directory.GetFiles(DiscContentPathXbox, "*.*", System.IO.SearchOption.AllDirectories))
-            {
-                System.IO.File.Copy(newPath, newPath.Replace(DiscContentPathXbox + System.IO.Path.DirectorySeparatorChar, ""), true);
-            }
-                
-            DiscContentPathXbox = $"{ProjectPath}/disc/xbox";
-                
-            System.IO.Directory.SetCurrentDirectory("../");
+            DiscContentPathXbox = CopyDisc(DiscContentPathXbox, "xbox");
         }
-            
-        System.IO.Directory.SetCurrentDirectory("../");
+    }
+
+    // The disc's files copied into the project's disc folder by their place on the disc. The PS2 disc's paths kept the separator after the
+    // disc's folder when it was given without one at its end, its folders went to the root of the file system ("/Crash6")
+    private string CopyDisc(string disc, string name)
+    {
+        var destination = System.IO.Path.Combine(ProjectPath, "disc", name);
+        System.IO.Directory.CreateDirectory(destination);
+        foreach (var directory in System.IO.Directory.GetDirectories(disc, "*", System.IO.SearchOption.AllDirectories))
+        {
+            System.IO.Directory.CreateDirectory(System.IO.Path.Combine(destination, System.IO.Path.GetRelativePath(disc, directory)));
+        }
+
+        foreach (var file in System.IO.Directory.GetFiles(disc, "*", System.IO.SearchOption.AllDirectories))
+        {
+            System.IO.File.Copy(file, System.IO.Path.Combine(destination, System.IO.Path.GetRelativePath(disc, file)), true);
+        }
+
+        return $"{ProjectPath}/disc/{name}";
     }
 
     public void CreateBasePackages()
@@ -355,6 +382,9 @@ public class Project : IProject
     {
         if (string.IsNullOrEmpty(DiscContentPathPS2))
         {
+            // Like the Xbox version's packages without its disc: empty, they stay out of builds and of what new packages depend on
+            GlobalPackagePS2.Enabled = false;
+            Ps2Package.Enabled = false;
             Log.WriteLine("No PS2 assets provided, skipped...");
             return;
         }
@@ -708,13 +738,27 @@ public class Project : IProject
         cache.Save();
     }
 
-    // Packages of the Xbox version depend on its global package, every other one is the PS2 version's
-    internal GamePlatform GetPlatform(LabURI package)
+    // A package is the version of the game's packages it was made on: the one its first dependency is (of the packages TT Lab makes, the
+    // version's own), that one's and so on down to the game's packages, every other one is the PS2 version's. The dependencies after the
+    // first are what it uses of other packages, which can be the other version's (AssetVersions): it was the Xbox version's only while it
+    // was related to nothing of the PS2 version's
+    internal GamePlatform GetPlatform(LabURI? package)
     {
-        var xbox = package == GlobalPackageXbox.URI || package == XboxPackage.URI;
-        return xbox || (AssetManager.IsRelated(package, GlobalPackageXbox.URI) && !AssetManager.IsRelated(package, GlobalPackagePS2.URI))
-            ? GamePlatform.Xbox
-            : GamePlatform.PS2;
+        var visited = new HashSet<LabURI>();
+        for (var current = package; current != null && visited.Add(current); current = AssetManager.FirstDependencyOf(current))
+        {
+            if (current == GlobalPackageXbox?.URI || current == XboxPackage?.URI)
+            {
+                return GamePlatform.Xbox;
+            }
+
+            if (current == GlobalPackagePS2?.URI || current == Ps2Package?.URI)
+            {
+                return GamePlatform.PS2;
+            }
+        }
+
+        return GamePlatform.PS2;
     }
 
     /// <summary>

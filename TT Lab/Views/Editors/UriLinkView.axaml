@@ -6,10 +6,27 @@
              x:DataType="viewmodels:UriLinkViewModel"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="250"
              x:Class="TT_Lab.Views.Editors.UriLinkView">
-    <Grid ColumnDefinitions="*, 40, 40">
-        <TextBox Grid.Column="0" x:Name="UriDisplay" VerticalContentAlignment="Center" IsReadOnly="True"/>
-        <Button VerticalAlignment="Stretch" VerticalContentAlignment="Center" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" x:Name="ChangeLink" Grid.Column="1" Content="..."/>
-        <Button VerticalAlignment="Stretch" VerticalContentAlignment="Center" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" x:Name="OpenDocument" Grid.Column="2" Content="->"
+    <UserControl.Styles>
+        <!-- The linked asset's package isn't one the value's package depends on -->
+        <Style Selector="TextBox.missingDependency">
+            <Setter Property="Background" Value="#38FFD54F"/>
+        </Style>
+    </UserControl.Styles>
+    <Grid ColumnDefinitions="Auto, *, 40, 40">
+        <StackPanel Grid.Column="0" x:Name="MissingDependency" Orientation="Horizontal" IsVisible="False" VerticalAlignment="Center">
+            <Border x:Name="MissingDependencySign" Background="Transparent" Margin="2,0,4,0" VerticalAlignment="Center">
+                <Viewbox Width="18" Height="18">
+                    <Canvas Width="16" Height="16">
+                        <Path Data="M8,1 L15.5,14.5 L0.5,14.5 Z" Fill="#FFE8B020" Stroke="#FF7A5200" StrokeThickness="1"/>
+                        <Path Data="M7.2,5 H8.8 L8.5,10.5 H7.5 Z M7.1,11.6 H8.9 V13.2 H7.1 Z" Fill="#FF2A1C00"/>
+                    </Canvas>
+                </Viewbox>
+            </Border>
+            <Button x:Name="AddDependency" Content="Add dependency" VerticalAlignment="Stretch" Padding="4,1" Margin="0,0,4,0"/>
+        </StackPanel>
+        <TextBox Grid.Column="1" x:Name="UriDisplay" VerticalContentAlignment="Center" IsReadOnly="True"/>
+        <Button VerticalAlignment="Stretch" VerticalContentAlignment="Center" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" x:Name="ChangeLink" Grid.Column="2" Content="..."/>
+        <Button VerticalAlignment="Stretch" VerticalContentAlignment="Center" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" x:Name="OpenDocument" Grid.Column="3" Content="->"
                 ToolTip.Tip="Opens what the link leads to. In a chunk's inspector that's the chunk's version of an asset other chunks share, or the chunk's own resource, and the inspector's back button returns here; anything else opens in its own tab"/>
     </Grid>
 </UserControl>

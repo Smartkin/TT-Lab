@@ -2,6 +2,7 @@ using Twinsanity.Libraries;
 using Twinsanity.PS2Hardware;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.Graphics;
+using Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.Graphics;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items
 ;
 
@@ -111,6 +112,60 @@ public class TextureTests
         var mip = DecodeMip(texture, 1, size / 2, size / 2);
         Assert.InRange(mip.Average(color => (double)color.B), 110, 130);
         Assert.True(mip.Count(color => Math.Abs(color.B - 120) <= 20) > mip.Count * 0.9);
+    }
+
+    // Every level the way the game draws it, the mips where the descriptor put them: what the texture viewer shows
+    [Fact]
+    public void TheLevelsAreThePictureAndItsMips()
+    {
+        const int size = 64;
+        var image = Enumerable.Range(0, size * size).Select(i => new Color((byte)(i % 200), (byte)(i / 64 * 4), 7, 255)).ToList();
+        var texture = new PS2AnyTexture();
+        texture.FromBitmap(image, size, ITwinTexture.TextureFunction.MODULATE, ITwinTexture.TexturePixelFormat.PSMT8, true);
+
+        var levels = texture.DecodeLevels();
+
+        Assert.Equal(texture.MipLevels, levels.Count);
+        texture.CalculateData();
+        Assert.Equal(texture.Colors.Select(color => color.ToARGB()), levels[0].Select(color => color.ToARGB()));
+        for (var level = 1; level < levels.Count; level++)
+        {
+            Assert.Equal(DecodeMip(texture, level, size >> level, size >> level).Select(color => color.ToARGB()), levels[level].Select(color => color.ToARGB()));
+        }
+
+        // More colors than a palette holds, quantized
+        Assert.InRange(levels[0].Select(color => color.ToARGB()).Distinct().Count(), 2, 256);
+    }
+
+    // The game's tools only made palette textures of the descriptors' sizes: a picture of another size goes in with every color and no
+    // mips, it failed to build as a palette texture
+    [Theory]
+    [InlineData(256, 256)]
+    [InlineData(8, 8)]
+    [InlineData(16, 8)]
+    public void PicturesOfSizesWithoutAPaletteLayoutKeepEveryColor(int width, int height)
+    {
+        Color At(int i) => new((byte)(i * 7), (byte)(i / 3), (byte)i, 255);
+        var expected = Enumerable.Range(0, width * height).Select(At).Select(color => color.ToARGB()).ToList();
+        var texture = new PS2AnyTexture();
+
+        texture.FromBitmap(Enumerable.Range(0, width * height).Select(At).ToList(), width, ITwinTexture.TextureFunction.MODULATE, ITwinTexture.TexturePixelFormat.PSMT8, true);
+
+        Assert.Equal(ITwinTexture.TexturePixelFormat.PSMCT32, texture.TextureFormat);
+        Assert.Equal(1, texture.MipLevels);
+        // The PS2's colors go to 128, every channel loses its lowest bit like the game's 32 bit textures (TrueColorTexturesUploadTheWholeImage)
+        Assert.Equal(expected.Select(argb => argb & 0xFEFEFEFE), Assert.Single(texture.DecodeLevels()).Select(color => color.ToARGB()));
+    }
+
+    // The Xbox version keeps only the largest level
+    [Fact]
+    public void XboxTexturesHaveOneLevel()
+    {
+        var texture = new XboxAnyTexture();
+        texture.FromBitmap(Enumerable.Range(0, 64 * 64).Select(i => new Color((byte)i, 0, 0, 255)).ToList(), 64, ITwinTexture.TextureFunction.MODULATE,
+            ITwinTexture.TexturePixelFormat.PSMT8, true);
+
+        Assert.Equal(64 * 64, Assert.Single(texture.DecodeLevels()).Count);
     }
 
     // How far the picture is from what it was made of up close, where the eye takes dithering in as its average: a 3x3 blur of both

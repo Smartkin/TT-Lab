@@ -22,6 +22,8 @@ public partial class OgiAnimationsViewModel : DocumentDataViewModel<List<Animati
 {
     private readonly Stopwatch _clock = new();
     private DispatcherTimer? _timer;
+    // What the model was last shown in, the bind pose or the frame, which a model made again gets
+    private bool _showsBindPose;
 
     [Reactive]
     private AnimationData? _selectedAnimation;
@@ -43,6 +45,25 @@ public partial class OgiAnimationsViewModel : DocumentDataViewModel<List<Animati
     }
 
     public IReadOnlyList<AnimationData> Animations => CurrentValue ?? [];
+
+    // The viewport keeps it: the panel is made again with the inspector, the model's objects when its materials change. Only the OGI's
+    // own viewer has it, a chunk's scene would draw every instance's
+    public bool ShowsSkeleton
+    {
+        get => CanShowSkeleton && Document.Viewport!.ShowsSkeletons;
+        set
+        {
+            if (!CanShowSkeleton || Document.Viewport!.ShowsSkeletons == value)
+            {
+                return;
+            }
+
+            Document.Viewport.ShowsSkeletons = value;
+            this.RaisePropertyChanged();
+        }
+    }
+
+    public bool CanShowSkeleton => Document.Viewport != null && Document.DocumentModel is Assets.Code.OGI;
 
     public bool HasAnimations => Animations.Count > 0;
 
@@ -95,6 +116,16 @@ public partial class OgiAnimationsViewModel : DocumentDataViewModel<List<Animati
     protected override void OnActivated(CompositeDisposable disposables)
     {
         base.OnActivated(disposables);
+
+        // The model made again (another material picked for a slot) is at rest
+        if (Document.Viewport is { } viewport && Document.DocumentModel is Assets.Code.OGI)
+        {
+            void PoseAgain(PropertyNode _) => ApplyPose(_showsBindPose);
+            viewport.ObjectsRebuilt += PoseAgain;
+            Disposable.Create(() => viewport.ObjectsRebuilt -= PoseAgain).DisposeWith(disposables);
+            // The viewport takes the switch from the preferences, which another viewer can change
+            viewport.WhenAnyValue(x => x.ShowsSkeletons).Skip(1).Subscribe(_ => this.RaisePropertyChanged(nameof(ShowsSkeleton))).DisposeWith(disposables);
+        }
 
         this.WhenAnyValue(x => x.SelectedAnimation)
             .Skip(1)
@@ -201,6 +232,7 @@ public partial class OgiAnimationsViewModel : DocumentDataViewModel<List<Animati
 
     private void ApplyPose(bool bindPose = false)
     {
+        _showsBindPose = bindPose;
         var context = Document.Viewport?.GetRenderContext();
         if (context == null || Property.Target is not OGIData ogi)
         {

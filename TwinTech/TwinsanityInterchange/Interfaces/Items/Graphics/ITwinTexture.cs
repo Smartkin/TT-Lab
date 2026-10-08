@@ -98,6 +98,11 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items
         /// </summary>
         void CalculateData();
         /// <summary>
+        /// The texture's levels the way the game draws them, each a list of its pixels: the picture, then the smaller versions the PS2's
+        /// palette textures have for the distance (the mips), every level with the colors of the one palette. Other textures have one level
+        /// </summary>
+        List<List<Color>> DecodeLevels();
+        /// <summary>
         /// Converts bitmap to compressed texture data
         /// </summary>
         /// <param name="image">Pixel colors</param>

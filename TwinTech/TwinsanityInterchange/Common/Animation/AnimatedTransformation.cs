@@ -11,7 +11,9 @@ namespace Twinsanity.TwinsanityInterchange.Common.Animation
         List<Transformation> transformValues;
 
         public Int32 Count { get => Transforms.Count; }
-        public List<Transformation> Transforms { get => transformValues; }
+        // Settable for TT Lab's JSON, which replaces the lists it reads and passed over one it couldn't set: a material's animated tracks
+        // came back without their values
+        public List<Transformation> Transforms { get => transformValues; set => transformValues = value; }
 
         public AnimatedTransformation() : this(0)
         {

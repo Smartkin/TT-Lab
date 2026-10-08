@@ -15,6 +15,9 @@ namespace TT_Lab.Rendering.Objects;
 public class OGI : Renderable, IPrimitiveRenderable, ILightAnchor
 {
     private static readonly vec4 HullColor = new(0.25f, 0.9f, 0.7f, 0.85f);
+    private static readonly vec4 BoneColor = new(1.0f, 0.82f, 0.25f, 1.0f);
+    private static readonly vec4 JointColor = new(1.0f, 1.0f, 1.0f, 1.0f);
+    private static readonly vec4 RootColor = new(1.0f, 0.4f, 0.2f, 1.0f);
 
     private SkinnedMesh? skinBuffer;
     private BlendSkinnedMesh? blendSkinBuffer;
@@ -38,6 +41,11 @@ public class OGI : Renderable, IPrimitiveRenderable, ILightAnchor
 
     public void DrawPrimitives(PrimitiveRenderer renderer, FrameCamera camera)
     {
+        if (Context.ShowsSkeletons)
+        {
+            DrawSkeleton(renderer, camera);
+        }
+
         if (!ShowHulls)
         {
             return;
@@ -50,6 +58,20 @@ public class OGI : Renderable, IPrimitiveRenderable, ILightAnchor
             {
                 renderer.DrawLine((transform * new vec4(vertexes[from], 1.0f)).xyz, (transform * new vec4(vertexes[to], 1.0f)).xyz, HullColor, 1.5f, PrimitiveLayer.WorldXRay);
             }
+        }
+    }
+
+    // Over the model like the gizmos, it's inside it: the joints where the pose puts them, the root's apart, and the bones from their parents
+    private void DrawSkeleton(PrimitiveRenderer renderer, FrameCamera camera)
+    {
+        foreach (var (_, position, parent) in defaultSkeleton.Pose())
+        {
+            if (parent is { } from && (position - from).Length > 1e-5f)
+            {
+                renderer.DrawLine(from, position, BoneColor, 2.0f, PrimitiveLayer.Overlay);
+            }
+
+            renderer.DrawSphere(position, camera.WorldUnitsPerPixel(position) * (parent == null ? 5.0f : 3.5f), parent == null ? RootColor : JointColor, PrimitiveLayer.Overlay);
         }
     }
 

@@ -43,6 +43,17 @@ public class DocumentDataViewModel<T> : DocumentNodeViewModel
         ShowCurrentValue();
     }
 
+    // Editors only hear their node while they're shown: one shown again (a list's row scrolled back into view, a chunk's inspector switched
+    // back to) showed the value it had when it was hidden
+    protected override void OnActivated(CompositeDisposable disposables)
+    {
+        base.OnActivated(disposables);
+        if (!PropertyNode.IsSameValue(_currentValue, GetCurrentValue()))
+        {
+            ShowCurrentValue();
+        }
+    }
+
     private void ShowCurrentValue()
     {
         CurrentValue = GetCurrentValue();

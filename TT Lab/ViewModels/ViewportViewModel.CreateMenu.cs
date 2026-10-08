@@ -7,7 +7,9 @@ using TT_Lab.ViewModels.Interfaces;
 using TT_Lab.Extensions;
 using TT_Lab.AssetData.Instance.Particle;
 using GlmSharp;
+using Newtonsoft.Json.Linq;
 using TT_Lab.AssetData;
+using TT_Lab.AssetData.Code;
 using TT_Lab.AssetData.Instance;
 using TT_Lab.AssetData.Instance.Scenery;
 using TT_Lab.Assets;
@@ -197,15 +199,10 @@ public partial class ViewportViewModel
                 return null;
             }
 
-            displayName = $"{gameObject.Alias} instance";
-            instance = CreateInstance(type, NewName(displayName), (Enums.Layouts)layout, asset =>
-            {
-                var status = AssetDataFactory.CreateObjectInstanceData(asset);
-                asset.GetData<ObjectInstanceData>().ObjectId = gameObject.URI;
-                return status;
-            });
+            return CreateObjectInstance(gameObject, layout);
         }
-        else if (type == typeof(AiPath))
+
+        if (type == typeof(AiPath))
         {
             var aiPositions = SelectedAiPositions();
             if (aiPositions.Count != 2)
@@ -216,7 +213,8 @@ public partial class ViewportViewModel
 
             return CreateAiPath(aiPositions[0], aiPositions[1]);
         }
-        else if (type == typeof(Path))
+
+        if (type == typeof(Path))
         {
             // Its points are its place, placing moves every object of the new instance to the spot
             instance = CreateInstance(type, NewName(displayName), (Enums.Layouts)layout, asset =>
@@ -245,6 +243,73 @@ public partial class ViewportViewModel
 
         PlaceInstances([(instance, placeAt)], $"Placed {displayName}");
         return instance;
+    }
+
+    /// <summary>
+    /// A new instance of the object in the chunk's layout at the cursor, with what the object's type needs (its template values, those of
+    /// its type without any), selected and one step to undo
+    /// </summary>
+    internal IAsset CreateObjectInstance(GameObject gameObject, int layout)
+    {
+        var displayName = $"{gameObject.Alias} instance";
+        var instance = CreateInstance(typeof(ObjectInstance), NewName(displayName), (Enums.Layouts)layout, asset =>
+        {
+            var status = AssetDataFactory.CreateObjectInstanceData(asset);
+            var data = asset.GetData<ObjectInstanceData>();
+            data.ObjectId = gameObject.URI;
+            data.TakeValuesOf((GameObjectData)gameObject.GetData());
+            return status;
+        });
+        PlaceInstances([(instance, NewResourcePosition())], $"Placed {displayName}");
+        return instance;
+    }
+
+    /// <summary>
+    /// Whether an instance of the object can go into the chunk: an object of its version of the game, which its own and the related
+    /// packages have
+    /// </summary>
+    internal bool CanPlaceObject(GameObject gameObject)
+    {
+        return _document?.DocumentModel is LevelChunk chunk && AssetManager.Get().IsRelated(chunk.Package, gameObject.Package);
+    }
+
+    /// <summary>
+    /// An instance of the object dragged from the project tree, where the ray through the viewport point hits the chunk's collision, else at
+    /// the cursor, in the layout the chunk keeps its object instances in
+    /// </summary>
+    internal IAsset? PlaceObjectAt(GameObject gameObject, float x, float y)
+    {
+        HidePrefabPreview();
+        if (_document?.DocumentModel is not LevelChunk chunk || !CanPlaceObject(gameObject))
+        {
+            return null;
+        }
+
+        if (_editingContext != null && TryHitCollision(x, y, out var hit))
+        {
+            _editingContext.SetCursorCoordinates(hit);
+        }
+
+        return CreateObjectInstance(gameObject, DefaultLayoutFor(typeof(ObjectInstance), chunk));
+    }
+
+    // The object dragged over the scene is shown where letting it go puts its instance, like a prefab of an instance of it
+    private Prefab? _draggedObject;
+
+    internal void ShowObjectPreview(GameObject gameObject, float x, float y)
+    {
+        if (_draggedObject?.Data[nameof(ObjectInstanceData.ObjectId)]?.ToObject<LabURI>() != gameObject.URI)
+        {
+            _draggedObject = new Prefab
+            {
+                Kind = PrefabKind.Instance,
+                Name = gameObject.Alias,
+                AssetType = typeof(ObjectInstance).FullName!,
+                Data = new JObject { [nameof(ObjectInstanceData.ObjectId)] = JToken.FromObject(gameObject.URI) },
+            };
+        }
+
+        ShowPrefabPreview(_draggedObject, x, y);
     }
 
     private static string NewName(string displayName) => $"New {displayName} {(uint)Guid.NewGuid().GetHashCode():X8}";

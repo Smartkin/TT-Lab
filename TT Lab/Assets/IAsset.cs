@@ -55,6 +55,12 @@ public interface IAsset : IDocumentModel
     /// </summary>
     [JsonProperty(Required = Required.AllowNull)]
     String? AdditionalPath { get; set; }
+
+    /// <summary>
+    /// The folder of its package the asset was made in, where its files are instead of the folder of its type
+    /// </summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    String? FolderInPackage { get; set; }
     
     /// <summary>
     /// Asset's string type

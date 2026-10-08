@@ -6,12 +6,14 @@ using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using ReactiveUI;
 using ReactiveUI.Avalonia;
+using TT_Lab.Assets;
+using TT_Lab.Assets.Code;
 using TT_Lab.Project.Prefabs;
 using TT_Lab.ViewModels;
 
 namespace TT_Lab.Views;
 
-public partial class ViewportView : ReactiveUserControl<ViewportViewModel>, IPrefabDropTarget
+public partial class ViewportView : ReactiveUserControl<ViewportViewModel>, IPrefabDropTarget, IAssetDropTarget
 {
     private const double ClickDistance = 4.0;
     private Point? _rightPress;
@@ -68,6 +70,33 @@ public partial class ViewportView : ReactiveUserControl<ViewportViewModel>, IPre
 
         var position = ViewportControl.PointToClient(screen);
         viewport.PlacePrefabAt(prefab, (float)position.X, (float)position.Y);
+    }
+
+    // Game objects dragged from the project tree become instances of the chunk where they're dropped on the scene, shown there while
+    // they're dragged over it
+    public bool CanDropAsset(IAsset asset, Visual hit) =>
+        asset is GameObject gameObject && (hit == ViewportControl || ViewportControl.IsVisualAncestorOf(hit)) && (DataContext as ViewportViewModel)?.CanPlaceObject(gameObject) == true;
+
+    public void DragAssetOver(IAsset asset, Visual hit, PixelPoint screen)
+    {
+        if (DataContext is ViewportViewModel viewport && asset is GameObject gameObject)
+        {
+            var position = ViewportControl.PointToClient(screen);
+            viewport.ShowObjectPreview(gameObject, (float)position.X, (float)position.Y);
+        }
+    }
+
+    public void DragAssetLeave() => (DataContext as ViewportViewModel)?.HidePrefabPreview();
+
+    public void DropAsset(IAsset asset, Visual hit, PixelPoint screen)
+    {
+        if (DataContext is not ViewportViewModel viewport || asset is not GameObject gameObject)
+        {
+            return;
+        }
+
+        var position = ViewportControl.PointToClient(screen);
+        viewport.PlaceObjectAt(gameObject, (float)position.X, (float)position.Y);
     }
 
     private void ShowCreateMenu(Point position)

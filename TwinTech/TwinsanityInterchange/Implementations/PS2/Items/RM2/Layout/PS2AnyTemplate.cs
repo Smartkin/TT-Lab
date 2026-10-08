@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using Twinsanity.Libraries;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Implementations.Base;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout;
@@ -40,7 +41,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Layout
         public override void Read(BinaryReader reader, int length)
         {
             Int32 NameLen = reader.ReadInt32();
-            Name = new string(reader.ReadChars(NameLen));
+            Name = GameText.ReadString(reader, NameLen);
             ObjectId = reader.ReadUInt16();
             ObjectSubType = reader.ReadByte();
             ObjectType = reader.ReadByte();
@@ -80,7 +81,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Layout
         public override void Write(BinaryWriter writer)
         {
             writer.Write(Name.Length);
-            writer.Write(Name.ToCharArray());
+            GameText.Write(writer, Name);
             writer.Write(ObjectId);
             writer.Write(ObjectSubType);
             writer.Write(ObjectType);

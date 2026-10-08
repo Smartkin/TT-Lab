@@ -29,6 +29,8 @@ PROJECT_EXTENSION = ".tson"
 _MATERIAL_TYPE = "TT_Lab.Assets.Graphics.Material,"
 _TEXTURE_TYPE = "TT_Lab.Assets.Graphics.Texture,"
 _ASSET_FOLDERS = ("Material", "Texture")
+# Parameter of the textures TT Lab made of pictures made in Blender, the picture's ID
+BLENDER_IMAGE_PARAMETER = "BlenderImage"
 
 
 class ProjectMaterial:
@@ -44,13 +46,19 @@ class ProjectMaterial:
     def shaders(self) -> typing.List[typing.Dict[str, typing.Any]]:
         """The material's shaders as TT Lab saved them, read when first needed."""
         if self._shaders is None:
-            self._shaders = []
-            data = _load_json(self.data_path)
-            if isinstance(data, dict):
-                self.material_name = str(data.get("Name", self.name))
-                self._shaders = [shader for shader in data.get("Shaders", []) if isinstance(shader, dict)]
+            data = self.read()
+            self._shaders = [shader for shader in data.get("Shaders", []) if isinstance(shader, dict)] if data is not None else []
 
         return self._shaders
+
+    def read(self) -> typing.Optional[typing.Dict[str, typing.Any]]:
+        """The material's data as TT Lab has it saved now, None when it can't be read."""
+        data = _load_json(self.data_path)
+        if not isinstance(data, dict):
+            return None
+
+        self.material_name = str(data.get("Name", self.name))
+        return data
 
     def texture_uris(self) -> typing.List[str]:
         return [uri for uri in (uri_of(shader.get("TextureId")) for shader in self.shaders) if uri]
@@ -58,8 +66,7 @@ class ProjectMaterial:
     @property
     def location(self) -> str:
         """Where in its package the material is, a scenery's chunk or a PSM's image. Empty for the package's own materials."""
-        path = self.uri.split("://", 1)[-1].split("/")
-        return "/".join(path[1:-2]) if len(path) > 3 else ""
+        return _location(self.uri)
 
     @property
     def label(self) -> str:
@@ -68,10 +75,24 @@ class ProjectMaterial:
 
 
 class ProjectTexture:
-    def __init__(self, uri: str, name: str, png_path: str):
+    def __init__(self, uri: str, name: str, png_path: str, package: str = "", blender_image: str = ""):
         self.uri = uri
         self.name = name
         self.png_path = png_path
+        self.package = package
+        # The add-on's ID of the picture TT Lab made the texture of, a picture of a model file's material made in Blender
+        self.blender_image = blender_image
+
+    @property
+    def label(self) -> str:
+        """The name with where the texture is, chunks and skies have textures of the same name."""
+        location = _location(self.uri)
+        return "%s (%s)" % (self.name, location) if location else self.name
+
+
+def _location(uri: str) -> str:
+    path = uri.split("://", 1)[-1].split("/")
+    return "/".join(path[1:-2]) if len(path) > 3 else ""
 
 
 class Project:
@@ -107,7 +128,16 @@ class Project:
                 if asset_type.startswith(_MATERIAL_TYPE):
                     self.materials[uri] = ProjectMaterial(uri, name, uri_of(metadata.get("Package")), base + ".data")
                 elif asset_type.startswith(_TEXTURE_TYPE):
-                    self.textures[uri] = ProjectTexture(uri, name, base + ".png")
+                    parameters = metadata.get("Parameters")
+                    blender_image = str(parameters.get(BLENDER_IMAGE_PARAMETER) or "") if isinstance(parameters, dict) else ""
+                    self.textures[uri] = ProjectTexture(uri, name, base + ".png", uri_of(metadata.get("Package")), blender_image)
+
+    def texture_of_image(self, blender_image: str) -> typing.Optional[ProjectTexture]:
+        """The texture TT Lab made of a picture made in Blender."""
+        if not blender_image:
+            return None
+
+        return next((texture for texture in self.textures.values() if texture.blender_image == blender_image), None)
 
     def texture_of(self, material: ProjectMaterial) -> typing.Optional[ProjectTexture]:
         """The texture the material is drawn with, its first shader's that has one."""
@@ -121,6 +151,11 @@ class Project:
     def materials_of_packages(self, packages: typing.Iterable[str]) -> typing.List[ProjectMaterial]:
         wanted = set(packages)
         return sorted((material for material in self.materials.values() if not wanted or material.package in wanted), key=lambda material: material.name.lower())
+
+    def textures_of_platform(self, platform: typing.Optional[str]) -> typing.List[ProjectTexture]:
+        """The textures a model of the version can draw, both versions' without one."""
+        return sorted((texture for texture in self.textures.values() if platform is None or platform_of(texture.package) in (platform, None)),
+                      key=lambda texture: texture.label.lower())
 
 
 def find_root(path: str) -> typing.Optional[str]:

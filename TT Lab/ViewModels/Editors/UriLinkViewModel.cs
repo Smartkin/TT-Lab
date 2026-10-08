@@ -24,6 +24,28 @@ public partial class UriLinkViewModel : DocumentDataViewModel<LabURI>
     [Reactive(SetModifier = AccessModifier.Private)]
     private string _linkText = "Empty";
 
+    /// <summary>
+    /// What a link field says when the asset it links is in a package the one its value is kept in doesn't depend on
+    /// </summary>
+    public const string MissingDependencyWarning = "The referenced asset belongs to a package that the current one doesn't depend on!";
+
+    [Reactive(SetModifier = AccessModifier.Private)]
+    private bool _isMissingDependency;
+
+    [Reactive(SetModifier = AccessModifier.Private)]
+    private string _addDependencyHint = string.Empty;
+
+    /// <summary>
+    /// What the warning sign says: the missing dependency, or why the other version's asset can't be used at all
+    /// </summary>
+    [Reactive(SetModifier = AccessModifier.Private)]
+    private string _missingDependencyText = MissingDependencyWarning;
+
+    [Reactive(SetModifier = AccessModifier.Private)]
+    private bool _canAddDependency;
+
+    private (Package Current, Package Referenced)? _missingDependency;
+
     public enum Scope
     {
         Project,
@@ -62,6 +84,7 @@ public partial class UriLinkViewModel : DocumentDataViewModel<LabURI>
         
         UpdateLinkText();
         UpdateIsOverridden();
+        UpdateMissingDependency();
     }
 
     protected override void OnActivated(CompositeDisposable disposables)
@@ -69,8 +92,104 @@ public partial class UriLinkViewModel : DocumentDataViewModel<LabURI>
         base.OnActivated(disposables);
 
         SelectUriFromLinkCommand.InvokeCommand(SetValueCommand).DisposeWith(disposables);
+        PackageDependencies.Changed += UpdateMissingDependency;
+        Disposable.Create(() => PackageDependencies.Changed -= UpdateMissingDependency).DisposeWith(disposables);
 
         UpdateLinkText();
+        UpdateMissingDependency();
+    }
+
+    private void UpdateMissingDependency()
+    {
+        // Game objects, their instances and behaviours of the other version can't be used whatever the dependencies
+        if (WhyNotOfThisVersion() is { } why)
+        {
+            _missingDependency = null;
+            IsMissingDependency = true;
+            CanAddDependency = false;
+            MissingDependencyText = why;
+            AddDependencyHint = string.Empty;
+            return;
+        }
+
+        _missingDependency = FindMissingDependency();
+        IsMissingDependency = _missingDependency != null;
+        CanAddDependency = _missingDependency != null;
+        MissingDependencyText = MissingDependencyWarning;
+        AddDependencyHint = _missingDependency is { } missing
+            ? $"Makes {missing.Current.Alias} depend on {missing.Referenced.Alias}, which {LinkText} belongs to. {missing.Current.Alias} gets saved right away and it can't be undone"
+            : string.Empty;
+    }
+
+    private string? WhyNotOfThisVersion()
+    {
+        var uri = CurrentValue;
+        var assets = AssetManager.Get();
+        if (uri == null || uri == LabURI.Empty || !assets.DoesAssetExist(uri))
+        {
+            return null;
+        }
+
+        return AssetVersions.WhyNotUsableBy(CurrentPackage()?.URI, assets.GetAsset(uri));
+    }
+
+    private (Package Current, Package Referenced)? FindMissingDependency()
+    {
+        var uri = CurrentValue;
+        var assets = AssetManager.Get();
+        if (uri == null || uri == LabURI.Empty || !assets.DoesAssetExist(uri))
+        {
+            return null;
+        }
+
+        var referenced = assets.GetAsset(uri);
+        var referencedPackage = referenced.Package;
+        if (referenced is Package || referencedPackage == null || CurrentPackage() is not { } current || assets.IsOwnOrDependency(current.URI, referencedPackage)
+            || !assets.DoesAssetExist(referencedPackage) || assets.GetAsset(referencedPackage) is not Package package)
+        {
+            return null;
+        }
+
+        return (current, package);
+    }
+
+    private Package? CurrentPackage() => PackageKeeping(Property);
+
+    /// <summary>
+    /// The package a link's value is kept in: its asset's, or for a chunk's view of an asset it shares the chunk's, which keeps the value as
+    /// its own
+    /// </summary>
+    internal static Package? PackageKeeping(PropertyNode link)
+    {
+        var assets = AssetManager.Get();
+        for (var node = link.Parent; node != null; node = node.Parent)
+        {
+            if (node.Target is not IAsset asset)
+            {
+                continue;
+            }
+
+            var package = asset is SerializableAsset { OverriddenAsset: not null } && link.Graph?.Overrides is { } overrides ? overrides.Chunk.Package : asset.Package;
+            return package != null && assets.DoesAssetExist(package) && assets.GetAsset(package) is Package found ? found : null;
+        }
+
+        return null;
+    }
+
+    [ReactiveCommand]
+    private async Task AddDependency()
+    {
+        if (_missingDependency is not { } missing)
+        {
+            return;
+        }
+
+        var answer = await ValuesPaste.Ask("Add a package dependency",
+            $"{missing.Current.Alias} gets to depend on {missing.Referenced.Alias} and is saved right away. This can't be undone.", ["Add the dependency"]);
+        if (answer == 0)
+        {
+            PackageDependencies.Add(missing.Current, missing.Referenced);
+        }
     }
 
     private void UpdateLinkText()
@@ -122,6 +241,13 @@ public partial class UriLinkViewModel : DocumentDataViewModel<LabURI>
             resourcesToBrowse.RemoveAll(link => link != LabURI.Empty && link == ownerChunk);
         }
 
+        // The other version's assets are offered but for the game objects, instances and behaviours, which only their version uses
+        if (CurrentPackage() is { } current)
+        {
+            resourcesToBrowse.RemoveAll(link => link != LabURI.Empty && assetManager.DoesAssetExist(link)
+                                                && AssetVersions.WhyNotUsableBy(current.URI, assetManager.GetAsset(link)) != null);
+        }
+
         if (_isIncludeEmpty)
         {
             resourcesToBrowse.Add(LabURI.Empty);
@@ -151,7 +277,12 @@ public partial class UriLinkViewModel : DocumentDataViewModel<LabURI>
         return uri!;
     }
 
-    private bool IsExcludedFromBrowsing(LabURI uri)
+    private bool IsExcludedFromBrowsing(LabURI uri) => IsExcludedFromBrowsing(uri, _browseExcludeWhen!);
+
+    /// <summary>
+    /// Whether a link field that leaves out the assets the condition (a boolean property of theirs) is true of leaves the asset out
+    /// </summary>
+    internal static bool IsExcludedFromBrowsing(LabURI uri, string condition)
     {
         if (uri == LabURI.Empty)
         {
@@ -159,8 +290,8 @@ public partial class UriLinkViewModel : DocumentDataViewModel<LabURI>
         }
 
         var asset = AssetManager.Get().GetAsset(uri);
-        var condition = asset.GetType().GetProperty(_browseExcludeWhen!, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-        return condition?.GetValue(asset) is true;
+        var property = asset.GetType().GetProperty(condition, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        return property?.GetValue(asset) is true;
     }
 
     // The link can be edited either as a part of the chunk's document or from within one of the chunk's resources
@@ -181,9 +312,14 @@ public partial class UriLinkViewModel : DocumentDataViewModel<LabURI>
         return (null, null);
     }
 
-    private LabURI GetOwnerChunk()
+    private LabURI GetOwnerChunk() => OwnerChunkOf(Property);
+
+    /// <summary>
+    /// The chunk the asset a link is in belongs to: the chunk itself or the instance's chunk
+    /// </summary>
+    internal static LabURI OwnerChunkOf(PropertyNode link)
     {
-        for (var node = Property.Parent; node != null; node = node.Parent)
+        for (var node = link.Parent; node != null; node = node.Parent)
         {
             switch (node.Target)
             {

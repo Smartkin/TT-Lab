@@ -122,7 +122,7 @@ public sealed class SceneryBoundsTests : IDisposable
         Assert.Equal((-250f, -20f, -100f), Min(root));
         Assert.Equal((250f, 20f, 100f), Max(root));
         Assert.Equal(250f, halfSize.GetValue<Vector3>()!.X);
-        Assert.EndsWith("Bounds › HalfSize = (250, 20, 100)", document.History.Current.Description);
+        Assert.EndsWith("Bounds = (0, 0, 0) ± (250, 20, 100)", document.History.Current.Description);
         document.Undo();
         Assert.Equal((-100f, -20f, -100f), Min(root));
         Assert.Equal("100", field.X.Text);

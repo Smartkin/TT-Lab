@@ -55,6 +55,25 @@ public sealed class TwinSkeletonTests
         AssertVector(new vec3(0, 1, 0), Skinned(root, new vec3(0, 1, 0)));
     }
 
+    // The viewer draws the skeleton where the pose puts the joints, a bone from each joint's parent to it and none above the root
+    [Fact]
+    public void TheSkeletonIsDrawnWhereThePosePutsItsJoints()
+    {
+        var skeleton = SkeletonOf(Joint(0, -1, new vec3(0, 1, 0)), Joint(1, 0, new vec3(0.5f, 0, 0)));
+
+        var rest = skeleton.Pose().ToDictionary(joint => joint.Joint);
+        AssertVector(new vec3(0, 1, 0), rest[0].Position);
+        Assert.Null(rest[0].Parent);
+        AssertVector(new vec3(0.5f, 1, 0), rest[1].Position);
+        AssertVector(new vec3(0, 1, 0), rest[1].Parent!.Value);
+
+        skeleton.Bones[0].SetPose(new vec3(0, 1, 0), Turn, vec3.Ones);
+        var turned = skeleton.Pose().ToDictionary(joint => joint.Joint);
+
+        AssertVector(new vec3(0, 1, -0.5f), turned[1].Position);
+        AssertVector(new vec3(0, 1, 0), turned[1].Parent!.Value);
+    }
+
     // ModelNode::SetOgi gives a model of one joint and no exit points no animator, and the game draws its rigid models at the instance
     [Fact]
     public void AModelWithoutAnAnimatorStaysAtItsInstance()

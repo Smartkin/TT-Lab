@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using Twinsanity.Libraries;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 
 namespace Twinsanity.TwinsanityInterchange.Common
@@ -23,7 +24,7 @@ namespace Twinsanity.TwinsanityInterchange.Common
         public void Read(BinaryReader reader, Int32 length)
         {
             var chars = reader.ReadInt32();
-            Path = new String(reader.ReadChars(chars));
+            Path = GameText.ReadString(reader, chars);
             Offset = reader.ReadInt32();
             Length = reader.ReadInt32();
         }
@@ -32,7 +33,7 @@ namespace Twinsanity.TwinsanityInterchange.Common
         {
             writer.Write(Path.Length);
             Path = Path.Replace('/', '\\');
-            writer.Write(Path.ToCharArray());
+            GameText.Write(writer, Path);
             writer.Write(Offset);
             writer.Write(Length);
         }

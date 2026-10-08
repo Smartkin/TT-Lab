@@ -356,6 +356,11 @@ namespace TT_Lab.Project
                             return;
                         }
 
+                        if (!UnpackRetailAssetsIfMissing(prFile))
+                        {
+                            return;
+                        }
+
                         Project.Deserialize(prFile);
                         Log.WriteLine($"Building project tree...");
                         BuildProjectTree();
@@ -417,6 +422,153 @@ namespace TT_Lab.Project
 
             TellMigrated(MigrationSummary(name, ProjectMigration.Migrate(projectFile)));
             return true;
+        }
+
+        /// <summary>
+        /// Asks for the folders of the game's files a project without the game's packages is unpacked from, tests answer it themselves
+        /// </summary>
+        internal Func<RetailDiscsDialogue.Request, Task<IReadOnlyDictionary<Project.GamePlatform, string>?>> AskForRetailDiscs { get; set; } = RetailDiscsDialogue.Ask;
+
+        /// <summary>
+        /// Where the preferences have each version's game files, tests give their own
+        /// </summary>
+        internal Func<Project.GamePlatform, string?> PreferredDiscFolder { get; set; } = platform =>
+            Preferences.GetPreference<string>(platform == Project.GamePlatform.Xbox ? Preferences.XboxDiscContentPath : Preferences.Ps2DiscContentPath);
+
+        // A project shared without the game's assets (its own packages without the game's, which a repository can't have) gets the versions
+        // of the game its packages use unpacked from the game's files again, from the preferences' folders when they have them and without
+        // asking then. False when it doesn't open without them
+        private bool UnpackRetailAssetsIfMissing(string projectFile)
+        {
+            var stored = Project.ReadProjectFile(projectFile);
+            var check = RetailAssets.Of(projectFile, stored.Name);
+            if (check.Problem != null)
+            {
+                throw new ProjectException(check.Problem);
+            }
+
+            if (!check.IsMissingAny)
+            {
+                return true;
+            }
+
+            var folders = RetailAssets.FromPreferences(check, PreferredDiscFolder);
+            if (!RetailAssets.Suffice(check, folders))
+            {
+                var answer = Dispatcher.UIThread.InvokeAsync(() => AskForRetailDiscs(new RetailDiscsDialogue.Request(check, folders))).GetAwaiter().GetResult();
+                if (answer == null)
+                {
+                    Log.WriteLine($"Didn't open {stored.Name}, it doesn't have the game's packages and they weren't unpacked", Log.LogType.Warning);
+                    return false;
+                }
+
+                folders = answer.ToDictionary(pair => pair.Key, pair => pair.Value);
+            }
+
+            UnpackRetailAssets(stored, check, folders);
+            return true;
+        }
+
+        // The game's packages of the versions the project lacks, unpacked the way creating a project unpacks them: the game's files copied into
+        // the project's disc folder, the assets of the versions given read from them, the packages of a version not given made empty. The
+        // project's own packages and its file stay as they are, but for where the game's files are now
+        private void UnpackRetailAssets(Project stored, RetailAssets.Check check, IReadOnlyDictionary<Project.GamePlatform, string> folders)
+        {
+            var start = DateTime.Now;
+            var ps2 = folders.GetValueOrDefault(Project.GamePlatform.PS2);
+            var xbox = folders.GetValueOrDefault(Project.GamePlatform.Xbox);
+            var missing = check.Versions.Where(version => version.Missing).Select(version => version.Platform).ToHashSet();
+            var made = missing.SelectMany(platform => new[] { RetailAssets.GlobalPackageName(platform, stored.Name), RetailAssets.PackageName(platform, stored.Name) }).ToHashSet();
+            Log.WriteLine($"{stored.Name} doesn't have the game's packages, unpacking {string.Join(" and ", folders.Keys.Select(RetailAssets.Describe))} assets from "
+                          + string.Join(" and ", folders.Values));
+            var project = new Project(stored.Name, stored.Path, ps2, xbox) { Location = stored.Location };
+            IsCreatingProject = true;
+            OpenedProject = project;
+            try
+            {
+                project.CreateProjectStructure();
+                if (folders.Count > 0)
+                {
+                    Log.WriteLine("Copying disc contents to project...");
+                    project.CopyDiscContents();
+                }
+
+                Directory.SetCurrentDirectory("assets");
+                project.CreateBasePackages();
+                // The project's own package and the versions it has are kept as they are
+                var kept = new HashSet<IAsset> { project.BasePackage };
+                if (!missing.Contains(Project.GamePlatform.PS2))
+                {
+                    kept.UnionWith([project.GlobalPackagePS2, project.Ps2Package]);
+                }
+
+                if (!missing.Contains(Project.GamePlatform.Xbox))
+                {
+                    kept.UnionWith([project.GlobalPackageXbox, project.XboxPackage]);
+                }
+
+                using var gate = new MemoryGate((long)(Preferences.GetPreference<Double>(Preferences.BuildMemoryBudget) * 1024 * 1024), 0.8);
+                var writer = new CreationWriter(project.AssetManager, gate);
+                if (ps2 != null)
+                {
+                    Log.WriteLine("Unpacking PS2 assets...");
+                    project.UnpackAssetsPS2(gate);
+                    writer.ImportAndWrite();
+                    writer.RemoveInternalAssets();
+                    MergeVariants();
+                }
+                else
+                {
+                    // A version not given is made empty, its packages off like a project made without its disc
+                    project.GlobalPackagePS2.Enabled = false;
+                    project.Ps2Package.Enabled = false;
+                }
+
+                if (xbox != null)
+                {
+                    Log.WriteLine("Unpacking XBox assets...");
+                    project.UnpackAssetsXbox(gate);
+                    writer.ImportAndWrite();
+                    writer.RemoveInternalAssets();
+                    MergeVariants();
+                }
+
+                Log.WriteLine("Serializing assets...");
+                project.Serialize(asset => kept.Contains(asset) || writer.IsWritten(asset), writeProjectFile: false, tidiedPackages: made);
+            }
+            catch (Exception)
+            {
+                // What was made of the game's packages goes, the next opening unpacks them again
+                foreach (var name in made)
+                {
+                    var directory = Path.Combine(project.ProjectPath, "assets", name);
+                    if (Directory.Exists(directory))
+                    {
+                        Directory.Delete(directory, true);
+                    }
+                }
+
+                throw;
+            }
+            finally
+            {
+                OpenedProject = null;
+                IsCreatingProject = false;
+            }
+
+            if (ps2 != null)
+            {
+                stored.DiscContentPathPS2 = project.DiscContentPathPS2;
+            }
+
+            if (xbox != null)
+            {
+                stored.DiscContentPathXbox = project.DiscContentPathXbox;
+            }
+
+            stored.WriteProjectFile();
+            MiscUtils.CollectReleasedMemory();
+            Log.WriteLine($"Unpacked the game's assets in {DateTime.Now - start}");
         }
 
         /// <summary>
@@ -776,6 +928,30 @@ namespace TT_Lab.Project
             }
 
             return changed;
+        }
+
+        /// <summary>
+        /// Reads a directory TT Lab made into the tree under the folder the way opening the project does, its folders with their marks and
+        /// rows (the copies of a folder, chunk or package)
+        /// </summary>
+        internal Folder AddDirectoryToTree(Folder parent, string directory)
+        {
+            var folder = ExploreNewFolder(parent, new DirectoryInfo(directory), true, true);
+            var row = parent.GetResourceTreeElement();
+            row.AddNewChild(folder.GetResourceTreeElement(row));
+            RefreshTreeSearch();
+            return folder;
+        }
+
+        /// <summary>
+        /// Filters the tree again when it's searched, after its rows changed
+        /// </summary>
+        internal void RefreshTreeSearch()
+        {
+            if (!string.IsNullOrEmpty(_searchAsset))
+            {
+                DoSearch();
+            }
         }
 
         private static bool HasFile(IAsset asset)

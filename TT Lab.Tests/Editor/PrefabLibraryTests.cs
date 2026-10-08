@@ -19,6 +19,7 @@ using TT_Lab.Tests.Support;
 using TT_Lab.ViewModels;
 using TT_Lab.ViewModels.Editors;
 using Twinsanity.TwinsanityInterchange.Common;
+using Twinsanity.TwinsanityInterchange.Common.CameraSubtypes;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using InstancePath = TT_Lab.Assets.Instance.Path;
 using Path = System.IO.Path;
@@ -186,6 +187,22 @@ public sealed class PrefabLibraryTests : IDisposable
         Assert.Empty(data.Instances);
         Assert.Empty(data.Positions);
         Assert.Empty(data.Paths);
+    }
+
+    // The camera's trigger is read from the prefab's JSON with the camera: saving a placed camera looked for its references and asked the
+    // ownerless trigger for its name
+    [Fact]
+    public void APlacedCameraHasATriggerOfItsOwnAndSaves()
+    {
+        var first = CreateChunk("first");
+        var second = CreateChunk("second");
+        var camera = AddInstance<Camera>(first, "Camera", asset => new CameraData(asset) { MainCamera2 = new CameraPoint { Point = new Vector4(1, 2, 3, 0) } });
+        var prefab = _library.Capture(new PrefabSource(camera, null, null, "Camera"), "Camera");
+
+        var placed = (Camera)_library.PlaceInstance(prefab, second);
+
+        Assert.Same(placed, ((IAsset)placed).GetData<CameraData>().Trigger.GetOwner());
+        placed.Serialize(SerializationFlags.SaveData | SerializationFlags.PreserveData);
     }
 
     [Fact]

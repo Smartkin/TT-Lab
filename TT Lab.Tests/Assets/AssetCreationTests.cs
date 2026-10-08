@@ -171,6 +171,48 @@ public sealed class AssetCreationTests : IDisposable
         Assert.Null(CreateChunk(misplaced, "grotto"));
     }
 
+    // The levels folder is the game's Levels folder, which only has chunks: it offered every other asset as well
+    [AvaloniaFact]
+    public void TheLevelsFolderOnlyMakesFoldersAndChunks()
+    {
+        var levels = _project.GetFolder(_package, "levels");
+        var earth = AddFolder(levels, "earth");
+
+        Assert.Equal(["Folder", "Chunk"], Offered(levels));
+        Assert.Equal(["Folder", "Chunk"], Offered(earth));
+        Assert.Contains("Game Object", Offered(_project.GetFolder(_package, "Graphics")));
+    }
+
+    // An asset made in a folder of its package has its files there: every asset went into its type's folder, where the tree then found
+    // it. At the package's root or in its type's folder it goes where it went before
+    [AvaloniaFact]
+    public void AnAssetMadeInAFolderIsInIt()
+    {
+        var mine = AddFolder(AddFolder(_package.GetPackageFolder(), "My Folder"), "Props");
+        GameObject Create(Folder folder, string name) => (GameObject)AssetFactory.CreateAsset(typeof(GameObject), folder, name, _project.Project.BasePackage.ID.ToString(),
+            TwinIdGeneratorServiceProvider.GetGenerator<GameObject>(), AssetDataFactory.CreateGameObjectData)!;
+
+        var made = Create(mine, "Thing");
+
+        Assert.Equal("My Folder/Props", made.FolderInPackage);
+        Assert.Equal(Path.Combine(_project.AssetsPath, _package.Name, "My Folder", "Props"), Path.GetFullPath(made.FullPath));
+        Assert.True(File.Exists(Path.Combine(made.FullPath, $"{made.Name}.json")));
+        Assert.Contains(made.URI, mine.Children);
+        Assert.Contains(made.GetResourceTreeElement(), mine.GetResourceTreeElement().GetInternalChildren()!);
+        // The tree following the file system keeps it there, and the file read back is the same asset
+        Locator.Current.GetService<ProjectManager>()!.SyncProjectTree();
+        Assert.Contains(made.URI, mine.Children);
+        var read = new GameObject();
+        read.Deserialize(File.ReadAllText(Path.Combine(made.FullPath, $"{made.Name}.json")));
+        read.RegenerateUri();
+        Assert.Equal(made.URI, read.URI);
+
+        Assert.Null(Create(_package.GetPackageFolder(), "Rooted").FolderInPackage);
+        var typed = Create(_project.GetFolder(_package, "GameObject"), "Typed");
+        Assert.Null(typed.FolderInPackage);
+        Assert.Equal(Path.Combine(_project.AssetsPath, _package.Name, "GameObject"), Path.GetFullPath(typed.FullPath));
+    }
+
     // The game has one file for a path, another package's chunk at it would be built over it
     [AvaloniaFact]
     public void AChunksPathIsItsOwnInItsVersionOfTheGame()

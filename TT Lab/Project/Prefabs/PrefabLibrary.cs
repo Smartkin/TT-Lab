@@ -620,7 +620,7 @@ public sealed class PrefabLibrary
                 instanceAsset.AdditionalPath = chunk.AdditionalPath;
                 instanceAsset.RegenerateLinks();
                 var instanceData = (AbstractAssetData)Activator.CreateInstance(dataType, asset)!;
-                JsonConvert.PopulateObject(data.ToString(), instanceData, DataSettings);
+                instanceData.PopulateFrom(data.ToString());
                 asset.SetData(instanceData);
                 return AssetCreationStatus.Success;
             }, layout);
@@ -726,7 +726,8 @@ public sealed class PrefabLibrary
 
         foreach (var property in data.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public))
         {
-            if (!property.CanRead || property.GetIndexParameters().Length > 0)
+            // What isn't stored is made of what is
+            if (!property.CanRead || property.GetIndexParameters().Length > 0 || property.GetCustomAttribute<JsonIgnoreAttribute>() != null)
             {
                 continue;
             }

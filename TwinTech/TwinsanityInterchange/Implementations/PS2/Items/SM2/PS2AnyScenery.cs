@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Twinsanity.Libraries;
 using Twinsanity.TwinsanityInterchange.Common.Lights;
 using Twinsanity.TwinsanityInterchange.Common.ScenerySubtypes;
 using Twinsanity.TwinsanityInterchange.Implementations.Base;
@@ -53,7 +54,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SM2
                 HasLighting = (flags & 0x20000) != 0;
             }
             var NameLen = reader.ReadInt32();
-            Name = new String(reader.ReadChars(NameLen));
+            Name = GameText.ReadString(reader, NameLen);
             FogColor = reader.ReadUInt32();
             var sceneryType = reader.ReadInt32();
             UnusedByte = reader.ReadByte();
@@ -127,7 +128,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SM2
             }
             writer.Write(newFlags);
             writer.Write(Name.Length);
-            writer.Write(Name.ToCharArray());
+            GameText.Write(writer, Name);
             writer.Write(FogColor);
             writer.Write(Sceneries.Count != 0 ? 0x160A : 3);
             writer.Write(UnusedByte);

@@ -16,7 +16,8 @@ namespace TT_Lab.ViewModels.Editors.Instance;
 // Emitters name the particle system they play, their chunk's own or the default chunk's, so a renamed system takes its emitters along:
 // the ones in the same particles as part of the rename's step, and once a renamed system of the default chunk is saved, every other
 // chunk's of the version playing it, off the UI thread and logged when done (collision surfaces keep the default chunk's systems by their
-// index). A system put into a list gets a name no other system of the version has
+// index). A system put into a list gets a name no other system of its chunk has, nor a default system's for a level's: it would be played
+// in that one's place. A pasted one keeps its name, a level's own version of a default system
 internal sealed class ParticleSystemLinks
 {
     private readonly PropertyGraph.PropertyGraph _graph;
@@ -99,13 +100,14 @@ internal sealed class ParticleSystemLinks
 
     private void NameAdded(PropertyNode element, ParticleSystem added)
     {
-        if (DataNodeOf(element) is not { } dataNode || dataNode.GetValue() is not ParticleData data
+        // A paste names what it puts in itself
+        if (_graph.IsPastedOver(element) || DataNodeOf(element) is not { } dataNode || dataNode.GetValue() is not ParticleData data
             || element.FindChild($".{nameof(ParticleSystem.Name)}") is not { } name)
         {
             return;
         }
 
-        var unique = ParticleSystemNames.MakeUnique(added.Name, data.GetOwner(), added);
+        var unique = ParticleSystemNames.MakeUnique(added.Name, data.GetOwner(), added, avoidsDefaults: true);
         if (unique == added.Name)
         {
             return;
@@ -163,25 +165,27 @@ internal sealed class ParticleSystemLinks
         var chunks = ParticleSystemNames.ParticleAssets(project, project.GetPlatform(defaults.Package)).Where(asset => asset is not DefaultParticles).ToList();
         var emitters = 0;
         var changed = 0;
+        // Chunks with a system of their own of a new name, whose renamed emitters play that one in the default chunk's place
+        var playOwn = new List<(string Chunk, string Name)>();
         try
         {
             // An editor's data is changed on the UI thread, through its document when it has one open
             foreach (var asset in chunks.Where(asset => asset.IsLoaded))
             {
-                var count = RenameInLoaded(asset, renames);
+                var count = RenameInLoaded(asset, renames, name => playOwn.Add((asset.Alias, name)));
                 emitters += count;
                 changed += count > 0 ? 1 : 0;
             }
 
             var unloaded = chunks.Where(asset => !asset.IsLoaded).ToList();
-            var (fileEmitters, fileChanged) = await Task.Run(() =>
+            var (fileEmitters, fileChanged, filesPlayingOwn) = await Task.Run(() =>
             {
-                var (renamedEmitters, changedFiles) = (0, 0);
+                var (renamedEmitters, changedFiles, ownPlayed) = (0, 0, new List<(string Chunk, string Name)>());
                 foreach (var asset in unloaded)
                 {
                     var data = new ParticleData(asset);
                     data.Load(asset.FullDataPath);
-                    var count = RenameEmitters(data, renames, (emitter, name) => emitter.Name = name);
+                    var count = RenameEmitters(data, renames, (emitter, name) => emitter.Name = name, name => ownPlayed.Add((asset.Alias, name)));
                     if (count == 0)
                     {
                         continue;
@@ -192,11 +196,17 @@ internal sealed class ParticleSystemLinks
                     changedFiles++;
                 }
 
-                return (renamedEmitters, changedFiles);
+                return (renamedEmitters, changedFiles, ownPlayed);
             });
             emitters += fileEmitters;
             changed += fileChanged;
+            playOwn.AddRange(filesPlayingOwn);
             Log.WriteLine($"Renamed the default chunk's particle systems {described} in {emitters} emitters of {changed} chunks ({watch.Elapsed.TotalSeconds:F1} s)");
+            foreach (var chunk in playOwn.Distinct().GroupBy(entry => entry.Chunk))
+            {
+                Log.WriteLine($"{chunk.Key} has particle systems of its own named {string.Join(", ", chunk.Select(entry => entry.Name))}: its renamed emitters play those " +
+                              "in place of the default chunk's", Log.LogType.Warning);
+            }
         }
         catch (Exception ex)
         {
@@ -206,7 +216,7 @@ internal sealed class ParticleSystemLinks
         return emitters;
     }
 
-    private static int RenameInLoaded(SerializableAsset asset, IReadOnlyDictionary<string, string> renames)
+    private static int RenameInLoaded(SerializableAsset asset, IReadOnlyDictionary<string, string> renames, Action<string> playsOwn)
     {
         if (asset.AssetData is not ParticleData data)
         {
@@ -223,7 +233,7 @@ internal sealed class ParticleSystemLinks
             }
 
             emitter.Name = name;
-        });
+        }, playsOwn);
         if (count > 0 && nodes.Count == 0)
         {
             asset.Serialize(SerializationFlags.SaveData | SerializationFlags.PreserveData);
@@ -232,8 +242,9 @@ internal sealed class ParticleSystemLinks
         return count;
     }
 
-    // An emitter plays its chunk's own system of its name before the default chunk's
-    private static int RenameEmitters(ParticleData data, IReadOnlyDictionary<string, string> renames, Action<ParticleSystemInstance, string> rename)
+    // An emitter plays its chunk's own system of its name before the default chunk's: one of the old name stays, one of the new name gets
+    // played in the renamed one's place
+    private static int RenameEmitters(ParticleData data, IReadOnlyDictionary<string, string> renames, Action<ParticleSystemInstance, string> rename, Action<string> playsOwn)
     {
         var own = data.ParticleSystems.Select(system => system.Name).ToHashSet();
         var count = 0;
@@ -246,6 +257,10 @@ internal sealed class ParticleSystemLinks
 
             rename(emitter, name);
             count++;
+            if (own.Contains(name))
+            {
+                playsOwn(name);
+            }
         }
 
         return count;

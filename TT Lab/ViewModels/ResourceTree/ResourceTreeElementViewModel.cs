@@ -49,7 +49,8 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
     }
     
     private readonly IAsset _asset;
-    private readonly ResourceTreeElementViewModel? _parent;
+    // The row it's listed under, which the tree moves an asset's row to when its file turns up in another folder
+    private ResourceTreeElementViewModel? _parent;
     private readonly BindableCollection<MenuItem> _menuOptions = new();
     private BindableCollection<ResourceTreeElementViewModel>? _children;
     private List<ResourceTreeElementViewModel>? _internalChildren;
@@ -150,6 +151,7 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
         }
         
         _internalChildren.Insert(InsertionIndex(_internalChildren, child), child);
+        child._parent = this;
         AddChild(child);
     }
 
@@ -177,6 +179,10 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
         
         _children.Remove(child);
         _internalChildren.Remove(child);
+        if (child._parent == this)
+        {
+            child._parent = null;
+        }
     }
 
     protected MenuItem RegisterMenuItem(MenuItemSettings settings = default)
@@ -216,6 +222,53 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
             Header = "Delete",
             Action = StartDeletingAsset,
         });
+        RegisterRelocationItems();
+    }
+
+    // Duplicate and Move To..., for what can be copied or moved
+    protected void RegisterRelocationItems(bool canMove = true)
+    {
+        if (AssetRelocation.WhyNotDuplicable(Asset) == null)
+        {
+            RegisterMenuItem(new MenuItemSettings
+            {
+                Header = "Duplicate",
+                Action = Duplicate,
+            });
+        }
+
+        if (canMove && AssetRelocation.WhyNotMovable(Asset) == null)
+        {
+            RegisterMenuItem(new MenuItemSettings
+            {
+                Header = "Move To...",
+                Action = MoveTo,
+            });
+        }
+    }
+
+    private async void Duplicate()
+    {
+        try
+        {
+            await AssetRelocation.DuplicateAsync(Asset);
+        }
+        catch (Exception exception)
+        {
+            Log.WriteLine($"Duplicating {Alias} failed: {exception.Message}", Log.LogType.Error);
+        }
+    }
+
+    private async void MoveTo()
+    {
+        try
+        {
+            await AssetRelocation.MoveToAsync(Asset);
+        }
+        catch (Exception exception)
+        {
+            Log.WriteLine($"Moving {Alias} failed: {exception.Message}", Log.LogType.Error);
+        }
     }
 
     public virtual void CreateEditor()
@@ -258,9 +311,40 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
             NewAlias = Alias;
             return;
         }
-        
+
+        if (!NameRules.IsAscii(NewAlias))
+        {
+            Log.WriteLine($"{Alias} isn't renamed to {NewAlias}: a name {NameRules.AsciiOnly}", Log.LogType.Warning);
+            NewAlias = Alias;
+            return;
+        }
+
+        // A folder is its directory, renaming it moves what's in it and gives the links to that the new place. Only its alias changed
+        // before, the next look at the disk took it out and read the directory of the old name back
+        if (Asset is Folder folder)
+        {
+            RenameFolder(folder, NewAlias);
+            return;
+        }
+
         Alias = NewAlias;
         Asset.Serialize(SerializationFlags.SetDirectoryToAssets);
+    }
+
+    private async void RenameFolder(Folder folder, string name)
+    {
+        try
+        {
+            if (!await AssetRelocation.RenameAsync(folder, name))
+            {
+                NewAlias = Alias;
+            }
+        }
+        catch (Exception exception)
+        {
+            NewAlias = Alias;
+            Log.WriteLine($"Renaming {Alias} failed: {exception.Message}", Log.LogType.Error);
+        }
     }
  
     private void PerformAssetRename()
@@ -285,21 +369,25 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
             return;
         }
         
+        await DeleteAsync();
+    }
+
+    // The rows change in place: making the folder's rows again gave every folder under it new lists its rows in the tree didn't show,
+    // and a row moved to the folder its file is in got taken out of the one it was made in, it stayed in the tree
+    internal async Task<bool> DeleteAsync()
+    {
         Log.WriteLine($"Deleting asset {Alias}...");
         if (!await AssetDeletion.DeleteAsync(Asset))
         {
-            return;
+            return false;
         }
 
         _internalChildren?.Clear();
         _children?.Clear();
         _parent?.RemoveChild(this);
-        _parent?.ClearChildren();
-        _parent?.LoadChildrenBack();
-        _parent?.NotifyOfPropertyChange(nameof(Children));
-        
         Deleted();
-   }
+        return true;
+    }
 
     public List<ResourceTreeElementViewModel>? GetInternalChildren()
     {

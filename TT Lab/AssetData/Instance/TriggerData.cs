@@ -35,8 +35,11 @@ public class TriggerData : AbstractAssetData
     // A trigger's and a camera's node keep 35 (TriggerNode::AddInstance doesn't check, more overwrite the node)
     public const int MaxInstances = 35;
 
-    // What the game's triggers have: kind 50 (0 makes a box of the chunk's second reverb) and checks every 0.3 seconds
+    // What the game's triggers have: kind 50 (0 makes a box of the chunk's second reverb), set off by the playable character (every camera
+    // and 643 of the 678 triggers of a PS2 disc's levels have its bit alone, none has none: a camera without it is never taken) and checks
+    // every 0.3 seconds
     private const UInt32 NewHeader = 0x32;
+    private const TriggerActivatorObjects NewActivators = TriggerActivatorObjects.PlayableCharacter;
     private const Single NewCheckInterval = 0.3f;
 
     public TriggerData(IAsset asset) : base(asset)
@@ -46,6 +49,7 @@ public class TriggerData : AbstractAssetData
         Scale = new Vector3(1, 1, 1);
         Instances = new List<LabURI>();
         InstancesGrowth = 10;
+        ObjectActivatorMask = NewActivators;
         Header = NewHeader;
         CheckInterval = NewCheckInterval;
         DeriveFromHeader();
@@ -188,11 +192,7 @@ public class TriggerData : AbstractAssetData
     [EditorHiddenIn("Camera")]
     public UInt16 TriggerMessage4 { get; set; }
     
-    protected override void LoadInternal(string dataPath, JsonSerializerSettings? settings = null)
-    {
-        base.LoadInternal(dataPath, settings);
-        DeriveFromHeader();
-    }
+    protected override void OnRead() => DeriveFromHeader();
 
     // Cameras keep their trigger in their own file, which never went through loading the trigger's
     [OnDeserialized]

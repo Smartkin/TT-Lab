@@ -550,6 +550,103 @@ public sealed class TlmAssetTests : IDisposable
         LabShader ShaderOf(LabURI material) => _project.AssetManager.GetAssetData<MaterialData>(material).Shaders[0];
     }
 
+    // The add-on edits a project material's settings, exporting the model brings what was changed in Blender: the material takes them and
+    // is saved, the pictures made in Blender become textures, made once and given the picture's pixels when it changed, and the file is
+    // written again without the settings
+    [AvaloniaFact]
+    public void ProjectMaterialsTakeTheSettingsChangedInBlender()
+    {
+        _project.BuildProjectTree("Global PS2_Test/Material", "Global PS2_Test/Texture");
+        var varnish = _assets.AddMaterial("Varnish");
+        varnish.Serialize(SerializationFlags.SaveData | SerializationFlags.PreserveData);
+        var rigidModel = _assets.AddRigidModel("Chair", varnish.URI);
+        rigidModel.Serialize(SerializationFlags.SaveData);
+        var settings = JsonNode.Parse(Newtonsoft.Json.JsonConvert.SerializeObject(((IAsset)varnish).GetData<MaterialData>()))!.AsObject();
+        settings["Shaders"]![0]!["ABlending"] = 1;
+        settings["Shaders"]![0]!["Image"] = 0;
+        WithSettings(rigidModel.FullDataPath, settings, 0xFF20C040);
+
+        ((IAsset)rigidModel).GetData<RigidModelData>();
+
+        var shader = ((IAsset)varnish).GetData<MaterialData>().Shaders[0];
+        Assert.Equal(TwinShader.AlphaBlending.ON, shader.ABlending);
+        Assert.True(Single.IsNaN(shader.LeftoverVector.X));
+        var texture = _assets.Get<Texture>(shader.TextureId);
+        Assert.Equal("scratch-id", texture.Parameters[TlmMaterials.BlenderImageParameter]?.ToString());
+        Assert.Equal(0xFF20C040, ((IAsset)texture).GetData<TextureData>().GetPixels()[0]);
+        Assert.Null(TlmFile.Load(rigidModel.FullDataPath).Materials[0]!["data"]);
+        varnish.UnloadData();
+        Assert.Equal(TwinShader.AlphaBlending.ON, ((IAsset)varnish).GetData<MaterialData>().Shaders[0].ABlending);
+
+        // Painted over in Blender, the same texture
+        var assetsBefore = _project.AssetManager.GetAssets().Count(asset => !asset.IsInternal);
+        WithSettings(rigidModel.FullDataPath, settings, 0xFF0000FF);
+        rigidModel.UnloadData();
+        ((IAsset)rigidModel).GetData<RigidModelData>();
+
+        Assert.Equal(texture.URI, ((IAsset)varnish).GetData<MaterialData>().Shaders[0].TextureId);
+        Assert.Equal(0xFF0000FF, ((IAsset)texture).GetData<TextureData>().GetPixels()[0]);
+        Assert.Equal(assetsBefore, _project.AssetManager.GetAssets().Count(asset => !asset.IsInternal));
+    }
+
+    // A material made in Blender with the add-on's settings becomes a material of the project with them, every export bringing them again
+    [AvaloniaFact]
+    public void MaterialsMadeInBlenderComeWithTheirSettings()
+    {
+        _project.BuildProjectTree("Global PS2_Test/Material", "Global PS2_Test/Texture");
+        var rigidModel = _assets.AddRigidModel("Window", _assets.AddMaterial("Frame").URI);
+        rigidModel.Serialize(SerializationFlags.SaveData);
+        var shader = JsonNode.Parse(Newtonsoft.Json.JsonConvert.SerializeObject(new LabShader { ShaderType = TwinShader.Type.UnlitEnvironmentMap, ABlending = TwinShader.AlphaBlending.ON }))!.AsObject();
+        shader["Image"] = 0;
+        var settings = new JsonObject { ["ActivatedShaders"] = 0, ["Name"] = "GLASS", ["DmaChainIndex"] = 16, ["Shaders"] = new JsonArray(shader) };
+        WithSettings(rigidModel.FullDataPath, settings, 0xFF808080, blenderMaterial: "glass-id");
+
+        var material = _assets.Get<Material>(((IAsset)rigidModel).GetData<RigidModelData>().Materials[0]);
+
+        Assert.Equal(("glass-id", "Rigid"), (material.Parameters[TlmMaterials.BlenderMaterialParameter]?.ToString(), material.Parameters[TlmMaterials.BlenderMaterialUseParameter]?.ToString()));
+        var data = ((IAsset)material).GetData<MaterialData>();
+        Assert.Equal(("GLASS", 16u, TwinShader.Type.UnlitEnvironmentMap, TwinShader.AlphaBlending.ON), (data.Name, data.DmaChainIndex, data.Shaders[0].ShaderType, data.Shaders[0].ABlending));
+        Assert.Equal("scratch-id", _assets.Get(data.Shaders[0].TextureId).Parameters[TlmMaterials.BlenderImageParameter]?.ToString());
+
+        settings["DmaChainIndex"] = 17;
+        WithSettings(rigidModel.FullDataPath, settings, 0xFF808080, blenderMaterial: "glass-id");
+        rigidModel.UnloadData();
+        Assert.Equal(material.URI, ((IAsset)rigidModel).GetData<RigidModelData>().Materials[0]);
+        Assert.Equal(17u, ((IAsset)material).GetData<MaterialData>().DmaChainIndex);
+    }
+
+    // A cut-out made in Blender passes where its alpha is at least the cut-off, the GS's alpha bytes having 128 as 1
+    [AvaloniaFact]
+    public void CutOutsMadeInBlenderPassFromTheirCutOff()
+    {
+        _project.BuildProjectTree("Global PS2_Test/Material", "Global PS2_Test/Texture");
+        var rigidModel = _assets.AddRigidModel("Fence", _assets.AddMaterial("Wire").URI);
+        rigidModel.Serialize(SerializationFlags.SaveData);
+        var file = TlmFile.Load(rigidModel.FullDataPath);
+        file.Materials[0] = new JsonObject { ["name"] = "Leaves", ["blender_id"] = "leaves-id", ["alpha"] = "CLIP", ["alpha_cutoff"] = 0.5f };
+        file.Save(rigidModel.FullDataPath);
+
+        var shader = _project.AssetManager.GetAssetData<MaterialData>(((IAsset)rigidModel).GetData<RigidModelData>().Materials[0]).Shaders[0];
+
+        Assert.Equal((TwinShader.AlphaTest.ON, TwinShader.AlphaTestMethod.GEQUAL, (byte)64), (shader.ATest, shader.ATestMethod, shader.AlphaValueToBeComparedTo));
+    }
+
+    private static void WithSettings(string path, JsonObject settings, uint color, string? blenderMaterial = null)
+    {
+        var file = TlmFile.Load(path);
+        var png = TextureData.CreateSolidColor(null!, 16, color).GetPngBytes();
+        var entry = file.Materials[0]!.AsObject();
+        if (blenderMaterial != null)
+        {
+            entry = new JsonObject { ["name"] = "Glass", ["blender_id"] = blenderMaterial };
+            file.Materials[0] = entry;
+        }
+
+        entry["data"] = settings.DeepClone();
+        entry["images"] = new JsonArray(new JsonObject { ["png"] = file.Write(png.AsSpan()), ["name"] = "scratch.png", ["blender_id"] = "scratch-id" });
+        file.Save(path);
+    }
+
     // NTSC's beach draws a part of Cortex's skin with a StandardLit material, which only gets a warning
     [Fact]
     public void SkinsOfAnotherShaderAreStillBuilt()

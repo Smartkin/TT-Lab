@@ -1,19 +1,23 @@
+using Avalonia.Headless.XUnit;
 using System.Numerics;
 using System.Text.Json.Nodes;
 using GlmSharp;
 using TT_Lab.AssetData.Code;
 using TT_Lab.AssetData.Global;
 using TT_Lab.AssetData.Graphics;
+using TT_Lab.AssetData.Graphics.Shaders;
 using TT_Lab.AssetData.Graphics.TlModel;
 using TT_Lab.Extensions;
 using TT_Lab.AssetData.Instance;
 using TT_Lab.AssetData.Instance.Scenery;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
+using TT_Lab.Assets.Graphics;
 using TT_Lab.Assets.Instance;
 using TT_Lab.Tests.Support;
 using Twinsanity.TwinsanityInterchange.Common.Animation;
 using Path = System.IO.Path;
+using TwinShader = Twinsanity.TwinsanityInterchange.Common.TwinShader;
 
 namespace TT_Lab.Tests.Assets;
 
@@ -34,9 +38,11 @@ public sealed class TlmFixtureTests : IDisposable
     private const string SceneryAddedName = "scenery_added_in_blender.tlm";
     private const string OgiTemplateName = "ogi_template.tlm";
     private const string SceneryTemplateName = "scenery_template.tlm";
+    private const string SaveIconTemplateName = "save_icon_template.tlm";
     private const string SaveIconFixtureName = "save_icon.tlm";
     private const string SaveIconBlenderExportName = "save_icon_from_blender.tlm";
     private const string SaveIconBlenderEditName = "save_icon_edited_in_blender.tlm";
+    private const string MaterialsName = "ogi_materials_from_blender.tlm";
 
     private readonly TestProject _project = new();
     private readonly TestAssets _assets;
@@ -209,6 +215,29 @@ public sealed class TlmFixtureTests : IDisposable
         }
 
         Assert.Equal(File.ReadAllBytes(path), written);
+    }
+
+    // The add-on's export of the model after its material was edited in Blender (tests/blender_materials.py, against a project of its own
+    // whose fur material has a shader of an animated U track over a lit one): the shader animation keyed, a picture painted on the first
+    // shader and a new name, which the project's material takes
+    [AvaloniaFact]
+    public void MaterialSettingsChangedInBlenderAreTheProjects()
+    {
+        _project.BuildProjectTree("Global PS2_Test/Material", "Global PS2_Test/Texture");
+        var fur = _project.AssetManager.GetAllAssetsOf<Material>().Single(material => material.Alias == "Crash Fur");
+
+        new OGIData(_ogi).ReadTlm(TlmFile.Load(FixturePath(MaterialsName)));
+
+        var data = ((IAsset)fur).GetData<MaterialData>();
+        Assert.Equal("FUR", data.Name);
+        Assert.Equal([TwinShader.Type.StandardLit, TwinShader.Type.UnlitEnvironmentMap], data.Shaders.Select(shader => shader.ShaderType));
+        var animation = data.Shaders[1].Animation!;
+        Assert.Equal((10, 4), (animation.FramesPerSecond, ShaderAnimationTracks.FrameCount(animation)));
+        Assert.Equal([0.0f, 0.25f, 0.75f, 0.75f], Enumerable.Range(0, 4).Select(frame => ShaderAnimationTracks.ValueAt(animation, 0, frame)));
+        Assert.False(ShaderAnimationTracks.IsAnimated(animation, 2));
+        var texture = _assets.Get<Texture>(data.Shaders[0].TextureId);
+        Assert.NotNull(texture.Parameters[TlmMaterials.BlenderImageParameter]);
+        Assert.Equal(0xFFFF0000, ((IAsset)texture).GetData<TextureData>().GetPixels()[0]);
     }
 
     // Nothing was edited in Blender, the model comes back as the game has it
@@ -538,8 +567,9 @@ public sealed class TlmFixtureTests : IDisposable
         return rotation;
     }
 
-    // The add-on's OGI template (Add > Twin Tech > OGI Model, blender_templates.py exports it as it comes) is a model the game can
-    // load: one joint and a box skin weighted to it, nothing else
+    // The add-on's OGI template (Add > Twin Tech > OGI Model, blender_templates.py exports it as it comes) is a model: two joints (one joint
+    // and no exit points and the game would draw no skin), its box a rigid body on the second, and a skin and a blend skin left empty to
+    // fill, which the model doesn't have until they are
     [Fact]
     public void OgiTemplateMadeInBlenderIsAModel()
     {
@@ -547,18 +577,36 @@ public sealed class TlmFixtureTests : IDisposable
         read.ReadTlm(TlmFile.Load(FixturePath(OgiTemplateName)));
         _ogi.SetData(read);
 
-        // The game marks a root joint's parent with 0xFF. One joint and no exit points and the game would draw no skin
+        // The game marks a root joint's parent with 0xFF
         Assert.Equal([(0, 0xFF), (1, 0)], read.Joints.Select(joint => (joint.Index, joint.ParentIndex)));
-        Assert.NotEqual(LabURI.Empty, read.Skin);
+        Assert.Equal(LabURI.Empty, read.Skin);
         Assert.Equal(LabURI.Empty, read.BlendSkin);
         Assert.Empty(read.Animations);
-        Assert.Empty(read.RigidModelIds);
+        var body = Assert.Single(read.RigidModelIds);
+        Assert.Equal((Byte)1, Assert.Single(read.RigidModelJointIndices));
         Assert.Empty(read.ExitPoints);
         Assert.Empty(read.CollisionHulls);
         Assert.Equal((-0.5f, 0f, -0.5f, 1f), (read.BoundingBox[0].X, read.BoundingBox[0].Y, read.BoundingBox[0].Z, read.BoundingBox[0].W));
         Assert.Equal((0.5f, 1f, 0.5f, 1f), (read.BoundingBox[1].X, read.BoundingBox[1].Y, read.BoundingBox[1].Z, read.BoundingBox[1].W));
-        Assert.NotEmpty(_assets.Export(_assets.Get(read.Skin)));
+        Assert.NotEmpty(_assets.Export(_assets.Get(body)));
         Assert.NotEmpty(_assets.Export(_ogi));
+    }
+
+    // The add-on's save icon template (Add > Twin Tech > PS2 Save Icon) is a save icon: a box of the console's full vertex colors, the game's
+    // icon's header, and the material's picture as its texture
+    [Fact]
+    public void SaveIconTemplateMadeInBlenderIsASaveIcon()
+    {
+        var icon = SaveIconTlm.Read(TlmFile.Load(FixturePath(SaveIconTemplateName)));
+
+        Assert.Equal(1, icon.ShapeCount);
+        // A box: 12 triangles, every corner of every one a vertex of the icon
+        Assert.Equal(36, icon.Vertexes.Count);
+        Assert.All(icon.Vertexes, vertex => Assert.Equal(0xFF808080u, vertex.Color));
+        Assert.Equal((0x10000u, 6u, 1u), (icon.FileId, icon.TextureType, icon.FrameLength));
+        // The checker's two greys
+        Assert.Equal(2, icon.Texture.Distinct().Count());
+        Assert.NotEmpty(SaveIconTlm.ToBytes(icon));
     }
 
     // The add-on's scenery template is a scenery: the ground placed in it, an ambient and a directional light, the

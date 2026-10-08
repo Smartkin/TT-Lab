@@ -206,7 +206,7 @@ def _import_movement(context: bpy.types.Context, file: tlm.TlmFile, tree_node: t
 
 def export_children(file: tlm.TlmFile, blender_object: bpy.types.Object, tree_node: typing.Dict[str, typing.Any],
                     materials: "tlm_blender._FileMaterials") -> None:
-    for child in sorted(blender_object.children, key=lambda child: child.name):
+    for child in sorted(tlm_blender.live_children(blender_object), key=lambda child: child.name):
         node = _export_node(file, child, materials)
         if node is not None:
             tlm.add_child(tree_node, node)
@@ -364,7 +364,7 @@ def collision_sources(start: bpy.types.Object) -> typing.List[bpy.types.Object]:
         if blender_object.type == "MESH" and (kind in ("", "mesh", "scenery_mesh") or kind == "lod_mesh" and int(tlm_blender._write_data(blender_object).get("Level", 0)) == 0):
             sources.append(blender_object)
 
-        pending.extend(sorted(blender_object.children, key=lambda child: child.name, reverse=True))
+        pending.extend(sorted(tlm_blender.live_children(blender_object), key=lambda child: child.name, reverse=True))
 
     return sources
 

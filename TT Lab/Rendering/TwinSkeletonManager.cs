@@ -79,6 +79,19 @@ public sealed class TwinBone : Node
 public sealed class TwinSkeleton
 {
     public Dictionary<int, TwinBone> Bones = [];
+
+    /// <summary>
+    /// Where the pose puts every joint and its parent joint, the bone the viewer draws between them (none above the root)
+    /// </summary>
+    internal IEnumerable<(int Joint, vec3 Position, vec3? Parent)> Pose()
+    {
+        foreach (var (joint, bone) in Bones)
+        {
+            yield return (joint, PositionOf(bone), bone.Parent is TwinBone parent ? PositionOf(parent) : null);
+        }
+    }
+
+    private static vec3 PositionOf(Renderable bone) => (bone.WorldTransform * new vec4(0.0f, 0.0f, 0.0f, 1.0f)).xyz;
 }
 
 public class TwinSkeletonManager(RenderContext context)
@@ -98,7 +111,7 @@ public class TwinSkeletonManager(RenderContext context)
         var skeleton = new TwinSkeleton();
         var boneMap = new Dictionary<int, TwinBone>();
         var rootBone = new TwinBone(context, parentNode);
-        if (HasAnimator(ogiData))
+        if (ogiData.GetsAnimator)
         {
             SetRest(rootBone, ogiData.Joints[0]);
         }
@@ -121,8 +134,6 @@ public class TwinSkeletonManager(RenderContext context)
 
         return skeleton;
     }
-
-    internal static bool HasAnimator(OGIData ogiData) => ogiData.Joints.Count > 1 || ogiData.ExitPoints.Count > 0;
 
     private static void SetRest(TwinBone bone, Twinsanity.TwinsanityInterchange.Common.TwinJoint joint)
     {

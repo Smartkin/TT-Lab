@@ -2,7 +2,6 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:controls="clr-namespace:TT_Lab.Controls"
              xmlns:controls1="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
              xmlns:viewModels="clr-namespace:TT_Lab.ViewModels.Editors.Graphics"
              x:DataType="viewModels:TextureViewModel"
@@ -18,9 +17,24 @@
     <!--     </EventTrigger> -->
     <!-- </Interaction.Behaviors> -->
     <controls1:GroupBox>
-        <Grid RowDefinitions="*,30">
-            <Image Grid.Row="0" Margin="5" MaxWidth="256" Source="{Binding Texture}"/>
-            <Button Command="{Binding ReplaceButton}" Content="Replace" Margin="0" Grid.Row="1"/>
+        <Grid RowDefinitions="Auto,Auto,Auto,Auto,30">
+            <!-- Smaller levels are drawn as big as the picture, a pixel a block, so what they lose shows -->
+            <Border Grid.Row="0" Width="256" Height="256" Margin="5" HorizontalAlignment="Left">
+                <Image x:Name="Picture" Stretch="Uniform" RenderOptions.BitmapInterpolationMode="None" Source="{Binding Texture}"/>
+            </Border>
+            <Grid Grid.Row="1" ColumnDefinitions="Auto,*" Margin="5,0">
+                <TextBlock Grid.Column="0" Text="Mip level" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <Slider Grid.Column="1" x:Name="MipSlider" Minimum="0" Maximum="{Binding MaxMipLevel}" Value="{Binding MipLevel}"
+                        TickFrequency="1" IsSnapToTickEnabled="True" IsEnabled="{Binding CanPickLevel}"
+                        ToolTip.Tip="The smaller versions of the picture the PS2 version draws in the distance, what TT Lab makes of the picture for each"/>
+            </Grid>
+            <StackPanel Grid.Row="2" Margin="5,0" Spacing="2">
+                <TextBlock x:Name="LevelText" Text="{Binding LevelText}"/>
+                <TextBlock x:Name="BuildText" Text="{Binding BuildText}" TextWrapping="Wrap" MaxWidth="400" HorizontalAlignment="Left"/>
+            </StackPanel>
+            <CheckBox Grid.Row="3" Margin="5,2" x:Name="ShowsOriginal" Content="Show the picture as it's stored" IsChecked="{Binding ShowsOriginal}"
+                      ToolTip.Tip="The picture itself instead of what the game gets of it (quantized, compressed, its mips)"/>
+            <Button Command="{Binding ReplaceButton}" Content="Replace" Margin="0" Grid.Row="4"/>
         </Grid>
     </controls1:GroupBox>
 </UserControl>

@@ -23,7 +23,7 @@
             <Expander ContentTransition="{x:Null}" IsExpanded="{Binding IsExpanded}" HorizontalAlignment="Stretch">
                 <Expander.Header>
                     <Panel>
-                        <DockPanel LastChildFill="True">
+                        <DockPanel LastChildFill="True" x:Name="Header">
                             <TextBlock VerticalAlignment="Center" DockPanel.Dock="Left" Text="{Binding Caption}" ToolTip.Tip="{Binding Hint}" ToolTip.ShowDelay="500" Classes.overridden="{Binding IsOverridden}" ContextRequested="Caption_OnContextRequested"/>
                             <Button Margin="10" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" IsVisible="{Binding IsConstructible}" x:Name="ConstructNewInstance">
                                 <Button.Content>

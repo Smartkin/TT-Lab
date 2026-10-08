@@ -1,7 +1,4 @@
 #include "Includes/ModelLayout.frag"
-#include "lygia/lighting/shadingData/shadingData.glsl"
-#include "lygia/lighting/specular/gaussian.glsl"
-#include "lygia/lighting/sphereMap.glsl"
 
 const float FOG_CAMERA_MAX_DIST = 300.0;
 
@@ -23,23 +20,16 @@ void main()
         resultColor = mix(resultColor, screenColorReflected.rgb * Color.rgb * resultColor, twin_material.reflect_dist.x);
     }
 
-    vec3 surfaceNormal = normalize(Normal);
-    if (!gl_FrontFacing && twin_material.two_sided_lighting)
-    {
-        surfaceNormal = -surfaceNormal;
-    }
     vec3 eyeDirection = normalize(EyePosition - ViewPosition);
     // The editor's flat shading goes by the triangle's own normal, taken before the alpha test can discard fragments of the quad
     vec3 faceNormal = twin_material.editor_shading > 0.0 ? normalize(cross(dFdx(ViewPosition), dFdy(ViewPosition))) : vec3(0.0);
 
-    // The picture read where the game's VU1 program reads it, by the half vector's dot products with the strongest lights (EnvUv)
+    // The picture read where the game's VU1 program reads it instead of at the UVs (EnvUv), scrolled like the UVs
     if (twin_material.env_map > 0.0)
     {
-        vec4 panoramaTexture = texture(Texture[0], EnvUv);
-        vec3 envMapColor = panoramaTexture.rgb * Color.rgb;
-        float envMapAlpha = mix(1.0, panoramaTexture.a * Color.a, twin_material.alpha_blend);
-        resultColor = mix(resultColor, envMapColor, twin_material.env_map);
-        resultAlpha = mix(resultAlpha, envMapAlpha, twin_material.env_map);
+        vec4 panoramaTexture = texture(Texture[0], EnvUv + twin_material.uv_scroll_speed * vec2(Time));
+        resultColor = panoramaTexture.rgb * Color.rgb;
+        resultAlpha = mix(1.0, panoramaTexture.a * Color.a, twin_material.alpha_blend);
     }
 
     if (resultAlpha < twin_material.alpha_test)
@@ -48,11 +38,7 @@ void main()
         return;
     }
 
-    // Specular/Diffuse lighting
-    float diffuse = max(dot(surfaceNormal, eyeDirection), 0.0);
-    float specular = mix(0.0, specularGaussian(diffuse, 20.0), twin_material.metalic_specular);
     vec4 resultBlend = vec4(resultColor, mix(1.0, resultAlpha, twin_material.alpha_blend));
-    resultBlend.rgb *= mix(vec3(1.0), Color.rgb * (specular + diffuse), twin_material.metalic_specular);
     resultBlend.rgb *= Diffuse.rgb * twin_material.animated_color.rgb;
     resultBlend.a *= twin_material.animated_color.a;
     resultBlend.a = mix(resultBlend.a, resultBlend.a * Diffuse.a, twin_material.alpha_blend);

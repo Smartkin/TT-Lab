@@ -155,7 +155,8 @@ public partial class DocumentViewModel : ReactiveObject
             Caption = documentModel.DocumentName,
             EditorName = documentModel.GetType().Name,
             IsExpanded = true,
-            Depth = 0
+            Depth = 0,
+            IsAssetRoot = documentModel is IAsset,
         };
         DocumentModel = documentModel;
 
@@ -351,7 +352,16 @@ public partial class DocumentViewModel : ReactiveObject
 
         if (docToInspect != null)
         {
-            Inspector = EditorDescRegistry.GetDesc(this, docToInspect).Construct();
+            var inspector = EditorDescRegistry.GetDesc(this, docToInspect).Construct();
+            // An inspected asset's top is the whole asset, named like its tab. Set before it's shown: the Inspector panel's view of the
+            // last one takes it over right away
+            if (docToInspect.Target is IAsset asset && (docToInspect.Parent == null || docToInspect.Segment == "[data]"))
+            {
+                inspector.Caption = asset.Alias;
+                inspector.IsAssetRoot = true;
+            }
+
+            Inspector = inspector;
             Lifecycle.Register(Inspector);
         }
         else

@@ -173,17 +173,20 @@ public class CameraData : AbstractAssetData
     [Editable(Hint = "Cameras of different groups don't replace each other while both are nonzero, 0 on most cameras")]
     public Byte Group { get; set; }
 
+    // The game's first subtype moves the follow camera's target, the second its place (the decomp's FollowCameraTarget::TakeCamera
+    // and FollowCameraPositioner::TakeCamera): every boss camera of the game is a second one
     [JsonProperty(Required = Required.AllowNull)]
-    [Editable(IsConstructible = true, Hint = "What the camera follows, drawn in the viewport where its points, lines, boxes and arena can be dragged")]
+    [Editable(Caption = "Camera Look At", IsConstructible = true, Hint = "The point the camera looks at, worked out from where the player is. Without one the camera looks at the player. Drawn in the viewport where its points, lines, boxes and arena can be dragged")]
     public CameraSubBase? MainCamera1 { get; set; }
 
     [JsonProperty(Required = Required.AllowNull)]
-    [Editable(IsConstructible = true)]
+    [Editable(Caption = "Camera Positioning", IsConstructible = true, Hint = "Where the camera stands, worked out from where the player is. Without one the camera follows the player from behind, with the pitch, yaw and distance this camera sets. Drawn in the viewport where its points, lines, boxes and arena can be dragged")]
     public CameraSubBase? MainCamera2 { get; set; }
 
-    protected override void LoadInternal(String dataPath, JsonSerializerSettings? settings = null)
+    // The trigger reading the camera's JSON made is the camera's, copies of a camera (duplicated, placed from a prefab) too: saving one
+    // looked for its references and asked the ownerless trigger for its name
+    protected override void OnRead()
     {
-        base.LoadInternal(dataPath, settings);
         Trigger.SetOwner(Owner);
         KeepDerivedValues();
     }

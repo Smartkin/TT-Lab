@@ -195,15 +195,66 @@ public sealed class TlmFile
         return new JsonObject { ["offset"] = copied, ["count"] = count, ["type"] = type };
     }
 
+    // The JSON is made before the file is opened: a value JSON can't hold (NaN typed into a scenery's value) left the asset's file empty
     public void Save(string path)
     {
+        var json = JsonBytes();
         using var stream = new FileStream(path, FileMode.Create, FileAccess.Write);
-        WriteTo(stream);
+        WriteTo(stream, json);
     }
 
     public void WriteTo(Stream stream)
     {
-        var json = Encoding.UTF8.GetBytes(Json.ToJsonString());
+        WriteTo(stream, JsonBytes());
+    }
+
+    private Byte[] JsonBytes()
+    {
+        try
+        {
+            return Encoding.UTF8.GetBytes(Json.ToJsonString());
+        }
+        catch (ArgumentException) when (FirstNonFinite(Json) is { } found)
+        {
+            throw new InvalidDataException($"{found.Where} is {found.Value}, which a model file can't keep");
+        }
+    }
+
+    private static (string Where, double Value)? FirstNonFinite(JsonNode? node)
+    {
+        switch (node)
+        {
+            case JsonObject json:
+                foreach (var (_, child) in json)
+                {
+                    if (FirstNonFinite(child) is { } found)
+                    {
+                        return found;
+                    }
+                }
+
+                return null;
+            case JsonArray array:
+                foreach (var child in array)
+                {
+                    if (FirstNonFinite(child) is { } found)
+                    {
+                        return found;
+                    }
+                }
+
+                return null;
+            case JsonValue value when value.TryGetValue<Single>(out var single) && !Single.IsFinite(single):
+                return (value.GetPath(), single);
+            case JsonValue value when value.TryGetValue<Double>(out var number) && !Double.IsFinite(number):
+                return (value.GetPath(), number);
+            default:
+                return null;
+        }
+    }
+
+    private void WriteTo(Stream stream, Byte[] json)
+    {
         var padding = -json.Length & 3;
         using var writer = new BinaryWriter(stream, Encoding.UTF8, true);
         writer.Write(Magic);

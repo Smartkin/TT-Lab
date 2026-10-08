@@ -43,6 +43,7 @@ from mathutils import Euler, Matrix, Quaternion, Vector
 from . import flags
 from . import hulls
 from . import model_bounds
+from . import png
 from . import project as projects
 from . import retarget
 from . import save_icon
@@ -51,6 +52,8 @@ from . import skeleton
 from . import tlm
 from . import tlm_math
 from . import tlm_mesh
+from . import gs_material
+from . import material_settings
 from . import twintech_properties as properties
 
 ROOT_PROPERTY = "ttt_tlm_type"
@@ -140,8 +143,8 @@ def _set_node_transform(blender_object: bpy.types.Object, tree_node: typing.Dict
 def _material_for(project: typing.Optional[projects.Project], entry: typing.Dict[str, typing.Any], file: typing.Optional[tlm.TlmFile] = None) -> bpy.types.Material:
     """The Blender material of one of the file's materials, shared by everything showing the same project material."""
     uri = str(entry.get("uri", ""))
-    if not uri and file is not None and isinstance(entry.get("image"), dict):
-        return _embedded_material(file, entry)
+    if not uri and file is not None and any(isinstance(entry.get(key), (dict, list)) for key in ("image", "data", "images")):
+        return _embedded_material(file, entry, project)
 
     for material in bpy.data.materials:
         if uri and material.get(URI_PROPERTY) == uri:
@@ -154,8 +157,8 @@ def _material_for(project: typing.Optional[projects.Project], entry: typing.Dict
     return material
 
 
-def _embedded_material(file: tlm.TlmFile, entry: typing.Dict[str, typing.Any]) -> bpy.types.Material:
-    """A material the file has with its image, which goes back into the file the same way."""
+def _embedded_material(file: tlm.TlmFile, entry: typing.Dict[str, typing.Any], project: typing.Optional[projects.Project] = None) -> bpy.types.Material:
+    """A material the file has with its pictures, which goes back into the file the same way: with its settings when it has any."""
     blender_id = str(entry.get("blender_id", ""))
     for material in bpy.data.materials:
         if blender_id and material.get(BLENDER_ID_PROPERTY) == blender_id:
@@ -163,92 +166,73 @@ def _embedded_material(file: tlm.TlmFile, entry: typing.Dict[str, typing.Any]) -
 
     material = bpy.data.materials.new(str(entry.get("name", "Material")))
     material[BLENDER_ID_PROPERTY] = blender_id or uuid.uuid4().hex
-    image_entry = entry["image"]
-    png = file.read_view(image_entry.get("png"), "u8").tobytes()
-    image = None
-    if len(png) > 0:
-        directory = tempfile.mkdtemp()
-        path = os.path.join(directory, "image.png")
-        try:
-            with open(path, "wb") as image_file:
-                image_file.write(png)
+    data = entry.get("data")
+    if isinstance(data, dict):
+        images = [_file_image(file, image_entry, material.name) for image_entry in entry.get("images", []) if isinstance(image_entry, dict)]
+        material_settings.load(material, data, project, images)
+        return material
 
-            image = bpy.data.images.load(path)
-            image.pack()
-            image.name = str(image_entry.get("name", material.name))
-            image.filepath_raw = ""
-        finally:
-            if os.path.exists(path):
-                os.remove(path)
-
-            os.rmdir(directory)
-
-    _draw_material(material, image)
+    image = _file_image(file, entry["image"], material.name) if isinstance(entry.get("image"), dict) else None
+    material_settings.draw_default(material, image, blended=entry.get("alpha") == "BLEND")
     return material
 
 
+def _file_image(file: tlm.TlmFile, image_entry: typing.Dict[str, typing.Any], name: str) -> typing.Optional[bpy.types.Image]:
+    """A picture the file has, packed into the blend file. One made in Blender is that picture again while it's still around."""
+    blender_id = str(image_entry.get("blender_id", ""))
+    for image in bpy.data.images:
+        if blender_id and image.get(BLENDER_ID_PROPERTY) == blender_id:
+            return image
+
+    png = file.read_view(image_entry.get("png"), "u8").tobytes()
+    if len(png) == 0:
+        return None
+
+    directory = tempfile.mkdtemp()
+    path = os.path.join(directory, "image.png")
+    try:
+        with open(path, "wb") as image_file:
+            image_file.write(png)
+
+        image = bpy.data.images.load(path)
+        image.pack()
+        image.name = str(image_entry.get("name", name))
+        image.filepath_raw = ""
+    finally:
+        if os.path.exists(path):
+            os.remove(path)
+
+        os.rmdir(directory)
+
+    if blender_id:
+        image[BLENDER_ID_PROPERTY] = blender_id
+
+    return image
+
+
 def show_project_material(material: bpy.types.Material, project: typing.Optional[projects.Project]) -> None:
-    """Draws the material with its project material's texture, multiplied by the vertex colors the way the game does."""
+    """Gives the material its project material's settings and draws them the way the game does, magenta when the project doesn't
+    have it."""
     uri = material.get(URI_PROPERTY, "")
-    project_material = project.materials.get(uri) if project is not None else None
-    texture = project.texture_of(project_material) if project is not None and project_material is not None else None
-    image = None
-    if texture is not None:
-        image = next((image for image in bpy.data.images if os.path.normpath(bpy.path.abspath(image.filepath)) == os.path.normpath(texture.png_path)), None)
-        if image is None:
-            image = bpy.data.images.load(texture.png_path, check_existing=True)
-
-    _draw_material(material, image)
-    if image is None and project is not None and uri and project_material is None:
-        material.diffuse_color = (1.0, 0.0, 1.0, 1.0)
-
-
-def _draw_material(material: bpy.types.Material, image: typing.Optional[bpy.types.Image]) -> None:
-    """The image multiplied by the vertex colors the way the game does, the vertex colors alone without one."""
-    material.use_nodes = True
-    nodes = material.node_tree.nodes
-    links = material.node_tree.links
-    nodes.clear()
-    output = nodes.new("ShaderNodeOutputMaterial")
-    output.location = (400, 0)
-    shader = nodes.new("ShaderNodeBsdfPrincipled")
-    shader.location = (100, 0)
-    links.new(shader.outputs[0], output.inputs["Surface"])
-    colors = nodes.new("ShaderNodeVertexColor")
-    colors.layer_name = COLOR_ATTRIBUTE
-    colors.location = (-500, -200)
-    # The game draws a vertex color of 0x80 at full brightness
-    brighten = nodes.new("ShaderNodeMix")
-    brighten.data_type = "RGBA"
-    brighten.blend_type = "MULTIPLY"
-    brighten.inputs["Factor"].default_value = 1.0
-    brighten.inputs["B"].default_value = (2.0, 2.0, 2.0, 1.0)
-    brighten.location = (-300, -200)
-    links.new(colors.outputs["Color"], brighten.inputs["A"])
-    if image is None:
-        links.new(brighten.outputs["Result"], shader.inputs["Base Color"])
+    project_material = project.materials.get(uri) if project is not None and uri else None
+    data = project_material.read() if project_material is not None else None
+    if data is not None:
+        material_settings.load(material, data, project)
         return
 
-    image_node = nodes.new("ShaderNodeTexImage")
-    image_node.image = image
-    image_node.location = (-500, 150)
-    multiply = nodes.new("ShaderNodeMix")
-    multiply.data_type = "RGBA"
-    multiply.blend_type = "MULTIPLY"
-    multiply.inputs["Factor"].default_value = 1.0
-    multiply.location = (-100, 100)
-    links.new(image_node.outputs["Color"], multiply.inputs["A"])
-    links.new(brighten.outputs["Result"], multiply.inputs["B"])
-    links.new(multiply.outputs["Result"], shader.inputs["Base Color"])
-    links.new(image_node.outputs["Alpha"], shader.inputs["Alpha"])
+    material_settings.draw_default(material, None)
+    if project is not None and uri:
+        material.diffuse_color = (1.0, 0.0, 1.0, 1.0)
 
 
 class _FileMaterials:
     """The materials of the file being written, by the Blender materials showing them."""
 
-    def __init__(self, file: tlm.TlmFile):
+    def __init__(self, file: tlm.TlmFile, path: str = ""):
         self.file = file
+        self.project = projects.open_project(path) if path else None
         self._indexes: typing.Dict[str, int] = {}
+        self._commits: typing.List[typing.Tuple[bpy.types.Material, typing.Dict[str, typing.Any], bool]] = []
 
     def index_of(self, material: typing.Optional[bpy.types.Material]) -> int:
         if material is None:
@@ -258,24 +242,72 @@ class _FileMaterials:
         if key in self._indexes:
             return self._indexes[key]
 
-        uri = material.get(URI_PROPERTY)
-        entry: typing.Dict[str, typing.Any] = {"name": material.name}
-        if uri:
-            entry["uri"] = uri
+        if material_settings.is_managed(material):
+            entry = self._with_settings(material)
         else:
-            self._embed(material, entry)
+            uri = material.get(URI_PROPERTY)
+            entry = {"name": material.name}
+            if uri:
+                entry["uri"] = uri
+            else:
+                self._embed(material, entry)
 
         self.file.materials.append(entry)
         self._indexes[key] = len(self.file.materials) - 1
         return self._indexes[key]
 
+    def _with_settings(self, material: bpy.types.Material) -> typing.Dict[str, typing.Any]:
+        """A project material with what was changed in Blender over what the project has now, a material made in Blender with all
+        its settings. TT Lab takes them into the project when it reads the file."""
+        entry: typing.Dict[str, typing.Any] = {"name": material.name}
+        uri = material.get(URI_PROPERTY)
+        images: typing.List[bpy.types.Image] = []
+        shown = material_settings.shown(material, images, self.project)
+        base = material_settings.base_of(material)
+        if uri:
+            entry["uri"] = uri
+            project_material = self.project.materials.get(uri) if self.project is not None else None
+            theirs = project_material.read() if project_material is not None else None
+            current = theirs if theirs is not None else base
+            result, new_base, applied = gs_material.merge_material(base, current, shown)
+            if gs_material.is_changed(result, current):
+                entry["data"] = result
+                self._add_images(entry, images)
 
-    def _embed(self, material: bpy.types.Material, entry: typing.Dict[str, typing.Any]) -> None:
-        """A material made in Blender goes into the file with its image, TT Lab adds it to the project."""
+            self._commits.append((material, new_base, applied))
+        else:
+            self._blender_id(material, entry)
+            entry["data"] = gs_material.merge_material(base, base, shown)[0]
+            self._add_images(entry, images)
+
+        return entry
+
+    def _add_images(self, entry: typing.Dict[str, typing.Any], images: typing.List[bpy.types.Image]) -> None:
+        if len(images) == 0:
+            return
+
+        entry["images"] = []
+        for image in images:
+            if not image.get(BLENDER_ID_PROPERTY):
+                image[BLENDER_ID_PROPERTY] = uuid.uuid4().hex
+
+            png = _png_bytes(image) or b""
+            entry["images"].append({"png": self.file.write_view(png, "u8"), "name": image.name, "blender_id": image[BLENDER_ID_PROPERTY]})
+
+    def commit(self) -> None:
+        """Once the file is written: what the project already has of Blender's changes isn't Blender's change any more."""
+        for material, base, matched in self._commits:
+            material_settings.commit(material, base, matched)
+
+    def _blender_id(self, material: bpy.types.Material, entry: typing.Dict[str, typing.Any]) -> None:
         if not material.get(BLENDER_ID_PROPERTY):
             material[BLENDER_ID_PROPERTY] = uuid.uuid4().hex
 
         entry["blender_id"] = material[BLENDER_ID_PROPERTY]
+
+    def _embed(self, material: bpy.types.Material, entry: typing.Dict[str, typing.Any]) -> None:
+        """A material made in Blender goes into the file with its image, TT Lab adds it to the project."""
+        self._blender_id(material, entry)
         if getattr(material, "surface_render_method", "") == "BLENDED" or getattr(material, "blend_method", "") == "BLEND":
             entry["alpha"] = "BLEND"
 
@@ -287,7 +319,8 @@ class _FileMaterials:
 
 
 def _png_bytes(image: bpy.types.Image) -> typing.Optional[bytes]:
-    """The image as a PNG, the file itself when it's one on the disk or packed that wasn't changed."""
+    """The image as a PNG, the file itself when it's one on the disk or packed that wasn't changed, else its pixels as they are (a
+    copy of a picture painted in Blender and never saved was blank)."""
     if image.packed_file is not None and not image.is_dirty:
         packed = bytes(image.packed_file.data)
         if packed.startswith(b"\x89PNG"):
@@ -298,23 +331,20 @@ def _png_bytes(image: bpy.types.Image) -> typing.Optional[bytes]:
         with open(path, "rb") as file:
             return file.read()
 
-    directory = tempfile.mkdtemp()
-    target = os.path.join(directory, "image.png")
-    copy = image.copy()
-    try:
-        copy.filepath_raw = target
-        copy.file_format = "PNG"
-        copy.save()
-        with open(target, "rb") as file:
-            return file.read()
-    except RuntimeError:
+    width, height = image.size
+    if width == 0 or height == 0:
         return None
-    finally:
-        bpy.data.images.remove(copy)
-        if os.path.exists(target):
-            os.remove(target)
 
-        os.rmdir(directory)
+    pixels = numpy.empty(width * height * 4, dtype=numpy.float32)
+    image.pixels.foreach_get(pixels)
+    if image.is_float and not image.colorspace_settings.is_data:
+        # Float pictures keep linear values, PNGs the display's
+        color = pixels.reshape(-1, 4)[:, :3]
+        color[:] = numpy.where(color <= 0.0031308, color * 12.92, 1.055 * numpy.power(numpy.maximum(color, 0.0), 1.0 / 2.4) - 0.055)
+
+    values = numpy.clip(numpy.round(pixels * 255.0), 0, 255).astype(numpy.uint8).reshape(height, width * 4)
+    # Blender's rows go from the bottom
+    return png.encode(width, height, values[::-1].tobytes())
 
 
 # Meshes
@@ -595,8 +625,18 @@ def _attribute(mesh: bpy.types.Mesh, name: str, value_name: str, count: int, siz
 
 # Importing
 
+def use_standard_view(context: bpy.types.Context) -> None:
+    """Shows the game's colors as they are: Blender's default view transform changes them, Standard shows the display's values that
+    the materials work out."""
+    settings = context.scene.view_settings
+    if settings.view_transform != "Standard":
+        settings.view_transform = "Standard"
+        settings.look = "None"
+
+
 def import_file(context: bpy.types.Context, path: str) -> bpy.types.Object:
     file = tlm.TlmFile.load(path)
+    use_standard_view(context)
     project = projects.open_project(path)
     collection = bpy.data.collections.new(file.name or os.path.splitext(os.path.basename(path))[0])
     context.scene.collection.children.link(collection)
@@ -1039,7 +1079,7 @@ def sync_shape_keys(armature: bpy.types.Object) -> None:
     action = armature.animation_data.action if armature.animation_data is not None else None
     key_slot = next((slot for slot in action.slots if slot.target_id_type == "KEY"), None) if action is not None else None
     for blender_object in bpy.data.objects:
-        if blender_object.type != "MESH" or blender_object.data.shape_keys is None:
+        if blender_object.type != "MESH" or blender_object.data.shape_keys is None or not in_scene(blender_object):
             continue
 
         if not any(modifier.type == "ARMATURE" and modifier.object == armature for modifier in blender_object.modifiers):
@@ -1095,20 +1135,59 @@ def find_root(blender_object: typing.Optional[bpy.types.Object]) -> typing.Optio
     return None
 
 
+def in_scene(blender_object: bpy.types.Object) -> bool:
+    """Whether the object is in one of the file's scenes. A deleted one stays in the file, out of every scene, until Clean Up > Purge
+    Unused takes it out: none of it is the model's any more"""
+    return len(blender_object.users_scene) > 0
+
+
+def live_children(blender_object: bpy.types.Object) -> typing.List[bpy.types.Object]:
+    """The object's children that are in a scene, what purging leaves under it."""
+    return [child for child in blender_object.children if in_scene(child)]
+
+
 def _descendants(blender_object: bpy.types.Object) -> typing.List[bpy.types.Object]:
     result = []
-    for child in blender_object.children:
+    for child in live_children(blender_object):
         result.append(child)
         result.extend(_descendants(child))
 
     return result
 
 
+def export_problem(root: bpy.types.Object) -> typing.Optional[str]:
+    """What keeps the model from being exported as it's set up, None when nothing does."""
+    kind = root.get(KIND_PROPERTY, "")
+    if not root.get(ROOT_PROPERTY) or kind not in KIND_TYPES:
+        return "%s lost what makes it a TT Lab model's root (its Twin Tech properties): import the model again or start from Add > Twin Tech" % root.name
+
+    descendants = _descendants(root)
+    if kind == "ogi":
+        armature = next((child for child in descendants if child.type == "ARMATURE"), None)
+        if armature is None:
+            return "%s has no armature: an OGI needs one under its root, its root bone is joint 0" % root.name
+
+        if len(armature.data.bones) == 0:
+            return "%s has no bones: an OGI's skeleton needs its root bone, joint 0" % armature.name
+
+        try:
+            skeleton.check_skeleton(bone_infos(armature), any(role_of(child) in SKINNED_KINDS and _draws(child) for child in descendants))
+        except ValueError as error:
+            return str(error)
+    elif kind == "save_icon":
+        if not any(_draws(child) for child in descendants):
+            return "%s has no mesh with faces: the icon is drawn from one under its root" % root.name
+    elif kind not in TREE_KINDS and kind != "collision" and not any(child.type == "MESH" for child in descendants):
+        return "%s has no mesh under its root to write" % root.name
+
+    return None
+
+
 def export_file(root: bpy.types.Object, path: str) -> typing.List[str]:
     """Writes the model to the file. Returns what the file doesn't have of the scene, to warn about."""
     kind = root.get(KIND_PROPERTY, "")
     file = tlm.TlmFile(root.get(ROOT_PROPERTY, ""), root.name)
-    materials = _FileMaterials(file)
+    materials = _FileMaterials(file, path)
     tree = tlm.node(kind, root.name, _write_data(root))
     descendants = _descendants(root)
     warnings = _unapplied_modifiers(descendants)
@@ -1137,6 +1216,7 @@ def export_file(root: bpy.types.Object, path: str) -> typing.List[str]:
 
     file.root = tree
     file.save(path)
+    materials.commit()
     warnings.extend(_export_notes)
     _export_notes.clear()
     return warnings
@@ -1331,11 +1411,17 @@ def _relative_rests(armature: bpy.types.Object, joint_of_bone: typing.Dict[str, 
     return {index: tlm_math.relative_rest(rests.get(parents[index]), rests[index]) for index in rests}
 
 
+def _draws(blender_object: bpy.types.Object) -> bool:
+    """Whether the mesh object has faces: a template's skin and blend skin are there empty to be filled, the model has none of them
+    until they are"""
+    return blender_object.type == "MESH" and len(blender_object.data.polygons) > 0
+
+
 def _export_ogi(file: tlm.TlmFile, root: bpy.types.Object, tree: typing.Dict[str, typing.Any], descendants: typing.List[bpy.types.Object],
                 materials: _FileMaterials) -> None:
     armature = next((child for child in descendants if child.type == "ARMATURE"), None)
     armature_node = tlm.add_child(tree, tlm.node("armature", "Armature"))
-    skinned = any(role_of(child) in SKINNED_KINDS and child.type == "MESH" for child in descendants)
+    skinned = any(role_of(child) in SKINNED_KINDS and _draws(child) for child in descendants)
     # ModelNode::SetOgi gives a model of one joint and no exit points no animator, the game draws only its rigid models
     if skinned and (armature is None or len(armature.data.bones) < 2) and not any(role_of(child) == "exit_point" for child in descendants):
         _export_notes.append("%s has one joint and no exit points: the game draws such a model's rigid bodies only, never its skin. Add a bone under "
@@ -1372,7 +1458,7 @@ def _export_ogi(file: tlm.TlmFile, root: bpy.types.Object, tree: typing.Dict[str
     joint_of_group_names = joint_of_bone
     for blender_object in descendants:
         kind = role_of(blender_object)
-        if blender_object.type == "MESH" and kind in SKINNED_KINDS:
+        if kind in SKINNED_KINDS and _draws(blender_object):
             groups = {group.index: joint_of_group_names[group.name] for group in blender_object.vertex_groups if group.name in joint_of_group_names}
             skin = tlm.add_child(tree, tlm.node(kind, blender_object.name, _write_data(blender_object) or None))
             mesh = _read_mesh(blender_object, materials, True, groups)
@@ -1385,7 +1471,7 @@ def _export_ogi(file: tlm.TlmFile, root: bpy.types.Object, tree: typing.Dict[str
     hulls = tlm.add_child(tree, tlm.node("collision_hulls", "Collision Hulls"))
     for blender_object in descendants:
         kind = role_of(blender_object)
-        if kind == "body" and blender_object.type == "MESH":
+        if kind == "body" and _draws(blender_object):
             body = tlm.add_child(bodies, tlm.node("body", blender_object.name, _write_data(blender_object)))
             body["joint"], placement = _attached_placement(root, blender_object, armature, joint_of_bone, rests, joint_of_stored=joint_of_stored)
             _write_transform(body, placement)
@@ -1494,13 +1580,38 @@ def _animation_meta(action: bpy.types.Action) -> typing.Dict[str, typing.Any]:
     return meta if isinstance(meta, dict) else {}
 
 
-def _owned_actions(root: typing.Optional[bpy.types.Object], armature: bpy.types.Object, bone_names: typing.Iterable[str]) -> typing.List[bpy.types.Action]:
+def _settings_users() -> typing.Dict[int, int]:
+    """How many bones' per animation settings point at each action: Blender counts them as its users, but they don't keep it."""
+    counts: typing.Dict[int, int] = {}
+    for armature in bpy.data.armatures:
+        for bone in armature.bones:
+            for entry in getattr(bone, flags.FLAGS_PROPERTY, []):
+                if entry.action is not None:
+                    key = entry.action.as_pointer()
+                    counts[key] = counts.get(key, 0) + 1
+
+    return counts
+
+
+def is_deleted(action: bpy.types.Action, settings_users: typing.Optional[typing.Dict[int, int]] = None) -> bool:
+    """Whether the action was deleted: nothing plays it and it has no fake user, it's only in the file until Clean Up > Purge Unused
+    takes it out. The bones' settings of it point at it too, which Blender counts as users."""
+    settings_users = _settings_users() if settings_users is None else settings_users
+    return action.users <= settings_users.get(action.as_pointer(), 0)
+
+
+def _owned_actions(root: typing.Optional[bpy.types.Object], armature: bpy.types.Object, bone_names: typing.Iterable[str],
+                   deleted: bool = False) -> typing.List[bpy.types.Action]:
     """The actions of the model: the ones imported with it, the ones retargeted to its armature and the ones made in Blender that
-    animate its bones."""
+    animate its bones. The ones deleted instead with deleted."""
     owners = {root.get(UID_PROPERTY) if root is not None else None, armature.get(UID_PROPERTY)} - {None}
     names = set(bone_names)
+    settings_users = _settings_users()
     result = []
     for action in bpy.data.actions:
+        if is_deleted(action, settings_users) != deleted:
+            continue
+
         owner = action.get(OWNER_PROPERTY)
         if owner is not None:
             if owner in owners:
@@ -1621,13 +1732,18 @@ def _imported_joints(armature: bpy.types.Object) -> int:
 def _export_animations(file: tlm.TlmFile, root: bpy.types.Object, armature: bpy.types.Object, joint_of_bone: typing.Dict[str, int],
                        rests: typing.Dict[int, typing.Any], descendants: typing.List[bpy.types.Object]) -> typing.List[typing.Dict[str, typing.Any]]:
     relative_rests = _relative_rests(armature, joint_of_bone, rests)
-    shape_object = next((child for child in descendants if role_of(child) == "shape" and child.type == "MESH"), None)
+    shape_object = next((child for child in descendants if role_of(child) == "shape" and _draws(child)), None)
     key_blocks = list(shape_object.data.shape_keys.key_blocks)[1:] if shape_object is not None and shape_object.data.shape_keys is not None else []
     bones = len(armature.data.bones)
     imported_joints = _imported_joints(armature)
     stretches = _location_stretches(root, armature)
     result = []
     actions = _owned_actions(root, armature, joint_of_bone)
+    dropped = [action.name for action in _owned_actions(root, armature, joint_of_bone, deleted=True)]
+    if dropped:
+        _export_notes.append("%s of %s weren't written: nothing plays them and they have no fake user, which makes them deleted (Clean Up > Purge "
+                             "Unused takes them out). Give them a fake user to keep them" % (", ".join(dropped), root.name))
+
     _give_animation_ids(actions)
     unbaked = _unbaked_bones(armature) if actions else []
     if unbaked:
@@ -1763,7 +1879,7 @@ def _deformed_by(armature: bpy.types.Object) -> typing.List[bpy.types.Object]:
     """The meshes the armature deforms, through a modifier or by being parented to it."""
     result = []
     for blender_object in bpy.data.objects:
-        if blender_object.type != "MESH":
+        if blender_object.type != "MESH" or not in_scene(blender_object):
             continue
 
         if any(modifier.type == "ARMATURE" and modifier.object == armature for modifier in blender_object.modifiers) or blender_object.parent == armature:
@@ -1794,8 +1910,9 @@ def joint_matches(original: bpy.types.Object, incoming: bpy.types.Object, match:
 
 def assign_joints(original: bpy.types.Object, incoming: bpy.types.Object, match: str = retarget.MATCH_AUTO) -> typing.Dict[str, int]:
     """Makes the incoming armature's bones the original's joints: every bone gets the name and the joint index of the original bone it
-    stands for (bones the original doesn't have get the next joint indexes as Joint N), with the joint's settings the original has
-    (its react ID and additional rotation). Returns how many bones were matched each way (retarget.BY_INDEX, BY_NAME, BY_ORDER, NEW)."""
+    stands for (bones the original doesn't have get the next joint indexes as Joint N, or keep their names and settings with
+    retarget.MATCH_NAME_ONLY), with the joint's settings the original has (its react ID and additional rotation). Returns how many bones
+    were matched each way (retarget.BY_INDEX, BY_NAME, BY_ORDER, NEW, KEPT)."""
     matches = joint_matches(original, incoming, match)
     bones = incoming.data.bones
     # Names get swapped around, so nothing may take another bone's name before that one gave it up
@@ -1805,9 +1922,12 @@ def assign_joints(original: bpy.types.Object, incoming: bpy.types.Object, match:
     counts: typing.Dict[str, int] = {}
     for name, match in matches.items():
         bone = bones["ttt_renaming " + name]
-        bone.name = retarget.joint_name(match)
+        bone.name = retarget.joint_name(match, name)
         data: typing.Dict[str, typing.Any] = {"Index": match[0]}
-        if match[1] is not None:
+        container = properties.get(bone)
+        if match[2] == retarget.KEPT and container is not None and container.type == "Joint":
+            data = dict(_write_data(bone), Index=match[0])
+        elif match[1] is not None:
             original_data = _write_data(original.data.bones[match[1]])
             for key in ("Id", "AdditionalAnimationRotation", "Detail"):
                 if key in original_data:
@@ -1833,119 +1953,93 @@ def animations_of(root: bpy.types.Object) -> typing.List[bpy.types.Action]:
     return _owned_actions(root, armature, [bone.name for bone in armature.data.bones])
 
 
-def remove_model(root: bpy.types.Object) -> None:
-    """Removes the model's objects with the meshes and armatures only they used, and its collections once they hold nothing else."""
-    objects = [root] + _descendants(root)
-    collections = {collection.name for blender_object in objects for collection in blender_object.users_collection}
-    for blender_object in objects:
-        data = blender_object.data
-        bpy.data.objects.remove(blender_object, do_unlink=True)
-        if data is None or data.users > 0:
-            continue
+def name_only_problem(source: bpy.types.Object, target: bpy.types.Object) -> typing.Optional[str]:
+    """What keeps the target's bones from being matched to the source's joints by their names alone: none named like a joint, or the
+    named ones laid out otherwise than their joints (retarget.hierarchy_problems)."""
+    matches = joint_matches(source, target, retarget.MATCH_NAME_ONLY)
+    if not any(match[1] is not None for match in matches.values()):
+        return "no bone of %s is named like a joint of %s, matching by name only needs the joints' names (%s)" % (
+            target.name, source.name, ", ".join(bone.name for bone in source.data.bones[:3]) + (", ..." if len(source.data.bones) > 3 else ""))
 
-        if isinstance(data, bpy.types.Mesh):
-            bpy.data.meshes.remove(data)
-        elif isinstance(data, bpy.types.Armature):
-            bpy.data.armatures.remove(data)
+    problems = retarget.hierarchy_problems(bone_infos(source), bone_infos(target), matches)
+    if not problems:
+        return None
 
-    _remove_empty_collections(collections)
-
-
-def _remove_empty_collections(names: typing.Iterable[str]) -> None:
-    for name in sorted(set(names)):
-        collection = bpy.data.collections.get(name)
-        if collection is not None and collection != bpy.context.scene.collection and len(collection.objects) == 0 and len(collection.children) == 0:
-            bpy.data.collections.remove(collection)
+    shown = "; ".join(problems[:3]) + ("; and %d more" % (len(problems) - 3) if len(problems) > 3 else "")
+    return "the target armature %s isn't set up correctly for matching by name: its bones named like %s's joints have to be under each other the way " \
+           "the joints are (other bones may be in between). %s" % (target.name, source.name, shown)
 
 
-def retarget_and_replace(context: bpy.types.Context, root: bpy.types.Object, path: str,
-                         match: str = retarget.MATCH_AUTO) -> typing.Tuple[bpy.types.Object, int, typing.Dict[str, int]]:
-    """Imports the model file and puts it in the model's place: its bones become the model's joints (assign_joints), every animation
-    of the model becomes one of its own under the same name (retarget_animations), and the model goes with its own animations and
-    the file's, the new model taking its file, name and collection. Returns the new root, how many animations were retargeted and how
-    many bones were matched each way."""
-    original = armature_of(root)
-    if original is None:
-        raise ValueError("%s has no armature" % root.name)
+def retarget_problem(source: typing.Optional[bpy.types.Object], target: typing.Optional[bpy.types.Object]) -> typing.Optional[str]:
+    """What keeps the source armature's animations from being retargeted to the target armature, None when nothing does."""
+    if source is None or source.type != "ARMATURE":
+        return "Pick the source armature, the one playing the animations"
 
-    scene = context.scene
-    fps, fps_base = scene.render.fps, scene.render.fps_base
-    incoming_root = import_file(context, path)
-    scene.render.fps, scene.render.fps_base = fps, fps_base
-    incoming = armature_of(incoming_root)
-    if incoming_root.get(KIND_PROPERTY) != "ogi" or incoming is None:
-        remove_model(incoming_root)
-        raise ValueError("%s isn't an OGI with an armature" % os.path.basename(path))
+    if target is None or target.type != "ARMATURE":
+        return "Pick the target armature, the one to play them"
 
-    # The file's own animations go, the model's are the ones it plays from now on
-    for action in [action for action in bpy.data.actions if action.get(OWNER_PROPERTY) == incoming_root[UID_PROPERTY]]:
-        bpy.data.actions.remove(action)
+    for armature in (source, target):
+        if not in_scene(armature):
+            return "%s isn't in the scene any more" % armature.name
 
-    matched = assign_joints(original, incoming, match)
-    count = retarget_animations(root, incoming_root)
-    names: typing.Dict[str, str] = {}
-    for action in animations_of(root):
-        names[_uid_of(action)] = action.name
-        bpy.data.actions.remove(action)
+    if source == target:
+        return "The source and the target are the same armature"
 
-    owner = _uid_of(incoming)
-    copies = [action for action in bpy.data.actions if action.get(OWNER_PROPERTY) == owner and action.get(RETARGETED_PROPERTY)]
+    if len(_owned_actions(find_root(source), source, [bone.name for bone in source.data.bones])) == 0:
+        return "%s has no animations to retarget" % source.name
+
+    return None
+
+
+def retarget_armature(context: bpy.types.Context, source: bpy.types.Object, target: bpy.types.Object,
+                      match: str = retarget.MATCH_AUTO) -> typing.Tuple[int, typing.Dict[str, int], typing.List[str]]:
+    """Makes the target armature play the source armature's animations: its bones become the source's joints (assign_joints), every
+    animation of the source becomes the target's under the same name and ID (retarget_animations), and the source's own go, so nothing
+    gets Blender's numbers. Returns how many animations were retargeted, how many bones were matched each way and the names another
+    action already had (those kept Blender's numbers)."""
+    problem = retarget_problem(source, target)
+    if problem is not None:
+        raise ValueError(problem)
+
+    if match == retarget.MATCH_NAME_ONLY:
+        problem = name_only_problem(source, target)
+        if problem is not None:
+            raise ValueError(problem)
+
+    matched = assign_joints(source, target, match)
+    originals = {_uid_of(action): action for action in _owned_actions(find_root(source), source, _matched_bones(source, target))}
+    count = retarget_animations(source, target)
+    owner = _uid_of(target)
+    copies = [action for action in bpy.data.actions if action.get(OWNER_PROPERTY) == owner and action.get(RETARGETED_PROPERTY) in originals]
+    names = {uid: action.name for uid, action in originals.items()}
+    for uid in {copy[RETARGETED_PROPERTY] for copy in copies}:
+        bpy.data.actions.remove(originals[uid])
+
+    # The source's bones kept their settings of the animations that went
+    for bone in source.data.bones:
+        entries = getattr(bone, flags.FLAGS_PROPERTY, None)
+        for index in reversed(range(len(entries) if entries is not None else 0)):
+            if entries[index].action is None:
+                entries.remove(index)
+
+    taken = []
     first = None
-    for action in sorted(copies, key=lambda action: (int(_animation_meta(action).get("order", 1 << 30)), action.name)):
-        source = action[RETARGETED_PROPERTY]
-        del action[RETARGETED_PROPERTY]
-        action[OWNER_PROPERTY] = incoming_root[UID_PROPERTY]
-        if source in names:
-            action.name = names[source]
+    for copy in sorted(copies, key=lambda action: (int(_animation_meta(action).get("order", 1 << 30)), action.name)):
+        name = names[copy[RETARGETED_PROPERTY]]
+        del copy[RETARGETED_PROPERTY]
+        copy.name = name
+        if copy.name != name:
+            taken.append(name)
 
-        first = first or action
+        first = first or copy
 
-    incoming_root[PATH_PROPERTY] = root.get(PATH_PROPERTY, "")
-    incoming_root[ROOT_PROPERTY] = root.get(ROOT_PROPERTY) or incoming_root.get(ROOT_PROPERTY)
-    name = root.name
-    # Into the model's collections before the model goes, they'd go with it while empty
-    _move_to_collections(incoming_root, list(root.users_collection))
-    remove_model(root)
-    incoming_root.name = name
-    _drop_name_numbers(_descendants(incoming_root))
     if first is not None:
-        assign_action(incoming, first)
-        flags.apply_inherit_scale(incoming)
-        scene.frame_start = 0
-        scene.frame_end = int(first.frame_end)
+        assign_action(target, first)
+        flags.apply_inherit_scale(target)
+        context.scene.frame_start = 0
+        context.scene.frame_end = int(first.frame_range[1])
 
-    return incoming_root, count, matched
-
-
-def _drop_name_numbers(objects: typing.List[bpy.types.Object]) -> None:
-    """Takes the numbers Blender gave the objects and their data for names the removed model held (armature.001) off again."""
-    for blender_object in objects:
-        for block, blocks in ((blender_object, bpy.data.objects), (blender_object.data, None)):
-            if block is None:
-                continue
-
-            base, dot, number = block.name.rpartition(".")
-            if dot and number.isdigit() and len(number) == 3 and base:
-                blocks = blocks if blocks is not None else (bpy.data.meshes if isinstance(block, bpy.types.Mesh) else bpy.data.armatures if isinstance(block, bpy.types.Armature) else None)
-                if blocks is not None and blocks.get(base) is None:
-                    block.name = base
-
-
-def _move_to_collections(root: bpy.types.Object, collections: typing.List[bpy.types.Collection]) -> None:
-    """Puts the model into the collections, out of the ones it was in, which go once empty."""
-    left = set()
-    for blender_object in [root] + _descendants(root):
-        own = list(blender_object.users_collection)
-        for collection in collections:
-            if blender_object.name not in collection.objects:
-                collection.objects.link(blender_object)
-
-        for collection in own:
-            if collection not in collections:
-                collection.objects.unlink(blender_object)
-                left.add(collection.name)
-
-    _remove_empty_collections(left)
+    return count, matched, taken
 
 
 def retarget_animations(source: bpy.types.Object, target: bpy.types.Object) -> int:
@@ -1984,6 +2078,9 @@ def retarget_animations(source: bpy.types.Object, target: bpy.types.Object) -> i
             copy = action.copy()
             copy[RETARGETED_PROPERTY] = source_id
             del copy[UID_PROPERTY]
+
+        # Kept like an imported one while nothing plays it
+        copy.use_fake_user = True
 
         copy[OWNER_PROPERTY] = owner
         meta = _animation_meta(copy)

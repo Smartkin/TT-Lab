@@ -178,15 +178,14 @@ public class RenderContext : IDisposable
     public double Time { get; set; }
 
     /// <summary>
-    /// The scene's three strongest lights, unit vectors towards where the light comes from, what the game's environment map looks up
-    /// by. A scene without lights gets ones from above and the sides
-    /// </summary>
-    public vec3[] EnvLights { get; set; } = [new vec3(0.0f, 1.0f, 0.0f), new vec3(1.0f, 0.0f, 0.0f), new vec3(0.0f, 0.0f, 1.0f)];
-
-    /// <summary>
     /// The lights lit materials are drawn with, a chunk's scenery's. Replaced whole, the render thread gathers from it every frame
     /// </summary>
     public SceneLights Lights { get; set; } = SceneLights.Default;
+
+    /// <summary>
+    /// Whether models draw their skeletons over themselves, set by the viewport, which keeps it while the models get made again
+    /// </summary>
+    public bool ShowsSkeletons { get; set; }
 
     public vec2 ViewportSize { get; set; }
 

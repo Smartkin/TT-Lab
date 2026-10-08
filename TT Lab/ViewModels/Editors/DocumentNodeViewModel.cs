@@ -5,6 +5,7 @@ using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
 using System.Reflection;
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using ReactiveUI;
@@ -43,7 +44,17 @@ public abstract partial class DocumentNodeViewModel : DocumentBaseViewModel, IAc
     // Shown in the document's side pane, with all the room of it, instead of among the other editors
     [Reactive]
     private bool _isInSidePane;
-    
+    // The top of a document or of the inspector, an asset: its values are the whole asset's, copied and pasted from its header
+    [Reactive]
+    private bool _isAssetRoot;
+    [Reactive(SetModifier = AccessModifier.Private)]
+    private bool _canPasteValues;
+    [Reactive(SetModifier = AccessModifier.Private)]
+    private string _pasteValuesHint = PasteAssetValuesHint;
+
+    public const string CopyAssetValuesHint = "Copy values: the whole asset's, everything but its name, as JSON on the clipboard";
+    private const string PasteAssetValuesHint = "Paste values: the copied asset's into this one, its name stays";
+
     private string _caption = string.Empty;
 
     public string Caption
@@ -228,6 +239,42 @@ public abstract partial class DocumentNodeViewModel : DocumentBaseViewModel, IAc
         Document.PropertyGraph.Overrides!.ApplyToAsset(target.View, target.Path);
     }
 
+    /// <summary>
+    /// Puts its values and everything under them on the clipboard as JSON, an asset's top the whole asset's
+    /// </summary>
+    public Task CopyValuesAsync()
+    {
+        return ValuesClipboard.WriteTextAsync(IsAssetRoot ? CopiedValues.OfAsset(Property) : CopiedValues.Of(Property));
+    }
+
+    /// <summary>
+    /// Why the clipboard's values can't be pasted here, none when they can
+    /// </summary>
+    public async Task<string?> WhyValuesCantBePastedAsync()
+    {
+        return ValuesPaste.WhyNot(CopiedValues.Read(await ValuesClipboard.ReadTextAsync()), Property, IsAssetRoot, IsReadOnly);
+    }
+
+    public Task<bool> PasteValuesAsync()
+    {
+        return ValuesPaste.PasteAsync(Document, Property, IsAssetRoot, IsReadOnly);
+    }
+
+    /// <summary>
+    /// Looks at the clipboard again for what an asset's header shows
+    /// </summary>
+    public async Task RefreshPasteStateAsync()
+    {
+        var whyNot = await WhyValuesCantBePastedAsync();
+        CanPasteValues = whyNot == null;
+        PasteValuesHint = whyNot == null ? PasteAssetValuesHint : $"Can't paste values: {whyNot}";
+    }
+
+    private async void ValuesCopied()
+    {
+        await RefreshPasteStateAsync();
+    }
+
     protected virtual void OnActivated(CompositeDisposable disposables)
     {
         if (Document.PropertyGraph.Overrides is { } overrides && (GetOverrideTarget() != null || Property.PropertyType == typeof(LabURI)))
@@ -235,6 +282,13 @@ public abstract partial class DocumentNodeViewModel : DocumentBaseViewModel, IAc
             overrides.ViewChanged += OverridesOnViewChanged;
             Disposable.Create(() => overrides.ViewChanged -= OverridesOnViewChanged).DisposeWith(disposables);
             UpdateIsOverridden();
+        }
+
+        if (IsAssetRoot)
+        {
+            ValuesClipboard.Copied += ValuesCopied;
+            Disposable.Create(() => ValuesClipboard.Copied -= ValuesCopied).DisposeWith(disposables);
+            ValuesCopied();
         }
 
         Property.Changed += PropertyOnChanged;

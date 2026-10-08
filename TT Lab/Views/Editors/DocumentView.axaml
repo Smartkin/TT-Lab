@@ -29,7 +29,7 @@
             <ItemsControl.ItemTemplate>
                 <DataTemplate DataType="viewmodels:DocumentNodeViewModel">
                     <DockPanel LastChildFill="True" Margin="5, 0, 0, 0">
-                        <TextBlock DockPanel.Dock="Top" Margin="5, 4" Text="{Binding Caption}" FontWeight="SemiBold" ToolTip.Tip="{Binding Hint}"/>
+                        <TextBlock DockPanel.Dock="Top" Margin="5, 4" Text="{Binding Caption}" FontWeight="SemiBold" ToolTip.Tip="{Binding Hint}" ContextRequested="Caption_OnContextRequested"/>
                         <ContentControl Content="{Binding}" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
                     </DockPanel>
                 </DataTemplate>

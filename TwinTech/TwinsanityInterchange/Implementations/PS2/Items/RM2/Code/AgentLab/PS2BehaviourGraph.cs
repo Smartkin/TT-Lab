@@ -101,7 +101,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
         {
             base.Read(reader, length);
             var NameLen = reader.ReadInt32();
-            Name = new String(reader.ReadChars(NameLen));
+            Name = GameText.ReadString(reader, NameLen);
             var statesAmt = reader.ReadInt32();
             StartState = reader.ReadInt32();
             ScriptStates.Clear();
@@ -129,7 +129,7 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.Ag
         {
             base.Write(writer);
             writer.Write(Name.Length);
-            writer.Write(Name.ToCharArray());
+            GameText.Write(writer, Name);
             writer.Write(ScriptStates.Count);
             writer.Write(StartState);
             foreach (var state in ScriptStates)

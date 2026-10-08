@@ -464,6 +464,39 @@ class RetargetTests(unittest.TestCase):
         # Names and the hierarchy alone, when asked
         self.assertEqual("order", self.retarget.match_joints(self.original, incoming, self.retarget.MATCH_NAME)["Body"][2])
 
+    def test_by_name_only_the_other_bones_stay_as_they_are(self):
+        # Joint 1's bone has the original's Joint 3 as its index and the place of Joint 0: neither counts by name only
+        incoming = [("Hips", None, 3), ("Joint 1", "Hips", 3), ("Twist", "Joint 1", None), ("Joint 2", "Twist", None)]
+
+        matches = self.retarget.match_joints(self.original, incoming, self.retarget.MATCH_NAME_ONLY)
+
+        self.assertEqual({"Hips": (4, None, "kept"), "Joint 1": (1, "Joint 1", "name"), "Twist": (5, None, "kept"), "Joint 2": (2, "Joint 2", "name")}, matches)
+        self.assertEqual("Twist", self.retarget.joint_name(matches["Twist"], "Twist"))
+        self.assertEqual("Joint 1", self.retarget.joint_name(matches["Joint 1"], "Joint 1"))
+        # Bones in between and joints left out are fine: the matched ones are under each other like their joints
+        self.assertEqual([], self.retarget.hierarchy_problems(self.original, incoming, matches))
+
+    def test_by_name_only_the_named_bones_have_to_be_laid_out_like_their_joints(self):
+        # Joint 2 is under Joint 1 in the original, Joint 3 under Joint 0
+        incoming = [("Joint 0", None, None), ("Joint 3", "Joint 0", None), ("Joint 2", "Joint 3", None), ("Joint 1", "Joint 0", None)]
+
+        matches = self.retarget.match_joints(self.original, incoming, self.retarget.MATCH_NAME_ONLY)
+        problems = self.retarget.hierarchy_problems(self.original, incoming, matches)
+
+        self.assertEqual(["Joint 2 is under Joint 3, the source has Joint 2 under Joint 1"], problems)
+
+    def test_by_name_only_a_matched_bone_out_from_under_the_rest(self):
+        incoming = [("Joint 0", None, None), ("Joint 1", None, None)]
+
+        matches = self.retarget.match_joints(self.original, incoming, self.retarget.MATCH_NAME_ONLY)
+
+        self.assertEqual(["Joint 1 is above every matched bone, the source has Joint 1 under Joint 0"],
+                         self.retarget.hierarchy_problems(self.original, incoming, matches))
+        # And the other way round
+        upside_down = [("Joint 1", None, None), ("Joint 0", "Joint 1", None)]
+        self.assertEqual(["Joint 1 is above every matched bone, the source has Joint 1 under Joint 0", "Joint 0 is under Joint 1, the source has Joint 0 above every matched joint"],
+                         self.retarget.hierarchy_problems(self.original, upside_down, self.retarget.match_joints(self.original, upside_down, self.retarget.MATCH_NAME_ONLY)))
+
     def test_original_bones_without_indexes_count_by_position(self):
         matches = self.retarget.match_joints([("Root", None, None), ("Arm", "Root", None)], [("Base", None, None), ("Arm", "Base", None)])
 

@@ -38,6 +38,8 @@ with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "schema.json"
 
 ENUMS: typing.Dict[str, typing.List[typing.Tuple[str, int]]] = {name: [(item[0], int(item[1])) for item in items] for name, items in _SCHEMA["enums"].items()}
 FOG_COLORS: typing.List[typing.Tuple[str, typing.Tuple[int, int, int, int]]] = [(name, tuple(rgba)) for name, rgba in _SCHEMA["fogColors"]]
+# The game's render buckets materials go into, by TT Lab's names
+RENDER_BUCKETS: typing.List[typing.Tuple[int, str]] = [(int(bucket), str(name)) for bucket, name in _SCHEMA["renderBuckets"]]
 LIGHTS_AMOUNT = 128
 
 

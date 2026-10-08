@@ -15,6 +15,7 @@ using TT_Lab.ViewModels.Editors.Descs;
 using TT_Lab.Views.Editors;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Common.CameraSubtypes;
+using Twinsanity.TwinsanityInterchange.Enumerations;
 
 namespace TT_Lab.Tests.Assets;
 
@@ -68,6 +69,26 @@ public sealed class CameraDataTests : IDisposable
         spline.InverseSteps = [1 / 31.0f, 1 / 31.0f, 1 / 31.0f];
 
         return spline;
+    }
+
+    // Every camera and nearly every trigger of the game's levels is set off by the playable character alone, a camera without its bit is
+    // never taken. What a trigger was copied of or read with stays as it is
+    [Fact]
+    public void NewTriggersAndCamerasAreSetOffByThePlayableCharacter()
+    {
+        var (_, camera) = AddCamera(new CameraPoint());
+        var trigger = _project.Add(new Trigger { Chunk = "default", LayoutID = 0 }, "Trigger");
+        var data = new TriggerData(trigger);
+        trigger.SetData(data);
+
+        Assert.Equal(Enums.TriggerActivatorObjects.PlayableCharacter, camera.Trigger.ObjectActivatorMask);
+        Assert.Equal(Enums.TriggerActivatorObjects.PlayableCharacter, data.ObjectActivatorMask);
+
+        data.ObjectActivatorMask = Enums.TriggerActivatorObjects.PlayableCharacter | Enums.TriggerActivatorObjects.Pickups;
+        var copy = _project.Add(new Trigger { Chunk = "default", LayoutID = 0 }, "Copy", 0x1);
+        Assert.Equal(data.ObjectActivatorMask, ((TriggerData)data.CopyFor(copy)).ObjectActivatorMask);
+        data.ObjectActivatorMask = 0;
+        Assert.Equal((Enums.TriggerActivatorObjects)0, ((TriggerData)data.CopyFor(copy)).ObjectActivatorMask);
     }
 
     [Fact]

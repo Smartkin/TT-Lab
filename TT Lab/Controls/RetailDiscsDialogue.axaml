@@ -1,0 +1,18 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:controls="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+        mc:Ignorable="d" d:DesignWidth="620" d:DesignHeight="260"
+        x:Class="TT_Lab.Controls.RetailDiscsDialogue"
+        Title="Unpack the game's assets"
+        MinWidth="520" MaxWidth="820" SizeToContent="WidthAndHeight" CanResize="False" ShowInTaskbar="False" Topmost="True" WindowStartupLocation="CenterOwner">
+    <controls:GroupBox>
+        <StackPanel Margin="10" Spacing="8">
+            <TextBlock x:Name="Message" TextWrapping="Wrap" MaxWidth="780"/>
+            <StackPanel x:Name="Versions" Spacing="10"/>
+            <TextBlock x:Name="Problem" TextWrapping="Wrap" MaxWidth="780" Foreground="#FFE06060"/>
+            <StackPanel x:Name="Answers" Orientation="Horizontal" HorizontalAlignment="Right"/>
+        </StackPanel>
+    </controls:GroupBox>
+</Window>

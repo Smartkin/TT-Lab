@@ -36,7 +36,7 @@ public class LabShader : IDocumentModel
     [EditorLinkedField(typeof(ClothRead), nameof(ShaderType))]
     public UInt32 IntParam { get; set; }
     
-    [Editable(Hint = "The cloth deformations' speed and amplitudes (types 23 and 26), the screen copies' corner value (16, 17 and 24), the waves' speed and amplitude (28)")]
+    [Editable(Hint = "The cloth deformations' speed and amplitudes (types 23 and 26), how far the reflection surface's copy of the frame moves by its normal (16), the screen copies' value (17 and 24), the waves' speed and amplitude (28)")]
     [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
     [EditorLinkedField(typeof(FloatParamRead), nameof(ShaderType))]
     public Single[] FloatParam { get; set; } = new Single[4];

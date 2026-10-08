@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using Avalonia.Controls;
 using Splat;
 using TT_Lab.AssetData.Code.Behaviour;
@@ -19,6 +20,7 @@ using TT_Lab.Project;
 using TT_Lab.Util;
 using TT_Lab.ViewModels.Editors;
 using TT_Lab.ViewModels.Editors.Descs;
+using TT_Lab.ViewModels.Editors.PropertyGraph;
 using Twinsanity.AgentLab;
 using Twinsanity.TwinsanityInterchange.Common.AgentLab;
 using Twinsanity.TwinsanityInterchange.Enumerations;
@@ -35,6 +37,10 @@ namespace TT_Lab.AssetData.Code
     {
         // The object's header counts its slots and its instances' properties in bytes
         public const int MaxSlots = 255;
+
+        private const string TemplateRoom = "The class of the object's type keeps its share of each kind and puts up to 7 more aside, a kind past its share while another is short " +
+                                            "overwrites the game's memory (see the instances' properties). An object without any has none, an instance its scripts spawn reads its " +
+                                            "properties from nothing";
 
         public GameObjectData(IAsset asset) : base(asset)
         {
@@ -71,11 +77,19 @@ namespace TT_Lab.AssetData.Code
         });
 
         [JsonProperty(Required = Required.Always)]
-        [Editable(Hint = "The game builds an instance's nodes by its object's type from the object's properties, slots and scripts. Carefuly of what object type you are using, this could potentially crash the game!")]
+        [Editable(Hint = "What the game makes of the object's instances, hover a type for what it's for. Each type's class keeps its own share of the instances' properties " +
+                         "and only characters, creatures, generic objects and grabbables follow positions and paths. Changing it gives the object what the new type needs: " +
+                         "its sub type, a model slot, its template properties filled up to the class's share (and the type's state when it had none), and a character " +
+                         "the exit points and joint IDs the character code reads, as the playable character none (its first integer). Its instances get fitted when " +
+                         "they're linked to it again, building refuses what the game can't take")]
+        [EditorLinkedField(typeof(TypeChange), nameof(Type))]
         public ITwinObject.ObjectType Type { get; set; }
         
         [JsonProperty(Required = Required.Always)]
-        [Editable(Caption = "Sub type", Hint = "1 on every object but the red wumpa (17) and the projectiles (18). The game only reads it for pickups: 16 and 17 give their instances the node with a phase of their own, 16 also drops the instance properties")]
+        [Editable(Caption = "Sub type", EditorDescType = typeof(ObjectSubTypeEditorDesc),
+            Hint = "Only pickups read it: 16 and 17 make a custom pickup, which a pickup code model drives instead of behaviours, 16 without its instance's properties. " +
+                   "Any other object with them gets its collision pinned where it's made and a pickup's timer written into its node (over a projectile's state), " +
+                   "so they're only offered for pickups. The tools gave the projectiles 18 (a projectile code model's kind) and every other object 1, nothing reads those")]
         public Byte SubType { get; set; }
         
         [JsonProperty(Required = Required.Always)]
@@ -139,22 +153,24 @@ namespace TT_Lab.AssetData.Code
         public List<LabURI> SoundSlots { get; set; }
         
         [JsonProperty(Required = Required.Always)]
+        [Editable(Caption = "Template Instance State", Hint = "The state instances the scripts spawn of the object start in, the chunks' instances have their own (see theirs for the bits). " +
+                                                              "The game only keeps it with the template values, an object without any has none")]
         public Enums.InstanceState InstanceStateFlags { get; set; }
         
         [JsonProperty(Required = Required.Always)]
-        [Editable(Caption = "Template Instance Tagged Values", Hint = "The tagged values instances of the object get when the factory takes the object's properties. " + "Values the scripts read as an int, an angle or a float, or the index of another property. A plain number keeps the value's type, Int(x), Float(x) and Angle(x) change it", EditorOrientation = Avalonia.Controls.Dock.Top)]
+        [Editable(Caption = "Template Instance Tagged Values", Hint = "The tagged values instances the scripts spawn of the object get, the chunks' instances have their own. " + "Values the scripts read as an int, an angle or a float, or the index of another property. A plain number keeps the value's type, Int(x), Float(x) and Angle(x) change it. " + TemplateRoom, EditorOrientation = Avalonia.Controls.Dock.Top)]
         [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Tagged")]
         [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
         public List<TaggedProperty> TaggedProperties { get; set; }
         
         [JsonProperty(Required = Required.Always)]
-        [Editable(Caption = "Template Instance Floats", EditorOrientation = Avalonia.Controls.Dock.Top)]
+        [Editable(Caption = "Template Instance Floats", Hint = "The floats instances the scripts spawn of the object get, the chunks' instances have their own. " + TemplateRoom, EditorOrientation = Avalonia.Controls.Dock.Top)]
         [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Float")]
         [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
         public List<Single> FloatProperties { get; set; }
         
         [JsonProperty(Required = Required.Always)]
-        [Editable(Caption = "Template Instance Integers", EditorOrientation = Avalonia.Controls.Dock.Top)]
+        [Editable(Caption = "Template Instance Integers", Hint = "The integers instances the scripts spawn of the object get, the chunks' instances have their own. " + TemplateRoom, EditorOrientation = Avalonia.Controls.Dock.Top)]
         [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Integer")]
         [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
         public List<Int32> IntProperties { get; set; }
@@ -415,7 +431,10 @@ namespace TT_Lab.AssetData.Code
             CheckCount("instance tagged values", TaggedProperties.Count, MaxSlots);
             CheckCount("instance float properties", FloatProperties.Count, MaxSlots);
             CheckCount("instance integer properties", IntProperties.Count, MaxSlots);
+            CheckForItsType();
             var assetManager = AssetManager.Get();
+            // Every instance reads its object's first model slot with no check (MakeObjectModelNode), an object without one gets one of none
+            List<ModelSlot> modelSlots = ModelSlots.Count > 0 ? ModelSlots : [new ModelSlot()];
             using var ms = new MemoryStream();
             using var writer = new BinaryWriter(ms);
             writer.Write((Int32)Type);
@@ -479,12 +498,12 @@ namespace TT_Lab.AssetData.Code
                     }
                 }
             }
-            writeUriList(OGISlots.ToList());
+            writeUriList(modelSlots.Select(slot => slot.Ogi).ToList());
             // Animations are written with the IDs they got in the chunk when it got built
-            writer.Write(ModelSlots.Count);
-            for (var i = 0; i < ModelSlots.Count; i++)
+            writer.Write(modelSlots.Count);
+            for (var i = 0; i < modelSlots.Count; i++)
             {
-                var slot = ModelSlots[i];
+                var slot = modelSlots[i];
                 writer.Write(_animationExportIds != null && i < _animationExportIds.Count ? _animationExportIds[i] : slot.Ogi == LabURI.Empty ? ModelSlot.NoAnimation : slot.Animation);
             }
 
@@ -932,6 +951,100 @@ namespace TT_Lab.AssetData.Code
 
                 var exportId = assetManager.GetAssetData<OGIData>(slot.Ogi).ResolveAnimation(factory, animationSection, slot.Animation);
                 return exportId is < ModelSlot.NoAnimation ? (UInt16)exportId.Value : ModelSlot.NoAnimation;
+            }
+        }
+
+        // What the game can't make of an object of its type (ObjectTypes), its instances are checked when their chunks get built
+        private void CheckForItsType()
+        {
+            if (!ObjectTypes.AllowsSubType(Type, SubType))
+            {
+                throw new InvalidOperationException($"{Owner.Alias} is a {Type} of sub type {SubType}, which only pickups can have: the game pins its instances' collision and " +
+                                                    "writes a pickup's timer into their nodes");
+            }
+
+            if ((TaggedProperties.Count > 0 || FloatProperties.Count > 0 || IntProperties.Count > 0)
+                && ObjectTypes.PropertyProblem(Type, TaggedProperties.Count, FloatProperties.Count, IntProperties.Count) is { } problem)
+            {
+                throw new InvalidOperationException($"{Owner.Alias} {problem} (its template values, which instances its scripts spawn get)");
+            }
+
+            // The rope moves the model's joints 0 and 1 by their callbacks, which the game makes room for as many joint IDs as the object says
+            // (AddJointCallback, no check), every graple of the game has 2
+            if (Type == ITwinObject.ObjectType.Graple && CameraReactJointAmount < 2)
+            {
+                throw new InvalidOperationException($"{Owner.Alias} is a graple with {CameraReactJointAmount} joint IDs, its rope moves its model's joints 0 and 1, whose " +
+                                                    "callbacks the game keeps in room for as many joint IDs as the object says with no check");
+            }
+        }
+
+        /// <summary>
+        /// What an object of the type needs: its sub type the type's own when the old type's or one it can't have, the template values filled
+        /// up to the class's share (the type's state with them when it had none), a model slot, a character's exit points and joint IDs, a
+        /// graple's two joint IDs. Part of the type's step, undone with it
+        /// </summary>
+        private sealed class TypeChange : IFieldChange
+        {
+            // The type each object's node had: a node's Changed also comes when a value above it gets replaced, nothing changes then
+            private static readonly ConditionalWeakTable<PropertyNode, StrongBox<ITwinObject.ObjectType>> Types = new();
+
+            public void Linked(PropertyNode listeningNode, PropertyNode changedNode)
+            {
+                Types.AddOrUpdate(listeningNode, new StrongBox<ITwinObject.ObjectType>(changedNode.GetValue<ITwinObject.ObjectType>()));
+            }
+
+            public void DataChanged(PropertyNode listeningNode, PropertyNode changedNode)
+            {
+                var type = changedNode.GetValue<ITwinObject.ObjectType>();
+                ITwinObject.ObjectType? previous = Types.TryGetValue(listeningNode, out var known) ? known.Value : null;
+                Types.AddOrUpdate(listeningNode, new StrongBox<ITwinObject.ObjectType>(type));
+                if (previous == type || listeningNode.Target is not GameObjectData data || listeningNode.Parent is not { } owner)
+                {
+                    return;
+                }
+
+                PropertyNode? Node(string name) => owner.Children.FirstOrDefault(child => child.Name == name);
+                if (!ObjectTypes.AllowsSubType(type, data.SubType) || previous is { } old && data.SubType == ObjectTypes.DefaultSubTypeOf(old))
+                {
+                    Node(nameof(SubType))?.SetValue(ObjectTypes.DefaultSubTypeOf(type));
+                }
+
+                if (data.ModelSlots.Count == 0)
+                {
+                    Node(nameof(ModelSlots))?.InsertElement(0, new ModelSlot());
+                }
+
+                if (ObjectTypes.Of(type) is not { } rules)
+                {
+                    return;
+                }
+
+                var hadNone = data.TaggedProperties.Count == 0 && data.FloatProperties.Count == 0 && data.IntProperties.Count == 0;
+                var (tagged, floats, ints) = ObjectTypes.Fit(type, data.TaggedProperties.Select(value => value.Bits).ToList(), data.FloatProperties, data.IntProperties);
+                // Another object made a character would be the playable character its integer happens to be, standing in for Crash's
+                if (type == ITwinObject.ObjectType.Character)
+                {
+                    ints[ObjectTypes.CharacterKindProperty] = ObjectTypes.CharacterNone;
+                }
+
+                ObjectTypes.SetElements(Node(nameof(TaggedProperties)), tagged.Select(bits => new TaggedProperty(bits)).ToList());
+                ObjectTypes.SetElements(Node(nameof(FloatProperties)), floats);
+                ObjectTypes.SetElements(Node(nameof(IntProperties)), ints);
+                if (hadNone)
+                {
+                    Node(nameof(InstanceStateFlags))?.SetValue(rules.State);
+                }
+
+                if (type == ITwinObject.ObjectType.Character)
+                {
+                    var (exitPoints, jointIds) = ObjectTypes.CharacterCounts(ObjectTypes.CharacterNone);
+                    Node(nameof(ExitPointAmount))?.SetValue(Math.Max(data.ExitPointAmount, exitPoints));
+                    Node(nameof(CameraReactJointAmount))?.SetValue(Math.Max(data.CameraReactJointAmount, jointIds));
+                }
+                else if (type == ITwinObject.ObjectType.Graple)
+                {
+                    Node(nameof(CameraReactJointAmount))?.SetValue(Math.Max(data.CameraReactJointAmount, (Byte)2));
+                }
             }
         }
     }

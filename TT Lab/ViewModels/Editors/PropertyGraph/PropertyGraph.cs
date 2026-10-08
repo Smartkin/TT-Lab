@@ -35,6 +35,30 @@ public class PropertyGraph
     /// </summary>
     public bool IsReplaying { get; internal set; }
 
+    /// <summary>
+    /// The node values are being pasted into: what's under it gets the copied values as they were copied, so linked fields under it
+    /// only set up what editors show, while the ones following it from outside work their values out the way an edit does
+    /// </summary>
+    internal PropertyNode? PasteRoot { get; set; }
+
+    internal bool IsPastedOver(PropertyNode node)
+    {
+        if (PasteRoot == null)
+        {
+            return false;
+        }
+
+        for (var parent = node.Parent; parent != null; parent = parent.Parent)
+        {
+            if (parent == PasteRoot)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     internal void NotifyChange(PropertyNode node, object? oldValue, object? newValue, PropertyChangeKind kind = PropertyChangeKind.Value, int index = -1)
     {
         Changed?.Invoke(new PropertyChange(node, oldValue, newValue, kind, index, _consequenceDepth > 0));

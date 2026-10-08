@@ -15,9 +15,10 @@ using GamePlatform = TT_Lab.Project.Project.GamePlatform;
 
 namespace TT_Lab.AssetData.Instance.Particle;
 
-// A particle system's name is its own in its version of the game: emitters play the system they name, their chunk's own or the default
-// chunk's. The loaded particle assets are checked as they are, the others by the names in their files, read off the UI thread when the
-// first name gets checked and again when a file changes
+// Emitters play the system they name, their chunk's own or the default chunk's, so a system's name is its own in its chunk: a level's
+// system of a default system's name is played there in that one's place, the level's own version of it (retail levels have such copies).
+// The loaded particle assets are checked as they are, the default chunk's of a version nobody has loaded by the names in its file, read
+// off the UI thread when the first name gets checked and again when the file changes
 public static partial class ParticleSystemNames
 {
     private sealed record FileNames(DateTime Written, string[] Names);
@@ -31,7 +32,7 @@ public static partial class ParticleSystemNames
     public static void Clear() => Files.Clear();
 
     /// <summary>
-    /// Reads the names of every particle asset nobody has loaded in the background
+    /// Reads the names of the default chunks' particles nobody has loaded in the background
     /// </summary>
     public static void Prepare()
     {
@@ -42,7 +43,7 @@ public static partial class ParticleSystemNames
 
         _reading = Task.Run(() =>
         {
-            foreach (var asset in ParticleAssets(project, null).Where(asset => !asset.IsLoaded))
+            foreach (var asset in ParticleAssets(project, null).OfType<DefaultParticles>().Where(asset => !asset.IsLoaded))
             {
                 try
                 {
@@ -57,30 +58,34 @@ public static partial class ParticleSystemNames
     }
 
     /// <summary>
-    /// The particle asset of the system's version of the game with another system of the name, the system's own when another of its
-    /// systems has it, none when the name is free
+    /// The system's particles when another of their systems has the name, none when the name is free in the chunk
     /// </summary>
     public static IAsset? FindOther(string name, IAsset owner, ParticleSystem system)
     {
-        if (OpenedProject() is not { } project)
-        {
-            return null;
-        }
-
-        return ParticleAssets(project, project.GetPlatform(owner.Package)).FirstOrDefault(asset => NamesOf(asset, system).Contains(name));
+        return owner is SerializableAsset particles && NamesOf(particles, system).Contains(name) ? owner : null;
     }
 
     /// <summary>
-    /// The name, or the name with a number the game has no system of yet
+    /// The name, or the name with a number no other system of the chunk has. Names given to systems not in their particles yet (several
+    /// pasted at once) are taken too. A level's new system doesn't take a default system's name either (<paramref name="avoidsDefaults"/>),
+    /// it would be played in that one's place; one pasted keeps it, the level's own version of that system
     /// </summary>
-    public static string MakeUnique(string name, IAsset owner, ParticleSystem system)
+    public static string MakeUnique(string name, IAsset owner, ParticleSystem system, IEnumerable<string>? alsoTaken = null, bool avoidsDefaults = false)
     {
-        if (OpenedProject() is not { } project)
+        var taken = owner is SerializableAsset particles ? NamesOf(particles, system).ToHashSet() : [];
+        if (avoidsDefaults && owner is not DefaultParticles && OpenedProject() is { } project)
         {
-            return name;
+            foreach (var defaults in ParticleAssets(project, project.GetPlatform(owner.Package)).OfType<DefaultParticles>())
+            {
+                taken.UnionWith(NamesOf(defaults, system));
+            }
         }
 
-        var taken = ParticleAssets(project, project.GetPlatform(owner.Package)).SelectMany(asset => NamesOf(asset, system)).ToHashSet();
+        if (alsoTaken != null)
+        {
+            taken.UnionWith(alsoTaken);
+        }
+
         if (!taken.Contains(name))
         {
             return name;

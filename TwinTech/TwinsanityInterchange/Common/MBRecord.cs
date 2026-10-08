@@ -42,7 +42,7 @@ namespace Twinsanity.TwinsanityInterchange.Common
             switch (RecordHeader.Type)
             {
                 case PS2MB.RecordType.MONO:
-                    var msvp = reader.ReadChars(4);
+                    var msvp = GameText.ReadChars(reader, 4);
                     if (!String.Equals(new String(msvp), new String(MSVp), StringComparison.Ordinal))
                     {
                         throw new Exception("MSVp key not provided!");
@@ -61,7 +61,7 @@ namespace Twinsanity.TwinsanityInterchange.Common
                     SampleRate = BitConv.FlipBytes(reader.ReadInt32());
                     reader.ReadInt32();
                     reader.ReadInt64();
-                    Name = new String(reader.ReadChars(0x10));
+                    Name = GameText.ReadString(reader, 0x10);
                     TrackData = reader.ReadBytes(GetLength() - 0x30);
                     break;
                 default:
@@ -82,7 +82,7 @@ namespace Twinsanity.TwinsanityInterchange.Common
                     writer.Write(BitConv.FlipBytes(SampleRate));
                     writer.Write(0);
                     writer.Write((Int64)0);
-                    writer.Write(Name.ToCharArray(), 0, 0x10);
+                    GameText.Write(writer, Name.ToCharArray(), 0, 0x10);
                     break;
             }
             writer.Write(TrackData);

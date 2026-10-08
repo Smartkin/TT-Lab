@@ -1,0 +1,15 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:controls="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+        mc:Ignorable="d" d:DesignWidth="500" d:DesignHeight="140"
+        x:Class="TT_Lab.Controls.ChoiceDialogue"
+        MinHeight="120" MinWidth="320" MaxWidth="700" SizeToContent="WidthAndHeight" CanResize="False" ShowInTaskbar="False" Topmost="True" WindowStartupLocation="CenterOwner">
+    <controls:GroupBox>
+        <Grid RowDefinitions="*,Auto">
+            <TextBlock Grid.Row="0" x:Name="Message" TextWrapping="Wrap" Margin="10" VerticalAlignment="Center"/>
+            <StackPanel Grid.Row="1" x:Name="Answers" Orientation="Horizontal" HorizontalAlignment="Right" Margin="5"/>
+        </Grid>
+    </controls:GroupBox>
+</Window>

@@ -57,5 +57,5 @@ public partial class DocumentCompositeView : DocumentBaseView<DocumentCompositeV
         ToolTip.SetTip(AddNewItem, (ViewModel as DocumentCollectionViewModel)?.AddItemHint);
     }
 
-    private void Caption_OnContextRequested(object? sender, Avalonia.Controls.ContextRequestedEventArgs e) => OverrideMenu.Show(sender, e);
+    private void Caption_OnContextRequested(object? sender, Avalonia.Controls.ContextRequestedEventArgs e) => PropertyMenu.Show(sender, e);
 }

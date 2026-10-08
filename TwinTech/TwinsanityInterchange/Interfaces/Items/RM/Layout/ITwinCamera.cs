@@ -6,10 +6,10 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout
 {
     /// <summary>
     /// A camera trigger: the box the player has to be in, how the camera controller blends the camera in and the two subtypes that
-    /// give the camera's position. What the controller does with the values was worked out from the PAL executable (FUN_00274e08
-    /// applies a camera, FUN_00275cf0 and FUN_00274b20 switch to one, FUN_001434a0 accepts one, FUN_0026f3f0 runs the subtypes),
-    /// the angles are 65536ths of a turn and the controller's three angle blenders are taken for the field of view, the pitch and
-    /// the yaw by the values the game's levels give them (32°, 20° and 180°)
+    /// give the point the camera looks at and where it stands. What the controller does with the values was worked out from the
+    /// PAL executable (FUN_00274e08 applies a camera, FUN_00275cf0 and FUN_00274b20 switch to one, FUN_001434a0 accepts one,
+    /// FUN_0026f3f0 runs the subtypes), the angles are 65536ths of a turn and the controller's three angle blenders are taken for
+    /// the field of view, the pitch and the yaw by the values the game's levels give them (32°, 20° and 180°)
     /// </summary>
     public interface ITwinCamera : ITwinItem
     {
@@ -113,7 +113,13 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout
         /// Cameras of different groups don't replace each other while both are nonzero (0 on most cameras, 1 to 5 on a few)
         /// </summary>
         Byte Group { get; set; } // 115
+        /// <summary>
+        /// The point the camera looks at for the player's position (the follow camera's target), none to look at the player
+        /// </summary>
         CameraSubBase MainCamera1 { get; set; }
+        /// <summary>
+        /// Where the camera stands for the player's position, none to follow the player from behind
+        /// </summary>
         CameraSubBase MainCamera2 { get; set; }
 
         enum CameraType

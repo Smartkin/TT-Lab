@@ -18,6 +18,7 @@ using TT_Lab.Extensions;
 using TT_Lab.Rendering.Objects;
 using TT_Lab.Util;
 using TT_Lab.ViewModels;
+using TT_Lab.ViewModels.Editors;
 using TT_Lab.ViewModels.Editors.Descs;
 using TT_Lab.ViewModels.Editors.PropertyGraph;
 using TT_Lab.ViewModels.Interfaces;
@@ -242,6 +243,7 @@ public class OGIData : AbstractAssetData
     /// became the project's, or its skins' faces were brought up to date</returns>
     internal bool ReadTlm(TlmFile file)
     {
+        _materialSlots = null;
         var root = file.Root ?? new JsonObject();
         var materials = new TlmMaterials(file, Owner);
         ReadRootData(root.GetData());
@@ -739,6 +741,13 @@ public class OGIData : AbstractAssetData
     /// </summary>
     public List<Byte> CollisionHullJoints { get; set; }
     public List<TwinJoint> Joints { get; set; }
+
+    /// <summary>
+    /// Whether the game gives instances of the model an animator, it gives a model of one joint and no exit points none and draws only its
+    /// rigid models, at the instance (ModelNode::SetOgi)
+    /// </summary>
+    public bool GetsAnimator => Joints.Count > 1 || ExitPoints.Count > 0;
+
     /// <summary>
     /// The joint IDs the game binds, every ID below it (<see cref="ITwinOGI.JointIdCount"/>)
     /// </summary>
@@ -748,6 +757,17 @@ public class OGIData : AbstractAssetData
     public List<Matrix4> SkinInverseMatrices { get; set; }
     public LabURI Skin { get; set; }
     public LabURI BlendSkin { get; set; }
+
+    private OgiMaterialSlot[]? _materialSlots;
+
+    // The materials the meshes draw with, made of the models' parts once the inspector shows them: another one picked for a slot goes into
+    // every part of it, which the file is written from
+    [Editable(Caption = "Materials", Hint = "The materials the model's meshes draw with, a slot for each with the parts drawing with it. Another material picked for a slot draws every one of them with that one")]
+    [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
+    [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Slot")]
+    [EditorParam(DocumentCollectionViewModel.ItemCaptionField, nameof(OgiMaterialSlot.Material))]
+    [JsonIgnore]
+    public OgiMaterialSlot[] MaterialSlots => _materialSlots ??= OgiMaterialSlot.Of(this);
 
     protected override void Dispose(Boolean disposing)
     {
@@ -870,7 +890,18 @@ public class OGIData : AbstractAssetData
         var context = viewportContext.RenderContext;
         var ogiRender = new OGI(context, context.SkeletonManager, context.MeshService, this);
         var (offset, size) = GetBounds();
-        var viewportObject = new ViewportObject(new EditableObject(context, ogiRender, "OGIRender", offset, size), property.Name, property, ogiRender);
+        var materials = property.Find($"{nameof(SerializableAsset.AssetData)}.{nameof(MaterialSlots)}");
+        var viewportObject = new ViewportObject(new EditableObject(context, ogiRender, "OGIRender", offset, size), property.Name, property, ogiRender)
+        {
+            RenderDependencies = materials == null ? [] : [materials],
+            // The meshes are made again with the materials their parts have now, the ones made before are kept by the models' URIs
+            Refresh = () =>
+            {
+                var models = RigidModelIds.Append(Skin).Append(BlendSkin).Where(model => model != LabURI.Empty).ToList();
+                context.QueueRenderAction(() => context.MeshService.Forget(models));
+                return false;
+            }
+        };
         return [viewportObject];
     }
 

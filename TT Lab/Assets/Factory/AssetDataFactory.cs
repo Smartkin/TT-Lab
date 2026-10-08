@@ -10,6 +10,7 @@ using Splat;
 using TT_Lab.AssetData;
 using TT_Lab.AssetData.Code;
 using TT_Lab.AssetData.Code.Behaviour;
+using TT_Lab.AssetData.Code.Object;
 using TT_Lab.AssetData.Graphics;
 using TT_Lab.AssetData.Graphics.SubModels;
 using TT_Lab.AssetData.Graphics.TlModel;
@@ -26,6 +27,7 @@ using Twinsanity.Libraries;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items;
+using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.SM;
 using ChunkLinks = TT_Lab.Assets.Instance.ChunkLinks;
 using Collision = TT_Lab.Assets.Instance.Collision;
@@ -58,17 +60,6 @@ public static class AssetDataFactory
     // Lit like the game's levels: every retail scenery has one ambient light of a third of white at 4.5 (most at 4.5, some at 6), and a
     // white light from above and a little to the side so objects' faces don't all get the same light
 
-    // Parameters that every Crash instance in the retail levels is placed with
-    private static readonly Enums.InstanceState CrashInstanceState = (Enums.InstanceState)0x7D2E;
-    private static readonly UInt32[] CrashInstanceTaggedValues = [65536, 131072, 131072, 364088, 109226, 16384, 262144, 262144, 0];
-    private static readonly Single[] CrashInstanceFloats =
-    [
-        1.0f, 50.0f, 5.2f, 15.0f, 50.0f, 0.0f, 2.5f, 9.0f, 0.0f, 10.0f, 0.4f, 0.15f, 0.15f, 0.5f, 1.0f, 8.0f,
-        13.0f, 37.556f, 57.874f, 8.0f, 16.0f, 64.0f, 72.951f, 11.0f, 5.0f, 10.0f, 14.938f, 0.05f, 0.4f, 0.05f, 0.05f, 0.4f,
-        10.0f, 400.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.75f, 0.1f, 0.1f, 0.1f, 18.0f, 0.15f, 0.2f, 0.1f,
-        0.3f, 0.3f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f
-    ];
-    private static readonly Int32[] CrashInstanceIntegers = [0, 255, 2];
 
     // A package is a folder of the project's assets folder, named as typed. It depends on the version's package, which brings the
     // version's global one, and the project's package depends on it like on the others
@@ -255,10 +246,20 @@ public static class AssetDataFactory
         return (vertexes, faces);
     }
 
+    // A generic object an instance can be placed of right away: the game reads every object's first model slot and its instances' second
+    // integer with no check, scripts spawn it with its template values and state, the type's most common ones in the game
     public static AssetCreationStatus CreateGameObjectData(IAsset asset)
     {
         var gameObjectData = new GameObjectData(asset);
         gameObjectData.Name = asset.Name.Trim();
+        gameObjectData.Type = ITwinObject.ObjectType.GenericObject;
+        gameObjectData.SubType = ObjectTypes.DefaultSubTypeOf(gameObjectData.Type);
+        gameObjectData.ModelSlots.Add(new ModelSlot());
+        var rules = ObjectTypes.Of(gameObjectData.Type)!;
+        gameObjectData.TaggedProperties = [..rules.TaggedValues.Select(bits => new TaggedProperty(bits))];
+        gameObjectData.FloatProperties = [..rules.FloatValues];
+        gameObjectData.IntProperties = [..rules.IntValues];
+        gameObjectData.InstanceStateFlags = rules.State;
         asset.SetData(gameObjectData);
         return AssetCreationStatus.Success;
     }
@@ -310,11 +311,10 @@ public static class AssetDataFactory
             instance => new ObjectInstanceData(instance)
             {
                 ObjectId = crashObject,
-                RefListIndex = -1,
-                StateFlags = CrashInstanceState,
-                TaggedProperties = [..CrashInstanceTaggedValues.Select(bits => new TaggedProperty(bits))],
-                FloatProperties = [..CrashInstanceFloats],
-                IntProperties = [..CrashInstanceIntegers]
+                StateFlags = ObjectTypes.CrashState,
+                TaggedProperties = [..ObjectTypes.CrashTaggedValues.Select(bits => new TaggedProperty(bits))],
+                FloatProperties = [..ObjectTypes.CrashFloats],
+                IntProperties = [..ObjectTypes.CrashIntegers]
             });
 
         LevelSelect.AddChunk(chunk);

@@ -181,7 +181,8 @@ public class PropertyNode
 
     private void LinkedPropOnChanged(PropertyNode prop, List<IFieldChange> reactors)
     {
-        if (Graph?.IsReplaying == true)
+        // A field pasted over gets the copied value, an object's type pasted along with its lists doesn't fit them to the type
+        if (Graph?.IsReplaying == true || Graph?.IsPastedOver(this) == true)
         {
             foreach (var reactor in reactors)
             {

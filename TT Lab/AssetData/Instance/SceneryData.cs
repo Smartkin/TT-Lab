@@ -71,10 +71,15 @@ public class SceneryData : AbstractAssetData
     
     public Byte UnusedByte { get; set; }
 
-    [Editable(Hint = "The box the game keeps the chunk's objects in, its scenery tree's root: an object outside of it has nothing under it, so it has to hold every place objects go. The viewport's Scenery bounds layer shows it, moved and sized by the handle on its top")]
+    // A value of the corners, its middle and half size set by setting it whole: the history keeps the corners, undo puts them back exactly
+    [Editable(IsComputed = true, Hint = "The box the game keeps the chunk's objects in, its scenery tree's root: an object outside of it has nothing under it, so it has to hold every place objects go. The viewport's Scenery bounds layer shows it, moved and sized by the handle on its top")]
     [JsonIgnore]
     [System.Text.Json.Serialization.JsonIgnore]
-    public SceneryBounds Bounds => new(this);
+    public SceneryBounds Bounds
+    {
+        get => new(BoundsMin, BoundsMax);
+        set => (BoundsMin, BoundsMax) = (value.Min, value.Max);
+    }
 
     [Editable(Caption = "Tree Depth", Hint = "How many levels below its root the tree the game culls the scenery's meshes with goes, which the build makes from where they are. The game's chunks have 2 to 5, a deeper tree culls in smaller pieces")]
     [EditorParam(TextFieldViewModel.TextFieldNumberRange, new[] { 1, 8 })]
@@ -1035,11 +1040,10 @@ public class SceneryData : AbstractAssetData
     {
         var result = new List<ViewportObject>();
         var renderContext = viewportContext.RenderContext;
-        // The chunk's lights light its objects, its strongest directional lights are what its environment mapped materials look up by
+        // The chunk's lights light its objects
         void ApplyLights()
         {
             renderContext.Lights = SceneLights.Of(this);
-            renderContext.EnvLights = Rendering.EnvLights.Of(DirectionalLights);
         }
 
         ApplyLights();

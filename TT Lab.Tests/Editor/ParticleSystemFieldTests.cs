@@ -58,6 +58,7 @@ public sealed class ParticleSystemFieldTests : IDisposable
         }
     }
 
+    // The chunk's Fire is played in place of the default chunk's, which isn't offered
     [AvaloniaFact]
     public void ChunksSystemsComeBeforeTheDefaultOnes()
     {
@@ -66,8 +67,9 @@ public sealed class ParticleSystemFieldTests : IDisposable
 
         editor.LoadChoices();
 
-        Assert.Equal([("Fire", false), ("Smoke", false), ("Spark", true), ("Fire", true)], editor.ShownChoices.Select(choice => (choice.Name, choice.IsDefault)));
-        Assert.Equal("The chunk's", editor.LinkState);
+        Assert.Equal([("Fire", false), ("Smoke", false), ("Spark", true)], editor.ShownChoices.Select(choice => (choice.Name, choice.IsDefault)));
+        Assert.True(editor.ShownChoices[0].Overrides);
+        Assert.Equal("The chunk's, played in place of the default chunk's", editor.LinkState);
         Assert.False(editor.IsLinkBroken);
 
         editor.Search = "sp";

@@ -6,6 +6,7 @@ using TT_Lab.AssetData.Code;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
 using TT_Lab.Tests.Support;
+using TT_Lab.ViewModels;
 using TT_Lab.ViewModels.Editors;
 using TT_Lab.ViewModels.Editors.Code;
 using TT_Lab.ViewModels.Editors.Descs;
@@ -180,6 +181,71 @@ public sealed class OgiAnimationEditorTests : IDisposable
 
         Assert.True(player.IsPlaying);
         player.StopAnimation();
+    }
+
+    private static (DocumentViewModel Document, ViewportViewModel Viewport) OpenViewer(IAsset asset)
+    {
+        var viewport = new ViewportViewModel();
+        var document = new DocumentViewModel(asset, viewport);
+        document.Initialize();
+        viewport.Init(document);
+        return (document, viewport);
+    }
+
+    // The skeleton's switch is a preference, the viewer's viewport keeps it while the panel is made again with the inspector and the
+    // model's objects with its materials: the OGI viewers open follow it and the ones opened later start with it. A document without a
+    // viewport of its own has none, nor does a viewer of something else (a chunk's scene would draw every instance's)
+    [AvaloniaFact]
+    public void TheSkeletonIsShownByAPreferenceOfTheViewers()
+    {
+        var before = Preferences.GetPreference<bool>(Preferences.OgiViewerSkeleton);
+        Preferences.SetPreference(Preferences.OgiViewerSkeleton, false);
+        try
+        {
+            var ogi = AddOgi("Skeleton", CreateAnimation(0x1, "Walk"));
+            var (document, viewport) = OpenViewer(ogi);
+            var (_, otherViewer) = OpenViewer(AddOgi("Other"));
+            var player = Assert.IsType<OgiAnimationsViewModel>(EditorDescRegistry.GetDesc(document, document.PropertyGraph.Find("Root.AssetData.Animations")!).Construct());
+            var window = new Window { Content = new ContentControl { Content = player }, Width = 800, Height = 600 };
+            window.Show();
+            Pump();
+            var box = window.GetVisualDescendants().OfType<CheckBox>().Single(check => Equals(check.Content, "Skeleton"));
+            Assert.True(box.IsVisible);
+            Assert.False(box.IsChecked);
+
+            box.IsChecked = true;
+            Pump();
+
+            Assert.True(viewport.ShowsSkeletons);
+            Assert.True(player.ShowsSkeleton);
+            Assert.True(Preferences.GetPreference<bool>(Preferences.OgiViewerSkeleton));
+            Assert.True(otherViewer.ShowsSkeletons);
+            Assert.True(Construct<OgiAnimationsViewModel>(document, "Root.AssetData.Animations").ShowsSkeleton);
+            Assert.True(OpenViewer(AddOgi("Later")).Viewport.ShowsSkeletons);
+            Assert.False(document.IsDirty);
+
+            // Switched off in another viewer, this one's box follows
+            otherViewer.ShowsSkeletons = false;
+            Pump();
+            Assert.False(viewport.ShowsSkeletons);
+            Assert.False(box.IsChecked);
+            window.Close();
+
+            Preferences.SetPreference(Preferences.OgiViewerSkeleton, true);
+            var (objectDocument, _) = OpenGameObject(new ModelSlot());
+            Assert.False(OpenViewer((IAsset)objectDocument.DocumentModel).Viewport.ShowsSkeletons);
+
+            var withoutViewport = new DocumentViewModel(ogi);
+            withoutViewport.Initialize();
+            var other = Construct<OgiAnimationsViewModel>(withoutViewport, "Root.AssetData.Animations");
+            Assert.False(other.CanShowSkeleton);
+            other.ShowsSkeleton = true;
+            Assert.False(other.ShowsSkeleton);
+        }
+        finally
+        {
+            Preferences.SetPreference(Preferences.OgiViewerSkeleton, before);
+        }
     }
 
     [AvaloniaFact]

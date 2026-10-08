@@ -13,8 +13,9 @@ using TT_Lab.ViewModels.Editors.Instance;
 
 namespace TT_Lab.Tests.Editor;
 
-// A particle system's name is its own in its version of the game, emitters play the system they name: renaming a system renames its
-// emitters, in the same particles with the rename and in the other chunks once a default chunk's system is saved
+// Emitters play the system they name, their chunk's own or the default chunk's, so a system's name is its own in its chunk and a level's
+// system of a default system's name is played there in its place: renaming a system renames its emitters, in the same particles with the
+// rename and in the other chunks once a default chunk's system is saved
 [Collection(ProjectCollection.Name)]
 public sealed class ParticleSystemNameTests : IDisposable
 {
@@ -65,32 +66,72 @@ public sealed class ParticleSystemNameTests : IDisposable
         }
     }
 
+    // A default system's name makes the level's system its own version of that one, another level's is that level's own business
     [AvaloniaFact]
-    public void ANameAnotherSystemOfTheVersionHasIsntTaken()
+    public void ANameAnotherSystemOfTheChunkHasIsntTaken()
     {
         AddDefaults("FIRE", "SPARK");
         Unload(AddChunkParticles("Cave Particles", ["BUBBLES"], []));
-        // The Xbox version's systems are another game's
-        AddChunkParticles("Xbox Particles", ["STEAM"], [], _project.Project.XboxPackage);
         var particles = AddChunkParticles("Beach Particles", ["SMOKE", "DUST"], []);
         var document = new DocumentViewModel(particles);
         document.Initialize();
         var editor = NameEditor(document, "Root.AssetData.ParticleSystems[0].Name");
         var data = ((IAsset)particles).GetData<ParticleData>();
 
-        foreach (var taken in new[] { "FIRE", "BUBBLES", "DUST" })
+        editor.Text = "DUST";
+        Pump();
+        Assert.Equal("SMOKE", data.ParticleSystems[0].Name);
+        Assert.False(editor.ValidationContext.IsValid);
+        Assert.Contains("Beach Particles has another particle system named DUST", editor.ValidationContext.Text.ToSingleLine());
+
+        foreach (var free in new[] { "FIRE", "BUBBLES" })
         {
-            editor.Text = taken;
+            editor.Text = free;
             Pump();
-            Assert.Equal("SMOKE", data.ParticleSystems[0].Name);
-            Assert.False(editor.ValidationContext.IsValid);
-            Assert.Contains("has a particle system named", editor.ValidationContext.Text.ToSingleLine());
+            Assert.Equal(free, data.ParticleSystems[0].Name);
+            Assert.True(editor.ValidationContext.IsValid);
         }
 
-        editor.Text = "STEAM";
+        Assert.Equal((data.ParticleSystems[0], false), data.FindSystem("BUBBLES"));
+    }
+
+    [AvaloniaFact]
+    public void TheDefaultChunksSystemsOnlyKeepTheirNamesApartFromEachOther()
+    {
+        var defaults = AddDefaults("FIRE", "SPARK");
+        AddChunkParticles("Beach Particles", ["SMOKE"], []);
+        var document = new DocumentViewModel(defaults);
+        document.Initialize();
+        var editor = NameEditor(document, "Root.AssetData.ParticleSystems[0].Name");
+        var data = ((IAsset)defaults).GetData<DefaultParticleData>();
+
+        editor.Text = "SPARK";
         Pump();
-        Assert.Equal("STEAM", data.ParticleSystems[0].Name);
+        Assert.Equal("FIRE", data.ParticleSystems[0].Name);
+        Assert.False(editor.ValidationContext.IsValid);
+
+        editor.Text = "SMOKE";
+        Pump();
+        Assert.Equal("SMOKE", data.ParticleSystems[0].Name);
         Assert.True(editor.ValidationContext.IsValid);
+    }
+
+    // The chunk's emitters can't pick a default system the chunk has its own version of, which they'd play instead
+    [AvaloniaFact]
+    public void TheChunksOwnVersionOfADefaultSystemIsWhatItsEmittersPick()
+    {
+        AddDefaults("FIRE", "SPARK");
+        var particles = AddChunkParticles("Beach Particles", ["FIRE"], ["FIRE"]);
+        var document = new DocumentViewModel(particles);
+        document.Initialize();
+        var editor = Assert.IsType<ParticleSystemFieldViewModel>(EditorDescRegistry.GetDesc(document, document.PropertyGraph.Find("Root.AssetData.ParticleInstances[0].Name")!).Construct());
+        new Window { Content = new ContentControl { Content = editor }, Width = 600, Height = 200 }.Show();
+        Pump();
+
+        editor.LoadChoices();
+
+        Assert.Equal([new ParticleSystemChoice("FIRE", false, true), new ParticleSystemChoice("SPARK", true)], editor.ShownChoices);
+        Assert.Equal("The chunk's, played in place of the default chunk's", editor.LinkState);
     }
 
     [AvaloniaFact]
@@ -156,6 +197,36 @@ public sealed class ParticleSystemNameTests : IDisposable
         Assert.Equal(["FIRE"], ((IAsset)lab).GetData<ParticleData>().ParticleInstances.Select(emitter => emitter.Name));
         Assert.Equal(["BLAZE"], ((IAsset)opened).GetData<ParticleData>().ParticleInstances.Select(emitter => emitter.Name));
         Assert.Contains("\"BLAZE\"", File.ReadAllText(opened.FullDataPath));
+    }
+
+    // A chunk with its own system of the new name plays that one with the emitters renamed to it, which the log warns about
+    [AvaloniaFact]
+    public async Task ALevelsOwnSystemOfTheNewNameIsPlayedByItsRenamedEmitters()
+    {
+        var panel = new TT_Lab.ViewModels.LogViewModel(new TestProject.NullEventAggregator(), new TT_Lab.Project.ProjectManager(new TestProject.NullEventAggregator()));
+        Log.SetViewModel(panel);
+        try
+        {
+            var defaults = AddDefaults("FIRE");
+            var cave = AddChunkParticles("Cave Particles", ["BLAZE"], ["FIRE", "BLAZE"]);
+            Unload(cave);
+
+            Assert.Equal(1, await ParticleSystemLinks.RenameInOtherChunksAsync(defaults, new Dictionary<string, string> { ["FIRE"] = "BLAZE" }));
+
+            var data = ((IAsset)cave).GetData<ParticleData>();
+            Assert.Equal(["BLAZE", "BLAZE"], data.ParticleInstances.Select(emitter => emitter.Name));
+            Assert.False(data.FindSystem("BLAZE")!.Value.IsDefault);
+            for (var wait = 0; wait < 100 && !panel.Text.Text.Contains("Cave Particles has particle systems of its own named BLAZE"); wait++)
+            {
+                await Task.Delay(20);
+            }
+
+            Assert.Contains("Cave Particles has particle systems of its own named BLAZE", panel.Text.Text);
+        }
+        finally
+        {
+            Log.SetViewModel(null);
+        }
     }
 
     [AvaloniaFact]

@@ -57,10 +57,8 @@ out vec2 EnvUv;
 uniform mat4 StartProjection;
 uniform mat4 StartView;
 uniform mat4 InverseView;
-// The scene's three strongest lights, what the environment map looks up by
-uniform vec3 EnvLight0;
-uniform vec3 EnvLight1;
-uniform vec3 EnvLight2;
+// The game's lens's scales of the camera's axes, what the environment and metallic shaders look their pictures up through
+uniform vec3 GameClipScale;
 uniform mat4 BoneMatrices[MAX_BONES];
 uniform vec3 BlendShape;
 uniform int BlendShapesAmount;

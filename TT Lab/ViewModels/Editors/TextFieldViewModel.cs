@@ -55,6 +55,7 @@ public partial class TextFieldViewModel(DocumentViewModel document, PropertyNode
         }
 
         _stringLength = GetEditorParameter(TextFieldStringLength, UInt32.MaxValue);
+        _asciiOnly = GetEditorParameter(TextFieldAsciiOnly, false);
 
         if (EditorParameters.TryGetValue(TextFieldNumberRange, out var range))
         {
@@ -79,6 +80,8 @@ public partial class TextFieldViewModel(DocumentViewModel document, PropertyNode
             $"{Caption} must be in the range {_numberRange[0]}-{_numberRange[1]}!").DisposeWith(disposables);
         this.ValidationRule(viewModel => viewModel.Text, text => (text?.Length ?? 0) <= _stringLength,
             $"{Caption} must be less than {_stringLength} long!").DisposeWith(disposables);
+        this.ValidationRule(viewModel => viewModel.Text, text => !_asciiOnly || NameRules.IsAscii(text),
+            $"{Caption} {NameRules.AsciiOnly}!").DisposeWith(disposables);
     }
 
     protected override void OnCurrentValueChanged()
@@ -103,9 +106,12 @@ public partial class TextFieldViewModel(DocumentViewModel document, PropertyNode
     {
         base.OnActivated(disposables);
 
+        // Text the field's rules turn down only shows their error: a number out of the field's range or text longer than it takes got
+        // committed under it
         this.WhenAnyValue(x => x.Text)
             .Skip(1)
-            .Where(s => !string.IsNullOrEmpty(s) && (_converter == null || _converter.IsConvertible(s)) && CanCommit(s))
+            .Where(s => !string.IsNullOrEmpty(s) && (_converter == null || _converter.IsConvertible(s)) && CheckNumberRange(s) && s.Length <= _stringLength
+                        && (!_asciiOnly || NameRules.IsAscii(s)) && CanCommit(s))
             .Subscribe(s =>
             {
                 if (IsDirectEditing)
@@ -155,8 +161,11 @@ public partial class TextFieldViewModel(DocumentViewModel document, PropertyNode
     public const string TextFieldConverter = "TEXT_FIELD_CONVERTER_TYPE_NAME";
     public const string TextFieldStringLength = "TEXT_FIELD_STRING_LENGTH";
     public const string TextFieldNumberRange = "TEXT_FIELD_NUMBER_RANGE";
+    // Names: the game keeps them a byte per character (NameRules)
+    public const string TextFieldAsciiOnly = "TEXT_FIELD_ASCII_ONLY";
 
     private uint _stringLength = UInt32.MaxValue;
+    private bool _asciiOnly;
     private IStringConverter? _converter;
     private readonly double[] _numberRange = [double.MinValue, double.MaxValue];
 }

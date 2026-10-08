@@ -86,6 +86,7 @@ public class ParticleSystemInstance : IDocumentModel
     // Name of the particle system it plays, the chunk's own or the default chunk's
     [Editable(Caption = "Particle System", EditorDescType = typeof(ParticleSystemEditorDesc))]
     [EditorParam(TextFieldViewModel.TextFieldStringLength, 16U)]
+    [EditorParam(TextFieldViewModel.TextFieldAsciiOnly, true)]
     public string Name { get; set; } = "Particle Inst";
 
     // What the tools left in the name's buffer after its NUL, written back so the file stays the same

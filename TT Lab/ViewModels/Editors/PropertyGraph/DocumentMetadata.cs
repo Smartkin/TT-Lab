@@ -203,6 +203,24 @@ public record DocumentMetadata : EditorMetadata
         ConstructorCache[typeof(T)] = factory;
     }
 
+    /// <summary>
+    /// What makes a value of the type the way the inspector makes list elements, none for a type without a parameterless constructor
+    /// </summary>
+    internal static Func<object>? FactoryOf(Type type)
+    {
+        if (ConstructorCache.TryGetValue(type, out var factory))
+        {
+            return factory;
+        }
+
+        if (type.IsAbstract || type.IsInterface || (!type.IsValueType && type != typeof(string) && type.GetConstructor(Type.EmptyTypes) == null))
+        {
+            return null;
+        }
+
+        return GetTypeFactory(type);
+    }
+
     private static Func<object> GetTypeFactory(Type type)
     {
         if (ConstructorCache.TryGetValue(type, out var result))

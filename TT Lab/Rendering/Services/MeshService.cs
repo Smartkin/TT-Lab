@@ -22,6 +22,15 @@ public class MeshService(MeshFactory factory)
         _meshes[uri] = mesh;
         return new MeshInfo(mesh);
     }
+
+    // The meshes of the models are made again the next time they're asked for, their parts got other materials
+    public void Forget(IEnumerable<LabURI> uris)
+    {
+        foreach (var uri in uris)
+        {
+            _meshes.Remove(uri);
+        }
+    }
 }
 
 public record MeshInfo(Mesh? Model);

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using Twinsanity.Libraries;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 
@@ -130,7 +131,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.Particles
             {
                 TimingOffset = reader.ReadInt32();
             }
-            Name = reader.ReadChars(16);
+            Name = GameText.ReadChars(reader, 16);
             if (Version >= 0x9)
             {
                 SwitchType = reader.ReadInt32();
@@ -183,7 +184,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.Particles
             {
                 writer.Write(TimingOffset);
             }
-            writer.Write(Name, 0, 16);
+            GameText.Write(writer, Name, 0, 16);
             if (Version >= 0x9)
             {
                 writer.Write(SwitchType);

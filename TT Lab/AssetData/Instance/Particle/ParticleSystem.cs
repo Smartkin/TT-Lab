@@ -170,6 +170,7 @@ public class ParticleSystem : IDocumentModel
 
     [Editable(EditorDescType = typeof(ParticleSystemNameEditorDesc), Hint = "What emitters play the system by, its own in its version of the game")]
     [EditorParam(TextFieldViewModel.TextFieldStringLength, 16U)]
+    [EditorParam(TextFieldViewModel.TextFieldAsciiOnly, true)]
     public String Name { get; set; } = "NEW_SYSTEM";
 
     // What the tools left in the name's buffer after its NUL, written back so the file stays the same

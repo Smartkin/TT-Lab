@@ -55,9 +55,7 @@ public class Camera(RenderContext context) : Renderable(context, "Scene Camera")
         program.SetUniform(KnownUniform.FogColor, _fogColor);
         program.SetUniform(KnownUniform.EyePosition, camera.Position);
         program.SetUniform(KnownUniform.EyeDirection, camera.World.Column2.xyz);
-        program.SetUniform(KnownUniform.EnvLight0, _context.EnvLights[0]);
-        program.SetUniform(KnownUniform.EnvLight1, _context.EnvLights[1]);
-        program.SetUniform(KnownUniform.EnvLight2, _context.EnvLights[2]);
+        program.SetUniform(KnownUniform.GameClipScale, EnvironmentMapping.ClipScale);
         program.SetUniform(KnownUniform.Fov, glm.Radians(_fov));
         program.SetUniform(KnownUniform.Aspect, _viewportResolution.x / _viewportResolution.y);
     }

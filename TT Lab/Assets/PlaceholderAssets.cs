@@ -63,16 +63,20 @@ public static class PlaceholderAssets
     /// <summary>
     /// Gets the placeholder for the asset's type within the asset's package, creating it if needed
     /// </summary>
-    public static LabURI GetOrCreate(IAsset asset)
+    public static LabURI GetOrCreate(IAsset asset) => GetOrCreate(asset.GetType(), asset.Package);
+
+    /// <summary>
+    /// Gets the placeholder of the type within the package, creating it if needed
+    /// </summary>
+    public static LabURI GetOrCreate(Type type, LabURI package)
     {
-        var type = asset.GetType();
-        var existingPlaceholder = FindPlaceholder(type, asset.Package);
+        var existingPlaceholder = FindPlaceholder(type, package);
         if (existingPlaceholder != null)
         {
             return existingPlaceholder.URI;
         }
 
-        var packageFolder = AssetManager.Get().GetAsset<Package>(asset.Package).GetPackageFolder();
+        var packageFolder = AssetManager.Get().GetAsset<Package>(package).GetPackageFolder();
         var typeFolderUri = packageFolder.Children.FirstOrDefault(child => AssetManager.Get().GetAsset(child) is Folder { Name: var name } && name == type.Name);
         var folder = typeFolderUri == null ? packageFolder : AssetManager.Get().GetAsset<Folder>(typeFolderUri);
         var placeholder = AssetFactory.CreateAsset(type, folder, PlaceholderName, string.Empty,

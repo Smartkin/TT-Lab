@@ -1,12 +1,20 @@
+using Avalonia.Controls;
+using Avalonia.Headless.XUnit;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Newtonsoft.Json;
 using Splat;
 using TT_Lab.AssetData.Code;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
+using TT_Lab.Assets.Factory;
 
 using TT_Lab.Project;
+using TT_Lab.ServiceProviders;
 using TT_Lab.Tests.Support;
+using TT_Lab.ViewModels;
 using TT_Lab.ViewModels.ResourceTree;
+using TT_Lab.Views;
 
 namespace TT_Lab.Tests.Editor;
 
@@ -144,5 +152,80 @@ public sealed class ProjectTreeTests : IDisposable
         Assert.False(unsaved.IsUnsaved);
         Manager.SyncProjectTree();
         Assert.Single(objects.Children, uri => uri == unsaved.URI);
+    }
+    // A row moved to the folder its asset's file is in (the tree follows the file system) was taken out of the folder it was made in
+    // when the asset got deleted, and stayed in the tree
+    [AvaloniaFact]
+    public async Task ADeletedAssetLeavesTheFolderShowingIt()
+    {
+        AddObject("kept");
+        _project.BuildProjectTree(Path.Combine(_project.Project.GlobalPackagePS2.Name, "My Folder"));
+        var package = PackageElement(_project.Project.GlobalPackagePS2);
+        var objects = Assert.Single(package.GetInternalChildren()!, element => element.Alias == "GameObject");
+        var myFolder = Assert.Single(package.GetInternalChildren()!, element => element.Alias == "My Folder");
+        // Listed in one folder with its file in another, the way new assets used to be
+        var late = AddObject("late");
+        late.Serialize(SerializationFlags.SetDirectoryToAssets | SerializationFlags.SaveData);
+        ((Folder)myFolder.Asset).AddChild(late);
+        var row = late.GetResourceTreeElement(myFolder);
+        myFolder.AddNewChild(row);
+        Manager.SyncProjectTree();
+        Assert.Contains(row, objects.GetInternalChildren()!);
+        Assert.DoesNotContain(row, myFolder.GetInternalChildren()!);
+
+        Assert.True(await row.DeleteAsync());
+
+        Assert.DoesNotContain(row, objects.GetInternalChildren()!);
+        Assert.DoesNotContain(row, objects.Children!);
+        Assert.Equal(["kept"], Names(objects));
+    }
+
+    // The tree's rows change in place: making a folder's rows again gave every folder under it lists its rows in the tree didn't show
+    [AvaloniaFact]
+    public async Task TheTreeShowsWhatsDeletedAndMadeGoneAndThere()
+    {
+        AddObject("kept");
+        var doomed = AddObject("doomed");
+        _project.BuildProjectTree();
+        var window = new Window { Content = new ProjectTreeView { ViewModel = new ProjectTreeViewModel(Manager, new TestProject.NullEventAggregator()) }, Width = 400, Height = 900 };
+        window.Show();
+        Expand(window, "assets", _project.Project.GlobalPackagePS2.Name, "GameObject");
+        Assert.Contains("doomed", ShownNames(window));
+
+        Assert.True(await doomed.GetResourceTreeElement().DeleteAsync());
+        var made = AssetFactory.CreateAsset(typeof(GameObject), _project.GetFolder(_project.Project.GlobalPackagePS2, "GameObject"), "made", string.Empty,
+            TwinIdGeneratorServiceProvider.GetGenerator<GameObject>(), AssetDataFactory.CreateGameObjectData)!;
+        Render(window);
+
+        Assert.DoesNotContain("doomed", ShownNames(window));
+        Assert.Contains("made", ShownNames(window));
+        Assert.True(File.Exists(Path.Combine(made.FullPath, $"{made.Name}.json")));
+        window.Close();
+    }
+
+    private static void Render(Window window)
+    {
+        for (var pass = 0; pass < 3; pass++)
+        {
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+        }
+    }
+
+    private static List<string> ShownNames(Window window) =>
+        window.GetVisualDescendants().OfType<TreeViewItem>().Where(item => item.IsVisible)
+            .Select(item => item.DataContext).OfType<ResourceTreeElementViewModel>().Select(element => element.Alias).ToList();
+
+    // Each row of the path expanded once its parent's items are made
+    private static void Expand(Window window, params string[] path)
+    {
+        foreach (var name in path)
+        {
+            Render(window);
+            var item = window.GetVisualDescendants().OfType<TreeViewItem>().First(candidate => candidate.DataContext is ResourceTreeElementViewModel { Alias: var alias } && alias == name);
+            item.IsExpanded = true;
+        }
+
+        Render(window);
     }
 }

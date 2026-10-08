@@ -39,9 +39,11 @@ public class DoubleConverter : IStringConverter<Double>
         return Double.Parse(s);
     }
 
+    // NaN and infinities (1e39 overflows into one) aren't values: model files can't keep them, and the scenery's bounds made of them
+    // stayed NaN whatever was typed after
     public Boolean IsConvertible(string s)
     {
-        return Double.TryParse(s, out _);
+        return Double.TryParse(s, out var value) && Double.IsFinite(value);
     }
 }
 
@@ -54,7 +56,7 @@ public class SingleConverter : IStringConverter<Single>
 
     public Boolean IsConvertible(string s)
     {
-        return Single.TryParse(s, out _);
+        return Single.TryParse(s, out var value) && Single.IsFinite(value);
     }
 }
 

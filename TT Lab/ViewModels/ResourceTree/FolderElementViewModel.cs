@@ -91,6 +91,7 @@ public class FolderElementViewModel : ResourceTreeElementViewModel
                 });
             }
 
+            RegisterRelocationItems();
             return;
         }
         
@@ -124,6 +125,8 @@ public class FolderElementViewModel : ResourceTreeElementViewModel
                 IsCheckable = true,
                 IsChecked = binding
             });
+            // Packages stay in the project's assets folder
+            RegisterRelocationItems(canMove: false);
         }
         else
         {
@@ -192,9 +195,11 @@ public class FolderElementViewModel : ResourceTreeElementViewModel
 
     private void ListNormalFolderCreatableAssets(CreateAssetViewModel createAssetViewModel)
     {
+        // The levels folder and the folders under it are the game's Levels folder, which only has chunks
         if (CanHoldChunks)
         {
             createAssetViewModel.RegisterAssetToCreate<LevelChunk>("Chunk", asset => AssetDataFactory.CreateChunkData(Asset, asset));
+            return;
         }
 
         createAssetViewModel.RegisterAssetToCreate<GameObject>("Game Object", AssetDataFactory.CreateGameObjectData);

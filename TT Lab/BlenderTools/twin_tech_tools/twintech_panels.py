@@ -271,10 +271,11 @@ class TTT_PT_BoneTwinTech(bpy.types.Panel):
 
 
 class TTT_PT_MaterialTwinTech(bpy.types.Panel):
-    bl_label = "Twin Tech Material"
+    bl_label = "Twin Tech Collision Surface"
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
     bl_context = "material"
+    bl_options = {"DEFAULT_CLOSED"}
 
     @classmethod
     def poll(cls, context):

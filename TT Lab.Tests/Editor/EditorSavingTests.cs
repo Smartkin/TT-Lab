@@ -113,7 +113,8 @@ public sealed class EditorSavingTests : IDisposable
     {
         var ogi = Create<OGI>("Skeleton", AssetDataFactory.CreateOgiData);
         var crash = CreateGameObject("Crash");
-        ((IAsset)crash).GetData<GameObjectData>().ModelSlots.Add(new ModelSlot { Ogi = ogi.URI });
+        // A new object has a model slot, every instance reads its first
+        ((IAsset)crash).GetData<GameObjectData>().ModelSlots[0].Ogi = ogi.URI;
         var document = new DocumentViewModel(crash);
 
         document.PropertyGraph.Find("Root.AssetData.ModelSlots[0].Ogi[data].Alias")!.SetValue("Renamed skeleton");
@@ -131,7 +132,7 @@ public sealed class EditorSavingTests : IDisposable
         var data = ((IAsset)crash).GetData<GameObjectData>();
         var first = new ModelSlot();
         var second = new ModelSlot();
-        data.ModelSlots.AddRange([first, second]);
+        data.ModelSlots = [first, second];
         var viewer = new ResourcesEditorsViewModel();
         var window = Show(viewer);
         viewer.OpenEditor(crash);

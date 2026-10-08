@@ -107,7 +107,7 @@ public class DecalVariant : IDocumentModel
         return name;
     }
 
-    [Editable] [EditorParam(TextFieldViewModel.TextFieldStringLength, 8U)]
+    [Editable] [EditorParam(TextFieldViewModel.TextFieldStringLength, 8U)] [EditorParam(TextFieldViewModel.TextFieldAsciiOnly, true)]
     public string Name { get; set; } = "NULL";
 
     // What the tools left in the name's buffer after its NUL, written back so the file stays the same

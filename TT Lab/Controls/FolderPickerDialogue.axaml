@@ -1,0 +1,32 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:controls="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+        xmlns:local="clr-namespace:TT_Lab.Controls"
+        mc:Ignorable="d" d:DesignWidth="520" d:DesignHeight="560"
+        x:Class="TT_Lab.Controls.FolderPickerDialogue"
+        Width="560" Height="600" MinWidth="360" MinHeight="300" ShowInTaskbar="False" Topmost="True" WindowStartupLocation="CenterOwner">
+    <controls:GroupBox>
+        <Grid RowDefinitions="Auto,*,Auto,Auto" Margin="6">
+            <TextBlock Grid.Row="0" x:Name="Message" TextWrapping="Wrap" Margin="4"/>
+            <TreeView Grid.Row="1" x:Name="Folders" Margin="4">
+                <TreeView.Styles>
+                    <Style Selector="TreeViewItem" x:DataType="local:FolderChoice">
+                        <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+                    </Style>
+                </TreeView.Styles>
+                <TreeView.ItemTemplate>
+                    <TreeDataTemplate x:DataType="local:FolderChoice" ItemsSource="{Binding Children}">
+                        <StackPanel Orientation="Horizontal" Spacing="4" Opacity="{Binding Opacity}" Background="Transparent">
+                            <Image Source="{Binding Icon}" Width="20" Height="20"/>
+                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </TreeDataTemplate>
+                </TreeView.ItemTemplate>
+            </TreeView>
+            <TextBlock Grid.Row="2" x:Name="Problem" TextWrapping="Wrap" Margin="4" Foreground="#FFE06060"/>
+            <StackPanel Grid.Row="3" x:Name="Answers" Orientation="Horizontal" HorizontalAlignment="Right"/>
+        </Grid>
+    </controls:GroupBox>
+</Window>

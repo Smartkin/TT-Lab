@@ -167,9 +167,10 @@ public class LevelChunk : SerializableAsset
         var path = Path.Combine(Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath, "assets", SavePath);
         Directory.CreateDirectory(path);
         
+        var json = JsonConvert.SerializeObject(this, Formatting.Indented);
         using FileStream fs = new(Path.Combine(path, $"{Name}.json"), FileMode.Create, FileAccess.Write);
         using BinaryWriter writer = new(fs);
-        writer.Write(JsonConvert.SerializeObject(this, Formatting.Indented).ToCharArray());
+        writer.Write(json.ToCharArray());
         writer.Flush();
     }
 

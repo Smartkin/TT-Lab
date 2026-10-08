@@ -178,29 +178,10 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.Graphics
                     }
                     break;
                 case ITwinTexture.TexturePixelFormat.PSMT8:
-                    var gifData = EzSwizzle.TagToBytes(data[1]);
-                    var rrw = (int)((data[0].Data[1].Output >> 0) & 0xFFFFFFFF);
-                    var rrh = (int)((data[0].Data[1].Output >> 32) & 0xFFFFFFFF);
                     var width = (int)(Math.Pow(2, ImageWidthPower));
                     var height = (int)(Math.Pow(2, ImageHeightPower));
-                    var rawTextureData = EzSwizzle.writeTexPSMCT32(0, 1, 0, 0, rrw, rrh, gifData);
-                    var texData = EzSwizzle.readTexPSMT8(0, TextureBufferWidth, 0, 0, width, height, rawTextureData, false);
-                    var paletteData = EzSwizzle.readTexPSMCT32(ClutBufferBasePointer, 1, 0, 0, 16, 16, rawTextureData, false);
-                    var palette = EzSwizzle.BytesToColors(paletteData);
-                    for (var i = 0; i < 8; i++)
-                    {
-                        for (var j = 8; j < 16; j++)
-                        {
-                            Color tmp = palette[j + i * 32];
-                            palette[j + i * 32] = palette[j + i * 32 + 8];
-                            palette[j + i * 32 + 8] = tmp;
-                        }
-                    }
-                    foreach (var c in palette)
-                    {
-                        c.ScaleAlphaUp();
-                    }
-                    
+                    var (memory, palette) = ReadPaletteTexture(data);
+                    var texData = EzSwizzle.readTexPSMT8(0, TextureBufferWidth, 0, 0, width, height, memory, false);
                     var pixels = width * height;
                     for (var i = 0; i < pixels; ++i)
                     {
@@ -208,6 +189,62 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.Graphics
                     }
                     break;
             }
+        }
+
+        public List<List<Color>> DecodeLevels()
+        {
+            if (TextureFormat != ITwinTexture.TexturePixelFormat.PSMT8)
+            {
+                CalculateData();
+                return new List<List<Color>> { new List<Color>(Colors) };
+            }
+
+            var (memory, palette) = ReadPaletteTexture(VIFInterpreter.InterpretCode(TextureData).GetGifMem());
+            var levels = new List<List<Color>>();
+            for (var level = 0; level < Math.Max(1, (Int32)MipLevels); ++level)
+            {
+                var width = (1 << ImageWidthPower) >> level;
+                var height = (1 << ImageHeightPower) >> level;
+                if (width == 0 || height == 0)
+                {
+                    break;
+                }
+
+                // The mips are where the descriptor of the size put them, written there the same way
+                var basePointer = level == 0 ? 0 : MipLevelsTBP[level - 1];
+                var bufferWidth = level == 0 ? TextureBufferWidth : MipLevelsTBW[level - 1];
+                var indexes = EzSwizzle.readTexPSMT8(basePointer, bufferWidth, 0, 0, width, height, memory, false);
+                levels.Add(indexes.Take(width * height).Select(index => palette[index]).ToList());
+            }
+
+            return levels;
+        }
+
+        // The GS memory the texture uploads and its palette, in the palette's order with the alpha back at 255
+        private (Byte[] Memory, List<Color> Palette) ReadPaletteTexture(List<GIFTag> data)
+        {
+            var gifData = EzSwizzle.TagToBytes(data[1]);
+            var rrw = (int)((data[0].Data[1].Output >> 0) & 0xFFFFFFFF);
+            var rrh = (int)((data[0].Data[1].Output >> 32) & 0xFFFFFFFF);
+            var memory = EzSwizzle.writeTexPSMCT32(0, 1, 0, 0, rrw, rrh, gifData);
+            var paletteData = EzSwizzle.readTexPSMCT32(ClutBufferBasePointer, 1, 0, 0, 16, 16, memory, false);
+            var palette = EzSwizzle.BytesToColors(paletteData);
+            for (var i = 0; i < 8; i++)
+            {
+                for (var j = 8; j < 16; j++)
+                {
+                    Color tmp = palette[j + i * 32];
+                    palette[j + i * 32] = palette[j + i * 32 + 8];
+                    palette[j + i * 32 + 8] = tmp;
+                }
+            }
+
+            foreach (var c in palette)
+            {
+                c.ScaleAlphaUp();
+            }
+
+            return (memory, palette);
         }
 
         private static void LoadTextureDescriptors()
@@ -233,6 +270,15 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.Graphics
         public void FromBitmap(List<Color> image, Int32 width, ITwinTexture.TextureFunction fun, ITwinTexture.TexturePixelFormat format, bool generateMipmaps = false)
         {
             int height = image.Count / width;
+            // Palettes and mips go where the game's tools put them, which they only did for the sizes of the descriptors: a picture of
+            // another size goes in with every color and no mips, like the ones TT Lab makes get (a palette texture replaced with a picture of
+            // 256x256 failed to build)
+            if (!HasPaletteLayout(width, height))
+            {
+                format = ITwinTexture.TexturePixelFormat.PSMCT32;
+                generateMipmaps = false;
+            }
+
             TexFun = fun;
             TextureFormat = format;
             TextureBufferWidth = (int)Math.Ceiling(width / 64.0f);

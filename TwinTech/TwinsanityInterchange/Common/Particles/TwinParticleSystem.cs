@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using Twinsanity.Libraries;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 
@@ -425,7 +426,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.Particles
         {
             var basePos = reader.BaseStream.Position;
 
-            Name = reader.ReadChars(16);
+            Name = GameText.ReadChars(reader, 16);
             if (Version == 0x20)
             {
                 reader.ReadByte();
@@ -680,7 +681,7 @@ namespace Twinsanity.TwinsanityInterchange.Common.Particles
 
         public void Write(BinaryWriter writer)
         {
-            writer.Write(Name, 0, 16);
+            GameText.Write(writer, Name, 0, 16);
             if (Version == 0x20)
             {
                 writer.Write((Byte)0);

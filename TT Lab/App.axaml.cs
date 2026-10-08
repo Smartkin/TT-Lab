@@ -71,6 +71,8 @@ public partial class App : Application
             var window = new ShellView(Services.GetRequiredService<ILabManager>());
 
             desktop.MainWindow = window;
+            // The context viewports keep current, made before anything unpacks the game's assets (ViewportHost.PinGlLibrary)
+            System.Threading.Tasks.Task.Run(ViewportHost.MakeGlAnchor);
             desktop.Startup += (_, _) =>
             {
                 Console.WriteLine("Application started");

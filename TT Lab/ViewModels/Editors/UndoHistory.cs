@@ -408,7 +408,20 @@ public sealed class UndoHistory
     // What the change is to the one looking at the history, the asset it's in and what of it changed
     private static string Describe(PropertyChange change)
     {
-        var node = change.Node;
+        var what = NameOf(change.Node);
+        return change.Kind switch
+        {
+            PropertyChangeKind.Insert => $"Added {what} [{change.Index}]",
+            PropertyChangeKind.Remove => $"Removed {what} [{change.Index}]",
+            _ => $"{what} = {Short(change.NewValue)}",
+        };
+    }
+
+    /// <summary>
+    /// The asset a node is in and the way to it, the way the history names what changed
+    /// </summary>
+    internal static string NameOf(PropertyNode node)
+    {
         var owner = node;
         while (owner.Parent != null && owner.Target is not IAsset)
         {
@@ -417,13 +430,7 @@ public sealed class UndoHistory
 
         var property = node.Path.Length > owner.Path.Length ? node.Path[owner.Path.Length..].TrimStart('.') : string.Empty;
         property = property.Replace("AssetData.", string.Empty).Replace("[data]", " › ").Replace(".", " › ");
-        var what = owner.Target is IAsset asset ? string.IsNullOrEmpty(property) ? asset.Alias : $"{asset.Alias} › {property}" : property;
-        return change.Kind switch
-        {
-            PropertyChangeKind.Insert => $"Added {what} [{change.Index}]",
-            PropertyChangeKind.Remove => $"Removed {what} [{change.Index}]",
-            _ => $"{what} = {Short(change.NewValue)}",
-        };
+        return owner.Target is IAsset asset ? string.IsNullOrEmpty(property) ? asset.Alias : $"{asset.Alias} › {property}" : property;
     }
 
     private static string Short(object? value)

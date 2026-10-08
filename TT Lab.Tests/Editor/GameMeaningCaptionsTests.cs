@@ -114,4 +114,21 @@ public sealed class GameMeaningCaptionsTests : IDisposable
         // Lists of TwinTech's types get their hints too
         Assert.Contains("word", Editor(camera, "Root.AssetData.MainCamera1.PathPoints").Hint);
     }
+
+    // The first subtype moves the follow camera's target and the second its place (FollowCameraTarget::TakeCamera,
+    // FollowCameraPositioner::TakeCamera): a boss camera made the first turned the camera behind the player to look past them
+    [AvaloniaFact]
+    public void ACamerasSubtypesAreWhereItLooksAndWhereItStands()
+    {
+        var camera = _project.Add(new Camera { Chunk = "default", LayoutID = 4 }, "Camera");
+        camera.SetData(new CameraData(camera) { MainCamera1 = new CameraLine2(), MainCamera2 = new BossCamera() });
+
+        var lookAt = Editor(camera, "Root.AssetData.MainCamera1");
+        var positioning = Editor(camera, "Root.AssetData.MainCamera2");
+
+        Assert.Equal("Camera Look At", lookAt.Caption);
+        Assert.Contains("looks at", lookAt.Hint);
+        Assert.Equal("Camera Positioning", positioning.Caption);
+        Assert.Contains("stands", positioning.Hint);
+    }
 }

@@ -44,6 +44,8 @@ namespace TT_Lab
         // The disc image PCSX2 boots a chunk with, the project's own when empty
         public const string Pcsx2DiscImage = "Pcsx2DiscImage";
         public const string Pcsx2ReloadOnSave = "Pcsx2ReloadOnSave";
+        // Whether the OGI viewers draw the model's skeleton over it
+        public const string OgiViewerSkeleton = "OgiViewerSkeleton";
 
         static Preferences()
         {
@@ -63,6 +65,7 @@ namespace TT_Lab
             Settings[Pcsx2Path] = "";
             Settings[Pcsx2DiscImage] = "";
             Settings[Pcsx2ReloadOnSave] = true;
+            Settings[OgiViewerSkeleton] = false;
         }
 
         public static void Save()
