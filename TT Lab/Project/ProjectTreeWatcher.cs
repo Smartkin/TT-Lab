@@ -21,9 +21,6 @@ internal sealed class ProjectTreeWatcher : IDisposable
     // Files come in bursts (a copied folder, a build), the tree gets synced once they stop
     private static readonly TimeSpan SettleTime = TimeSpan.FromMilliseconds(500);
 
-    // Builds write plenty under build, prefabs are the Prefabs panel's, and the assets' data files don't show in the tree
-    private static readonly string[] IgnoredDirectories = ["build", Prefabs.PrefabLibrary.FolderName, Build.BuildProfileLibrary.FolderName];
-
     private const string AssetsDirectory = "assets";
     private static readonly string[] DataExtensions = [".data", ".tlm", ".lab", ".png", ".wav", ".txt"];
 
@@ -140,13 +137,14 @@ internal sealed class ProjectTreeWatcher : IDisposable
     // The files the tree shows: asset files and the disc's music archives and videos
     private static readonly string[] ShownExtensions = [".json", ".mh", ".mb", ".pss"];
 
-    // Shown files and directories anywhere but the ignored folders. A deleted path can't be told from a file any more, so
-    // anything without an extension counts as a directory
+    // Shown files and directories in the folders the tree shows: builds write plenty under build, and a repository's .git changes with
+    // every commit, its objects' files without an extension. A deleted path can't be told from a file any more, so anything without an
+    // extension counts as a directory
     private bool Matters(string fullPath)
     {
         var relative = Path.GetRelativePath(_root, fullPath);
         var first = relative.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)[0];
-        if (Array.Exists(IgnoredDirectories, ignored => string.Equals(ignored, first, StringComparison.OrdinalIgnoreCase)))
+        if (!Array.Exists(ProjectManager.ShownRootDirectories, shown => string.Equals(shown, first, StringComparison.OrdinalIgnoreCase)))
         {
             return false;
         }

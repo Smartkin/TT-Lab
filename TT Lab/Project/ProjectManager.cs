@@ -782,7 +782,7 @@ namespace TT_Lab.Project
 
             foreach (var directory in new DirectoryInfo(OpenedProject.ProjectPath).GetDirectories().OrderBy(child => child.Name, TreeOrder))
             {
-                if (_hiddenRootDirectories.Contains(directory.Name, TreeOrder) || _treeRoot.Children.Any(uri => OpenedProject.AssetManager.GetAsset(uri).Alias == directory.Name))
+                if (!ShownRootDirectories.Contains(directory.Name, TreeOrder) || _treeRoot.Children.Any(uri => OpenedProject.AssetManager.GetAsset(uri).Alias == directory.Name))
                 {
                     continue;
                 }
@@ -1028,8 +1028,9 @@ namespace TT_Lab.Project
 
         private static readonly string[] _reservedLockedDirectories = ["assets", "disc", "build"];
         private const string DiscDirectory = "disc";
-        // The project's own folders that aren't assets: what builds write, the prefabs (the Prefabs panel's) and the build profiles
-        private static readonly string[] _hiddenRootDirectories = ["build", Prefabs.PrefabLibrary.FolderName, TT_Lab.Project.Build.BuildProfileLibrary.FolderName];
+        // The tree shows the project's assets and the disc's files. The rest of the project's folder isn't the tree's: what builds write, the
+        // prefabs (the Prefabs panel's), the build profiles and whatever a repository keeps next to them (.git, sources)
+        internal static readonly string[] ShownRootDirectories = ["assets", DiscDirectory];
 
         // Folders and assets in the order of their names, the file system's order looked random
         private static readonly StringComparer TreeOrder = StringComparer.OrdinalIgnoreCase;
@@ -1078,7 +1079,9 @@ namespace TT_Lab.Project
         private void ExploreFolder(Folder folder, DirectoryInfo directory, bool setFolderAsParent, bool loadAssets)
         {
             var hasChunk = false;
-            foreach (var fileInfo in directory.GetFiles("*.json").OrderBy(file => file.Name, TreeOrder))
+            // The project's own folder only has the folders the tree shows
+            var files = setFolderAsParent ? directory.GetFiles("*.json") : [];
+            foreach (var fileInfo in files.OrderBy(file => file.Name, TreeOrder))
             {
                 if (ReadAssetHeader(fileInfo) is not var (assetType, assetUri))
                 {
@@ -1123,7 +1126,7 @@ namespace TT_Lab.Project
             foreach (var assetDirectory in directory.GetDirectories().OrderBy(child => child.Name, TreeOrder))
             {
                 var directoryName = assetDirectory.Name;
-                if (!setFolderAsParent && _hiddenRootDirectories.Contains(directoryName, TreeOrder))
+                if (!setFolderAsParent && !ShownRootDirectories.Contains(directoryName, TreeOrder))
                 {
                     continue;
                 }

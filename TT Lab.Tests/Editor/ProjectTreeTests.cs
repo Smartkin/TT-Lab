@@ -62,6 +62,32 @@ public sealed class ProjectTreeTests : IDisposable
         Assert.Contains(Manager.FullProjectTree, element => element.Alias == "assets");
     }
 
+    // A project kept in a repository has .git and the repository's other folders next to its own: the tree only shows the project's
+    // assets and the disc's files, and an asset's file elsewhere isn't one of the project's
+    [Fact]
+    public void OnlyTheAssetsAndTheDiscAreShown()
+    {
+        var root = _project.Project.ProjectPath;
+        Directory.CreateDirectory(Path.Combine(root, ".git", "objects", "ab"));
+        File.WriteAllText(Path.Combine(root, ".git", "HEAD"), "ref: refs/heads/master");
+        var stray = new GameObject { Package = _project.Project.GlobalPackagePS2.URI, InvariantName = "stray", Alias = "stray", Variation = string.Empty, ID = 5 };
+        stray.RegenerateUri();
+        Directory.CreateDirectory(Path.Combine(root, "source"));
+        File.WriteAllText(Path.Combine(root, "source", "stray.json"), JsonConvert.SerializeObject(stray, Formatting.Indented));
+        File.WriteAllText(Path.Combine(root, "stray.json"), JsonConvert.SerializeObject(stray, Formatting.Indented));
+        _project.BuildProjectTree();
+
+        Assert.Equal(["assets", "disc"], Manager.FullProjectTree.Select(element => element.Alias));
+
+        // Folders made next to them later stay out of it too
+        Directory.CreateDirectory(Path.Combine(root, "notes"));
+        Directory.CreateDirectory(Path.Combine(root, ".git", "refs"));
+        Manager.SyncProjectTree();
+
+        Assert.Equal(["assets", "disc"], Manager.FullProjectTree.Select(element => element.Alias));
+        Assert.False(_project.AssetManager.DoesAssetExist(stray.URI));
+    }
+
     [Fact]
     public void NewRowsGoInTheOrderOfTheirNames()
     {

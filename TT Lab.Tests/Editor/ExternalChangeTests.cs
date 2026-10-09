@@ -360,4 +360,25 @@ public sealed class ExternalChangeTests : IDisposable
 
         Assert.Equal([script], written);
     }
+
+    // A repository's .git changes with every commit (its objects are files without an extension, which count as folders) and what builds
+    // write isn't the tree's either: only the folders the tree shows sync it
+    [AvaloniaFact]
+    public async Task TheTreeOnlyFollowsTheFoldersItShows()
+    {
+        var syncs = 0;
+        using var watcher = new ProjectTreeWatcher(_project.Project.ProjectPath, () => syncs++);
+        var objects = Path.Combine(_project.Project.ProjectPath, ".git", "objects", "ab");
+        Directory.CreateDirectory(objects);
+        await File.WriteAllTextAsync(Path.Combine(objects, "cdef0123"), "blob");
+        Directory.CreateDirectory(Path.Combine(_project.Project.ProjectPath, "source", "scripts"));
+        Directory.CreateDirectory(Path.Combine(_project.Project.ProjectPath, "build", "archives"));
+
+        await LongerThanTheWatcherWaits();
+        Assert.Equal(0, syncs);
+
+        Directory.CreateDirectory(Path.Combine(_project.AssetsPath, "New folder"));
+        await WaitUntil(() => syncs > 0);
+        Assert.True(syncs > 0);
+    }
 }
