@@ -24,6 +24,22 @@ public sealed class BuildProfileTests : IDisposable
         return _project.Add(new LevelChunk { AdditionalPath = path }, path.Split('/')[^1], package: package);
     }
 
+    // Chunks are made in the levels folder of any package, the project's own too, and the build never wrote the ones made there
+    [Fact]
+    public void TheLevelsFoldersOfEveryPackageOfTheVersionAreBuilt()
+    {
+        var project = _project.Project;
+        // Unpacking the Xbox disc enables its packages
+        project.GlobalPackageXbox.Enabled = true;
+        project.XboxPackage.Enabled = true;
+        _project.BuildProjectTree(Path.Combine(project.BasePackage.Name, "levels"), Path.Combine(project.GlobalPackagePS2.Name, "levels"),
+            Path.Combine(project.Ps2Package.Name, "levels"), Path.Combine(project.XboxPackage.Name, "levels"));
+
+        Assert.Equal([project.GlobalPackagePS2.URI, project.Ps2Package.URI, project.BasePackage.URI],
+            project.GetLevelsFolders(TT_Lab.Project.Project.GamePlatform.PS2).Select(folder => folder.Package));
+        Assert.Equal([project.XboxPackage.URI], project.GetLevelsFolders(TT_Lab.Project.Project.GamePlatform.Xbox).Select(folder => folder.Package));
+    }
+
     [Fact]
     public void ProfilesAreSavedLoadedAndDeleted()
     {

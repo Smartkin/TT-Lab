@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using TT_Lab.AssetData;
 using TT_Lab.Assets;
+using TT_Lab.Util;
 
 namespace TT_Lab.Project;
 
@@ -208,7 +209,7 @@ internal sealed class CreationWriter(AssetManager assetManager, MemoryGate gate)
                 return;
             }
 
-            Directory.CreateDirectory(part.FullPath);
+            DirectoryCase.Create(part.FullPath);
             state.KeptPath = part.FullDataPath;
             state.DataType = asset.AssetData!.GetType();
             _keptFiles.Add(state.KeptPath);

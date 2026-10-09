@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Avalonia.Headless.XUnit;
 using Splat;
 using TT_Lab.Controls;
@@ -198,5 +199,30 @@ public sealed class RetailAssetsTests : IDisposable
         // The game's files copied into it are in its disc folder, what's elsewhere stays there
         Assert.Equal(Path.Combine(elsewhere, "disc", "ps2"), opened.DiscContentPathPS2);
         Assert.Equal("/somewhere/else/xbox", opened.DiscContentPathXbox);
+    }
+
+    // The project's file has the paths of the system it was made on: Linux took a Windows path for the name of one file, and the disc
+    // folders of a project made there were lost. Copying the disc wrote its folder after the project's with a slash, and Windows doesn't
+    // tell names apart by case
+    [Theory]
+    [InlineData(@"C:\Users\Someone\TT Projects", @"c:\users\someone\TT Projects\Test/disc/ps2", @"D:\Twinsanity\Xbox")]
+    [InlineData("/home/someone/TT Projects", "/home/someone/TT Projects/Test/disc/ps2", "/mnt/discs/Twinsanity Xbox")]
+    public void DiscFoldersOfAProjectMadeOnEitherSystemAreWhereItsOpened(string madeIn, string ps2, string xbox)
+    {
+        _project.Project.Serialize();
+        var file = JsonNode.Parse(File.ReadAllText(ProjectFile))!;
+        file["Path"] = madeIn;
+        file["DiscContentPathPS2"] = ps2;
+        file["DiscContentPathXbox"] = xbox;
+        var elsewhere = Path.Combine(Path.GetTempPath(), "TT Lab Tests", Guid.NewGuid().ToString("N"), "Test");
+        _temporary.Add(Path.GetDirectoryName(elsewhere)!);
+        Directory.CreateDirectory(elsewhere);
+        File.WriteAllText(Path.Combine(elsewhere, "Test.tson"), file.ToJsonString());
+
+        var opened = TT_Lab.Project.Project.ReadProjectFile(Path.Combine(elsewhere, "Test.tson"));
+
+        Assert.Equal(elsewhere, opened.ProjectPath);
+        Assert.Equal(Path.Combine(elsewhere, "disc", "ps2"), opened.DiscContentPathPS2);
+        Assert.Equal(xbox, opened.DiscContentPathXbox);
     }
 }

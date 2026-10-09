@@ -36,10 +36,12 @@ public class PTCData : AbstractAssetData
     {
         var assetManager = AssetManager.Get();
 
+        // Parts of the same picture get IDs of their own (the HUD's icons crashed the game with the same ones). Salted with their files'
+        // paths, the IDs changed with the project's folder and the system the project was opened on, and so did every PSM, PTC and font
         var textureAsset = assetManager.GetAsset(TextureID);
-        textureAsset.HashSalt = textureAsset.FullDataPath;
+        textureAsset.HashSalt = textureAsset.URI;
         var materialAsset = assetManager.GetAsset(MaterialID);
-        materialAsset.HashSalt = materialAsset.FullDataPath;
+        materialAsset.HashSalt = materialAsset.URI;
         var texture = (ITwinTexture)assetManager.GetAssetData<TextureData>(TextureID).Export(factory);
         var material = (ITwinMaterial)assetManager.GetAssetData<MaterialData>(MaterialID).Export(factory);
 

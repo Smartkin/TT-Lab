@@ -13,6 +13,7 @@ using TT_Lab.Attributes.EditorParamWrappers;
 using TT_Lab.Attributes.Viewport;
 using TT_Lab.Project;
 using TT_Lab.Rendering;
+using TT_Lab.Util;
 using TT_Lab.ViewModels;
 using TT_Lab.ViewModels.Editors;
 using TT_Lab.ViewModels.Editors.Descs;
@@ -164,9 +165,10 @@ public class LevelChunk : SerializableAsset
 
     public override void Serialize(SerializationFlags serializationFlags = SerializationFlags.None)
     {
-        var path = Path.Combine(Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath, "assets", SavePath);
-        Directory.CreateDirectory(path);
-        
+        // By its URI like every asset: the chunk's path has the separators of the system the project was made on, a Windows path is the
+        // name of one folder on Linux, and its folder can be named in another case (the default chunk's in a project made on Windows)
+        var path = DirectoryCase.Create(FullPath);
+
         var json = JsonConvert.SerializeObject(this, Formatting.Indented);
         using FileStream fs = new(Path.Combine(path, $"{Name}.json"), FileMode.Create, FileAccess.Write);
         using BinaryWriter writer = new(fs);
@@ -177,8 +179,24 @@ public class LevelChunk : SerializableAsset
     public Folder GetChunkFolder()
     {
         var assetManager = AssetManager.Get();
-        var packageFolderUri = assetManager.GetAsset<Package>(Package).GetFolderUri();
-        return AssetManager.Get().GetAsset<Folder>(new LabURI($"{packageFolderUri}/{GetChunkPath().Replace('\\', '/')}"));
+        var packageFolder = assetManager.GetAsset<Package>(Package).GetPackageFolder();
+        var path = GetChunkPath().Replace('\\', '/');
+        var uri = new LabURI($"{packageFolder.URI}/{path}");
+        if (assetManager.DoesAssetExist(uri))
+        {
+            return assetManager.GetAsset<Folder>(uri);
+        }
+
+        // Folders are named after their directories, which can be named in another case than the chunk's path (DirectoryCase)
+        var folder = packageFolder;
+        foreach (var name in path.Split('/', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var children = folder.Children.Where(assetManager.DoesAssetExist).Select(assetManager.GetAsset).OfType<Folder>().ToList();
+            folder = children.FirstOrDefault(child => child.Alias == name) ?? children.FirstOrDefault(child => child.Alias.Equals(name, StringComparison.OrdinalIgnoreCase))
+                ?? throw new KeyNotFoundException($"The folder of the chunk {path} isn't in the project");
+        }
+
+        return folder;
     }
 
     public override List<ViewportObject> GetViewportObjects(ViewportContext viewportContext,

@@ -136,7 +136,8 @@ namespace Twinsanity.TwinsanityInterchange.Common
             }
             writer.Write(type);
             writer.Write(Path.Length);
-            GameText.Write(writer, Path.Replace(System.IO.Path.DirectorySeparatorChar, '\\'));
+            // The game's paths have backslashes, a path made on Linux has slashes on any system
+            GameText.Write(writer, Path.Replace('/', '\\'));
             writer.Write(flags);
             ObjectMatrix.Write(writer);
             ChunkMatrix.Write(writer);

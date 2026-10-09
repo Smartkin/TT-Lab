@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Splat;
 using TT_Lab.Project;
 using TT_Lab.Services;
+using TT_Lab.Util;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 
 namespace TT_Lab.Assets.Factory;
@@ -134,7 +135,7 @@ public static class AssetFactory
         }
 
         // The directories are made right away, the tree drops folders whose directory it can't find
-        Directory.CreateDirectory(serializable.FullPath);
+        DirectoryCase.Create(serializable.FullPath);
         var assetManager = AssetManager.Get();
         var current = folder;
         Folder? created = null;

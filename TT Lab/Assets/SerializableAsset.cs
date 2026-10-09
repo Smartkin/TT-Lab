@@ -15,6 +15,7 @@ using TT_Lab.Attributes;
 using TT_Lab.Project;
 using TT_Lab.Rendering;
 using TT_Lab.Rendering.Objects;
+using TT_Lab.Util;
 using TT_Lab.ViewModels;
 using TT_Lab.ViewModels.Editors;
 using TT_Lab.ViewModels.Editors.PropertyGraph;
@@ -38,7 +39,9 @@ public abstract class SerializableAsset : IAsset
     protected virtual String TwinDataExt => "bin";
     protected virtual Boolean SetIdFromDataHash => false;
 
-    protected virtual String LoadPath => Path.Combine("assets", Package.GetPackageName(), URI.GetFilePathInPackage().Replace('/', Path.DirectorySeparatorChar));
+    // The folders of the URI can be named in another case on the disk, a project made on Windows has one startup folder for both of its
+    // names (DirectoryCase)
+    protected virtual String LoadPath => InProject(Path.Combine("assets", Package.GetPackageName(), URI.GetFilePathInPackage().Replace('/', Path.DirectorySeparatorChar)));
     protected String DataLoadPath => Path.Combine(LoadPath, Data);
     protected ResourceTreeElementViewModel? ViewModel;
     
@@ -142,6 +145,11 @@ public abstract class SerializableAsset : IAsset
         URI = new LabURI($"{Package}/{SavePathInPackage.Replace('\\', '/')}/{Name}");
     }
 
+    private static string InProject(string path)
+    {
+        return Locator.Current.GetService<ProjectManager>()?.OpenedProject?.ProjectPath is { } projectPath ? DirectoryCase.Resolve(projectPath, path) : path;
+    }
+
     public void RegenerateLinks()
     {
         RegenerateUri();
@@ -180,8 +188,7 @@ public abstract class SerializableAsset : IAsset
             return;
         }
 
-        var path = FullPath;
-        Directory.CreateDirectory(path);
+        var path = DirectoryCase.Create(FullPath);
         
         // Created or loaded data needs to be saved on disk but then disposed of since we are not going to need it
         // unless user wishes to edit the exact asset

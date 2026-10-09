@@ -70,6 +70,19 @@ public sealed class GameValueTests
         Assert.Equal(0x82u, BitConverter.ToUInt32(bytes, 4 + 4 + link.Path.Length));
     }
 
+    // The game's paths have backslashes, and a chunk's path in a project made on Linux has slashes whichever system builds it
+    [Fact]
+    public void ChunkLinkPathsAreWrittenWithBackslashes()
+    {
+        var link = new TwinChunkLink { Path = "levels/earth/hub/beach" };
+        var bytes = Write(link.Write);
+        var read = new TwinChunkLink();
+        read.Read(new BinaryReader(new MemoryStream(bytes)), bytes.Length);
+
+        Assert.Equal(link.GetLength(), bytes.Length);
+        Assert.Equal("levels\\earth\\hub\\beach", read.Path);
+    }
+
     [Fact]
     public void TemplateWritesItsPropertiesHeaderFromTheLists()
     {

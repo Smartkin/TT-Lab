@@ -233,6 +233,20 @@ public sealed class AssetCreationTests : IDisposable
         Assert.NotNull(CreateChunk(AddFolder(_project.Project.XboxPackage.GetPackageFolder(), "levels"), "cave"));
     }
 
+    // A chunk's path has the separators of the system the project was made on, and it's the same path on the other
+    [AvaloniaFact]
+    public void AChunksPathIsItsOwnWhicheverSystemMadeIt()
+    {
+        AddCrash();
+        AddSurface();
+        var cave = CreateChunk(_project.GetFolder(_package, "levels"), "cave")!;
+        var otherSeparator = Path.DirectorySeparatorChar == '/' ? '\\' : '/';
+        cave.AdditionalPath = cave.AdditionalPath!.Replace(Path.DirectorySeparatorChar, otherSeparator);
+        var modLevels = AddFolder(CreatePackage("Mod").GetPackageFolder(), "levels");
+
+        Assert.Null(CreateChunk(modLevels, "cave"));
+    }
+
     // Packages are the folders of the project's assets folder, a package's own assets folder is a folder like any other
     [AvaloniaFact]
     public void PackagesAreMadeInTheProjectsAssetsFolder()

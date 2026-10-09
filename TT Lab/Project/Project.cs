@@ -229,7 +229,7 @@ public class Project : IProject
         }
 
         var location = System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(projectPath))!;
-        var madeIn = string.IsNullOrEmpty(pr.Path) || string.IsNullOrEmpty(pr.Name) ? null : System.IO.Path.GetFullPath(System.IO.Path.Combine(pr.Path, pr.Name));
+        string[]? madeIn = string.IsNullOrEmpty(pr.Path) || string.IsNullOrEmpty(pr.Name) ? null : [..FoldersOf(pr.Path), pr.Name];
         pr.DiscContentPathPS2 = Rebased(pr.DiscContentPathPS2, madeIn, location);
         pr.DiscContentPathXbox = Rebased(pr.DiscContentPathXbox, madeIn, location);
         pr.Path = System.IO.Path.GetDirectoryName(location) ?? location;
@@ -237,18 +237,34 @@ public class Project : IProject
         return pr;
     }
 
-    // A folder that was in the project's folder where it was made is in it where it is now
-    private static string? Rebased(string? path, string? madeIn, string location)
+    // A folder that was in the project's folder where it was made is in it where it is now, whichever system made it: Linux took a
+    // Windows path (a drive letter, backslashes) for the name of one file and kept it, and the disc folders of a project made there were lost
+    private static string? Rebased(string? path, string[]? madeIn, string location)
     {
-        if (string.IsNullOrEmpty(path) || madeIn == null || madeIn == location)
+        if (string.IsNullOrEmpty(path) || madeIn == null)
         {
             return path;
         }
 
-        var full = System.IO.Path.GetFullPath(path);
-        var relative = System.IO.Path.GetRelativePath(madeIn, full);
-        return relative == "." || relative.StartsWith("..") || System.IO.Path.IsPathRooted(relative) ? path : System.IO.Path.Combine(location, relative);
+        // Windows doesn't tell names apart by case, the paths it wrote can differ in it
+        var comparer = OperatingSystem.IsWindows() || IsWindowsPath(path) ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+        var folders = FoldersOf(path);
+        if (madeIn.SequenceEqual(FoldersOf(location), comparer) || folders.Length <= madeIn.Length || !madeIn.SequenceEqual(folders[..madeIn.Length], comparer))
+        {
+            return path;
+        }
+
+        return System.IO.Path.Combine([location, ..folders[madeIn.Length..]]);
     }
+
+    // The folders of a path the project's file has, a path of this system or the other's
+    private static string[] FoldersOf(string path)
+    {
+        var full = System.IO.Path.IsPathFullyQualified(path) ? System.IO.Path.GetFullPath(path) : path;
+        return full.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries);
+    }
+
+    private static bool IsWindowsPath(string path) => path.Length >= 2 && char.IsAsciiLetter(path[0]) && path[1] == ':' || path.StartsWith(@"\\");
 
     public static void Deserialize(string projectPath)
     {
@@ -439,6 +455,7 @@ public class Project : IProject
 
         Dictionary<LabURI, IAsset> assets = new();
         var (resourceExtension, sceneryExtension) = platform == GamePlatform.PS2 ? (".rm2", ".sm2") : (".rmx", ".smx");
+        MakeStartupFolder(files.Select(file => file.Path), globalPackage, resourceExtension);
 
         // Maps graph ID to behaviour starter. Chunks are read for their starters in parallel and dropped, all of the game's chunks read
         // at once take gigabytes. Resolving below reads them again one after another
@@ -645,6 +662,23 @@ public class Project : IProject
         ResolverManager.Stop();
     }
 
+    // The default chunk's folder in the global package, named like the disc's. The default chunk's path is lower case like every chunk's
+    // while the startup folder's other files keep the disc's case: Windows made one folder of both, named after whichever got written
+    // first, and Linux one of each. Made before anything is written, it's one folder named like the disc's everywhere, which the default
+    // chunk's assets find (DirectoryCase)
+    internal void MakeStartupFolder(IEnumerable<string> discPaths, Package globalPackage, string resourceExtension)
+    {
+        var defaultChunk = discPaths.Select(path => path.Replace('\\', '/').Trim('/'))
+            .FirstOrDefault(path => path.EndsWith("default" + resourceExtension, StringComparison.OrdinalIgnoreCase));
+        if (defaultChunk == null || !defaultChunk.Contains('/'))
+        {
+            return;
+        }
+
+        var folder = defaultChunk[..defaultChunk.LastIndexOf('/')].Replace('/', System.IO.Path.DirectorySeparatorChar);
+        System.IO.Directory.CreateDirectory(System.IO.Path.Combine(ProjectPath, "assets", globalPackage.Name, folder));
+    }
+
     private static List<TwinBehaviourStarter> GetStarters(ITwinSection chunk)
     {
         var starters = new List<TwinBehaviourStarter>();
@@ -730,12 +764,18 @@ public class Project : IProject
         }
         else
         {
-            // The first folder of a chunk's path is the levels folder and the last one is the chunk's own
-            var levelFolders = chunk.AdditionalPath!.Split(System.IO.Path.DirectorySeparatorChar).Skip(1).SkipLast(1);
-            BuildChunk(factory, cache, chunk, System.IO.Path.Combine([archivesPath, "Levels", ..levelFolders]), false, platform);
+            BuildChunk(factory, cache, chunk, System.IO.Path.Combine([archivesPath, "Levels", ..LevelFoldersOf(chunk.AdditionalPath!)]), false, platform);
         }
 
         cache.Save();
+    }
+
+    // The folders of the game's Levels folder a chunk is in: the first folder of its path is the levels folder and the last one is the chunk's
+    // own. The path has the separators of the system the project was made on, split by this system's alone a chunk of the other's was built
+    // into Levels itself
+    internal static string[] LevelFoldersOf(string chunkPath)
+    {
+        return chunkPath.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries).Skip(1).SkipLast(1).ToArray();
     }
 
     // A package is the version of the game's packages it was made on: the one its first dependency is (of the packages TT Lab makes, the
@@ -1017,7 +1057,8 @@ public class Project : IProject
 
         Log.WriteLine("Writing Startup...");
         phaseTimer.Restart();
-        // Startup and startup are the same folder on Windows but two separate ones on case sensitive file systems
+        // Startup and startup are one folder on Windows and in projects made since its folder is made first, projects made on Linux before
+        // have one of each
         var startupFolders = globalPackage.GetPackageFolder().Children.Select(assetManager.GetAsset).OfType<Folder>()
             .Where(folder => folder.Name.Equals("Startup", StringComparison.OrdinalIgnoreCase)).ToList();
         var defaultChunk = startupFolders.Select(folder => folder.FindChild<LevelChunk>("default")).First(uri => uri != LabURI.Empty);
@@ -1218,13 +1259,13 @@ public class Project : IProject
         }
     }
 
-    // The chunks that changed since the last build with the files they're written to. A level is written next to its chunk's folder
-    // The levels folders at the root of the version's enabled packages, the other version's chunks are built for it
+    // The levels folders at the root of the version's enabled packages, the other version's chunks are built for it. The project's own
+    // package's after the ones it depends on: chunks are made in the levels folder of any package, and the ones made in it were never built
     internal List<Folder> GetLevelsFolders(GamePlatform platform)
     {
-        return (from dependencyUri in BasePackage.Dependencies
-                where GetPlatform(dependencyUri) == platform
-                let package = AssetManager.GetAsset<Package>(dependencyUri)
+        return (from packageUri in BasePackage.Dependencies.Append(BasePackage.URI).Distinct()
+                where GetPlatform(packageUri) == platform
+                let package = AssetManager.GetAsset<Package>(packageUri)
                 where package.Enabled
                 let folder = package.GetPackageFolder().Children.Where(AssetManager.DoesAssetExist).Select(AssetManager.GetAsset).OfType<Folder>()
                     .FirstOrDefault(child => child.Alias == Folder.LevelsFolderName)
@@ -1232,6 +1273,7 @@ public class Project : IProject
                 select folder).ToList();
     }
 
+    // The chunks that changed since the last build with the files they're written to. A level is written next to its chunk's folder
     private void CollectChunks(BuildCache cache, Folder currentFolder, string directory, GamePlatform platform, List<(LevelChunk Chunk, string[] Outputs)> jobs,
         List<string> createdDirectories, LeftOutChunks leftOut, ISet<string> claimedOutputs)
     {

@@ -334,9 +334,11 @@ public static class AssetDataFactory
             return null;
         }
 
+        // Chunk paths have the separators of the system the project was made on
         var platform = project.GetPlatform(package);
         return AssetManager.Get().GetAssets().OfType<LevelChunk>()
-            .FirstOrDefault(chunk => string.Equals(chunk.AdditionalPath, chunkPath, StringComparison.OrdinalIgnoreCase) && project.GetPlatform(chunk.Package) == platform);
+            .FirstOrDefault(chunk => string.Equals(chunk.AdditionalPath?.Replace('\\', '/'), chunkPath.Replace('\\', '/'), StringComparison.OrdinalIgnoreCase)
+                                     && project.GetPlatform(chunk.Package) == platform);
     }
 
     private static LabURI FindCrashObject(LabURI package)

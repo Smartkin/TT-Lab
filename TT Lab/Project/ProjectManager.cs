@@ -62,6 +62,8 @@ namespace TT_Lab.Project
             set
             {
                 _openedProject = value;
+                // The directories found are the last project's, or its own as they were before it got opened again
+                DirectoryCase.Forget();
                 _eventAggregator.PublishOnUIThreadAsync(new ProjectManagerMessage());
             }
         }
