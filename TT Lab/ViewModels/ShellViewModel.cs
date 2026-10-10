@@ -256,6 +256,20 @@ public class ShellViewModel : Screen, ILabManager
 
     public void ShowPrefabs() => DockFactory.ShowPanel(_prefabs);
 
+    // Open Asset (Ctrl+Shift+O): any asset of the project found by a fuzzy search of its name
+    public async Task OpenAsset()
+    {
+        if (!ProjectOpened)
+        {
+            return;
+        }
+
+        if (await Controls.QuickOpenDialogue.Ask() is { } asset)
+        {
+            OpenEditor(asset);
+        }
+    }
+
     public void ReopenClosedEditor()
     {
         var closedEditor = EditorsViewModel.RecentlyClosed.FirstOrDefault();

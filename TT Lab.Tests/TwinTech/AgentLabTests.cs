@@ -266,6 +266,34 @@ public class AgentLabTests
         Assert.Equal(0.5f, state.Bodies[0].Condition.Threshold);
     }
 
+    // Slots 9 and 10 were OnPhysicsCollision and OnUnknownCollision until what starts them was known (the decomp's AgentBehaviourSlot):
+    // nothing starts 9, a character thrown at the object starts 10. Old scripts' names still compile, scripts get written with the new ones
+    [Fact]
+    public void TheObjectSlotsOldNamesStillCompile()
+    {
+        var script = Behaviour().Replace("   [Interrupting]\n", "   [Interrupting]\n   [UseObjectSlot(OnPhysicsCollision)]\n")
+            .Replace("   state State_1() {\n", "   [UseObjectSlot(OnUnknownCollision)]\n   state State_1() {\n");
+
+        var result = AgentLabCompiler.Compile(script, Ps2Options());
+
+        Assert.False(result.CompilerStatus.IsError, result.CompilerStatus.Message);
+        var graph = result.Get<ITwinBehaviourGraph>();
+        Assert.Equal([(true, (short)9), (true, (short)10)], graph.ScriptStates.Select(state => (state.UsesObjectSlot, state.BehaviourIndexOrSlot)));
+        // Decompiled as the game's file has it
+        var bytes = Bytes(graph);
+        var read = new PS2BehaviourGraph();
+        read.Read(new BinaryReader(new MemoryStream(bytes)), bytes.Length);
+        var starter = new TwinBehaviourStarter { Priority = 1 };
+        starter.Assigners.Add(new TwinBehaviourAssigner { AssignType = TwinBehaviourAssigner.AssignTypeID.ORIGINATOR });
+        var decompiled = AgentLabDecompiler.Decompile(read, new DecompilerGraphResolver(new DefaultStarterResolver(starter, null),
+            new DefaultStateResolversList(new DefaultStateResolver(null), new DefaultStateResolver(null))));
+        Assert.Contains("[UseObjectSlot(Slot_9)]", decompiled);
+        Assert.Contains("[UseObjectSlot(OnGettingThrownAttacked)]", decompiled);
+        var again = AgentLabCompiler.Compile(decompiled, Ps2Options("TEST_BEHAVIOUR", 12));
+        Assert.False(again.CompilerStatus.IsError, again.CompilerStatus.Message + "\n" + decompiled);
+        Assert.Equal([9, 10], again.Get<ITwinBehaviourGraph>().ScriptStates.Select(state => (int)state.BehaviourIndexOrSlot));
+    }
+
     [Fact]
     public void ElseAndCompletionBlocksCompileToTheGamesConditions()
     {

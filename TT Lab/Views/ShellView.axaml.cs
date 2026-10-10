@@ -32,6 +32,7 @@ public partial class ShellView : BurnBridgeWindow<ShellViewModel>
 
         HotKeyManager.SetHotKey(OpenProjectItem, new KeyGesture(Key.O, KeyModifiers.Control));
         HotKeyManager.SetHotKey(SaveProjectItem, new KeyGesture(Key.S, KeyModifiers.Control | KeyModifiers.Shift));
+        HotKeyManager.SetHotKey(OpenAssetItem, new KeyGesture(Key.O, KeyModifiers.Control | KeyModifiers.Shift));
         HotKeyManager.SetHotKey(ReopenClosedEditorItem, new KeyGesture(Key.T, KeyModifiers.Control | KeyModifiers.Shift));
     }
 

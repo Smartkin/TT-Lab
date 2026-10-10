@@ -75,7 +75,9 @@ internal static class LinkReplacement
                 continue;
             }
 
-            var childCaption = child.Index != null && child.Parent != null ? DocumentCollectionViewModel.CaptionOf(child.Parent, child) : editor.Caption;
+            // What the list's linked fields make of an element goes over its index, like the inspector shows it (an object's behaviour slots)
+            var childCaption = child.Presentation?.Caption
+                               ?? (child.Index != null && child.Parent != null ? DocumentCollectionViewModel.CaptionOf(child.Parent, child) : editor.Caption);
             switch (editor)
             {
                 case UriLinkViewModel link:

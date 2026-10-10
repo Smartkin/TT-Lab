@@ -33,10 +33,6 @@ public abstract partial class DocumentCompositeViewModel : DocumentNodeViewModel
 
     public abstract ReactiveCommand<Unit, Unit>? AddCommand { get; }
 
-    // Items that expand, like structs in a list, differ a lot in size once some of them are expanded
-    public bool HasExpandableItems => Property.Children.Count > 0 &&
-                                      EditorDescRegistry.GetDesc(Document, Property.Children[0]) is GenericEditorDesc or CollectionEditorDesc;
-    
     public readonly ReadOnlyObservableCollection<DocumentNodeViewModel> Nodes;
 
     public const string EditorExplicitOrder = "DOCUMENT_MODEL_EXPLICIT_ORDER";

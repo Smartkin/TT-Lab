@@ -32,7 +32,7 @@ internal sealed class DiscordRpcPresenceClient : IPresenceClient
             Details = activity.Details,
             State = activity.State,
             Timestamps = activity.Start is { } start ? new Timestamps(start) : null,
-            Assets = new DiscordRPC.Assets { LargeImageKey = DiscordPresence.LogoKey }
+            Assets = new DiscordRPC.Assets { LargeImageKey = DiscordPresence.LogoKey, SmallImageKey = activity.SmallImage }
         });
     }
 

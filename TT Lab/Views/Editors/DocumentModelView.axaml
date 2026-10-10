@@ -3,6 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:viewmodels="clr-namespace:TT_Lab.ViewModels.Editors"
+             xmlns:controls="clr-namespace:TT_Lab.Controls"
              Margin="10, 0, 0, 0"
              x:Name="Document"
              x:DataType="viewmodels:DocumentModelViewModel"
@@ -51,8 +52,14 @@
                     </Panel>
                 </Expander.Header>
                 <!-- Not virtualized unlike lists. A model has few properties that differ a lot in size, a virtualizing panel's estimates of them
-                     made it drop editors that were in sight and those lost the scroll positions of the lists inside them -->
+                     made it drop editors that were in sight and those lost the scroll positions of the lists inside them. Its rows are the scroll
+                     viewer's anchors when a list above them changes height -->
                 <ItemsControl HorizontalAlignment="Stretch" VerticalAlignment="Stretch" DockPanel.Dock="Top" x:Name="EditorsContainer">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <controls:AnchoringStackPanel/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="viewmodels:DocumentNodeViewModel">
                             <DockPanel Classes.highlighted="{Binding IsHighlighted}" IsVisible="{Binding IsVisible}" HorizontalSpacing="15" LastChildFill="True" Background="Transparent">

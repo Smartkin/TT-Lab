@@ -13,32 +13,16 @@ namespace TT_Lab.Views.Editors;
 
 public partial class DocumentCompositeView : DocumentBaseView<DocumentCompositeViewModel>
 {
-    // A virtualizing panel takes the items it hasn't made for the average size of the ones it has. That's way off for items that expand,
-    // like a list of structs with one of them expanded: the list jumped around while scrolling, and with the expanded item near the end
-    // of a long list the extent flipped between the average with and without it as the panel made and dropped it, the scroll viewer
-    // clamped its offset each time and the layout cycled for seconds (the default chunk's 255 particle systems). So only lists of plain
-    // fields, whose rows are all the same size, get virtualized, whatever the length of the list
-    private static readonly ITemplate<Panel?> StackingPanel = new FuncTemplate<Panel?>(() => new StackPanel());
-    private static readonly ITemplate<Panel?> VirtualizingPanel = new FuncTemplate<Panel?>(() => new VirtualizingStackPanel());
-
     public DocumentCompositeView()
     {
         InitializeComponent();
     }
 
-    // The panel is picked from the view model's items
+    // Its items are bound to the view model's nodes when it's activated
     protected override bool RebindsOnRecycle => true;
 
     protected override void HandleActivation(CompositeDisposable disposables)
     {
-        // Decided from the property's elements, the nodes only get made once it's expanded
-        var isVirtualized = ViewModel is DocumentCollectionViewModel && !ViewModel.HasExpandableItems;
-        var panel = isVirtualized ? VirtualizingPanel : StackingPanel;
-        if (EditorsContainer.ItemsPanel != panel)
-        {
-            EditorsContainer.ItemsPanel = panel;
-        }
-
         this.OneWayBind(ViewModel, viewModel => viewModel.Nodes,
             view => view.EditorsContainer.ItemsSource).DisposeWith(disposables);
 

@@ -30,8 +30,13 @@
                         </DockPanel>
                     </Panel>
                 </Expander.Header>
-                <!-- The view picks whether the items are virtualized, and recycled rows keep their views for the next item -->
+                <!-- Rows made where they're shown whatever their heights, recycled rows keep their views for the next item -->
                 <controls:RecyclingItemsControl HorizontalAlignment="Stretch" VerticalAlignment="Stretch" DockPanel.Dock="Top" x:Name="EditorsContainer">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <controls:DocumentListPanel/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="viewmodels:DocumentNodeViewModel">
                             <DockPanel Classes.highlighted="{Binding IsHighlighted}" IsVisible="{Binding IsVisible}" HorizontalSpacing="15" LastChildFill="True" Background="Transparent">

@@ -7,8 +7,9 @@ using TT_Lab.Assets.Instance;
 
 namespace TT_Lab.Tools.Discord;
 
-// What Discord shows: the first line, the second (none leaves it out) and when the timer started counting (none hides it)
-public sealed record PresenceActivity(string Details, string? State, DateTime? Start)
+// What Discord shows: the first line, the second (none leaves it out), when the timer started counting (none hides it) and the small
+// picture of the editor the second line is about (none without one)
+public sealed record PresenceActivity(string Details, string? State, DateTime? Start, string? SmallImage = null)
 {
     public const string Deciding = "Deciding on what mod to start creating...";
     public const string Making = "In the process of making the greatest mod!";
@@ -21,8 +22,11 @@ public sealed record PresenceActivity(string Details, string? State, DateTime? S
         ProjectPhase.Loading => new PresenceActivity(Making, null, null),
         _ when gameActive => new PresenceActivity(Making, Testing, timerStart),
         _ when onBreak => new PresenceActivity(OnBreak, null, null),
-        _ => new PresenceActivity(Making, LineFor(activeAsset), timerStart)
+        _ => new PresenceActivity(Making, LineFor(activeAsset), timerStart, LineFor(activeAsset) == null ? null : IconKeyOf(activeAsset!))
     };
+
+    // The Discord application's small pictures are the editors' icons (Media/LabIcons), keyed by their file names in lower case
+    internal static string IconKeyOf(IAsset asset) => System.IO.Path.GetFileNameWithoutExtension(asset.IconPath).ToLowerInvariant();
 
     // A level chunk's resources never get a tab of their own, a package's settings have nothing to say
     internal static string? LineFor(IAsset? asset) => asset switch

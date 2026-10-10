@@ -6,6 +6,7 @@ using TT_Lab.Assets.Graphics;
 using TT_Lab.Assets.Instance;
 using TT_Lab.Tests.Support;
 using TT_Lab.Tools.Discord;
+using TT_Lab.Util;
 
 namespace TT_Lab.Tests.Tools;
 
@@ -48,6 +49,33 @@ public sealed class DiscordPresenceTests : IDisposable
         Assert.Null(PresenceActivity.LineFor(null));
     }
 
+    // The small picture next to the logo is the editor's icon, which the Discord application has under its LabIcons file's name in lower
+    // case. Nothing that isn't an editor's line gets one
+    [Fact]
+    public void EveryEditorShowsItsIcon()
+    {
+        var icons = ManifestResourceLoader.GetFilesIn("Media/LabIcons").Select(path => System.IO.Path.GetFileNameWithoutExtension(path).ToLowerInvariant()).ToHashSet();
+        IAsset[] editors =
+        [
+            Of<LevelChunk>(), Of<OGI>(), Of<SaveIcon>(), Of<BehaviourGraph>(), Of<BehaviourCommandsSequence>(), Of<Texture>(), Of<Skydome>(), Of<SoundEffect>(),
+            Of<SoundEffectFR>(), Of<Font>(), Of<TextFile>(), Of<Material>(), Of<GameObject>(), Of<PSM>(), Of<PTC>(), Of<Mesh>(), Of<InstanceTemplate>(),
+            Of<CollisionSurface>(), Of<DefaultParticles>(), Of<UiSoundLibrary>()
+        ];
+        foreach (var editor in editors)
+        {
+            Assert.Contains(PresenceActivity.For(ProjectPhase.Ready, false, false, editor, Opened).SmallImage, icons);
+        }
+
+        Assert.Equal("scene", PresenceActivity.For(ProjectPhase.Ready, false, false, Of<LevelChunk>(), Opened).SmallImage);
+        Assert.Equal("behavior_tree_start", PresenceActivity.For(ProjectPhase.Ready, false, false, Of<BehaviourGraph>(), Opened).SmallImage);
+        Assert.Equal("ui_sound_library", PresenceActivity.For(ProjectPhase.Ready, false, false, Of<UiSoundLibrary>(), Opened).SmallImage);
+        Assert.Null(PresenceActivity.For(ProjectPhase.Ready, false, false, Of<Package>(), Opened).SmallImage);
+        Assert.Null(PresenceActivity.For(ProjectPhase.Ready, false, false, null, Opened).SmallImage);
+        Assert.Null(PresenceActivity.For(ProjectPhase.Ready, false, true, Of<Texture>(), Opened).SmallImage);
+        Assert.Null(PresenceActivity.For(ProjectPhase.Ready, true, false, Of<Texture>(), Opened).SmallImage);
+        Assert.Null(PresenceActivity.For(ProjectPhase.None, false, false, null, Opened).SmallImage);
+    }
+
     private static PresenceInputs Ready(IAsset? editor = null, bool focus = true, bool game = false) => new(ProjectPhase.Ready, Opened, editor, game, focus);
 
     [Fact]
@@ -59,7 +87,7 @@ public sealed class DiscordPresenceTests : IDisposable
         // Creating or opening one, until its tree shows up, without a timer
         Assert.Equal(new PresenceActivity(PresenceActivity.Making, null, null), tracker.Follow(new PresenceInputs(ProjectPhase.Loading, null, null, false, true), Opened));
         Assert.Equal(new PresenceActivity(PresenceActivity.Making, null, Opened), tracker.Follow(Ready(), Opened.AddMinutes(1)));
-        Assert.Equal(new PresenceActivity(PresenceActivity.Making, "Swapping textures...", Opened), tracker.Follow(Ready(Of<Texture>()), Opened.AddMinutes(2)));
+        Assert.Equal(new PresenceActivity(PresenceActivity.Making, "Swapping textures...", Opened, "texture"), tracker.Follow(Ready(Of<Texture>()), Opened.AddMinutes(2)));
         // The game Play started (its build included) goes over the editor, the timer goes on
         Assert.Equal(new PresenceActivity(PresenceActivity.Making, PresenceActivity.Testing, Opened), tracker.Follow(Ready(Of<LevelChunk>(), game: true), Opened.AddMinutes(3)));
         Assert.Equal(new PresenceActivity(PresenceActivity.Making, null, Opened), tracker.Follow(Ready(Of<Package>()), Opened.AddMinutes(4)));
@@ -76,7 +104,7 @@ public sealed class DiscordPresenceTests : IDisposable
         Assert.Equal(new PresenceActivity(PresenceActivity.OnBreak, null, null), tracker.Follow(Ready(Of<OGI>(), focus: false), Opened.AddMinutes(11)));
         Assert.Equal(new PresenceActivity(PresenceActivity.OnBreak, null, null), tracker.Follow(Ready(Of<OGI>(), focus: false), Opened.AddMinutes(40)));
         var back = Opened.AddMinutes(41);
-        Assert.Equal(new PresenceActivity(PresenceActivity.Making, "Looking at a model...", back), tracker.Follow(Ready(Of<OGI>()), back));
+        Assert.Equal(new PresenceActivity(PresenceActivity.Making, "Looking at a model...", back, "ogi"), tracker.Follow(Ready(Of<OGI>()), back));
         Assert.Equal(back, tracker.Follow(Ready(Of<OGI>()), back.AddMinutes(5)).Start);
     }
 
@@ -128,7 +156,7 @@ public sealed class DiscordPresenceTests : IDisposable
 
         first.RaiseReady();
         Assert.Equal(PresenceConnection.Connected, presence.Connection);
-        Assert.Equal([new PresenceActivity(PresenceActivity.Making, "Swapping textures...", Opened)], first.Shown);
+        Assert.Equal([new PresenceActivity(PresenceActivity.Making, "Swapping textures...", Opened, "texture")], first.Shown);
 
         // Discord takes 5 updates in 20 seconds, changes in between wait
         inputs = Ready(Of<Material>());

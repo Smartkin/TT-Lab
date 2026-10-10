@@ -1,0 +1,27 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:controls="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+        xmlns:local="clr-namespace:TT_Lab.Controls"
+        mc:Ignorable="d" d:DesignWidth="680" d:DesignHeight="520"
+        x:Class="TT_Lab.Controls.QuickOpenDialogue"
+        Title="Open Asset" Width="680" Height="520" MinWidth="400" MinHeight="300" ShowInTaskbar="False" WindowStartupLocation="CenterOwner">
+    <controls:GroupBox>
+        <Grid RowDefinitions="Auto,*,Auto" Margin="6">
+            <TextBox Grid.Row="0" x:Name="Query" Margin="4" Watermark="Type part of an asset's name, words of its package or folder narrow it down"/>
+            <ListBox Grid.Row="1" x:Name="Results" Margin="4" SelectionMode="Single">
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="local:QuickOpenResult">
+                        <DockPanel Background="Transparent" ToolTip.Tip="{Binding Where}" ToolTip.ShowDelay="700">
+                            <Image DockPanel.Dock="Left" Source="{Binding Icon}" Width="20" Height="20" Margin="0,0,6,0"/>
+                            <TextBlock DockPanel.Dock="Left" Text="{Binding Name}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                            <TextBlock Text="{Binding Where}" VerticalAlignment="Center" Opacity="0.6" TextTrimming="CharacterEllipsis"/>
+                        </DockPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+            <TextBlock Grid.Row="2" x:Name="Status" Margin="4" Opacity="0.7" TextWrapping="Wrap"/>
+        </Grid>
+    </controls:GroupBox>
+</Window>

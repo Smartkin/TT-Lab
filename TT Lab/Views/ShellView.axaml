@@ -42,6 +42,8 @@
                         </ControlTheme>
                     </MenuItem.ItemContainerTheme>
                 </MenuItem>
+                <MenuItem x:Name="OpenAssetItem" Command="{Binding OpenAsset}" Header="Open Asset..." InputGesture="Ctrl+Shift+O" IsEnabled="{Binding ProjectOpened}"
+                          ToolTip.Tip="Finds any asset of the project by a fuzzy search of its name and opens it, the resources of level chunks are in their scenes"/>
                 <MenuItem x:Name="SaveProjectItem" Command="{Binding SaveProject}" Header="Save all" InputGesture="Ctrl+Shift+S" IsEnabled="{Binding ProjectOpened}"/>
                 <MenuItem Command="{Binding CloseProject}" Header="Close Project" IsEnabled="{Binding ProjectOpened}"/>
             </MenuItem>

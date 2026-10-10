@@ -316,7 +316,7 @@ internal class AgentLabCompilerNodeVisitor : NodeVisitor
     private Object VisitUseObjectSlotAttributeNode(IAgentLabTreeNode node)
     {
         var useObjectSlotAttribute = (UseObjectSlotAttributeNode)node;
-        return Enum.Parse<ITwinBehaviourState.ObjectBehaviourSlots>(useObjectSlotAttribute.SlotName.SlotName);
+        return ObjectSlotNames.Parse(useObjectSlotAttribute.SlotName.SlotName);
     }
 
     private Object VisitControlPacketAttributeNode(IAgentLabTreeNode node)

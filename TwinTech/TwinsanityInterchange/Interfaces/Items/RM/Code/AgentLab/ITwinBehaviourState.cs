@@ -46,20 +46,57 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code.AgentLab
         public void WriteText(StreamWriter writer, Int32 i, Int32 tabs = 0);
         public void ReadText(StreamReader reader);
 
+        /// <summary>
+        /// An object's behaviour slots a state can run as its child behaviour (<c>[UseObjectSlot(...)]</c>). The game starts slots 0 to 8 and 10
+        /// on every type with the events of its agent (the decomp's AgentBehaviourSlot) and nothing starts slot 9; past them the playable
+        /// characters, crates and the graple have events of their own, the other slots only run when scripts start them
+        /// </summary>
         public enum ObjectBehaviourSlots
         {
-            // Generic behaviour slots
+            /// <summary>
+            /// The instance started without a spawn script of its own: made, reset, spawned or restarted
+            /// </summary>
             OnSpawn,
+            /// <summary>
+            /// Another instance's script triggered the instances linked to it, and a pickup the player came near
+            /// </summary>
             OnTrigger,
+            /// <summary>
+            /// A contact message, and some types' hard physics hits
+            /// </summary>
             OnDamage,
+            /// <summary>
+            /// Walked into by a playable character, and some types' physics hits
+            /// </summary>
             OnTouch,
+            /// <summary>
+            /// Hit from below by a playable character
+            /// </summary>
             OnHeadbutt,
+            /// <summary>
+            /// Landed on by a playable character
+            /// </summary>
             OnLand,
+            /// <summary>
+            /// Spun into by a playable character
+            /// </summary>
             OnGettingSpinAttacked,
+            /// <summary>
+            /// Body slammed by a playable character, or touched by the second of two tied characters
+            /// </summary>
             OnGettingBodyslamAttacked,
+            /// <summary>
+            /// Slid into by a playable character
+            /// </summary>
             OnGettingSlideAttacked,
-            OnPhysicsCollision,
-            OnUnknownCollision,
+            /// <summary>
+            /// Nothing in the game starts it. Scripts' old name for it, OnPhysicsCollision, still compiles
+            /// </summary>
+            Slot_9,
+            /// <summary>
+            /// Touched by a playable character the other one threw. Scripts' old name for it, OnUnknownCollision, still compiles
+            /// </summary>
+            OnGettingThrownAttacked,
             // Other slots are object type specific
             Slot_11,
             Slot_12,

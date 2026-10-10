@@ -652,7 +652,7 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
         var objectSlotName = (ObjectSlotNameNode)node;
         var slotsEnumTable = ((AgentLabEnumSymbol)SymbolTable.Lookup("ObjectBehaviourSlot")).Enums;
         var slotNameId = slotsEnumTable.Lookup(objectSlotName.SlotName);
-        if (slotNameId == null)
+        if (slotNameId == null && !ObjectSlotNames.OldNames.ContainsKey(objectSlotName.SlotName))
         {
             // TODO: Raise undefined identifier error instead of throwing an exception
             throw new Exception($"Undefined object slot name {objectSlotName.SlotName}");

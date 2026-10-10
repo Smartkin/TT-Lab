@@ -129,11 +129,16 @@ namespace TT_Lab.AssetData.Code
         public IReadOnlyList<LabURI> OGISlots => ModelSlots.Select(slot => slot.Ogi).ToList();
         
         [JsonProperty(Required = Required.Always)]
-        [Editable(Caption = "Behaviour Slots", EditorOrientation = Avalonia.Controls.Dock.Top)]
+        [Editable(Caption = "Behaviour Slots", EditorOrientation = Avalonia.Controls.Dock.Top,
+            Hint = "The behaviours the game starts on the object's instances, by slot. A slot with a caption is one the game starts itself for the object's type, hover " +
+                   "it for when; slot 9 and the slots without one only run when a script starts them (RunScriptSlot, RunSlotBehaviourOnLinked, a state's UseObjectSlot), " +
+                   "so the object's scripts decide what they're for")]
         [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Behaviour Slot")]
         [EditorParam(DocumentCollectionViewModel.MaxCount, MaxSlots)]
         [EditorParam(UriLinkViewModel.BrowseType, typeof(BehaviourGraph))]
         [EditorParam(UriLinkViewModel.IncludeEmpty, true)]
+        [EditorLinkedField(typeof(SlotCaptions), nameof(Type))]
+        [EditorLinkedField(typeof(SlotCaptions), nameof(BehaviourSlots))]
         [OnReferenceDeleted(DeletedReferenceAction.Clear)]
         public List<LabURI> BehaviourSlots { get; set; }
         
@@ -1056,6 +1061,30 @@ namespace TT_Lab.AssetData.Code
                     Node(nameof(CameraReactJointAmount))?.SetValue(Math.Max(data.CameraReactJointAmount, (Byte)2));
                 }
             }
+        }
+
+        /// <summary>
+        /// Every slot captioned by what the game starts it with for the object's type (<see cref="BehaviourSlotEvents"/>), the ones only
+        /// scripts start keep the list's caption. Follows the type and the list, a slot put in or taken out moves the ones after it
+        /// </summary>
+        private sealed class SlotCaptions : IFieldChange
+        {
+            public void DataChanged(PropertyNode listeningNode, PropertyNode changedNode)
+            {
+                if (listeningNode.Target is not GameObjectData data)
+                {
+                    return;
+                }
+
+                foreach (var slot in listeningNode.Children)
+                {
+                    slot.Presentation = BehaviourSlotEvents.Of(data.Type, slot.Index ?? 0) is { } slotEvent
+                        ? new NodePresentation(false, $"{DocumentCollectionViewModel.CaptionOf(listeningNode, slot)} · {slotEvent.Name}", slotEvent.Hint)
+                        : null;
+                }
+            }
+
+            public void Linked(PropertyNode listeningNode, PropertyNode changedNode) => DataChanged(listeningNode, changedNode);
         }
     }
 

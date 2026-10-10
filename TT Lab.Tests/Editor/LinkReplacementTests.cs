@@ -78,7 +78,8 @@ public sealed class LinkReplacementTests : IDisposable
 
         Assert.Equal("CRATE", tree.Caption);
         var behaviours = Branch(tree, "Behaviour Slots");
-        Assert.Equal(["Behaviour Slot 0", "Behaviour Slot 1"], behaviours.Links.Select(link => link.Caption));
+        // Captioned like the inspector shows them, by what the game starts the slots with
+        Assert.Equal(["Behaviour Slot 0 · Spawned", "Behaviour Slot 1 · Triggered"], behaviours.Links.Select(link => link.Caption));
         Assert.All(behaviours.Links, link => Assert.Equal(typeof(BehaviourGraph), link.Kind));
         Assert.Equal([crate.Walk.URI, crate.Run.URI], behaviours.Links.Select(link => link.Original));
         Assert.Equal(typeof(GameObject), Assert.Single(Branch(tree, "Object Slots").Links).Kind);
@@ -90,7 +91,7 @@ public sealed class LinkReplacementTests : IDisposable
 
         // A link the inspector shows read only isn't one to replace
         crate.Document.PropertyGraph.Find("Root.AssetData.BehaviourSlots[1]")!.IsReadOnly = true;
-        Assert.Equal(["Behaviour Slot 0"], Branch(LinkReplacement.Find(crate.Document, crate.Document.PropertyGraph.Root), "Behaviour Slots").Links.Select(link => link.Caption));
+        Assert.Equal(["Behaviour Slot 0 · Spawned"], Branch(LinkReplacement.Find(crate.Document, crate.Document.PropertyGraph.Root), "Behaviour Slots").Links.Select(link => link.Caption));
     }
 
     [AvaloniaFact]

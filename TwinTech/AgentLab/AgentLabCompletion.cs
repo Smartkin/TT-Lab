@@ -479,6 +479,11 @@ public static class AgentLabCompletion
             return new AgentLabHover(word, keyword);
         }
 
+        if (ObjectSlotNames.Describe(word) is { } slot)
+        {
+            return new AgentLabHover(word, slot);
+        }
+
         if (definitions.Enums.TryGetValue(word, out var values))
         {
             return new AgentLabHover($"{word} = {string.Join(" | ", values)}", StarterNames.Contains(word) ? "Assigner setting" : "Control packet setting");

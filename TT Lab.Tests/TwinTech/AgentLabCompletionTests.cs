@@ -186,6 +186,20 @@ public class AgentLabCompletionTests
         Assert.NotEmpty(Complete("<attribute>", "[UseObjectSlot(|"));
     }
 
+    // An object slot's name says what starts the slot, an old name which slot it is now; completion offers the slots' own names
+    [Fact]
+    public void ObjectSlotNamesSayWhatStartsTheSlot()
+    {
+        Assert.StartsWith("Object slot 3: walked into by a playable character", Hover("<attribute>", "[UseObjectSlot(OnTou|ch)]")!.Description);
+        Assert.StartsWith("The old name of Slot_9, object slot 9: nothing", Hover("<attribute>", "[UseObjectSlot(OnPhysics|Collision)]")!.Description);
+        Assert.StartsWith("Object slot 12: the type's own event", Hover("<attribute>", "[UseObjectSlot(Slot_|12)]")!.Description);
+
+        var slots = Texts(Complete("<attribute>", "[UseObjectSlot(|"));
+        Assert.Contains("Slot_9", slots);
+        Assert.Contains("OnGettingThrownAttacked", slots);
+        Assert.DoesNotContain("OnUnknownCollision", slots);
+    }
+
     // execute and [StartFrom] name states, [ControlPacket] names packets: such a name leads to its declaration
     [Fact]
     public void NamedStatesAndPacketsLeadToTheirDeclarations()
