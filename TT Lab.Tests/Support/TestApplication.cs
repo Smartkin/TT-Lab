@@ -23,6 +23,7 @@ public class TestApplication : Application
         Styles.Add(new Dock.Avalonia.Themes.Simple.DockSimpleTheme());
         Styles.Add(new StyleInclude(new Uri("avares://TT Lab.Tests")) { Source = new Uri("avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml") });
         Styles.Add(new StyleInclude(new Uri("avares://TT Lab.Tests")) { Source = new Uri("avares://Avalonia.Controls.ColorPicker/Themes/Fluent/Fluent.xaml") });
+        Styles.Add(TT_Lab.Controls.ToolTips.FitInWindows());
     }
 
     public override void OnFrameworkInitializationCompleted()

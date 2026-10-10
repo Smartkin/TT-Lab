@@ -1,0 +1,49 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:controls="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+        xmlns:local="clr-namespace:TT_Lab.Controls"
+        mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="640"
+        x:Class="TT_Lab.Controls.ReplaceLinksDialogue"
+        Width="620" Height="660" MinWidth="400" MinHeight="360" ShowInTaskbar="False" Topmost="True" WindowStartupLocation="CenterOwner">
+    <controls:GroupBox>
+        <Grid RowDefinitions="Auto,*,Auto,Auto,Auto" Margin="6">
+            <TextBlock Grid.Row="0" x:Name="Message" TextWrapping="Wrap" Margin="4"/>
+            <TreeView Grid.Row="1" x:Name="Links" Margin="4">
+                <TreeView.Styles>
+                    <Style Selector="TreeViewItem" x:DataType="local:LinkChoice">
+                        <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+                    </Style>
+                </TreeView.Styles>
+                <TreeView.ItemTemplate>
+                    <TreeDataTemplate x:DataType="local:LinkChoice" ItemsSource="{Binding Children}">
+                        <StackPanel Orientation="Horizontal" Spacing="6" Background="Transparent">
+                            <!-- A click on a branch ticks or unticks everything under it, a branch partly ticked shows so -->
+                            <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}" IsThreeState="False" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding Caption}" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding Target}" VerticalAlignment="Center" Opacity="0.65"/>
+                        </StackPanel>
+                    </TreeDataTemplate>
+                </TreeView.ItemTemplate>
+            </TreeView>
+            <ItemsControl Grid.Row="2" x:Name="Kinds" Margin="4">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="local:LinkKindChoice">
+                        <Grid ColumnDefinitions="Auto,*,30" Margin="0,2">
+                            <TextBlock Grid.Column="0" Text="{Binding Title}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <!-- A text block, a button's own text takes an underscore for an access key (COM_RUN showed as COMRUN) -->
+                            <Button Grid.Column="1" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                    Click="Pick_OnClick" ToolTip.Tip="Pick what replaces the ticked links of this kind, from what every one of them takes">
+                                <TextBlock Text="{Binding PickedText}"/>
+                            </Button>
+                            <Button Grid.Column="2" Content="×" Click="Clear_OnClick" ToolTip.Tip="Leave the links of this kind as they are"/>
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <TextBlock Grid.Row="3" x:Name="Problem" TextWrapping="Wrap" Margin="4" Foreground="#FFE06060"/>
+            <StackPanel Grid.Row="4" x:Name="Answers" Orientation="Horizontal" HorizontalAlignment="Right"/>
+        </Grid>
+    </controls:GroupBox>
+</Window>

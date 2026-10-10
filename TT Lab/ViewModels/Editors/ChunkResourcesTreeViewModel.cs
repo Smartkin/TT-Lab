@@ -492,7 +492,8 @@ public sealed partial class ChunkResourcesTreeViewModel(DocumentViewModel docume
                     entries.Add(new ViewportMenuEntry("Duplicate", () => Duplicate(row), Viewport != null));
                     entries.Add(new ViewportMenuEntry("Delete (Del)", () => Delete(row)));
                 }
-                else
+                // A level chunk's resources are only edited in its scene, the startup chunk's are the whole game's
+                else if (Chunk is { IsGlobalDefaultChunk: true })
                 {
                     entries.Add(new ViewportMenuEntry("Open in its own editor", () => OpenEditor(row)));
                 }

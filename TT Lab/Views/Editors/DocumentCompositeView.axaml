@@ -36,7 +36,8 @@
                         <DataTemplate DataType="viewmodels:DocumentNodeViewModel">
                             <DockPanel Classes.highlighted="{Binding IsHighlighted}" IsVisible="{Binding IsVisible}" HorizontalSpacing="15" LastChildFill="True" Background="Transparent">
                                 <Button Command="{Binding Close}" DockPanel.Dock="Right" IsVisible="{Binding #Document.DataContext.IsCollection}" HorizontalAlignment="Right" VerticalAlignment="Top" VerticalContentAlignment="Center" Content="x"/>
-                                <TextBlock IsVisible="{Binding IsCaptionVisible}" Margin="5, 0, 0, 0" MinWidth="80" MaxWidth="200" TextWrapping="Wrap" DockPanel.Dock="{Binding Orientation}" VerticalAlignment="Center" Text="{Binding Caption}" ToolTip.Tip="{Binding Hint}" ToolTip.ShowDelay="500"
+                                <!-- On the left of its row: a caption above its editor (flags, curves) was centered in the row by its largest width -->
+                                <TextBlock IsVisible="{Binding IsCaptionVisible}" Margin="5, 0, 0, 0" MinWidth="80" MaxWidth="200" TextWrapping="Wrap" HorizontalAlignment="Left" DockPanel.Dock="{Binding Orientation}" VerticalAlignment="Center" Text="{Binding Caption}" ToolTip.Tip="{Binding Hint}" ToolTip.ShowDelay="500"
                                            Classes.overridden="{Binding IsOverridden}" ContextRequested="Caption_OnContextRequested"/>
                                 <ContentControl DockPanel.Dock="{Binding EditorOrientation}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Content="{Binding}"/>
                             </DockPanel>

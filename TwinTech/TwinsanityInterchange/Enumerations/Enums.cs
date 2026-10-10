@@ -41,71 +41,100 @@ namespace Twinsanity.TwinsanityInterchange.Enumerations
         /// are the agent's own states, bits 10-14 stop the characters' attacks of a movement mode (body slam, slide, spin, twin slam,
         /// thrown Cortex: <c>1 &lt;&lt; mode</c>), and on crates 10 lets falling crates land on it and 11 makes it unbreakable, bit 5
         /// gives the instance a node keeping its previous transform, bits 6-7 its persistent flag and where it's kept, bit 18 places it
-        /// on the ground below when created (creatures and characters). Scripts test any bit with SoftFlagSet(n) (CheckInstanceFlagSet):
-        /// bit 4 (it only sets a context bit nothing reads) and bits 19-31 are theirs alone, the retail creatures', drones', bats' and
-        /// penguins' scripts take 19-31 as options of their instances.
+        /// on the ground below when created (creatures and characters), bit 4 makes what stands on it ride along (its instance's flag
+        /// 14, read by the characters' solver and rigid bodies). Scripts test any bit with SoftFlagSet(n) (CheckInstanceFlagSet): bits
+        /// 19-31 are theirs alone, the retail creatures', drones', bats' and penguins' scripts take them as options of their instances.
         /// </summary>
         [Flags]
         public enum InstanceState : UInt32
         {
+            // The members' descriptions document them, the inspector shows them as the check boxes' tooltips
+#pragma warning disable CS1591
+            [Description("Its agent puts the instance to sleep when it applies its state, else wakes it: an instance asleep isn't drawn and hit " +
+                         "searches leave it out")]
             Deactivated = 1 << 0,
-            /// <summary>Ray casts' queries of instances and the characters' collision find it</summary>
+            [Description("Ray casts' queries of instances and the characters' collision find it")]
             CollisionActive = 1 << 1,
+            [Description("Drawn while it's awake, its shadow needs it too")]
             Visible = 1 << 2,
+            [Description("Casts its shadow (its shadow node's shapes) while it's visible and in a scenery cell drawn this frame, every Crash " +
+                         "instance has it")]
             ShadowActive = 1 << 3,
-            /// <summary>Sets the context's bit 14, which nothing reads; scripts can test it with SoftFlagSet(4)</summary>
+            [Description("What stands on it rides along (its instance's flag 14, which dynamic scenery always has): characters standing on its " +
+                         "collision hulls move with it while its matrix isn't scaled, rigid bodies landing on it ride its movement (with " +
+                         "TracksMovement). Scripts can test it with SoftFlagSet(4)")]
             PlayableCharacterCanMoveAlong = 1 << 4,
-            /// <summary>
-            /// The instance keeps its transform of the previous frame (dynamic scenery always does), which what stands on it moves by
-            /// </summary>
+            [Description("The instance keeps its transform of the previous frame (dynamic scenery always does), which what stands on it moves by")]
             TracksMovement = 1 << 5,
-            /// <summary>
-            /// The instance gets a slot among its chunk's persistent flags, set by scripts (SetPersistentFlag) and the movies it
-            /// played, and tested by CheckPersistentFlagCondition
-            /// </summary>
+            [Description("The instance gets a slot among its chunk's persistent flags, set by scripts (SetPersistentFlag) and the movies it played, " +
+                         "and tested by CheckPersistentFlagCondition")]
             SyncCrossChunkState = 1 << 6,
-            /// <summary>
-            /// The persistent flag is kept in the chunk's own store, which every instance's flag goes to, instead of the level's
-            /// </summary>
+            [Description("The persistent flag is kept in the chunk's own store, which every instance's flag goes to, instead of the level's")]
             PersistentFlagInChunkStore = 1 << 7,
+            [Description("Hits reach it: its agent hears attacks (unless its part is invulnerable), and the scripts' HitInstancesInBoxes and the " +
+                         "Humiliskate's and the Rollerbrawl's hits find it. Scripts switch it")]
             ReceiveOnTriggerSignals = 1 << 8,
-            /// <summary>The agent hits back the characters attacking it</summary>
+            [Description("The agent hits back the characters attacking it")]
             CanDamageCharacter = 1 << 9,
-            /// <summary>Stops the characters' body slam; on a crate, crates falling on it land on it instead of slamming it</summary>
+            [Description("Stops the characters' body slam; on a crate, crates falling on it land on it instead of slamming it")]
             SolidToBodySlam = 1 << 10,
-            /// <summary>Stops the characters' slide, which doesn't crush it either; a crate with it is unbreakable</summary>
+            [Description("Stops the characters' slide, which doesn't crush it either; a crate with it is unbreakable")]
             SolidToSlide = 1 << 11,
+            [Description("Stops the characters' spin")]
             SolidToSpin = 1 << 12,
+            [Description("Stops the tied characters' slam (Crash and Cortex tied together)")]
             SolidToTwinSlam = 1 << 13,
+            [Description("Stops Cortex thrown by Crash")]
             SolidToThrownCortex = 1 << 14,
-            /// <summary>The characters' target lock can pick it</summary>
+            [Description("The characters' target lock can pick it")]
             Targettable = 1 << 15,
-            /// <summary>The agent always hits back the characters attacking it, and its script never hears of attacks or contacts</summary>
+            [Description("The agent always hits back the characters attacking it, and its script never hears of attacks or contacts")]
             CanAlwaysDamageCharacter = 1 << 16,
-            /// <summary>Projectiles hitting it bounce back</summary>
+            [Description("Projectiles hitting it bounce back")]
             BulletsWillBounceBack = 1 << 17,
-            /// <summary>
-            /// Placed on the ground when created: a ray cast from 1 above the instance to 7 below it, the instance goes where it hits
-            /// plus its float property 5
-            /// </summary>
+            [Description("Placed on the ground when created: a ray cast from 1 above the instance to 7 below it, the instance goes where it hits " +
+                         "plus its float property 5")]
             SnapToGround = 1 << 18,
-            /// <summary>
-            /// Bits 19-31 (Unknown4 to Unknown16) are the scripts' own: no engine code reads them, SoftFlagSet(19) to SoftFlagSet(31)
-            /// test them
-            /// </summary>
+            [Description("The scripts' own: no engine code reads it, SoftFlagSet(19) tests it. The retail creatures', drones', bats' and penguins' " +
+                         "scripts take bits 19 to 31 as options of their instances")]
             Unknown4 = 1 << 19,
+            [Description("The scripts' own: no engine code reads it, SoftFlagSet(20) tests it. The retail creatures', drones', bats' and penguins' " +
+                         "scripts take bits 19 to 31 as options of their instances")]
             Unknown5 = 1 << 20,
+            [Description("The scripts' own: no engine code reads it, SoftFlagSet(21) tests it. The retail creatures', drones', bats' and penguins' " +
+                         "scripts take bits 19 to 31 as options of their instances")]
             Unknown6 = 1 << 21,
+            [Description("The scripts' own: no engine code reads it, SoftFlagSet(22) tests it. The retail creatures', drones', bats' and penguins' " +
+                         "scripts take bits 19 to 31 as options of their instances")]
             Unknown7 = 1 << 22,
+            [Description("The scripts' own: no engine code reads it, SoftFlagSet(23) tests it. The retail creatures', drones', bats' and penguins' " +
+                         "scripts take bits 19 to 31 as options of their instances")]
             Unknown8 = 1 << 23,
+            [Description("The scripts' own: no engine code reads it, SoftFlagSet(24) tests it. The retail creatures', drones', bats' and penguins' " +
+                         "scripts take bits 19 to 31 as options of their instances")]
             Unknown9 = 1 << 24,
+            [Description("The scripts' own: no engine code reads it, SoftFlagSet(25) tests it. The retail creatures', drones', bats' and penguins' " +
+                         "scripts take bits 19 to 31 as options of their instances")]
             Unknown10 = 1 << 25,
+            [Description("The scripts' own: no engine code reads it, SoftFlagSet(26) tests it. The retail creatures', drones', bats' and penguins' " +
+                         "scripts take bits 19 to 31 as options of their instances")]
             Unknown11 = 1 << 26,
+            [Description("The scripts' own: no engine code reads it, SoftFlagSet(27) tests it. The retail creatures', drones', bats' and penguins' " +
+                         "scripts take bits 19 to 31 as options of their instances")]
             Unknown12 = 1 << 27,
+            [Description("The scripts' own: no engine code reads it, SoftFlagSet(28) tests it. The retail creatures', drones', bats' and penguins' " +
+                         "scripts take bits 19 to 31 as options of their instances")]
             Unknown13 = 1 << 28,
+            [Description("The scripts' own: no engine code reads it, SoftFlagSet(29) tests it. The retail creatures', drones', bats' and penguins' " +
+                         "scripts take bits 19 to 31 as options of their instances")]
             Unknown14 = 1 << 29,
+            [Description("The scripts' own: no engine code reads it, SoftFlagSet(30) tests it. The retail creatures', drones', bats' and penguins' " +
+                         "scripts take bits 19 to 31 as options of their instances")]
             Unknown15 = 1 << 30,
+            [Description("The scripts' own: no engine code reads it, SoftFlagSet(31) tests it. The retail creatures', drones', bats' and penguins' " +
+                         "scripts take bits 19 to 31 as options of their instances")]
             Unknown16 = 1U << 31,
+#pragma warning restore CS1591
         }
 
         /// <summary>
@@ -114,28 +143,20 @@ namespace Twinsanity.TwinsanityInterchange.Enumerations
         [Flags]
         public enum TriggerFlags : UInt32
         {
-            /// <summary>
-            /// Sends its second message to what enters the box when the first isn't sent
-            /// </summary>
+            // The members' descriptions document them, the inspector shows them as the check boxes' tooltips
+#pragma warning disable CS1591
+            [Description("Sends its second message to what enters the box when the first isn't sent")]
             OnEnter = 1 << 8,
-            /// <summary>
-            /// Sends its third message to what stays in the box at every check, and to what enters it when neither of the first two
-            /// is sent
-            /// </summary>
+            [Description("Sends its third message to what stays in the box at every check, and to what enters it when neither of the first two is " +
+                         "sent")]
             OnStay = 1 << 9,
-            /// <summary>
-            /// Sends its fourth message when something leaves the box
-            /// </summary>
+            [Description("Sends its fourth message when something leaves the box")]
             OnExit = 1 << 10,
-            /// <summary>
-            /// Sends its first message to what enters the box until anything has been inside it at a check (until the trigger is
-            /// reset)
-            /// </summary>
+            [Description("Sends its first message to what enters the box until anything has been inside it at a check (until the trigger is reset)")]
             OnEnterOnce = 1 << 11,
-            /// <summary>
-            /// The trigger's node never checks its box, no retail trigger has it
-            /// </summary>
+            [Description("The trigger's node never checks its box, no retail trigger has it")]
             NotPolled = 1 << 12
+#pragma warning restore CS1591
         }
         /// <summary>
         /// The types of objects that set a trigger off, a bit each (made the kinds of their agents' nodes; bit 9 is a kind no object
@@ -144,15 +165,29 @@ namespace Twinsanity.TwinsanityInterchange.Enumerations
         [Flags]
         public enum TriggerActivatorObjects
         {
+            // The members' descriptions document them, the inspector shows them as the check boxes' tooltips
+#pragma warning disable CS1591
+            [Description("The playable characters set it off: a trigger of only this bit is checked by the player itself every frame unless it " +
+                         "messages what leaves (one of no bits by every playable character), with other bits the trigger looks for them every " +
+                         "CheckInterval seconds. Cameras need it")]
             PlayableCharacter = 1 << 0,
+            [Description("Pickups set it off: the trigger looks for their instances every CheckInterval seconds")]
             Pickups = 1 << 1,
+            [Description("Crates set it off: the trigger looks for their instances every CheckInterval seconds")]
             Crates = 1 << 2,
+            [Description("Creatures set it off: the trigger looks for their instances every CheckInterval seconds")]
             Creatures = 1 << 3,
+            [Description("Generic objects set it off: the trigger looks for their instances every CheckInterval seconds")]
             GenericObjects = 1 << 4,
+            [Description("Grabbables set it off: the trigger looks for their instances every CheckInterval seconds")]
             Grabbables = 1 << 5,
+            [Description("Pay gates set it off: the trigger looks for their instances every CheckInterval seconds")]
             PayGates = 1 << 6,
+            [Description("Graples set it off: the trigger looks for their instances every CheckInterval seconds")]
             Graples = 1 << 7,
+            [Description("Projectiles set it off: the trigger looks for their instances every CheckInterval seconds")]
             Projectiles = 1 << 8
+#pragma warning restore CS1591
         }
         
         // public enum Type
@@ -214,23 +249,24 @@ namespace Twinsanity.TwinsanityInterchange.Enumerations
         [Flags]
         public enum AiPositionFlags : UInt16
         {
-            /// <summary>No route goes through the position (the path finder's step cost), the scripts' SubPathPointFlag0 tests it</summary>
+            // The members' descriptions document them, the inspector shows them as the check boxes' tooltips
+#pragma warning disable CS1591
+            [Description("No route goes through the position (the path finder's step cost), the scripts' SubPathPointFlag0 tests it")]
             Blocked = 1 << 0,
-            /// <summary>The scripts' NodeIsAirborne condition tests it on the route's step</summary>
+            [Description("The scripts' NodeIsAirborne condition tests it on the route's step")]
             Airborne = 1 << 1,
-            /// <summary>
-            /// SetFocusPositionToNearestPoint takes a position with it however far it is (others within 30 units), the scripts'
-            /// SubPathPointFlag2 conditions test it
-            /// </summary>
+            [Description("SetFocusPositionToNearestPoint takes a position with it however far it is (others within 30 units), the scripts' " +
+                         "SubPathPointFlag2 conditions test it")]
             Flag2 = 1 << 2,
-            /// <summary>Only searches asking for flags or ruling them out read it</summary>
+            [Description("Only searches asking for flags or ruling them out read it")]
             Flag3 = 1 << 3,
-            /// <summary>SetFocusPositionToNearestPoint never takes a position with it, the scripts' SubPathPointFlag4 conditions test it</summary>
+            [Description("SetFocusPositionToNearestPoint never takes a position with it, the scripts' SubPathPointFlag4 conditions test it")]
             Flag4 = 1 << 4,
-            /// <summary>The scripts' SubPathPointFlag5 conditions test it</summary>
+            [Description("The scripts' SubPathPointFlag5 conditions test it")]
             Flag5 = 1 << 5,
-            /// <summary>The scripts' SubPathPointFlag6 conditions test it</summary>
+            [Description("The scripts' SubPathPointFlag6 conditions test it")]
             Flag6 = 1 << 6,
+#pragma warning restore CS1591
         }
 
         /// <summary>
@@ -240,27 +276,28 @@ namespace Twinsanity.TwinsanityInterchange.Enumerations
         [Flags]
         public enum AiPathFlags : UInt16
         {
-            /// <summary>Set by the tools together with bit 1 (on a sixth of the retail paths), never read</summary>
+            // The members' descriptions document them, the inspector shows them as the check boxes' tooltips
+#pragma warning disable CS1591
+            [Description("Set by the tools together with bit 1 (on a sixth of the retail paths), never read")]
             Flag0 = 1 << 0,
-            /// <summary>Set by the tools together with bit 0, never read</summary>
+            [Description("Set by the tools together with bit 0, never read")]
             Flag1 = 1 << 1,
-            /// <summary>Crossing it takes a jump (EdgeNeedsJump), requests with bit 17 rule it out</summary>
+            [Description("Crossing it takes a jump (EdgeNeedsJump), requests with bit 17 rule it out")]
             NeedsJump = 1 << 2,
-            /// <summary>Crossing it takes a long jump (EdgeNeedsLongJump), requests with bit 19 rule it out</summary>
+            [Description("Crossing it takes a long jump (EdgeNeedsLongJump), requests with bit 19 rule it out")]
             NeedsLongJump = 1 << 3,
-            /// <summary>Crossing it takes a high jump (EdgeNeedsHighJump), requests with bit 18 rule it out</summary>
+            [Description("Crossing it takes a high jump (EdgeNeedsHighJump), requests with bit 18 rule it out")]
             NeedsHighJump = 1 << 4,
-            /// <summary>
-            /// Crossing it takes flying (EdgeNeedsFlying), requests with bit 20 rule it out; with bit 24 only paths with one of bits 5-8 are
-            /// taken
-            /// </summary>
+            [Description("Crossing it takes flying (EdgeNeedsFlying), requests with bit 20 rule it out; with bit 24 only paths with one of bits 5-8 " +
+                         "are taken")]
             Flag5 = 1 << 5,
-            /// <summary>Requests with bit 21 rule it out</summary>
+            [Description("Requests with bit 21 rule it out")]
             Flag6 = 1 << 6,
-            /// <summary>Requests with bit 22 rule it out</summary>
+            [Description("Requests with bit 22 rule it out")]
             Flag7 = 1 << 7,
-            /// <summary>Requests with bit 23 rule it out, the scripts' PathSegmentFlag0 condition tests it</summary>
+            [Description("Requests with bit 23 rule it out, the scripts' PathSegmentFlag0 condition tests it")]
             Flag8 = 1 << 8,
+#pragma warning restore CS1591
         }
 
         /// <summary>
@@ -271,34 +308,33 @@ namespace Twinsanity.TwinsanityInterchange.Enumerations
         [Flags]
         public enum SurfaceCollisionFlags : UInt32
         {
-            /// <summary>The tools' tag of the slightly slippy surfaces, never read: the friction does the sliding</summary>
+            // The members' descriptions document them, the inspector shows them as the check boxes' tooltips
+#pragma warning disable CS1591
+            [Description("The tools' tag of the slightly slippy surfaces, never read: the friction does the sliding")]
             SlightlySlippy = 1 << 0,
-            /// <summary>The tools' tag of the medium slippy surfaces, never read</summary>
+            [Description("The tools' tag of the medium slippy surfaces, never read")]
             MediumSlippy = 1 << 1,
-            /// <summary>Set on the liquids and the deadly surfaces, never read</summary>
+            [Description("Set on the liquids and the deadly surfaces, never read")]
             Hazard = 1 << 2,
+            [Description("One of the tools' tags (bits 0-3), never read")]
             Unknown4 = 1 << 3,
-            /// <summary>
-            /// The characters touch it and their ray casts hit it: their collision, ground search and move probes, the Humiliskate's,
-            /// the Rollerbrawl's and the graples' casts
-            /// </summary>
+            [Description("The characters touch it and their ray casts hit it: their collision, ground search and move probes, the Humiliskate's, " +
+                         "the Rollerbrawl's and the graples' casts")]
             SolidToPlayerProbes = 1 << 4,
-            /// <summary>The camera's ray casts hit it and it keeps the camera out of instances' hulls</summary>
+            [Description("The camera's ray casts hit it and it keeps the camera out of instances' hulls")]
             BlocksCamera = 1 << 5,
-            /// <summary>Ground for objects: their ray casts hit it, rigid bodies rest on it and instances snap to it</summary>
+            [Description("Ground for objects: their ray casts hit it, rigid bodies rest on it and instances snap to it")]
             SolidToObjects = 1 << 6,
-            /// <summary>Lines of sight stop at it (CanSeePlayer, ClearLineOfSightToFocus, PlayerVisible)</summary>
+            [Description("Lines of sight stop at it (CanSeePlayer, ClearLineOfSightToFocus, PlayerVisible)")]
             BlocksLineOfSight = 1 << 7,
-            /// <summary>The agents of rigid bodies touching it get the surface's contact message (set on every deadly surface)</summary>
+            [Description("The agents of rigid bodies touching it get the surface's contact message (set on every deadly surface)")]
             SendsContactMessageToObjects = 1 << 8,
-            /// <summary>The player standing on it gets the surface's contact message (the deadly surfaces' kill)</summary>
+            [Description("The player standing on it gets the surface's contact message (the deadly surfaces' kill)")]
             SendsContactMessageToPlayer = 1 << 9,
-            /// <summary>The Rollerbrawl's ball packs snow on rolling over it (other ground wears it off)</summary>
+            [Description("The Rollerbrawl's ball packs snow on rolling over it (other ground wears it off)")]
             Sticky = 1 << 10,
-            /// <summary>
-            /// Soft: Nina clings to and slides down upright walls of it she jumps into (CharacterAgent::ClingToWall), and the
-            /// Humiliskate's and the Rollerbrawl's skid trails are laid on it (LaySkidMark). Footprints go by the surface's ID
-            /// </summary>
+            [Description("Soft: Nina clings to and slides down upright walls of it she jumps into (CharacterAgent::ClingToWall), and the " +
+                         "Humiliskate's and the Rollerbrawl's skid trails are laid on it (LaySkidMark). Footprints go by the surface's ID")]
             LeavesFootprints = 1 << 11,
             Default12 = 1 << 12,
             Default13 = 1 << 13,
@@ -308,7 +344,7 @@ namespace Twinsanity.TwinsanityInterchange.Enumerations
             Default17 = 1 << 17,
             Default18 = 1 << 18,
             Default19 = 1 << 19,
-            /// <summary>The player's body collides with it, surfaces without it (water, the camera and AI walls) are passed through</summary>
+            [Description("The player's body collides with it, surfaces without it (water, the camera and AI walls) are passed through")]
             SolidToPlayer = 1 << 20,
             Unknown22 = 1 << 21,
             Unknown23 = 1 << 22,
@@ -321,6 +357,7 @@ namespace Twinsanity.TwinsanityInterchange.Enumerations
             Unknown30 = 1 << 29,
             Unknown31 = 1 << 30,
             Unknown32 = 1U << 31,
+#pragma warning restore CS1591
         }
 
         /// <summary>

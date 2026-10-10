@@ -20,6 +20,7 @@ public class ModelSlot
     [JsonProperty(Required = Required.Always)]
     [Editable(Caption = "OGI")]
     [EditorParam(UriLinkViewModel.BrowseType, typeof(OGI))]
+    [EditorParam(UriLinkViewModel.IncludeEmpty, true)]
     [OnReferenceDeleted(DeletedReferenceAction.Clear)]
     public LabURI Ogi { get; set; } = LabURI.Empty;
 

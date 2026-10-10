@@ -5,14 +5,24 @@
              xmlns:code="clr-namespace:TT_Lab.ViewModels.Editors.Code"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="TT_Lab.Views.Editors.Code.OgiAnimationFieldView">
-    <ComboBox HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" PlaceholderText="None" x:Name="AnimationChoices">
-        <ComboBox.ItemTemplate>
-            <DataTemplate x:DataType="code:OgiAnimationChoice">
-                <TextBlock>
-                    <Run Text="{Binding IdText}" FontWeight="SemiBold"/>
-                    <Run Text="{Binding Name}"/>
-                </TextBlock>
-            </DataTemplate>
-        </ComboBox.ItemTemplate>
+    <UserControl.Resources>
+        <DataTemplate x:Key="AnimationTemplate" x:DataType="code:OgiAnimationChoice">
+            <TextBlock>
+                <Run Text="{Binding IdText}" FontWeight="SemiBold"/>
+                <Run Text="{Binding Name}"/>
+            </TextBlock>
+        </DataTemplate>
+    </UserControl.Resources>
+    <!-- Opening the combo box shows the search below it in place of its own list -->
+    <ComboBox HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" PlaceholderText="None" x:Name="AnimationChoices"
+              ItemTemplate="{StaticResource AnimationTemplate}">
+        <FlyoutBase.AttachedFlyout>
+            <Flyout Placement="BottomEdgeAlignedLeft">
+                <DockPanel x:Name="SearchPanel" MaxHeight="320">
+                    <TextBox x:Name="SearchBox" DockPanel.Dock="Top" Watermark="Search the names and IDs" Margin="0,0,0,4"/>
+                    <ListBox x:Name="SearchResults" ItemTemplate="{StaticResource AnimationTemplate}"/>
+                </DockPanel>
+            </Flyout>
+        </FlyoutBase.AttachedFlyout>
     </ComboBox>
 </UserControl>

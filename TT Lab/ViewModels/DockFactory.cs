@@ -61,9 +61,20 @@ public class DockFactory : DockFactoryBase
             .ToHashSet();
 
         HideDocumentsOnClose = true;
+        // Switching the shell's tab to Scenes or Resources uses that viewer's active editor, which its own tabs don't tell
+        ActiveDockableChanged += (_, args) => NoteViewerUsed(args.Dockable);
+        FocusedDockableChanged += (_, args) => NoteViewerUsed(args.Dockable);
     }
 
     public IRootDock? MainLayout { get; private set; }
+
+    private static void NoteViewerUsed(IDockable? dockable)
+    {
+        if (dockable is EditorsViewerViewModel viewer)
+        {
+            viewer.NoteUsed();
+        }
+    }
 
     public override IRootDock CreateLayout()
     {

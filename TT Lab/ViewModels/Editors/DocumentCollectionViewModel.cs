@@ -79,13 +79,25 @@ public partial class DocumentCollectionViewModel : DocumentCompositeViewModel
     }
 
     // Elements with a name of their own, like the default chunk's 255 particle systems, show it next to their index and follow it
-    private PropertyNode? NameOf(DocumentNodeViewModel item) =>
-        item.Property.FindChild($".{_captionField ?? "Name"}") is { PropertyType: var type } name && (type == typeof(string) || type.IsAssignableTo(typeof(LabURI))) ? name : null;
+    private PropertyNode? NameOf(DocumentNodeViewModel item) => NameOf(item.Property, _captionField);
 
-    private string CaptionOf(DocumentNodeViewModel item, int index)
+    private static PropertyNode? NameOf(PropertyNode element, string? captionField) =>
+        element.FindChild($".{captionField ?? "Name"}") is { PropertyType: var type } name && (type == typeof(string) || type.IsAssignableTo(typeof(LabURI))) ? name : null;
+
+    private string CaptionOf(DocumentNodeViewModel item, int index) => CaptionOf(item.Property, index, _indexItemsAsChars, _itemPrefix, _captionField);
+
+    // What an element of the list is called where the list shows it, by the list's editor parameters
+    internal static string CaptionOf(PropertyNode list, PropertyNode element)
     {
-        var caption = GetItemCaption(index);
-        var name = NameOf(item)?.GetValue() switch
+        var parameters = list.Metadata?.EditorParams ?? [];
+        object? Parameter(string name) => parameters.TryGetValue(name, out var value) ? value : null;
+        return CaptionOf(element, element.Index ?? 0, Parameter(ItemIndexAsChars) is true, Parameter(ItemCaptionPrefix) as string, Parameter(ItemCaptionField) as string);
+    }
+
+    private static string CaptionOf(PropertyNode element, int index, bool indexAsChars, string? prefix, string? captionField)
+    {
+        var caption = GetItemCaption(index, indexAsChars, prefix);
+        var name = NameOf(element, captionField)?.GetValue() switch
         {
             string text => text,
             LabURI link when link != LabURI.Empty && AssetManager.Get().DoesAssetExist(link) => AssetManager.Get().GetAsset(link).Alias,
@@ -203,17 +215,17 @@ public partial class DocumentCollectionViewModel : DocumentCompositeViewModel
         }
     }
 
-    private string GetItemCaption(int i)
+    private static string GetItemCaption(int i, bool indexAsChars, string? prefix)
     {
         var itemCaption = $"{i}";
-        if (_indexItemsAsChars)
+        if (indexAsChars)
         {
             itemCaption = ((char)(i + 32)).ToString();
         }
         
-        if (!string.IsNullOrEmpty(_itemPrefix))
+        if (!string.IsNullOrEmpty(prefix))
         {
-            itemCaption = $"{_itemPrefix} {i}";
+            itemCaption = $"{prefix} {i}";
         }
 
         return itemCaption;

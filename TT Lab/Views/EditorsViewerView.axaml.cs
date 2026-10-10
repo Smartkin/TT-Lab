@@ -5,6 +5,7 @@ using System.Reactive.Disposables.Fluent;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using ReactiveUI;
@@ -19,6 +20,10 @@ public partial class EditorsViewerView : ReactiveUserControl<EditorsViewerViewMo
     public EditorsViewerView()
     {
         InitializeComponent();
+        // A click or the focus anywhere in the viewer uses it, in whatever window it is: Dock tells nothing when a panel gets back the focus
+        // its window's dock already gave it
+        AddHandler(PointerPressedEvent, (_, _) => ViewModel?.NoteUsed(), RoutingStrategies.Tunnel, handledEventsToo: true);
+        AddHandler(GotFocusEvent, (_, _) => ViewModel?.NoteUsed(), handledEventsToo: true);
         this.WhenActivated(disposables =>
         {
             var viewModel = ViewModel!;

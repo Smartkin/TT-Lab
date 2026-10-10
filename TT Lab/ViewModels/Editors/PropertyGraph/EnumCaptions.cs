@@ -19,8 +19,8 @@ public static class EnumCaptions
     {
         // Nina clings to walls of it and skid trails are laid on it (CharacterAgent::ClingToWall, LaySkidMark), no footprints
         [(typeof(Enums.SurfaceCollisionFlags), nameof(Enums.SurfaceCollisionFlags.LeavesFootprints))] = "Soft",
-        // Only sets a context bit nothing reads (BaseFactoryStandIn), scripts can test it like any bit
-        [(typeof(Enums.InstanceState), nameof(Enums.InstanceState.PlayableCharacterCanMoveAlong))] = "SoftFlag4",
+        // The decomp's carriesRiders: what stands on the instance rides along (the characters' solver, rigid bodies landing on it)
+        [(typeof(Enums.InstanceState), nameof(Enums.InstanceState.PlayableCharacterCanMoveAlong))] = "CarriesRiders",
         // Neither the path finder nor a condition reads them
         [(typeof(Enums.AiPathFlags), nameof(Enums.AiPathFlags.Flag0))] = "Unused0",
         [(typeof(Enums.AiPathFlags), nameof(Enums.AiPathFlags.Flag1))] = "Unused1",
@@ -47,8 +47,8 @@ public static class EnumCaptions
 
     static EnumCaptions()
     {
-        // Set on every surface and never read (the decomp's collision.cpp)
-        for (var bit = 12; bit < 20; bit++)
+        // Set on every surface and never read, and never set or read past the player's bit 20 (the decomp's SurfaceFlags)
+        foreach (var bit in Enumerable.Range(12, 8).Concat(Enumerable.Range(21, 11)))
         {
             NeverRead.Add((typeof(Enums.SurfaceCollisionFlags), Enum.GetName((Enums.SurfaceCollisionFlags)(1U << bit))!));
         }

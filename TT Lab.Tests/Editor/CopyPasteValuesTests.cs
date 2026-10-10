@@ -538,6 +538,32 @@ public sealed class CopyPasteValuesTests : IDisposable
         window.Close();
     }
 
+    // The game's objects have long names: the caption took the header's width first and pushed its icons out of the inspector
+    [AvaloniaFact]
+    public void ALongAliasLeavesTheHeadersIconsInSight()
+    {
+        var gameObject = AddObject("_Bossarea_Earth_300404_1430_BossActorsOnly_Bossarea_e3earthhub_mechoonly_cutsceneonly_act_CORTEX_TRAINING_MINIBOSS_252", 0x30, _ => { });
+        var document = Open(gameObject);
+        var window = new Window { Content = new DocumentView { ViewModel = document }, Width = 500, Height = 400 };
+        window.Show();
+        for (var i = 0; i < 10; i++)
+        {
+            Dispatcher.UIThread.RunJobs();
+        }
+
+        var header = window.GetVisualDescendants().OfType<DocumentModelView>().First(view => view.ViewModel!.IsAssetRoot).Header;
+        var icons = ((StackPanel)Assert.Single(window.GetVisualDescendants().OfType<Button>(), button => Equals(ToolTip.GetTip(button), DocumentNodeViewModel.CopyAssetValuesHint)).Parent!).Children;
+        Assert.Equal(3, icons.Count);
+        Assert.All(icons, icon =>
+        {
+            var right = Avalonia.VisualExtensions.TranslatePoint(icon, new Avalonia.Point(icon.Bounds.Width, 0), header)!.Value.X;
+            Assert.True(icon.IsEffectivelyVisible && right <= header.Bounds.Width + 0.5, $"An icon ends at {right} in a {header.Bounds.Width} wide header");
+        });
+        var caption = header.Children.OfType<TextBlock>().First();
+        Assert.True(caption.TextLayout.TextLines.Single().HasCollapsed, "The alias wasn't trimmed");
+        window.Close();
+    }
+
     // Only an asset's top has them, a document has a model view for every struct of a list
     [AvaloniaFact]
     public async Task AnAssetsHeaderCopiesAndPastesTheWholeAsset()

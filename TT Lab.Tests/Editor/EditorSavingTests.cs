@@ -123,6 +123,26 @@ public sealed class EditorSavingTests : IDisposable
         Assert.Contains("Renamed skeleton", File.ReadAllText(Path.Combine(ogi.FullPath, $"{ogi.Name}.json")));
     }
 
+    // Opening an editor that's open already turns to it, which is using it (the History panel and Discord follow the editor last used):
+    // its tab was the active one already and Dock said nothing
+    [AvaloniaFact]
+    public async Task OpeningAnOpenEditorAgainIsUsingIt()
+    {
+        var crash = CreateGameObject("Crash");
+        var viewer = new ResourcesEditorsViewModel();
+        var window = Show(viewer);
+        viewer.OpenEditor(crash);
+        await WaitUntilLoaded(viewer.Tabs.Single());
+        var used = 0;
+        viewer.Used += () => used++;
+
+        viewer.OpenEditor(crash);
+
+        Assert.Single(viewer.Tabs);
+        Assert.True(used > 0);
+        window.Close();
+    }
+
     // The X of a list's element takes the focus and its row away, which left nothing focused: Ctrl+Z went nowhere until a click inside
     // the editor put the focus back (FocusKeeper)
     [AvaloniaFact]

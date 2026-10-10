@@ -68,6 +68,12 @@ public abstract partial class DocumentCompositeViewModel : DocumentNodeViewModel
     protected void AddNode(DocumentNodeViewModel node)
     {
         _nodes.AddOrUpdate(node);
+        node.ApplyPresentation();
+    }
+
+    private void OnPresentationChanged(PropertyNode node)
+    {
+        Nodes.FirstOrDefault(child => child.Property == node)?.ApplyPresentation();
     }
 
     protected void RemoveNode(DocumentNodeViewModel node)
@@ -89,6 +95,16 @@ public abstract partial class DocumentCompositeViewModel : DocumentNodeViewModel
     protected override void OnActivated(CompositeDisposable disposables)
     {
         base.OnActivated(disposables);
+
+        // The children's presentations, which may have changed while it wasn't shown
+        foreach (var node in Nodes)
+        {
+            node.ApplyPresentation();
+        }
+
+        var graph = Document.PropertyGraph;
+        graph.PresentationChanged += OnPresentationChanged;
+        Disposable.Create(() => graph.PresentationChanged -= OnPresentationChanged).DisposeWith(disposables);
 
         this.WhenAnyValue(x => x.IsExpanded)
             .Subscribe(x =>
@@ -135,6 +151,8 @@ public abstract partial class DocumentCompositeViewModel : DocumentNodeViewModel
             {
                 var editor = EditorDescRegistry.GetDesc(Document, propertyChild).Construct();
                 editor.DeclarationOrder = order;
+                // Added past AddNode, after the activation applied the children's presentations
+                editor.ApplyPresentation();
                 return editor;
             })
             .ToList();

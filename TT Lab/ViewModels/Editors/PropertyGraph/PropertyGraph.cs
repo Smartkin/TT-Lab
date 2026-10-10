@@ -6,6 +6,11 @@ namespace TT_Lab.ViewModels.Editors.PropertyGraph;
 public class PropertyGraph
 {
     public event Action<PropertyChange>? Changed;
+
+    /// <summary>
+    /// A node's <see cref="PropertyNode.Presentation"/> changed, the composites showing its editor apply it
+    /// </summary>
+    public event Action<PropertyNode>? PresentationChanged;
     public PropertyNode Root { get; }
     public PropertyGraphTracker Tracker { get; }
 
@@ -18,6 +23,8 @@ public class PropertyGraph
     /// Goes up whenever nodes come, go or move, the nodes' paths are worked out again after
     /// </summary>
     public int StructureVersion { get; private set; }
+
+    internal void OnPresentationChanged(PropertyNode node) => PresentationChanged?.Invoke(node);
 
     public PropertyGraph(PropertyNode root, PropertyGraphTracker tracker)
     {

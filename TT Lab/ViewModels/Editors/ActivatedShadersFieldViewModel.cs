@@ -12,7 +12,7 @@ using Twinsanity.TwinsanityInterchange.Enumerations;
 
 namespace TT_Lab.ViewModels.Editors;
 
-public sealed record ShaderTypeItem(string Name, bool IsUsed);
+public sealed record ShaderTypeItem(string Name, bool IsUsed, string? Hint);
 
 /// <summary>
 /// The shader types a material's activated shaders stand for, each ticked when one of the material's shaders has it. The stored bits can't
@@ -36,7 +36,7 @@ public partial class ActivatedShadersFieldViewModel : DocumentDataViewModel<obje
     {
         var used = shaders.Select(shader => shader.ShaderType).ToHashSet();
         return TypesWithBits.Concat(used.Where(type => !TypesWithBits.Contains(type)).Order())
-            .Select(type => new ShaderTypeItem(type.ToString(), used.Contains(type))).ToList();
+            .Select(type => new ShaderTypeItem(type.ToString(), used.Contains(type), EnumCaptions.HintOf(typeof(TwinShader.Type), type.ToString()))).ToList();
     }
 
     protected override void OnActivated(CompositeDisposable disposables)

@@ -46,6 +46,11 @@ public sealed class Pcsx2Service : IDisposable
 
     public bool IsRunning => _session?.IsRunning == true;
 
+    private int _preparing;
+
+    // From Play getting the chunk ready (its build) until PCSX2's process is gone
+    public bool IsGameActive => Volatile.Read(ref _preparing) > 0 || IsRunning;
+
     /// <summary>
     /// The chunk PCSX2 plays, none once it stopped or closed
     /// </summary>
@@ -93,7 +98,9 @@ public sealed class Pcsx2Service : IDisposable
 
         var startChunk = GameExecutable.ChunkPath(chunk.AdditionalPath!);
 
-        var install = await FindInstallAsync();
+        // The preferences' arguments for PCSX2, -portable among them moves its settings
+        var arguments = CommandLineArguments.Split(Preferences.GetPreference<string>(Preferences.Pcsx2Arguments));
+        var install = await FindInstallAsync(arguments);
         var discImage = await FindDiscImageAsync(project);
         if (install == null || discImage == null)
         {
@@ -101,62 +108,71 @@ public sealed class Pcsx2Service : IDisposable
         }
 
         Stop();
-        var folder = DevFolder(project);
-        var total = Stopwatch.StartNew();
-        Log.WriteLine($"Getting {chunk.Alias} ready to play in PCSX2...");
-        GameRelease? release = null;
-        var prepared = await RunWithProjectBusyAsync($"Error getting {chunk.Alias} ready for PCSX2", () =>
-        {
-            release = GameRelease.Detect(project.DiscContentPathPS2!);
-            var chunks = ChunkWithLinks(chunk);
-            // The patch's level select reads the project's list, where the chunks made in TT Lab are, and those only play once built
-            var levelSelect = release.LevelSelectPatch != null ? LevelSelectText(project) : null;
-            if (levelSelect != null)
-            {
-                chunks.AddRange(ChunksTheDiscLacks(project, levelSelect, Pcsx2DevFolder.ArchiveFiles(project.DiscContentPathPS2!)));
-            }
-
-            BuildChunks(project, chunks.Distinct());
-            folder.WriteExecutable(release, project.DiscContentPathPS2!, startChunk);
-            var extracted = folder.ExtractArchive(project.DiscContentPathPS2!);
-            if (extracted > 0)
-            {
-                Log.WriteLine($"Took {extracted} files out of the disc's archive into {folder.FolderPath}");
-            }
-
-            folder.CopyBuiltFiles(project.GetBuildFilesPath(GamePlatform.PS2));
-            folder.CopySoundBanks(project.DiscContentPathPS2!);
-            if (levelSelect != null)
-            {
-                folder.WriteFile(LevelSelectPath, Encoding.Latin1.GetBytes(levelSelect));
-            }
-        });
-        if (!prepared)
-        {
-            return;
-        }
-
+        // Play's build counts as the game running already, PCSX2's process takes over once it's started
+        Interlocked.Increment(ref _preparing);
         try
         {
-            var session = Pcsx2Session.Launch(install, release!, folder.ExecutablePath(release!), discImage, startChunk);
-            session.Exited += () =>
+            var folder = DevFolder(project);
+            var total = Stopwatch.StartNew();
+            Log.WriteLine($"Getting {chunk.Alias} ready to play in PCSX2...");
+            GameRelease? release = null;
+            var prepared = await RunWithProjectBusyAsync($"Error getting {chunk.Alias} ready for PCSX2", () =>
             {
-                Log.WriteLine("PCSX2 closed");
-                if (_session == session)
+                release = GameRelease.Detect(project.DiscContentPathPS2!);
+                var chunks = ChunkWithLinks(chunk);
+                // The patch's level select reads the project's list, where the chunks made in TT Lab are, and those only play once built
+                var levelSelect = release.LevelSelectPatch != null ? LevelSelectText(project) : null;
+                if (levelSelect != null)
                 {
-                    _playing.OnNext(null);
+                    chunks.AddRange(ChunksTheDiscLacks(project, levelSelect, Pcsx2DevFolder.ArchiveFiles(project.DiscContentPathPS2!)));
                 }
-            };
-            _session = session;
-            _playing.OnNext(chunkUri);
-            Log.WriteLine($"PCSX2 is booting {chunk.Alias} ({release!.Name}), it goes straight to playing it");
-            await session.EnterGameAsync(CancellationToken.None);
-            Log.WriteLine($"Playing {chunk.Alias} in PCSX2 after {total.Elapsed.TotalSeconds:F0} s, saving reloads it");
+
+                BuildChunks(project, chunks.Distinct());
+                folder.WriteExecutable(release, project.DiscContentPathPS2!, startChunk);
+                var extracted = folder.ExtractArchive(project.DiscContentPathPS2!);
+                if (extracted > 0)
+                {
+                    Log.WriteLine($"Took {extracted} files out of the disc's archive into {folder.FolderPath}");
+                }
+
+                folder.CopyBuiltFiles(project.GetBuildFilesPath(GamePlatform.PS2));
+                folder.CopySoundBanks(project.DiscContentPathPS2!);
+                if (levelSelect != null)
+                {
+                    folder.WriteFile(LevelSelectPath, Encoding.Latin1.GetBytes(levelSelect));
+                }
+            });
+            if (!prepared)
+            {
+                return;
+            }
+
+            try
+            {
+                var session = Pcsx2Session.Launch(install, release!, folder.ExecutablePath(release!), discImage, startChunk, arguments);
+                session.Exited += () =>
+                {
+                    Log.WriteLine("PCSX2 closed");
+                    if (_session == session)
+                    {
+                        _playing.OnNext(null);
+                    }
+                };
+                _session = session;
+                _playing.OnNext(chunkUri);
+                Log.WriteLine($"PCSX2 is booting {chunk.Alias} ({release!.Name}), it goes straight to playing it");
+                await session.EnterGameAsync(CancellationToken.None);
+                Log.WriteLine($"Playing {chunk.Alias} in PCSX2 after {total.Elapsed.TotalSeconds:F0} s, saving reloads it");
+            }
+            catch (Exception ex)
+            {
+                Log.WriteLine($"PCSX2 couldn't play {chunk.Alias}: {ex.Message}", Log.LogType.Error);
+                Log.WriteLine(ex.ToString(), Log.LogType.Debug);
+            }
         }
-        catch (Exception ex)
+        finally
         {
-            Log.WriteLine($"PCSX2 couldn't play {chunk.Alias}: {ex.Message}", Log.LogType.Error);
-            Log.WriteLine(ex.ToString(), Log.LogType.Debug);
+            Interlocked.Decrement(ref _preparing);
         }
     }
 
@@ -347,9 +363,9 @@ public sealed class Pcsx2Service : IDisposable
 
     private static Pcsx2DevFolder DevFolder(TT_Lab.Project.Project project) => new(Path.Combine(project.ProjectPath, "build", "pcsx2"));
 
-    private static async Task<Pcsx2Install?> FindInstallAsync()
+    private static async Task<Pcsx2Install?> FindInstallAsync(IReadOnlyList<string> arguments)
     {
-        var install = Pcsx2Install.Find(Preferences.GetPreference<string>(Preferences.Pcsx2Path));
+        var install = Pcsx2Install.Find(Preferences.GetPreference<string>(Preferences.Pcsx2Path), arguments);
         if (install != null)
         {
             return install;
@@ -364,7 +380,7 @@ public sealed class Pcsx2Service : IDisposable
 
         Preferences.SetPreference(Preferences.Pcsx2Path, picked);
         Preferences.Save();
-        return Pcsx2Install.Find(picked);
+        return Pcsx2Install.Find(picked, arguments);
     }
 
     // The disc PCSX2 boots with: the game streams its videos from it (sceCdSearchFile, past the loader the executable's patched in), a

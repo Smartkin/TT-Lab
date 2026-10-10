@@ -6,4 +6,10 @@ public record FlagsEditorDesc : EditorDesc
     {
         IsExpanded = true
     };
+
+    // The bits are rows of their own, their property's caption goes above them
+    protected override void Finish(DocumentNodeViewModel editor)
+    {
+        editor.Orientation = Avalonia.Controls.Dock.Top;
+    }
 }

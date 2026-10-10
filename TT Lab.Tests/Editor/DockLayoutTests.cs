@@ -65,6 +65,56 @@ public class DockLayoutTests
         })).ToArray()));
     }
 
+    // The History panel and the Discord presence follow the viewer used last. Switching the shell's tab from Resources to Scenes didn't
+    // count, only the viewer's own tabs told, and those don't change then; a click into a viewer counts too, in whatever window it is
+    [AvaloniaFact]
+    public async Task SwitchingToAViewerOrClickingIntoItUsesIt()
+    {
+        var factory = CreateShellFactory();
+        var layout = factory.CreateLayout();
+        var scenes = PanelsOf(layout).OfType<ScenesEditorsViewModel>().Single();
+        var resources = PanelsOf(layout).OfType<ResourcesEditorsViewModel>().Single();
+        EditorsViewerViewModel? used = null;
+        scenes.Used += () => used = scenes;
+        resources.Used += () => used = resources;
+        var window = new Window { Content = new DockControl { Factory = factory, InitializeFactory = true, InitializeLayout = true, Layout = layout }, Width = 1280, Height = 720 };
+        window.Show();
+        try
+        {
+            DocumentTabStripItem? TabOf(EditorsViewerViewModel viewer) =>
+                window.GetVisualDescendants().OfType<DocumentTabStripItem>().FirstOrDefault(tab => tab.DataContext == viewer);
+            await WaitUntil(() => TabOf(scenes) != null && TabOf(resources) != null);
+
+            Click(window, TabOf(resources)!);
+            Assert.Same(resources, used);
+            Click(window, TabOf(scenes)!);
+            Assert.Same(scenes, used);
+            Assert.Same(scenes, ((IDock)scenes.Owner!).ActiveDockable);
+
+            // Used elsewhere (another window of it) and clicked into again without the shell's dock changing anything
+            resources.NoteUsed();
+            await WaitUntil(() => window.GetVisualDescendants().OfType<TT_Lab.Views.EditorsViewerView>().Any(view => view.DataContext == scenes && view.IsEffectivelyVisible));
+            Click(window, window.GetVisualDescendants().OfType<TT_Lab.Views.EditorsViewerView>().Single(view => view.DataContext == scenes && view.IsEffectivelyVisible));
+            Assert.Same(scenes, used);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    // Clicks are hit tested by what the compositor got last (see PrefabDragAndSearchTests)
+    private static void Click(Window window, Control control)
+    {
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        var point = control.TranslatePoint(new Point(control.Bounds.Width / 2, control.Bounds.Height / 2), window)!.Value;
+        Avalonia.Headless.HeadlessWindowExtensions.MouseDown(window, point, MouseButton.Left);
+        Avalonia.Headless.HeadlessWindowExtensions.MouseUp(window, point, MouseButton.Left);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+    }
+
     private static IEnumerable<IDocument> PanelsOf(IDockable dockable) => dockable switch
     {
         IDock dock => (dock.VisibleDockables ?? []).SelectMany(PanelsOf),

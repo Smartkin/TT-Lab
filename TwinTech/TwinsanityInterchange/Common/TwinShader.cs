@@ -1,4 +1,5 @@
 ﻿using System;
+using System.ComponentModel;
 using System.IO;
 using Twinsanity.TwinsanityInterchange.Common.ShaderAnimation;
 using Twinsanity.TwinsanityInterchange.Enumerations;
@@ -246,38 +247,68 @@ namespace Twinsanity.TwinsanityInterchange.Common
         #region Enums
         public enum Type
         {
+            // The members' descriptions document them, the inspector shows them as the type dropdown's and the activated shaders' tooltips
+#pragma warning disable CS1591
+            [Description("Unlit: the texture times the vertexes' colors. Most of the game's scenery and objects are drawn with it")]
             StandardUnlit = 1,
+            [Description("Lit: the texture times the vertexes' colors times the light at the instance (the scenery's three strongest lights and its " +
+                         "ambient), for objects' rigid models")]
             StandardLit = 2,
+            [Description("Lit like StandardLit, for skins and blend skins: the only type whose program takes a skin's packets, a skin drawn with " +
+                         "another type hangs the game")]
             LitSkinnedModel = 4,
+            [Description("The sky's: drawn around the camera into a buffer of half the screen's size before the level, without depth. On anything " +
+                         "but a sky it draws with the last sky's matrix")]
             UnlitSkydome = 10,
+            [Description("The characters' shadow volumes: positions in a constant color, no texture")]
             ColorOnly = 11,
+            [Description("StandardLit's color with an environment map: the picture read by where the view and the normal point, turning with the " +
+                         "view, not by the mesh's UVs. Always a second shader over a lit or unlit one")]
             LitEnvironmentMap = 12,
+            [Description("The UI's: sprites of a font page's glyphs")]
             UiShader = 13,
+            [Description("LitSkinnedModel's lighting with its picture read by the view reflected about the normal, only ordinary skins give it what " +
+                         "it needs")]
             LitMetallic = 15,
+            [Description("StandardLit's color drawing the frame, copied before the draw, moved by FloatParam[0] times the normal: never its own " +
+                         "texture")]
             LitReflectionSurface = 16,
+            [Description("A screen copy like LitReflectionSurface: the frame copied before the draw. No PS2 material of the game has it")]
             SHADER_17 = 17,
+            [Description("The particle texture pages' (the default chunk's three): the particle code draws the pages with shaders of its own, the " +
+                         "Page material blend mode with this one's settings")]
             Particle = 18,
+            [Description("The decals' (footfalls, ripples)")]
             Decal = 19,
+            [Description("No PS2 material of the game has it")]
             SHADER_20 = 20,
+            [Description("Draws exactly like StandardUnlit: the gloss of the game's materials of it is the UnlitEnvironmentMap shader after it")]
             UnlitGlossy = 21,
+            [Description("An environment map, unlit: the picture read by where the view and the normal point, turning with the view, not by the " +
+                         "mesh's UVs. The game's gloss")]
             UnlitEnvironmentMap = 22,
+            [Description("Unlit, every vertex moved by waves (IntParam the mode, FloatParam the speed and one amplitude), vertexes at the same " +
+                         "place moving together")]
             UnlitClothDeformation = 23,
-            /// <summary>
-            /// Copies the screen before drawing (ShaderType18Read, the Distortion particles' shader), <see cref="FloatParam"/>[0] the
-            /// corner value its VU1 program gets, like types 16 and 17. No retail material has it
-            /// </summary>
+            [Description("The Distortion particles' copy of the screen (FloatParam[0] its corner value). A material can't have it: the game's " +
+                         "material reader makes no shader of it and reading it crashes the game")]
             ScreenCopy = 24,
+            [Description("No PS2 material of the game has it")]
             SHADER_25 = 25,
+            [Description("UnlitClothDeformation with an amplitude per axis")]
             UnlitClothDeformation2 = 26,
+            [Description("Drawn like StandardUnlit, the model turned about its up axis to face the camera")]
             UnlitBillboard = 27,
-            /// <summary>
-            /// Moves its vertexes by waves like the cloth deformations (ShaderType1CRead, the decomp's WaveShader):
-            /// <see cref="FloatParam"/>[0] their speed, [1] their amplitude. No retail material has it
-            /// </summary>
+            [Description("Moves its vertexes by waves like the cloth deformations (FloatParam[0] their speed, [1] their amplitude). A material " +
+                         "can't have it: the game's material reader makes no shader of it and reading it crashes the game")]
             WaveDeformation = 28,
+            [Description("No PS2 material of the game has it")]
             SHADER_30 = 30,
+            [Description("No PS2 material of the game has it")]
             SHADER_31 = 31,
+            [Description("No PS2 material of the game has it")]
             SHADER_32 = 32,
+#pragma warning restore CS1591
         }
         public enum AlphaBlending
         {

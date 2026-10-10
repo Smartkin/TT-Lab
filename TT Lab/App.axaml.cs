@@ -30,6 +30,7 @@ public partial class App : Application
     {
         AvaloniaXamlLoader.Load(this);
         ComboBoxDropDowns.KeepScrollRequestsInside();
+        Styles.Add(ToolTips.FitInWindows());
     }
 
     public override void OnFrameworkInitializationCompleted()
@@ -71,6 +72,7 @@ public partial class App : Application
             var window = new ShellView(Services.GetRequiredService<ILabManager>());
 
             desktop.MainWindow = window;
+            Services.GetRequiredService<Tools.Discord.DiscordPresence>().Start();
             // The context viewports keep current, made before anything unpacks the game's assets (ViewportHost.PinGlLibrary)
             System.Threading.Tasks.Task.Run(ViewportHost.MakeGlAnchor);
             desktop.Startup += (_, _) =>

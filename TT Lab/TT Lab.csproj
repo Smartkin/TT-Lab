@@ -98,6 +98,7 @@
         <PackageReference Include="Dock.Model.ReactiveUI" Version="11.3.11.16" />
         <PackageReference Include="Dock.Model.ReactiveUI.Services" Version="11.3.11.16" />
         <PackageReference Include="Dock.Serializer.Newtonsoft" Version="11.3.11.16" />
+        <PackageReference Include="DiscordRichPresence" Version="1.6.1.70" />
         <PackageReference Include="geometry3Sharp" Version="1.0.324" />
         <PackageReference Include="GlmSharpStd" Version="0.9.8" />
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.3" />

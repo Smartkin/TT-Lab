@@ -82,6 +82,70 @@ public sealed class MaterialEditorTests : IDisposable
         Assert.Equal(["UnlitBillboard"], Ticked(field));
         document.Undo();
         Assert.Equal(["StandardUnlit"], Ticked(field));
+        Assert.Contains("sky", field.Types.Single(item => item.Name == nameof(TwinShader.Type.UnlitSkydome)).Hint);
+    }
+
+    private static IEnumerable<DocumentNodeViewModel> EditorsUnder(DocumentNodeViewModel editor) =>
+        editor is DocumentCompositeViewModel composite ? composite.Nodes.SelectMany(node => EditorsUnder(node).Prepend(node)) : [];
+
+    // A shader's integer and floats only show for the types that read them, captioned by what they are: they were "Int Param" and four
+    // "Float Param"s on every shader, grayed out on the types that read none. Shown first for a type reading none, they showed until the
+    // type changed: the inspector made their editors after it had looked at what the nodes show
+    [AvaloniaFact]
+    public void TheParamsShowWhatTheShadersTypeReads()
+    {
+        var (document, _) = Open(TwinShader.Type.StandardLit);
+        document.OpenInspector(document.PropertyGraph.Root, document.PropertyGraph.Find("Root.AssetData.Shaders[0].FloatParam"));
+        var window = new Window { Content = new DocumentScrollViewer { Content = document.Inspector }, Width = 800, Height = 2000 };
+        window.Show();
+        void Pump()
+        {
+            for (var i = 0; i < 10; i++)
+            {
+                Dispatcher.UIThread.RunJobs();
+            }
+        }
+
+        DocumentNodeViewModel Shown(string path) => EditorsUnder(document.Inspector!).Single(editor => editor.Property.Path == $"Root.AssetData.Shaders[0].{path}");
+        string[] FloatCaptions() => Enumerable.Range(0, 4).Select(index => Shown($"FloatParam[{index}]")).Where(editor => editor.IsVisible).Select(editor => editor.Caption).ToArray();
+        bool Showing(string caption) => window.GetVisualDescendants().OfType<TextBlock>().Any(text => text.Text == caption && text.IsEffectivelyVisible);
+        Pump();
+
+        Assert.False(Shown("IntParam").IsVisible);
+        Assert.False(Shown("FloatParam").IsVisible);
+        Assert.False(Showing("Int Param"));
+        Assert.False(Showing("Float Param"));
+
+        var type = document.PropertyGraph.Find("Root.AssetData.Shaders[0].ShaderType")!;
+        type.SetValue(TwinShader.Type.UnlitClothDeformation2);
+        Pump();
+        Assert.True(Shown("IntParam").IsVisible);
+        Assert.Equal("Wave Mode", Shown("IntParam").Caption);
+        Assert.Contains("2.3 times", Shown("IntParam").Hint);
+        Assert.Equal("Waves", Shown("FloatParam").Caption);
+        Assert.Equal(["Speed", "Amplitude X", "Amplitude Y", "Amplitude Z"], FloatCaptions());
+        Assert.True(Showing("Amplitude Y"));
+
+        type.SetValue(TwinShader.Type.LitReflectionSurface);
+        Pump();
+        Assert.False(Shown("IntParam").IsVisible);
+        Assert.True(Shown("FloatParam").IsVisible);
+        Assert.Equal("Reflection", Shown("FloatParam").Caption);
+        Assert.Equal(["Offset"], FloatCaptions());
+        Assert.False(Showing("Amplitude Y"));
+
+        // Changes of one value in a row are one step: undo puts the type before them back and what it shows with it, redo the last
+        document.Undo();
+        Pump();
+        Assert.Equal(TwinShader.Type.StandardLit, type.GetValue());
+        Assert.False(Shown("IntParam").IsVisible);
+        Assert.False(Shown("FloatParam").IsVisible);
+        document.Redo();
+        Pump();
+        Assert.Equal(TwinShader.Type.LitReflectionSurface, type.GetValue());
+        Assert.True(Shown("FloatParam").IsVisible);
+        Assert.Equal(["Offset"], FloatCaptions());
+        window.Close();
     }
 
     [AvaloniaFact]

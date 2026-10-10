@@ -133,6 +133,7 @@ namespace TT_Lab.AssetData.Code
         [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Behaviour Slot")]
         [EditorParam(DocumentCollectionViewModel.MaxCount, MaxSlots)]
         [EditorParam(UriLinkViewModel.BrowseType, typeof(BehaviourGraph))]
+        [EditorParam(UriLinkViewModel.IncludeEmpty, true)]
         [OnReferenceDeleted(DeletedReferenceAction.Clear)]
         public List<LabURI> BehaviourSlots { get; set; }
         
@@ -141,6 +142,7 @@ namespace TT_Lab.AssetData.Code
         [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Object Slot")]
         [EditorParam(DocumentCollectionViewModel.MaxCount, MaxSlots)]
         [EditorParam(UriLinkViewModel.BrowseType, typeof(GameObject))]
+        [EditorParam(UriLinkViewModel.IncludeEmpty, true)]
         [OnReferenceDeleted(DeletedReferenceAction.Clear)]
         public List<LabURI> ObjectSlots { get; set; }
         
@@ -149,6 +151,7 @@ namespace TT_Lab.AssetData.Code
         [EditorParam(DocumentCollectionViewModel.ItemCaptionPrefix, "Sound Slot")]
         [EditorParam(DocumentCollectionViewModel.MaxCount, MaxSlots)]
         [EditorParam(UriLinkViewModel.BrowseType, typeof(SoundEffect))]
+        [EditorParam(UriLinkViewModel.IncludeEmpty, true)]
         [OnReferenceDeleted(DeletedReferenceAction.Clear)]
         public List<LabURI> SoundSlots { get; set; }
         
@@ -431,6 +434,13 @@ namespace TT_Lab.AssetData.Code
             CheckCount("instance tagged values", TaggedProperties.Count, MaxSlots);
             CheckCount("instance float properties", FloatProperties.Count, MaxSlots);
             CheckCount("instance integer properties", IntProperties.Count, MaxSlots);
+            // A trigger message is a behaviour's starter to run, never none in the game's objects; one added in the inspector starts without it
+            var withoutBehaviour = TriggerBehaviours.FindIndex(trigger => trigger.TriggerBehaviour == LabURI.Empty);
+            if (withoutBehaviour >= 0)
+            {
+                throw new InvalidOperationException($"{Owner.Alias}'s trigger message {withoutBehaviour} has no behaviour to run when its message comes");
+            }
+
             CheckForItsType();
             var assetManager = AssetManager.Get();
             // Every instance reads its object's first model slot with no check (MakeObjectModelNode), an object without one gets one of none

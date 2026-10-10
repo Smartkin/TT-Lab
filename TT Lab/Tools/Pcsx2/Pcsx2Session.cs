@@ -26,6 +26,9 @@ public sealed class Pcsx2Session : IDisposable
     private static readonly TimeSpan WatchInterval = TimeSpan.FromSeconds(1);
     // A PCSX2 still running this long after its game stopped (its main window back) is closed, TT Lab started it for the game
     private static readonly TimeSpan StoppedGrace = TimeSpan.FromSeconds(5);
+    // TT Lab's own PINE slot answers within a few seconds of the game booting, PCSX2 2.0 and 2.2 open PINE on its default slot instead
+    private static readonly TimeSpan OwnSlotFirst = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan PineWait = TimeSpan.FromSeconds(60);
 
     private readonly Process _process;
     private readonly Pcsx2Install _install;
@@ -55,11 +58,12 @@ public sealed class Pcsx2Session : IDisposable
     /// </summary>
     public event Action? Exited;
 
-    public static Pcsx2Session Launch(Pcsx2Install install, GameRelease release, string executable, string discImage, string startChunk)
+    public static Pcsx2Session Launch(Pcsx2Install install, GameRelease release, string executable, string discImage, string startChunk,
+        IReadOnlyList<string>? extraArguments = null)
     {
         install.WriteGameSettings(release);
         install.WritePatches(release);
-        var process = Process.Start(install.StartInfo(executable, discImage)) ?? throw new IOException("PCSX2 didn't start");
+        var process = Process.Start(install.StartInfo(executable, discImage, extraArguments)) ?? throw new IOException("PCSX2 didn't start");
         var session = new Pcsx2Session(process, install, release, startChunk);
         process.EnableRaisingEvents = true;
         process.Exited += (_, _) => session.RaiseExited();
@@ -236,6 +240,9 @@ public sealed class Pcsx2Session : IDisposable
         throw new IOException($"The game didn't go to state {state}");
     }
 
+    // TT Lab's own PINE slot, out of the way of a PCSX2 the user runs with PINE on. PCSX2 2.0 and 2.2 open PINE on its default slot whatever
+    // the game settings say (2.4.0 on take the slot), so once TT Lab's stays shut the default one is tried too, and taken when it plays this
+    // session's patched executable: another PCSX2 there is left alone
     private async Task<RunningGame> ConnectAsync(CancellationToken cancellation)
     {
         if (_game != null)
@@ -259,15 +266,53 @@ public sealed class Pcsx2Session : IDisposable
             }
             catch (Exception ex) when (ex is IOException or SocketException)
             {
-                if (started.Elapsed > TimeSpan.FromSeconds(60))
+                if (started.Elapsed > OwnSlotFirst && ConnectDefaultSlot() is { } game)
                 {
-                    throw new IOException($"PCSX2 didn't open PINE on slot {Pcsx2Install.PineSlot} ({ex.Message}), {_install.GameSettingsPath(_release)} turns it on", ex);
+                    Log.WriteLine($"PCSX2 opened PINE on its default slot {Pcsx2Install.DefaultPineSlot} (PCSX2 2.0 and 2.2 do), playing through it", Log.LogType.Info);
+                    _game = game;
+                    return _game;
+                }
+
+                if (started.Elapsed > PineWait)
+                {
+                    throw new IOException($"PCSX2 didn't answer on PINE ({ex.Message}). Play needs PCSX2 {Pcsx2Install.OldestVersion} or newer, " +
+                                          $"{_install.GameSettingsPath(_release)} turns PINE on for the game", ex);
                 }
 
                 await Task.Delay(TimeSpan.FromMilliseconds(500), cancellation);
             }
         }
     }
+
+    // None until PINE's default slot answers with this session's game, PCSX2 refuses reading memory until its virtual machine runs
+    private RunningGame? ConnectDefaultSlot()
+    {
+        PineClient? pine = null;
+        try
+        {
+            pine = _install.ConnectPine(_process, Pcsx2Install.DefaultPineSlot);
+            if (!PlaysSession(pine, _release, StartChunk))
+            {
+                return null;
+            }
+
+            var game = new RunningGame(pine, _release);
+            pine = null;
+            return game;
+        }
+        catch (Exception ex) when (ex is IOException or SocketException)
+        {
+            return null;
+        }
+        finally
+        {
+            pine?.Dispose();
+        }
+    }
+
+    // The patched executable carries the start chunk's path in the gap after .vutext (GameExecutable.Patch), no other game has it there
+    internal static bool PlaysSession(PineClient pine, GameRelease release, string startChunk) =>
+        pine.ReadString(release.StartChunkGap, GameExecutable.MaxChunkPathLength + 1) == startChunk;
 
     public void Dispose()
     {

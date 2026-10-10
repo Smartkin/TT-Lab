@@ -14,7 +14,7 @@
         </ItemsControl.ItemsPanel>
         <ItemsControl.ItemTemplate>
             <DataTemplate DataType="viewmodels:ShaderTypeItem">
-                <UniformGrid Columns="2" Background="Transparent" ToolTip.Tip="Ticked when one of the material's shaders has this type">
+                <UniformGrid Columns="2" Background="Transparent" ToolTip.Tip="{Binding Hint}" ToolTip.ShowDelay="500">
                     <TextBlock Text="{Binding Name}"/>
                     <CheckBox IsChecked="{Binding IsUsed, Mode=OneWay}" IsHitTestVisible="False" Focusable="False"/>
                 </UniformGrid>

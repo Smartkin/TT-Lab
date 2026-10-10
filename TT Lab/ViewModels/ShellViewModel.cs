@@ -119,6 +119,12 @@ public class ShellViewModel : Screen, ILabManager
                 }
             }
 
+            // A level chunk's resources are edited in its scene and never get a tab of their own, the startup chunk's are the game's
+            if (LevelChunk.Owning(openedAsset) is { IsGlobalDefaultChunk: false } chunk)
+            {
+                openedAsset = chunk;
+            }
+
             DockFactory.ShowPanel(EditorsViewModel.GetViewerFor(openedAsset));
             EditorsViewModel.OpenEditor(openedAsset);
             // Scene tabs only have the viewport, the chunk's resources are in their own panel

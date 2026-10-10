@@ -1,5 +1,8 @@
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using TT_Lab.AssetData.Code;
@@ -11,6 +14,7 @@ using TT_Lab.ViewModels.Editors;
 using TT_Lab.ViewModels.Editors.Code;
 using TT_Lab.ViewModels.Editors.Descs;
 using TT_Lab.Views.Editors;
+using TT_Lab.Views.Editors.Code;
 using Twinsanity.TwinsanityInterchange.Common;
 
 namespace TT_Lab.Tests.Editor;
@@ -108,6 +112,133 @@ public sealed class OgiAnimationEditorTests : IDisposable
         Assert.Equal(0x2, slot.Animation);
         Assert.Equal("Run", editor.SelectedAnimation!.Name);
         Assert.False(document.CanRedo);
+    }
+
+    // The dropdown's search shows the animations with every word typed in their name or ID (hex, 0x or not) and highlights the first,
+    // which Enter picks; opened, it shows them all with the slot's highlighted
+    [AvaloniaFact]
+    public void TheSearchShowsTheAnimationsWithTheWordsTyped()
+    {
+        var ogi = AddOgi("Skeleton", CreateAnimation(0x1, "Walk"), CreateAnimation(0x2, "Run"), CreateAnimation(0x1A, "Run fast"));
+        var (document, slot) = OpenGameObject(new ModelSlot { Ogi = ogi.URI, Animation = 0x1 });
+        var editor = Construct<OgiAnimationFieldViewModel>(document, "Root.AssetData.ModelSlots[0].Animation");
+        string[] Shown() => editor.ShownAnimations.Select(animation => animation.Name).ToArray();
+
+        editor.StartSearch();
+        Assert.Equal(["None", "Walk", "Run", "Run fast"], Shown());
+        Assert.Equal("Walk", editor.Highlighted!.Name);
+
+        editor.Search = "RUN";
+        Assert.Equal(["Run", "Run fast"], Shown());
+        Assert.Equal("Run", editor.Highlighted!.Name);
+        editor.Search = "fast run";
+        Assert.Equal(["Run fast"], Shown());
+        editor.Search = "0x1a";
+        Assert.Equal(["Run fast"], Shown());
+        editor.Search = "1";
+        Assert.Equal(["Walk", "Run fast"], Shown());
+        editor.Search = "jump";
+        Assert.Empty(Shown());
+        Assert.Null(editor.Highlighted);
+        Assert.False(editor.PickHighlighted());
+        Assert.False(document.IsDirty);
+
+        editor.Search = "run";
+        editor.MoveHighlight(1);
+        editor.MoveHighlight(1);
+        Assert.Equal("Run fast", editor.Highlighted!.Name);
+        editor.MoveHighlight(-1);
+        Assert.Equal("Run", editor.Highlighted!.Name);
+        editor.MoveHighlight(1);
+        Assert.True(editor.PickHighlighted());
+        Pump();
+
+        Assert.Equal(0x1A, slot.Animation);
+        Assert.Equal("Run fast", editor.SelectedAnimation!.Name);
+        document.Undo();
+        Pump();
+        Assert.Equal(0x1, slot.Animation);
+        Assert.Same(document.History.Root, document.History.Current);
+    }
+
+    // Clicking the slot's combo box or pressing Enter on it opens the search below it, never its own list: typing goes into the search,
+    // the arrows move through what it shows, Enter or a click picks and Escape leaves the slot as it was
+    [AvaloniaFact]
+    public void TheDropdownSearchesAndPicksWithTheKeyboardAndMouse()
+    {
+        var ogi = AddOgi("Skeleton", CreateAnimation(0x1, "Walk"), CreateAnimation(0x2, "Run"), CreateAnimation(0x1A, "Run fast"));
+        var (document, slot) = OpenGameObject(new ModelSlot { Ogi = ogi.URI, Animation = 0x1 });
+        var editor = Assert.IsType<OgiAnimationFieldViewModel>(EditorDescRegistry.GetDesc(document, document.PropertyGraph.Find("Root.AssetData.ModelSlots[0].Animation")!).Construct());
+        var window = new Window { Content = new ContentControl { Content = editor }, Width = 400, Height = 500 };
+        window.Show();
+        Render();
+        var view = window.GetVisualDescendants().OfType<OgiAnimationFieldView>().Single();
+        var combo = view.AnimationChoices;
+
+        Click(window, combo.TranslatePoint(new Point(combo.Bounds.Width / 2, combo.Bounds.Height / 2), window)!.Value);
+
+        Assert.True(view.SearchFlyout.IsOpen);
+        Assert.False(combo.IsDropDownOpen);
+        Assert.True(view.SearchBox.IsFocused);
+        Assert.True(view.SearchPanel.Bounds.Width >= combo.Bounds.Width);
+        foreach (var character in "run")
+        {
+            window.KeyTextInput(character.ToString());
+        }
+
+        Pump();
+        Assert.Equal(["Run", "Run fast"], editor.ShownAnimations.Select(animation => animation.Name));
+        Assert.Equal("Run", ((OgiAnimationChoice)view.SearchResults.SelectedItem!).Name);
+        window.KeyPressQwerty(PhysicalKey.ArrowDown, RawInputModifiers.None);
+        Assert.Equal("Run fast", ((OgiAnimationChoice)view.SearchResults.SelectedItem!).Name);
+        window.KeyPressQwerty(PhysicalKey.Enter, RawInputModifiers.None);
+        Pump();
+
+        Assert.Equal(0x1A, slot.Animation);
+        Assert.False(view.SearchFlyout.IsOpen);
+        Assert.True(combo.IsFocused);
+        Assert.Equal("Run fast", ((OgiAnimationChoice)combo.SelectedItem!).Name);
+
+        // Enter on the focused combo box opens it again with everything shown, Escape changes nothing
+        window.KeyPressQwerty(PhysicalKey.Enter, RawInputModifiers.None);
+        Pump();
+        Assert.True(view.SearchFlyout.IsOpen);
+        Assert.False(combo.IsDropDownOpen);
+        Assert.Equal(4, editor.ShownAnimations.Count);
+        Assert.Equal("Run fast", ((OgiAnimationChoice)view.SearchResults.SelectedItem!).Name);
+        window.KeyTextInput("w");
+        window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
+        Pump();
+        Assert.False(view.SearchFlyout.IsOpen);
+        Assert.Equal(0x1A, slot.Animation);
+
+        // A click on a row picks it
+        window.KeyPressQwerty(PhysicalKey.F4, RawInputModifiers.None);
+        Render();
+        Assert.True(view.SearchFlyout.IsOpen);
+        var row = view.SearchResults.GetVisualDescendants().OfType<ListBoxItem>().Single(item => ((OgiAnimationChoice)item.DataContext!).Name == "Walk");
+        var popup = Assert.IsAssignableFrom<TopLevel>(TopLevel.GetTopLevel(row));
+        Click(popup, row.TranslatePoint(new Point(row.Bounds.Width / 2, row.Bounds.Height / 2), popup)!.Value);
+
+        Assert.Equal(0x1, slot.Animation);
+        Assert.False(view.SearchFlyout.IsOpen);
+        Assert.False(combo.IsDropDownOpen);
+    }
+
+    // Clicks are hit tested by what the compositor got last (see PrefabDragAndSearchTests)
+    private static void Render()
+    {
+        Dispatcher.UIThread.RunJobs();
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    private static void Click(TopLevel topLevel, Point point)
+    {
+        Render();
+        topLevel.MouseDown(point, MouseButton.Left);
+        topLevel.MouseUp(point, MouseButton.Left);
+        Render();
     }
 
     [AvaloniaFact]

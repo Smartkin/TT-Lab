@@ -18,6 +18,8 @@ public class FlagsFieldViewModel : DocumentCompositeViewModel
     
     public FlagsFieldViewModel(DocumentViewModel document, PropertyNode data, params DocumentNodeViewModel[] dependencies) : base(document, data, dependencies)
     {
+        // A composite shows its caption in a header, the flags' view has none: the row shows it like a field's
+        IsCaptionVisible = true;
     }
 
     protected override void OnExpanded(CompositeDisposable disposables)

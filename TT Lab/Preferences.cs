@@ -44,8 +44,14 @@ namespace TT_Lab
         // The disc image PCSX2 boots a chunk with, the project's own when empty
         public const string Pcsx2DiscImage = "Pcsx2DiscImage";
         public const string Pcsx2ReloadOnSave = "Pcsx2ReloadOnSave";
+        // Arguments PCSX2 gets besides TT Lab's own, one line split like a shell's
+        public const string Pcsx2Arguments = "Pcsx2Arguments";
         // Whether the OGI viewers draw the model's skeleton over it
         public const string OgiViewerSkeleton = "OgiViewerSkeleton";
+        // Whether Discord shows what's done in TT Lab (Tools/Discord)
+        public const string DiscordRichPresence = "DiscordRichPresence";
+        // The Preferences window's sections left collapsed, by their titles
+        public const string CollapsedPreferenceSections = "CollapsedPreferenceSections";
 
         static Preferences()
         {
@@ -65,7 +71,10 @@ namespace TT_Lab
             Settings[Pcsx2Path] = "";
             Settings[Pcsx2DiscImage] = "";
             Settings[Pcsx2ReloadOnSave] = true;
+            Settings[Pcsx2Arguments] = "";
             Settings[OgiViewerSkeleton] = false;
+            Settings[DiscordRichPresence] = false;
+            Settings[CollapsedPreferenceSections] = new List<string>();
         }
 
         public static void Save()

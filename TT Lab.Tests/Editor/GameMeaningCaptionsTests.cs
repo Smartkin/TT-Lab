@@ -1,4 +1,8 @@
+using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless.XUnit;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Newtonsoft.Json;
 using TT_Lab.AssetData.Instance;
 using TT_Lab.Assets;
@@ -7,8 +11,10 @@ using TT_Lab.Tests.Support;
 using TT_Lab.ViewModels.Editors;
 using TT_Lab.ViewModels.Editors.Descs;
 using TT_Lab.ViewModels.Editors.PropertyGraph;
+using TT_Lab.Views.Editors;
 using Twinsanity.TwinsanityInterchange.Common.CameraSubtypes;
 using Twinsanity.TwinsanityInterchange.Enumerations;
+using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code;
 
 namespace TT_Lab.Tests.Editor;
 
@@ -37,7 +43,8 @@ public sealed class GameMeaningCaptionsTests : IDisposable
         Assert.Equal("Soft", EnumCaptions.Of(typeof(Enums.SurfaceCollisionFlags), nameof(Enums.SurfaceCollisionFlags.LeavesFootprints)));
         // Only scripts read these, with SoftFlagSet(n)
         Assert.Equal("SoftFlag20", EnumCaptions.Of(typeof(Enums.InstanceState), Enum.GetName((Enums.InstanceState)(1U << 20))!));
-        Assert.Equal("SoftFlag4", EnumCaptions.Of(typeof(Enums.InstanceState), nameof(Enums.InstanceState.PlayableCharacterCanMoveAlong)));
+        // The instance's flag 14, which the characters' solver and rigid bodies read: it was taken for a bit nothing reads
+        Assert.Equal("CarriesRiders", EnumCaptions.Of(typeof(Enums.InstanceState), nameof(Enums.InstanceState.PlayableCharacterCanMoveAlong)));
     }
 
     // Bits the game never reads get no check box, they keep what they have when the others are ticked
@@ -55,10 +62,65 @@ public sealed class GameMeaningCaptionsTests : IDisposable
         Assert.Contains(nameof(Enums.SurfaceCollisionFlags.SolidToPlayer), boxes);
         Assert.DoesNotContain(nameof(Enums.SurfaceCollisionFlags.Default12), boxes);
         Assert.DoesNotContain(nameof(Enums.SurfaceCollisionFlags.Default19), boxes);
+        Assert.DoesNotContain(nameof(Enums.SurfaceCollisionFlags.Unknown22), boxes);
+        Assert.DoesNotContain(nameof(Enums.SurfaceCollisionFlags.Unknown32), boxes);
         Assert.True(EnumCaptions.IsNeverRead(typeof(Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout.ITwinCamera.CameraFlags), "Unused14"));
 
         mask.Nodes.Single(node => node.Property.Name == nameof(Enums.SurfaceCollisionFlags.Sticky)).Property.SetValue(true);
         Assert.Equal(Enums.SurfaceCollisionFlags.Default12 | Enums.SurfaceCollisionFlags.SolidToPlayer | Enums.SurfaceCollisionFlags.Sticky, data.CollisionMask);
+    }
+
+    // Every check box of the game's flags says what the game does with its bit: the members' descriptions are the tooltips. The two flags
+    // enums the inspector never shows are left out
+    [Fact]
+    public void EveryFlagShownSaysWhatItDoes()
+    {
+        // The material's activated shaders are shown by their shader types, which say what they draw
+        Type[] neverShown = [typeof(ITwinObject.ResourcesBitfield), typeof(Twinsanity.Libraries.SampleLineFlags), typeof(Enums.AppliedShaders)];
+        Assert.All(Enum.GetNames<Twinsanity.TwinsanityInterchange.Common.TwinShader.Type>(),
+            type => Assert.False(string.IsNullOrWhiteSpace(EnumCaptions.HintOf(typeof(Twinsanity.TwinsanityInterchange.Common.TwinShader.Type), type)), type));
+        var flags = typeof(Enums).Assembly.GetTypes().Where(type => type.IsEnum && type.IsDefined(typeof(FlagsAttribute), false) && !neverShown.Contains(type)).ToList();
+        Assert.Contains(typeof(Enums.InstanceState), flags);
+        Assert.Contains(typeof(Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout.ITwinCamera.CameraFlags), flags);
+
+        var withoutHint = flags.SelectMany(type => Enum.GetNames(type)
+                .Where(member => !EnumCaptions.IsNeverRead(type, member) && string.IsNullOrWhiteSpace(EnumCaptions.HintOf(type, member)))
+                .Select(member => $"{type.Name}.{member}"))
+            .ToList();
+        Assert.Empty(withoutHint);
+    }
+
+    // Hovering a flag shows what the game does with it and the flags show their property's name above them: the tooltips said the flag's
+    // name again and the list had no name
+    [AvaloniaFact]
+    public void FlagsShowTheirPropertysNameAndWhatEachDoes()
+    {
+        var surface = _project.Add(new CollisionSurface { Chunk = "default", LayoutID = ChunkLayouts.CollisionSurfaces }, "Ground");
+        surface.SetData(new CollisionSurfaceData(surface));
+        var document = new DocumentViewModel(surface);
+        document.Initialize();
+        var window = new Window { Content = new DocumentView { ViewModel = document }, Width = 900, Height = 3000 };
+        window.Show();
+        for (var i = 0; i < 20; i++)
+        {
+            Dispatcher.UIThread.RunJobs();
+        }
+
+        var mask = window.GetVisualDescendants().OfType<FlagsFieldView>().Single(view => view.ViewModel!.Property.Name == nameof(CollisionSurfaceData.CollisionMask));
+        var sticky = mask.GetVisualDescendants().OfType<UniformGrid>().Single(row => row.DataContext is BoolFieldViewModel { Property.Name: nameof(Enums.SurfaceCollisionFlags.Sticky) });
+        Assert.Equal(EnumCaptions.HintOf(typeof(Enums.SurfaceCollisionFlags), nameof(Enums.SurfaceCollisionFlags.Sticky)), ToolTip.GetTip(sticky));
+        Assert.Contains("Rollerbrawl", (string)ToolTip.GetTip(sticky)!);
+
+        var caption = window.GetVisualDescendants().OfType<TextBlock>().Single(text => text.DataContext == mask.ViewModel && text.Text == mask.ViewModel!.Caption);
+        Assert.True(caption.IsEffectivelyVisible);
+        // Above the bits, which are rows of their own
+        Assert.Equal(Avalonia.Controls.Dock.Top, mask.ViewModel!.Orientation);
+        var captionBottom = Avalonia.VisualExtensions.TranslatePoint(caption, new Avalonia.Point(0, caption.Bounds.Height), window)!.Value.Y;
+        Assert.True(captionBottom <= Avalonia.VisualExtensions.TranslatePoint(mask, default, window)!.Value.Y + 0.5, "The caption isn't above the flags");
+        // On the left like the other rows' captions, it was centered over the bits
+        var captionLeft = Avalonia.VisualExtensions.TranslatePoint(caption, default, window)!.Value.X;
+        Assert.True(captionLeft <= Avalonia.VisualExtensions.TranslatePoint(mask, default, window)!.Value.X + 10, $"The caption starts at {captionLeft:0}, not on the left");
+        window.Close();
     }
 
     // A contact's kinds are named after what sends them in retail, their tooltips say what tests them; the ones nothing sends or tests

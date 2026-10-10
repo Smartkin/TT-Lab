@@ -137,6 +137,17 @@ public sealed class ObjectTypeBuildTests : IDisposable
         Assert.Contains("template values", Assert.Throws<InvalidOperationException>(() => ExportObject(creature)).Message);
     }
 
+    // A trigger message runs a behaviour's starter, which one added in the inspector has none of: the build looked the empty link up and said
+    // only that no asset had it
+    [AvaloniaFact]
+    public void ATriggerMessageWithoutABehaviourIsRefused()
+    {
+        var gameObject = AddObject(new GameObjectData(null!) { Type = ITwinObject.ObjectType.GenericObject });
+        ((IAsset)gameObject).GetData<GameObjectData>().TriggerBehaviours.Add(new ObjectTriggerBehaviourData());
+
+        Assert.Contains("trigger message 0 has no behaviour", Assert.Throws<InvalidOperationException>(() => ExportObject(gameObject)).Message);
+    }
+
     // Every instance reads its object's first model slot with no check
     [AvaloniaFact]
     public void AnObjectWithoutModelSlotsGetsOneOfNone()

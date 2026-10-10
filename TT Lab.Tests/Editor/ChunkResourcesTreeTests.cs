@@ -251,4 +251,19 @@ public sealed class ChunkResourcesTreeTests : IDisposable
         Assert.Equal("Spot", Folder(tree, "Position").Children.Single().Children.Single().Caption);
         window.Close();
     }
+
+    // A level chunk's resources are only edited in its scene, opening one anywhere else opens the chunk it belongs to
+    [AvaloniaFact]
+    public void ALevelChunksResourcesGetNoTabOfTheirOwn()
+    {
+        var chunk = CreateChunk();
+        var (_, tree, window) = Open(chunk);
+
+        var scenery = Assert.Single(Folder(tree, "Scenery").Children);
+        Assert.DoesNotContain(tree.GetMenu(scenery), entry => entry.Header.StartsWith("Open in its own editor", StringComparison.Ordinal));
+        Assert.Same(chunk, LevelChunk.Owning(AssetManager.Get().GetAsset(scenery.Uri!)));
+        Assert.Null(LevelChunk.Owning(chunk));
+        window.Close();
+    }
 }
+

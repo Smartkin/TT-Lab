@@ -15,7 +15,7 @@
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
                 <DataTemplate DataType="viewmodels:BoolFieldViewModel">
-                    <UniformGrid Columns="2" Background="Transparent" ToolTip.Tip="{Binding Caption}">
+                    <UniformGrid Columns="2" Background="Transparent" ToolTip.Tip="{Binding Hint}" ToolTip.ShowDelay="500">
                         <TextBlock Text="{Binding Caption}"/>
                         <ContentControl Content="{Binding}"/>
                     </UniformGrid>

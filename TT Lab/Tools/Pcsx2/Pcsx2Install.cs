@@ -15,7 +15,10 @@ public sealed class Pcsx2Install
 {
     public const string FlatpakId = "net.pcsx2.PCSX2";
     public const int PineSlot = 28111;
-    private const int DefaultPineSlot = 28011;
+    // Where PCSX2 2.0 and 2.2 open PINE whatever the game settings say (they never hand the server the slot)
+    public const int DefaultPineSlot = 28011;
+    // The first release Play works with: the Qt frontend's game settings, patches and PINE (1.6.0 has none of it)
+    public const string OldestVersion = "2.0.0";
 
     private Pcsx2Install(string? executable, string settingsFolder)
     {
@@ -39,10 +42,12 @@ public sealed class Pcsx2Install
     public string PatchesPath(GameRelease release) => Path.Combine(SettingsFolder, "patches", $"{release.PatchedCrc:X8}.pnach");
 
     /// <summary>
-    /// The PCSX2 the preferences name, or the Flatpak, or pcsx2-qt on the path
+    /// The PCSX2 the preferences name, or the Flatpak, or pcsx2-qt on the path. The arguments it gets besides TT Lab's tell whether it runs
+    /// portable (-portable)
     /// </summary>
-    public static Pcsx2Install? Find(string configured)
+    public static Pcsx2Install? Find(string configured, IReadOnlyList<string>? arguments = null)
     {
+        var toldPortable = arguments?.Contains("-portable") == true;
         if (!string.IsNullOrWhiteSpace(configured))
         {
             if (configured == FlatpakId)
@@ -50,7 +55,7 @@ public sealed class Pcsx2Install
                 return OperatingSystem.IsLinux() ? Flatpak() : null;
             }
 
-            return File.Exists(configured) ? new Pcsx2Install(configured, NativeSettingsFolder(configured)) : null;
+            return File.Exists(configured) ? new Pcsx2Install(configured, NativeSettingsFolder(configured, toldPortable)) : null;
         }
 
         if (OperatingSystem.IsLinux())
@@ -64,7 +69,7 @@ public sealed class Pcsx2Install
 
         var names = OperatingSystem.IsWindows() ? new[] { "pcsx2-qt.exe", "pcsx2.exe" } : ["pcsx2-qt", "pcsx2"];
         var found = SearchFolders().SelectMany(folder => names.Select(name => Path.Combine(folder, name))).FirstOrDefault(File.Exists);
-        return found == null ? null : new Pcsx2Install(found, NativeSettingsFolder(found));
+        return found == null ? null : new Pcsx2Install(found, NativeSettingsFolder(found, toldPortable));
     }
 
     // PCSX2's installer doesn't put itself on the path
@@ -97,22 +102,66 @@ public sealed class Pcsx2Install
         return new Pcsx2Install(null, Path.Combine(home, ".var/app", FlatpakId, "config/PCSX2"));
     }
 
-    // A portable PCSX2 keeps its settings next to itself
-    private static string NativeSettingsFolder(string executable)
+    // Where PCSX2 keeps its data (EmuFolders::SetDataDirectory): portable when a portable.ini or portable.txt is next to its executable (the
+    // real one, links followed) or it's told -portable (2.4.0 on), in the folder portable.txt names, appended to its own even when absolute.
+    // An AppImage's own folder is inside its mount, it's only portable told so, in a PCSX2 folder next to the AppImage. Otherwise
+    // Documents\PCSX2, or $XDG_CONFIG_HOME/PCSX2 when that's an absolute path, ~/.config/PCSX2 when it isn't. The Flatpak keeps its own
+    internal static string NativeSettingsFolder(string executable, bool toldPortable)
     {
-        var folder = Path.GetDirectoryName(executable)!;
-        if (File.Exists(Path.Combine(folder, "portable.ini")) || File.Exists(Path.Combine(folder, "portable.txt")))
+        var real = RealPath(executable);
+        var folder = Path.GetDirectoryName(real)!;
+        if (OperatingSystem.IsLinux() && IsAppImage(real))
         {
-            return folder;
+            return toldPortable ? Path.Combine(folder, "PCSX2") : UserSettingsFolder();
         }
 
+        var portableText = Path.Combine(folder, "portable.txt");
+        if (toldPortable || File.Exists(Path.Combine(folder, "portable.ini")) || File.Exists(portableText))
+        {
+            var named = File.Exists(portableText) ? File.ReadAllText(portableText).Trim() : "";
+            return named.Length == 0 ? folder : Path.Join(folder, named);
+        }
+
+        return UserSettingsFolder();
+    }
+
+    private static string UserSettingsFolder()
+    {
         if (OperatingSystem.IsWindows())
         {
             return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "PCSX2");
         }
 
         var config = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME");
-        return Path.Combine(string.IsNullOrEmpty(config) ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config") : config, "PCSX2");
+        return Path.Combine(string.IsNullOrEmpty(config) || !Path.IsPathRooted(config) ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config") : config, "PCSX2");
+    }
+
+    private static string RealPath(string path)
+    {
+        try
+        {
+            return File.ResolveLinkTarget(path, true)?.FullName ?? Path.GetFullPath(path);
+        }
+        catch (IOException)
+        {
+            return Path.GetFullPath(path);
+        }
+    }
+
+    // An AppImage starts like any ELF and has "AI" and its type (1 or 2) at offset 8
+    internal static bool IsAppImage(string path)
+    {
+        try
+        {
+            using var file = File.OpenRead(path);
+            Span<byte> head = stackalloc byte[11];
+            return file.ReadAtLeast(head, head.Length, false) == head.Length && head[..4].SequenceEqual("\u007FELF"u8) && head[8] == (byte)'A' && head[9] == (byte)'I'
+                   && head[10] is 1 or 2;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     public void WriteGameSettings(GameRelease release)
@@ -217,9 +266,10 @@ public sealed class Pcsx2Install
     }
 
     /// <summary>
-    /// Boots the executable with the disc image in, in a window of its own that closes PCSX2 with it
+    /// Boots the executable with the disc image in, in a window of its own that closes PCSX2 with it. The extra arguments (the
+    /// preferences') go after TT Lab's own and before the disc image, which PCSX2 takes after its options
     /// </summary>
-    public ProcessStartInfo StartInfo(string executable, string discImage)
+    public ProcessStartInfo StartInfo(string executable, string discImage, IReadOnlyList<string>? extraArguments = null)
     {
         var info = new ProcessStartInfo { UseShellExecute = false };
         if (IsFlatpak)
@@ -235,7 +285,7 @@ public sealed class Pcsx2Install
             info.FileName = Executable!;
         }
 
-        foreach (var argument in new[] { "-nogui", "-fastboot", "-elf", executable, "--", discImage })
+        foreach (var argument in new[] { "-nogui", "-fastboot", "-elf", executable }.Concat(extraArguments ?? []).Concat(["--", discImage]))
         {
             info.ArgumentList.Add(argument);
         }
@@ -247,18 +297,18 @@ public sealed class Pcsx2Install
     /// PINE's socket once PCSX2 opened it: a TCP port on Windows, a socket in the runtime folder on Linux, the Flatpak's reached through
     /// the root of its sandbox
     /// </summary>
-    public PineClient ConnectPine(Process process)
+    public PineClient ConnectPine(Process process, int slot = PineSlot)
     {
         if (OperatingSystem.IsWindows())
         {
-            return PineClient.ConnectTcp(PineSlot);
+            return PineClient.ConnectTcp(slot);
         }
 
         var runtime = Environment.GetEnvironmentVariable("XDG_RUNTIME_DIR");
         var socket = string.IsNullOrEmpty(runtime) ? "/tmp/pcsx2.sock" : $"{runtime}/pcsx2.sock";
-        if (PineSlot != DefaultPineSlot)
+        if (slot != DefaultPineSlot)
         {
-            socket += $".{PineSlot}";
+            socket += $".{slot}";
         }
 
         if (!IsFlatpak)

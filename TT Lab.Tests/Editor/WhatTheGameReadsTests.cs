@@ -119,7 +119,7 @@ public sealed class WhatTheGameReadsTests : IDisposable
     }
 
     [AvaloniaFact]
-    public void ShadersGrayOutWhatTheirTypeAndSettingsDoNotRead()
+    public void ShadersGrayOutOrHideWhatTheirTypeAndSettingsDoNotRead()
     {
         var material = _assets.AddMaterial("Cloth");
         var data = ((IAsset)material).GetData<MaterialData>();
@@ -129,11 +129,14 @@ public sealed class WhatTheGameReadsTests : IDisposable
         var document = Open(material);
         const string shader = "Root.AssetData.Shaders[0]";
 
-        Assert.True(Grayed(document, $"{shader}.IntParam"));
-        Assert.True(Grayed(document, $"{shader}.FloatParam"));
+        // The types' parameters are hidden where the type reads none, captioned where it does (MaterialEditorTests)
+        bool Hidden(string path) => document.PropertyGraph.Find(path)!.Presentation?.IsHidden == true;
+        Assert.True(Hidden($"{shader}.IntParam"));
+        Assert.True(Hidden($"{shader}.FloatParam"));
         document.PropertyGraph.Find($"{shader}.ShaderType")!.SetValue(TwinShader.Type.UnlitClothDeformation);
-        Assert.False(Grayed(document, $"{shader}.IntParam"));
-        Assert.False(Grayed(document, $"{shader}.FloatParam"));
+        Assert.False(Hidden($"{shader}.IntParam"));
+        Assert.False(Hidden($"{shader}.FloatParam"));
+        Assert.True(Hidden($"{shader}.FloatParam[2]"));
 
         Assert.True(Grayed(document, $"{shader}.SpecOfColA"));
         document.PropertyGraph.Find($"{shader}.UseCustomAlphaRegSettings")!.SetValue(true);

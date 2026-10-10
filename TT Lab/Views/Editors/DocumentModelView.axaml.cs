@@ -21,6 +21,9 @@ public partial class DocumentModelView : DocumentBaseView<DocumentModelViewModel
     private const string CopyIcon = "M5.5,4 V1.5 H14.5 V11.5 H12 M2.5,4.5 H11.5 V14.5 H2.5 Z";
     // A clipboard with a sheet's lines on it
     private const string PasteIcon = "M4.5,2.5 H2.5 V14.5 H13.5 V2.5 H11.5 M5.5,1.5 H10.5 V4.5 H5.5 Z M5,7.5 H11 M5,10 H11 M5,12.5 H9";
+    // Two links of a chain
+    private const string ReplaceLinksIcon = "M6,10 L10,6 M8,4.5 L9.5,3 A2.47,2.47 0 0 1 13,6.5 L11.5,8 M8,11.5 L6.5,13 A2.47,2.47 0 0 1 3,9.5 L4.5,8";
+    private const string ReplaceLinksHint = "Replace links: tick the asset's links to replace and pick what replaces each kind of them";
 
     // Only an asset's top has them, a document has a model view for every struct of a list
     private StackPanel? _assetValues;
@@ -90,9 +93,19 @@ public partial class DocumentModelView : DocumentBaseView<DocumentModelViewModel
                     await ViewModel.PasteValuesAsync();
                 }
             };
-            _assetValues = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Margin = new Thickness(6, 0), Children = { copy, _pasteAssetValues } };
+            var replaceLinks = IconButton(ReplaceLinksIcon);
+            ToolTip.SetTip(replaceLinks, ReplaceLinksHint);
+            replaceLinks.Click += async (_, _) =>
+            {
+                if (ViewModel != null)
+                {
+                    await ViewModel.ReplaceLinksAsync();
+                }
+            };
+            _assetValues = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Margin = new Thickness(6, 0), Children = { copy, _pasteAssetValues, replaceLinks } };
             DockPanel.SetDock(_assetValues, Avalonia.Controls.Dock.Right);
-            Header.Children.Insert(1, _assetValues);
+            // Before the caption, which takes what's left: after it a long alias pushed the buttons out of the inspector
+            Header.Children.Insert(0, _assetValues);
         }
 
         var paste = _pasteAssetValues!;

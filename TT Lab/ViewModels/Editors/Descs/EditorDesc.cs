@@ -31,7 +31,13 @@ public abstract partial record EditorDesc
         result.IsReadOnly = Node.IsReadOnly;
         result.EditorParameters = Node.Metadata?.EditorParams ?? new Dictionary<String, Object>();
         ApplyAttributeWrappers(result);
+        Finish(result);
         return result;
+    }
+
+    // What an editor of the kind sets over its property's attributes
+    protected virtual void Finish(DocumentNodeViewModel editor)
+    {
     }
 
     protected virtual DocumentNodeViewModel ConstructInternal() => new DocumentModelViewModel(Document, Node)

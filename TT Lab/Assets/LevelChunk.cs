@@ -67,6 +67,17 @@ public class LevelChunk : SerializableAsset
 
     public string GetChunkPath() => SavePathInPackage;
 
+    // The chunk an instance belongs to (a layout's instance, the scenery, its links and particles), by its package and path
+    internal static LevelChunk? Owning(IAsset asset)
+    {
+        if (asset is not Instance.SerializableInstance { Chunk: { } path } instance)
+        {
+            return null;
+        }
+
+        return AssetManager.Get().GetAllAssetsOf<LevelChunk>().FirstOrDefault(chunk => chunk.Package == instance.Package && chunk.AdditionalPath == path);
+    }
+
     public bool IsGlobalDefaultChunk
     {
         get

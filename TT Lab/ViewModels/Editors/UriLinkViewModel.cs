@@ -377,4 +377,12 @@ public partial class UriLinkViewModel : DocumentDataViewModel<LabURI>
     private string? _browseExcludeWhen;
     private bool _isIncludeEmpty = false;
     private bool _browseExcludeOwnerChunk;
+
+    // The kind of asset the link takes, its rules read without the field being shown (replacing many links at once), what it takes is
+    // GetBrowseCandidates
+    internal Type ReadReplacementKind()
+    {
+        ApplyEditorAttributes();
+        return _browseType;
+    }
 }

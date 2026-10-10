@@ -92,7 +92,7 @@ public sealed class GameLaunchTests : IDisposable
     [AvaloniaFact]
     public void ThePreferencesKeepWhatIsPickedAndForgetIt()
     {
-        var preferences = new PreferencesViewModel();
+        var preferences = new PreferencesViewModel(new TT_Lab.Tools.Discord.DiscordPresence(() => default, () => new FakePresenceClient(), action => action(), () => DateTime.UtcNow));
         var (path, image, reload) = (Preferences.GetPreference<string>(Preferences.Pcsx2Path), Preferences.GetPreference<string>(Preferences.Pcsx2DiscImage),
             Preferences.GetPreference<bool>(Preferences.Pcsx2ReloadOnSave));
         try

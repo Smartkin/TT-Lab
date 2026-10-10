@@ -21,7 +21,7 @@
                 Text="{Binding SearchAsset, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" MaxLines="1"
             />
             <controls:GroupBox Grid.Row="1">
-                <ListBox SelectedItem="{Binding SelectedLink, Mode=TwoWay}" ItemsSource="{Binding ResourcesToBrowseView}">
+                <ListBox x:Name="Links" SelectedItem="{Binding SelectedLink, Mode=TwoWay}" ItemsSource="{Binding ResourcesToBrowseView}">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <StackPanel Margin="0,2,0,2" Orientation="Horizontal">

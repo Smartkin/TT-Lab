@@ -15,6 +15,18 @@ namespace TT_Lab.ViewModels.Editors.Code;
 public record OgiAnimationChoice(UInt16 Id, string Name, bool IsMissing = false)
 {
     public string IdText => Id == ModelSlot.NoAnimation ? string.Empty : $"{Id:X}";
+
+    // A word of the search is in the name or in the ID, written in hex with or without 0x
+    public bool Matches(string word)
+    {
+        if (Name.Contains(word, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var hex = word.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ? word[2..] : word;
+        return hex.Length != 0 && IdText.Contains(hex, StringComparison.OrdinalIgnoreCase);
+    }
 }
 
 /// <summary>
@@ -29,6 +41,16 @@ public partial class OgiAnimationFieldViewModel : DocumentDataViewModel<UInt16>
 
     [Reactive]
     private IReadOnlyList<OgiAnimationChoice> _animations = [];
+
+    // The dropdown's search: the animations with every word typed in their name or ID, and the one Enter picks
+    [Reactive]
+    private string _search = string.Empty;
+
+    [Reactive]
+    private IReadOnlyList<OgiAnimationChoice> _shownAnimations = [];
+
+    [Reactive]
+    private OgiAnimationChoice? _highlighted;
 
     public OgiAnimationFieldViewModel(DocumentViewModel document, PropertyNode node, params DocumentNodeViewModel[] dependencies) : base(document, node, dependencies)
     {
@@ -56,6 +78,10 @@ public partial class OgiAnimationFieldViewModel : DocumentDataViewModel<UInt16>
             .Where(animation => !_isShowing && animation.Id != CurrentValue)
             .Subscribe(animation => SetCurrentValue(animation.Id))
             .DisposeWith(disposables);
+        this.WhenAnyValue(x => x.Search)
+            .Skip(1)
+            .Subscribe(_ => ShowMatches(keepHighlight: false))
+            .DisposeWith(disposables);
     }
 
     // Set while the choices and the selection show the value: the combo box handed its old selection back as the list changed, which
@@ -65,6 +91,69 @@ public partial class OgiAnimationFieldViewModel : DocumentDataViewModel<UInt16>
     protected override void OnCurrentValueChanged()
     {
         LoadChoices();
+    }
+
+    // Opening the dropdown shows every animation with the slot's highlighted
+    public void StartSearch()
+    {
+        Search = string.Empty;
+        ShowMatches(keepHighlight: false);
+        if (SelectedAnimation != null && ShownAnimations.Contains(SelectedAnimation))
+        {
+            Highlighted = SelectedAnimation;
+        }
+    }
+
+    public void MoveHighlight(int step)
+    {
+        if (ShownAnimations.Count == 0)
+        {
+            return;
+        }
+
+        var index = Highlighted == null ? -1 : ShownAnimations.ToList().IndexOf(Highlighted);
+        if (index < 0)
+        {
+            index = step > 0 ? 0 : ShownAnimations.Count - 1;
+        }
+        else
+        {
+            index = Math.Clamp(index + step, 0, ShownAnimations.Count - 1);
+        }
+
+        Highlighted = ShownAnimations[index];
+    }
+
+    // False when the search shows nothing to pick
+    public bool PickHighlighted()
+    {
+        if (Highlighted == null)
+        {
+            return false;
+        }
+
+        Pick(Highlighted);
+        return true;
+    }
+
+    public void Pick(OgiAnimationChoice animation)
+    {
+        SelectedAnimation = animation;
+    }
+
+    // Typing highlights the first animation shown, Enter picks it. The list goes first: the list box hands back no selection as its items change
+    private void ShowMatches(bool keepHighlight)
+    {
+        // A text box's text can be null
+        var words = (Search ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var shown = Animations.Where(animation => words.All(animation.Matches)).ToList();
+        var highlight = keepHighlight && Highlighted != null && shown.Contains(Highlighted) ? Highlighted : shown.FirstOrDefault();
+        if (!shown.SequenceEqual(ShownAnimations))
+        {
+            ShownAnimations = shown;
+        }
+
+        Highlighted = highlight;
     }
 
     // The slot's model can change any time, the animations are the ones of the model it has
@@ -103,6 +192,7 @@ public partial class OgiAnimationFieldViewModel : DocumentDataViewModel<UInt16>
             _isShowing = false;
         }
 
+        ShowMatches(keepHighlight: true);
         this.RaisePropertyChanged(nameof(CanChooseAnimation));
     }
 }

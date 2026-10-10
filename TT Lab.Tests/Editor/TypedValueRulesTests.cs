@@ -1,13 +1,17 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using TT_Lab.AssetData.Instance;
 using TT_Lab.AssetData.Instance.Particle;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Instance;
+using TT_Lab.Controls;
 using TT_Lab.Tests.Support;
 using TT_Lab.ViewModels.Editors;
 using TT_Lab.ViewModels.Editors.Descs;
+using TT_Lab.Views.Editors;
 
 namespace TT_Lab.Tests.Editor;
 
@@ -156,6 +160,40 @@ public sealed class TypedValueRulesTests : IDisposable
         field.Text = "-1";
         Pump();
         Assert.Equal(-1, data.RefListIndex);
+    }
+
+    // A field's error is a red sign next to it with the error as its tooltip: written over the text box, it hid what was typed and got cut
+    // off at the field's end
+    [AvaloniaFact]
+    public void AFieldsErrorIsASignNextToIt()
+    {
+        var instance = _project.Add(new ObjectInstance { Chunk = "levels/test", LayoutID = 0 }, "Instance");
+        instance.SetData(new ObjectInstanceData(instance) { RefListIndex = 3 });
+        var document = new DocumentViewModel(instance);
+        document.Initialize();
+        var field = Assert.IsAssignableFrom<TextFieldViewModel>(EditorDescRegistry.GetDesc(document, document.PropertyGraph.Find("Root.AssetData.RefListIndex")!).Construct());
+        var window = new Window { Content = new ContentControl { Content = field }, Width = 260, Height = 100 };
+        window.Show();
+        Pump();
+        var view = window.GetVisualDescendants().OfType<TextFieldView>().Single();
+        var sign = view.GetVisualDescendants().OfType<ErrorSign>().Single();
+        var box = view.GetVisualDescendants().OfType<TextBox>().Single();
+        Assert.False(sign.IsVisible);
+
+        field.Text = "1024";
+        Pump();
+
+        Assert.True(sign.IsEffectivelyVisible);
+        Assert.Contains("must be in the range -1-255", Assert.IsType<string>(ToolTip.GetTip(sign)));
+        Assert.True(box.TranslatePoint(new Point(box.Bounds.Width, 0), view)!.Value.X <= sign.TranslatePoint(default, view)!.Value.X,
+            "The text box reaches under the sign");
+        Assert.DoesNotContain(view.GetVisualDescendants().OfType<TextBlock>(), text => text.Text?.Contains("must be in the range") == true);
+
+        field.Text = "12";
+        Pump();
+        Assert.False(sign.IsVisible);
+        Assert.Null(ToolTip.GetTip(sign));
+        window.Close();
     }
 
     // The game keeps its names a byte per character: name fields only take plain ASCII, characters past it became '?' in the game's files

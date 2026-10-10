@@ -74,6 +74,7 @@ public class CollisionSurfaceData : AbstractAssetData
     [JsonProperty(Required = Required.Always)]
     [Editable(Caption = "Impact sound", Hint = "Contact kind 0: objects landing on the surface and touching water. " + SoundKinds)]
     [EditorParam(UriLinkViewModel.BrowseType, typeof(SoundEffect))]
+    [EditorParam(UriLinkViewModel.IncludeEmpty, true)]
     [OnReferenceDeleted(DeletedReferenceAction.Clear)]
     public LabURI ImpactSoundId { get; set; }
 
@@ -88,12 +89,14 @@ public class CollisionSurfaceData : AbstractAssetData
     [JsonProperty(Required = Required.Always)]
     [Editable(Caption = "Step sound 1", Hint = "Contact kind 1, played by scripts. " + SoundKinds)]
     [EditorParam(UriLinkViewModel.BrowseType, typeof(SoundEffect))]
+    [EditorParam(UriLinkViewModel.IncludeEmpty, true)]
     [OnReferenceDeleted(DeletedReferenceAction.Clear)]
     public LabURI StepSoundId1 { get; set; }
 
     [JsonProperty(Required = Required.Always)]
     [Editable(Caption = "Step sound 2", Hint = "Contact kind 2, played by scripts")]
     [EditorParam(UriLinkViewModel.BrowseType, typeof(SoundEffect))]
+    [EditorParam(UriLinkViewModel.IncludeEmpty, true)]
     [OnReferenceDeleted(DeletedReferenceAction.Clear)]
     public LabURI StepSoundId2 { get; set; }
 
@@ -108,6 +111,7 @@ public class CollisionSurfaceData : AbstractAssetData
     [JsonProperty(Required = Required.Always)]
     [Editable(Caption = "Land sound", Hint = "Contact kind 3, played by scripts (on sand it throws sand up too)")]
     [EditorParam(UriLinkViewModel.BrowseType, typeof(SoundEffect))]
+    [EditorParam(UriLinkViewModel.IncludeEmpty, true)]
     [OnReferenceDeleted(DeletedReferenceAction.Clear)]
     public LabURI LandSoundId { get; set; }
 
@@ -118,6 +122,7 @@ public class CollisionSurfaceData : AbstractAssetData
     [JsonProperty(Required = Required.Always)]
     [Editable(Caption = "Hard impact sound", Hint = "Contact kind 4: objects landing hard on the surface")]
     [EditorParam(UriLinkViewModel.BrowseType, typeof(SoundEffect))]
+    [EditorParam(UriLinkViewModel.IncludeEmpty, true)]
     [OnReferenceDeleted(DeletedReferenceAction.Clear)]
     public LabURI HardImpactSoundId { get; set; }
 
@@ -132,6 +137,7 @@ public class CollisionSurfaceData : AbstractAssetData
     [JsonProperty(Required = Required.Always)]
     [Editable(Caption = "Scrape sound", Hint = "Contact kind 5: objects scraping along the surface")]
     [EditorParam(UriLinkViewModel.BrowseType, typeof(SoundEffect))]
+    [EditorParam(UriLinkViewModel.IncludeEmpty, true)]
     [OnReferenceDeleted(DeletedReferenceAction.Clear)]
     public LabURI ScrapeSoundId { get; set; }
 

@@ -28,7 +28,6 @@ public abstract partial class DocumentNodeViewModel : DocumentBaseViewModel, IAc
     private string _editorName = string.Empty;
     [Reactive]
     private bool _isEditable = true;
-    [Reactive]
     private string? _hint;
     [Reactive]
     private Avalonia.Controls.Dock _orientation = Avalonia.Controls.Dock.Left;
@@ -57,9 +56,10 @@ public abstract partial class DocumentNodeViewModel : DocumentBaseViewModel, IAc
 
     private string _caption = string.Empty;
 
+    // What a linked field makes of the node (its presentation) goes over the editor's own caption and hint
     public string Caption
     {
-        get => _caption;
+        get => Property.Presentation?.Caption ?? _caption;
         set
         {
             if (_caption == value)
@@ -73,6 +73,45 @@ public abstract partial class DocumentNodeViewModel : DocumentBaseViewModel, IAc
     }
 
     public string Title => Caption;
+
+    public string? Hint
+    {
+        get => Property.Presentation?.Hint ?? _hint;
+        set => this.RaiseAndSetIfChanged(ref _hint, value);
+    }
+
+    // Set while the node's presentation hides the editor, which shows again once it doesn't
+    private bool _hiddenByPresentation;
+    // The presentation shown, most nodes never have one and their editors show nothing again
+    private NodePresentation? _shownPresentation;
+
+    /// <summary>
+    /// Shows the node's <see cref="PropertyNode.Presentation"/>: its caption and hint, hidden or not. Its composite applies it, a hidden
+    /// editor's view may never be made to hear it
+    /// </summary>
+    internal void ApplyPresentation()
+    {
+        if (Property.Presentation == _shownPresentation)
+        {
+            return;
+        }
+
+        _shownPresentation = Property.Presentation;
+        this.RaisePropertyChanged(nameof(Caption));
+        this.RaisePropertyChanged(nameof(Title));
+        this.RaisePropertyChanged(nameof(Hint));
+        var hides = Property.Presentation?.IsHidden == true;
+        if (hides && !_hiddenByPresentation)
+        {
+            _hiddenByPresentation = IsVisible;
+            IsVisible = false;
+        }
+        else if (!hides && _hiddenByPresentation)
+        {
+            _hiddenByPresentation = false;
+            IsVisible = true;
+        }
+    }
 
     // Where its property is declared among the ones its composite shows, the order the rows go in after any explicit one
     internal int DeclarationOrder { get; set; }
@@ -258,6 +297,12 @@ public abstract partial class DocumentNodeViewModel : DocumentBaseViewModel, IAc
     public Task<bool> PasteValuesAsync()
     {
         return ValuesPaste.PasteAsync(Document, Property, IsAssetRoot, IsReadOnly);
+    }
+
+    // Replaces the links ticked in a dialogue, one undo step, how many got replaced
+    public Task<int> ReplaceLinksAsync()
+    {
+        return LinkReplacement.ReplaceAsync(Document, Property);
     }
 
     /// <summary>

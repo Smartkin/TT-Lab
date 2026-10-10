@@ -24,7 +24,7 @@
                 <Expander.Header>
                     <Panel>
                         <DockPanel LastChildFill="True" x:Name="Header">
-                            <TextBlock VerticalAlignment="Center" DockPanel.Dock="Left" Text="{Binding Caption}" ToolTip.Tip="{Binding Hint}" ToolTip.ShowDelay="500" Classes.overridden="{Binding IsOverridden}" ContextRequested="Caption_OnContextRequested"/>
+                            <TextBlock VerticalAlignment="Center" DockPanel.Dock="Left" TextTrimming="CharacterEllipsis" Text="{Binding Caption}" ToolTip.Tip="{Binding Hint}" ToolTip.ShowDelay="500" Classes.overridden="{Binding IsOverridden}" ContextRequested="Caption_OnContextRequested"/>
                             <Button Margin="10" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" IsVisible="{Binding IsConstructible}" x:Name="ConstructNewInstance">
                                 <Button.Content>
                                     <TextBlock Text="{Binding TypeConstructed}"/>
@@ -56,7 +56,8 @@
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="viewmodels:DocumentNodeViewModel">
                             <DockPanel Classes.highlighted="{Binding IsHighlighted}" IsVisible="{Binding IsVisible}" HorizontalSpacing="15" LastChildFill="True" Background="Transparent">
-                                <TextBlock IsVisible="{Binding IsCaptionVisible}" Margin="5, 0, 0, 0" MinWidth="80" MaxWidth="200" TextWrapping="Wrap" DockPanel.Dock="{Binding Orientation}" VerticalAlignment="Center" Text="{Binding Caption}" ToolTip.Tip="{Binding Hint}" ToolTip.ShowDelay="500"
+                                <!-- On the left of its row: a caption above its editor (flags, curves) was centered in the row by its largest width -->
+                                <TextBlock IsVisible="{Binding IsCaptionVisible}" Margin="5, 0, 0, 0" MinWidth="80" MaxWidth="200" TextWrapping="Wrap" HorizontalAlignment="Left" DockPanel.Dock="{Binding Orientation}" VerticalAlignment="Center" Text="{Binding Caption}" ToolTip.Tip="{Binding Hint}" ToolTip.ShowDelay="500"
                                            Classes.overridden="{Binding IsOverridden}" ContextRequested="Caption_OnContextRequested"/>
                                 <ContentControl DockPanel.Dock="{Binding EditorOrientation}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Content="{Binding}"/>
                             </DockPanel>

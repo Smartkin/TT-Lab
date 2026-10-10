@@ -15,6 +15,7 @@ namespace TT_Lab.ViewModels.Editors.PropertyGraph;
 public class PropertyNode
 {
     private bool _isReadOnly;
+    private NodePresentation? _presentation;
     
     public event Action? Changed;
     public event Action? ReadOnlyChanged;
@@ -67,6 +68,24 @@ public class PropertyNode
             ReadOnlyChanged?.Invoke();
         }
     }
+    /// <summary>
+    /// What a linked field makes of how the node's editor shows (<see cref="NodePresentation"/>), none for the editor's own
+    /// </summary>
+    public NodePresentation? Presentation
+    {
+        get => _presentation;
+        set
+        {
+            if (_presentation == value)
+            {
+                return;
+            }
+
+            _presentation = value;
+            Graph?.OnPresentationChanged(this);
+        }
+    }
+
     public PropertyGraph? Graph { get; private set; }
     public object Target { get; internal set; }
     public PropertyMetadata? Metadata { get; }

@@ -1,8 +1,13 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia.Media;
 using Caliburn.Micro;
 using TT_Lab.Command;
+using TT_Lab.Tools.Discord;
 using TT_Lab.Tools.Pcsx2;
 using TT_Lab.Util;
 using ICommand = System.Windows.Input.ICommand;
@@ -11,14 +16,78 @@ namespace TT_Lab.ViewModels;
 
 public class PreferencesViewModel : Screen
 {
+    // The sections' titles, what settings.json keeps the collapsed ones by
+    public const string GeneralSection = "General";
+    public const string DirectGameLaunchSection = "Direct Game Launch";
+    public const string DiscordSection = "Discord Rich Presence";
+
+    private static readonly IBrush PresenceOff = new SolidColorBrush(Color.FromRgb(0x55, 0x55, 0x55));
+    private static readonly IBrush PresenceConnecting = new SolidColorBrush(Color.FromRgb(0xE8, 0xC3, 0x3A));
+    private static readonly IBrush PresenceConnected = new SolidColorBrush(Color.FromRgb(0x3D, 0xBA, 0x4E));
+    private static readonly IBrush PresenceNotConnected = new SolidColorBrush(Color.FromRgb(0xD9, 0x44, 0x3A));
+
+    private readonly DiscordPresence _presence;
+
+    public PreferencesViewModel(DiscordPresence presence)
+    {
+        _presence = presence;
+    }
+
+    protected override Task OnActivatedAsync(CancellationToken cancellationToken)
+    {
+        _presence.ConnectionChanged += OnPresenceConnectionChanged;
+        NotifyOfPropertyChange(nameof(DiscordStatus));
+        return base.OnActivatedAsync(cancellationToken);
+    }
+
     protected override Task OnDeactivateAsync(bool close, CancellationToken cancellationToken)
     {
         if (close)
         {
+            _presence.ConnectionChanged -= OnPresenceConnectionChanged;
             Preferences.Save();
         }
         
         return base.OnDeactivateAsync(close, cancellationToken);
+    }
+
+    private void OnPresenceConnectionChanged() => NotifyOfPropertyChange(nameof(DiscordStatus));
+
+    public bool IsGeneralExpanded
+    {
+        get => IsExpanded(GeneralSection);
+        set => SetExpanded(GeneralSection, value);
+    }
+
+    public bool IsDirectGameLaunchExpanded
+    {
+        get => IsExpanded(DirectGameLaunchSection);
+        set => SetExpanded(DirectGameLaunchSection, value);
+    }
+
+    public bool IsDiscordExpanded
+    {
+        get => IsExpanded(DiscordSection);
+        set => SetExpanded(DiscordSection, value);
+    }
+
+    private static bool IsExpanded(string section) => !Preferences.GetPreference<List<string>>(Preferences.CollapsedPreferenceSections).Contains(section);
+
+    private void SetExpanded(string section, bool expanded, [CallerMemberName] string? property = null)
+    {
+        if (IsExpanded(section) == expanded)
+        {
+            return;
+        }
+
+        var collapsed = Preferences.GetPreference<List<string>>(Preferences.CollapsedPreferenceSections).Where(name => name != section).ToList();
+        if (!expanded)
+        {
+            collapsed.Add(section);
+        }
+
+        Preferences.SetPreference(Preferences.CollapsedPreferenceSections, collapsed);
+        NotifyOfPropertyChange(property);
     }
     
     public ICommand SetProjectsPathCommand => new SelectFolderCommand(null, this, nameof(ProjectsPath));
@@ -97,6 +166,35 @@ public class PreferencesViewModel : Screen
             NotifyOfPropertyChange();
         }
     }
+
+    public string Pcsx2Arguments
+    {
+        get => Preferences.GetPreference<string>(Preferences.Pcsx2Arguments);
+        set
+        {
+            Preferences.SetPreference(Preferences.Pcsx2Arguments, value);
+            NotifyOfPropertyChange();
+        }
+    }
+
+    public bool DiscordEnabled
+    {
+        get => Preferences.GetPreference<bool>(Preferences.DiscordRichPresence);
+        set
+        {
+            Preferences.SetPreference(Preferences.DiscordRichPresence, value);
+            NotifyOfPropertyChange();
+        }
+    }
+
+    // Dark gray while it's off, yellow connecting, green connected, red while Discord can't be reached
+    public IBrush DiscordStatus => _presence.Connection switch
+    {
+        PresenceConnection.Connecting => PresenceConnecting,
+        PresenceConnection.Connected => PresenceConnected,
+        PresenceConnection.NotConnected => PresenceNotConnected,
+        _ => PresenceOff
+    };
 
     public string FoundPcsx2 => Pcsx2Install.Find("") switch
     {

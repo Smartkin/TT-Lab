@@ -16,7 +16,7 @@ public abstract class EditorsViewerViewModel : Document
     public event Action<TabbedEditorViewModel>? EditorClosed;
 
     /// <summary>
-    /// One of the editors got activated or focused, even when it already was the active one
+    /// One of the editors or the viewer itself got activated or focused, even when it already was the active one
     /// </summary>
     public event Action? Used;
 
@@ -80,12 +80,17 @@ public abstract class EditorsViewerViewModel : Document
         ActiveEditor = active != null && Tabs.Contains(active) ? active : Tabs.FirstOrDefault();
     }
 
+    // The viewer itself got switched to or clicked into: its own tabs tell nothing then, the active one stays the active one
+    internal void NoteUsed() => Used?.Invoke();
+
     public void OpenEditor(IAsset asset)
     {
         var openedTab = Tabs.FirstOrDefault(tab => tab.EditableResource == asset.URI);
         if (openedTab != null)
         {
+            // Opening the active tab again changes nothing Dock tells about, it's still the editor turned to
             TabsFactory.ActivateEditor(openedTab);
+            Used?.Invoke();
             return;
         }
 

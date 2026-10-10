@@ -3,6 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:instance="clr-namespace:TT_Lab.ViewModels.Editors.Instance"
+             xmlns:controls="clr-namespace:TT_Lab.Controls"
              x:DataType="instance:ParticleSystemFieldViewModel"
              mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="60"
              x:Class="TT_Lab.Views.Editors.Instance.ParticleSystemFieldView">
@@ -38,9 +39,7 @@
                 </Style>
             </TextBlock.Styles>
         </TextBlock>
-        <Panel>
-            <TextBox x:Name="TextField"/>
-            <TextBlock x:Name="TextFieldError" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="Red" FontSize="14"/>
-        </Panel>
+        <controls:ErrorSign x:Name="TextFieldError" DockPanel.Dock="Right"/>
+        <TextBox x:Name="TextField"/>
     </DockPanel>
 </UserControl>

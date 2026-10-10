@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Common.CameraSubtypes;
 
@@ -145,136 +146,75 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout
         [Flags]
         enum CameraFlags : UInt32
         {
-            /// <summary>
-            /// The second subtype gives its position at the controller's parameter instead of for the target's position
-            /// </summary>
+            // The members' descriptions document them, the inspector shows them as the check boxes' tooltips
+#pragma warning disable CS1591
+            [Description("The second subtype gives its position at the controller's parameter instead of for the target's position")]
             SecondCameraAtParameter = 1 << 0,
-            /// <summary>
-            /// Lets the follow camera's switch back blend to its rig, which nothing starts
-            /// </summary>
+            [Description("Lets the follow camera's switch back blend to its rig, which nothing starts")]
             Unused1 = 1 << 1,
-            /// <summary>
-            /// The pitch blender takes <see cref="PitchStart"/> and <see cref="PitchEnd"/>
-            /// </summary>
+            [Description("The pitch blender takes PitchStart and PitchEnd")]
             SetsPitch = 1 << 2,
-            /// <summary>
-            /// The distance takes <see cref="DistanceStart"/> and <see cref="DistanceEnd"/>
-            /// </summary>
+            [Description("The distance takes DistanceStart and DistanceEnd")]
             SetsDistance = 1 << 3,
-            /// <summary>
-            /// The follow camera's probes stay on: it steers around walls (the follow camera's own camera always has it)
-            /// </summary>
+            [Description("The follow camera's probes stay on: it steers around walls (the follow camera's own camera always has it)")]
             Steers = 1 << 4,
-            /// <summary>
-            /// The camera cuts in instead of blending over <see cref="BlendTime"/>
-            /// </summary>
+            [Description("The camera cuts in instead of blending over BlendTime")]
             NoBlendIn = 1 << 5,
-            /// <summary>
-            /// The yaw blender takes <see cref="YawStart"/> and <see cref="YawEnd"/>
-            /// </summary>
+            [Description("The yaw blender takes YawStart and YawEnd")]
             SetsYaw = 1 << 6,
-            /// <summary>
-            /// The field of view's blender takes <see cref="FovStart"/> and <see cref="FovEnd"/>
-            /// </summary>
+            [Description("The field of view's blender takes FovStart and FovEnd")]
             SetsFov = 1 << 7,
-            /// <summary>
-            /// The follow camera's target takes <see cref="TargetBoxMin"/> and <see cref="TargetBoxMax"/> as its box
-            /// </summary>
+            [Description("The follow camera's target takes TargetBoxMin and TargetBoxMax as its box")]
             GivesTargetBox = 1 << 8,
-            /// <summary>
-            /// The follow camera's target moves toward the middle of the camera trigger's instances by <see cref="FramingShare"/>, up
-            /// to <see cref="FramingDistance"/>
-            /// </summary>
+            [Description("The follow camera's target moves toward the middle of the camera trigger's instances by FramingShare, up to " +
+                         "FramingDistance")]
             FramesInstances = 1 << 9,
-            /// <summary>
-            /// The start and end values are the values at the start and the end of the camera's geometry, taken by how far along
-            /// it the target is, instead of the two targets of a blend over time
-            /// </summary>
+            [Description("The start and end values are the values at the start and the end of the camera's geometry, taken by how far along it the " +
+                         "target is, instead of the two targets of a blend over time")]
             ValuesAlongGeometry = 1 << 10,
-            /// <summary>
-            /// The follow camera takes the camera's values even while it ignores cameras' values
-            /// </summary>
+            [Description("The follow camera takes the camera's values even while it ignores cameras' values")]
             AlwaysTakesValues = 1 << 11,
-            /// <summary>
-            /// The rig's point follower moves the camera's place at <see cref="PositionFollowRate"/>
-            /// </summary>
+            [Description("The rig's point follower moves the camera's place at PositionFollowRate")]
             SetsPositionFollowRate = 1 << 12,
-            /// <summary>
-            /// The rig's point follower moves the point the camera looks at at <see cref="TargetFollowRate"/>
-            /// </summary>
+            [Description("The rig's point follower moves the point the camera looks at at TargetFollowRate")]
             SetsTargetFollowRate = 1 << 13,
             Unused14 = 1 << 14,
-            /// <summary>
-            /// The yaw blender turns at <see cref="YawSpeed"/>
-            /// </summary>
+            [Description("The yaw blender turns at YawSpeed")]
             SetsYawSpeed = 1 << 15,
-            /// <summary>
-            /// The yaw goes to <see cref="BlendInYaw"/> while it's at least as near it as <see cref="YawStart"/>
-            /// </summary>
+            [Description("The yaw goes to BlendInYaw while it's at least as near it as YawStart")]
             BlendsInFromYaw = 1 << 16,
-            /// <summary>
-            /// The pitch goes to <see cref="BlendInPitch"/> while the yaw is at least as near <see cref="BlendInYaw"/> as
-            /// <see cref="YawStart"/>
-            /// </summary>
+            [Description("The pitch goes to BlendInPitch while the yaw is at least as near BlendInYaw as YawStart")]
             BlendsInFromPitch = 1 << 17,
-            /// <summary>
-            /// The distance goes to <see cref="BlendInDistance"/> while the yaw is at least as near <see cref="BlendInYaw"/> as
-            /// <see cref="YawStart"/>
-            /// </summary>
+            [Description("The distance goes to BlendInDistance while the yaw is at least as near BlendInYaw as YawStart")]
             BlendsInFromDistance = 1 << 18,
-            /// <summary>
-            /// The follow camera only turns to look at the target
-            /// </summary>
+            [Description("The follow camera only turns to look at the target")]
             OnlyLooksAtTarget = 1 << 19,
-            /// <summary>
-            /// The follow camera keeps its height and looks at the target
-            /// </summary>
+            [Description("The follow camera keeps its height and looks at the target")]
             KeepsHeight = 1 << 20,
-            /// <summary>
-            /// The follow camera doesn't move
-            /// </summary>
+            [Description("The follow camera doesn't move")]
             HoldsStill = 1 << 21,
-            /// <summary>
-            /// The follow camera tilts toward the way the target faces
-            /// </summary>
+            [Description("The follow camera tilts toward the way the target faces")]
             Tilts = 1 << 22,
-            /// <summary>
-            /// The follow camera's probes are off
-            /// </summary>
+            [Description("The follow camera's probes are off")]
             NoProbes = 1 << 23,
-            /// <summary>
-            /// The camera cuts in when the camera it replaces has this as well
-            /// </summary>
+            [Description("The camera cuts in when the camera it replaces has this as well")]
             CutsFromSameKind = 1 << 24,
-            /// <summary>
-            /// The follow camera's target blends to the camera's point even when it's near
-            /// </summary>
+            [Description("The follow camera's target blends to the camera's point even when it's near")]
             BlendsWhenNear = 1 << 25,
-            /// <summary>
-            /// The camera is only accepted while another camera is running
-            /// </summary>
+            [Description("The camera is only accepted while another camera is running")]
             NeedsRunningCamera = 1 << 26,
-            /// <summary>
-            /// The camera is taken whatever the character does, without it a new camera is only taken on foot while the character is
-            /// on the ground or the follow camera restarted (FUN_001434a0)
-            /// </summary>
+            [Description("The camera is taken whatever the character does, without it a new camera is only taken on foot while the character is on " +
+                         "the ground or the follow camera restarted (FUN_001434a0)")]
             IgnoresPlayerState = 1 << 27,
-            /// <summary>
-            /// The target box's point isn't turned with the followed object
-            /// </summary>
+            [Description("The target box's point isn't turned with the followed object")]
             TargetBoxUnturned = 1 << 28,
-            /// <summary>
-            /// The follow camera blends its place along the line from where the blend started
-            /// </summary>
+            [Description("The follow camera blends its place along the line from where the blend started")]
             BlendsAlongLine = 1 << 29,
-            /// <summary>
-            /// The follow camera doesn't check its view of the target
-            /// </summary>
+            [Description("The follow camera doesn't check its view of the target")]
             SkipsViewCheck = 1 << 30,
-            /// <summary>
-            /// The follow camera adds its own extra yaw (not the camera's) to the yaw
-            /// </summary>
+            [Description("The follow camera adds its own extra yaw (not the camera's) to the yaw")]
             AddsExtraYaw = 1U << 31
+#pragma warning restore CS1591
         }
 
         /// <summary>
@@ -283,19 +223,16 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout
         [Flags]
         enum CameraSwitches : UInt16
         {
-            /// <summary>
-            /// A camera for the character's death: the follow camera only takes it once the character died, keeps it as its second
-            /// camera and switches to it while the character is dead (FUN_001434a0)
-            /// </summary>
+            // The members' descriptions document them, the inspector shows them as the check boxes' tooltips
+#pragma warning disable CS1591
+            [Description("A camera for the character's death: the follow camera only takes it once the character died, keeps it as its second " +
+                         "camera and switches to it while the character is dead (FUN_001434a0)")]
             SecondSlot = 1 << 0,
-            /// <summary>
-            /// With <see cref="CameraFlags.NoProbes"/>, the probes stay on while the follow camera ignores cameras' values
-            /// </summary>
+            [Description("With NoProbes, the probes stay on while the follow camera ignores cameras' values")]
             KeepsProbesWhileIgnoring = 1 << 1,
-            /// <summary>
-            /// Becoming the camera resets the controller
-            /// </summary>
+            [Description("Becoming the camera resets the controller")]
             ResetsController = 1 << 2
+#pragma warning restore CS1591
         }
 
         /// <summary>
@@ -305,10 +242,11 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout
         [Flags]
         enum SplineCameraFlags : UInt16
         {
-            /// <summary>
-            /// Takes <see cref="CameraSubBase.Offset"/> as the offset along the curve instead of the samples' keys'
-            /// </summary>
+            // The members' descriptions document them, the inspector shows them as the check boxes' tooltips
+#pragma warning disable CS1591
+            [Description("Takes Offset as the offset along the curve instead of the samples' keys'")]
             TakesOffset = 1 << 0
+#pragma warning restore CS1591
         }
     }
 }

@@ -11,6 +11,7 @@ using TT_Lab.Util;
 using TT_Lab.ViewModels.Editors;
 using TT_Lab.ViewModels.Editors.Descs;
 using TT_Lab.ViewModels.Editors.Graphics;
+using TT_Lab.ViewModels.Editors.PropertyGraph;
 using TT_Lab.ViewModels.Interfaces;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Common.ShaderAnimation;
@@ -33,12 +34,12 @@ public class LabShader : IDocumentModel
     public TwinShader.Type ShaderType { get; set; } = TwinShader.Type.StandardLit;
     
     [Editable(Hint = "The cloth deformations' mode (types 23 and 26)")]
-    [EditorLinkedField(typeof(ClothRead), nameof(ShaderType))]
+    [EditorLinkedField(typeof(ShaderParams), nameof(ShaderType))]
     public UInt32 IntParam { get; set; }
     
     [Editable(Hint = "The cloth deformations' speed and amplitudes (types 23 and 26), how far the reflection surface's copy of the frame moves by its normal (16), the screen copies' value (17 and 24), the waves' speed and amplitude (28)")]
     [EditorParam(DocumentCollectionViewModel.IsCollectionEditable, false)]
-    [EditorLinkedField(typeof(FloatParamRead), nameof(ShaderType))]
+    [EditorLinkedField(typeof(ShaderParams), nameof(ShaderType))]
     public Single[] FloatParam { get; set; } = new Single[4];
     
     [System.Text.Json.Serialization.JsonConverter(typeof(JsonEnumStringConverter<AlphaBlending>))]
@@ -159,6 +160,7 @@ public class LabShader : IDocumentModel
     [System.Text.Json.Serialization.JsonIgnore]
     [Editable]
     [EditorParam(UriLinkViewModel.BrowseType, typeof(Texture))]
+    [EditorParam(UriLinkViewModel.IncludeEmpty, true)]
     public LabURI TextureId { get; set; } = LabURI.Empty;
     
     [Editable(Caption = "Unused value", Hint = "Never read by the game: 4 in every retail material but the UI's, which have 6")]
@@ -455,16 +457,79 @@ public class LabShader : IDocumentModel
 
     // What the game only reads for some shader types or settings (the decomp's shaderclasses.cpp and shadersettings.cpp), grayed out while
     // it doesn't
-    private sealed class ClothRead : ReadWhen<LabShader>
+    /// <summary>
+    /// What the shader's type reads of its integer and floats (the decomp's cloth, screen copy and wave shaders: their readers and frame
+    /// updates), each shown captioned by what it is and the rest hidden
+    /// </summary>
+    private sealed class ShaderParams : IFieldChange
     {
-        protected override Boolean IsRead(LabShader owner) => owner.ShaderType is TwinShader.Type.UnlitClothDeformation or TwinShader.Type.UnlitClothDeformation2;
-    }
+        private const String TurnsSpeed = "How fast the waves' phases go round, in turns a second";
 
-    // The cloth's speed and amplitudes, the screen copies' corner value, the waves' speed and amplitude
-    private sealed class FloatParamRead : ReadWhen<LabShader>
-    {
-        protected override Boolean IsRead(LabShader owner) => owner.ShaderType is TwinShader.Type.UnlitClothDeformation or TwinShader.Type.UnlitClothDeformation2
-            or TwinShader.Type.LitReflectionSurface or TwinShader.Type.SHADER_17 or TwinShader.Type.ScreenCopy or TwinShader.Type.WaveDeformation;
+        public void DataChanged(PropertyNode listeningNode, PropertyNode changedNode)
+        {
+            if (listeningNode.Target is not LabShader shader)
+            {
+                return;
+            }
+
+            if (listeningNode.Name == nameof(IntParam))
+            {
+                listeningNode.Presentation = ModeOf(shader.ShaderType);
+                return;
+            }
+
+            var (list, elements) = FloatsOf(shader.ShaderType);
+            listeningNode.Presentation = list;
+            foreach (var element in listeningNode.Children)
+            {
+                var index = element.Index ?? 0;
+                element.Presentation = index < elements.Length ? elements[index] : NodePresentation.Hidden;
+            }
+        }
+
+        public void Linked(PropertyNode listeningNode, PropertyNode changedNode) => DataChanged(listeningNode, changedNode);
+
+        private static NodePresentation ModeOf(TwinShader.Type type) => type switch
+        {
+            TwinShader.Type.UnlitClothDeformation => new NodePresentation(false, "Wave Mode", "0: the waves are the sines of their phases, 1: their cosines " +
+                "(the phases going round at the speed); from 2 on the phases move toward random places by the speed and are the waves themselves"),
+            TwinShader.Type.UnlitClothDeformation2 => new NodePresentation(false, "Wave Mode", "0: the waves are the sines of their phases, 1: their " +
+                "cosines, 2: the cosines times the cosine of a second phase going twice as fast (V's 2.3 times), the speed then in radians a second"),
+            _ => NodePresentation.Hidden,
+        };
+
+        private static (NodePresentation List, NodePresentation[] Elements) FloatsOf(TwinShader.Type type)
+        {
+            var hidden = NodePresentation.Hidden;
+            return type switch
+            {
+                TwinShader.Type.UnlitClothDeformation => (new NodePresentation(false, "Waves"),
+                [
+                    new NodePresentation(false, "Speed", TurnsSpeed + " (from Wave Mode 2 on, how much of the way toward their random places they go a second)"),
+                    new NodePresentation(false, "Amplitude", "How far the vertexes move along every axis"), hidden, hidden
+                ]),
+                TwinShader.Type.UnlitClothDeformation2 => (new NodePresentation(false, "Waves"),
+                [
+                    new NodePresentation(false, "Speed", TurnsSpeed + " (Wave Mode 2: radians a second)"),
+                    new NodePresentation(false, "Amplitude X", "How far the vertexes move along X"),
+                    new NodePresentation(false, "Amplitude Y", "How far the vertexes move along Y"),
+                    new NodePresentation(false, "Amplitude Z", "How far the vertexes move along Z")
+                ]),
+                TwinShader.Type.LitReflectionSurface => (new NodePresentation(false, "Reflection"),
+                [
+                    new NodePresentation(false, "Offset", "How far the copy of the frame the surface draws moves by its normal"), hidden, hidden, hidden
+                ]),
+                TwinShader.Type.SHADER_17 or TwinShader.Type.ScreenCopy => (new NodePresentation(false, "Screen Copy"),
+                [
+                    new NodePresentation(false, "Corner Value", "The float the screen copy's VU1 program gets with the screen's corner"), hidden, hidden, hidden
+                ]),
+                TwinShader.Type.WaveDeformation => (new NodePresentation(false, "Waves"),
+                [
+                    new NodePresentation(false, "Speed", TurnsSpeed), new NodePresentation(false, "Amplitude", "How far the vertexes move"), hidden, hidden
+                ]),
+                _ => (hidden, [hidden, hidden, hidden, hidden]),
+            };
+        }
     }
 
     private sealed class CustomBlendRead : ReadWhen<LabShader>

@@ -485,4 +485,95 @@ public sealed class Pcsx2Tests : IDisposable
         Assert.False(folder.WriteFile("Startup/LevelSelect.txt", [2, 3]));
         Assert.Equal([2, 3], File.ReadAllBytes(Path.Combine(folder.FolderPath, "STARTUP", "LEVELSELECT.TXT")));
     }
+
+    // The preferences' extra arguments are one line split like a shell's, quotes keep spaces in, and Windows' backslashes stay
+    [Fact]
+    public void ExtraArgumentsAreSplitLikeAShellsButForBackslashes()
+    {
+        Assert.Empty(TT_Lab.Util.CommandLineArguments.Split("  "));
+        Assert.Equal(["-fullscreen", "-bios", "C:\\BIOS\\scph 10000.bin", "it's", ""],
+            TT_Lab.Util.CommandLineArguments.Split(" -fullscreen  -bios \"C:\\BIOS\\scph 10000.bin\" \"it's\" ''"));
+        Assert.Equal(["say \"hi\"", "/home/a b/c"], TT_Lab.Util.CommandLineArguments.Split("\"say \\\"hi\\\"\" '/home/a b/c'"));
+    }
+
+    // They go after TT Lab's own and before the disc image, which PCSX2 takes after its options
+    [Fact]
+    public void ExtraArgumentsGoBeforeTheDiscImage()
+    {
+        var folder = Path.Combine(_root, "pcsx2");
+        Directory.CreateDirectory(folder);
+        var executable = Path.Combine(folder, "pcsx2-qt");
+        File.WriteAllText(executable, "");
+        File.WriteAllText(Path.Combine(folder, "portable.ini"), "");
+        var install = Pcsx2Install.Find(executable)!;
+
+        var info = install.StartInfo("/dev/SLES_525.68", "/games/Crash.iso", ["-fullscreen", "-bios", "a b.bin"]);
+
+        Assert.Equal(executable, info.FileName);
+        Assert.Equal(["-nogui", "-fastboot", "-elf", "/dev/SLES_525.68", "-fullscreen", "-bios", "a b.bin", "--", "/games/Crash.iso"], info.ArgumentList);
+        Assert.Equal(["-nogui", "-fastboot", "-elf", "/dev/SLES_525.68", "--", "/games/Crash.iso"], install.StartInfo("/dev/SLES_525.68", "/games/Crash.iso").ArgumentList);
+    }
+
+    // PCSX2 2.0 and 2.2 open PINE on its default slot whatever the game settings say: a session takes the game there only when it carries the
+    // session's start chunk, which the patched executable keeps in the gap after .vutext, so another PCSX2 with PINE on is left alone
+    [Fact]
+    public void TheDefaultPineSlotsGameIsTakenWhenItPlaysTheSession()
+    {
+        var pcsx2 = new FakePcsx2();
+        using var pine = new PineClient(pcsx2);
+        Assert.False(Pcsx2Session.PlaysSession(pine, GameRelease.Pal, "Levels\\Earth\\Hub\\Beach"));
+
+        pcsx2.Poke(GameRelease.Pal.StartChunkGap, "Levels\\Earth\\Hub\\Beach");
+        Assert.True(Pcsx2Session.PlaysSession(pine, GameRelease.Pal, "Levels\\Earth\\Hub\\Beach"));
+        Assert.False(Pcsx2Session.PlaysSession(pine, GameRelease.Pal, "Levels\\Earth\\Hub\\Beach2"));
+        Assert.False(Pcsx2Session.PlaysSession(pine, GameRelease.Ntsc100, "Levels\\Earth\\Hub\\Beach"));
+    }
+
+    private string MakeExecutable(string folderName, string name, byte[]? content = null)
+    {
+        var folder = Path.Combine(_root, folderName);
+        Directory.CreateDirectory(folder);
+        var executable = Path.Combine(folder, name);
+        File.WriteAllBytes(executable, content ?? []);
+        return executable;
+    }
+
+    // Where PCSX2 keeps its data (EmuFolders::SetDataDirectory): portable next to itself with a portable.ini or portable.txt there or
+    // told -portable, in the folder portable.txt names under it, an AppImage only when told so and in a PCSX2 folder next to it
+    [Fact]
+    public void ThePortableSettingsAreWherePcsx2KeepsThem()
+    {
+        var installed = MakeExecutable("installed", "pcsx2-qt");
+        var user = Pcsx2Install.NativeSettingsFolder(installed, false);
+        Assert.EndsWith("PCSX2", user);
+        Assert.NotEqual(Path.GetDirectoryName(installed), user);
+        Assert.Equal(Path.GetDirectoryName(installed), Pcsx2Install.NativeSettingsFolder(installed, true));
+        Assert.Equal(Path.GetDirectoryName(installed), Pcsx2Install.Find(installed, ["-fullscreen", "-portable"])!.SettingsFolder);
+        Assert.Equal(user, Pcsx2Install.Find(installed, ["-fullscreen"])!.SettingsFolder);
+
+        var named = MakeExecutable("named", "pcsx2-qt");
+        File.WriteAllText(Path.Combine(_root, "named", "portable.txt"), "  data\n");
+        Assert.Equal(Path.Combine(_root, "named", "data"), Pcsx2Install.NativeSettingsFolder(named, false));
+        // Appended to its folder even when absolute
+        File.WriteAllText(Path.Combine(_root, "named", "portable.txt"), "/elsewhere");
+        Assert.Equal(Path.Combine(_root, "named", "elsewhere"), Pcsx2Install.NativeSettingsFolder(named, false));
+
+        var ini = MakeExecutable("ini", "pcsx2-qt");
+        File.WriteAllText(Path.Combine(_root, "ini", "portable.ini"), "");
+        Assert.Equal(Path.Combine(_root, "ini"), Pcsx2Install.NativeSettingsFolder(ini, false));
+
+        if (!OperatingSystem.IsLinux())
+        {
+            return;
+        }
+
+        var appImage = MakeExecutable("appimage", "pcsx2-v2.4.0-linux-appimage-x64-Qt.AppImage", [0x7f, (byte)'E', (byte)'L', (byte)'F', 2, 1, 1, 0, (byte)'A', (byte)'I', 2, 0, 0, 0, 0, 0]);
+        Assert.True(Pcsx2Install.IsAppImage(appImage));
+        Assert.False(Pcsx2Install.IsAppImage(installed));
+        // Its own folder is inside its mount: a portable.txt next to it changes nothing
+        File.WriteAllText(Path.Combine(_root, "appimage", "portable.txt"), "");
+        Assert.Equal(user, Pcsx2Install.NativeSettingsFolder(appImage, false));
+        Assert.Equal(Path.Combine(_root, "appimage", "PCSX2"), Pcsx2Install.NativeSettingsFolder(appImage, true));
+    }
 }
+

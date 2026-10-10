@@ -78,6 +78,12 @@ namespace TT_Lab.Project
             }
         }
 
+        // From opening a project's file until it's open or it couldn't be
+        public bool IsOpeningProject { get; private set; }
+
+        // When the open project's tree got built after creating or opening it (UTC), none while no project is open
+        public DateTime? ProjectReadyAt { get; private set; }
+
         public bool WorkableProject
         {
             get => _workableProject;
@@ -206,6 +212,7 @@ namespace TT_Lab.Project
                 if (!ps2DiscFiles.Contains("system.cnf"))
                 {
                     Log.WriteLine("ERROR: Improper PS2 disc content provided!");
+                    IsCreatingProject = false;
                     return;
                 }
                 ps2ContentProvided = true;
@@ -217,6 +224,7 @@ namespace TT_Lab.Project
                 if (!xboxDiscFiles.Contains("default.xbe"))
                 {
                     Log.WriteLine("ERROR: Improper XBox disc content provided!");
+                    IsCreatingProject = false;
                     return;
                 }
                 xboxContentProvided = true;
@@ -224,6 +232,7 @@ namespace TT_Lab.Project
             if (!ps2ContentProvided && !xboxContentProvided)
             {
                 Log.WriteLine("ERROR: No content was provided for creating a new project!");
+                IsCreatingProject = false;
                 return;
             }
 
@@ -285,6 +294,7 @@ namespace TT_Lab.Project
 
                 Log.WriteLine("Building project tree...");
                 BuildProjectTree();
+                ProjectReadyAt = DateTime.UtcNow;
 
                 Dispatcher.UIThread.Invoke(() =>
                 {
@@ -303,6 +313,7 @@ namespace TT_Lab.Project
                 catch (Exception ex)
                 {
                     Log.WriteLine($"Error when working with assets: {ex.Message}\n{ex.StackTrace}");
+                    IsCreatingProject = false;
                 }
 #endif
             });
@@ -346,6 +357,7 @@ namespace TT_Lab.Project
             if (Directory.GetFiles(path, "*.tson").Length != 0)
             {
                 var prFile = Directory.GetFiles(path, "*.tson")[0];
+                IsOpeningProject = true;
                 Task.Factory.StartNew(() =>
                 {
                     try
@@ -366,6 +378,7 @@ namespace TT_Lab.Project
                         Project.Deserialize(prFile);
                         Log.WriteLine($"Building project tree...");
                         BuildProjectTree();
+                        ProjectReadyAt = DateTime.UtcNow;
                         WorkableProject = true;
                         _eventAggregator.PublishOnUIThreadAsync(new ProjectManagerMessage(nameof(ProjectOpened)));
                         _eventAggregator.PublishOnUIThreadAsync(new ProjectManagerMessage(nameof(ProjectTitle)));
@@ -384,6 +397,10 @@ namespace TT_Lab.Project
                         Log.WriteLine(ex.ToString(), Log.LogType.Debug);
                         // The assets are read in parallel, an unreadable file comes wrapped
                         ReportOpeningError((ex is AggregateException aggregate ? aggregate.Flatten().InnerExceptions[0] : ex).Message);
+                    }
+                    finally
+                    {
+                        IsOpeningProject = false;
                     }
                 });
             }
@@ -693,6 +710,7 @@ namespace TT_Lab.Project
             AssetFileStamps.Clear();
             AssetData.Instance.Particle.ParticleSystemNames.Clear();
             _treeRoot = null;
+            ProjectReadyAt = null;
             OpenedProject = null;
             WorkableProject = false;
             ProjectTree.Clear();
