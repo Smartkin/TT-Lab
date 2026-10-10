@@ -1,7 +1,11 @@
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
+using Avalonia.Input;
 using Avalonia.Headless.XUnit;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using TT_Lab.AssetData.Code;
 using TT_Lab.AssetData.Code.Behaviour;
 using TT_Lab.AssetData.Instance;
@@ -177,6 +181,54 @@ public sealed class LinkReplacementTests : IDisposable
         var answer = dialogue.Answered!;
         Assert.Equal([crate.Walk.URI, crate.Run.URI], answer.Links.Select(link => link.Original));
         Assert.Equal(crate.Jump.URI, Assert.Single(answer.Replacements).Value);
+    }
+
+    // Shift and a click on a link ticks it and every other link to the same asset, again unticks them all; a plain click ticks only it
+    [AvaloniaFact]
+    public void ShiftAndAClickOnALinkTicksEveryLinkToTheSameAsset()
+    {
+        var walk = Graph("COM_WALK", 0x101);
+        var run = Graph("COM_RUN", 0x103);
+        var crate = _project.Add(new GameObject(), "CRATE", 0x10, _project.Project.Ps2Package);
+        crate.SetData(new GameObjectData(crate) { Name = "CRATE", BehaviourSlots = [walk.URI, run.URI, walk.URI] });
+        var document = new DocumentViewModel(crate);
+        document.Initialize();
+        var dialogue = new ReplaceLinksDialogue(LinkReplacement.Find(document, document.PropertyGraph.Root));
+        dialogue.Show();
+        var root = Assert.Single(Assert.IsAssignableFrom<IEnumerable<LinkChoice>>(dialogue.Links.ItemsSource));
+        var walks = root.Descendants.Where(choice => choice.Link?.Original == walk.URI).ToList();
+        var running = Assert.Single(root.Descendants, choice => choice.Link?.Original == run.URI);
+        Assert.Equal(2, walks.Count);
+
+        // On the link's caption
+        Click(dialogue, walks[1], RawInputModifiers.Shift, onCaption: true);
+        Assert.All(walks, choice => Assert.True(choice.IsChecked));
+        Assert.False(running.IsChecked);
+        Assert.Equal(["Behaviour Graph links (2)"], Assert.IsAssignableFrom<IEnumerable<LinkKindChoice>>(dialogue.Kinds.ItemsSource).Select(kind => kind.Title));
+
+        // On its check box
+        Click(dialogue, walks[0], RawInputModifiers.Shift, onCaption: false);
+        Assert.All(walks, choice => Assert.False(choice.IsChecked));
+
+        Click(dialogue, walks[0], RawInputModifiers.None, onCaption: false);
+        Assert.True(walks[0].IsChecked);
+        Assert.False(walks[1].IsChecked);
+        dialogue.Close();
+    }
+
+    // Clicks go by what the compositor got last
+    private static void Click(Window window, LinkChoice choice, RawInputModifiers modifiers, bool onCaption)
+    {
+        Dispatcher.UIThread.RunJobs();
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        Dispatcher.UIThread.RunJobs();
+        Control target = onCaption
+            ? window.GetVisualDescendants().OfType<TextBlock>().First(text => text.DataContext == choice && text.Text == choice.Caption)
+            : window.GetVisualDescendants().OfType<CheckBox>().First(box => box.DataContext == choice);
+        var point = target.TranslatePoint(new Point(target.Bounds.Width / 2, target.Bounds.Height / 2), window)!.Value;
+        window.MouseDown(point, MouseButton.Left, modifiers);
+        window.MouseUp(point, MouseButton.Left, modifiers);
+        Dispatcher.UIThread.RunJobs();
     }
 
     [AvaloniaFact]

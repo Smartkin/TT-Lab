@@ -5,7 +5,9 @@ using System.ComponentModel;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using TT_Lab.Assets;
@@ -41,17 +43,46 @@ public sealed class LinkChoice : INotifyPropertyChanged
         {
             SetDown(value == true);
             Parent?.FollowChildren();
+            Root.Ticked?.Invoke();
+        }
+    }
+
+    public IEnumerable<LinkChoice> Descendants => Children.SelectMany(child => child.Descendants.Prepend(child));
+
+    private LinkChoice Root
+    {
+        get
+        {
             var root = this;
             while (root.Parent != null)
             {
                 root = root.Parent;
             }
 
-            root.Ticked?.Invoke();
+            return root;
         }
     }
 
-    public IEnumerable<LinkChoice> Descendants => Children.SelectMany(child => child.Descendants.Prepend(child));
+    /// <summary>
+    /// A link ticked with every link of the tree to the same asset, or unticked with them when it's ticked
+    /// </summary>
+    internal void TickEveryLinkToTheSame()
+    {
+        if (Link == null)
+        {
+            return;
+        }
+
+        var isChecked = _isChecked != true;
+        var root = Root;
+        foreach (var choice in root.Descendants.Where(choice => choice.Link != null && choice.Link.Original == Link.Original))
+        {
+            choice.Set(isChecked);
+            choice.Parent?.FollowChildren();
+        }
+
+        root.Ticked?.Invoke();
+    }
 
     private void SetDown(bool isChecked)
     {
@@ -152,10 +183,13 @@ public partial class ReplaceLinksDialogue : Window
             return;
         }
 
-        Message.Text = "Tick the links to replace, then pick what replaces each kind of link. A link only gets what its own field takes.";
+        Message.Text = "Tick the links to replace, Shift and a click on a link ticks every link to the same asset. Then pick what replaces each " +
+                       "kind of link, a link only gets what its own field takes.";
         _root = Choice(tree, null);
         _root.Ticked += Follow;
         Links.ItemsSource = new[] { _root };
+        // Before the link's check box or the tree's selection take the click
+        Links.AddHandler(PointerPressedEvent, Links_OnPointerPressed, RoutingStrategies.Tunnel);
         _replace = AddButton("Replace", true, false, Answer);
         AddButton("Cancel", false, true, Close);
         Follow();
@@ -255,6 +289,18 @@ public partial class ReplaceLinksDialogue : Window
         {
             _replace.IsEnabled = ticked.Any(link => _kinds[link.Kind].Picked is { } picked && picked != link.Original);
         }
+    }
+
+    private static void Links_OnPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (!e.KeyModifiers.HasFlag(KeyModifiers.Shift) || !e.GetCurrentPoint(sender as Visual).Properties.IsLeftButtonPressed
+            || (e.Source as StyledElement)?.DataContext is not LinkChoice { Link: not null } choice)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        choice.TickEveryLinkToTheSame();
     }
 
     private async void Pick_OnClick(object? sender, RoutedEventArgs e)
