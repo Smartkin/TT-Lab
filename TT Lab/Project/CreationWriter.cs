@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using TT_Lab.AssetData;
 using TT_Lab.Assets;
+using TT_Lab.Assets.Factory;
 using TT_Lab.Util;
 
 namespace TT_Lab.Project;
@@ -35,6 +36,8 @@ internal sealed class CreationWriter(AssetManager assetManager, MemoryGate gate)
     private readonly ConcurrentDictionary<IAsset, Byte> _written = new(ReferenceEqualityComparer.Instance);
     private readonly ConcurrentDictionary<IAsset, InternalAsset> _internals = new(ReferenceEqualityComparer.Instance);
     private readonly ConcurrentBag<String> _keptFiles = [];
+    // The disc's IDs of the parts of the model files written so far, by what each is made of
+    private readonly Dictionary<String, List<UInt32>> _recordedParts = new();
 
     public Boolean IsWritten(IAsset asset) => _written.ContainsKey(asset);
 
@@ -131,6 +134,8 @@ internal sealed class CreationWriter(AssetManager assetManager, MemoryGate gate)
         {
             using (assetManager.HookLookups(found => Use(asset, found, used, usedSet)))
             {
+                // Its model file's parts are the disc's items now, reading the file makes them again without their IDs
+                RetailIds.RecordParts(asset, _recordedParts);
 #if !DEBUG
                 try
                 {

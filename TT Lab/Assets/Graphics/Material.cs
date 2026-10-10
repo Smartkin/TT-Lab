@@ -12,6 +12,7 @@ namespace TT_Lab.Assets.Graphics;
 public class Material : SerializableAsset
 {
     protected override bool SetIdFromDataHash => true;
+    protected override bool KeepsRetailId => true;
     public override UInt32 Section => Constants.GRAPHICS_MATERIALS_SECTION;
     public override String IconPath => "Material.png";
 

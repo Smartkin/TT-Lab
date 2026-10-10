@@ -14,6 +14,7 @@ using Newtonsoft.Json.Linq;
 using Splat;
 using TT_Lab.AssetData;
 using TT_Lab.Assets;
+using TT_Lab.Assets.Factory;
 using TT_Lab.Command;
 using TT_Lab.Controls;
 using TT_Lab.Project.Messages;
@@ -269,6 +270,7 @@ namespace TT_Lab.Project
                     writer.ImportAndWrite();
                     writer.RemoveInternalAssets();
                     MergeVariants();
+                    RecordRetailIds(OpenedProject.AssetManager.GetAssets());
 
                     Log.WriteLine("Serializing assets...");
                     OpenedProject.Serialize(writer.IsWritten); // Call to serialize the asset list and chunk list
@@ -317,6 +319,14 @@ namespace TT_Lab.Project
                 }
 #endif
             });
+        }
+
+        // The disc's textures, materials and skies are built with the game's IDs while they're as the disc has them
+        private void RecordRetailIds(IEnumerable<IAsset> assets)
+        {
+            var start = DateTime.Now;
+            RetailIds.Record(assets.ToList(), OpenedProject!.AssetManager.GetAllAssetsOf<LevelChunk>());
+            Log.WriteLine($"Recorded what the disc's graphics are made of in {DateTime.Now - start}");
         }
 
         // The variants of assets that only differ in values become the chunks' overrides of the first chunk's asset
@@ -552,6 +562,8 @@ namespace TT_Lab.Project
                     MergeVariants();
                 }
 
+                var madePackages = project.AssetManager.GetAllAssetsOf<Package>().Where(package => made.Contains(package.Name)).Select(package => package.URI).ToHashSet();
+                RecordRetailIds(project.AssetManager.GetAssets().Where(asset => madePackages.Contains(asset.Package)));
                 Log.WriteLine("Serializing assets...");
                 project.Serialize(asset => kept.Contains(asset) || writer.IsWritten(asset), writeProjectFile: false, tidiedPackages: made);
             }

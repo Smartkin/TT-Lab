@@ -93,6 +93,22 @@ public class SkydomeData : AbstractAssetData
         return result.ToString();
     }
 
+    // The meshes' geometry and the materials they're drawn with by their URIs: the meshes' strings have their models' and materials' data
+    // hashes, which are worked out of the file or the loaded data, whichever is there first
+    public override Byte[] GetFingerprint()
+    {
+        var assetManager = AssetManager.Get();
+        var result = new StringBuilder();
+        foreach (var labUri in Meshes)
+        {
+            var mesh = assetManager.GetAssetData<MeshData>(labUri);
+            result.AppendLine(assetManager.GetAssetData<ModelData>(mesh.Model).GetStringified());
+            result.AppendLine(string.Join(" ", mesh.Materials));
+        }
+
+        return Encoding.UTF8.GetBytes(result.ToString());
+    }
+
     public override void Import(LabURI package, String? variant, Int32? layoutId)
     {
         var skydome = GetTwinItem<ITwinSkydome>();

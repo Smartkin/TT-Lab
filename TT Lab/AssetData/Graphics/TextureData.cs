@@ -53,6 +53,22 @@ public class TextureData : AbstractAssetData
         return EncodePng(GetPixels(), Bitmap!.PixelSize.Width, Bitmap.PixelSize.Height);
     }
 
+    // The picture's size and pixels, not the PNG they're kept in
+    public override Byte[] GetFingerprint()
+    {
+        if (Bitmap == null && IsTwinItemValid())
+        {
+            Import(LabURI.Empty, null, null);
+        }
+
+        var pixels = GetPixels();
+        var fingerprint = new Byte[8 + pixels.Length * 4];
+        BitConverter.TryWriteBytes(fingerprint.AsSpan(0, 4), Bitmap!.PixelSize.Width);
+        BitConverter.TryWriteBytes(fingerprint.AsSpan(4, 4), Bitmap.PixelSize.Height);
+        MemoryMarshal.AsBytes(pixels.AsSpan()).CopyTo(fingerprint.AsSpan(8));
+        return fingerprint;
+    }
+
     public static TextureData FromPng(IAsset owner, Stream png)
     {
         var textureData = new TextureData(owner);

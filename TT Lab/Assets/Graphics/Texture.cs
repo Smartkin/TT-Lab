@@ -15,6 +15,7 @@ namespace TT_Lab.Assets.Graphics;
 public class Texture : SerializableAsset
 {
     protected override bool SetIdFromDataHash => true;
+    protected override bool KeepsRetailId => true;
     protected override String DataExt => ".png";
     public override UInt32 Section => Constants.GRAPHICS_TEXTURES_SECTION;
     public override String IconPath => "Texture.png";
@@ -70,6 +71,11 @@ public class Texture : SerializableAsset
     public override Type GetEditorType()
     {
         return typeof(TextureViewModel);
+    }
+
+    protected override string BuildSettings()
+    {
+        return JsonConvert.SerializeObject(new { TextureFunction, PixelFormat, GenerateMipmaps, ReservesMemory, Leftovers });
     }
 
     public override AbstractAssetData GetData()

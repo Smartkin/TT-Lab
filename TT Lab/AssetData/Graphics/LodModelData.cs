@@ -64,6 +64,28 @@ public class LodModelData : AbstractAssetData
         return result.ToString();
     }
 
+    // Its distances and what its meshes are made of
+    public override Byte[] GetFingerprint()
+    {
+        using var stream = new MemoryStream();
+        using var writer = new BinaryWriter(stream);
+        writer.Write((Int32)Type);
+        writer.Write(MinDrawDistance);
+        writer.Write(MaxDrawDistance);
+        foreach (var distance in ModelsDrawDistances)
+        {
+            writer.Write(distance);
+        }
+
+        foreach (var mesh in Meshes)
+        {
+            writer.Write(AssetManager.Get().GetAssetData<MeshData>(mesh).GetFingerprint());
+        }
+
+        writer.Flush();
+        return stream.ToArray();
+    }
+
     protected override void Dispose(Boolean disposing)
     {
         Meshes.Clear();

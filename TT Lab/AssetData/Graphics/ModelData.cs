@@ -64,6 +64,11 @@ public class ModelData : AbstractAssetData
         return Convert.ToHexString(SHA256.HashData(stream.ToArray()));
     }
 
+    public override Byte[] GetFingerprint()
+    {
+        return System.Text.Encoding.UTF8.GetBytes(GetStringified());
+    }
+
     internal static void WritePart(BinaryWriter writer, List<Vertex> vertexes, List<IndexedFace> faces, StripLayout? layout)
     {
         writer.Write(vertexes.Count);

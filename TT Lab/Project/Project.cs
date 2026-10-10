@@ -880,12 +880,14 @@ public class Project : IProject
             using var layoutIndexes = new LayoutIndexes(chunk.Alias, chunk.ChunkResources.Select(AssetManager.GetAsset)).Use();
             var rm2 = isDefault ? factory.GenerateDefault() : factory.GenerateRM();
             var sm2 = factory.GenerateSM();
+            // Each file has its graphics, the disc has a texture of an ID in both
+            var retailIds = (Rm2: new RetailIds(), Sm2: new RetailIds());
             foreach (var asset in chunk.ChunkResources.Select(AssetManager.GetAsset))
             {
                 Log.WriteLine($"Writing {asset.Name} of {chunk.Alias}...", Log.LogType.Debug);
                 try
                 {
-                    ResolveChunkResource(factory, chunk, asset, rm2, sm2, isDefault);
+                    ResolveChunkResource(factory, chunk, asset, rm2, sm2, isDefault, retailIds);
                 }
                 catch (Exception ex) when (ex is not BuildException)
                 {
@@ -908,7 +910,8 @@ public class Project : IProject
         Log.WriteLine($"Finished writing {chunk.Alias}");
     }
 
-    private void ResolveChunkResource(ITwinItemFactory factory, LevelChunk chunk, IAsset asset, ITwinSection rm2, ITwinSection sm2, bool isDefault)
+    private void ResolveChunkResource(ITwinItemFactory factory, LevelChunk chunk, IAsset asset, ITwinSection rm2, ITwinSection sm2, bool isDefault,
+        (RetailIds Rm2, RetailIds Sm2) retailIds)
     {
         if (!isDefault && asset is Scenery or ChunkLinks)
         {
@@ -918,10 +921,16 @@ public class Project : IProject
                 sceneryData.SkydomeID = chunk.Skydome;
 
                 var collision = AssetManager.GetAsset(sceneryData.Collision);
-                collision.ResolveChunkResources(factory, rm2);
+                using (retailIds.Rm2.Use())
+                {
+                    collision.ResolveChunkResources(factory, rm2);
+                }
             }
 
-            asset.ResolveChunkResources(factory, sm2);
+            using (retailIds.Sm2.Use())
+            {
+                asset.ResolveChunkResources(factory, sm2);
+            }
         }
         else if (asset is SoundEffect)
         {
@@ -929,7 +938,10 @@ public class Project : IProject
         }
         else
         {
-            asset.ResolveChunkResources(factory, rm2);
+            using (retailIds.Rm2.Use())
+            {
+                asset.ResolveChunkResources(factory, rm2);
+            }
         }
     }
 
@@ -1233,6 +1245,7 @@ public class Project : IProject
                 accessedAssets.TryAdd(asset, 0);
                 using (assetManager.RecordAccessedAssets(accessedAssets))
                 using (new AssetDataScope())
+                using (new RetailIds().Use())
                 {
                     try
                     {

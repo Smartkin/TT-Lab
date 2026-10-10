@@ -116,6 +116,15 @@ public abstract class AbstractAssetData(IAsset owner) : IDocumentModel
     }
 
     /// <summary>
+    /// What the game's item is made of, which tells whether it's still made of what the disc's was (<see cref="IAsset.RetailFingerprints"/>):
+    /// every value data kept as JSON has, its links by their URIs
+    /// </summary>
+    public virtual byte[] GetFingerprint()
+    {
+        return System.Text.Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(this));
+    }
+
+    /// <summary>
     /// A copy of data kept as JSON for another asset of the owner's type, made the way loading the data makes it
     /// </summary>
     public AbstractAssetData CopyFor(IAsset asset)

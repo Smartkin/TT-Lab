@@ -50,12 +50,23 @@ public class BlendSkinData : AbstractAssetData
 
     public override String GetStringified()
     {
+        return Convert.ToHexString(SHA256.HashData(WriteParts(SkinData.WriteMaterial)));
+    }
+
+    // The materials by their IDs: their data hashes are worked out of the file or the loaded data, whichever is there first
+    public override Byte[] GetFingerprint()
+    {
+        return WriteParts((writer, material) => writer.Write(RigidModelData.MaterialId(material)));
+    }
+
+    private Byte[] WriteParts(Action<BinaryWriter, LabURI> writeMaterial)
+    {
         using var stream = new MemoryStream();
         using var writer = new BinaryWriter(stream);
         writer.Write(BlendsAmount);
         foreach (var blend in Blends)
         {
-            SkinData.WriteMaterial(writer, blend.Material);
+            writeMaterial(writer, blend.Material);
             ModelData.WritePart(writer, blend.Vertexes, blend.Faces, blend.Layout);
             SkinData.WriteCompression(writer, blend.Compression);
             foreach (var offset in blend.ShapeOffsets.SelectMany(s => s))
@@ -74,7 +85,7 @@ public class BlendSkinData : AbstractAssetData
         }
 
         writer.Flush();
-        return Convert.ToHexString(SHA256.HashData(stream.ToArray()));
+        return stream.ToArray();
     }
 
     public const string TlmKind = "shape";

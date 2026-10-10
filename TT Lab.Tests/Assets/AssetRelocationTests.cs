@@ -7,6 +7,7 @@ using TT_Lab.AssetData.Code;
 using TT_Lab.AssetData.Code.Behaviour;
 using TT_Lab.AssetData.Global;
 using TT_Lab.AssetData.Graphics;
+using TT_Lab.AssetData.Graphics.Shaders;
 using TT_Lab.AssetData.Graphics.TlModel;
 using TT_Lab.AssetData.Instance;
 using TT_Lab.Assets;
@@ -600,6 +601,23 @@ public sealed class AssetRelocationTests : IDisposable
         Assert.Contains(graph.URI, copy.References);
         Assert.Equal(["Crate", "Crate (2)", "Crate (3)", "Crate (4)"], Rows(objects));
         Assert.Contains(_asked, asked => asked.EndsWith("[Crate (2)]"));
+    }
+
+    // A copy of an ID of its own is no item of the disc's: it's built with its data's ID, not the original's game ID
+    [Fact]
+    public async Task ACopyOfTheDiscsMaterialIsNoItemOfTheDisc()
+    {
+        _project.BuildProjectTree(Path.Combine(Global.Name, "Material"));
+        var material = Create<Material>(_project.GetFolder(Global, "Material"), "lambert2",
+            asset => new MaterialData(asset) { Name = "lambert2", Shaders = [new LabShader()] });
+        material.RetailFingerprints = [0x12345678];
+        material.Serialize();
+
+        var copy = Assert.IsType<Material>(await AssetRelocation.DuplicateAsync(material));
+
+        Assert.NotEqual(material.ID, copy.ID);
+        Assert.Null(copy.RetailFingerprints);
+        Assert.Equal([0x12345678U], material.RetailFingerprints);
     }
 
     [Fact]

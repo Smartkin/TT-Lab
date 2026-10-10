@@ -69,11 +69,37 @@ public abstract class SerializableAsset : IAsset
     public String FullPath => $"{Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath}/{LoadPath}";
     public UInt32 ID { get; set; }
     public string HashSalt { get; set; } = string.Empty;
-    // Assets identified by their data's hash have the ID of the chunk's view when the chunk being built has values of its own, the
-    // layout elements of the chunk being built are numbered the way the game finds them
+    public List<UInt32>? RetailFingerprints { get; set; }
+    public Dictionary<String, List<UInt32>>? RetailPartIds { get; set; }
+    // Assets identified by their data's hash have the ID of the chunk's view when the chunk being built has values of its own, and the
+    // game's while they're made of what the disc's item was. The layout elements of the chunk being built are numbered the way the game
+    // finds them
     public UInt32 ExportTwinID => SetIdFromDataHash && OverriddenAsset == null && Factory.ChunkOverrides.Current?.GetView(this) is { } view
         ? view.ExportTwinID
-        : SetIdFromDataHash ? GetDataHash() : Factory.LayoutIndexes.Current?.IndexOf(this) ?? ID;
+        : SetIdFromDataHash ? Factory.RetailIds.IdOf(this) ?? GetDataHash() : Factory.LayoutIndexes.Current?.IndexOf(this) ?? ID;
+
+    // Its game ID kept while it's made of what the disc's item was. The parts of OGIs, sceneries and skies are made again of their
+    // owners' model files and found in their owners' RetailPartIds, and the build gives Default.rm2's meshes theirs (PostResolveResources)
+    protected virtual bool KeepsRetailId => false;
+
+    internal bool RecordsRetailId => KeepsRetailId && !IsInternal;
+
+    /// <summary>
+    /// What the asset's item is made of now, compared with its <see cref="RetailFingerprints"/>: its data's and what building it reads of the
+    /// asset itself
+    /// </summary>
+    internal UInt32 Fingerprint()
+    {
+        var data = GetData().GetFingerprint();
+        var settings = Encoding.UTF8.GetBytes(BuildSettings());
+        var bytes = new byte[data.Length + settings.Length];
+        data.CopyTo(bytes, 0);
+        settings.CopyTo(bytes, data.Length);
+        return SharpHash.Base.HashFactory.Checksum.CreateCRC(CRCStandard.CRC32).ComputeBytes(bytes).GetUInt32();
+    }
+
+    // What building the item reads of the asset besides its data
+    protected virtual string BuildSettings() => string.Empty;
     
     [Editable]
     [EditorParam(DocumentCompositeViewModel.EditorExplicitOrder, -5)]

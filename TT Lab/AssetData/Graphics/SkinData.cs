@@ -37,17 +37,28 @@ public class SkinData : AbstractAssetData
 
     public override String GetStringified()
     {
+        return Convert.ToHexString(SHA256.HashData(WriteParts(WriteMaterial)));
+    }
+
+    // The materials by their IDs: their data hashes are worked out of the file or the loaded data, whichever is there first
+    public override Byte[] GetFingerprint()
+    {
+        return WriteParts((writer, material) => writer.Write(RigidModelData.MaterialId(material)));
+    }
+
+    private Byte[] WriteParts(Action<BinaryWriter, LabURI> writeMaterial)
+    {
         using var stream = new MemoryStream();
         using var writer = new BinaryWriter(stream);
         foreach (var subSkin in SubSkins)
         {
-            WriteMaterial(writer, subSkin.Material);
+            writeMaterial(writer, subSkin.Material);
             ModelData.WritePart(writer, subSkin.Vertexes, subSkin.Faces, subSkin.Layout);
             WriteCompression(writer, subSkin.Compression);
         }
 
         writer.Flush();
-        return Convert.ToHexString(SHA256.HashData(stream.ToArray()));
+        return stream.ToArray();
     }
 
     // By what the material holds, its URI changes whenever it's recreated from a glb

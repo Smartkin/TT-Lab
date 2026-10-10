@@ -458,6 +458,13 @@ public static partial class AssetRelocation
         asset.Alias = copy.Alias;
         asset.Variation = copy.Variation;
         asset.ID = copy.Id;
+        // A copy of an ID of its own is no item of the disc's, a chunk's contents keep theirs and go into the copy of the chunk
+        if (copy.Id != original.ID)
+        {
+            asset.RetailFingerprints = null;
+            asset.RetailPartIds = null;
+        }
+
         Apply(asset, copy.Place, copy.Uri);
         if (asset is BehaviourCommandsSequence sequence)
         {

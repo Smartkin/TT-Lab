@@ -75,7 +75,23 @@ public interface IAsset : IDocumentModel
     UInt32 ID { get; set; }
     
     String HashSalt { get; set; }
-    
+
+    /// <summary>
+    /// What the disc's item of the asset was made of (its fingerprint, and each of its chunks' own versions'), recorded when the disc's
+    /// assets were made: the graphics items whose IDs are made of their data are built with <see cref="ID"/>, the game's, while they're
+    /// still made of that. None for what TT Lab made
+    /// </summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    List<UInt32>? RetailFingerprints { get; set; }
+
+    /// <summary>
+    /// The disc's IDs of the parts the asset's model file holds (an OGI's rigid models, skin and blend skin, a scenery's meshes and LODs, a
+    /// sky's meshes, the models they're made of), by the kind of part and what it's made of: reading the file makes the parts again
+    /// without their IDs, and a part is built with the ID of what it's still made of
+    /// </summary>
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    Dictionary<String, List<UInt32>>? RetailPartIds { get; set; }
+
     /// <summary>
     /// In-Game's ID when exporting
     /// </summary>

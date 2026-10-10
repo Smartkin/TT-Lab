@@ -62,6 +62,28 @@ public class RigidModelData : AbstractAssetData
         return result.ToString();
     }
 
+    // Its model's geometry and the materials it's drawn with by their IDs: a chunk's own version of a material shares its ID, and its links
+    // become links to the material's asset when the versions are merged
+    public override Byte[] GetFingerprint()
+    {
+        using var stream = new MemoryStream();
+        using var writer = new BinaryWriter(stream);
+        writer.Write(AssetManager.Get().GetAssetData<ModelData>(Model).GetFingerprint());
+        foreach (var material in Materials)
+        {
+            writer.Write(MaterialId(material));
+        }
+
+        writer.Flush();
+        return stream.ToArray();
+    }
+
+    internal static UInt32 MaterialId(LabURI material)
+    {
+        var assetManager = AssetManager.Get();
+        return material != LabURI.Empty && assetManager.DoesAssetExist(material) ? assetManager.GetAsset(material).ID : 0U;
+    }
+
     protected virtual string TlmKind => "rigid_model";
 
     protected override void SaveInternal(string dataPath, JsonSerializerSettings? settings = null)
