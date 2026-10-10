@@ -103,7 +103,7 @@ public sealed class Pcsx2Install
     }
 
     // Where PCSX2 keeps its data (EmuFolders::SetDataDirectory): portable when a portable.ini or portable.txt is next to its executable (the
-    // real one, links followed) or it's told -portable (2.4.0 on), in the folder portable.txt names, appended to its own even when absolute.
+    // real one, links followed) or it's told -portable (2.4.0 on), in the folder portable.txt names (2.2.0 on), appended to its own even when absolute.
     // An AppImage's own folder is inside its mount, it's only portable told so, in a PCSX2 folder next to the AppImage. Otherwise
     // Documents\PCSX2, or $XDG_CONFIG_HOME/PCSX2 when that's an absolute path, ~/.config/PCSX2 when it isn't. The Flatpak keeps its own
     internal static string NativeSettingsFolder(string executable, bool toldPortable)
@@ -119,10 +119,29 @@ public sealed class Pcsx2Install
         if (toldPortable || File.Exists(Path.Combine(folder, "portable.ini")) || File.Exists(portableText))
         {
             var named = File.Exists(portableText) ? File.ReadAllText(portableText).Trim() : "";
-            return named.Length == 0 ? folder : Path.Join(folder, named);
+            if (named.Length == 0)
+            {
+                return folder;
+            }
+
+            // 2.0.x keep their data next to the executable whatever portable.txt names (2.2.0 reads it). PCSX2 makes its inis folder where it
+            // keeps them, and it has run to have a BIOS to play with
+            var data = JoinLikePcsx2(folder, named, OperatingSystem.IsWindows());
+            return !Directory.Exists(Path.Combine(data, "inis")) && Directory.Exists(Path.Combine(folder, "inis")) ? folder : data;
         }
 
         return UserSettingsFolder();
+    }
+
+    // PCSX2's Path::Combine: one separator between them, runs of them made one, none at the end, and on Windows forward slashes turned around
+    // (PathAppendString)
+    internal static string JoinLikePcsx2(string folder, string named, bool windows)
+    {
+        char[] separators = windows ? ['\\', '/'] : ['/'];
+        var separator = windows ? '\\' : '/';
+        var parts = named.Split(separators, StringSplitOptions.RemoveEmptyEntries);
+        var joined = folder.TrimEnd(separators);
+        return parts.Length == 0 ? joined : joined + separator + string.Join(separator, parts);
     }
 
     private static string UserSettingsFolder()

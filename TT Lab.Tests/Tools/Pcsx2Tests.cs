@@ -538,8 +538,22 @@ public sealed class Pcsx2Tests : IDisposable
         return executable;
     }
 
+    // PCSX2's Path::Combine: the Windows build takes either slash and writes backslashes, every build makes a run of separators one and
+    // leaves none at the end
+    [Theory]
+    [InlineData(@"C:\PCSX2", "/elsewhere", true, @"C:\PCSX2\elsewhere")]
+    [InlineData(@"C:\PCSX2\", @"data//inner\", true, @"C:\PCSX2\data\inner")]
+    [InlineData(@"C:\PCSX2", "/", true, @"C:\PCSX2")]
+    [InlineData("/opt/pcsx2", "/elsewhere", false, "/opt/pcsx2/elsewhere")]
+    [InlineData("/opt/pcsx2/", "data//inner/", false, "/opt/pcsx2/data/inner")]
+    [InlineData("/opt/pcsx2", @"back\slash", false, @"/opt/pcsx2/back\slash")]
+    public void PortableFoldersAreJoinedLikePcsx2Does(string folder, string named, bool windows, string joined)
+    {
+        Assert.Equal(joined, Pcsx2Install.JoinLikePcsx2(folder, named, windows));
+    }
+
     // Where PCSX2 keeps its data (EmuFolders::SetDataDirectory): portable next to itself with a portable.ini or portable.txt there or
-    // told -portable, in the folder portable.txt names under it, an AppImage only when told so and in a PCSX2 folder next to it
+    // told -portable, in the folder portable.txt names under it (2.2.0 on), an AppImage only when told so and in a PCSX2 folder next to it
     [Fact]
     public void ThePortableSettingsAreWherePcsx2KeepsThem()
     {
@@ -556,6 +570,11 @@ public sealed class Pcsx2Tests : IDisposable
         Assert.Equal(Path.Combine(_root, "named", "data"), Pcsx2Install.NativeSettingsFolder(named, false));
         // Appended to its folder even when absolute
         File.WriteAllText(Path.Combine(_root, "named", "portable.txt"), "/elsewhere");
+        Assert.Equal(Path.Combine(_root, "named", "elsewhere"), Pcsx2Install.NativeSettingsFolder(named, false));
+        // 2.0.x keep their data next to the executable whatever it names, where they made their inis folder
+        Directory.CreateDirectory(Path.Combine(_root, "named", "inis"));
+        Assert.Equal(Path.Combine(_root, "named"), Pcsx2Install.NativeSettingsFolder(named, false));
+        Directory.CreateDirectory(Path.Combine(_root, "named", "elsewhere", "inis"));
         Assert.Equal(Path.Combine(_root, "named", "elsewhere"), Pcsx2Install.NativeSettingsFolder(named, false));
 
         var ini = MakeExecutable("ini", "pcsx2-qt");
