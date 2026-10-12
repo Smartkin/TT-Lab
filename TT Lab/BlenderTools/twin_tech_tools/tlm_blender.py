@@ -29,6 +29,7 @@ The game is Y up, the root turns everything under it Z up. Everything under the 
 
 import array
 import base64
+import hashlib
 import json
 import math
 import os
@@ -233,6 +234,8 @@ class _FileMaterials:
         self.project = projects.open_project(path) if path else None
         self._indexes: typing.Dict[str, int] = {}
         self._commits: typing.List[typing.Tuple[bpy.types.Material, typing.Dict[str, typing.Any], bool]] = []
+        self._pngs: typing.Dict[int, typing.Optional[bytes]] = {}
+        self._lighting_emit_colors: typing.Set[int] = set()
 
     def index_of(self, material: typing.Optional[bpy.types.Material]) -> int:
         if material is None:
@@ -254,7 +257,15 @@ class _FileMaterials:
 
         self.file.materials.append(entry)
         self._indexes[key] = len(self.file.materials) - 1
+        if emit_lighting_shader(material, self.project) is not None:
+            self._lighting_emit_colors.add(self._indexes[key])
+
         return self._indexes[key]
+
+    def lights_emit_colors(self, index: int) -> bool:
+        """Whether the file's material of the index has a shader lighting rigid parts by their emit colors, as TT Lab has it once it reads
+        the file."""
+        return index in self._lighting_emit_colors
 
     def _with_settings(self, material: bpy.types.Material) -> typing.Dict[str, typing.Any]:
         """A project material with what was changed in Blender over what the project has now, a material made in Blender with all
@@ -262,7 +273,7 @@ class _FileMaterials:
         entry: typing.Dict[str, typing.Any] = {"name": material.name}
         uri = material.get(URI_PROPERTY)
         images: typing.List[bpy.types.Image] = []
-        shown = material_settings.shown(material, images, self.project)
+        shown = material_settings.shown(material, images, self.project, self._png_hash)
         base = material_settings.base_of(material)
         if uri:
             entry["uri"] = uri
@@ -291,8 +302,18 @@ class _FileMaterials:
             if not image.get(BLENDER_ID_PROPERTY):
                 image[BLENDER_ID_PROPERTY] = uuid.uuid4().hex
 
-            png = _png_bytes(image) or b""
+            png = self._png(image) or b""
             entry["images"].append({"png": self.file.write_view(png, "u8"), "name": image.name, "blender_id": image[BLENDER_ID_PROPERTY]})
+
+    def _png(self, image: bpy.types.Image) -> typing.Optional[bytes]:
+        key = image.as_pointer()
+        if key not in self._pngs:
+            self._pngs[key] = _png_bytes(image)
+
+        return self._pngs[key]
+
+    def _png_hash(self, image: bpy.types.Image) -> str:
+        return hashlib.sha256(self._png(image) or b"").hexdigest()
 
     def commit(self) -> None:
         """Once the file is written: what the project already has of Blender's changes isn't Blender's change any more."""
@@ -564,7 +585,7 @@ def _read_mesh_data(blender_object: bpy.types.Object, file_materials: typing.Opt
     loop_normals = array.array("f", [0.0] * len(mesh.loops) * 3)
     mesh.corner_normals.foreach_get("vector", loop_normals)
     result.corner_normals = [value for loop in triangle_loops for value in loop_normals[loop * 3:loop * 3 + 3]]
-    colors = mesh.color_attributes.get(COLOR_ATTRIBUTE) or mesh.color_attributes.active_color
+    colors = vertex_colors_of(mesh)
     if colors is not None:
         values = array.array("f", [0.0] * len(colors.data) * 4)
         colors.data.foreach_get("color_srgb", values)
@@ -577,6 +598,10 @@ def _read_mesh_data(blender_object: bpy.types.Object, file_materials: typing.Opt
     if emit is not None and emit.domain == "POINT":
         result.emit_colors = array.array("f", [0.0] * vertex_count * 4)
         emit.data.foreach_get("color_srgb", result.emit_colors)
+    elif emit is not None and emit.domain == "CORNER":
+        values = array.array("f", [0.0] * len(emit.data) * 4)
+        emit.data.foreach_get("color_srgb", values)
+        result.corner_emit_colors = [value for loop in triangle_loops for value in values[loop * 4:loop * 4 + 4]]
 
     color_alpha = _attribute(mesh, COLOR_ALPHA_ATTRIBUTE, "value", vertex_count, 1, "b")
     emit_alpha = _attribute(mesh, EMIT_ALPHA_ATTRIBUTE, "value", vertex_count, 1, "b")
@@ -610,7 +635,20 @@ def _read_mesh_data(blender_object: bpy.types.Object, file_materials: typing.Opt
         result.parts = []
 
     result.slot_materials = [file_materials.index_of(slot.material) if file_materials is not None else -1 for slot in blender_object.material_slots]
+    if file_materials is not None:
+        result.emit_slots = {slot for slot, index in enumerate(result.slot_materials) if file_materials.lights_emit_colors(index)}
+
     return result
+
+
+def vertex_colors_of(mesh: bpy.types.Mesh) -> typing.Any:
+    """The color attribute written as the mesh's vertex colors: Color, or the active one of a mesh made in Blender, never the emit colors."""
+    colors = mesh.color_attributes.get(COLOR_ATTRIBUTE)
+    if colors is not None:
+        return colors
+
+    active = mesh.color_attributes.active_color
+    return active if active is not None and active.name != EMIT_COLOR_ATTRIBUTE else None
 
 
 def _attribute(mesh: bpy.types.Mesh, name: str, value_name: str, count: int, size: int, typecode: str) -> typing.Optional[array.array]:
@@ -1155,8 +1193,118 @@ def _descendants(blender_object: bpy.types.Object) -> typing.List[bpy.types.Obje
     return result
 
 
-def export_problem(root: bpy.types.Object) -> typing.Optional[str]:
-    """What keeps the model from being exported as it's set up, None when nothing does."""
+def _writes_rigid_parts(root: bpy.types.Object, blender_object: bpy.types.Object,
+                        descendants: typing.Optional[typing.List[bpy.types.Object]] = None) -> bool:
+    """Whether exporting the model writes the object as a rigid model's parts drawn with its materials."""
+    if blender_object.type != "MESH":
+        return False
+
+    kind = root.get(KIND_PROPERTY, "")
+    if kind == "ogi":
+        return role_of(blender_object) == "body"
+
+    if kind in TREE_KINDS:
+        return role_of(blender_object) not in ("collision", "hull")
+
+    # A model's parts are drawn with the materials its rigid model has in the project
+    if kind in ("collision", "save_icon", "model") or kind in SKINNED_KINDS:
+        return False
+
+    return blender_object == next((child for child in (descendants if descendants is not None else _descendants(root)) if child.type == "MESH"), None)
+
+
+def is_rigid_part(blender_object: bpy.types.Object) -> bool:
+    """Whether the mesh object is written as a rigid model's parts of the model it's in, which the game's lit shaders light by their emit
+    colors."""
+    root = find_root(blender_object)
+    return root is not None and in_scene(blender_object) and _writes_rigid_parts(root, blender_object)
+
+
+def effective_material(material: bpy.types.Material, project: typing.Optional[projects.Project]) -> typing.Optional[typing.Dict[str, typing.Any]]:
+    """The material as TT Lab has it once it reads the exported model: what was changed in Blender over the project's material, the project's
+    of a material without settings. None for a material made in Blender without settings, which TT Lab makes an unlit one of a rigid part."""
+    uri = material.get(URI_PROPERTY, "")
+    project_material = project.materials.get(uri) if project is not None and uri else None
+    theirs = project_material.read() if project_material is not None else None
+    if not material_settings.is_managed(material):
+        return theirs
+
+    base = material_settings.base_of(material)
+    return gs_material.merge_material(base, theirs if theirs is not None else base, material_settings.shown(material, [], project))[0]
+
+
+def emit_lighting_shader(material: bpy.types.Material, project: typing.Optional[projects.Project]) -> typing.Optional[str]:
+    """The label of the material's first shader type that lights a rigid part by its emit colors once TT Lab reads the exported model,
+    None when it has none."""
+    data = effective_material(material, project)
+    shader_type = next((shader.get("ShaderType") for shader in gs_material._shaders(data) if gs_material.lights_emit_colors(shader.get("ShaderType"))), None)
+    return gs_material.type_label(shader_type) if shader_type is not None else None
+
+
+def drawn_materials(blender_object: bpy.types.Object) -> typing.List[bpy.types.Material]:
+    """The materials the mesh object's faces are drawn with."""
+    mesh: bpy.types.Mesh = blender_object.data
+    indexes = array.array("i", [0] * len(mesh.polygons))
+    mesh.polygons.foreach_get("material_index", indexes)
+    slots = blender_object.material_slots
+    materials: typing.List[bpy.types.Material] = []
+    for index in sorted(set(indexes)):
+        material = slots[index].material if 0 <= index < len(slots) else None
+        if material is not None and material not in materials:
+            materials.append(material)
+
+    return materials
+
+
+def lit_without_emit_colors(root: bpy.types.Object, path: str) -> typing.List[typing.Tuple[str, str, str]]:
+    """The rigid meshes of a PS2 model written to the path that are drawn with a shader lighting their emit colors and have none: the
+    mesh's name, the material's and the shader type's. The Xbox version's models have one color, which its shaders light."""
+    if projects.version_of_file(path) == "XBOX":
+        return []
+
+    project = projects.open_project(path) if path else None
+    shaders: typing.Dict[int, typing.Optional[str]] = {}
+    found = []
+    descendants = _descendants(root)
+    for blender_object in descendants:
+        if not _writes_rigid_parts(root, blender_object, descendants) or blender_object.data.color_attributes.get(EMIT_COLOR_ATTRIBUTE) is not None:
+            continue
+
+        for material in drawn_materials(blender_object):
+            key = material.as_pointer()
+            if key not in shaders:
+                shaders[key] = emit_lighting_shader(material, project)
+
+            if shaders[key] is not None:
+                found.append((blender_object.name, material.name, shaders[key]))
+                break
+
+    return found
+
+
+# The most meshes an export problem names
+_NAMED_MESHES = 5
+
+
+def _lit_without_emit_colors_problem(lit: typing.List[typing.Tuple[str, str, str]]) -> str:
+    if len(lit) == 1:
+        name, material, shader = lit[0]
+        return ("%s has no emit colors, which its material %s's %s shader lights: the PS2 version lights it with what the model drawn before it "
+                "left there, in other colors. Add Emit Colors in the material's Twin Tech Material panel gives it a copy of its vertex colors, or "
+                "draw it with an unlit shader" % (name, material, shader))
+
+    named = ", ".join("%s (%s's %s)" % entry for entry in lit[:_NAMED_MESHES])
+    if len(lit) > _NAMED_MESHES:
+        named += " and %d more" % (len(lit) - _NAMED_MESHES)
+
+    return ("%s have no emit colors, which their materials' shaders light: the PS2 version lights them with what the model drawn before left "
+            "there, in other colors. Add Emit Colors in a material's Twin Tech Material panel gives the meshes drawn with it a copy of their "
+            "vertex colors, or draw them with unlit shaders" % named)
+
+
+def export_problem(root: bpy.types.Object, path: typing.Optional[str] = None) -> typing.Optional[str]:
+    """What keeps the model from being exported as it's set up, None when nothing does. The path is the file it's exported to, its own
+    by default."""
     kind = root.get(KIND_PROPERTY, "")
     if not root.get(ROOT_PROPERTY) or kind not in KIND_TYPES:
         return "%s lost what makes it a TT Lab model's root (its Twin Tech properties): import the model again or start from Add > Twin Tech" % root.name
@@ -1179,6 +1327,10 @@ def export_problem(root: bpy.types.Object) -> typing.Optional[str]:
             return "%s has no mesh with faces: the icon is drawn from one under its root" % root.name
     elif kind not in TREE_KINDS and kind != "collision" and not any(child.type == "MESH" for child in descendants):
         return "%s has no mesh under its root to write" % root.name
+
+    lit = lit_without_emit_colors(root, path if path is not None else root.get(PATH_PROPERTY, ""))
+    if len(lit) > 0:
+        return _lit_without_emit_colors_problem(lit)
 
     return None
 

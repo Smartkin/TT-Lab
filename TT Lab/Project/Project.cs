@@ -756,18 +756,26 @@ public class Project : IProject
         var factory = itemFactory ?? CreateFactory(platform);
         factory.GlobalPackage = GetGlobalPackage(platform);
         var cache = BuildCache.Load(ProjectPath, AssetManager);
+        cache.AnimationIds = factory.AnimationIds;
+        ForgetAnimationsNoChunkHas(cache, factory.AnimationIds);
 
         var archivesPath = GetBuildFilesPath(platform);
-        if (chunk.Name == "default")
+        try
         {
-            BuildChunk(factory, cache, chunk, System.IO.Path.Combine(archivesPath, "Startup"), true, platform);
+            if (chunk.Name == "default")
+            {
+                BuildChunk(factory, cache, chunk, System.IO.Path.Combine(archivesPath, "Startup"), true, platform);
+            }
+            else
+            {
+                BuildChunk(factory, cache, chunk, System.IO.Path.Combine([archivesPath, "Levels", ..LevelFoldersOf(chunk.AdditionalPath!)]), false, platform);
+            }
         }
-        else
+        finally
         {
-            BuildChunk(factory, cache, chunk, System.IO.Path.Combine([archivesPath, "Levels", ..LevelFoldersOf(chunk.AdditionalPath!)]), false, platform);
+            cache.Save();
+            factory.AnimationIds.Save();
         }
-
-        cache.Save();
     }
 
     // The folders of the game's Levels folder a chunk is in: the first folder of its path is the levels folder and the last one is the chunk's
@@ -812,9 +820,23 @@ public class Project : IProject
 
     private Package GetGlobalPackage(GamePlatform platform) => platform == GamePlatform.Xbox ? GlobalPackageXbox : GlobalPackagePS2;
 
-    private ITwinItemFactory CreateFactory(GamePlatform platform)
+    // An animation no chunk the cache knows has can lose its ID, the ones the build folder's chunks have keep theirs. A cache that knows
+    // none of them can't tell, then a build of every chunk lets go of them
+    private static void ForgetAnimationsNoChunkHas(BuildCache cache, AnimationIds animationIds)
     {
-        return platform == GamePlatform.Xbox ? new XboxItemFactory { GlobalPackage = GlobalPackageXbox } : new PS2ItemFactory { GlobalPackage = GlobalPackagePS2 };
+        if (!cache.IsReset)
+        {
+            animationIds.KeepOnly(cache.RecordedAnimations());
+        }
+    }
+
+    // The animations' IDs are the ones the version's builds gave them, every chunk of the version has to have the same
+    internal ITwinItemFactory CreateFactory(GamePlatform platform)
+    {
+        var animationIds = AnimationIds.Load(ProjectPath, platform, AssetManager.GetAllAssetsOf<OGI>());
+        return platform == GamePlatform.Xbox
+            ? new XboxItemFactory { GlobalPackage = GlobalPackageXbox, AnimationIds = animationIds }
+            : new PS2ItemFactory { GlobalPackage = GlobalPackagePS2, AnimationIds = animationIds };
     }
 
     // The PS2 version's files get packed into its archive, the Xbox version's are written as they're on the disc
@@ -906,7 +928,7 @@ public class Project : IProject
             }
         }
 
-        cache.Record($"chunk:{chunk.URI}", accessedAssets.Keys, outputs, factory.LinkedChunks);
+        cache.Record($"chunk:{chunk.URI}", accessedAssets.Keys, outputs, factory.LinkedChunks, factory.Resolution.Animations);
         Log.WriteLine($"Finished writing {chunk.Alias}");
     }
 
@@ -1027,6 +1049,8 @@ public class Project : IProject
 
         var cache = BuildCache.Load(ProjectPath, AssetManager);
         cache.ExcludedChunks = excludedChunks;
+        cache.AnimationIds = factory.AnimationIds;
+        ForgetAnimationsNoChunkHas(cache, factory.AnimationIds);
         var levelsPath = System.IO.Path.Combine(filesPath, "Levels");
         var jobs = new List<(LevelChunk Chunk, string[] Outputs)>();
         var createdDirectories = new List<string>();
@@ -1043,8 +1067,9 @@ public class Project : IProject
         }
         finally
         {
-            // The chunks written before one failed are kept for the next build
+            // The chunks written before one failed are kept for the next build, with the IDs their animations got
             cache.Save();
+            factory.AnimationIds.Save();
             // Chunk folders only held their chunk's own assets, levels are written next to them
             foreach (var directory in Enumerable.Reverse(createdDirectories).Where(directory => !System.IO.Directory.EnumerateFileSystemEntries(directory).Any()))
             {
@@ -1077,6 +1102,14 @@ public class Project : IProject
         var startupPath = System.IO.Path.Combine(filesPath, "Startup");
         BuildChunk(factory, cache, assetManager.GetAsset<LevelChunk>(defaultChunk), startupPath, true, platform);
         cache.Save();
+        // Every chunk of the version is built, the IDs of the animations none of them has anymore can be given to others. Chunks the profile
+        // left out keep the files they had, which a cache that was reset knows nothing of
+        if (!cache.IsReset || excludedChunks.Count == 0)
+        {
+            factory.AnimationIds.KeepOnly(cache.RecordedAnimations());
+        }
+
+        factory.AnimationIds.Save();
         // Startup's other files were always exported right after the default chunk, which leaves the factory resolving for it
         factory.IsDefaultResolution = true;
         var childrenCopy = startupFolders.SelectMany(folder => folder.Children).Where(e => !e.GetUri().EndsWith("/default")).ToList();

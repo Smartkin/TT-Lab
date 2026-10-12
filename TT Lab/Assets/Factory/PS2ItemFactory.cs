@@ -158,12 +158,14 @@ namespace TT_Lab.Assets.Factory
         public ChunkOverrides? Overrides { get; set; }
         public ChunkResolution Resolution { get; } = new();
         public ConcurrentDictionary<(LabURI Graph, Int32 Id, String Script), AgentLabCompiler.CompilerResult> CompiledBehaviours { get; protected init; } = new();
+        public AnimationIds AnimationIds { get; init; } = AnimationIds.ForOneBuild();
+        public ConcurrentDictionary<string, byte> Warned { get; protected init; } = new();
         public IReadOnlySet<LabURI> ExcludedChunks { get; set; } = new HashSet<LabURI>();
         public List<LabURI> LinkedChunks { get; } = new();
 
         public virtual ITwinItemFactory ForChunk()
         {
-            return new PS2ItemFactory { GlobalPackage = GlobalPackage, CompiledBehaviours = CompiledBehaviours, ExcludedChunks = ExcludedChunks };
+            return new PS2ItemFactory { GlobalPackage = GlobalPackage, CompiledBehaviours = CompiledBehaviours, AnimationIds = AnimationIds, Warned = Warned, ExcludedChunks = ExcludedChunks };
         }
 
         public virtual ITwinBlendSkin GenerateBlendSkin(Int32 blendsAmount, List<BlendPartExport> parts)

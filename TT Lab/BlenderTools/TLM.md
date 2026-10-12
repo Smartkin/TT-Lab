@@ -45,7 +45,8 @@ Parts refer to materials by their index in `materials`. A material is one of the
 ```
 
 or, for a material made in Blender that the project doesn't have yet, an embedded one TT Lab turns into project assets when it
-loads the file (`blender_id` finds the one it made before):
+loads the file (`blender_id` finds the one it made before while it makes the same: the ID TT Lab's build gives the material it makes
+of the entry is the one the material was made of or has now, a blend file copied keeps its materials' IDs):
 
 ```json
 { "name": "New material", "blender_id": "<uuid>", "alpha": "BLEND", "image": { "png": <u8 view>, "name": "wood.png" } }
@@ -59,7 +60,9 @@ A material with Twin Tech settings in Blender has `data`: the material as TT Lab
 bits). A project material only has it when it was changed in Blender, with the changes over what the project had when the file
 was written; a material made in Blender always has it, and no `image`. TT Lab gives the material those settings and saves it, then
 writes the file again without them. A shader drawing a picture made in Blender has `"Image": <index>` into the entry's `images`,
-which TT Lab makes textures of the project (found again by their `blender_id`, given the picture's pixels when they changed):
+which TT Lab makes textures of the project (found again by their `blender_id` while they make the same, like materials: a picture
+changed in Blender is another texture). The add-on names such a texture in `TextureId` instead of sending the picture only while the
+picture's PNG is the one TT Lab made the texture of, whose SHA-256 the texture's `BlenderImagePng` parameter keeps:
 
 ```json
 { "uri": "res://Global PS2_Project/Material/lambert2", "name": "lambert2",
@@ -186,6 +189,8 @@ Dynamic scenery models keep their hulls the same way, as `hull` children without
 - `facial.frames` is `frames`: the game reads the weights at the main animation's frame, the weights of fewer frames hold their last.
 - Animations without `id` are new and get IDs from `0x8000` up. An animation with the `id` of one before it is a copy, and gets a
   new one too. The add-on gives them their IDs when it exports and keeps them with the actions, TT Lab only numbers older files'.
+  These are the IDs the model's game objects pick animations by. The build gives the game's: an animation keeps its `id` while it's
+  below 2500 and no other animation of that `id` (an edited copy in another model) got it first, the others get IDs of their own.
 
 ### Scenery
 
@@ -296,7 +301,7 @@ Each part is drawn with one material and becomes one of the game's submodels. Bl
 | `twin_uv` | `f32` | 2 | The game's UV, used while `uv` only moved by rounding errors. Written by the add-on |
 | `uv_q` | `f32` | 1 | Q of rigid models' UVs, 1 when missing or 0 |
 | `color` | `u8` | 4 | RGBA exactly as the game has it |
-| `emit_color` | `u8` | 4 | Emit color of rigid models |
+| `emit_color` | `u8` | 4 | Emit color of rigid models, the color the game's lit shaders (StandardLit, LitEnvironmentMap, LitReflectionSurface) light, the game's of the RGB of `color`. A part drawn with one has to have it, TT Lab warns about one without. The add-on's `EmitColor` color attribute, written for the parts that had it, the parts drawn with one of those shaders and every rigid part of a mesh none of whose parts had it (added in Blender). The add-on doesn't export a PS2 model with a mesh drawn with one of them without it |
 | `alpha_flags` | `u8` | 2 | Whether the color and the emit color are blended with their alpha |
 | `joints` | `u8` | 3 | A skin's joints of every vertex in the game's order |
 | `weights` | `f32` | 3 | Their weights, 0 for unused ones |

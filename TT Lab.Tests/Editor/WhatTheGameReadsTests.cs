@@ -160,8 +160,10 @@ public sealed class WhatTheGameReadsTests : IDisposable
         Assert.Equal(-4.3125f, k.GetValue<Single>());
         k.SetValue(-4.0f);
         Assert.Equal((UInt16)0xFFC0, data.Shaders[0].LodParamK);
+        // LOD K is the halfword's only node (CopyPasteValuesTests)
+        Assert.Null(document.PropertyGraph.Find($"{shader}.LodParamK"));
 
-        foreach (var hidden in new[] { "LodParamK", "UnusedValue", "UnusedFlag", "LeftoverVector" })
+        foreach (var hidden in new[] { "UnusedValue", "UnusedFlag", "LeftoverVector" })
         {
             Assert.False(Shown(document, $"{shader}.{hidden}"), hidden);
         }

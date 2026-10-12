@@ -189,21 +189,26 @@ public abstract class SerializableAsset : IAsset
         }
         
         var hashResult = 0U;
-        var crcHasher = SharpHash.Base.HashFactory.Checksum.CreateCRC(CRCStandard.CRC32);
         if (IsLoaded && AssetData != null)
         {
-            hashResult = crcHasher.ComputeString(AssetData.GetStringified() + HashSalt, new UTF8Encoding()).GetUInt32();
+            hashResult = HashOf(AssetData.GetStringified() + HashSalt);
         }
         else
         {
             using var fs = new FileStream(FullDataPath, FileMode.Open, FileAccess.Read);
-            hashResult = crcHasher.ComputeStream(fs).GetUInt32();
+            hashResult = SharpHash.Base.HashFactory.Checksum.CreateCRC(CRCStandard.CRC32).ComputeStream(fs).GetUInt32();
         }
 
         _hashCache = hashResult;
         _hasHashCache = true;
 
         return hashResult;
+    }
+
+    // The ID the build gives loaded data of the text (GetStringified and the salt)
+    public static UInt32 HashOf(string stringified)
+    {
+        return SharpHash.Base.HashFactory.Checksum.CreateCRC(CRCStandard.CRC32).ComputeString(stringified, new UTF8Encoding()).GetUInt32();
     }
 
     public virtual void Serialize(SerializationFlags serializationFlags = SerializationFlags.None)

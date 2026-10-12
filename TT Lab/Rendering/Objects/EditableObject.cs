@@ -192,7 +192,7 @@ public class EditableObject : Renderable
     public string Describe()
     {
         // GetRotation doesn't take out the scale first, which skews the angles of anything scaled unevenly
-        var rotation = vec3.Degrees(GetRotationQuat().ToEulerAngles());
+        var rotation = GetRotationQuat().ToEulerDegrees();
         var position = GetPosition();
         return $"{Name}\nPosition: {position}\nRotation: {rotation}\nScale: {GetScale()}\nBounding box size: {Size}";
     }

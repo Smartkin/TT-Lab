@@ -38,6 +38,14 @@ namespace TT_Lab.Assets.Factory
         /// </summary>
         public ConcurrentDictionary<(LabURI Graph, Int32 Id, String Script), AgentLabCompiler.CompilerResult> CompiledBehaviours { get; }
         /// <summary>
+        /// The IDs the build gives animations, shared by the factories of its chunks
+        /// </summary>
+        public AnimationIds AnimationIds { get; }
+        /// <summary>
+        /// The warnings the build gave, shared by the factories of its chunks: what's wrong with an asset many chunks have is told once
+        /// </summary>
+        public ConcurrentDictionary<string, byte> Warned { get; }
+        /// <summary>
         /// The chunks the build's profile leaves out, links to them are dropped from the chunks being written
         /// </summary>
         public IReadOnlySet<LabURI> ExcludedChunks { get; set; }

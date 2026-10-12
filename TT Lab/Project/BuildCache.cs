@@ -6,6 +6,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Newtonsoft.Json;
 using TT_Lab.Assets;
+using TT_Lab.Assets.Factory;
 
 namespace TT_Lab.Project;
 
@@ -62,6 +63,7 @@ public sealed class BuildCache
             return;
         }
 
+        IsReset = true;
         _manifest.Version = CacheVersion;
         _manifest.ToolFingerprint = toolFingerprint;
         _manifest.Entries.Clear();
@@ -95,6 +97,16 @@ public sealed class BuildCache
     /// The chunks the build's profile leaves out. A chunk's file is only up to date while the same of its links are dropped
     /// </summary>
     public IReadOnlySet<LabURI> ExcludedChunks { get; set; } = new HashSet<LabURI>();
+
+    /// <summary>
+    /// The IDs the build gives animations. A chunk's file is only up to date while its animations get the IDs it has them by
+    /// </summary>
+    public AnimationIds? AnimationIds { get; set; }
+
+    /// <summary>
+    /// Whether the cache knows nothing of the outputs the build folder has: it's new, or TT Lab changed since they were built
+    /// </summary>
+    public bool IsReset { get; }
 
     public bool IsUpToDate(string key, IReadOnlyCollection<string> outputs)
     {
@@ -131,6 +143,16 @@ public sealed class BuildCache
                 continue;
             }
 
+            if (AnimationIds.IsKey(uri))
+            {
+                if (AnimationIds?.StillGives(uri, fingerprint) != true)
+                {
+                    return false;
+                }
+
+                continue;
+            }
+
             // What was built from loaded data may have had changes that weren't saved then or were saved since, a chunk built while
             // its scene was open looked up to date for as long as the scene stayed open
             var labUri = new LabURI(uri);
@@ -143,15 +165,17 @@ public sealed class BuildCache
         return true;
     }
 
-    public void Record(string key, IEnumerable<IAsset> dependencies, IReadOnlyCollection<string> outputs, IEnumerable<LabURI>? linkedChunks = null)
+    public void Record(string key, IEnumerable<IAsset> dependencies, IReadOnlyCollection<string> outputs, IEnumerable<LabURI>? linkedChunks = null,
+        IReadOnlyDictionary<string, UInt32>? animations = null)
     {
         lock (_lock)
         {
-            RecordLocked(key, dependencies, outputs, linkedChunks ?? []);
+            RecordLocked(key, dependencies, outputs, linkedChunks ?? [], animations ?? new Dictionary<string, UInt32>());
         }
     }
 
-    private void RecordLocked(string key, IEnumerable<IAsset> dependencies, IReadOnlyCollection<string> outputs, IEnumerable<LabURI> linkedChunks)
+    private void RecordLocked(string key, IEnumerable<IAsset> dependencies, IReadOnlyCollection<string> outputs, IEnumerable<LabURI> linkedChunks,
+        IReadOnlyDictionary<string, UInt32> animations)
     {
         var entry = new Entry();
         foreach (var dependency in dependencies.Select(GetFingerprintedAsset).Distinct())
@@ -164,6 +188,11 @@ public sealed class BuildCache
             entry.Dependencies[$"{LinkPrefix}{linkedChunk}"] = LinkState(linkedChunk);
         }
 
+        foreach (var (animation, id) in animations)
+        {
+            entry.Dependencies[animation] = id.ToString("X");
+        }
+
         foreach (var output in outputs)
         {
             entry.Outputs[GetRelativePath(output)] = GetFileHash(output);
@@ -173,6 +202,17 @@ public sealed class BuildCache
     }
 
     private string LinkState(LabURI chunk) => ExcludedChunks.Contains(chunk) ? LinkDropped : LinkKept;
+
+    /// <summary>
+    /// The keys of the animations every output the cache knows has (<see cref="Assets.Factory.AnimationIds.KeyOf"/>)
+    /// </summary>
+    public IReadOnlyCollection<string> RecordedAnimations()
+    {
+        lock (_lock)
+        {
+            return _manifest.Entries.Values.SelectMany(entry => entry.Dependencies.Keys).Where(AnimationIds.IsKey).ToHashSet();
+        }
+    }
 
     public void Save()
     {

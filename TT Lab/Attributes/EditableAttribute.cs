@@ -19,6 +19,10 @@ public class EditableAttribute : Attribute
     // The getter makes the value anew from other data every time (the scenery's bounds): editing a part of it sets the whole value, set
     // on its own the part changed a copy nothing kept
     public bool IsComputed { get; init; }
+
+    // The value has no nodes of its parts, its editor replaces it whole (a shader's animation): copying values copies it as the JSON its
+    // asset keeps it as and pasting puts that in whole. Without nodes it wasn't copied at all
+    public bool IsCopiedWhole { get; init; }
     
     public Avalonia.Controls.Dock EditorOrientation { get; init; } = Avalonia.Controls.Dock.Left;
 }

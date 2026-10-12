@@ -3,13 +3,16 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Numerics;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using GlmSharp;
 using TT_Lab.AssetData.Code;
 using TT_Lab.AssetData.Graphics;
 using TT_Lab.AssetData.Graphics.TlModel;
 using TT_Lab.AssetData.Instance;
 using TT_Lab.AssetData.Instance.DynamicScenery;
+using TT_Lab.Extensions;
 using Twinsanity.TwinsanityInterchange.Common;
 
 namespace TT_Lab.Project.Migration;
@@ -59,6 +62,93 @@ internal static class Version110
         ReportSkeletons(context);
         KeepJointIdCounts(context);
         SplitSharedMaterials(context);
+        ConvertTriggerRotations(context);
+    }
+
+    private static readonly JsonSerializerOptions Indented = new() { WriteIndented = true };
+
+    // 1.0.0 kept the rotation of a trigger's or a camera's box as what its import worked out of the game's quaternion, radians about Y, then
+    // X, then Z, each turned the other way, which its viewport took for degrees and its build turned in yet another order. 1.1.0 keeps
+    // degrees about X, then Y, then Z, like an object instance's, and the quaternion they're of. The import never gave an angle past a half
+    // turn, those were typed or set with the gizmo as the degrees the viewport showed: they stay, and build the way they were shown
+    private static void ConvertTriggerRotations(MigrationContext context)
+    {
+        var kept = 0;
+        foreach (var path in Directory.EnumerateFiles(context.AssetsFolder, "*.data", SearchOption.AllDirectories)
+                     .Where(path => Path.GetDirectoryName(path)!.Split(Path.DirectorySeparatorChar).Any(folder => folder is "Trigger" or "Camera")))
+        {
+            if (JsonNode.Parse(File.ReadAllText(path)) is JsonObject data && ConvertTriggerRotation(data, ref kept))
+            {
+                context.WriteAllText(path, data.ToJsonString(Indented));
+            }
+        }
+
+        // Prefabs keep the data of what they were saved of, a group's in its items
+        var prefabs = Path.Combine(context.ProjectFolder, "prefabs");
+        if (Directory.Exists(prefabs))
+        {
+            foreach (var path in Directory.EnumerateFiles(prefabs, "*.json", SearchOption.AllDirectories))
+            {
+                if (JsonNode.Parse(File.ReadAllText(path)) is not JsonObject prefab)
+                {
+                    continue;
+                }
+
+                var changed = false;
+                foreach (var data in new[] { prefab }.Concat((prefab["Items"] as JsonArray ?? []).OfType<JsonObject>())
+                             .Where(holder => holder["DataType"] is JsonValue type && type.TryGetValue<string>(out var name) && name is TriggerDataType or CameraDataType)
+                             .Select(holder => holder["Data"]).OfType<JsonObject>())
+                {
+                    changed |= ConvertTriggerRotation(data, ref kept);
+                }
+
+                if (changed)
+                {
+                    context.WriteAllText(path, prefab.ToJsonString(Indented));
+                }
+            }
+        }
+
+        if (kept > 0)
+        {
+            context.Note($"Triggers and cameras turned in degrees, typed or with the gizmo ({kept}), now build turned the way the viewport showed them: TT Lab 1.0.0 built them turned another way");
+        }
+    }
+
+    private const string TriggerDataType = "TT_Lab.AssetData.Instance.TriggerData";
+    private const string CameraDataType = "TT_Lab.AssetData.Instance.CameraData";
+
+    /// <summary>
+    /// Converts the rotation of a trigger's data, or of a camera's trigger, from 1.0.0's radians, returns whether anything changed
+    /// </summary>
+    /// <param name="kept">Counts the rotations in degrees, which stay</param>
+    internal static bool ConvertTriggerRotation(JsonObject data, ref int kept)
+    {
+        var trigger = data["Trigger"] as JsonObject ?? data;
+        if (trigger["Rotation"] is not JsonObject rotation || !trigger.ContainsKey(nameof(TriggerData.ObjectActivatorMask)) || trigger.ContainsKey(nameof(TriggerData.GameRotation)))
+        {
+            return false;
+        }
+
+        var angles = new[] { "X", "Y", "Z" }.Select(axis => rotation[axis] is JsonValue value && value.TryGetValue<Single>(out var angle) ? angle : 0.0f).ToArray();
+        if (angles.All(angle => angle == 0.0f))
+        {
+            return false;
+        }
+
+        if (angles.Any(angle => Math.Abs(angle) > MathF.PI))
+        {
+            kept++;
+            return false;
+        }
+
+        // The import's angles turned back into the rotation: R = Rz(-z) Rx(-x) Ry(-y)
+        var turn = dquat.FromAxisAngle(-angles[2], dvec3.UnitZ) * dquat.FromAxisAngle(-angles[0], dvec3.UnitX) * dquat.FromAxisAngle(-angles[1], dvec3.UnitY);
+        var quaternion = new quat((Single)turn.x, (Single)turn.y, (Single)turn.z, (Single)turn.w);
+        var degrees = quaternion.ToEulerDegrees();
+        trigger["Rotation"] = new JsonObject { ["X"] = degrees.x, ["Y"] = degrees.y, ["Z"] = degrees.z };
+        trigger[nameof(TriggerData.GameRotation)] = new JsonObject { ["X"] = quaternion.x, ["Y"] = quaternion.y, ["Z"] = quaternion.z, ["W"] = quaternion.w };
+        return true;
     }
 
     // 1.0.0 built every model with the number of its joints with an ID as the count of IDs the game binds, which is the game's own; 1.1.0

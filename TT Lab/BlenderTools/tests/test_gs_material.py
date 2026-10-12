@@ -347,6 +347,14 @@ class GameDrawingTests(unittest.TestCase):
         self.assertTrue(gs_material.is_lit("LitSkinnedModel"))
         self.assertFalse(gs_material.is_lit("UnlitEnvironmentMap"))
 
+    # The skinned programs read the skin's buffer, a rigid part's emit colors are lit by Standard Lit's program and the ones drawing its color
+    def test_the_types_lighting_rigid_parts_by_their_emit_colors(self):
+        shader_types = schema.ENUMS["ShaderType"]
+        self.assertEqual([2, 12, 16], [number for _, number in shader_types if gs_material.lights_emit_colors(number)])
+        self.assertEqual(["StandardLit", "LitEnvironmentMap", "LitReflectionSurface"], [name for name, _ in shader_types if gs_material.lights_emit_colors(name)])
+        self.assertEqual("Lit Environment Map", gs_material.type_label(12))
+        self.assertEqual("Standard Lit", gs_material.type_label("StandardLit"))
+
     def test_settings_are_grayed_like_tt_labs(self):
         self.assertFalse(gs_material.read_when({"shader_type": "StandardLit"}, "int_param"))
         self.assertTrue(gs_material.read_when({"shader_type": "UnlitClothDeformation2"}, "int_param"))

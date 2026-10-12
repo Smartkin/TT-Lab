@@ -96,9 +96,10 @@ class TTT_OT_ExportTlm(bpy.types.Operator, ExportHelper):
     def poll(cls, context):
         return True
 
-    def _check(self, context):
+    def _check(self, context, path=None):
+        """The model to export to the path, its own file by default, None when something keeps it from being exported."""
         root, problem = _model_to_export(context)
-        problem = problem or tlm_blender.export_problem(root)
+        problem = problem or tlm_blender.export_problem(root, path)
         if problem is not None:
             self.report({"ERROR"}, "Can't export: %s" % problem)
             return None
@@ -119,7 +120,7 @@ class TTT_OT_ExportTlm(bpy.types.Operator, ExportHelper):
 
     def execute(self, context):
         _in_object_mode(context)
-        root = self._check(context)
+        root = self._check(context, self.filepath)
         if root is None:
             return {"CANCELLED"}
 

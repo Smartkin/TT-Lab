@@ -114,7 +114,7 @@ public class XboxItemFactory : PS2ItemFactory
 
     public override ITwinItemFactory ForChunk()
     {
-        return new XboxItemFactory { GlobalPackage = GlobalPackage, CompiledBehaviours = CompiledBehaviours, ExcludedChunks = ExcludedChunks };
+        return new XboxItemFactory { GlobalPackage = GlobalPackage, CompiledBehaviours = CompiledBehaviours, AnimationIds = AnimationIds, Warned = Warned, ExcludedChunks = ExcludedChunks };
     }
 
     protected override T Create<T>()

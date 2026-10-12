@@ -6,15 +6,52 @@ namespace TT_Lab.Extensions;
 
 public static class GlmExtensions
 {
-    // Euler angles in radians the way quat(vec3) takes them. GlmSharp's EulerAngles gives NaN at gimbal lock, where rounding puts
-    // the sine of the middle angle past 1
+    // Below this cosine of the middle angle only the first and last angles' sum or difference is known (gimbal lock)
+    private const double GimbalLockCosine = 1e-7;
+
+    // Euler angles in radians the way quat(vec3) takes them: about X, then Y, then Z (the game's GetRotationXYZ). Worked out in doubles
+    // from the rotation's matrix: the arc sine of the middle angle lost what's near a quarter turn (a retail 90 degree turn came out
+    // 89.98), and at gimbal lock the first and last angles worked out on their own gave turns of anything (GlmSharp's EulerAngles gives
+    // NaN): the turn goes into the first one there
     public static vec3 ToEulerAngles(this quat rotation)
     {
-        var q = rotation.NormalizedSafe;
-        var pitch = MathF.Atan2(2.0f * (q.y * q.z + q.w * q.x), q.w * q.w - q.x * q.x - q.y * q.y + q.z * q.z);
-        var yaw = MathF.Asin(Math.Clamp(-2.0f * (q.x * q.z - q.w * q.y), -1.0f, 1.0f));
-        var roll = MathF.Atan2(2.0f * (q.x * q.y + q.w * q.z), q.w * q.w + q.x * q.x - q.y * q.y - q.z * q.z);
-        return new vec3(pitch, yaw, roll);
+        var angles = EulerAnglesOf(rotation);
+        return new vec3((float)angles.x, (float)angles.y, (float)angles.z);
+    }
+
+    // The same in degrees, made floats once they're degrees
+    public static vec3 ToEulerDegrees(this quat rotation)
+    {
+        var angles = EulerAnglesOf(rotation) * (180.0 / Math.PI);
+        return new vec3((float)angles.x, (float)angles.y, (float)angles.z);
+    }
+
+    private static dvec3 EulerAnglesOf(quat rotation)
+    {
+        double x = rotation.x, y = rotation.y, z = rotation.z, w = rotation.w;
+        var length = Math.Sqrt(x * x + y * y + z * z + w * w);
+        if (!(length > 0.0))
+        {
+            return dvec3.Zero;
+        }
+
+        x /= length;
+        y /= length;
+        z /= length;
+        w /= length;
+        // Where X turns to gives the middle and last angles, the heights Y and Z turn to the first
+        var turnedX = new dvec3(1.0 - 2.0 * (y * y + z * z), 2.0 * (x * y + w * z), 2.0 * (x * z - w * y));
+        var cosine = Math.Sqrt(turnedX.x * turnedX.x + turnedX.y * turnedX.y);
+        var middle = Math.Atan2(-turnedX.z, cosine);
+        if (cosine > GimbalLockCosine)
+        {
+            return new dvec3(Math.Atan2(2.0 * (y * z + w * x), 1.0 - 2.0 * (x * x + y * y)), middle, Math.Atan2(turnedX.y, turnedX.x));
+        }
+
+        // Where Y turns to then has the turns about X and Z together
+        var turnedYx = 2.0 * (x * y - w * z);
+        var turnedYy = 1.0 - 2.0 * (x * x + z * z);
+        return new dvec3(Math.Atan2(-turnedX.z * turnedYx, turnedYy), middle, 0.0);
     }
 
     // Slerp code credits to https://github.com/opentk/opentk/blob/master/src/OpenTK.Mathematics/Data/Quaternion.cs

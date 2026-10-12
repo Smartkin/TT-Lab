@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Threading;
@@ -45,10 +46,33 @@ public sealed class TlmMaterials(TlmFile file, IAsset? owner = null)
     public const string BlenderMaterialUseParameter = "BlenderMaterialUse";
 
     /// <summary>
-    /// Parameter of the textures TT Lab made of pictures of materials made in Blender, the add-on's ID of the picture: the add-on finds
-    /// the texture by it, and the picture changed in Blender changes the texture
+    /// Parameter of the textures TT Lab made of pictures of materials made in Blender, the add-on's ID of the picture: the picture finds the
+    /// texture again by it while it makes the same (<see cref="BlenderImageHashParameter"/>, <see cref="BlenderImagePngParameter"/>)
     /// </summary>
     public const string BlenderImageParameter = "BlenderImage";
+
+    /// <summary>
+    /// Parameter of the textures TT Lab made of pictures made in Blender, the ID the build gives what the picture makes (the hash of its
+    /// data): a picture of the same ID only finds the texture again while it makes the same or what the texture is now. A blend file copied
+    /// keeps its pictures' IDs, and the copy's picture of another file is another texture
+    /// </summary>
+    public const string BlenderImageHashParameter = "BlenderImageHash";
+
+    /// <summary>
+    /// Parameter of the textures TT Lab made of pictures made in Blender, the SHA-256 of the PNG of the picture they were made of: the
+    /// add-on names the texture instead of sending the picture only while the picture's PNG is that one, it can't work out the build's hash
+    /// </summary>
+    public const string BlenderImagePngParameter = "BlenderImagePng";
+
+    /// <summary>
+    /// Parameter of the materials TT Lab made out of Blender's, the ID the build gives what the Blender material makes (the hash of its data,
+    /// its pictures by theirs): a Blender material of the same ID only finds the material again while it makes the same or what the material
+    /// is now. A blend file copied keeps its materials' IDs, and the copy's material of another picture is another material
+    /// </summary>
+    public const string BlenderMaterialHashParameter = "BlenderMaterialHash";
+
+    // The picture of a material made in Blender without the add-on's settings, which only becomes a texture with the material
+    private static readonly LabURI MadePicture = new("res://TTLab/BlenderPicture");
 
     private readonly Dictionary<LabURI, Int32> _indexes = new();
     // The file's materials whose settings were taken, a rigid part and a skin can share one
@@ -130,7 +154,8 @@ public sealed class TlmMaterials(TlmFile file, IAsset? owner = null)
                 // What was changed in Blender comes with the material's settings
                 if (material["data"] is JsonObject settings && owner != null && !AssetManager.Get().IsCreating && _taken.Add(index))
                 {
-                    TakeSettings(owner, uri, settings, material);
+                    var asset = AssetManager.Get().GetAsset(uri);
+                    TakeSettings(owner, asset, () => WithTextures(owner, settings, material, asset.Package, asset.Alias));
                 }
 
                 // Creating a project reads the files of skins shared by several models back while their materials get written
@@ -207,9 +232,6 @@ public sealed class TlmMaterials(TlmFile file, IAsset? owner = null)
         return material.URI;
     }
 
-    // A material made in Blender becomes a material of the owner's package, drawn the way the game draws most of its textured
-    // models, with a texture of its image. Blender keeps exporting it until the model gets imported again, the material made for
-    // it the first time is used again: one for skins and one for rigid parts when it's on both, the skinned shader only takes skins
     // The render bucket the game's own materials of the kind are in: opaque ones of a level in 2, of the global packages in 3, blended
     // ones in 16 (unlit) or 14
     private static UInt32 RenderBucket(IAsset owner, LabShader shader)
@@ -224,26 +246,47 @@ public sealed class TlmMaterials(TlmFile file, IAsset? owner = null)
         return isGlobal ? 3u : 2u;
     }
 
+    // What a material of the file made in Blender makes: the add-on's settings with the project's textures in their pictures' place, or
+    // the picture of one without them, and the ID the build gives that
+    private sealed class MadeInBlender(JsonObject? settings, TextureData? picture, UInt32 hash) : IDisposable
+    {
+        public JsonObject? Settings { get; } = settings;
+        public TextureData? Picture { get; } = picture;
+        public UInt32 Hash { get; } = hash;
+
+        public void Dispose() => Picture?.Dispose();
+    }
+
+    // A material made in Blender becomes a material of the owner's package, drawn the way the game draws most of its textured
+    // models, with a texture of its image. Blender keeps exporting it until the model gets imported again, the material made for
+    // it the first time is used again while the Blender material makes the same: one for skins and one for rigid parts when it's
+    // on both, the skinned shader only takes skins. It's told by the ID the build gives what it makes: a blend file copied keeps its
+    // materials' IDs, and the copy's material drawing another picture got the material the first file's export made
     private LabURI AddToProject(IAsset owner, JsonObject entry, TlmMaterialUse use)
     {
-        var assetManager = AssetManager.Get();
         var blenderId = entry.GetString("blender_id");
-        var existing = blenderId == null ? null : assetManager.GetAllAssetsOf<Material>().FirstOrDefault(material => !material.IsInternal && IsMadeOf(material, blenderId, use));
-        AddedToProject = true;
-        if (existing != null)
-        {
-            if (entry["data"] is JsonObject settings)
-            {
-                TakeSettings(owner, existing.URI, settings, entry);
-            }
-
-            return existing.URI;
-        }
-
         var name = entry.GetString("name") ?? "Blender material";
+        AddedToProject = true;
+        MadeInBlender? made = null;
         try
         {
-            var uri = OnUiThread(() => CreateMaterial(owner, name, entry, blenderId, use));
+            made = Make(owner, name, entry, use);
+            var existing = blenderId == null ? null : MadeOf(MaterialsOf(blenderId, use), BlenderMaterialHashParameter, made.Hash, MaterialHashNow);
+            if (existing != null)
+            {
+                Record(existing, (BlenderMaterialHashParameter, Hex(made.Hash)));
+                if (made.Settings is { } settings)
+                {
+                    TakeSettings(owner, existing, () => settings);
+                }
+
+                return existing.URI;
+            }
+
+            // Two chunks built at once can read files of the same material
+            var making = made;
+            var uri = OnUiThread(() => (blenderId == null ? null : MaterialsOf(blenderId, use).FirstOrDefault(material => IsRecorded(material, BlenderMaterialHashParameter, making.Hash)))?.URI
+                ?? CreateMaterial(owner, name, entry, making, blenderId, use));
             if (use == TlmMaterialUse.Skin && !DrawsSkins(AssetManager.Get().GetAssetData<MaterialData>(uri)))
             {
                 Log.WriteLine($"{owner.Name}'s skin is drawn with {name} made in Blender, whose first shader isn't {TwinShader.Type.LitSkinnedModel}: {SkinShaderRisk}", Log.LogType.Warning);
@@ -256,6 +299,100 @@ public sealed class TlmMaterials(TlmFile file, IAsset? owner = null)
             Log.WriteLine($"Couldn't add {name} made in Blender to the project, {owner.Name} draws it with a plain material: {exception.Message}", Log.LogType.Warning);
             AddedToProject = false;
             return CreatePlaceholder(owner, name, use);
+        }
+        finally
+        {
+            made?.Dispose();
+        }
+    }
+
+    private MadeInBlender Make(IAsset owner, string name, JsonObject entry, TlmMaterialUse use)
+    {
+        if (entry["data"] is JsonObject data)
+        {
+            var settings = WithTextures(owner, data, entry, owner.Package, name);
+            var material = new MaterialData(owner);
+            material.PopulateFrom(settings.ToJsonString());
+            return new MadeInBlender(settings, null, BuildHash(material, string.Empty, TextureHash));
+        }
+
+        var png = file.Read<Byte>(entry["image"] is JsonObject image ? image["png"] : null);
+        var picture = png.Length > 0 ? GameTexture(owner, name, png) : null;
+        var pictureHash = picture != null ? SerializableAsset.HashOf(picture.GetStringified()) : 0;
+        var made = DefaultMaterial(owner, owner, name, entry, picture != null ? MadePicture : LabURI.Empty, use);
+        return new MadeInBlender(null, picture, BuildHash(made, string.Empty, texture => texture == MadePicture ? pictureHash : TextureHash(texture)));
+    }
+
+    // The ID the build gives the material (SerializableAsset.GetDataHash, its textures by theirs), worked out of the data: the build keeps
+    // the hash it works out first, of the data file's bytes while the data isn't loaded
+    private static UInt32 BuildHash(MaterialData material, string salt, Func<LabURI, UInt32> textureHash)
+    {
+        return SerializableAsset.HashOf(material.GetStringified(textureHash) + salt);
+    }
+
+    private static UInt32 TextureHash(LabURI uri)
+    {
+        var assetManager = AssetManager.Get();
+        if (!assetManager.DoesAssetExist(uri))
+        {
+            return 0;
+        }
+
+        var texture = assetManager.GetAsset(uri);
+        return SerializableAsset.HashOf(texture.GetData<AbstractAssetData>().GetStringified() + texture.HashSalt);
+    }
+
+    // The asset a Blender material or picture made before that's made of the same: of what it was made of (kept with it, however it was
+    // changed in TT Lab since) or of what it is now (made before what it was made of was kept)
+    private static T? MadeOf<T>(List<T> candidates, string parameter, UInt32 hash, Func<T, UInt32?> now) where T : class, IAsset
+    {
+        return candidates.FirstOrDefault(asset => IsRecorded(asset, parameter, hash)) ?? candidates.FirstOrDefault(asset => now(asset) == hash);
+    }
+
+    private static Boolean IsRecorded(IAsset asset, string parameter, UInt32 hash) => IsRecorded(asset, parameter, Hex(hash));
+
+    private static Boolean IsRecorded(IAsset asset, string parameter, string value)
+    {
+        return asset.Parameters.TryGetValue(parameter, out var recorded) && recorded?.ToString() == value;
+    }
+
+    private static string Hex(UInt32 hash) => hash.ToString("X8");
+
+    // What the Blender material or picture makes now, the next export of it finds the asset by it
+    private static void Record(IAsset asset, params (string Parameter, string Value)[] values)
+    {
+        if (values.All(value => IsRecorded(asset, value.Parameter, value.Value)))
+        {
+            return;
+        }
+
+        OnUiThread(() =>
+        {
+            foreach (var (parameter, value) in values)
+            {
+                asset.Parameters[parameter] = value;
+            }
+
+            asset.Serialize();
+            return true;
+        });
+    }
+
+    private static List<Material> MaterialsOf(string blenderId, TlmMaterialUse use)
+    {
+        return AssetManager.Get().GetAllAssetsOf<Material>().Where(material => !material.IsInternal && IsMadeOf(material, blenderId, use)).ToList();
+    }
+
+    private static UInt32? MaterialHashNow(Material material)
+    {
+        try
+        {
+            return BuildHash(((IAsset)material).GetData<MaterialData>(), material.HashSalt, TextureHash);
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or NullReferenceException or IOException or Newtonsoft.Json.JsonException)
+        {
+            Log.WriteLine($"Couldn't tell what {material.Alias} made in Blender is made of: {exception.Message}", Log.LogType.Warning);
+            return null;
         }
     }
 
@@ -284,12 +421,11 @@ public sealed class TlmMaterials(TlmFile file, IAsset? owner = null)
     /// Gives a material of the project the settings the file brings from Blender, the shaders' pictures made into textures, and saves it.
     /// The data is the one of the current data scope, a chunk being built reads the file with what it brings
     /// </summary>
-    private void TakeSettings(IAsset owner, LabURI uri, JsonObject settings, JsonObject entry)
+    private void TakeSettings(IAsset owner, IAsset asset, Func<JsonObject> settings)
     {
-        var asset = AssetManager.Get().GetAsset(uri);
         try
         {
-            var json = WithTextures(owner, settings, entry, asset.Package, asset.Alias);
+            var json = settings();
             lock (SettingsLock)
             {
                 var data = asset.GetData<MaterialData>();
@@ -339,8 +475,9 @@ public sealed class TlmMaterials(TlmFile file, IAsset? owner = null)
         return copy;
     }
 
-    // The texture made of the picture before, with the picture's pixels when they were changed in Blender, or a new one. Found or made
-    // on the UI thread, which makes assets, so two chunks reading files of the same picture don't both make one
+    // The texture made of the picture before while it makes the same (MadeOf), else a new one: a blend file copied keeps its pictures' IDs,
+    // and a picture changed in Blender is another texture, the one before stays for what draws it. Made on the UI thread, which makes
+    // assets, so two chunks reading files of the same picture don't both make one
     private LabURI TextureOf(IAsset owner, JsonObject image)
     {
         var blenderImage = image.GetString("blender_id");
@@ -348,35 +485,50 @@ public sealed class TlmMaterials(TlmFile file, IAsset? owner = null)
         var name = image.GetString("name") ?? "Blender picture";
         if (png.Length == 0)
         {
-            return FindTexture(blenderImage)?.URI ?? LabURI.Empty;
+            // Nothing to tell it by
+            return blenderImage == null ? LabURI.Empty : TexturesOf(blenderImage).FirstOrDefault()?.URI ?? LabURI.Empty;
         }
 
-        var (texture, made) = OnUiThread(() => FindTexture(blenderImage) is { } found ? (found, false) : (CreateTexture(owner, name, png, blenderImage), true));
-        if (made)
+        using var picture = GameTexture(owner, name, png);
+        var hash = SerializableAsset.HashOf(picture.GetStringified());
+        var bytes = Convert.ToHexString(SHA256.HashData(png)).ToLowerInvariant();
+        var found = blenderImage == null ? null : MadeOf(TexturesOf(blenderImage), BlenderImageHashParameter, hash, TextureHashNow);
+        if (found != null)
         {
-            return texture.URI;
+            Record(found, (BlenderImageHashParameter, Hex(hash)), (BlenderImagePngParameter, bytes));
+            return found.URI;
         }
 
-        var data = GameTexture(texture, name, png);
-        lock (SettingsLock)
+        return OnUiThread(() =>
         {
-            var current = ((IAsset)texture).GetData<TextureData>();
-            if (data.Bitmap!.PixelSize != current.Bitmap?.PixelSize || !data.GetPixels().AsSpan().SequenceEqual(current.GetPixels()))
+            if (blenderImage != null && TexturesOf(blenderImage).FirstOrDefault(texture => IsRecorded(texture, BlenderImageHashParameter, hash)) is { } made)
             {
-                texture.UseGameLayout(data.Bitmap.PixelSize.Width, data.Bitmap.PixelSize.Height);
-                texture.SetData(data);
-                texture.Serialize(SerializationFlags.SaveData | SerializationFlags.PreserveData);
-                Log.WriteLine($"{texture.Alias} took the pixels of {name} changed in Blender");
+                return made.URI;
             }
-        }
 
-        return texture.URI;
+            var texture = CreateTexture(owner, name, picture.GetPngBytes(),
+                blenderImage == null ? [] : [(BlenderImageParameter, blenderImage), (BlenderImageHashParameter, Hex(hash)), (BlenderImagePngParameter, bytes)]);
+            Log.WriteLine($"Added the picture {name} made in Blender to the project as {texture.URI}");
+            return texture.URI;
+        });
     }
 
-    private static Texture? FindTexture(string? blenderImage)
+    private static List<Texture> TexturesOf(string blenderImage)
     {
-        return blenderImage == null ? null : AssetManager.Get().GetAllAssetsOf<Texture>()
-            .FirstOrDefault(texture => !texture.IsInternal && texture.Parameters.TryGetValue(BlenderImageParameter, out var id) && id?.ToString() == blenderImage);
+        return AssetManager.Get().GetAllAssetsOf<Texture>().Where(texture => !texture.IsInternal && IsRecorded(texture, BlenderImageParameter, blenderImage)).ToList();
+    }
+
+    private static UInt32? TextureHashNow(Texture texture)
+    {
+        try
+        {
+            return TextureHash(texture.URI);
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or NullReferenceException or IOException)
+        {
+            Log.WriteLine($"Couldn't tell what {texture.Alias} made in Blender is made of: {exception.Message}", Log.LogType.Warning);
+            return null;
+        }
     }
 
     // Blender's images come in any size, the game's textures are powers of two of at most 256
@@ -384,17 +536,18 @@ public sealed class TlmMaterials(TlmFile file, IAsset? owner = null)
     {
         using var stream = new MemoryStream(png);
         var data = TextureData.FromPng(texture, stream);
-        var size = data.Bitmap!.PixelSize;
-        data = data.ResizedForTheGame();
-        if (data.Bitmap!.PixelSize != size)
+        var resized = data.ResizedForTheGame();
+        if (resized != data)
         {
-            Log.WriteLine($"Resized the {size.Width}x{size.Height} image of {name} made in Blender to {data.Bitmap.PixelSize.Width}x{data.Bitmap.PixelSize.Height}, the biggest the game takes is {TextureData.MaxGameSize}x{TextureData.MaxGameSize}");
+            var size = data.Bitmap!.PixelSize;
+            Log.WriteLine($"Resized the {size.Width}x{size.Height} image of {name} made in Blender to {resized.Bitmap!.PixelSize.Width}x{resized.Bitmap.PixelSize.Height}, the biggest the game takes is {TextureData.MaxGameSize}x{TextureData.MaxGameSize}");
+            data.Dispose();
         }
 
-        return data;
+        return resized;
     }
 
-    private static Texture CreateTexture(IAsset owner, string name, Byte[] png, string? blenderImage)
+    private static Texture CreateTexture(IAsset owner, string name, Byte[] png, params (string Parameter, string Value)[] parameters)
     {
         var packageFolder = AssetManager.Get().GetAsset<Package>(owner.Package).GetPackageFolder();
         return (Texture)AssetFactory.CreateAsset(typeof(Texture), TypeFolder(packageFolder, typeof(Texture)), UniqueName<Texture>(owner.Package, name), string.Empty,
@@ -403,46 +556,39 @@ public sealed class TlmMaterials(TlmFile file, IAsset? owner = null)
                 var data = GameTexture(asset, name, png);
                 ((Texture)asset).UseGameLayout(data.Bitmap!.PixelSize.Width, data.Bitmap.PixelSize.Height);
                 asset.SetData(data);
-                if (blenderImage != null)
+                foreach (var (parameter, value) in parameters)
                 {
-                    asset.Parameters[BlenderImageParameter] = blenderImage;
+                    asset.Parameters[parameter] = value;
                 }
 
                 return AssetCreationStatus.Success;
             })!;
     }
 
-    private LabURI CreateMaterial(IAsset owner, string name, JsonObject entry, string? blenderId, TlmMaterialUse use)
+    private LabURI CreateMaterial(IAsset owner, string name, JsonObject entry, MadeInBlender made, string? blenderId, TlmMaterialUse use)
     {
         var packageFolder = AssetManager.Get().GetAsset<Package>(owner.Package).GetPackageFolder();
-        // The settings it has in Blender, what TT Lab gives a material of its kind for an add-on without them
-        var settings = entry["data"] is JsonObject data ? WithTextures(owner, data, entry, owner.Package, name) : null;
-
-        Texture? texture = null;
-        var png = file.Read<Byte>(entry["image"] is JsonObject image ? image["png"] : null);
-        if (settings == null && png.Length > 0)
-        {
-            texture = CreateTexture(owner, name, png, null);
-        }
-
+        // A material of the add-on's settings has the textures of its pictures already
+        var texture = made.Picture != null ? CreateTexture(owner, name, made.Picture.GetPngBytes()) : null;
         var material = AssetFactory.CreateAsset(typeof(Material), TypeFolder(packageFolder, typeof(Material)), UniqueName<Material>(owner.Package, name), string.Empty,
             TwinIdGeneratorServiceProvider.GetGenerator<Material>(), asset =>
             {
-                if (settings != null)
+                if (made.Settings != null)
                 {
                     var materialData = new MaterialData(asset);
-                    materialData.PopulateFrom(settings.ToJsonString());
+                    materialData.PopulateFrom(made.Settings.ToJsonString());
                     asset.SetData(materialData);
                 }
                 else
                 {
-                    asset.SetData(DefaultMaterial(asset, owner, name, entry, texture, use));
+                    asset.SetData(DefaultMaterial(asset, owner, name, entry, texture?.URI ?? LabURI.Empty, use));
                 }
 
                 if (blenderId != null)
                 {
                     asset.Parameters[BlenderMaterialParameter] = blenderId;
                     asset.Parameters[BlenderMaterialUseParameter] = use.ToString();
+                    asset.Parameters[BlenderMaterialHashParameter] = Hex(made.Hash);
                 }
 
                 return AssetCreationStatus.Success;
@@ -453,13 +599,13 @@ public sealed class TlmMaterials(TlmFile file, IAsset? owner = null)
 
     // Skins get the skinned shader like the game's, a rigid one fed a skin's packets hung the game. Shadows fall on rigid parts like on the
     // game's scenery, skins keep them off like the characters that cast them (their own would darken them)
-    private static MaterialData DefaultMaterial(IAsset asset, IAsset owner, string name, JsonObject entry, Texture? texture, TlmMaterialUse use)
+    private static MaterialData DefaultMaterial(IAsset asset, IAsset owner, string name, JsonObject entry, LabURI texture, TlmMaterialUse use)
     {
         var shader = new LabShader
         {
             ShaderType = use == TlmMaterialUse.Skin ? TwinShader.Type.LitSkinnedModel : TwinShader.Type.StandardUnlit,
-            TxtMapping = texture != null ? TwinShader.TextureMapping.ON : TwinShader.TextureMapping.OFF,
-            TextureId = texture?.URI ?? LabURI.Empty,
+            TxtMapping = texture != LabURI.Empty ? TwinShader.TextureMapping.ON : TwinShader.TextureMapping.OFF,
+            TextureId = texture,
             AlphaCorrectionValue = use != TlmMaterialUse.Skin
         };
         if (entry.GetString("alpha") == "BLEND")

@@ -135,12 +135,18 @@ public class MaterialData : AbstractAssetData
 
     public override String GetStringified()
     {
+        return GetStringified(texture => AssetManager.Get().GetAsset(texture).GetDataHash());
+    }
+
+    // What the build hashes into the material's ID (SerializableAsset.GetDataHash), its textures by the hashes given
+    public String GetStringified(Func<LabURI, UInt32> textureHash)
+    {
         var result = new StringBuilder();
         result.AppendLine(ActivatedShaders.ToString());
         result.AppendLine(DmaChainIndex.ToString());
         foreach (var shader in Shaders)
         {
-            result.AppendLine(shader.GetStringified());
+            result.AppendLine(shader.GetStringified(textureHash));
         }
         
         return result.ToString();

@@ -13,7 +13,7 @@ namespace TT_Lab.ViewModels.Editors.PropertyGraph;
 /// <summary>
 /// A property's values and everything under it as the JSON text the clipboard holds: every value the graph has under it, hidden, read-only
 /// and worked out ones too, links as their URIs (the linked asset's values are its own), numbers exactly (floats that aren't finite by
-/// their bits). A whole asset's are its values but its alias
+/// their bits), values copied whole as the JSON their asset keeps them as. A whole asset's are its values but its alias
 /// </summary>
 public sealed class CopiedValues
 {
@@ -127,6 +127,25 @@ public sealed class CopiedValues
     // A value its getter makes anew every time, its parts set by setting the whole value
     internal static bool IsComputed(PropertyNode node) => node.Metadata?.Editable?.IsComputed == true;
 
+    internal static bool IsCopiedWhole(PropertyMetadata? metadata) => metadata?.Editable?.IsCopiedWhole == true;
+
+    /// <summary>
+    /// A value copied whole (<see cref="Attributes.EditableAttribute.IsCopiedWhole"/>) read back the way its asset's data is, none when the
+    /// JSON isn't one of the type
+    /// </summary>
+    internal static object? ReadWhole(JsonElement json, Type type)
+    {
+        try
+        {
+            return Newtonsoft.Json.JsonConvert.DeserializeObject(json.GetRawText(), type,
+                new Newtonsoft.Json.JsonSerializerSettings { ObjectCreationHandling = Newtonsoft.Json.ObjectCreationHandling.Replace });
+        }
+        catch (Exception exception) when (exception is Newtonsoft.Json.JsonException or ArgumentException or InvalidCastException or FormatException)
+        {
+            return null;
+        }
+    }
+
     // Values the graph has no nodes of the parts of (the scenery's collision, a picture's pixels), the inspector doesn't edit them either
     internal static bool IsOpaque(PropertyNode node, object value)
     {
@@ -177,6 +196,12 @@ public sealed class CopiedValues
             return;
         }
 
+        if (IsCopiedWhole(node.Metadata))
+        {
+            writer.WriteRawValue(Newtonsoft.Json.JsonConvert.SerializeObject(value));
+            return;
+        }
+
         writer.WriteStartObject();
         if (value.GetType() != (Nullable.GetUnderlyingType(declared) ?? declared))
         {
@@ -185,7 +210,7 @@ public sealed class CopiedValues
 
         foreach (var child in node.Children.Where(IsValue))
         {
-            if (child.GetValue() is { } childValue && IsOpaque(child, childValue))
+            if (child.GetValue() is { } childValue && IsOpaque(child, childValue) && !IsCopiedWhole(child.Metadata))
             {
                 continue;
             }

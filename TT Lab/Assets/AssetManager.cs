@@ -48,6 +48,9 @@ public class AssetManager
     // let go of right then
     internal bool IsCreating => _lookupHook.Value != null;
 
+    // A build writing a file records what it reads on the flow it writes on
+    internal bool IsBuilding => _accessedAssets.Value != null;
+
     private T RecordAccess<T>(T asset) where T : IAsset
     {
         _accessedAssets.Value?.TryAdd(asset, 0);

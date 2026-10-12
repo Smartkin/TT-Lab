@@ -64,7 +64,7 @@ public class TriggerData : AbstractAssetData
     {
         ObjectActivatorMask = trigger.ObjectActivatorMask;
         Position = new Vector3(trigger.Position.X, trigger.Position.Y, trigger.Position.Z);
-        Rotation = trigger.Rotation.ToEulerAngles();
+        SetGameRotation(trigger.Rotation);
         Scale = new Vector3(trigger.Scale.X, trigger.Scale.Y, trigger.Scale.Z);
         Instances = new(trigger.Instances.Count);
         foreach (var inst in trigger.Instances)
@@ -92,9 +92,14 @@ public class TriggerData : AbstractAssetData
     public Vector3 Position { get; set; }
     
     [JsonProperty(Required = Required.Always)]
-    [Editable(Hint = "The box's turns about X, Y and Z in degrees, which the game keeps as a quaternion")]
+    [Editable(Hint = "The box's turns in degrees, about X, then Y, then Z like an object instance's, which the game keeps as a quaternion")]
     public Vector3 Rotation { get; set; }
-    
+
+    // The quaternion the game has (x, y, z, then w), built while the rotation is still the angles worked out of it: no angles give its
+    // bits back
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public Vector4? GameRotation { get; set; }
+
     [JsonProperty(Required = Required.Always)]
     [Editable(Hint = "Half the box's size along each of its axes: it reaches from -scale to scale around its middle")]
     public Vector3 Scale { get; set; }
@@ -192,6 +197,28 @@ public class TriggerData : AbstractAssetData
     [EditorHiddenIn("Camera")]
     public UInt16 TriggerMessage4 { get; set; }
     
+    // The game turns the box by the quaternion's matrix (MatrixFromRotation, x, y, z, then w): the angles of it, and the quaternion kept
+    private void SetGameRotation(Vector4 rotation)
+    {
+        Rotation = rotation.ToEulerDegrees();
+        GameRotation = new Vector4(rotation.X, rotation.Y, rotation.Z, rotation.W);
+    }
+
+    // The game's own quaternion while the angles are still the ones worked out of it
+    private Vector4 QuaternionOfRotation()
+    {
+        if (GameRotation != null)
+        {
+            var angles = GameRotation.ToEulerDegrees();
+            if (angles.X == Rotation.X && angles.Y == Rotation.Y && angles.Z == Rotation.Z)
+            {
+                return new Vector4(GameRotation.X, GameRotation.Y, GameRotation.Z, GameRotation.W);
+            }
+        }
+
+        return Rotation.ToQuaternion();
+    }
+
     protected override void OnRead() => DeriveFromHeader();
 
     // Cameras keep their trigger in their own file, which never went through loading the trigger's
@@ -228,7 +255,7 @@ public class TriggerData : AbstractAssetData
         var trigger = GetTwinItem<ITwinTrigger>();
         ObjectActivatorMask = trigger.Trigger.ObjectActivatorMask;
         Position = new Vector3(trigger.Trigger.Position.X, trigger.Trigger.Position.Y, trigger.Trigger.Position.Z);
-        Rotation = trigger.Trigger.Rotation.ToEulerAngles();
+        SetGameRotation(trigger.Trigger.Rotation);
         Scale = new Vector3(trigger.Trigger.Scale.X, trigger.Trigger.Scale.Y, trigger.Trigger.Scale.Z);
         Instances = new List<LabURI>(trigger.Trigger.Instances.Count);
         foreach (var inst in trigger.Trigger.Instances)
@@ -251,14 +278,13 @@ public class TriggerData : AbstractAssetData
         using var ms = new MemoryStream();
         using var writer = new BinaryWriter(ms);
 
-        var quat = Rotation.ToQuat();
         var trigger = new TwinTrigger
         {
             Header = Header,
             ObjectActivatorMask = ObjectActivatorMask,
             CheckInterval = CheckInterval,
             Position = new Vector4(Position.X, Position.Y, Position.Z, 1.0f),
-            Rotation = new Vector4(quat.x, quat.y, quat.z, quat.w),
+            Rotation = QuaternionOfRotation(),
             Scale = new Vector4(Scale.X, Scale.Y, Scale.Z, 1.0f),
             InstancesGrowth = InstancesGrowth
         };

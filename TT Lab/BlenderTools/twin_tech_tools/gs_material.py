@@ -45,6 +45,10 @@ DEFAULT_ANIMATION_FPS = 30
 
 # Shader types the VU1 programs light with the chunk's lights (MaterialFactory.IsLit, 0x2dbeb0, 0x2e3b40)
 LIT_TYPES = frozenset((2, 4, 12, 15, 16))
+# Of those, the ones lighting a rigid part's emit colors, the fourth quad word of every vertex of the PS2 version's packets: Standard
+# Lit's program and the ones drawing its color, its alpha as well (the LQ -1 after the vertex pointer moved on, ITOF0, times the
+# lighting). A part without them is lit with what the model drawn before it left there (OGIData.LightsEmitColors)
+EMIT_COLOR_TYPES = frozenset((2, 12, 16))
 # Where a type's VU1 program reads its texture, the UVs for the rest (checked by emulating the programs). The environment maps
 # (programs 0x14 and 0x1D) take the half vector of the way to the eye and the normal through the object's clip matrix, normalized:
 # (0.5 + 0.5 d.x, 0.5 - 0.5 d.y). The metallic one (0x17) takes the way to the eye reflected off the normal through it, not
@@ -847,6 +851,18 @@ def scroll_value(source: typing.Optional[typing.Tuple[str, int]], scroll: typing
 
 def is_lit(shader_type: str) -> bool:
     return dict(schema.ENUMS["ShaderType"]).get(shader_type, 0) in LIT_TYPES
+
+
+def lights_emit_colors(shader_type: typing.Any) -> bool:
+    """Whether the type, by its name or as the material's JSON has it, lights a rigid part by its emit colors."""
+    number = shader_type if isinstance(shader_type, int) else type_number(str(shader_type))
+    return number in EMIT_COLOR_TYPES
+
+
+def type_label(shader_type: typing.Any) -> str:
+    """The type's label, by its name or as the material's JSON has it."""
+    name = next((name for name, number in schema.ENUMS["ShaderType"] if number == shader_type), "") if isinstance(shader_type, int) else str(shader_type)
+    return ENUM_LABELS["ShaderType"].get(name, (name or "Type %s" % shader_type, ""))[0]
 
 
 def texture_source(shader_type: str) -> str:

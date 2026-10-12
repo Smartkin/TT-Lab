@@ -12,6 +12,7 @@ using System.Text;
 using TT_Lab.AssetData.Global;
 using TT_Lab.AssetData.Instance;
 using TT_Lab.Assets;
+using TT_Lab.Assets.Factory;
 using TT_Lab.Assets.Global;
 using TT_Lab.Project;
 using TT_Lab.Util;
@@ -301,11 +302,19 @@ public sealed class Pcsx2Service : IDisposable
         }
     }
 
+    // One build of the chunks, a factory per version: what's wrong with a model several of them have is told once
     private static void BuildChunks(TT_Lab.Project.Project project, IEnumerable<LevelChunk> chunks)
     {
+        var factories = new Dictionary<GamePlatform, ITwinItemFactory>();
         foreach (var chunk in chunks)
         {
-            project.PackChunk(chunk.URI);
+            var platform = project.GetPlatform(chunk.Package);
+            if (!factories.TryGetValue(platform, out var factory))
+            {
+                factories[platform] = factory = project.CreateFactory(platform);
+            }
+
+            project.PackChunk(chunk.URI, factory);
         }
     }
 

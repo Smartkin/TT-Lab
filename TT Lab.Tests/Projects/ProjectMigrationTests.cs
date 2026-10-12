@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using System.Text.Json.Nodes;
 using Avalonia.Headless.XUnit;
+using GlmSharp;
 using Splat;
 using TT_Lab.AssetData.Code;
 using TT_Lab.AssetData.Graphics;
@@ -8,12 +9,14 @@ using TT_Lab.AssetData.Graphics.TlModel;
 using TT_Lab.AssetData.Instance;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Graphics;
+using TT_Lab.Assets.Instance;
 using TT_Lab.Extensions;
 using TT_Lab.Project;
 using TT_Lab.Project.Migration;
 using TT_Lab.Tests.Support;
 using TT_Lab.ViewModels;
 using Twinsanity.TwinsanityInterchange.Common;
+using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Layout;
 using Path = System.IO.Path;
 
 namespace TT_Lab.Tests.Projects;
@@ -248,6 +251,107 @@ public sealed class ProjectMigrationTests : IDisposable
         var data = ((IAsset)ogi).GetData<OGIData>();
         data.ReadTlm(TlmFile.Load(ogi.FullDataPath));
         Assert.Equal(1, data.JointIdCount);
+    }
+
+    // What 1.0.0's import kept of the game's quaternion of a trigger's or a camera's box: radians about Y, then X, then Z, each the other way
+    private static Vector3 OneZeroZeroRotation(quat rotation)
+    {
+        var matrix = rotation.ToMat4;
+        var x = (Single)Math.Asin(-Math.Clamp(matrix.m12, -1, 1));
+        return Math.Abs(matrix.m12) < 0.9999999
+            ? new Vector3(x, (Single)Math.Atan2(matrix.m02, matrix.m22), (Single)Math.Atan2(matrix.m10, matrix.m11))
+            : new Vector3(x, (Single)Math.Atan2(-matrix.m20, matrix.m00), 0.0f);
+    }
+
+    // The trigger's values in a data file as 1.0.0 wrote them, the rotation given
+    private static JsonObject OneZeroZero(JsonObject trigger, Vector3 rotation)
+    {
+        trigger["Rotation"] = new JsonObject { ["X"] = rotation.X, ["Y"] = rotation.Y, ["Z"] = rotation.Z };
+        trigger.Remove(nameof(TriggerData.GameRotation));
+        return trigger;
+    }
+
+    private static void AssertSameTurn(quat expected, quat actual)
+    {
+        foreach (var axis in new[] { vec3.UnitX, vec3.UnitY, vec3.UnitZ })
+        {
+            Assert.True(((expected * axis) - (actual * axis)).Length < 1e-4f, $"{expected} turns {axis} to {expected * axis}, {actual} to {actual * axis}");
+        }
+    }
+
+    // 1.0.0 kept a trigger's and a camera's rotation as radians in another order, which its viewport drew as degrees and its build turned in
+    // yet another order: they become degrees about X, then Y, then Z turning the box the way the game does, and the game's quaternion,
+    // prefabs' too. The degrees typed or set with the gizmo then (the import never gave an angle past a half turn) stay, and so does
+    // what's converted when the migration runs again
+    [Fact]
+    public void TriggerRotationsBecomeDegrees()
+    {
+        var turn = quat.FromAxisAngle(glm.Radians(70.0f), new vec3(0.3f, 1, -0.4f).Normalized);
+        var old = OneZeroZeroRotation(turn);
+        var turned = _project.Add(new Trigger { Chunk = "default", LayoutID = 0 }, "Turned", 1);
+        turned.SetData(new TriggerData(turned));
+        var typed = _project.Add(new Trigger { Chunk = "default", LayoutID = 0 }, "Typed", 2);
+        typed.SetData(new TriggerData(typed));
+        var camera = _project.Add(new Camera { Chunk = "default", LayoutID = 4 }, "Camera", 3);
+        camera.SetData(new CameraData(camera));
+        _project.Project.Serialize();
+        Assert.Contains(Path.DirectorySeparatorChar + "Trigger" + Path.DirectorySeparatorChar, turned.FullDataPath);
+        Assert.Contains(Path.DirectorySeparatorChar + "Camera" + Path.DirectorySeparatorChar, camera.FullDataPath);
+        var oldTurned = OneZeroZero(JsonNode.Parse(File.ReadAllText(turned.FullDataPath))!.AsObject(), old);
+        File.WriteAllText(turned.FullDataPath, oldTurned.ToJsonString());
+        File.WriteAllText(typed.FullDataPath, OneZeroZero(JsonNode.Parse(File.ReadAllText(typed.FullDataPath))!.AsObject(), new Vector3(0, 90, 0)).ToJsonString());
+        var oldCamera = JsonNode.Parse(File.ReadAllText(camera.FullDataPath))!.AsObject();
+        OneZeroZero(oldCamera["Trigger"]!.AsObject(), old);
+        File.WriteAllText(camera.FullDataPath, oldCamera.ToJsonString());
+        var prefabs = Path.Combine(_project.Project.ProjectPath, "prefabs", "Boxes");
+        Directory.CreateDirectory(prefabs);
+        var prefab = new JsonObject
+        {
+            ["Name"] = "Box", ["Kind"] = "Instance", ["DataType"] = typeof(TriggerData).FullName, ["Data"] = oldTurned.DeepClone(),
+        };
+        var group = new JsonObject
+        {
+            ["Name"] = "Group", ["Kind"] = "Group", ["Data"] = new JsonObject(), ["Items"] = new JsonArray(
+                new JsonObject { ["DataType"] = typeof(TriggerData).FullName, ["Data"] = oldTurned.DeepClone() },
+                new JsonObject { ["DataType"] = typeof(CameraData).FullName, ["Data"] = oldCamera.DeepClone() }),
+        };
+        File.WriteAllText(Path.Combine(prefabs, "Box.json"), prefab.ToJsonString());
+        File.WriteAllText(Path.Combine(prefabs, "Group.json"), group.ToJsonString());
+        var oldFile = File.ReadAllBytes(turned.FullDataPath);
+        WriteVersion("1.0.0");
+
+        var result = ProjectMigration.Migrate(ProjectFile);
+
+        using (var archive = ZipFile.OpenRead(result.Backup!))
+        {
+            Assert.Equal(oldFile, Read(archive, Path.GetRelativePath(_project.Project.ProjectPath, turned.FullDataPath).Replace('\\', '/')));
+        }
+
+        Assert.Contains(result.Notes, note => note.Contains("Triggers and cameras turned in degrees") && note.Contains("(1)"));
+        foreach (var asset in new IAsset[] { turned, typed, camera })
+        {
+            asset.UnloadData();
+        }
+
+        var data = ((IAsset)turned).GetData<TriggerData>();
+        AssertSameTurn(turn, new quat(data.Rotation.ToRadiansGlm()));
+        var built = ((ITwinTrigger)data.Export(new TestAssets(_project).Factory)).Trigger.Rotation;
+        AssertSameTurn(turn, new quat(built.X, built.Y, built.Z, built.W));
+        AssertSameTurn(turn, new quat(((IAsset)camera).GetData<CameraData>().Trigger.Rotation.ToRadiansGlm()));
+        var typedRotation = ((IAsset)typed).GetData<TriggerData>().Rotation;
+        Assert.Equal((0.0f, 90.0f, 0.0f), (typedRotation.X, typedRotation.Y, typedRotation.Z));
+        var prefabData = JsonNode.Parse(File.ReadAllText(Path.Combine(prefabs, "Box.json")))!["Data"]!.AsObject();
+        var items = JsonNode.Parse(File.ReadAllText(Path.Combine(prefabs, "Group.json")))!["Items"]!.AsArray();
+        foreach (var converted in new[] { prefabData, items[0]!["Data"]!.AsObject(), items[1]!["Data"]!["Trigger"]!.AsObject() })
+        {
+            Assert.Equal(data.Rotation.Y, converted["Rotation"]!["Y"]!.GetValue<Single>());
+            Assert.True(converted.ContainsKey(nameof(TriggerData.GameRotation)));
+        }
+
+        // Converted once: migrated again, the degrees stay
+        var kept = 0;
+        Assert.False(Version110.ConvertTriggerRotation(JsonNode.Parse(File.ReadAllText(turned.FullDataPath))!.AsObject(), ref kept));
+        Assert.Equal(0, kept);
     }
 
     // Opening an older project asks first, a project not migrated stays as it is and doesn't open

@@ -282,9 +282,12 @@ def _value(item: TTT_ShaderSettings, field: gs_material.Field) -> typing.Any:
 
 # Writing
 
-def shown(material: bpy.types.Material, images: typing.List[bpy.types.Image], project: typing.Any = None) -> typing.Dict[str, typing.Any]:
+def shown(material: bpy.types.Material, images: typing.List[bpy.types.Image], project: typing.Any = None,
+          png_hash: typing.Optional[typing.Callable[[bpy.types.Image], str]] = None) -> typing.Dict[str, typing.Any]:
     """The material's settings the way gs_material compares them. A picture that isn't a project texture's (or was changed) gets an
-    index into the images going into the file with it, one TT Lab made a texture of is that texture."""
+    index into the images going into the file with it, one TT Lab made a texture of is that texture: given the SHA-256 of a picture's
+    PNG, only while TT Lab made the texture of that PNG (a picture copied with another blend file keeps its ID, TT Lab checks one it
+    gets by what its build makes of it)."""
     settings = settings_of(material)
     result: typing.Dict[str, typing.Any] = {field.prop: getattr(settings, field.prop) for field in gs_material.MATERIAL_FIELDS}
     result["shaders"] = []
@@ -297,7 +300,7 @@ def shown(material: bpy.types.Material, images: typing.List[bpy.types.Image], pr
         if image is not None:
             uri = image.get(TEXTURE_URI_PROPERTY, "")
             if not uri and project is not None:
-                texture = project.texture_of_image(image.get(IMAGE_ID_PROPERTY, ""))
+                texture = project.texture_of_image(image.get(IMAGE_ID_PROPERTY, ""), png_hash(image) if png_hash is not None else None)
                 uri = texture.uri if texture is not None else ""
 
             if uri and not image.is_dirty:

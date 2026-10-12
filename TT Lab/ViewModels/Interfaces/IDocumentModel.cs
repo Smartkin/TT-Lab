@@ -228,7 +228,7 @@ public record ViewportObject(EditableObject Render, string DocumentName, Propert
             return RotationConverter.ToData(rotation);
         }
 
-        var degrees = vec3.Degrees(rotation.ToEulerAngles());
+        var degrees = rotation.ToEulerDegrees();
         return new Twinsanity.TwinsanityInterchange.Common.Vector3(degrees.x, degrees.y, degrees.z);
     }
 

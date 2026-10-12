@@ -1,6 +1,4 @@
-﻿using System;
-using System.Numerics;
-using GlmSharp;
+﻿using GlmSharp;
 using Silk.NET.Maths;
 using Vortice.Mathematics;
 using Matrix4 = Twinsanity.TwinsanityInterchange.Common.Matrix4;
@@ -37,14 +35,19 @@ namespace TT_Lab.Extensions
             };
         }
 
-        public static GlmSharp.quat ToQuat(this Twinsanity.TwinsanityInterchange.Common.Vector3 vec)
+        // The quaternion the game keeps (x, y, z, then w) of Euler angles in degrees about X, then Y, then Z: the rotation the viewport
+        // turns things by
+        public static Vector4 ToQuaternion(this Vector3 degrees)
         {
-            var mat = mat4.RotateZ(vec.Z) * mat4.RotateX(vec.X) * mat4.RotateY(vec.Y);
-            var quat = GlmSharp.quat.FromMat4(mat);
-            quat.x = -quat.x;
-            quat.y = -quat.y;
-            quat.z = -quat.z;
-            return quat;
+            var rotation = new quat(degrees.ToRadiansGlm());
+            return new Vector4(rotation.x, rotation.y, rotation.z, rotation.w);
+        }
+
+        // A rotation the game keeps as a quaternion (x, y, z, then w) as Euler angles in degrees about X, then Y, then Z
+        public static Vector3 ToEulerDegrees(this Vector4 quaternion)
+        {
+            var degrees = new quat(quaternion.X, quaternion.Y, quaternion.Z, quaternion.W).ToEulerDegrees();
+            return new Vector3(degrees.x, degrees.y, degrees.z);
         }
 
         public static GlmSharp.vec4 ToGlm(this Twinsanity.TwinsanityInterchange.Common.Vector4 twinVec)
@@ -87,38 +90,6 @@ namespace TT_Lab.Extensions
                 Column4 = mat.Column3.ToTwin()
             };
             return twinMat;
-        }
-
-        public static Vector3 ToEulerAngles(this Vector4 twinVec)
-        {
-            var quat = new Quaternion(twinVec.X, twinVec.Y, twinVec.Z, twinVec.W);
-            return quat.ToTwinEulerAngles();
-        }
-
-        public static Vector3 ToTwinEulerAngles(this Quaternion q)
-        {
-            var angles = q.ToEulerAngles();
-            return new Vector3(angles.X, angles.Y, angles.Z);
-        }
-        
-        private static System.Numerics.Vector3 ToEulerAngles(this Quaternion q)
-        {
-            System.Numerics.Vector3 angles = new();
-            var quat = new quat(q.X, q.Y, q.Z, q.W);
-            var mat = quat.ToMat4;
-            angles.X = (float)Math.Asin(-Math.Clamp(mat.m12, -1, 1));
-            if (Math.Abs(mat.m12) < 0.9999999)
-            {
-                angles.Y = (float)Math.Atan2(mat.m02, mat.m22);
-                angles.Z = (float)Math.Atan2(mat.m10, mat.m11);
-            }
-            else
-            {
-                angles.Y = (float)Math.Atan2(-mat.m20, mat.m00);
-                angles.Z = 0.0f;
-            }
-            
-            return angles;
         }
     }
 }

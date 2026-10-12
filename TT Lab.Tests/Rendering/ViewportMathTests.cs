@@ -135,6 +135,31 @@ public sealed class ViewportMathTests
         }
     }
 
+    // At a quarter turn about Y (gimbal lock) only the sum or difference of the other two angles is known: every turn about X and Z with
+    // it turns back into itself, and the quarter turn reads 90 degrees, the arc sine of the middle angle gave 89.98
+    [Fact]
+    public void EulerAnglesAtAQuarterTurnTurnBackIntoTheSameRotation()
+    {
+        var random = new Random(5);
+        for (var i = 0; i < 1000; i++)
+        {
+            var quarter = random.Next(2) == 0 ? MathF.PI / 2 : -MathF.PI / 2;
+            var rotation = new quat(new vec3((float)(random.NextDouble() * 6.0 - 3.0), quarter, (float)(random.NextDouble() * 6.0 - 3.0)));
+
+            var restored = new quat(rotation.ToEulerAngles());
+
+            foreach (var axis in new[] { vec3.UnitX, vec3.UnitY, vec3.UnitZ })
+            {
+                AssertClose(rotation * axis, restored * axis, 1e-4f);
+            }
+        }
+
+        Assert.Equal(90.0f, MathF.Round(quat.FromAxisAngle(MathF.PI / 2, vec3.UnitY).ToEulerDegrees().y, 4));
+        var halfTurn = quat.FromAxisAngle(MathF.PI, new vec3(1, 0, 1).Normalized);
+        AssertClose(halfTurn * vec3.UnitX, new quat(halfTurn.ToEulerAngles()) * vec3.UnitX, 1e-4f);
+        AssertClose(halfTurn * vec3.UnitY, new quat(halfTurn.ToEulerAngles()) * vec3.UnitY, 1e-4f);
+    }
+
     [Fact]
     public void RayHitsBoxWhereItEntersIt()
     {

@@ -275,6 +275,23 @@ public sealed class TlmFile
     public static TlmFile Read(Stream stream)
     {
         using var reader = new BinaryReader(stream, Encoding.UTF8, true);
+        var json = ReadJson(reader);
+        var binary = reader.ReadBytes(reader.ReadInt32());
+        return new TlmFile(json, binary);
+    }
+
+    /// <summary>
+    /// The file's JSON without its binary data
+    /// </summary>
+    public static JsonObject ReadJson(string path)
+    {
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read);
+        using var reader = new BinaryReader(stream, Encoding.UTF8, true);
+        return ReadJson(reader);
+    }
+
+    private static JsonObject ReadJson(BinaryReader reader)
+    {
         if (!reader.ReadBytes(4).AsSpan().SequenceEqual(Magic))
         {
             throw new InvalidDataException("Not a TT Lab model file");
@@ -286,9 +303,7 @@ public sealed class TlmFile
             throw new InvalidDataException($"TT Lab model file of version {version}, this TT Lab reads version {FormatVersion}");
         }
 
-        var json = JsonNode.Parse(reader.ReadBytes(reader.ReadInt32()), documentOptions: new JsonDocumentOptions { MaxDepth = 256 }) as JsonObject
-                   ?? throw new InvalidDataException("A TT Lab model file without its JSON");
-        var binary = reader.ReadBytes(reader.ReadInt32());
-        return new TlmFile(json, binary);
+        return JsonNode.Parse(reader.ReadBytes(reader.ReadInt32()), documentOptions: new JsonDocumentOptions { MaxDepth = 256 }) as JsonObject
+               ?? throw new InvalidDataException("A TT Lab model file without its JSON");
     }
 }

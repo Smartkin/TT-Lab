@@ -1,5 +1,6 @@
 using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
+using TT_Lab.Assets.Factory;
 using TT_Lab.Assets.Global;
 using TT_Lab.Project;
 using TT_Lab.Tests.Support;
@@ -42,6 +43,29 @@ public sealed class BuildCacheTests : IDisposable
         cache.Record(Key, dependencies, [_output]);
         cache.Save();
     }
+
+    // A chunk has its animations by the IDs the build gave them, it's built again once one of them gets another
+    [Fact]
+    public void ChunksWhoseAnimationsGetOtherIdsAreRebuilt()
+    {
+        var ids = LoadAnimationIds();
+        var dance = ids.KeyOf([1, 2, 3]);
+        var cache = Load();
+        cache.AnimationIds = ids;
+        cache.Record(Key, [_dependency], [_output], animations: new Dictionary<string, UInt32> { [dance] = ids.IdOf(dance, 0x8000, "Dance") });
+        cache.Save();
+        ids.Save();
+
+        var reloaded = Load();
+        reloaded.AnimationIds = LoadAnimationIds();
+        Assert.True(reloaded.IsUpToDate(Key, [_output]));
+        Assert.Equal([dance], reloaded.RecordedAnimations());
+
+        reloaded.AnimationIds.KeepOnly([]);
+        Assert.False(reloaded.IsUpToDate(Key, [_output]));
+    }
+
+    private AnimationIds LoadAnimationIds() => AnimationIds.Load(_project.Project.ProjectPath, TT_Lab.Project.Project.GamePlatform.PS2, []);
 
     [Fact]
     public void NothingIsUpToDateBeforeItWasBuilt()

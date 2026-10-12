@@ -170,6 +170,10 @@ public static class ValuesPaste
 
     private static bool IsList(PropertyNode node) => CopiedValues.IsListType(node.PropertyType) && node.GetValue() is IList;
 
+    // A value worked out of others (what a placed mesh places, the parts drawing with a material slot) has no setter and follows what's
+    // pasted: setting one threw in the middle of the paste, and nothing after it got pasted
+    private static bool CanSet(PropertyNode node) => node.SetValueDelegate != null || node.Index != null || node.Metadata?.PropertyInfo.SetMethod != null;
+
     // Items of the list's kind, or a list of them
     private static bool GoesIntoList(CopiedValues copied, PropertyNode list)
     {
@@ -389,6 +393,11 @@ public static class ValuesPaste
 
         private void PlanLeaf(JsonElement json, PropertyNode node)
         {
+            if (!CanSet(node))
+            {
+                return;
+            }
+
             if (!CopiedValues.TryReadLeaf(json, node.PropertyType, out var value))
             {
                 Limits.Add($"{UndoHistory.NameOf(node)} isn't pasted, the copied value isn't one of its type");
@@ -401,6 +410,11 @@ public static class ValuesPaste
 
         private void PlanLink(JsonElement json, PropertyNode node)
         {
+            if (!CanSet(node))
+            {
+                return;
+            }
+
             var name = UndoHistory.NameOf(node);
             if (!CopiedValues.TryReadLink(json, out var uri))
             {
@@ -419,7 +433,7 @@ public static class ValuesPaste
 
         private void PlanComputed(JsonElement json, PropertyNode node)
         {
-            if (json.ValueKind != JsonValueKind.Object || node.GetValue() is not { } whole)
+            if (json.ValueKind != JsonValueKind.Object || !CanSet(node) || node.GetValue() is not { } whole)
             {
                 return;
             }
@@ -456,7 +470,7 @@ public static class ValuesPaste
             var name = UndoHistory.NameOf(node);
             if (json.ValueKind == JsonValueKind.Null)
             {
-                if (current != null)
+                if (current != null && CanSet(node))
                 {
                     Overwrites.Add($"{name}: {Friendly(current.GetType())} becomes nothing");
                     Steps.Add(() => node.SetValue(null));
@@ -478,9 +492,14 @@ public static class ValuesPaste
                 return;
             }
 
-            // Another kind of value has other values in it, a struct's parts are set as a whole
-            if (current == null || current.GetType() != type || type.IsValueType)
+            // Another kind of value has other values in it, a struct's parts are set as a whole and so is a value copied whole
+            if (current == null || current.GetType() != type || type.IsValueType || CopiedValues.IsCopiedWhole(node.Metadata))
             {
+                if (!CanSet(node))
+                {
+                    return;
+                }
+
                 if (current == null || current.GetType() != type)
                 {
                     Overwrites.Add($"{name}: {(current == null ? "nothing" : Friendly(current.GetType()))} becomes {Friendly(type)}");
@@ -522,6 +541,17 @@ public static class ValuesPaste
             }
 
             type = Nullable.GetUnderlyingType(type) ?? type;
+            if (CopiedValues.IsCopiedWhole(metadata))
+            {
+                var whole = CopiedValues.ReadWhole(json, type);
+                if (whole == null)
+                {
+                    Limits.Add($"{name} isn't pasted, the copied value isn't one of its type");
+                }
+
+                return whole;
+            }
+
             if (type == typeof(LabURI))
             {
                 if (!CopiedValues.TryReadLink(json, out var uri))

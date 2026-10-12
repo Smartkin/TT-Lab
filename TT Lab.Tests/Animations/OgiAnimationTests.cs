@@ -199,31 +199,127 @@ public sealed class OgiAnimationTests : IDisposable
     [Fact]
     public void SameAnimationsOfDifferentOgisGoIntoTheChunkOnce()
     {
+        var factory = new PS2ItemFactory();
         var section = new PS2AnyAnimationsSection();
         var other = new OGIData(_ogi);
         other.SetAnimations([CreateAnimationData("Walk", _walk.ID, 0, joint => joint == 1, _ => false)]);
 
-        var id = _ogiData.ResolveAnimation(new PS2ItemFactory(), section, _walk.ID);
-        var otherId = other.ResolveAnimation(new PS2ItemFactory(), section, _walk.ID);
+        var id = _ogiData.ResolveAnimation(factory, section, _walk.ID);
+        var otherId = other.ResolveAnimation(factory, section, _walk.ID);
 
         Assert.Equal(id, otherId);
         Assert.Equal(1, section.GetItemsAmount());
     }
 
+    // The game keeps every loaded chunk's animations in one table at their ID's low 15 bits and keeps the first one of an ID: an edited
+    // copy gets an ID of the table no OGI's animation has, the same one in every chunk of the build
     [Fact]
-    public void EditedCopiesOfAnAnimationGetTheirOwnIdInTheChunk()
+    public void EditedCopiesOfAnAnimationGetTheirOwnIdInEveryChunk()
     {
-        var section = new PS2AnyAnimationsSection();
+        var factory = new PS2ItemFactory();
+        var beach = new PS2AnyAnimationsSection();
+        var sandbox = new PS2AnyAnimationsSection();
         var other = new OGIData(_ogi);
         other.SetAnimations([CreateAnimationData("Walk", _walk.ID, 2, joint => joint == 1, _ => false)]);
 
-        var id = _ogiData.ResolveAnimation(new PS2ItemFactory(), section, _walk.ID);
-        var otherId = other.ResolveAnimation(new PS2ItemFactory(), section, _walk.ID);
+        var id = _ogiData.ResolveAnimation(factory.ForChunk(), beach, _walk.ID);
+        var otherId = other.ResolveAnimation(factory.ForChunk(), beach, _walk.ID);
+        var sandboxId = other.ResolveAnimation(factory.ForChunk(), sandbox, _walk.ID);
 
         Assert.Equal(_walk.ID, id);
-        Assert.Equal(0x8000U, otherId);
-        Assert.Equal(2, section.GetItemsAmount());
+        Assert.NotNull(otherId);
+        Assert.InRange(otherId.Value, 0U, AnimationIds.TableSize - 1U);
+        Assert.DoesNotContain(otherId.Value, new[] { _walk.ID, _run.ID });
+        Assert.Equal(otherId, sandboxId);
+        Assert.Equal(2, beach.GetItemsAmount());
     }
+
+    // TT Lab gives animations made in Blender IDs from 0x8000 up in their OGI, which the game would take for the ones from 0 up
+    [Fact]
+    public void NewAnimationsGetAnIdOfTheGamesTable()
+    {
+        var dance = CreateAnimationData("Dance", 0x8000, 2, _ => false, _ => false);
+        _ogiData.Animations.Add(dance);
+        var section = new PS2AnyAnimationsSection();
+
+        var id = _ogiData.ResolveAnimation(new PS2ItemFactory(), section, dance.ID);
+
+        Assert.NotNull(id);
+        Assert.InRange(id.Value, 0U, AnimationIds.TableSize - 1U);
+        Assert.DoesNotContain(id.Value, new[] { _walk.ID, _run.ID });
+        Assert.True(section.ContainsItem(id.Value));
+    }
+
+    // Chunks built later, by Play or by another build, give the animations the IDs the builds before gave them
+    [Fact]
+    public void BuildsGiveAnimationsTheIdsTheyGotBefore()
+    {
+        var ids = LoadIds();
+        var walk = ids.KeyOf([1, 2, 3]);
+        var editedWalk = ids.KeyOf([1, 2, 4]);
+        Assert.Equal(_walk.ID, ids.IdOf(walk, _walk.ID, "Walk"));
+        var given = ids.IdOf(editedWalk, _walk.ID, "Edited walk");
+        ids.Save();
+
+        var again = LoadIds();
+
+        // The edited copy comes first this time
+        Assert.Equal(given, again.IdOf(editedWalk, _walk.ID, "Edited walk"));
+        Assert.Equal(_walk.ID, again.IdOf(walk, _walk.ID, "Walk"));
+        Assert.True(again.StillGives(editedWalk, given.ToString("X")));
+    }
+
+    // An ID one of the OGIs' animations has by now is that animation's, what got it before gets another and its chunks get built again
+    [Fact]
+    public void AnIdAnOgisAnimationTakesIsGivenAgain()
+    {
+        var ids = LoadIds();
+        var walk = ids.KeyOf([1, 2, 3]);
+        var editedWalk = ids.KeyOf([1, 2, 4]);
+        ids.IdOf(walk, _walk.ID, "Walk");
+        var given = ids.IdOf(editedWalk, _walk.ID, "Edited walk");
+        ids.Save();
+        _ogiData.Animations.Add(CreateAnimationData("Dance", given, 1, _ => false, _ => false));
+
+        var again = LoadIds();
+
+        Assert.False(again.StillGives(editedWalk, given.ToString("X")));
+        Assert.Equal(given, again.IdOf(again.KeyOf([9]), given, "Dance"));
+        Assert.NotEqual(given, again.IdOf(editedWalk, _walk.ID, "Edited walk"));
+    }
+
+    // Nobody has the OGI loaded, the IDs of its animations come from its file
+    [Fact]
+    public void TheIdsOfOgisNobodyLoadedComeFromTheirFiles()
+    {
+        _ogi.Serialize(SerializationFlags.SaveData);
+        Assert.False(_ogi.IsLoaded);
+
+        var ids = LoadIds();
+
+        // An animation only keeps an ID an OGI's animation has
+        Assert.Equal(_run.ID, ids.IdOf(ids.KeyOf([1]), _run.ID, "Run"));
+        Assert.NotEqual(0x3U, ids.IdOf(ids.KeyOf([2]), 0x3, "Jump"));
+        Assert.False(_ogi.IsLoaded);
+    }
+
+    // Once every chunk got built, the IDs of the animations none of them has can be given to others
+    [Fact]
+    public void IdsNoChunkHasAreLetGo()
+    {
+        var ids = LoadIds();
+        var kept = ids.KeyOf([1]);
+        var dropped = ids.KeyOf([2]);
+        var keptId = ids.IdOf(kept, 0x8000, "Kept");
+        var droppedId = ids.IdOf(dropped, 0x8001, "Dropped");
+
+        ids.KeepOnly([kept]);
+
+        Assert.True(ids.StillGives(kept, keptId.ToString("X")));
+        Assert.False(ids.StillGives(dropped, droppedId.ToString("X")));
+    }
+
+    private AnimationIds LoadIds() => AnimationIds.Load(_project.Project.ProjectPath, TT_Lab.Project.Project.GamePlatform.PS2, [_ogi]);
 
     [Fact]
     public void MissingAnimationsArentResolved()

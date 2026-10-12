@@ -28,6 +28,11 @@ public sealed class ChunkResolution
     public Dictionary<LabURI, (IReadOnlyList<LabURI> Objects, IReadOnlyList<LabURI> Graphs)> GraphReferences { get; } = new();
 
     /// <summary>
+    /// The IDs the animations put into the chunk got, by their keys (<see cref="AnimationIds.KeyOf"/>), for the build cache
+    /// </summary>
+    public Dictionary<string, UInt32> Animations { get; } = new();
+
+    /// <summary>
     /// Starts resolving the asset into the section
     /// </summary>
     /// <returns>Whether the asset has to be resolved, it doesn't when it already is or it's being resolved</returns>

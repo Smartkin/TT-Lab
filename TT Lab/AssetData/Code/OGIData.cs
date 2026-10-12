@@ -1,4 +1,5 @@
 ﻿using Newtonsoft.Json;
+using Splat;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -280,8 +281,74 @@ public class OGIData : AbstractAssetData
         }
 
         var animationsChanged = ReadAnimations(file, armature);
+        WarnAboutPartsLitWithoutEmitColors();
         return animationsChanged || materials.AddedToProject || renumbered;
     }
+
+    // StandardLit and the shaders drawing its color light a rigid model's vertexes by their emit colors, the fourth quad word of every
+    // vertex of the PS2 version's packets: a part without them is lit with what the model drawn before it left there
+    private static bool LightsEmitColors(TwinShader.Type type) =>
+        type is TwinShader.Type.StandardLit or TwinShader.Type.LitEnvironmentMap or TwinShader.Type.LitReflectionSurface;
+
+    /// <summary>
+    /// The warnings about the parts of the model's rigid models drawn with a shader that lights their emit colors while they have none
+    /// </summary>
+    internal List<string> PartsLitWithoutEmitColors()
+    {
+        var assetManager = AssetManager.Get();
+        var warnings = new List<string>();
+        foreach (var rigidModel in RigidModelIds.Where(uri => uri != LabURI.Empty && assetManager.DoesAssetExist(uri)))
+        {
+            var rigidModelData = assetManager.GetAssetData<RigidModelData>(rigidModel);
+            if (rigidModelData.Model == LabURI.Empty || !assetManager.DoesAssetExist(rigidModelData.Model))
+            {
+                continue;
+            }
+
+            var parts = assetManager.GetAssetData<ModelData>(rigidModelData.Model).Vertexes;
+            for (var i = 0; i < parts.Count && i < rigidModelData.Materials.Count; i++)
+            {
+                var material = rigidModelData.Materials[i];
+                if (parts[i].Any(vertex => vertex.HasEmitColor) || material == LabURI.Empty || !assetManager.DoesAssetExist(material))
+                {
+                    continue;
+                }
+
+                var shader = assetManager.GetAssetData<MaterialData>(material).Shaders.FirstOrDefault(shader => LightsEmitColors(shader.ShaderType));
+                if (shader != null)
+                {
+                    warnings.Add(LitWithoutEmitColors(assetManager.GetAsset(material).Alias, shader.ShaderType));
+                }
+            }
+        }
+
+        return warnings.Distinct().ToList();
+    }
+
+    private string LitWithoutEmitColors(string material, TwinShader.Type shader) =>
+        $"{Owner.Alias}'s part drawn with {material} has no emit colors, which its {shader} shader lights: the game lights it with what the model drawn " +
+        $"before it left there, in other colors. In Blender, give the mesh drawn with {material} a color attribute named EmitColor holding the colors to " +
+        "light it with (Material Properties > Twin Tech Material: Add Emit Colors gives it a copy of its vertex colors) and export the model again, or " +
+        "draw the part with an unlit shader (Material Properties > Twin Tech Material: Standard Unlit)";
+
+    // Told when the file is read, not while a project is created (the disc's models have them) or built (the build tells it once), and not
+    // of the Xbox version's models, which have one color
+    private void WarnAboutPartsLitWithoutEmitColors()
+    {
+        var assetManager = AssetManager.Get();
+        if (assetManager.IsCreating || assetManager.IsBuilding || IsXboxModel())
+        {
+            return;
+        }
+
+        foreach (var warning in PartsLitWithoutEmitColors())
+        {
+            Log.WriteLine(warning, Log.LogType.Warning);
+        }
+    }
+
+    private bool IsXboxModel() => Locator.Current.GetService<TT_Lab.Project.ProjectManager>()?.OpenedProject is TT_Lab.Project.Project project
+                                  && project.GetPlatform(Owner.Package) == TT_Lab.Project.Project.GamePlatform.Xbox;
 
     // The game finds an exit point by its place (BindExitPoints, a character's hand is 0 and its head 1) and never reads its ID: the exit
     // points go in the order of their IDs, then the file's, and the IDs that aren't their places become them
@@ -643,6 +710,15 @@ public class OGIData : AbstractAssetData
         }
     }
 
+    /// <summary>
+    /// The IDs the animations of a model file's JSON have, the ones made in Blender have none until TT Lab reads the file
+    /// </summary>
+    internal static IEnumerable<UInt32> AnimationIdsOf(JsonObject fileJson)
+    {
+        var armature = (fileJson["root"] as JsonObject).FindChild(ArmatureKind);
+        return (armature?["animations"] as JsonArray ?? []).OfType<JsonObject>().Where(animation => animation["id"] != null).Select(animation => animation.GetUInt("id"));
+    }
+
     // Animations made in Blender have no ID, copies of an animation made there carry the ID of the one they were copied from
     private bool ReadAnimations(TlmFile file, JsonObject? armature)
     {
@@ -687,8 +763,8 @@ public class OGIData : AbstractAssetData
     /// Adds the animation to the chunk's section and gives the ID it has there
     /// </summary>
     /// <remarks>
-    /// Every OGI keeps its own copy of the animations it plays, copies can differ once one gets edited. The copy that isn't the one the
-    /// chunk already has with its ID gets an ID of its own
+    /// Every OGI keeps its own copy of the animations it plays, copies can differ once one gets edited. The build gives every animation
+    /// the same ID in every chunk (<see cref="AnimationIds"/>), copies that are still the same share it and go into the chunk once
     /// </remarks>
     public UInt32? ResolveAnimation(ITwinItemFactory factory, ITwinSection section, UInt32 id)
     {
@@ -701,15 +777,17 @@ public class OGIData : AbstractAssetData
 
         var item = animation.Export(factory);
         var bytes = GetBytes(item);
-        var exportId = id;
-        while (section.ContainsItem(exportId))
+        var key = factory.AnimationIds.KeyOf(bytes);
+        var exportId = factory.AnimationIds.IdOf(key, id, $"{animation.Name} of {Owner.Name}");
+        factory.Resolution.Animations[key] = exportId;
+        if (section.ContainsItem(exportId))
         {
-            if (GetBytes(section.GetItem<ITwinItem>(exportId)).AsSpan().SequenceEqual(bytes))
+            if (!GetBytes(section.GetItem<ITwinItem>(exportId)).AsSpan().SequenceEqual(bytes))
             {
-                return exportId;
+                throw new InvalidOperationException($"{animation.Name} of {Owner.Name} got the ID {exportId:X} another animation of the chunk has");
             }
 
-            exportId = exportId < 0x8000 ? 0x8000 : exportId + 1;
+            return exportId;
         }
 
         item.SetID(exportId);
@@ -864,6 +942,15 @@ public class OGIData : AbstractAssetData
     public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, uint id,
         int? layoutId = null)
     {
+        // The Xbox version's models have one color, which its shaders light
+        if (factory is not XboxItemFactory)
+        {
+            foreach (var warning in PartsLitWithoutEmitColors().Where(warning => factory.Warned.TryAdd(warning, 0)))
+            {
+                Log.WriteLine(warning, Log.LogType.Warning);
+            }
+        }
+
         var assetManager = AssetManager.Get();
         var graphicsSection = section.GetRoot().GetItem<ITwinSection>(Constants.LEVEL_GRAPHICS_SECTION);
         var rigidModelSection = graphicsSection.GetItem<ITwinSection>(Constants.GRAPHICS_RIGID_MODELS_SECTION);

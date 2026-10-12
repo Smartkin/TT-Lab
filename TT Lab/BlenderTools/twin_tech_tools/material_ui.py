@@ -18,6 +18,8 @@
 """The Twin Tech Material panel: every setting TT Lab edits of a material and its shaders, grayed out where the game doesn't read
 it, and the operators picking the project's materials and textures."""
 
+import array
+import contextlib
 import typing
 import uuid
 
@@ -78,32 +80,67 @@ def _shown(item: typing.Any) -> typing.Dict[str, typing.Any]:
 
 class TTT_OT_MaterialUseSettings(bpy.types.Operator):
     """Draws the material and writes it into model files with Twin Tech settings: the project material's, or the ones TT Lab gives
-    a material made in Blender. Its nodes are made again"""
+    a material made in Blender. Its nodes are made again. When the project material's settings aren't found, it asks whether to make it
+    a new material with those instead"""
 
     bl_idname = "ttt.material_use_settings"
     bl_label = "Use Twin Tech Settings"
     bl_options = {"REGISTER", "UNDO"}
 
+    new_material: bpy.props.BoolProperty(options={"HIDDEN", "SKIP_SAVE"},
+                                         description="A project material whose settings aren't found becomes a new material with the ones TT Lab gives "
+                                                     "a material made in Blender (TT Lab adds it to the project, the project's material stays as it is)")
+
     @classmethod
     def poll(cls, context):
         return _material(context) is not None
+
+    def invoke(self, context, event):
+        material = _material(context)
+        problem = _project_settings(material, context)[2] if material.get(tlm_blender.URI_PROPERTY) and not self.new_material else ""
+        if not problem:
+            return self.execute(context)
+
+        self.new_material = True
+        return context.window_manager.invoke_confirm(self, event, title="%s's settings weren't found" % material.name,
+                                                     message="%s. Make it a new material?" % (problem[0].upper() + problem[1:]),
+                                                     confirm_text="Make a New Material", icon="QUESTION")
 
     def execute(self, context):
         material = _material(context)
         uri = material.get(tlm_blender.URI_PROPERTY, "")
         if uri:
-            project, _ = project_of(context)
-            project_material = project.materials.get(uri) if project is not None else None
-            data = project_material.read() if project_material is not None else None
-            if data is None:
-                self.report({"ERROR"}, "The project's %s can't be read, the model isn't part of a TT Lab project or its material is gone" % uri)
+            project, data, problem = _project_settings(material, context)
+            if data is not None:
+                material_settings.load(material, data, project)
+                return {"FINISHED"}
+
+            if not self.new_material:
+                self.report({"ERROR"}, "The settings of %s weren't found: %s" % (uri, problem))
                 return {"CANCELLED"}
 
-            material_settings.load(material, data, project)
-            return {"FINISHED"}
+            # With the link kept the file would bring the new settings for the project's material, which a project without it drops for
+            # a placeholder and one with it takes whole
+            _detach(material)
+            self.report({"INFO"}, "%s is a new material, which TT Lab adds to the project" % material.name)
 
         material_settings.make(material, skin=_draws_skins(material), global_package=_is_global(context))
         return {"FINISHED"}
+
+
+def _project_settings(material: bpy.types.Material, context: bpy.types.Context
+                      ) -> typing.Tuple[typing.Optional[projects.Project], typing.Optional[typing.Dict[str, typing.Any]], str]:
+    """The project and the settings of the project material the material links, None and why when they can't be read."""
+    project, _ = project_of(context)
+    if project is None:
+        return None, None, "the model isn't part of a TT Lab project here"
+
+    project_material = project.materials.get(material.get(tlm_blender.URI_PROPERTY, ""))
+    if project_material is None:
+        return project, None, "the project %s doesn't have it" % project.name
+
+    data = project_material.read()
+    return project, data, "" if data is not None else "its file in the project %s can't be read" % project.name
 
 
 class TTT_OT_MaterialShaderAdd(bpy.types.Operator):
@@ -343,10 +380,14 @@ class TTT_OT_MaterialDetach(bpy.types.Operator):
 
     def execute(self, context):
         # Sent whole from now on, over the project material's values the add-on doesn't show
-        material = _material(context)
-        del material[tlm_blender.URI_PROPERTY]
-        material[tlm_blender.BLENDER_ID_PROPERTY] = uuid.uuid4().hex
+        _detach(_material(context))
         return {"FINISHED"}
+
+
+def _detach(material: bpy.types.Material) -> None:
+    """Makes a project's material one of Blender's, which TT Lab adds to the project as a new material."""
+    del material[tlm_blender.URI_PROPERTY]
+    material[tlm_blender.BLENDER_ID_PROPERTY] = uuid.uuid4().hex
 
 
 class TTT_OT_AddVertexColors(bpy.types.Operator):
@@ -362,11 +403,28 @@ class TTT_OT_AddVertexColors(bpy.types.Operator):
         return _material(context) is not None and any(_lacks_colors(blender_object) for blender_object in _users(_material(context)))
 
     def execute(self, context):
-        for blender_object in _users(_material(context)):
-            if _lacks_colors(blender_object):
-                add_default_colors(blender_object.data)
+        lacking = [blender_object for blender_object in _users(_material(context)) if _lacks_colors(blender_object)]
+        with _out_of_edit_mode(lacking):
+            for blender_object in lacking:
+                # Linked duplicates share the mesh
+                if _lacks_colors(blender_object):
+                    add_default_colors(blender_object.data)
 
         return {"FINISHED"}
+
+
+@contextlib.contextmanager
+def _out_of_edit_mode(objects: typing.List[bpy.types.Object]) -> typing.Iterator[None]:
+    """Blender hands out no attribute values of a mesh being edited: they're set in Object Mode, which goes back to Edit Mode after."""
+    editing = any(blender_object.data.is_editmode for blender_object in objects)
+    if editing:
+        bpy.ops.object.mode_set(mode="OBJECT")
+
+    try:
+        yield
+    finally:
+        if editing:
+            bpy.ops.object.mode_set(mode="EDIT")
 
 
 def _lacks_colors(blender_object: bpy.types.Object) -> bool:
@@ -378,6 +436,105 @@ def add_default_colors(mesh: bpy.types.Mesh) -> None:
     colors.data.foreach_set("color_srgb", [0x7F / 255.0, 0x7F / 255.0, 0x7F / 255.0, 1.0] * len(mesh.vertices))
     mesh.color_attributes.active_color = colors
     mesh.color_attributes.render_color_index = mesh.color_attributes.find(tlm_blender.COLOR_ATTRIBUTE)
+
+
+class TTT_OT_AddEmitColors(bpy.types.Operator):
+    """Gives the rigid meshes drawn with the material that have no emit colors a copy of their vertex colors as them (the EmitColor
+    attribute). The game's Standard Lit, Lit Environment Map and Lit Reflection Surface shaders light a rigid model by its emit colors, not
+    its vertex colors: paint EmitColor to light it in other colors, painting Color afterwards doesn't change them"""
+
+    bl_idname = "ttt.add_emit_colors"
+    bl_label = "Add Emit Colors"
+    bl_options = {"REGISTER", "UNDO"}
+
+    @classmethod
+    def poll(cls, context):
+        material = _material(context)
+        return material is not None and len(_lacking_emit_colors(material)) > 0
+
+    def execute(self, context):
+        lacking = _lacking_emit_colors(_material(context))
+        with _out_of_edit_mode(lacking):
+            for blender_object in lacking:
+                # Linked duplicates share the mesh
+                if blender_object.data.color_attributes.get(tlm_blender.EMIT_COLOR_ATTRIBUTE) is None:
+                    add_emit_colors(blender_object.data)
+
+        return {"FINISHED"}
+
+
+def _lacking_emit_colors(material: bpy.types.Material) -> typing.List[bpy.types.Object]:
+    """The rigid meshes of PS2 models drawn with the material that have no emit colors. The Xbox version's models have one color, which its
+    shaders light."""
+    versions: typing.Dict[str, str] = {}
+    result = []
+    for blender_object in _users(material):
+        if blender_object.data.color_attributes.get(tlm_blender.EMIT_COLOR_ATTRIBUTE) is not None or not tlm_blender.is_rigid_part(blender_object):
+            continue
+
+        path = tlm_blender.find_root(blender_object).get(tlm_blender.PATH_PROPERTY, "")
+        if path not in versions:
+            versions[path] = projects.version_of_file(path)
+
+        if versions[path] != "XBOX":
+            result.append(blender_object)
+
+    return result
+
+
+def add_emit_colors(mesh: bpy.types.Mesh) -> None:
+    """A copy of the mesh's vertex colors as its emit colors, the grey TT Lab writes for a mesh without colors when it has none. The
+    vertex colors stay the ones painted and rendered."""
+    colors = tlm_blender.vertex_colors_of(mesh)
+    domain = colors.domain if colors is not None else "POINT"
+    values = array.array("f", [0.0] * len(colors.data) * 4) if colors is not None else None
+    if colors is not None:
+        colors.data.foreach_get("color_srgb", values)
+
+    attributes = mesh.color_attributes
+    # A new attribute can move the others' data, they're looked up again
+    attributes.new(tlm_blender.EMIT_COLOR_ATTRIBUTE, "BYTE_COLOR", domain)
+    attributes.get(tlm_blender.EMIT_COLOR_ATTRIBUTE).data.foreach_set("color_srgb", values if values is not None else
+                                                                      [0x7F / 255.0, 0x7F / 255.0, 0x7F / 255.0, 1.0] * len(mesh.vertices))
+    # Removing the active attribute leaves Blender's active and rendered ones pointing at nothing, or at the emit colors once they're added
+    colors = tlm_blender.vertex_colors_of(mesh)
+    if colors is None:
+        return
+
+    if attributes.active_color is None or attributes.active_color_name == tlm_blender.EMIT_COLOR_ATTRIBUTE:
+        attributes.active_color = colors
+
+    rendered = attributes.render_color_index
+    if not 0 <= rendered < len(attributes) or attributes[rendered].name == tlm_blender.EMIT_COLOR_ATTRIBUTE:
+        attributes.render_color_index = attributes.find(colors.name)
+
+
+def _emit_lighting_shader(material: bpy.types.Material, context: bpy.types.Context) -> typing.Optional[str]:
+    """The label of the material's first shader type lighting rigid parts by their emit colors, of the settings the panel shows: its own,
+    the project material's for a material without them."""
+    settings = material_settings.settings_of(material)
+    if settings.managed:
+        shader_types = [item.shader_type for item in settings.shaders]
+    else:
+        uri = material.get(tlm_blender.URI_PROPERTY, "")
+        project = project_of(context)[0] if uri else None
+        project_material = project.materials.get(uri) if project is not None else None
+        shader_types = [shader.get("ShaderType") for shader in project_material.shaders] if project_material is not None else []
+
+    shader_type = next((shader_type for shader_type in shader_types if gs_material.lights_emit_colors(shader_type)), None)
+    return gs_material.type_label(shader_type) if shader_type is not None else None
+
+
+def _draw_emit_colors_warning(layout: typing.Any, material: bpy.types.Material, context: bpy.types.Context) -> None:
+    """Exporting refuses a PS2 model's rigid mesh drawn with a shader lighting its emit colors without them."""
+    shader = _emit_lighting_shader(material, context)
+    if shader is None or len(_lacking_emit_colors(material)) == 0:
+        return
+
+    warning = layout.row()
+    warning.alert = True
+    warning.label(text="A mesh drawn with it has no emit colors, which %s lights" % shader, icon="ERROR")
+    layout.operator(TTT_OT_AddEmitColors.bl_idname, icon="LIGHT")
 
 
 class TTT_UL_Shaders(bpy.types.UIList):
@@ -424,6 +581,7 @@ class TTT_PT_Material(bpy.types.Panel):
             row = layout.row()
             row.operator(TTT_OT_MaterialUseSettings.bl_idname, icon="SHADING_TEXTURE")
             row.operator(TTT_OT_PickProjectMaterial.bl_idname, icon="VIEWZOOM", text="")
+            _draw_emit_colors_warning(layout, material, context)
             return
 
         box = layout.box()
@@ -448,6 +606,7 @@ class TTT_PT_Material(bpy.types.Panel):
             warning.label(text="A mesh drawn with it has no vertex colors, it shows black", icon="ERROR")
             layout.operator(TTT_OT_AddVertexColors.bl_idname, icon="GROUP_VCOL")
 
+        _draw_emit_colors_warning(layout, material, context)
         layout.use_property_split = True
         layout.prop(settings, "game_name")
         layout.prop(settings, "render_bucket")

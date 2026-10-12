@@ -287,6 +287,86 @@ class MeshTests(unittest.TestCase):
                 self.assertEqual(key in part, key in original, key)
 
 
+    def _rigid_body(self):
+        body = tlm.find_child(self.file.root, "rigid_bodies")["children"][0]["mesh"]
+        return _corner_mesh(tlm_mesh.from_parts(self.file, body, False))
+
+    # The game's lit shaders light a rigid part by its emit colors, an emit color attribute added in Blender is written for every part
+    def test_emit_colors_added_in_blender_are_written(self):
+        mesh = self._rigid_body()
+        for part in mesh.parts:
+            part["optional"] = [key for key in part["optional"] if key != "emit_color"]
+        mesh.emit_colors = [0.25, 0.5, 0.75, 1.0] * mesh.vertex_count
+        target = tlm.TlmFile()
+
+        written = tlm_mesh.to_parts(target, mesh, False)
+
+        self.assertEqual(len(written["parts"]), 2)
+        for part in written["parts"]:
+            self.assertEqual(list(target.read_view(part["emit_color"])), [64, 128, 191, 255] * part["vertices"])
+
+    def test_meshes_made_in_blender_write_their_emit_colors(self):
+        mesh = self._rigid_body()
+        mesh.parts = []
+        mesh.emit_colors = [0.25, 0.5, 0.75, 1.0] * mesh.vertex_count
+
+        written = tlm_mesh.to_parts(tlm.TlmFile(), mesh, False)
+
+        self.assertTrue(all("emit_color" in part for part in written["parts"]))
+
+    def test_emit_colors_of_face_corners_split_vertexes_like_colors(self):
+        mesh = self._rigid_body()
+        mesh.parts = []
+        baseline = sum(part["vertices"] for part in tlm_mesh.to_parts(tlm.TlmFile(), mesh, False)["parts"])
+        mesh.corner_emit_colors = [0.5, 0.5, 0.5, 1.0] * len(mesh.corner_vertices)
+        shared = mesh.corner_vertices[0]
+        self.assertGreater(list(mesh.corner_vertices).count(shared), 1)
+        mesh.corner_emit_colors[0:4] = [1.0, 0.0, 0.0, 1.0]
+        target = tlm.TlmFile()
+
+        written = tlm_mesh.to_parts(target, mesh, False)
+
+        self.assertEqual(sum(part["vertices"] for part in written["parts"]), baseline + 1)
+        emits = [value for part in written["parts"] for value in target.read_view(part["emit_color"])]
+        self.assertEqual(sum(1 for i in range(0, len(emits), 4) if emits[i:i + 4] == [255, 0, 0, 255]), 1)
+
+    # The fixture's body is like a model made before emit colors were written: its second part has none
+    def test_a_part_without_emit_colors_gets_its_colors_as_them(self):
+        body = tlm.find_child(self.file.root, "rigid_bodies")["children"][0]["mesh"]
+        first = body["parts"][0]["vertices"]
+
+        data = tlm_mesh.from_parts(self.file, body, False)
+
+        self.assertEqual(list(data.emit_colors[:first * 4]), list(self.file.read_view(body["parts"][0]["emit_color"])))
+        self.assertEqual(list(data.emit_colors[first * 4:]), list(self.file.read_view(body["parts"][1]["color"])))
+
+    # A part without them stays so, but for one drawn with a shader lighting them: the game would light it with what the model drawn before left
+    def test_parts_drawn_with_a_shader_lighting_emit_colors_write_them(self):
+        body = tlm.find_child(self.file.root, "rigid_bodies")["children"][0]["mesh"]
+        data = tlm_mesh.from_parts(self.file, body, False)
+        mesh = _corner_mesh(data)
+        mesh.emit_colors = [value / 255.0 for value in data.emit_colors]
+        target = tlm.TlmFile()
+
+        unlit = tlm_mesh.to_parts(target, mesh, False)
+        mesh.emit_slots = {1}
+        lit = tlm_mesh.to_parts(target, mesh, False)
+
+        self.assertNotIn("emit_color", unlit["parts"][1])
+        self.assertEqual(list(target.read_view(lit["parts"][1]["emit_color"])), list(target.read_view(lit["parts"][1]["color"])))
+        self.assertEqual(list(target.read_view(lit["parts"][0]["emit_color"])), list(target.read_view(unlit["parts"][0]["emit_color"])))
+
+    # Skins have colors of their own
+    def test_skins_never_write_emit_colors(self):
+        data = tlm_mesh.from_parts(self.file, self.skin, True)
+        mesh = _corner_mesh(data)
+        mesh.emit_colors = [0.5, 0.5, 0.5, 1.0] * mesh.vertex_count
+
+        written = tlm_mesh.to_parts(tlm.TlmFile(), mesh, True)
+
+        self.assertTrue(all("emit_color" not in part for part in written["parts"]))
+
+
 class SaveIconTests(unittest.TestCase):
     """The save icon's one part keeps its shapes, which are written for what's shaped though it's no skin."""
 
@@ -391,6 +471,21 @@ class ProjectTests(unittest.TestCase):
         self.assertEqual(material.package, "res://Global PS2_Test")
         self.assertEqual(opened.texture_of(material).png_path, os.path.join(self.root, "assets", "Global PS2_Test", "Texture", "Wood.png"))
 
+    def test_pictures_are_the_texture_made_of_their_png(self):
+        # A blend file copied keeps its pictures' IDs, TT Lab made a texture of each file's picture
+        textures = os.path.join(self.root, "assets", "Global PS2_Test", "Texture")
+        for name, png in (("Spin", "aa" * 32), ("Dead", "bb" * 32)):
+            self._write(os.path.join(textures, name + ".json"), {"Type": "TT_Lab.Assets.Graphics.Texture, TT Lab", "Alias": name,
+                                                                 "URI": {"_uri": "res://Global PS2_Test/Texture/" + name},
+                                                                 "Parameters": {"BlenderImage": "copied-id", "BlenderImagePng": png}})
+
+        opened = project.Project(self.root)
+
+        self.assertEqual(opened.texture_of_image("copied-id", "aa" * 32).uri, "res://Global PS2_Test/Texture/Spin")
+        self.assertEqual(opened.texture_of_image("copied-id", "bb" * 32).uri, "res://Global PS2_Test/Texture/Dead")
+        self.assertIsNone(opened.texture_of_image("copied-id", "cc" * 32))
+        self.assertIsNotNone(opened.texture_of_image("copied-id"))
+
     def test_materials_say_which_chunk_they_are_of(self):
         package_material = project.ProjectMaterial("res://PS2_Test/Material/lambert1_10", "lambert1_10", "res://PS2_Test", "")
         scenery_material = project.ProjectMaterial("res://PS2_Test/levels/school/rooftop/roof01/Material/lambert1_10", "lambert1_10",
@@ -403,6 +498,27 @@ class ProjectTests(unittest.TestCase):
         self.assertEqual(project.platform_of("res://Global XBOX_Test"), "XBOX")
         self.assertEqual(project.platform_of("res://PS2_Test"), "PS2")
         self.assertIsNone(project.platform_of("res://Test"))
+
+    # Like TT Lab's Project.GetPlatform: the version of the package a package was made on, its first dependency
+    def test_packages_are_of_the_version_they_were_made_on(self):
+        assets = os.path.join(self.root, "assets")
+        for name, dependencies in (("XBOX_Test", []), ("Xbox mod", ["res://XBOX_Test", "res://Global PS2_Test"]), ("Mod of the mod", ["res://Xbox mod"]),
+                                   ("PS2 mod", ["res://Global PS2_Test", "res://XBOX_Test"]), ("Loop", ["res://Loop"])):
+            os.makedirs(os.path.join(assets, name), exist_ok=True)
+            self._write(os.path.join(assets, name, name + ".json"), {"Dependencies": [{"_uri": uri} for uri in dependencies], "URI": {"_uri": "res://" + name}})
+
+        opened = project.Project(self.root)
+
+        self.assertEqual(opened.version_of("res://Xbox mod"), "XBOX")
+        self.assertEqual(opened.version_of("res://Mod of the mod"), "XBOX")
+        self.assertEqual(opened.version_of("res://PS2 mod"), "PS2")
+        self.assertEqual(opened.version_of("res://Global PS2_Test"), "PS2")
+        # What TT Lab can't tell is the PS2 version's, files outside of projects too
+        self.assertEqual(opened.version_of("res://Loop"), "PS2")
+        self.assertEqual(opened.version_of("res://Gone"), "PS2")
+        self.assertEqual(project.version_of_file(os.path.join(assets, "Mod of the mod", "OGI", "Model.tlm")), "XBOX")
+        self.assertEqual(project.version_of_file(self.model), "PS2")
+        self.assertEqual(project.version_of_file(os.path.join(tempfile.gettempdir(), "nowhere", "model.tlm")), "PS2")
 
 
 if __name__ == "__main__":

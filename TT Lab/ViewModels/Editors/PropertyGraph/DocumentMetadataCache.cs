@@ -26,31 +26,24 @@ public static class DocumentMetadataCache
     public static DocumentMetadata Get(Type type, bool searchAllProperties = false)
         => Cache.GetOrAdd(type, static (t, arg) => new DocumentMetadata(t, arg), searchAllProperties);
 
+    // TwinTech's types the inspector shows every property of
+    internal static readonly Type[] ForeignTypes =
+    [
+        typeof(Vector2), typeof(Vector3), typeof(Vector4), typeof(VectorCharacterData), typeof(Matrix4), typeof(TwinCollisionHull), typeof(TwinChunkLinkHull),
+        typeof(BossCamera), typeof(CameraLine), typeof(CameraLine2), typeof(CameraPath), typeof(CameraPoint), typeof(CameraPoint2), typeof(CameraSpline),
+        typeof(CameraZone), typeof(AmbientLight), typeof(DirectionalLight), typeof(PointLight), typeof(SpotLight),
+    ];
+
     private static void RegisterForeignTypes()
     {
-        Register<Vector2>(true);
-        Register<Vector3>(true);
-        Register<Vector4>(true);
-        Register<VectorCharacterData>(true);
-        Register<Matrix4>(true);
-        Register<TwinCollisionHull>(true);
-        Register<TwinChunkLinkHull>(true);
-        Register<BossCamera>(true);
-        Register<CameraLine>(true);
-        Register<CameraLine2>(true);
-        Register<CameraPath>(true);
-        Register<CameraPoint>(true);
-        Register<CameraPoint2>(true);
-        Register<CameraSpline>(true);
-        Register<CameraZone>(true);
         // A light put into a scenery's list starts as the ones new chunks get, a black light of no intensity does nothing
         DocumentMetadata.RegisterFactory(DefaultLights.Ambient);
         DocumentMetadata.RegisterFactory(DefaultLights.Directional);
         DocumentMetadata.RegisterFactory(DefaultLights.Point);
         DocumentMetadata.RegisterFactory(DefaultLights.Spot);
-        Register<AmbientLight>(true);
-        Register<DirectionalLight>(true);
-        Register<PointLight>(true);
-        Register<SpotLight>(true);
+        foreach (var type in ForeignTypes)
+        {
+            Register(type, true);
+        }
     }
 }

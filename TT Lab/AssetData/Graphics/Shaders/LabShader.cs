@@ -140,8 +140,8 @@ public class LabShader : IDocumentModel
     [Editable]
     public ZValueDrawMask ZValueDrawingMask { get; set; } = ZValueDrawMask.UPDATE;
     
-    [Editable]
-    [EditorHidden]
+    // Edited as LodK alone: a node of its own changed the value without LOD K's field hearing of it, and pasting a shader set this one
+    // first, the field kept showing the old value
     public UInt16 LodParamK { get; set; }
 
     // The game reads the halfword signed (SetShaderSettings) and the GS's K is signed fixed point in sixteenths: 65467 is -69, -4.3125
@@ -207,7 +207,7 @@ public class LabShader : IDocumentModel
     public Vector4 UvScrollSpeed { get; set; } = new();
     
     [System.Text.Json.Serialization.JsonIgnore]
-    [Editable(IsConstructible = true, EditorDescType = typeof(ShaderAnimationEditorDesc), EditorOrientation = Avalonia.Controls.Dock.Top,
+    [Editable(IsConstructible = true, IsCopiedWhole = true, EditorDescType = typeof(ShaderAnimationEditorDesc), EditorOrientation = Avalonia.Controls.Dock.Top,
               Hint = "Six tracks (U, V, red, green, blue, alpha) in 1/4096ths, static or a value per frame, looping at the frames per second. The FromAnimation scroll modes take U and V as the UV offset, 'Animation drives color' the color. The viewport plays it.")]
     public TwinShaderAnimation? Animation { get; set; }
 
@@ -256,7 +256,8 @@ public class LabShader : IDocumentModel
         Animation = CloneUtils.DeepClone(twinShader.Animation);
     }
 
-    public string GetStringified()
+    // What the build hashes into its material's ID, the texture by its hash
+    public string GetStringified(Func<LabURI, UInt32> textureHash)
     {
         var result = new StringBuilder();
         result.AppendLine(ShaderType.ToString());
@@ -288,7 +289,7 @@ public class LabShader : IDocumentModel
         result.AppendLine(ZValueDrawingMask.ToString());
         result.AppendLine(LodParamK.ToString());
         result.AppendLine(LodParamL.ToString());
-        result.AppendLine(TextureId == LabURI.Empty ? "EMPTY" : AssetManager.Get().GetAsset(TextureId).GetDataHash().ToString());
+        result.AppendLine(TextureId == LabURI.Empty ? "EMPTY" : textureHash(TextureId).ToString());
         result.AppendLine(UnusedValue.ToString());
         result.AppendLine(XScrollSettings.ToString());
         result.AppendLine(YScrollSettings.ToString());

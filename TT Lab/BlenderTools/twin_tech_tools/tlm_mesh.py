@@ -106,9 +106,11 @@ def from_parts(file: TlmFile, mesh: typing.Optional[typing.Dict[str, typing.Any]
         if result.uv_q is not None:
             result.uv_q.extend(_read(file, part, "uv_q", "f32", 1, count, 1.0))
 
-        result.colors.extend(_read(file, part, "color", "u8", 4, count, 0x7F))
+        colors = _read(file, part, "color", "u8", 4, count, 0x7F)
+        result.colors.extend(colors)
+        # A part without emit colors gets its colors, which the game's are of: written once it's drawn with a shader lighting them
         if result.emit_colors is not None:
-            result.emit_colors.extend(_read(file, part, "emit_color", "u8", 4, count, 0))
+            result.emit_colors.extend(_read(file, part, "emit_color", "u8", 4, count, 0) if "emit_color" in part else colors)
 
         if result.alpha_flags is not None:
             result.alpha_flags.extend(_read(file, part, "alpha_flags", "u8", 2, count, 0))
@@ -182,6 +184,8 @@ class CornerMesh:
         self.corner_uvs: typing.Sequence[float] = []
         self.corner_normals: typing.Optional[typing.Sequence[float]] = None
         self.corner_colors: typing.Optional[typing.Sequence[float]] = None
+        # An emit color attribute of the Face Corner domain, made in Blender (the add-on imports them per vertex)
+        self.corner_emit_colors: typing.Optional[typing.Sequence[float]] = None
         # Per vertex
         self.vertex_colors: typing.Optional[typing.Sequence[float]] = None
         self.emit_colors: typing.Optional[typing.Sequence[float]] = None
@@ -201,6 +205,8 @@ class CornerMesh:
         self.parts: typing.List[typing.Dict[str, typing.Any]] = []
         # Material of every material slot, as an index into the file's materials
         self.slot_materials: typing.List[int] = []
+        # The material slots drawn with a shader lighting the emit colors (gs_material.EMIT_COLOR_TYPES)
+        self.emit_slots: typing.Set[int] = set()
 
     @property
     def vertex_count(self) -> int:
@@ -240,14 +246,21 @@ def to_parts(file: TlmFile, mesh: CornerMesh, skinned: bool, shaped: typing.Opti
         keys.extend((number, slot) for slot in materials)
 
     parts = []
-    # Parts made in Blender have the values the first part has
+    # Parts made in Blender have the values the first part has. An emit color attribute of a mesh none of whose parts had emit colors was
+    # added in Blender, every part writes it: the game's lit shaders light a rigid part by its emit colors (TT Lab warns about one without).
+    # A part drawn with such a shader writes the mesh's whatever it had
+    has_emits = mesh.emit_colors is not None or mesh.corner_emit_colors is not None
+    added_emits = has_emits and not any("emit_color" in part.get("optional", []) for part in mesh.parts)
     default_optional = mesh.parts[0].get("optional", list(OPTIONAL_KEYS[:1])) if len(mesh.parts) > 0 else list(OPTIONAL_KEYS[:1])
     for number, slot in keys:
         kept = mesh.parts[number] if number < len(mesh.parts) else {}
         is_original = number < len(mesh.parts) and slot == number
         optional = kept.get("optional", default_optional)
+        if has_emits and (added_emits or slot in mesh.emit_slots) and "emit_color" not in optional:
+            optional = list(optional) + ["emit_color"]
+
         parts.append(_write_part(file, mesh, groups.get((number, slot), []), loose.get(number, []) if is_original or number >= len(mesh.parts) else [],
-                                 kept if is_original else {"optional": optional}, slot, skinned, shaped))
+                                 dict(kept, optional=optional) if is_original else {"optional": optional}, slot, skinned, shaped))
 
     return {"parts": parts}
 
@@ -263,6 +276,10 @@ def _same_corner(mesh: CornerMesh, first: int, second: int) -> bool:
 
     if mesh.corner_colors is not None and [_to_byte(value) for value in mesh.corner_colors[first * 4:first * 4 + 4]] != \
             [_to_byte(value) for value in mesh.corner_colors[second * 4:second * 4 + 4]]:
+        return False
+
+    if mesh.corner_emit_colors is not None and [_to_byte(value) for value in mesh.corner_emit_colors[first * 4:first * 4 + 4]] != \
+            [_to_byte(value) for value in mesh.corner_emit_colors[second * 4:second * 4 + 4]]:
         return False
 
     if mesh.corner_normals is not None and _has_normal(mesh, first) and _has_normal(mesh, second):
@@ -367,8 +384,18 @@ def _write_part(file: TlmFile, mesh: CornerMesh, triangles: typing.List[int], lo
             colors.extend((0x7F, 0x7F, 0x7F, 0xFF if not skinned else 0x77))
 
     part["color"] = file.write_view(colors, "u8")
-    if mesh.emit_colors is not None and not skinned and "emit_color" in optional:
-        part["emit_color"] = file.write_view([_to_byte(value) for vertex, _ in sources for value in mesh.emit_colors[vertex * 4:vertex * 4 + 4]], "u8")
+    if (mesh.emit_colors is not None or mesh.corner_emit_colors is not None) and not skinned and "emit_color" in optional:
+        emits = []
+        for index, (vertex, corner) in enumerate(sources):
+            if mesh.corner_emit_colors is not None and corner is not None:
+                emits.extend(_to_byte(value) for value in mesh.corner_emit_colors[corner * 4:corner * 4 + 4])
+            elif mesh.emit_colors is not None:
+                emits.extend(_to_byte(value) for value in mesh.emit_colors[vertex * 4:vertex * 4 + 4])
+            else:
+                # A vertex no face uses has no corner to take it from
+                emits.extend(colors[index * 4:index * 4 + 4])
+
+        part["emit_color"] = file.write_view(emits, "u8")
 
     if mesh.alpha_flags is not None and not skinned and "alpha_flags" in optional:
         part["alpha_flags"] = file.write_view([int(value) for vertex, _ in sources for value in mesh.alpha_flags[vertex * 2:vertex * 2 + 2]], "u8")

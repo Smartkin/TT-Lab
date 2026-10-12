@@ -23,6 +23,7 @@ using TT_Lab.ViewModels.Editors.PropertyGraph;
 using TT_Lab.Views.Editors;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Common.CameraSubtypes;
+using Twinsanity.TwinsanityInterchange.Common.ShaderAnimation;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code;
 using Path = System.IO.Path;
@@ -322,6 +323,216 @@ public sealed class CopyPasteValuesTests : IDisposable
         _answers.Enqueue(0);
         Assert.True(await Paste(document, "Root.AssetData.Shaders"));
         Assert.Equal(4, Data<MaterialData>(metal).Shaders.Count);
+    }
+
+    // A shader's LOD K is its LodParamK in sixteenths
+    [AvaloniaFact]
+    public async Task AValueShownThroughAnotherShowsWhatsPasted()
+    {
+        var glass = AddMaterial("Glass", 1);
+        Data<MaterialData>(glass).Shaders[0].LodParamK = 65467;
+        var metal = AddMaterial("Metal", 1);
+        await Copy(Open(glass), "Root.AssetData.Shaders[0]");
+        var document = Open(metal);
+        var lodK = Activated<TextFieldViewModel>(document, "Root.AssetData.Shaders[0].LodK");
+        Assert.Equal("0", lodK.Text);
+
+        _answers.Enqueue(1);
+        Assert.True(await Paste(document, "Root.AssetData.Shaders[0]"));
+        Assert.Equal(-4.3125f, Data<MaterialData>(metal).Shaders[0].LodK);
+        Assert.Equal("-4.3125", lodK.Text);
+
+        document.Undo();
+        Assert.Equal(0, Data<MaterialData>(metal).Shaders[0].LodParamK);
+        Assert.Equal("0", lodK.Text);
+        document.Redo();
+        Assert.Equal("-4.3125", lodK.Text);
+    }
+
+    // A paste sets every node of what it's pasted into: of two nodes of one value, the one set first changed the other without its field
+    // hearing of it, which then found the value it was given already there. Only a value worked out of another (no setter of its own, so
+    // pasting leaves it alone) that the inspector doesn't show may follow another node
+    [AvaloniaFact]
+    public void SettingANodeChangesNoOtherNodeOfItsObject()
+    {
+        var types = typeof(LabURI).Assembly.GetTypes()
+            .Where(type => !type.IsAbstract && !type.IsGenericTypeDefinition && type.GetProperties().Any(property => property.IsDefined(typeof(TT_Lab.Attributes.EditableAttribute), true)))
+            .Select(type => (Type: type, Metadata: DocumentMetadataCache.Get(type)))
+            .Concat(DocumentMetadataCache.ForeignTypes.Select(type => (Type: type, Metadata: DocumentMetadataCache.Get(type, true))));
+        var problems = new List<string>();
+        var checkedTypes = 0;
+        foreach (var (type, metadata) in types)
+        {
+            if (MakeInstance(type) is not { } instance)
+            {
+                continue;
+            }
+
+            checkedTypes++;
+            var leaves = metadata.Properties.Where(property => PropertyGraphBuilder.IsLeaf(Nullable.GetUnderlyingType(property.PropertyInfo.PropertyType) ?? property.PropertyInfo.PropertyType)).ToList();
+            foreach (var set in leaves.Where(property => property.PropertyInfo.SetMethod != null))
+            {
+                var before = leaves.Select(property => Read(property, instance)).ToList();
+                var value = Read(set, instance);
+                if (OtherValue(set.PropertyInfo.PropertyType, value) is not { } other || !TrySet(set, instance, other))
+                {
+                    continue;
+                }
+
+                for (var i = 0; i < leaves.Count; i++)
+                {
+                    var follower = leaves[i];
+                    var isHiddenAndWorkedOut = follower.PropertyInfo.SetMethod == null && follower.EditorParamWrappers.OfType<TT_Lab.Attributes.EditorParamWrappers.EditorHiddenAttribute>().Any();
+                    if (follower != set && !isHiddenAndWorkedOut && !PropertyNode.IsSameValue(before[i], Read(follower, instance)))
+                    {
+                        problems.Add($"Setting {type.Name}.{set.PropertyInfo.Name} changes {follower.PropertyInfo.Name}");
+                    }
+                }
+
+                TrySet(set, instance, value);
+            }
+        }
+
+        Assert.True(checkedTypes > 90, $"Only {checkedTypes} types could be made");
+        Assert.Empty(problems);
+    }
+
+    private static object? MakeInstance(Type type)
+    {
+        foreach (var constructor in type.GetConstructors(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic)
+                     .OrderBy(constructor => constructor.GetParameters().Length))
+        {
+            try
+            {
+                return constructor.Invoke(constructor.GetParameters().Select(parameter => parameter.ParameterType.IsValueType ? Activator.CreateInstance(parameter.ParameterType) : null).ToArray());
+            }
+            catch (System.Reflection.TargetInvocationException)
+            {
+            }
+        }
+
+        return type.IsValueType ? Activator.CreateInstance(type) : null;
+    }
+
+    private static object? Read(PropertyMetadata property, object instance)
+    {
+        try
+        {
+            return property.PropertyInfo.GetValue(instance);
+        }
+        catch (System.Reflection.TargetInvocationException)
+        {
+            return typeof(System.Reflection.TargetInvocationException);
+        }
+    }
+
+    private static bool TrySet(PropertyMetadata property, object instance, object? value)
+    {
+        try
+        {
+            property.PropertyInfo.SetValue(instance, value);
+            return true;
+        }
+        catch (System.Reflection.TargetInvocationException)
+        {
+            return false;
+        }
+    }
+
+    private static object? OtherValue(Type type, object? value)
+    {
+        type = Nullable.GetUnderlyingType(type) ?? type;
+        if (type.IsEnum)
+        {
+            return Enum.GetValues(type).Cast<object>().FirstOrDefault(other => !Equals(other, value));
+        }
+
+        return value switch
+        {
+            bool flag => !flag,
+            string text => text + "x",
+            null when type == typeof(string) => "x",
+            char character => (char)(character + 1),
+            Single number => number + 3.0f,
+            Double number => number + 3.0,
+            IConvertible number => OneAway(Convert.ToDecimal(number), type),
+            _ => null,
+        };
+    }
+
+    private static object OneAway(decimal number, Type type)
+    {
+        try
+        {
+            return Convert.ChangeType(number + 1, type);
+        }
+        catch (OverflowException)
+        {
+            return Convert.ChangeType(number - 1, type);
+        }
+    }
+
+    private static byte[] Bytes(TwinShaderAnimation animation)
+    {
+        using var stream = new MemoryStream();
+        using var writer = new BinaryWriter(stream);
+        animation.Write(writer);
+        writer.Flush();
+        return stream.ToArray();
+    }
+
+    // The animation has no values of its own in the graph, its editor replaces it whole: it's copied as the JSON the material keeps it as
+    [AvaloniaFact]
+    public async Task AShadersAnimationGoesWithIt()
+    {
+        var glass = AddMaterial("Glass", 1);
+        var animation = ShaderAnimationTracks.SetAnimated(ShaderAnimationTracks.InsertFrame(ShaderAnimationTracks.Create(), 0), 0, true, 0);
+        animation = ShaderAnimationTracks.SetValue(animation, 0, 1, 0.5f);
+        Data<MaterialData>(glass).Shaders[0].Animation = animation;
+        var metal = AddMaterial("Metal", 1);
+        await Copy(Open(glass), "Root.AssetData.Shaders[0]");
+        var document = Open(metal);
+
+        _answers.Enqueue(1);
+        _answers.Enqueue(0);
+        Assert.True(await Paste(document, "Root.AssetData.Shaders[0]"));
+        Assert.Contains("Animation: nothing becomes TwinShaderAnimation", _asked[^1]);
+        var pasted = Data<MaterialData>(metal).Shaders[0].Animation;
+        Assert.NotNull(pasted);
+        Assert.NotSame(animation, pasted);
+        Assert.Equal(Bytes(animation), Bytes(pasted));
+        document.Undo();
+        Assert.Null(Data<MaterialData>(metal).Shaders[0].Animation);
+
+        // On its own, over another animation
+        var other = AddMaterial("Other", 1);
+        Data<MaterialData>(other).Shaders[0].Animation = ShaderAnimationTracks.Create();
+        await Copy(Open(glass), "Root.AssetData.Shaders[0].Animation");
+        Assert.True(await Paste(Open(other), "Root.AssetData.Shaders[0].Animation"));
+        Assert.Equal(Bytes(animation), Bytes(Data<MaterialData>(other).Shaders[0].Animation!));
+
+        // Put after the last shader
+        await Copy(Open(glass), "Root.AssetData.Shaders[0]");
+        _answers.Enqueue(0);
+        Assert.True(await Paste(document, "Root.AssetData.Shaders"));
+        Assert.Equal(Bytes(animation), Bytes(Data<MaterialData>(metal).Shaders[1].Animation!));
+    }
+
+    // What a placed mesh places is worked out of its model, which has no node: there's nothing to set, and setting it threw in the middle
+    // of the paste, the values after it never pasted
+    [AvaloniaFact]
+    public async Task ValuesWorkedOutOfOthersStayAndTheRestIsPasted()
+    {
+        var scenery = new TestAssets(_project).AddScenery();
+        var document = Open(scenery);
+        var placements = Data<SceneryData>(scenery).Placements;
+        var rock = placements[0].Model;
+        await Copy(document, "Root.AssetData.Placements[3]");
+
+        _answers.Enqueue(1);
+        Assert.True(await Paste(document, "Root.AssetData.Placements[0]"));
+        Assert.Equal(rock, placements[0].Model);
+        Assert.Equal((50f, 0f, 50f), (placements[0].Matrix.Column4.X, placements[0].Matrix.Column4.Y, placements[0].Matrix.Column4.Z));
     }
 
     [AvaloniaFact]

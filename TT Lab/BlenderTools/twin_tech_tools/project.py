@@ -29,8 +29,10 @@ PROJECT_EXTENSION = ".tson"
 _MATERIAL_TYPE = "TT_Lab.Assets.Graphics.Material,"
 _TEXTURE_TYPE = "TT_Lab.Assets.Graphics.Texture,"
 _ASSET_FOLDERS = ("Material", "Texture")
-# Parameter of the textures TT Lab made of pictures made in Blender, the picture's ID
+# Parameters of the textures TT Lab made of pictures made in Blender: the picture's ID, and the SHA-256 of the picture's PNG the texture
+# was made of (a blend file copied keeps its pictures' IDs, the copy's picture of another file is another texture)
 BLENDER_IMAGE_PARAMETER = "BlenderImage"
+BLENDER_IMAGE_PNG_PARAMETER = "BlenderImagePng"
 
 
 class ProjectMaterial:
@@ -75,13 +77,15 @@ class ProjectMaterial:
 
 
 class ProjectTexture:
-    def __init__(self, uri: str, name: str, png_path: str, package: str = "", blender_image: str = ""):
+    def __init__(self, uri: str, name: str, png_path: str, package: str = "", blender_image: str = "", blender_png: str = ""):
         self.uri = uri
         self.name = name
         self.png_path = png_path
         self.package = package
-        # The add-on's ID of the picture TT Lab made the texture of, a picture of a model file's material made in Blender
+        # The add-on's ID of the picture TT Lab made the texture of, a picture of a model file's material made in Blender, and the SHA-256
+        # of the picture's PNG
         self.blender_image = blender_image
+        self.blender_png = blender_png
 
     @property
     def label(self) -> str:
@@ -98,13 +102,41 @@ def _location(uri: str) -> str:
 class Project:
     def __init__(self, root: str):
         self.root = root
+        self.name = _project_name(root)
         self.materials: typing.Dict[str, ProjectMaterial] = {}
         self.textures: typing.Dict[str, ProjectTexture] = {}
+        self._first_dependencies: typing.Dict[str, str] = {}
         self._index()
 
     @property
     def assets_path(self) -> str:
         return os.path.join(self.root, "assets")
+
+    def version_of(self, package: typing.Optional[str]) -> str:
+        """The version of the game a package's assets are for, "PS2" or "XBOX": the version of the package it was made on, its first
+        dependency, followed to one of the project's packages of a version like TT Lab's Project.GetPlatform, PS2 when it gets to none."""
+        versions = {"res://Global PS2_%s" % self.name: "PS2", "res://PS2_%s" % self.name: "PS2",
+                    "res://Global XBOX_%s" % self.name: "XBOX", "res://XBOX_%s" % self.name: "XBOX"}
+        visited = set()
+        current = package or ""
+        while current and current not in visited:
+            if current in versions:
+                return versions[current]
+
+            visited.add(current)
+            current = self._first_dependency(current)
+
+        return "PS2"
+
+    def _first_dependency(self, package: str) -> str:
+        """A package's first dependency, its file is in a folder of its name under the assets."""
+        if package not in self._first_dependencies:
+            name = package.split("://", 1)[-1]
+            metadata = _load_json(os.path.join(self.assets_path, name, name + ".json"))
+            dependencies = metadata.get("Dependencies") if isinstance(metadata, dict) else None
+            self._first_dependencies[package] = uri_of(dependencies[0]) if isinstance(dependencies, list) and len(dependencies) > 0 else ""
+
+        return self._first_dependencies[package]
 
     def _index(self) -> None:
         for directory, directories, files in os.walk(self.assets_path):
@@ -128,16 +160,17 @@ class Project:
                 if asset_type.startswith(_MATERIAL_TYPE):
                     self.materials[uri] = ProjectMaterial(uri, name, uri_of(metadata.get("Package")), base + ".data")
                 elif asset_type.startswith(_TEXTURE_TYPE):
-                    parameters = metadata.get("Parameters")
-                    blender_image = str(parameters.get(BLENDER_IMAGE_PARAMETER) or "") if isinstance(parameters, dict) else ""
-                    self.textures[uri] = ProjectTexture(uri, name, base + ".png", uri_of(metadata.get("Package")), blender_image)
+                    parameters = metadata.get("Parameters") if isinstance(metadata.get("Parameters"), dict) else {}
+                    self.textures[uri] = ProjectTexture(uri, name, base + ".png", uri_of(metadata.get("Package")), str(parameters.get(BLENDER_IMAGE_PARAMETER) or ""),
+                                                        str(parameters.get(BLENDER_IMAGE_PNG_PARAMETER) or ""))
 
-    def texture_of_image(self, blender_image: str) -> typing.Optional[ProjectTexture]:
-        """The texture TT Lab made of a picture made in Blender."""
+    def texture_of_image(self, blender_image: str, png: typing.Optional[str] = None) -> typing.Optional[ProjectTexture]:
+        """The texture TT Lab made of a picture made in Blender: of the picture's ID and, given the SHA-256 of the picture's PNG, of that
+        PNG. A blend file copied keeps its pictures' IDs, and the copy's picture of another file isn't the first file's texture."""
         if not blender_image:
             return None
 
-        return next((texture for texture in self.textures.values() if texture.blender_image == blender_image), None)
+        return next((texture for texture in self.textures.values() if texture.blender_image == blender_image and (png is None or texture.blender_png == png)), None)
 
     def texture_of(self, material: ProjectMaterial) -> typing.Optional[ProjectTexture]:
         """The texture the material is drawn with, its first shader's that has one."""
@@ -173,6 +206,29 @@ def find_root(path: str) -> typing.Optional[str]:
             return None
 
         directory = parent
+
+
+def _project_name(root: str) -> str:
+    """The project's name, which its packages of a version are named after: its file's, which TT Lab names after it."""
+    try:
+        files = sorted(name for name in os.listdir(root) if name.endswith(PROJECT_EXTENSION))
+    except OSError:
+        files = []
+
+    if len(files) == 0:
+        return ""
+
+    data = _load_json(os.path.join(root, files[0]))
+    name = data.get("Name") if isinstance(data, dict) else None
+    return str(name) if name else files[0][:-len(PROJECT_EXTENSION)]
+
+
+def version_of_file(path: str) -> str:
+    """The version of the game a file of a project's assets is for, "PS2" or "XBOX". TT Lab takes a package it can't tell for PS2,
+    and so is a file outside of a project."""
+    project = open_project(path) if path else None
+    package = package_of(project.root, path) if project is not None else None
+    return project.version_of(package) if project is not None and package is not None else "PS2"
 
 
 def package_of(root: str, path: str) -> typing.Optional[str]:
