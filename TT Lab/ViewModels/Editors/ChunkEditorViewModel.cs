@@ -699,8 +699,7 @@ public class ChunkEditorViewModel :
             }
 
             _sceneryRender = new Scenery(_renderContext, _renderContext.MeshService, scenery);
-            var fogColor = TT_Lab.AssetData.Instance.Scenery.SceneryFog.Colors[scenery.FogColor];
-            scene.Camera.SetFogColor(fogColor.GetVector().ToGlm().xyz);
+            _renderContext.Fog = scenery.GetFog();
             scene.AddChild(_sceneryRender);
 
             var chunkLinksAss = _chunkTree.First(avm => avm.Asset.Section == Constants.SCENERY_LINK_ITEM).Asset;

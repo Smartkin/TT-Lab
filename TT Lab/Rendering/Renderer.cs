@@ -41,6 +41,9 @@ public class Renderer : IView
     private FrameBuffer _screenBuffer;
     private FrameBuffer? _skyBuffer;
     private ivec2 _skyBufferSize;
+    private TextureBuffer? _fogTable;
+    private GameFog? _fogTableOf;
+    private vec4 _skyFog;
     private ivec2 _frameBufferSize => new((int)_renderContext.ViewportSize.x, (int)_renderContext.ViewportSize.y);
     private readonly Stopwatch _renderTime = new();
     private readonly Stopwatch _updateWatch = new();
@@ -264,14 +267,18 @@ public class Renderer : IView
 
         var gl = _renderContext.Gl;
         _renderContext.State.Reset();
-        gl.ClearColor(Color.DimGray);
+        var fog = _renderContext.Fog;
+        // The game clears a chunk without a sky to black (SetUpFrame), the editor's other views are grey
+        gl.ClearColor(fog != null ? Color.Black : Color.DimGray);
         gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit | ClearBufferMask.StencilBufferBit);
         _renderContext.FrameCamera = Camera?.GetFrameCamera(true) ?? default;
         _pongBuffers[_readBuffer].TextureAttachment!.Bind(TextureUnit.Texture5);
+        BindFogTable(fog);
 
         PrepareInstances();
         
         RenderSkydome((float)delta);
+        RenderBackgroundFog(fog);
 
         // Opaque objects pass
         PerformPassChain((float)delta, _passService.GetPasses);
@@ -335,6 +342,58 @@ public class Renderer : IView
         gl.BindFramebuffer(FramebufferTarget.DrawFramebuffer, _renderContext.GetOutputBuffer());
         gl.BlitFramebuffer(0, 0, size.x, size.y, 0, 0, _frameBufferSize.x, _frameBufferSize.y, ClearBufferMask.ColorBufferBit, BlitFramebufferFilter.Nearest);
         gl.BindFramebuffer(FramebufferTarget.Framebuffer, _renderContext.GetOutputBuffer());
+    }
+
+    // The texels of the chunk's fog the shaders read (FogTable, unit 7), made again when the fog changes
+    private void BindFogTable(GameFog? fog)
+    {
+        if (fog == null)
+        {
+            return;
+        }
+
+        if (_fogTable == null || _fogTableOf != fog)
+        {
+            _fogTable?.Dispose();
+            _fogTable = new TextureBuffer(_renderContext, fog.Texels(), GameFog.Entries, 1, InternalFormat.Rgba8, PixelFormat.Rgba, PixelType.UnsignedByte);
+            _fogTableOf = fog;
+            _skyFog = fog.Sky;
+        }
+
+        _fogTable.Bind(TextureUnit.Texture7);
+        _renderContext.Gl.ActiveTexture(TextureUnit.Texture0);
+    }
+
+    // The PS2's fog over everything the opaque passes don't draw over: the sky and the cleared background have the depth 0, which picks the
+    // table's first entry (GameFog). The Xbox's fog stage only goes over the sky's fragments
+    private void RenderBackgroundFog(GameFog? fog)
+    {
+        if (fog == null || fog.Xbox)
+        {
+            return;
+        }
+
+        var color = _skyFog;
+        if (color.w <= 0.0f)
+        {
+            return;
+        }
+
+        var state = _renderContext.State;
+        var program = _renderContext.GetProgram("ScreenFog");
+        program.Use();
+        program.SetUniform(KnownUniform.FogColor, color);
+        state.SetDepthTest(false);
+        state.SetDepthMask(false);
+        state.SetBlend(true);
+        state.SetBlendEquation(BlendEquationModeEXT.FuncAdd);
+        state.SetBlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha, BlendingFactor.Zero, BlendingFactor.One);
+        _emptyVao.Bind();
+        _renderContext.Gl.DrawArrays(PrimitiveType.TriangleFan, 0, 4);
+        state.SetDepthMask(true);
+        state.SetDepthTest(true);
+        // The passes after it use their programs from scratch
+        _renderContext.Invalidate();
     }
 
     private void PrepareInstances()
@@ -521,6 +580,9 @@ public class Renderer : IView
         _screenBuffer.Dispose();
         _skyBuffer?.Dispose();
         _skyBuffer = null;
+        _fogTable?.Dispose();
+        _fogTable = null;
+        _fogTableOf = null;
     }
     
     public bool IsDisposed { get; private set; }

@@ -48,4 +48,27 @@ public sealed class ViewportSnappingTests
             second.Close();
         }
     }
+
+    // Leaving out the scenery's LODs past their distances like the game is the toolbar's choice, kept in the preferences every viewport follows
+    [AvaloniaFact]
+    public void LodCullingIsTheSameInEveryViewport()
+    {
+        var first = new ViewportViewModel();
+        var second = new ViewportViewModel();
+        var wasCulling = first.CullsLods;
+        try
+        {
+            Assert.Equal(Preferences.GetPreference<bool>(Preferences.ViewportLodCulling), wasCulling);
+            first.ToggleLodCullingCommand.Execute().Subscribe();
+
+            Assert.Equal(!wasCulling, second.CullsLods);
+            Assert.Equal(!wasCulling, Preferences.GetPreference<bool>(Preferences.ViewportLodCulling));
+        }
+        finally
+        {
+            first.CullsLods = wasCulling;
+            first.Close();
+            second.Close();
+        }
+    }
 }

@@ -11,41 +11,75 @@ public struct TwinMaterialDesc()
     public const string DeformSpeedPath = "twin_material.deform_speed";
     public const string DeformAmplitudePath = "twin_material.deform_amplitude";
     public const string BillboardRenderPath = "twin_material.billboard_render";
-    public const string DoubleColorPath = "twin_material.double_color";
-    public const string UvScrollSpeedPath = "twin_material.uv_scroll_speed";
     public const string UvOffsetPath = "twin_material.uv_offset";
-    public const string AnimatedColorPath = "twin_material.animated_color";
     public const string ReflectDistPath = "twin_material.reflect_dist";
-    public const string AlphaTestPath = "twin_material.alpha_test";
+    public const string AlphaMethodPath = "twin_material.alpha_method";
+    public const string AlphaReferencePath = "twin_material.alpha_reference";
+    public const string AlphaFailDrawsPath = "twin_material.alpha_fail_draws";
     public const string AlphaBlendPath = "twin_material.alpha_blend";
     public const string EnvMapPath = "twin_material.env_map";
-    public const string BlendFuncPath = "twin_material.blend_func";
     public const string UseTexturePath = "twin_material.use_texture";
-    public const string PerformFogPath = "twin_material.perform_fog";
+    public const string MipmappedPath = "twin_material.mipmapped";
+    public const string LodScalePath = "twin_material.lod_scale";
+    public const string LodKPath = "twin_material.lod_k";
+    public const string FogPath = "twin_material.fog";
     public const string EditorShadingPath = "twin_material.editor_shading";
     public const string LitPath = "twin_material.lit";
-    
+
+    /// <summary>
+    /// Fogged by neither version of the game's fog: what the editor draws
+    /// </summary>
+    public const int NoFog = 0;
+    /// <summary>
+    /// Fogged by the Xbox version's fog stage, which every material goes through, not by the PS2's colour filter (drawn after its buckets)
+    /// </summary>
+    public const int XboxFog = 1;
+    /// <summary>
+    /// Fogged by both versions': the PS2's colour filter covers the buckets 0 to 3
+    /// </summary>
+    public const int BothFogs = 2;
+
     public TextureBuffer? Texture { get; init; }
     public TwinShader.AlphaBlendPresets BlendFunc { get; init; } = TwinShader.AlphaBlendPresets.Mix;
+    /// <summary>
+    /// The shader's own blending formula in place of the preset (<see cref="GsBlending.ApplyFormula"/>): (A - B) * C + D and the fixed alpha
+    /// </summary>
+    public bool CustomBlend { get; init; }
+    public TwinShader.ColorSpecMethod BlendA { get; init; }
+    public TwinShader.ColorSpecMethod BlendB { get; init; }
+    public TwinShader.AlphaSpecMethod BlendC { get; init; }
+    public TwinShader.ColorSpecMethod BlendD { get; init; }
+    public byte BlendFix { get; init; }
     public int DeformMode { get; init; }
     public float DeformSpeed { get; init; }
     public vec3 DeformAmplitude { get; init; } = vec3.Zero;
     public bool BillboardRender { get; init; } = false;
-    public float DoubleColor { get; init; } = 2.0f;
     /// <summary>
     /// Lit by the game's lights: the vertex color times the object's light set (<c>MainPass.vert</c>)
     /// </summary>
     public bool Lit { get; init; }
-    public vec2 UvScrollSpeed { get; init; } = vec2.Zero;
     /// <summary>
-    /// The shader's animation, played for the U and V tracks the scroll modes take and the color when the shader takes it
+    /// How the U and V scrolls move the texture (<see cref="Materials.ShaderScroll"/>), from the phases (the shader's UvScrollSpeed's X and
+    /// Y) at the speeds (its Z and W)
+    /// </summary>
+    public TwinShader.XScrollFormula ScrollU { get; init; }
+    public TwinShader.YScrollFormula ScrollV { get; init; }
+    public vec2 ScrollPhases { get; init; } = vec2.Zero;
+    public vec2 ScrollSpeeds { get; init; } = vec2.Zero;
+    /// <summary>
+    /// The shader's animation, played for the U and V tracks the scroll modes take
     /// </summary>
     public TwinShaderAnimation? Animation { get; init; }
     public bool AnimatesU { get; init; }
     public bool AnimatesV { get; init; }
-    public bool AnimatesColor { get; init; }
     public vec2 ReflectDist { get; init; } = vec2.Zero;
-    public float AlphaTest { get; init; } = 0.0f;
+    /// <summary>
+    /// The GS's alpha test (<see cref="GsAlphaTest"/>): its method, -1 without one, the reference byte and whether failing fragments still
+    /// draw their color
+    /// </summary>
+    public int AlphaTestMethod { get; init; } = -1;
+    public int AlphaReference { get; init; }
+    public bool AlphaFailDrawsColor { get; init; }
     public float AlphaBlend { get; init; } = 0.0f;
     /// <summary>
     /// Where the picture is read instead of the UVs: 0 the UVs, 1 like the environment maps, 2 like the metallic shader
@@ -53,8 +87,20 @@ public struct TwinMaterialDesc()
     /// </summary>
     public float EnvMap { get; init; } = 0.0f;
     public float UseTexture { get; init; } = 0.0f;
+    /// <summary>
+    /// How the GS samples the texture (<see cref="GsTextureFiltering"/>): through its mips by the distance (L and K) or only its largest
+    /// level, the magnifying filter and whether the coordinates are clamped
+    /// </summary>
+    public bool Mipmapped { get; init; }
+    public int LodL { get; init; }
+    public float LodK { get; init; }
+    public bool MagnifiesLinearly { get; init; } = true;
+    public bool ClampsCoordinates { get; init; }
+    /// <summary>
+    /// Which of the game's fogs draw over the material (<see cref="NoFog"/>, <see cref="XboxFog"/>, <see cref="BothFogs"/>, <see cref="GameFog"/>)
+    /// </summary>
+    public int Fog { get; init; } = BothFogs;
     public bool DepthWrite { get; init; } = false;
-    public bool PerformFog { get; init; } = false;
     public TwinShader.DepthTestMethod DepthTest { get; init; } = TwinShader.DepthTestMethod.GEQUAL;
     /// <summary>
     /// Shaded flat by its triangles' facing for the editor (collision has nothing of its own to light it by)

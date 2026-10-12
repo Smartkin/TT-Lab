@@ -51,6 +51,10 @@ out vec3 Normal;
 out vec3 ViewPosition;
 out vec4 InstanceColor;
 out vec2 EnvUv;
+// How far along the view the vertex is (the clip w), what the GS picks mip levels and the fog by
+out float ViewDepth;
+// The reflection surface's offset of its screen copy's coordinates (game's screen axes)
+out vec2 ReflectOffset;
 
 #include "GlobalUniformsDeclaration.glsl"
 // Vertex shader specific uniforms
@@ -67,6 +71,4 @@ uniform int ShapeStart;
 uniform float MorphWeights[MAX_BLENDS];
 uniform bool UseSkinning = false;
 uniform bool UseMorphs = false;
-// The skydome, which the game draws around the camera
-uniform bool FollowsCamera = false;
 layout (binding = 6) uniform sampler2D Morphs;

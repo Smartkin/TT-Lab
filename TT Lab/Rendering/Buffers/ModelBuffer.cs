@@ -108,8 +108,8 @@ public class ModelBuffer(RenderContext context, ModelBufferBuild build, Material
         _build.Vao.Bind();
         if (!_materials.TryGetValue(shader, out _currentRenderMaterial))
         {
-            var desc = materialFactory.GetTwinMaterialFromShader(shader);
-            _currentRenderMaterial = new TwinMaterial(context, EditorShading ? desc with { EditorShading = true } : desc);
+            var desc = materialFactory.GetTwinMaterialFromShader(shader, _material.DmaChainIndex);
+            _currentRenderMaterial = new TwinMaterial(context, EditorShading ? desc with { EditorShading = true, Fog = TwinMaterialDesc.NoFog } : desc);
             _materials[shader] = _currentRenderMaterial;
         }
         _currentRenderMaterial.Bind();

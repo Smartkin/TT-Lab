@@ -190,6 +190,10 @@
                             </Flyout>
                         </Button.Flyout>
                     </Button>
+                    <Button x:Name="LodCulling" Classes="tool" Classes.active="{Binding CullsLods}" Command="{Binding ToggleLodCullingCommand}"
+                            ToolTip.Tip="Leave out the scenery's levels of detail farther away than the game draws them, like the game does. They switch to their simpler meshes with the distance either way">
+                        <PathIcon Data="M1,7 L9,7 L9,17 L1,17 Z M11,9 L17,9 L17,15 L11,15 Z M19,10.5 L23,10.5 L23,13.5 L19,13.5 Z"/>
+                    </Button>
                 </StackPanel>
             </DockPanel>
         </Border>

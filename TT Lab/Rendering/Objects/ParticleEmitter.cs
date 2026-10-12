@@ -23,7 +23,7 @@ public sealed class ParticleEmitter : Renderable
     private const int FloatsPerParticle = 16;
     private const uint Binding = 4;
     private const int HexagonVertices = 18;
-    // Every emitter of a viewport queues its particles into the same buffer, they go away with the context
+    // Every emitter of a viewport queues its particles into the same buffer, released with the context
     private static readonly ConditionalWeakTable<RenderContext, ParticleBatch> Batches = new();
 
     private readonly ParticleSimulation _simulation;
@@ -31,13 +31,32 @@ public sealed class ParticleEmitter : Renderable
     private readonly TwinShader.AlphaBlendPresets[] _pageBlends;
     private bool _ignoresCamera;
 
-    private sealed class ParticleBatch(RenderContext context)
+    private sealed class ParticleBatch
     {
-        public readonly StreamStorageBuffer Particles = new(context, Binding, FloatsPerParticle);
+        private readonly RenderContext _context;
+        public readonly StreamStorageBuffer Particles;
         public readonly List<Draw> Draws = [];
-        public readonly uint EmptyVao = context.Gl.GenVertexArray();
+        public readonly uint EmptyVao;
         public FrameBuffer? FrameCopy;
         public ivec2 FrameCopySize;
+
+        public ParticleBatch(RenderContext context)
+        {
+            _context = context;
+            Particles = new StreamStorageBuffer(context, Binding, FloatsPerParticle);
+            EmptyVao = context.Gl.GenVertexArray();
+            context.Destroy += Release;
+        }
+
+        private void Release()
+        {
+            _context.Destroy -= Release;
+            Batches.Remove(_context);
+            Particles.Dispose();
+            _context.Gl.DeleteVertexArray(EmptyVao);
+            FrameCopy?.Dispose();
+            FrameCopy = null;
+        }
     }
 
     private readonly record struct Draw(int First, int Count, Byte BlendMode, TextureBuffer Page, TwinShader.AlphaBlendPresets PageBlend, vec2 Distortion, int Queued);

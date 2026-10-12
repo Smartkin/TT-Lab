@@ -10,30 +10,25 @@ namespace TT_Lab.Rendering.Factories;
 public class MaterialFactory(TextureService textureService)
 {
     /// <summary>
-    /// Shader types lit by the game's lights, whose vertex colors count double (128 is full)
+    /// Shader types lit by the game's lights: their vertex colors times the light at the object
     /// </summary>
     public static bool IsLit(TwinShader.Type type) => type is TwinShader.Type.StandardLit or TwinShader.Type.LitSkinnedModel or TwinShader.Type.LitEnvironmentMap
         or TwinShader.Type.LitMetallic or TwinShader.Type.LitReflectionSurface;
 
-    public TwinMaterialDesc GetTwinMaterialFromShader(LabShader shader)
+    /// <param name="bucket">The material's render bucket: the PS2's fog only covers the buckets 0 to 3 (<see cref="GameFog"/>)</param>
+    public TwinMaterialDesc GetTwinMaterialFromShader(LabShader shader, uint bucket = 2)
     {
         var texture = textureService.GetTexture(shader.TextureId);
         var unlit = !IsLit(shader.ShaderType);
-        var uvScrollSpeed = vec2.Zero;
         var deformMode = 0;
         var deformSpeed = 0.0f;
         var deformAmplitude = vec3.Zero;
         // Where the picture is read instead of the UVs (EnvironmentMapping)
         var envMap = 0.0f;
-        if (shader.XScrollSettings is not (TwinShader.XScrollFormula.Disabled or TwinShader.XScrollFormula.FromAnimation))
-        {
-            uvScrollSpeed.x = shader.UvScrollSpeed.Z;
-        }
-
-        if (shader.YScrollSettings is not (TwinShader.YScrollFormula.Disabled or TwinShader.YScrollFormula.FromAnimation))
-        {
-            uvScrollSpeed.y = shader.UvScrollSpeed.W;
-        }
+        var (lodL, lodK) = GsTextureFiltering.Lod(shader.LodParamK, shader.LodParamL);
+        // The editor's own visuals (volumes, icons, the built in shapes) aren't the game's to fog
+        var fog = shader.ForcedShaderName != null || shader.ShaderType == TwinShader.Type.ColorOnly ? TwinMaterialDesc.NoFog
+            : bucket <= GameFog.LastFoggedBucket ? TwinMaterialDesc.BothFogs : TwinMaterialDesc.XboxFog;
         
         switch (shader.ShaderType)
         {
@@ -99,24 +94,38 @@ public class MaterialFactory(TextureService textureService)
             Texture = texture,
             UseTexture = shader.TxtMapping == TwinShader.TextureMapping.ON ? 1.0f : 0.0f,
             AlphaBlend = shader.ABlending == TwinShader.AlphaBlending.ON ? 1.0f : 0.0f,
-            AlphaTest = shader.ATest == TwinShader.AlphaTest.ON ? shader.AlphaValueToBeComparedTo / 255.0f : 0.0f,
+            AlphaTestMethod = GsAlphaTest.MethodOf(shader.ATest, shader.ATestMethod),
+            AlphaReference = shader.AlphaValueToBeComparedTo,
+            AlphaFailDrawsColor = GsAlphaTest.FailedDrawsColor(shader.ProcessMethodWhenAlphaTestFailed),
             BillboardRender = shader.ShaderType == TwinShader.Type.UnlitBillboard,
-            DoubleColor = unlit ? 1.0f : 2.0f,
             Lit = !unlit,
             ReflectDist = shader.ShaderType == TwinShader.Type.LitReflectionSurface ? new vec2(1.0f, shader.FloatParam[0]) : vec2.Zero,
             DeformMode = deformMode,
             DeformSpeed = deformSpeed,
             DeformAmplitude = deformAmplitude,
             EnvMap = envMap,
-            UvScrollSpeed = uvScrollSpeed,
+            ScrollU = shader.XScrollSettings,
+            ScrollV = shader.YScrollSettings,
+            ScrollPhases = new vec2(shader.UvScrollSpeed.X, shader.UvScrollSpeed.Y),
+            ScrollSpeeds = new vec2(shader.UvScrollSpeed.Z, shader.UvScrollSpeed.W),
             Animation = shader.Animation,
             AnimatesU = shader.XScrollSettings == TwinShader.XScrollFormula.FromAnimation,
             AnimatesV = shader.YScrollSettings == TwinShader.YScrollFormula.FromAnimation,
-            AnimatesColor = shader.AnimationDrivesColor,
             BlendFunc = shader.AlphaRegSettingsIndex,
+            CustomBlend = shader.UseCustomAlphaRegSettings,
+            BlendA = shader.SpecOfColA,
+            BlendB = shader.SpecOfColB,
+            BlendC = shader.SpecOfAlphaC,
+            BlendD = shader.SpecOfColD,
+            BlendFix = shader.FixedAlphaValue,
+            Mipmapped = GsTextureFiltering.MinifiesThroughMips(shader.ShaderType),
+            LodL = lodL,
+            LodK = lodK,
+            MagnifiesLinearly = shader.TextureFilterWhenTextureIsExpanded == TwinShader.TextureFilter.LINEAR || shader.ShaderType == TwinShader.Type.UiShader,
+            ClampsCoordinates = GsTextureFiltering.ClampsCoordinates(shader.ShaderType),
+            Fog = fog,
             DepthWrite = shader.ZValueDrawingMask == TwinShader.ZValueDrawMask.UPDATE,
             DepthTest = shader.DepthTest,
-            PerformFog = shader.Fog == TwinShader.Fogging.ON
         };
     }
 }

@@ -12,8 +12,7 @@ void main()
 {
     // Texture rectangles are in pixels of the page
     vec4 texel = texture(Page, vTexpos / vec2(textureSize(Page, 0)));
-    // Pages come premultiplied from their bitmaps
-    vec3 color = texel.a > 0.0 ? texel.rgb / texel.a : vec3(0.0);
+    vec3 color = texel.rgb;
     float alpha = texel.a * vColor.a;
     // Every page shader of the game drops what's under 5 of the GS's 128
     if (alpha < 5.0 / 128.0)

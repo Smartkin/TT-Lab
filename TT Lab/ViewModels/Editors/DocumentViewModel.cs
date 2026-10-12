@@ -121,6 +121,10 @@ public partial class DocumentViewModel : ReactiveObject
                 {
                     PropertyGraph.Overrides?.Invalidate(view);
                 }
+                else
+                {
+                    TellChanged(asset);
+                }
             }
 
             History.Record(change);
@@ -169,6 +173,92 @@ public partial class DocumentViewModel : ReactiveObject
             editor.Depth = 1;
             return editor;
         }).ToList();
+
+        if (PropertyGraph.Overrides != null)
+        {
+            lock (OpenChunkDocuments)
+            {
+                OpenChunkDocuments.Add(new WeakReference<DocumentViewModel>(this));
+            }
+        }
+    }
+
+    // Chunks' documents, whose views of the assets they share take what other editors change in them. Weak, documents tests make are
+    // never closed
+    private static readonly List<WeakReference<DocumentViewModel>> OpenChunkDocuments = [];
+
+    // Views whose assets other editors changed, followed once those changes are done
+    private readonly HashSet<SerializableAsset> _viewsToFollow = new(ReferenceEqualityComparer.Instance);
+
+    /// <summary>
+    /// The asset got changed outside the chunks' documents (its own editor, its changes discarded, a chunk's value shared with it): their
+    /// views of it take what the chunk has no value of its own of
+    /// </summary>
+    internal static void TellChanged(IAsset asset)
+    {
+        List<DocumentViewModel> documents;
+        lock (OpenChunkDocuments)
+        {
+            OpenChunkDocuments.RemoveAll(reference => !reference.TryGetTarget(out _));
+            documents = OpenChunkDocuments.Select(reference => reference.TryGetTarget(out var document) ? document : null).OfType<DocumentViewModel>().ToList();
+        }
+
+        foreach (var document in documents)
+        {
+            document.QueueFollow(asset);
+        }
+    }
+
+    private void QueueFollow(IAsset asset)
+    {
+        if (PropertyGraph.Overrides?.ViewOf(asset) is not { } view || !_viewsToFollow.Add(view) || _viewsToFollow.Count > 1)
+        {
+            return;
+        }
+
+        Avalonia.Threading.Dispatcher.UIThread.Post(FollowViews, Avalonia.Threading.DispatcherPriority.Background);
+    }
+
+    private void FollowViews()
+    {
+        var views = _viewsToFollow.ToList();
+        _viewsToFollow.Clear();
+        if (PropertyGraph.Overrides is not { } overrides)
+        {
+            return;
+        }
+
+        var followed = false;
+        foreach (var view in views)
+        {
+            var paths = overrides.Follow(view);
+            if (paths.Count == 0)
+            {
+                continue;
+            }
+
+            PropertyGraph.Follow(view, paths);
+            followed = true;
+        }
+
+        // What the inspector showed can have been made again
+        if (followed && Inspector != null)
+        {
+            FollowInspected();
+        }
+    }
+
+    /// <summary>
+    /// The document's editor closed, its views stop following their assets
+    /// </summary>
+    public void Close()
+    {
+        lock (OpenChunkDocuments)
+        {
+            OpenChunkDocuments.RemoveAll(reference => !reference.TryGetTarget(out var document) || document == this);
+        }
+
+        _viewsToFollow.Clear();
     }
 
     private void FindSideNodes(PropertyNode node)
@@ -253,21 +343,7 @@ public partial class DocumentViewModel : ReactiveObject
         ShowInInspector(_inspectorTrail.Current, null);
     }
 
-    private bool IsInGraph(PropertyNode node)
-    {
-        var current = node;
-        while (current.Parent != null)
-        {
-            if (!current.Parent.Children.Contains(current))
-            {
-                return false;
-            }
-
-            current = current.Parent;
-        }
-
-        return current == PropertyGraph.Root;
-    }
+    private bool IsInGraph(PropertyNode node) => PropertyGraph.Contains(node);
 
     /// <summary>
     /// Inspects what got picked (in the scene, among the resources), the inspector's trail starts over. Picking what's already inspected

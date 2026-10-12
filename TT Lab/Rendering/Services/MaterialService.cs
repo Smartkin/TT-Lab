@@ -46,7 +46,7 @@ public class MaterialService
         _materials[materialUri] = new Dictionary<LabShader, TwinMaterial>();
         foreach (var shader in materialData.Shaders)
         {
-            _materials[materialUri][shader] = new TwinMaterial(_renderContext, _materialFactory.GetTwinMaterialFromShader(shader));
+            _materials[materialUri][shader] = new TwinMaterial(_renderContext, _materialFactory.GetTwinMaterialFromShader(shader, materialData.DmaChainIndex));
         }
         
         return _materials[materialUri];

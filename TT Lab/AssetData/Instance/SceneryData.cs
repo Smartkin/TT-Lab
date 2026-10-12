@@ -1,5 +1,6 @@
 ﻿using GlmSharp;
 using Newtonsoft.Json;
+using Splat;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -17,6 +18,7 @@ using TT_Lab.Assets.Graphics;
 using TT_Lab.Attributes;
 using TT_Lab.Attributes.EditorParamWrappers;
 using TT_Lab.Extensions;
+using TT_Lab.Project;
 using TT_Lab.Project.Migration;
 using TT_Lab.Rendering;
 using TT_Lab.Rendering.Lighting;
@@ -66,8 +68,18 @@ public class SceneryData : AbstractAssetData
     
     public LabURI Collision { get; set; }
 
-    [Editable(Caption = "Fog", EditorDescType = typeof(FogColorEditorDesc), Hint = "The fog the game mixes into the distance while the player is in the chunk, up to 30% of its color far away and on the sky. Hover a choice for its colors")]
+    [Editable(Caption = "Fog", EditorDescType = typeof(FogColorEditorDesc), Hint = "The fog the game mixes into the distance while the player is in the chunk: the PS2 version from about 25 units on, up to 40% of its color far away and 30% on the sky, over everything but what's blended, the decals and the particles; the Xbox version half as much, all of it from 50 units on. The viewport draws it. Hover a choice for its colors")]
     public UInt32 FogColor { get; set; }
+
+    /// <summary>
+    /// The game's fog of the chunk, its table the way the chunk's version of the game draws it
+    /// </summary>
+    public GameFog GetFog()
+    {
+        var xbox = Owner != null && Locator.Current.GetService<ProjectManager>()?.OpenedProject is Project.Project project
+                   && project.GetPlatform(Owner.Package) == Project.Project.GamePlatform.Xbox;
+        return GameFog.Of(FogColor, xbox);
+    }
     
     public Byte UnusedByte { get; set; }
 
@@ -1040,10 +1052,11 @@ public class SceneryData : AbstractAssetData
     {
         var result = new List<ViewportObject>();
         var renderContext = viewportContext.RenderContext;
-        // The chunk's lights light its objects
+        // The chunk's lights light its objects, its fog goes over them
         void ApplyLights()
         {
             renderContext.Lights = SceneLights.Of(this);
+            renderContext.Fog = GetFog();
         }
 
         ApplyLights();
@@ -1052,7 +1065,8 @@ public class SceneryData : AbstractAssetData
             IsSelectable = false
         };
         PropertyNode?[] lighting = [property.Find($"[data].AssetData.{nameof(AmbientLights)}"), property.Find($"[data].AssetData.{nameof(DirectionalLights)}"),
-            property.Find($"[data].AssetData.{nameof(PointLights)}"), property.Find($"[data].AssetData.{nameof(SpotLights)}")];
+            property.Find($"[data].AssetData.{nameof(PointLights)}"), property.Find($"[data].AssetData.{nameof(SpotLights)}"),
+            property.Find($"[data].AssetData.{nameof(FogColor)}")];
         result.Add(new ViewportObject(editingObject, $"SCENERY_{property.Path}", property)
         {
             Category = ViewportObjectCategory.Scenery,
@@ -1115,7 +1129,8 @@ public class SceneryData : AbstractAssetData
         return result;
     }
 
-    // Every placed mesh on its own, picked and edited in the viewport's scenery mode like an instance, a LOD drawn with its closest mesh
+    // Every placed mesh on its own, picked and edited in the viewport's scenery mode like an instance, a LOD drawn with the mesh of the camera's
+    // distance like the game draws it
     private List<ViewportObject> GetPlacementObjects(ViewportContext viewportContext, PropertyNode property)
     {
         var result = new List<ViewportObject>();
@@ -1124,7 +1139,7 @@ public class SceneryData : AbstractAssetData
         {
             var placement = Placements[i];
             var element = list?.Children.ElementAtOrDefault(i);
-            if (CreatePlacementVisual(viewportContext.RenderContext, placement, $"{placement.Description} (placed mesh {i})") is not { } editable)
+            if (CreatePlacementVisual(viewportContext.RenderContext, placement, $"{placement.Description} (placed mesh {i})", true) is not { } editable)
             {
                 continue;
             }
@@ -1143,12 +1158,16 @@ public class SceneryData : AbstractAssetData
     }
 
     /// <summary>
-    /// What a placed mesh or LOD looks like in a viewport where it's placed: its mesh, a LOD's closest level's, in the box it's culled by.
-    /// None for a LOD without levels or a mesh that can't be drawn
+    /// What a placed mesh or LOD looks like in a viewport where it's placed: its mesh, a LOD's closest level's or, following the distance,
+    /// the level the game draws at the camera's (<see cref="LodVisual"/>), in the box it's culled by. None for a LOD without levels or a mesh
+    /// that can't be drawn
     /// </summary>
-    internal static EditableObject? CreatePlacementVisual(RenderContext renderContext, SceneryPlacement placement, String name)
+    internal static EditableObject? CreatePlacementVisual(RenderContext renderContext, SceneryPlacement placement, String name, Boolean followsDistance = false)
     {
+        var min = new vec3(placement.Box.V1.X, placement.Box.V1.Y, placement.Box.V1.Z);
+        var size = new vec3(placement.Box.V2.X, placement.Box.V2.Y, placement.Box.V2.Z) - min;
         var model = placement.Model;
+        Renderable? mesh;
         if (placement.IsLod)
         {
             var lod = AssetManager.Get().GetAssetData<LodModelData>(placement.Model);
@@ -1158,16 +1177,18 @@ public class SceneryData : AbstractAssetData
             }
 
             model = lod.Meshes[0];
+            mesh = followsDistance ? new LodVisual(renderContext, renderContext.MeshService, lod, min + size * 0.5f) : renderContext.MeshService.GetMesh(model, true).Model;
+        }
+        else
+        {
+            mesh = renderContext.MeshService.GetMesh(model, true).Model;
         }
 
-        var mesh = renderContext.MeshService.GetMesh(model, true).Model;
         if (mesh == null)
         {
             return null;
         }
 
-        var min = new vec3(placement.Box.V1.X, placement.Box.V1.Y, placement.Box.V1.Z);
-        var size = new vec3(placement.Box.V2.X, placement.Box.V2.Y, placement.Box.V2.Z) - min;
         // Darkened like a selected instance a mesh disappeared against the dark walls around it
         var editable = new EditableObject(renderContext, mesh, name, min, size) { SelectedColor = new vec4(1.0f, 0.78f, 0.5f, 1.0f) };
         editable.SetLocalTransform(placement.Matrix.ToGlm());

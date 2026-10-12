@@ -9,7 +9,6 @@ namespace TT_Lab.Rendering.Materials;
 public class TwinMaterial(RenderContext context, TwinMaterialDesc materialDesc) : Material
 {
     private bool _isBlendingEnabled;
-    private bool _isDepthWriteEnabled;
     private bool _previousBlend;
     private bool _previousDepthWrite;
     private TwinMaterialDesc _materialDesc = materialDesc;
@@ -18,9 +17,9 @@ public class TwinMaterial(RenderContext context, TwinMaterialDesc materialDesc) 
 
     private ShaderProgram Program => context.CurrentPass.Program;
 
-    public void ApplyFog(bool @override)
+    public void ApplyFog(int @override)
     {
-        Program.SetUniform(KnownUniform.MaterialPerformFog, @override ? 1.0f : 0.0f);
+        Program.SetUniform(KnownUniform.MaterialFog, @override);
     }
 
     public void ApplyDeform(int mode, float speed, vec3 amplitude)
@@ -40,11 +39,6 @@ public class TwinMaterial(RenderContext context, TwinMaterialDesc materialDesc) 
         Program.SetUniform(KnownUniform.MaterialUseTexture, @override ? 1.0f : 0.0f);
     }
 
-    public void ApplyDoubleColor(float @override)
-    {
-        Program.SetUniform(KnownUniform.MaterialDoubleColor, @override);
-    }
-
     /// <summary>
     /// </summary>
     /// <param name="override">x component whether it's turned on or off and y is the actual distance</param>
@@ -53,34 +47,36 @@ public class TwinMaterial(RenderContext context, TwinMaterialDesc materialDesc) 
         Program.SetUniform(KnownUniform.MaterialReflectDist, @override);
     }
 
-    public void ApplyUvScroll(vec2 @override)
-    {
-        Program.SetUniform(KnownUniform.MaterialUvScrollSpeed, @override);
-    }
-
     public void ApplyUvOffset(vec2 @override)
     {
         Program.SetUniform(KnownUniform.MaterialUvOffset, @override);
     }
 
-    public void ApplyAnimatedColor(vec4 @override)
-    {
-        Program.SetUniform(KnownUniform.MaterialAnimatedColor, @override);
-    }
-
-    // The shader animation's tracks at the render time, where the shader takes them
+    // The scrolls and the shader animation's U and V tracks at the render time, where the shader takes them. The color the animation drives
+    // goes into the shader's color, which only the shadows' volumes' program reads (the shader record's second quadword): the game draws
+    // every other shader the same whatever it is
     private void ApplyAnimation()
     {
-        var sample = _materialDesc.Animation != null && (_materialDesc.AnimatesU || _materialDesc.AnimatesV || _materialDesc.AnimatesColor)
-            ? ShaderAnimationSampler.At(_materialDesc.Animation, context.Time)
-            : ShaderAnimationSampler.Still;
-        ApplyUvOffset(new vec2(_materialDesc.AnimatesU ? sample.Uv.x : 0.0f, _materialDesc.AnimatesV ? sample.Uv.y : 0.0f));
-        ApplyAnimatedColor(_materialDesc.AnimatesColor ? sample.Color : vec4.Ones);
+        var animation = _materialDesc.Animation != null && (_materialDesc.AnimatesU || _materialDesc.AnimatesV)
+            ? ShaderAnimationSampler.At(_materialDesc.Animation, context.Time).Uv
+            : vec2.Zero;
+        ApplyUvOffset(ShaderScroll.At(_materialDesc.ScrollU, _materialDesc.ScrollV, _materialDesc.ScrollPhases, _materialDesc.ScrollSpeeds, context.Time, animation));
     }
 
-    public void ApplyAlphaTest(float @override)
+    public void ApplyAlphaTest(int method, int reference, bool failDrawsColor)
     {
-        Program.SetUniform(KnownUniform.MaterialAlphaTest, @override);
+        Program.SetUniform(KnownUniform.MaterialAlphaMethod, method);
+        Program.SetUniform(KnownUniform.MaterialAlphaReference, (float)reference);
+        Program.SetUniform(KnownUniform.MaterialAlphaFailDraws, failDrawsColor ? 1.0f : 0.0f);
+    }
+
+    // The GS's mip choice (TEX1) and the sampler of its filter and coordinates, over the texture's own settings
+    private void ApplyTextureSampling()
+    {
+        Program.SetUniform(KnownUniform.MaterialMipmapped, _materialDesc.Mipmapped ? 1.0f : 0.0f);
+        Program.SetUniform(KnownUniform.MaterialLodScale, (float)(1 << _materialDesc.LodL));
+        Program.SetUniform(KnownUniform.MaterialLodK, _materialDesc.LodK);
+        context.Gl.BindSampler(0, context.Samplers.Get(_materialDesc.MagnifiesLinearly, _materialDesc.ClampsCoordinates));
     }
 
     public void ApplyEnvMap(float @override)
@@ -112,6 +108,12 @@ public class TwinMaterial(RenderContext context, TwinMaterialDesc materialDesc) 
             return;
         }
 
+        if (_materialDesc.CustomBlend)
+        {
+            GsBlending.ApplyFormula(context, _materialDesc.BlendA, _materialDesc.BlendB, _materialDesc.BlendC, _materialDesc.BlendD, _materialDesc.BlendFix);
+            return;
+        }
+
         // The material shader hands over its color, so Brighten brightens what's behind by the color rather than the alpha. No retail
         // material blends with it
         GsBlending.Apply(context.State, @override);
@@ -120,16 +122,11 @@ public class TwinMaterial(RenderContext context, TwinMaterialDesc materialDesc) 
     public void ApplyDepthWrite(bool @override)
     {
         context.State.SetDepthMask(@override);
-        _isDepthWriteEnabled = @override;
     }
 
+    // The GS tests the depth whether it writes it or not
     public void ApplyDepthTest(TwinShader.DepthTestMethod @override)
     {
-        if (!_isDepthWriteEnabled)
-        {
-            return;
-        }
-
         var state = context.State;
         switch (@override)
         {
@@ -154,19 +151,18 @@ public class TwinMaterial(RenderContext context, TwinMaterialDesc materialDesc) 
         _previousDepthWrite = context.State.DepthMask;
         _materialDesc.Texture?.Bind();
         ApplyUseTexture(_materialDesc.UseTexture.Equals(1.0f));
-        ApplyDoubleColor(_materialDesc.DoubleColor);
+        ApplyTextureSampling();
         ApplyDeform(_materialDesc.DeformMode, _materialDesc.DeformSpeed, _materialDesc.DeformAmplitude);
         ApplyBillboardRender(_materialDesc.BillboardRender);
-        ApplyAlphaTest(_materialDesc.AlphaTest);
+        ApplyAlphaTest(_materialDesc.AlphaTestMethod, _materialDesc.AlphaReference, _materialDesc.AlphaFailDrawsColor);
         ApplyEnvMap(_materialDesc.EnvMap);
-        ApplyUvScroll(_materialDesc.UvScrollSpeed);
         ApplyAnimation();
         ApplyReflectDistance(_materialDesc.ReflectDist);
         ApplyAlphaBlending(_materialDesc.AlphaBlend.Equals(1.0f));
         ApplyBlending(_materialDesc.BlendFunc);
         ApplyDepthWrite(_materialDesc.DepthWrite);
         ApplyDepthTest(_materialDesc.DepthTest);
-        ApplyFog(_materialDesc.PerformFog);
+        ApplyFog(_materialDesc.Fog);
         ApplyEditorShading(_materialDesc.EditorShading);
         ApplyLit(_materialDesc.Lit);
     }
@@ -176,6 +172,7 @@ public class TwinMaterial(RenderContext context, TwinMaterialDesc materialDesc) 
         var state = context.State;
         state.SetDepthMask(_previousDepthWrite);
         state.SetBlend(_previousBlend);
+        context.Gl.BindSampler(0, 0);
         // Materials without depth writes keep whatever depth test is set, which shouldn't depend on what got drawn before them
         state.SetDepthFunc(DepthFunction.Lequal);
     }

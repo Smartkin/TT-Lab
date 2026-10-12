@@ -13,6 +13,8 @@ public enum PassPriority
 {
     Skydome = -10,
     Opaque = 1,
+    // The opaque passes drawing a copy of the frame, after every other opaque pass
+    OpaqueScreenCopies = 2,
     Transparent = 10000,
     VolumeInsides = 40000,
     VolumeOutsides = 40001,
@@ -69,8 +71,11 @@ public class PassService
                     break;
                 case TwinShader.Type.LitMetallic:
                     break;
+                // The game draws a copy of the frame drawn so far, which the pass takes as it starts
                 case TwinShader.Type.LitReflectionSurface:
-                    break;
+                    RegisterPass(passName, new ScreenCopyPass(context, passName, context.GetProgram("Generic"), passType), PassPriority.OpaqueScreenCopies);
+                    RegisterPass(passName + "Transparent", new ScreenCopyPass(context, passName + "Transparent", context.GetProgram("Generic"), passType), passPriorityTransparent);
+                    continue;
                 case TwinShader.Type.SHADER_17:
                     break;
                 case TwinShader.Type.Particle:
@@ -113,7 +118,7 @@ public class PassService
         RegisterPass(PreviewSilhouettePassName, new PreviewPass(context, PreviewSilhouettePassName, context.GetProgram("Generic"), true), PassPriority.PreviewSilhouette);
 
         _skydomePasses = GetPassesWith(priority => priority == PassPriority.Skydome);
-        _opaquePasses = GetPassesWith(priority => priority == PassPriority.Opaque);
+        _opaquePasses = GetPassesWith(priority => priority is PassPriority.Opaque or PassPriority.OpaqueScreenCopies);
         _transparentPasses = GetPassesWith(priority => priority is >= PassPriority.Transparent and < PassPriority.Billboards);
         _billboardPasses = GetPassesWith(priority => priority == PassPriority.Billboards);
         _primitivePasses = GetPassesWith(priority => priority == PassPriority.Primitive);

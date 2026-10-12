@@ -173,7 +173,7 @@ public sealed class ChunkOverrideEditingTests : IDisposable
         Assert.True(link.IsOverridden);
     }
 
-    // The asset can change in its own editor while the chunk's document is open, the chunk's view of it keeps what it had then
+    // The asset can change elsewhere while the chunk's document is open, what the chunk's view of it has then isn't the chunk's own
     [AvaloniaFact]
     public void ValuesChangedElsewhereDontBecomeTheChunksOwn()
     {

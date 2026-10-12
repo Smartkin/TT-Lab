@@ -98,9 +98,13 @@ public unsafe class TextureBuffer : IDisposable
         Unbind();
     }
 
-    public void GenerateMipmaps()
+    /// <summary>
+    /// Mips averaging the picture, as many levels as asked (the largest included): the samplers' mip filter reads no further
+    /// </summary>
+    public void GenerateMipmaps(int levels)
     {
         Bind();
+        _renderContext.Gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMaxLevel, Math.Max(levels - 1, 0));
         _renderContext.Gl.GenerateMipmap(TextureTarget.Texture2D);
         Unbind();
     }
@@ -123,6 +127,8 @@ public unsafe class TextureBuffer : IDisposable
         _renderContext.Gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
         _renderContext.Gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
         _renderContext.Gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
+        // Complete without mips under the materials' samplers, which filter through mips
+        _renderContext.Gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMaxLevel, 0);
         UploadTextureData(width, height);
         Unbind();
     }

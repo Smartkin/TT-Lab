@@ -31,11 +31,11 @@ public readonly record struct LightSet(vec3 Ambient, vec3 Direction0, vec3 Color
     }
 
     /// <summary>
-    /// A vertex's color lit, a vertex color of 1 being 255: the programs multiply the byte color and clamp it to 255, and the GS takes 128 as
-    /// the texture as it is
+    /// A vertex's color lit, a vertex color of 1 being 255: the programs multiply the byte color and clamp it to 255. The GS takes 128 as the
+    /// texture as it's stored, which is half its PNG's values, so 255 draws the PNG as it is and the color is what the PNG is multiplied by
     /// </summary>
     public static vec3 Shade(vec3 vertexColor, vec3 light)
     {
-        return glm.Min(vertexColor * light, vec3.Ones) * (255.0f / 128.0f);
+        return glm.Min(vertexColor * light, vec3.Ones);
     }
 }

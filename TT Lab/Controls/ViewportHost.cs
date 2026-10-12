@@ -617,6 +617,8 @@ public sealed class ViewportHost : IDisposable
         gl.DeleteFramebuffer(_outputFramebuffer);
         gl.DeleteRenderbuffer(_outputColor);
         gl.DeleteRenderbuffer(_outputDepthStencil);
+        // What the context releases after this binds the output buffer again
+        _context.OutputBuffer = 0;
         _outputFramebuffer = 0;
         _outputColor = 0;
         _outputDepthStencil = 0;

@@ -11,6 +11,8 @@ in vec3 ViewPosition;
 // Tint of the drawn instance
 in vec4 InstanceColor;
 in vec2 EnvUv;
+in float ViewDepth;
+in vec2 ReflectOffset;
 
 layout (location = 0) out vec4 outColor;
 
@@ -21,3 +23,5 @@ uniform float FlipY = 0.0;
 uniform float DiffuseOnly = 0.0;
 layout (binding = 0) uniform sampler2D Texture[MAX_TEXTURES];
 layout (binding = 5) uniform sampler2D Screen;
+// The chunk's fog's 256 texels, their color and how much of it goes in (GameFog)
+layout (binding = 7) uniform sampler2D FogTable;

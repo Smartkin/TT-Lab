@@ -65,6 +65,58 @@ public sealed class ChunkOverrideSession(LevelChunk chunk)
         return view;
     }
 
+    /// <summary>
+    /// The view the chunk's document has of the asset, none when it hasn't made one
+    /// </summary>
+    public SerializableAsset? ViewOf(IAsset asset)
+    {
+        return _views.TryGetValue(asset.URI, out var view) && ReferenceEquals(view.OverriddenAsset, asset) ? view : null;
+    }
+
+    /// <summary>
+    /// The asset changed outside the chunk's document (its own editor, another chunk sharing a value with it): the view takes its values
+    /// wherever the chunk has none of its own, and what the chunk can't have values of. They're set in place, the document's nodes keep
+    /// showing the view's objects. The paths in the view's JSON the values were set at
+    /// </summary>
+    public IReadOnlyList<string> Follow(SerializableAsset view)
+    {
+        if (view.OverriddenAsset is not { } asset || !_origins.TryGetValue(view, out var origin))
+        {
+            return [];
+        }
+
+        var assetData = asset.GetData<AbstractAssetData>();
+        var viewData = view.GetData();
+        var assetDocument = AssetOverrides.GetDocument(asset, assetData);
+        var chunksValues = AssetOverrides.Diff(origin, AssetOverrides.GetDocument(view, viewData)).Keys.ToList();
+        var values = AssetOverrides.Diff(origin, assetDocument).Where(value => !HasValueAt(chunksValues, value.Key)).ToList();
+        values.AddRange(AssetOverrides.DiffShared(viewData, assetData));
+        if (values.Count == 0)
+        {
+            return [];
+        }
+
+        var followed = AssetOverrides.Take(view, values);
+        // Values that couldn't be set stay the asset's to take, the chunk would get the view's as its own otherwise
+        AssetOverrides.Put(origin, values.Where(value => followed.Any(path => IsWithin(value.Key, path))));
+        Invalidate(view);
+        return followed;
+    }
+
+    /// <summary>
+    /// The view's value at the path is the asset's again (put back or shared with it): it follows the asset there from now on
+    /// </summary>
+    public void Share(SerializableAsset view, string path)
+    {
+        var asset = view.OverriddenAsset!;
+        if (_origins.TryGetValue(view, out var origin) && AssetOverrides.GetDocument(asset, asset.GetData<AbstractAssetData>()).SelectToken(path) is { } value)
+        {
+            AssetOverrides.Put(origin, [new KeyValuePair<string, JToken>(path, value)]);
+        }
+
+        Invalidate(view);
+    }
+
     private readonly Dictionary<SerializableAsset, SortedDictionary<string, JToken>> _ownValues = new(ReferenceEqualityComparer.Instance);
 
     /// <summary>
@@ -159,7 +211,7 @@ public sealed class ChunkOverrideSession(LevelChunk chunk)
         }
 
         asset.Save();
-        Invalidate(view);
+        Share(view, path);
     }
 
     /// <summary>

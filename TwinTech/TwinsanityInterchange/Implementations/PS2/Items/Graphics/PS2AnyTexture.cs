@@ -267,6 +267,20 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.Graphics
             return TextureDescriptorHelper.ContainsKey($"{width}x{height}");
         }
 
+        /// <summary>
+        /// How many levels <see cref="FromBitmap"/> gives a picture of the size, the largest included: the mips of the sizes the game's tools
+        /// laid out but 256 pixels wide (down to 8 pixels on the shorter side), else 1
+        /// </summary>
+        public static Byte LevelsOf(Int32 width, Int32 height, Boolean generateMipmaps)
+        {
+            if (!generateMipmaps || width == 256 || !HasPaletteLayout(width, height))
+            {
+                return 1;
+            }
+
+            return (Byte)TextureDescriptorHelper[$"{width}x{height}"].MipLevels;
+        }
+
         public void FromBitmap(List<Color> image, Int32 width, ITwinTexture.TextureFunction fun, ITwinTexture.TexturePixelFormat format, bool generateMipmaps = false)
         {
             int height = image.Count / width;

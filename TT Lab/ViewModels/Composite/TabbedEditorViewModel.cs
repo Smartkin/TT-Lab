@@ -172,6 +172,7 @@ public abstract partial class TabbedEditorViewModel : Document
         Viewport?.Close();
         _creationTask.Dispose();
         IsLoaded = false;
+        Document?.Close();
         Document = null;
         Viewport = null;
         Title = $"{_asset.Name} (Loading)";
@@ -241,6 +242,8 @@ public abstract partial class TabbedEditorViewModel : Document
         var json = await reader.ReadToEndAsync();
         _asset.Deserialize(json);
         DiscardData();
+        // The chunks' views took the changes, they take the saved asset back
+        DocumentViewModel.TellChanged(_asset);
     }
 
     // The changes go by loading the data again. Data another open editor uses stays with it: a chunk's view of a behaviour, a model, a
@@ -268,6 +271,7 @@ public abstract partial class TabbedEditorViewModel : Document
         }
         
         Viewport?.Close();
+        Document?.Close();
         _creationTask.Dispose();
     }
 

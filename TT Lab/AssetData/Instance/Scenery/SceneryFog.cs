@@ -7,9 +7,10 @@ namespace TT_Lab.AssetData.Instance.Scenery;
 
 /// <summary>
 /// The fog a scenery's <see cref="SceneryData.FogColor"/> picks, one of the PAL executable's 8 tables of 256 colors (0x2f6ff8, set up by
-/// <c>FUN_001aeab8</c>). Every frame the game draws the screen again over itself through the table (<c>FUN_001aee28</c>): the top byte
-/// of each pixel's depth picks a color and its alpha mixes it in, up to 30% far away (and on the sky) down to nothing up close. The player
-/// entering a chunk switches to its table (<c>FUN_0013be10</c>, <c>FUN_00177ba8</c> where the player is made)
+/// <c>FUN_001aeab8</c>). Every frame the PS2 version draws the screen again over itself through the table once the opaque buckets are drawn
+/// (<c>FUN_001aee28</c>): bits 8 to 15 of each pixel's depth below 65536 pick a color and its alpha mixes it in, nothing nearer than about
+/// 25 units, up to 40% far away and 30% on the sky; the Xbox version mixes in half as much from a ramp of them (<see cref="TT_Lab.Rendering.GameFog"/>, which
+/// the viewport draws). The player entering a chunk switches to its table (<c>FUN_0013be10</c>, <c>FUN_00177ba8</c> where the player is made)
 /// </summary>
 public static class SceneryFog
 {

@@ -182,6 +182,7 @@ public static class PropertyGraphBuilder
             }
         };
         node.AddChild(child);
+        tracker.AddDataNode(asset, child);
 
         // Links cut short used to stay entered, and later links to the same asset got no properties
         try
@@ -330,6 +331,32 @@ public class PropertyGraphTracker
         {
             AssetRead(asset);
         }
+    }
+
+    // Every link's data node by the asset it shows (a chunk's view of a shared one): one asset is a node under each of its links. Nodes
+    // taken out of the graph stay until they're asked for
+    private readonly Dictionary<IAsset, List<PropertyNode>> _dataNodes = new(ReferenceEqualityComparer.Instance);
+
+    internal void AddDataNode(IAsset asset, PropertyNode node)
+    {
+        if (!_dataNodes.TryGetValue(asset, out var nodes))
+        {
+            nodes = [];
+            _dataNodes[asset] = nodes;
+        }
+
+        nodes.Add(node);
+    }
+
+    internal IReadOnlyList<PropertyNode> DataNodesOf(IAsset asset, Func<PropertyNode, bool> isInGraph)
+    {
+        if (!_dataNodes.TryGetValue(asset, out var nodes))
+        {
+            return [];
+        }
+
+        nodes.RemoveAll(node => !isInGraph(node));
+        return nodes.ToList();
     }
 
     private readonly HashSet<LabURI> _currentVisits = [];

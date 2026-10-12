@@ -262,6 +262,7 @@ public abstract partial class DocumentNodeViewModel : DocumentBaseViewModel, IAc
         }
 
         Property.SetValue(Document.PropertyGraph.Overrides!.GetAssetValue(target.View, target.Path, Property.PropertyType));
+        Document.PropertyGraph.Overrides.Share(target.View, target.Path);
         PropertyOnChanged();
     }
 
@@ -276,6 +277,8 @@ public abstract partial class DocumentNodeViewModel : DocumentBaseViewModel, IAc
         }
 
         Document.PropertyGraph.Overrides!.ApplyToAsset(target.View, target.Path);
+        // Other chunks without a value of their own there take it
+        DocumentViewModel.TellChanged(target.View.OverriddenAsset!);
     }
 
     /// <summary>

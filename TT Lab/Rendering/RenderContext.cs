@@ -126,6 +126,9 @@ public class RenderContext : IDisposable
         var screenFlipProgram = new ShaderProgram(this, screenVertShader, screenFlipFragShader);
         _programs.Add("ScreenFlipX", screenFlipProgram);
         WriteProgramUniforms(screenFlipProgram);
+
+        var screenFogFragShader = new Shader(this, ShaderType.FragmentShader, "ScreenFog.frag");
+        _programs.Add("ScreenFog", new ShaderProgram(this, screenVertShader, screenFogFragShader));
     }
 
     [MemberNotNull(nameof(SkeletonManager))]
@@ -140,9 +143,11 @@ public class RenderContext : IDisposable
     [MemberNotNull(nameof(PrimitiveRenderer))]
     [MemberNotNull(nameof(MaterialService))]
     [MemberNotNull(nameof(Instances))]
+    [MemberNotNull(nameof(Samplers))]
     private void InitServices()
     {
         Instances = new InstanceBuffer(this);
+        Samplers = new TextureSamplers(this);
         PrimitiveRenderer = new PrimitiveRenderer(this);
         SkeletonManager = new TwinSkeletonManager(this);
         MeshBuilder = new MeshBuilder(this);
@@ -158,6 +163,7 @@ public class RenderContext : IDisposable
     
     public GlStateCache State { get; }
     public InstanceBuffer Instances { get; private set; }
+    public TextureSamplers Samplers { get; private set; }
     // Camera the current frame gets rendered from, only valid on the render thread while rendering
     public FrameCamera FrameCamera { get; set; }
     public PassService PassService { get; private set; }
@@ -181,6 +187,18 @@ public class RenderContext : IDisposable
     /// The lights lit materials are drawn with, a chunk's scenery's. Replaced whole, the render thread gathers from it every frame
     /// </summary>
     public SceneLights Lights { get; set; } = SceneLights.Default;
+
+    /// <summary>
+    /// The game's fog of the chunk shown, which also clears the frame black like the game's, none for the editor's other views. Replaced
+    /// whole, the render thread reads it every frame
+    /// </summary>
+    public GameFog? Fog { get; set; }
+
+    /// <summary>
+    /// Whether the scenery's levels of detail are left out past their distances like the game leaves them out (<see cref="Objects.LodVisual"/>),
+    /// set by the viewport's toolbar, read on the render thread
+    /// </summary>
+    public bool CullsLods { get; set; }
 
     /// <summary>
     /// Whether models draw their skeletons over themselves, set by the viewport, which keeps it while the models get made again
@@ -288,6 +306,7 @@ public class RenderContext : IDisposable
     {
         Destroy?.Invoke();
         Instances.Dispose();
+        Samplers.Dispose();
         PrimitiveRenderer.Dispose();
         Gl.Dispose();
         SetGlAccessibility(false);

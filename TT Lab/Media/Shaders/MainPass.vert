@@ -76,8 +76,9 @@ vec2 EnvironmentUv(vec3 worldPosition, vec3 worldNormal)
 }
 
 // The lit VU1 programs (0x2dbeb0, 0x2e3b40): the vertex color's bytes times the ambient plus every light's color times the dot product of its
-// direction and the normal (neither normalized) clamped at 0, clamped to 255, which the GS takes as twice the texture's color at most. The
-// game turns the lights into the object's space, dot products are the same in the world's
+// direction and the normal (neither normalized) clamped at 0, clamped to 255. The GS takes 128 as the texture as it's stored, half its PNG's
+// values, so 255 draws the PNG as it is: the color is what the PNG is multiplied by, like an unlit vertex's. The game turns the lights into
+// the object's space, dot products are the same in the world's
 vec3 LitColor(LightSet lights, vec3 normal, vec3 color)
 {
 	vec3 light = lights.Ambient.rgb;
@@ -85,7 +86,7 @@ vec3 LitColor(LightSet lights, vec3 normal, vec3 color)
 	{
 		light += lights.Slots[i].Color.rgb * max(dot(lights.Slots[i].Direction.xyz, normal), 0.0);
 	}
-	return min(color * light, vec3(1.0)) * (255.0 / 128.0);
+	return min(color * light, vec3(1.0));
 }
 
 void main()
@@ -134,15 +135,18 @@ void main()
 	}
 
 	Position = processedPosition;
-	Emit = in_Emit * twin_material.double_color;
+	Emit = in_Emit;
 	ViewPosition = vec3(modelMatrix * vec4(processedPosition, 1.0));
+	ViewDepth = -(StartView * vec4(ViewPosition, 1.0)).z;
 	vec3 worldNormal = mat3(modelMatrix) * processedNormal;
 	EnvUv = twin_material.env_map > 0.0 ? EnvironmentUv(ViewPosition, worldNormal) : vec2(0.0);
+	// The reflection surface's program (0x18) moves its screen copy's coordinates by FloatParam[0] times the normal through the clip matrix
+	ReflectOffset = twin_material.reflect_dist.x > 0.0 ? ToGameClip(worldNormal).xy * twin_material.reflect_dist.y : vec2(0.0);
 	gl_Position = StartProjection * viewModel * vec4(processedPosition, 1.0);
 	Texpos = in_Texpos;
 	Normal = in_Normal;
 	Color = twin_material.lit > 0.5 && instance.Lighting.x >= 0
 		? vec4(LitColor(lightSets[instance.Lighting.x], worldNormal, in_Color.rgb), in_Color.a)
-		: vec4(in_Color.rgb * twin_material.double_color, in_Color.a);
+		: in_Color;
 	InstanceColor = instance.Color;
 }

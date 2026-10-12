@@ -424,6 +424,26 @@ public class PropertyNode
         RaiseDescendantsChanged();
     }
 
+    /// <summary>
+    /// The value got changed outside the document's editors (a chunk's view following its asset): what's under it is made again for it and
+    /// its editors show it. Nothing the graph's history hears of
+    /// </summary>
+    internal void FollowValue()
+    {
+        if (PropertyType.IsAssignableTo(typeof(LabURI)))
+        {
+            PropertyGraphBuilder.RebuildLink(this);
+            Graph?.Index(this);
+        }
+        else if (Children.Count > 0 || PropertyGraphBuilder.CanHaveChildren(GetValue()?.GetType()))
+        {
+            RebuildChildren();
+        }
+
+        Changed?.Invoke();
+        RaiseDescendantsChanged();
+    }
+
     // The values under a replaced one are the new value's now, their editors show them again (flags' check boxes after an undo)
     private void RaiseDescendantsChanged()
     {

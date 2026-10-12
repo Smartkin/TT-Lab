@@ -1,7 +1,9 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows;
 using Avalonia.Media.Imaging;
 using TT_Lab.AssetData.Graphics;
@@ -9,6 +11,7 @@ using TT_Lab.Assets;
 using TT_Lab.Assets.Graphics;
 using TT_Lab.Rendering.Buffers;
 using TT_Lab.Util;
+using Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.Graphics;
 
 namespace TT_Lab.Rendering.Services;
 
@@ -51,11 +54,19 @@ public class TextureService
         {
             return null;
         }
-        
-        texture = RegisterTexture(uri, textureData.Bitmap);
-        if (textureAsset.GenerateMipmaps)
+
+        // The pixels as they are: the GS blends by straight alpha, the bitmap's are premultiplied, which darkened every partly
+        // transparent pixel and the edges filtering blends into the see-through ones
+        var width = textureData.Bitmap.PixelSize.Width;
+        var height = textureData.Bitmap.PixelSize.Height;
+        var pixels = textureData.GetPixels();
+        texture = new TextureBuffer(_renderContext, MemoryMarshal.AsBytes(pixels.AsSpan()), (uint)width, (uint)height);
+        _textures.Add(uri, texture);
+        // As many levels as building gives the PS2's texture, which the GS picks by the distance
+        var levels = PS2AnyTexture.LevelsOf(width, height, textureAsset.GenerateMipmaps);
+        if (levels > 1)
         {
-            texture.GenerateMipmaps();
+            texture.GenerateMipmaps(levels);
         }
         
         return texture;

@@ -141,9 +141,9 @@ public sealed class SceneLightsTests
 
         Near(new vec3(1.0f), set.At(vec3.UnitY));
         Near(new vec3(0.5f), set.At(-vec3.UnitY));
-        // 128 is the texture as it is, the GS takes up to twice it
-        Near(new vec3(1.0f), LightSet.Shade(new vec3(128 / 255f), set.At(vec3.UnitY)));
-        Near(new vec3(255 / 128f), LightSet.Shade(new vec3(1.0f), new vec3(3.0f)));
+        // The GS takes 128 as the texture as it's stored, half its PNG: 255 draws the PNG as it is, and no more
+        Near(new vec3(128 / 255f), LightSet.Shade(new vec3(128 / 255f), set.At(vec3.UnitY)));
+        Near(new vec3(1.0f), LightSet.Shade(new vec3(1.0f), new vec3(3.0f)));
     }
 
     // A third grey ambient light at 4.5 and a third grey directional light at 3 from above

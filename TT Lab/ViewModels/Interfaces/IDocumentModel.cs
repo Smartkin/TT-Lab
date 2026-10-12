@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using GlmSharp;
+using TT_Lab.Assets;
 using TT_Lab.Extensions;
 using TT_Lab.Rendering;
 using TT_Lab.Rendering.Objects;
@@ -159,9 +161,18 @@ public record ViewportObject(EditableObject Render, string DocumentName, Propert
     public PropertyNode? DuplicatedElement { get; init; }
 
     /// <summary>
-    /// Anything the visuals depend on besides the transform
+    /// Anything the visuals depend on besides the transform. A link stands for what it links as well, wherever that gets changed (an
+    /// instance's object through another instance's link or in its own editor)
     /// </summary>
     public IReadOnlyList<PropertyNode> RenderDependencies { get; init; } = [];
+
+    /// <summary>
+    /// Whether one of the render dependencies links the asset
+    /// </summary>
+    public bool Links(LabURI? asset)
+    {
+        return asset != null && asset != LabURI.Empty && RenderDependencies.Any(dependency => dependency.PropertyType == typeof(LabURI) && dependency.GetValue() is LabURI link && link == asset);
+    }
 
     /// <summary>
     /// Updates the visuals after any of the render dependencies changed. Gets called on the UI thread, returns false when the objects of

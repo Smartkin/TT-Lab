@@ -433,10 +433,8 @@ public class ObjectInstanceData : AbstractAssetData
     public override List<ViewportObject> GetViewportObjects(ViewportContext viewportContext,
         PropertyNode property)
     {
-        var assetManager = AssetManager.Get();
-        // A chunk's document shows its own version of an object it shares with other chunks
-        var objectAsset = property.Find($"[data].AssetData.{nameof(ObjectId)}[data]")?.Target as IAsset ?? assetManager.GetAsset(ObjectId);
-        var editableObject = CreateVisual(viewportContext.RenderContext, ModelOf(objectAsset.GetData<GameObjectData>()), Owner.FullDataPath);
+        var model = ModelOf(property);
+        var editableObject = CreateVisual(viewportContext.RenderContext, model, Owner.FullDataPath);
         editableObject.SetPosition(Position.ToGlm());
         editableObject.SetRotation(new quat(Rotation.ToRadiansGlm()));
         var objectProperty = property.Find($"[data].AssetData.{nameof(ObjectId)}");
@@ -445,10 +443,25 @@ public class ObjectInstanceData : AbstractAssetData
             Position = property.Find($"[data].AssetData.{nameof(Position)}"),
             Rotation = property.Find($"[data].AssetData.{nameof(Rotation)}"),
             Category = ViewportObjectCategory.Instances,
-            // A different object brings a different model, which is easier to make from scratch
+            // The object gives the instance its model, wherever the object changes (through another instance's link, in its own editor).
+            // Another model is easier to make from scratch
             RenderDependencies = objectProperty == null ? [] : [objectProperty],
-            Refresh = () => false,
+            Refresh = () => ModelOf(property) == model,
         }];
+    }
+
+    /// <summary>
+    /// The model the instance's object draws it with, in a chunk's document the chunk's version of the object
+    /// </summary>
+    internal LabURI ModelOf(PropertyNode property)
+    {
+        if (property.Find($"[data].AssetData.{nameof(ObjectId)}[data]")?.Target is IAsset objectAsset)
+        {
+            return ModelOf(objectAsset.GetData<GameObjectData>());
+        }
+
+        var assetManager = AssetManager.Get();
+        return ObjectId == LabURI.Empty || !assetManager.DoesAssetExist(ObjectId) ? LabURI.Empty : ModelOf(assetManager.GetAssetData<GameObjectData>(ObjectId));
     }
 
     /// <summary>

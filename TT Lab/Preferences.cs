@@ -34,6 +34,8 @@ namespace TT_Lab
         public const string ViewportRotationSnap = "ViewportRotationSnap";
         public const string ViewportScaleSnap = "ViewportScaleSnap";
         public const string ViewportGridShown = "ViewportGridShown";
+        // Whether chunks' scenes leave out the scenery's levels of detail past their distances, like the game
+        public const string ViewportLodCulling = "ViewportLodCulling";
         // Megabytes of memory builds keep TT Lab within, chunks only build in parallel while there's room for more
         public const string BuildMemoryBudget = "BuildMemoryBudget";
         // Folders of the projects opened last, newest first
@@ -65,6 +67,7 @@ namespace TT_Lab
             Settings[ViewportRotationSnap] = 15.0;
             Settings[ViewportScaleSnap] = 0.1;
             Settings[ViewportGridShown] = true;
+            Settings[ViewportLodCulling] = false;
             Settings[BuildMemoryBudget] = 2048.0;
             Settings[RecentProjects] = new List<string>();
             Settings[LastBuildProfile] = "";

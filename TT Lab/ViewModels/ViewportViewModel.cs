@@ -155,6 +155,7 @@ public partial class ViewportViewModel : ReactiveObject
     private bool _isChunkViewport = false;
     private bool _isOgiViewer;
     private bool _showsSkeletons;
+    private bool _cullsLods;
     // Set while the viewport puts an element into a list itself, it shows and selects the element's objects on its own
     private bool _isPlacingElement;
     private IInputContext? _inputContext;
@@ -213,13 +214,15 @@ public partial class ViewportViewModel : ReactiveObject
         RotationSnap = new SnapStep(15.0f, 1.0f, 5.0f, 10.0f, 15.0f, 22.5f, 30.0f, 45.0f, 90.0f);
         ScaleSnap = new SnapStep(0.1f, 0.01f, 0.05f, 0.1f, 0.25f, 0.5f, 1.0f);
         LoadSnappingPreferences();
-        // Snapping is set up the same in all viewports, changing it in one changes it everywhere
+        CullsLods = Preferences.GetPreference<bool>(Preferences.ViewportLodCulling);
+        // Snapping and the LODs' culling are set up the same in all viewports, changing them in one changes them everywhere
         Preferences.PreferenceChanged += OnPreferenceChanged;
         Disposable.Create(() => Preferences.PreferenceChanged -= OnPreferenceChanged).DisposeWith(_closeDisposables);
 
         SelectToolCommand = ReactiveCommand.Create<TransformMode>(SetTool);
         ToggleTransformSpaceCommand = ReactiveCommand.Create(ToggleTransformSpace);
         ToggleSnappingCommand = ReactiveCommand.Create(() => { IsSnapping = !IsSnapping; });
+        ToggleLodCullingCommand = ReactiveCommand.Create(() => { CullsLods = !CullsLods; });
         FrameSelectionCommand = ReactiveCommand.Create(FrameSelection);
         InitPrefabs();
         InitGameLaunch();
@@ -257,6 +260,7 @@ public partial class ViewportViewModel : ReactiveObject
     public ReactiveCommand<TransformMode, Unit> SelectToolCommand { get; }
     public ReactiveCommand<Unit, Unit> ToggleTransformSpaceCommand { get; }
     public ReactiveCommand<Unit, Unit> ToggleSnappingCommand { get; }
+    public ReactiveCommand<Unit, Unit> ToggleLodCullingCommand { get; }
     public ReactiveCommand<Unit, Unit> FrameSelectionCommand { get; }
     public bool IsSelectTool => ActiveTool == TransformMode.SELECTION;
     public bool IsTranslateTool => ActiveTool == TransformMode.TRANSLATE;
@@ -319,10 +323,12 @@ public partial class ViewportViewModel : ReactiveObject
 
         document.PropertyGraph.Changed += PropertyGraphOnChanged;
         document.PropertyGraph.Changed += FollowCollisionShape;
+        document.PropertyGraph.Followed += PropertyGraphOnFollowed;
         Disposable.Create(() =>
         {
             document.PropertyGraph.Changed -= PropertyGraphOnChanged;
             document.PropertyGraph.Changed -= FollowCollisionShape;
+            document.PropertyGraph.Followed -= PropertyGraphOnFollowed;
         }).DisposeWith(_closeDisposables);
     }
 
@@ -356,6 +362,25 @@ public partial class ViewportViewModel : ReactiveObject
             {
                 Preferences.SetPreference(Preferences.OgiViewerSkeleton, value);
             }
+        }
+    }
+
+    /// <summary>
+    /// Whether the scene leaves out the scenery's levels of detail past their distances, like the game does (<see cref="LodVisual"/>), off
+    /// unless the toolbar turns it on. Kept in the preferences, which every viewport follows
+    /// </summary>
+    public bool CullsLods
+    {
+        get => _cullsLods;
+        set
+        {
+            this.RaiseAndSetIfChanged(ref _cullsLods, value);
+            if (_renderContext != null)
+            {
+                _renderContext.CullsLods = value;
+            }
+
+            Preferences.SetPreference(Preferences.ViewportLodCulling, value);
         }
     }
 
@@ -396,6 +421,7 @@ public partial class ViewportViewModel : ReactiveObject
     {
         _renderContext = renderContext;
         renderContext.ShowsSkeletons = _showsSkeletons;
+        renderContext.CullsLods = _cullsLods;
         var inputContext = new LabInputContext(Host);
         _inputContext = inputContext;
         _mouse = inputContext.Mice[0];
@@ -1288,6 +1314,9 @@ public partial class ViewportViewModel : ReactiveObject
         }
 
         List<PropertyNode>? structureRebuilds = null;
+        // An asset is under every link to it, changed under one link it's changed for the objects of the others as well (the object of
+        // every instance of it)
+        var changedAsset = DocumentViewModel.GetOwningAsset(changed)?.URI;
         foreach (var viewportObject in _viewportObjects)
         {
             // Links to other resources have their whole data below them, pointing one to another resource replaces it
@@ -1311,7 +1340,7 @@ public partial class ViewportViewModel : ReactiveObject
                 ApplyTransformFromData(viewportObject);
             }
 
-            if (viewportObject.Refresh != null && viewportObject.RenderDependencies.Any(dependency => IsWithin(changed, dependency)) &&
+            if (viewportObject.Refresh != null && (viewportObject.RenderDependencies.Any(dependency => IsWithin(changed, dependency)) || viewportObject.Links(changedAsset)) &&
                 !viewportObject.Refresh())
             {
                 AddRebuild(ref rebuilds, viewportObject.Property);
@@ -1346,6 +1375,30 @@ public partial class ViewportViewModel : ReactiveObject
         }
 
         foreach (var property in rebuilds.Where(property => structureRebuilds?.Contains(property) != true))
+        {
+            RebuildViewportObjects(property);
+        }
+    }
+
+    // A chunk's view took what another editor changed in its asset (a model picked for an object in its own editor): what's drawn of it
+    // is made again
+    private void PropertyGraphOnFollowed(IAsset view)
+    {
+        if (!_renderInit)
+        {
+            return;
+        }
+
+        List<PropertyNode>? rebuilds = null;
+        foreach (var viewportObject in _viewportObjects)
+        {
+            if (viewportObject.Refresh != null && viewportObject.Links(view.URI) && !viewportObject.Refresh())
+            {
+                AddRebuild(ref rebuilds, viewportObject.Property);
+            }
+        }
+
+        foreach (var property in rebuilds ?? [])
         {
             RebuildViewportObjects(property);
         }
@@ -1622,7 +1675,11 @@ public partial class ViewportViewModel : ReactiveObject
 
     private void OnPreferenceChanged(object? sender, Preferences.PreferenceChangedArgs e)
     {
-        if (e.PreferenceName.StartsWith("Viewport", StringComparison.Ordinal))
+        if (e.PreferenceName == Preferences.ViewportLodCulling)
+        {
+            CullsLods = Preferences.GetPreference<bool>(Preferences.ViewportLodCulling);
+        }
+        else if (e.PreferenceName.StartsWith("Viewport", StringComparison.Ordinal))
         {
             LoadSnappingPreferences();
         }

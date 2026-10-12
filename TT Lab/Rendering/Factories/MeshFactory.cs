@@ -231,8 +231,9 @@ public class MeshFactory
     }
 
     /// <summary>
-    /// A sphere of radius 1 standing on the floor with the material on it, what the material editor shows it on. Lit materials double
-    /// the vertexes' colors, so their sphere is half as bright
+    /// A sphere of radius 1 standing on the floor with the material on it, what the material editor shows it on. Its vertexes have the
+    /// colors the game's models of the kind mostly have: 128 for the lit types (objects, lit by the default lights) and 255 for the rest
+    /// (the scenery, which draws its texture as it is)
     /// </summary>
     public Mesh CreateMaterialPreview(MaterialData material)
     {

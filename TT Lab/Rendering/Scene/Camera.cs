@@ -14,17 +14,11 @@ public class Camera(RenderContext context) : Renderable(context, "Scene Camera")
     private readonly float _zNear = 0.05f;
     private readonly float _zFar = 100000.0f;
     private vec2 _viewportResolution = vec2.Zero;
-    private vec3 _fogColor = vec3.Zero;
 
     public void SetResolution(vec2 resolution)
     {
         _viewportResolution = resolution;
         _projectionMatrix = mat4.Perspective(glm.Radians(_fov), resolution.x / resolution.y, _zNear, _zFar);
-    }
-
-    public void SetFogColor(vec3 color)
-    {
-        _fogColor = color;
     }
 
     public vec3 GetRayFromViewport(float x, float y)
@@ -52,7 +46,9 @@ public class Camera(RenderContext context) : Renderable(context, "Scene Camera")
         program.SetUniform(KnownUniform.StartProjection, camera.Projection);
         program.SetUniform(KnownUniform.StartView, camera.View);
         program.SetUniform(KnownUniform.InverseView, camera.World);
-        program.SetUniform(KnownUniform.FogColor, _fogColor);
+        // 1 the PS2's colour filter, 2 the Xbox's fog stage (GameFog)
+        var fog = _context.Fog;
+        program.SetUniform(KnownUniform.FogMode, fog == null ? 0 : fog.Xbox ? 2 : 1);
         program.SetUniform(KnownUniform.EyePosition, camera.Position);
         program.SetUniform(KnownUniform.EyeDirection, camera.World.Column2.xyz);
         program.SetUniform(KnownUniform.GameClipScale, EnvironmentMapping.ClipScale);

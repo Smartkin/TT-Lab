@@ -30,8 +30,10 @@ public class BillboardSet : Renderable, IInstancedRenderable
         _renderMaterial.Shaders[0].TextureId = LabURI.GetLabIcon(labIconName);
         _renderMaterial.Shaders[0].DepthTest = TwinShader.DepthTestMethod.ALWAYS;
         _renderMaterial.Shaders[0].ShaderType = TwinShader.Type.UnlitBillboard;
+        // Half the alpha or more, the GS's 128 being 1
         _renderMaterial.Shaders[0].ATest = TwinShader.AlphaTest.ON;
-        _renderMaterial.Shaders[0].AlphaValueToBeComparedTo = 128;
+        _renderMaterial.Shaders[0].ATestMethod = TwinShader.AlphaTestMethod.GEQUAL;
+        _renderMaterial.Shaders[0].AlphaValueToBeComparedTo = 64;
         _renderMaterial.Shaders[0].ForcedShaderName = "CUSTOM_BILLBOARDS";
 
         var plane = meshFactory.CreateMesh(LabURI.Plane);
