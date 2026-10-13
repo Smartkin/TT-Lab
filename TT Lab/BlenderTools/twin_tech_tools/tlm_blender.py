@@ -1697,30 +1697,35 @@ def _attached_placement(root: bpy.types.Object, blender_object: bpy.types.Object
     """The joint a body, exit point or hull follows and where it is in the joint's space: where the object would be with the armature
     at rest, whichever way it follows its bone, relative to the joint's rest. Without a joint it's relative to the model."""
     joint = _attached_joint(blender_object, joint_of_bone, default_joint, joint_of_stored)
-    parent = blender_object.parent
-    unconstrained = parent.matrix_world @ blender_object.matrix_parent_inverse @ blender_object.matrix_basis if parent is not None else blender_object.matrix_basis.copy()
-    rest_world = None
-    if armature is not None:
-        constraint = next((constraint for constraint in blender_object.constraints
-                           if constraint.type == "CHILD_OF" and constraint.target == armature and constraint.subtarget in joint_of_bone), None)
-        if constraint is not None:
-            # The constraint puts the object at the bone's pose, as the pose it was set up in moved
-            bone = armature.data.bones[constraint.subtarget]
-            rest_world = armature.matrix_world @ bone.matrix_local @ constraint.inverse_matrix @ unconstrained
-        elif blender_object.parent_type == "BONE" and parent == armature and blender_object.parent_bone in joint_of_bone:
-            # Blender parents to the bone's tail
-            bone = armature.data.bones[blender_object.parent_bone]
-            rest_world = armature.matrix_world @ bone.matrix_local @ Matrix.Translation((0.0, bone.length, 0.0)) @ blender_object.matrix_parent_inverse @ blender_object.matrix_basis
-
-    if rest_world is None:
-        rest_world = blender_object.matrix_world
-
+    attachment = _rest_attachment(blender_object, armature, joint_of_bone) if armature is not None else None
+    rest_world = attachment[2] if attachment is not None else blender_object.matrix_world
     relative = root.matrix_world.inverted() @ rest_world
     rest = rests.get(joint)
     if rest is None:
         return joint, relative
 
     return joint, Matrix(tlm_math.compose(rest[0], rest[1])).inverted() @ relative
+
+
+def _rest_attachment(blender_object: bpy.types.Object, armature: bpy.types.Object,
+                     bones: typing.Container[str]) -> typing.Optional[typing.Tuple[typing.Any, bpy.types.Bone, Matrix]]:
+    """How the object follows one of the bones of the armature: the Child Of constraint it follows it through (None when it's
+    parented to the bone), the bone and where the object is with the armature at rest. None when it follows none of the bones."""
+    parent = blender_object.parent
+    constraint = next((constraint for constraint in blender_object.constraints
+                       if constraint.type == "CHILD_OF" and constraint.target == armature and constraint.subtarget in bones), None)
+    if constraint is not None:
+        unconstrained = parent.matrix_world @ blender_object.matrix_parent_inverse @ blender_object.matrix_basis if parent is not None else blender_object.matrix_basis.copy()
+        # The constraint puts the object at the bone's pose, as the pose it was set up in moved
+        bone = armature.data.bones[constraint.subtarget]
+        return constraint, bone, armature.matrix_world @ bone.matrix_local @ constraint.inverse_matrix @ unconstrained
+
+    if blender_object.parent_type == "BONE" and parent == armature and blender_object.parent_bone in bones:
+        # Blender parents to the bone's tail
+        bone = armature.data.bones[blender_object.parent_bone]
+        return None, bone, armature.matrix_world @ bone.matrix_local @ Matrix.Translation((0.0, bone.length, 0.0)) @ blender_object.matrix_parent_inverse @ blender_object.matrix_basis
+
+    return None
 
 
 def _animation_meta(action: bpy.types.Action) -> typing.Dict[str, typing.Any]:
@@ -2060,11 +2065,12 @@ def joint_matches(original: bpy.types.Object, incoming: bpy.types.Object, match:
     return retarget.match_joints(bone_infos(original), bone_infos(incoming), match)
 
 
-def assign_joints(original: bpy.types.Object, incoming: bpy.types.Object, match: str = retarget.MATCH_AUTO) -> typing.Dict[str, int]:
+def assign_joints(original: bpy.types.Object, incoming: bpy.types.Object,
+                  match: str = retarget.MATCH_AUTO) -> typing.Tuple[typing.Dict[str, int], typing.Dict[str, str]]:
     """Makes the incoming armature's bones the original's joints: every bone gets the name and the joint index of the original bone it
     stands for (bones the original doesn't have get the next joint indexes as Joint N, or keep their names and settings with
     retarget.MATCH_NAME_ONLY), with the joint's settings the original has (its react ID and additional rotation). Returns how many bones
-    were matched each way (retarget.BY_INDEX, BY_NAME, BY_ORDER, NEW, KEPT)."""
+    were matched each way (retarget.BY_INDEX, BY_NAME, BY_ORDER, NEW, KEPT) and the incoming bone each original bone it matched became."""
     matches = joint_matches(original, incoming, match)
     bones = incoming.data.bones
     # Names get swapped around, so nothing may take another bone's name before that one gave it up
@@ -2072,9 +2078,13 @@ def assign_joints(original: bpy.types.Object, incoming: bpy.types.Object, match:
         bones[name].name = "ttt_renaming " + name
 
     counts: typing.Dict[str, int] = {}
+    joint_bones: typing.Dict[str, str] = {}
     for name, match in matches.items():
         bone = bones["ttt_renaming " + name]
         bone.name = retarget.joint_name(match, name)
+        if match[1] is not None:
+            joint_bones[match[1]] = bone.name
+
         data: typing.Dict[str, typing.Any] = {"Index": match[0]}
         container = properties.get(bone)
         if match[2] == retarget.KEPT and container is not None and container.type == "Joint":
@@ -2093,7 +2103,7 @@ def assign_joints(original: bpy.types.Object, incoming: bpy.types.Object, match:
         incoming.pose.bones[bone.name].rotation_mode = "QUATERNION"
         counts[match[2]] = counts.get(match[2], 0) + 1
 
-    return counts
+    return counts, joint_bones
 
 
 def animations_of(root: bpy.types.Object) -> typing.List[bpy.types.Action]:
@@ -2143,12 +2153,13 @@ def retarget_problem(source: typing.Optional[bpy.types.Object], target: typing.O
     return None
 
 
-def retarget_armature(context: bpy.types.Context, source: bpy.types.Object, target: bpy.types.Object,
-                      match: str = retarget.MATCH_AUTO) -> typing.Tuple[int, typing.Dict[str, int], typing.List[str]]:
-    """Makes the target armature play the source armature's animations: its bones become the source's joints (assign_joints), every
-    animation of the source becomes the target's under the same name and ID (retarget_animations), and the source's own go, so nothing
-    gets Blender's numbers. Returns how many animations were retargeted, how many bones were matched each way and the names another
-    action already had (those kept Blender's numbers)."""
+def retarget_armature(context: bpy.types.Context, source: bpy.types.Object, target: bpy.types.Object, match: str = retarget.MATCH_AUTO
+                      ) -> typing.Tuple[int, typing.Dict[str, int], typing.List[str], typing.List[typing.Tuple[str, typing.Optional[str]]]]:
+    """Makes the target armature play the source armature's animations: its bones become the source's joints (assign_joints), the
+    bodies, exit points and hulls following the source's bones follow the target's (move_attached), every animation of the source
+    becomes the target's under the same name and ID (retarget_animations), and the source's own go, so nothing gets Blender's numbers.
+    Returns how many animations were retargeted, how many bones were matched each way, the names another action already had (those kept
+    Blender's numbers) and the objects that follow the target's bones now, with the joint each lost (see move_attached)."""
     problem = retarget_problem(source, target)
     if problem is not None:
         raise ValueError(problem)
@@ -2158,7 +2169,10 @@ def retarget_armature(context: bpy.types.Context, source: bpy.types.Object, targ
         if problem is not None:
             raise ValueError(problem)
 
-    matched = assign_joints(source, target, match)
+    matched, joint_bones = assign_joints(source, target, match)
+    # Where the objects are comes from the armatures' and their parents' world matrices
+    context.view_layer.update()
+    moved = move_attached(source, target, joint_bones)
     originals = {_uid_of(action): action for action in _owned_actions(find_root(source), source, _matched_bones(source, target))}
     count = retarget_animations(source, target)
     owner = _uid_of(target)
@@ -2191,7 +2205,67 @@ def retarget_armature(context: bpy.types.Context, source: bpy.types.Object, targ
         context.scene.frame_start = 0
         context.scene.frame_end = int(first.frame_range[1])
 
-    return count, matched, taken
+    return count, matched, taken, moved
+
+
+# What follows one of a model's joints
+ATTACHED_KINDS = ("body", "exit_point", "hull")
+
+
+def move_attached(source: bpy.types.Object, target: bpy.types.Object,
+                  joint_bones: typing.Dict[str, str]) -> typing.List[typing.Tuple[str, typing.Optional[str]]]:
+    """Makes the bodies, exit points and hulls following the source armature's bones follow the target armature's bone of the same
+    joint (joint_bones: the target's bone each source bone became), or the target's root joint when the target has no bone of their
+    joint. Each keeps its turn and its offset from its joint at rest (from the root joint's for one that lost its joint), in the world's
+    axes and times how much bigger the target's skeleton is, the way the retargeted animations move the joints. Returns every object
+    moved with the joint it lost, None when the target has its joint."""
+    source_joints, target_joints = joints_of_bones(source), joints_of_bones(target)
+    source_root = next((name for name, index in source_joints.items() if index == 0), None)
+    target_root = next((name for name, index in target_joints.items() if index == 0), None)
+    if source_root is None or target_root is None:
+        return []
+
+    scale = retarget.size_ratio(_skeleton(source), _skeleton(target), {target_name: source_name for source_name, target_name in joint_bones.items()})
+    moved: typing.List[typing.Tuple[str, typing.Optional[str]]] = []
+    for blender_object in bpy.data.objects:
+        if not in_scene(blender_object) or role_of(blender_object) not in ATTACHED_KINDS:
+            continue
+
+        attachment = _rest_attachment(blender_object, source, source_joints)
+        if attachment is None:
+            continue
+
+        constraint, bone, rest_world = attachment
+        reference, target_name, lost = bone.name, joint_bones.get(bone.name), None
+        if target_name is None:
+            reference, target_name, lost = source_root, target_root, bone.name
+
+        target_bone = target.data.bones[target_name]
+        target_rest = target.matrix_world @ target_bone.matrix_local
+        source_head = (source.matrix_world @ source.data.bones[reference].matrix_local).translation
+        placed = rest_world.copy()
+        placed.translation = target_rest.translation + (rest_world.translation - source_head) * scale
+        if constraint is not None:
+            constraint.target, constraint.subtarget = target, target_name
+            # Set Inverse with the target at rest: the object's own transform is where it is at rest
+            constraint.inverse_matrix = target_rest.inverted()
+            parent = blender_object.parent
+            blender_object.matrix_basis = (parent.matrix_world @ blender_object.matrix_parent_inverse).inverted() @ placed if parent is not None else placed
+        else:
+            blender_object.parent = target
+            blender_object.parent_bone = target_name
+            # Blender parents to the bone's tail, and setting the bone cleared the parent inverse
+            blender_object.matrix_parent_inverse = (target_rest @ Matrix.Translation((0.0, target_bone.length, 0.0))).inverted()
+            blender_object.matrix_basis = placed
+
+        # What exporting goes by when it doesn't follow a bone any more
+        container = properties.get(target_bone)
+        if container is not None and container.type == "Joint":
+            blender_object[JOINT_PROPERTY] = int(container.joint.index)
+
+        moved.append((blender_object.name, lost))
+
+    return moved
 
 
 def retarget_animations(source: bpy.types.Object, target: bpy.types.Object) -> int:

@@ -232,9 +232,10 @@ def _is_armature(self, blender_object):
 class TTT_OT_Retarget(bpy.types.Operator):
     """Plays the source armature's animations on the target armature: the target's bones get the source's joint names, indexes and
     settings (by joint index while the target's skeleton is the source's, then by name, then by the hierarchy in order, the rest new
-    joints), every animation of the source becomes the target's under the same name and ID, in which the matched bones turn from their own
-    rests as much as the source's do on every frame and move as far, and the source's own animations go. Export the target's model
-    afterwards"""
+    joints), the bodies, exit points and hulls on the source's bones go on the target's bones of their joints (on its root joint when
+    it has none of theirs), every animation of the source becomes the target's under the same name and ID, in which the matched bones
+    turn from their own rests as much as the source's do on every frame and move as far, and the source's own animations go. Export the
+    target's model afterwards"""
 
     bl_idname = "ttt.retarget"
     bl_label = "Perform Retargeting"
@@ -256,7 +257,7 @@ class TTT_OT_Retarget(bpy.types.Operator):
         _in_object_mode(context)
         source_name, target_name = source.name, target.name
         try:
-            count, matched, taken = tlm_blender.retarget_armature(context, source, target, scene.ttt_retarget_match)
+            count, matched, taken, moved = tlm_blender.retarget_armature(context, source, target, scene.ttt_retarget_match)
         except ValueError as error:
             self.report({"ERROR"}, "Can't retarget: %s" % error)
             return {"CANCELLED"}
@@ -264,9 +265,14 @@ class TTT_OT_Retarget(bpy.types.Operator):
         how = ", ".join("%d by %s" % (matched[way], label) for way, label in ((retarget.BY_INDEX, "joint index"), (retarget.BY_NAME, "name"),
                                                                              (retarget.BY_ORDER, "the hierarchy"), (retarget.NEW, "none, new joints"),
                                                                              (retarget.KEPT, "none, kept as they are")) if matched.get(way))
-        self.report({"INFO"}, "%s plays the %d animations of %s now; bones matched %s" % (target_name, count, source_name, how))
+        followed = "; bodies, exit points and hulls moved onto its bones: %d" % len(moved) if moved else ""
+        self.report({"INFO"}, "%s plays the %d animations of %s now; bones matched %s%s" % (target_name, count, source_name, how, followed))
         if taken:
             self.report({"WARNING"}, "Other actions are named %s already, so these kept Blender's numbers" % ", ".join(taken))
+
+        lost = ["%s (on %s)" % (name, joint) for name, joint in moved if joint is not None]
+        if lost:
+            self.report({"WARNING"}, "%s has no bone of these joints, what was on them follows its root joint: %s" % (target_name, ", ".join(lost)))
 
         return {"FINISHED"}
 

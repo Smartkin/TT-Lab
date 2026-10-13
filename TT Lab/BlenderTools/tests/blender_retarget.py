@@ -4,13 +4,16 @@
 
 Prints RETARGET OK when the target armature got the source's joints and animations under their own names and IDs, the source's own
 animations went, and the target's model exports with them. Matching by name only, the target's other bones stay as they are, and a
-target whose bones named like the joints are laid out otherwise, or that has none of their names, is refused without changing anything."""
+target whose bones named like the joints are laid out otherwise, or that has none of their names, is refused without changing anything.
+The bodies, exit points and hulls on the source's bones go on the target's bones of their joints, or on its root joint when it has none
+of theirs, and the model exports them there once its own armature is deleted."""
+import math
 import os
 import sys
 import tempfile
 
 import bpy
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import twin_tech_tools  # noqa: E402
@@ -152,6 +155,93 @@ def check_name_only():
     scene.ttt_retarget_match = "AUTO"
 
 
+def _rest_worlds(armature, objects):
+    """Where Blender puts the objects with the armature at rest."""
+    armature.data.pose_position = "REST"
+    bpy.context.view_layer.update()
+    worlds = {blender_object.name: blender_object.matrix_world.copy() for blender_object in objects}
+    armature.data.pose_position = "POSE"
+    bpy.context.view_layer.update()
+    return worlds
+
+
+def _close(a, b, tolerance=1e-5):
+    return all(abs(a[row][column] - b[row][column]) < tolerance for row in range(4) for column in range(4))
+
+
+def check_attached():
+    """A rig put into the model in place of its armature, twice as big, its bones pointing other ways and without the model's third
+    joint: the model's body goes on the rig's bone of the joint it was on, its exit point and hull, on the third joint, on the rig's root
+    joint. Each keeps its turn and its offset from its joint (the root joint's for the two), twice as long, and the model exports them on
+    those joints once its own armature is deleted."""
+    _clear()
+    root = tlm_blender.import_file(bpy.context, os.path.join(FIXTURES, "ogi.tlm"))
+    source = tlm_blender.armature_of(root)
+    attached = {tlm_blender.role_of(child): child for child in tlm_blender._descendants(root) if tlm_blender.role_of(child) in tlm_blender.ATTACHED_KINDS}
+    check(sorted(attached) == ["body", "exit_point", "hull"], "the fixture has %s" % sorted(attached))
+    joints = {"body": "Joint 1", "exit_point": "Joint 0", "hull": "Joint 0"}
+
+    rig = bpy.data.objects.new("rig", bpy.data.armatures.new("Rig"))
+    root.users_collection[0].objects.link(rig)
+    rig.parent = root
+    rig.location = (0.5, 0.0, 0.0)
+    bpy.context.view_layer.objects.active = rig
+    bpy.ops.object.mode_set(mode="EDIT")
+    bones = {}
+    for name, joint in (("Hips", "Joint 0"), ("Spine", "Joint 1")):
+        rest = source.data.bones[joint].matrix_local
+        bones[name] = rig.data.edit_bones.new(name)
+        bones[name].head, bones[name].tail = (0.0, 0.0, 0.0), (0.0, source.data.bones[joint].length, 0.0)
+        bones[name].matrix = Matrix.Translation(rest.translation * 2.0) @ rest.to_quaternion().to_matrix().to_4x4() @ Matrix.Rotation(math.radians(90.0), 4, "Z")
+
+    bones["Spine"].parent = bones["Hips"]
+    bpy.ops.object.mode_set(mode="OBJECT")
+    bpy.context.view_layer.update()
+    rests = _rest_worlds(source, attached.values())
+    heads = {joint: (source.matrix_world @ source.data.bones[joint].matrix_local).translation.copy() for joint in ("Joint 0", "Joint 1")}
+
+    moved = tlm_blender.retarget_armature(bpy.context, source, rig)[3]
+    expected_moves = [(attached["body"].name, None), (attached["exit_point"].name, "Joint 2"), (attached["hull"].name, "Joint 2")]
+    check(sorted(moved, key=str) == sorted(expected_moves, key=str), "the moves were %s" % moved)
+    after = _rest_worlds(rig, attached.values())
+    for kind, joint in joints.items():
+        blender_object = attached[kind]
+        constraint = blender_object.constraints[0]
+        check(constraint.target == rig and constraint.subtarget == joint, "%s follows %s's %s" % (kind, constraint.target, constraint.subtarget))
+        check(blender_object[tlm_blender.JOINT_PROPERTY] == int(joint[-1]), "%s keeps joint %s" % (kind, blender_object[tlm_blender.JOINT_PROPERTY]))
+        old, new = rests[blender_object.name], after[blender_object.name]
+        head = (rig.matrix_world @ rig.data.bones[joint].matrix_local).translation
+        # The offset in the world's axes, not the bones', which point other ways
+        expected = head + (old.translation - heads[joint]) * 2.0
+        check((new.translation - expected).length < 1e-5, "%s rests at %s, not %s" % (kind, new.translation, expected))
+        check(abs(abs(new.to_quaternion().dot(old.to_quaternion())) - 1.0) < 1e-6, "%s turned at rest" % kind)
+
+    # It goes with the bone like it did with the source's
+    walk = bpy.data.actions["Walk"]
+    tlm_blender.assign_action(rig, walk)
+    for frame in range(int(walk.frame_range[1]) + 1):
+        bpy.context.scene.frame_set(frame)
+        bpy.context.view_layer.update()
+        for kind, joint in joints.items():
+            moved_by = rig.matrix_world @ rig.pose.bones[joint].matrix @ (rig.matrix_world @ rig.data.bones[joint].matrix_local).inverted()
+            check(_close(attached[kind].matrix_world, moved_by @ after[attached[kind].name]), "%s doesn't follow %s on frame %d" % (kind, joint, frame))
+
+    # What's left of the model when its armature goes exports on the rig's joints, where the objects rest from them
+    bpy.data.objects.remove(source)
+    bpy.context.view_layer.update()
+    path = os.path.join(tempfile.gettempdir(), "ttt_retarget_attached.tlm")
+    tlm_blender.export_file(root, path)
+    file = tlm.TlmFile.load(path)
+    os.remove(path)
+    nodes = {node.get("kind"): node for node in tlm.traverse(file.root) if node.get("kind") in tlm_blender.ATTACHED_KINDS}
+    for kind, joint in joints.items():
+        check(nodes[kind].get("joint") == int(joint[-1]), "the file has %s on joint %s" % (kind, nodes[kind].get("joint")))
+        joint_rest = root.matrix_world.inverted() @ rig.matrix_world @ rig.data.bones[joint].matrix_local
+        relative = joint_rest.inverted() @ root.matrix_world.inverted() @ after[attached[kind].name]
+        written = Vector(nodes[kind].get("translation", (0.0, 0.0, 0.0)))
+        check((written - relative.translation).length < 1e-4, "the file has %s at %s from its joint, not %s" % (kind, written, relative.translation))
+
+
 def main():
     twin_tech_tools.register()
     _clear()
@@ -196,6 +286,11 @@ def main():
     check(names == {"Joint 0": 0, "Joint 1": 1, "Joint 2": 2}, "the target's bones weren't named like the joints: %s" % names)
     check(target.data.bones["Joint 2"].parent.name == "Joint 1", "the hierarchy changed")
     check(all(pose_bone.rotation_mode == "QUATERNION" for pose_bone in target.pose.bones), "the bones don't rotate by quaternions")
+    # The target's own exit point stays on its bone, renamed with it, the source's goes on the target's bone of its joint
+    for model in (target_root, root):
+        exit_point = next(child for child in tlm_blender._descendants(model) if tlm_blender.role_of(child) == "exit_point")
+        constraint = exit_point.constraints[0]
+        check(constraint.target == target and constraint.subtarget == "Joint 2", "%s's exit point follows %s's %s" % (model.name, constraint.target, constraint.subtarget))
 
     # The animations under their own names, the source's gone
     actions = {action.name: action for action in bpy.data.actions}
@@ -239,6 +334,7 @@ def main():
     os.remove(path)
     os.remove(source_path)
     check_name_only()
+    check_attached()
     print("RETARGET OK, warnings: %s" % (warnings or "none"))
 
 
