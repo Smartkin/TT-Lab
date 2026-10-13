@@ -13,6 +13,11 @@ public class ShaderProgram : IDisposable
     private readonly Dictionary<string, int> _attributeLocations = [];
     private readonly Dictionary<string, int> _uniformLocations = [];
     private readonly int[] _knownUniformLocations = new int[KnownUniforms.Count];
+    // What MaterialEntry and DrawBase hold, set for every material drawn: consecutive draws of a material skip them
+    private int _materialEntry = -1;
+    private int _drawBase = int.MinValue;
+    // The shader's own initial value
+    private int _alphaSubpass;
 
     public ShaderProgram(RenderContext context, params Shader[] shaders)
     {
@@ -78,6 +83,48 @@ public class ShaderProgram : IDisposable
 
         _attributeLocations[name] = location;
         return location;
+    }
+
+    /// <summary>
+    /// The material entry the program draws with (<see cref="Materials.MaterialTable"/>), whether the program is in use or not
+    /// </summary>
+    public void SetMaterialEntry(int entry)
+    {
+        if (_materialEntry == entry)
+        {
+            return;
+        }
+
+        _materialEntry = entry;
+        _context.Gl.ProgramUniform1(_program, this[KnownUniform.MaterialEntry], entry);
+    }
+
+    /// <summary>
+    /// Where an indirect draw's entries start (<see cref="IndirectDraws"/>), -1 for the draws of one batch
+    /// </summary>
+    public void SetDrawBase(int first)
+    {
+        if (_drawBase == first)
+        {
+            return;
+        }
+
+        _drawBase = first;
+        _context.Gl.ProgramUniform1(_program, this[KnownUniform.DrawBase], first);
+    }
+
+    /// <summary>
+    /// Which fragments the draws have (<see cref="AlphaFailDraw"/>, <c>ModelLayout.frag</c>'s AlphaSubpass), whether the program is in use or not
+    /// </summary>
+    public void SetAlphaSubpass(int subpass)
+    {
+        if (_alphaSubpass == subpass)
+        {
+            return;
+        }
+
+        _alphaSubpass = subpass;
+        _context.Gl.ProgramUniform1(_program, this[KnownUniform.AlphaSubpass], subpass);
     }
 
     public void SetUniform(KnownUniform uniform, float value)

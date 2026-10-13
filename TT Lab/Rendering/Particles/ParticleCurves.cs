@@ -34,9 +34,23 @@ public static class ParticleCurves
 
     public static int CountKeys(Vector4[] keys) => CountKeys(i => keys[i].X);
 
+    // Every particle's values come from these every frame: the keys are read straight from the arrays, closures over them allocated
+    // per particle
     public static float Evaluate(Vector2[] keys, float time)
     {
-        return Evaluate(i => keys[i].X, i => keys[i].Y, time);
+        for (var i = 0; i < MaxKeys - 1; i++)
+        {
+            var from = keys[i].X;
+            var to = keys[i + 1].X;
+            if (from > time || time > to)
+            {
+                continue;
+            }
+
+            return Interpolate(from, to, keys[i].Y, keys[i + 1].Y, time);
+        }
+
+        return 0.0f;
     }
 
     /// <summary>
@@ -44,31 +58,30 @@ public static class ParticleCurves
     /// </summary>
     public static vec3 EvaluateColor(Vector4[] keys, float time)
     {
-        return new vec3(Evaluate(i => keys[i].X, i => keys[i].Y, time),
-            Evaluate(i => keys[i].X, i => keys[i].Z, time),
-            Evaluate(i => keys[i].X, i => keys[i].W, time));
-    }
-
-    // The game's search: the first pair in a row enclosing the time, 0 when there's none. A pair at the same time gives its first key's value
-    private static float Evaluate(Func<int, float> timeOf, Func<int, float> valueOf, float time)
-    {
         for (var i = 0; i < MaxKeys - 1; i++)
         {
-            var from = timeOf(i);
-            var to = timeOf(i + 1);
+            var from = keys[i].X;
+            var to = keys[i + 1].X;
             if (from > time || time > to)
             {
                 continue;
             }
 
-            if (time - from == 0.0f)
-            {
-                return valueOf(i);
-            }
-
-            return valueOf(i) + (time - from) / (to - from) * (valueOf(i + 1) - valueOf(i));
+            return new vec3(Interpolate(from, to, keys[i].Y, keys[i + 1].Y, time), Interpolate(from, to, keys[i].Z, keys[i + 1].Z, time),
+                Interpolate(from, to, keys[i].W, keys[i + 1].W, time));
         }
 
-        return 0.0f;
+        return vec3.Zero;
+    }
+
+    // The game's search: the first pair in a row enclosing the time, 0 when there's none. A pair at the same time gives its first key's value
+    private static float Interpolate(float from, float to, float fromValue, float toValue, float time)
+    {
+        if (time - from == 0.0f)
+        {
+            return fromValue;
+        }
+
+        return fromValue + (time - from) / (to - from) * (toValue - fromValue);
     }
 }

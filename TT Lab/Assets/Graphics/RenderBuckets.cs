@@ -17,6 +17,12 @@ public static class RenderBuckets
 {
     public const uint Count = 28;
 
+    /// <summary>
+    /// Where TT Lab's own see-through visuals (the markers of positions, paths and the like) go: after every bucket of the game, seen over
+    /// what it draws
+    /// </summary>
+    public const uint EditorVisuals = Count;
+
     public static readonly IReadOnlyList<RenderBucket> All = Enumerable.Range(0, (int)Count).Select(id => Describe((uint)id)).ToList();
 
     public static RenderBucket Find(uint id)

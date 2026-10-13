@@ -13,12 +13,21 @@ public static class LightAnchor
     /// </summary>
     public static Renderable Of(Renderable renderable)
     {
+        // Looked for again once anything in the scene got another parent
+        var version = Renderable.ParentsVersion;
+        if (renderable.LightAnchorVersion == version && renderable.CachedLightAnchor is { } anchor)
+        {
+            return anchor;
+        }
+
         var current = renderable;
         while (current is not ILightAnchor && current.Parent != null)
         {
             current = current.Parent;
         }
 
+        renderable.CachedLightAnchor = current;
+        renderable.LightAnchorVersion = version;
         return current;
     }
 }

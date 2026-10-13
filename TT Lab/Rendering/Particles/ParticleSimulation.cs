@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using GlmSharp;
 using TT_Lab.AssetData.Instance.Particle;
 using Twinsanity.TwinsanityInterchange.Common.Particles;
@@ -64,6 +65,10 @@ public sealed class ParticleSimulation
     private int _rotorTilt;
     private float _startTime;
     private Timing _timing;
+    // Every particle's color, size, angle and jibber at each of the life's steps, made again when the system's curves change
+    private readonly StepValues[] _steps = new StepValues[LifeSteps];
+    private float[] _stepsKeys = [];
+    private ParticleSystem? _stepsOf;
 
     // What lines the emitter's cycle up with the frame counter when it starts
     private readonly record struct Timing(int Offset, int On, int OnRandom, int Off, int OffRandom, bool Rotor, float RotorYaw, float RotorTilt);
@@ -202,6 +207,70 @@ public sealed class ParticleSimulation
     }
 
     private static float Byte(float value) => Math.Clamp(value, 0.0f, 255.0f);
+
+    private readonly record struct StepValues(vec4 Color, vec2 Size, float Angle, vec2 Jibber);
+
+    /// <summary>
+    /// Makes the values of the life's steps again when the system's curves or jibber changed, before <see cref="EvaluateStep"/>: every
+    /// particle drawn takes one of them, the curves are only searched once a step
+    /// </summary>
+    public void PrepareSteps()
+    {
+        var system = _system;
+        if (system == null)
+        {
+            return;
+        }
+
+        // The keys are edited in place, every value is compared by its bits
+        var keys = KeysOf(system);
+        if (_stepsOf == system && MemoryMarshal.Cast<float, int>(keys.AsSpan()).SequenceEqual(MemoryMarshal.Cast<float, int>(_stepsKeys.AsSpan())))
+        {
+            return;
+        }
+
+        _stepsKeys = keys;
+        _stepsOf = system;
+        for (var step = 0; step < LifeSteps; step++)
+        {
+            Evaluate(new Particle { SpawnTime = 0.0f, LifeTime = LifeSteps }, step + 0.5f, out var color, out var size, out var angle, out var jibber);
+            _steps[step] = new StepValues(color, size, angle, jibber);
+        }
+    }
+
+    /// <summary>
+    /// <see cref="Evaluate"/> through the values <see cref="PrepareSteps"/> made
+    /// </summary>
+    public void EvaluateStep(in Particle particle, float time, out vec4 color, out vec2 size, out float angle, out vec2 jibber)
+    {
+        var step = Math.Clamp((int)((time - particle.SpawnTime) / particle.LifeTime * LifeSteps), 0, LifeSteps - 1);
+        var values = _steps[step];
+        color = values.Color;
+        size = values.Size;
+        angle = values.Angle;
+        jibber = values.Jibber;
+    }
+
+    private static float[] KeysOf(ParticleSystem system)
+    {
+        var keys = new List<float>(128);
+        foreach (var key in system.ColorGradients)
+        {
+            keys.AddRange([key.X, key.Y, key.Z, key.W]);
+        }
+
+        foreach (var curve in new[] { system.AlphaGradient, system.SizeWidth, system.SizeHeight, system.Rotation })
+        {
+            keys.Add(curve.Length);
+            foreach (var key in curve)
+            {
+                keys.AddRange([key.X, key.Y]);
+            }
+        }
+
+        keys.AddRange([system.ColorGradients.Length, system.JibberXFreq, system.JibberXAmp, system.JibberYFreq, system.JibberYAmp]);
+        return keys.ToArray();
+    }
 
     private void Reset()
     {

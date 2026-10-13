@@ -37,13 +37,16 @@ public class VertexArrayObject<TVertexType, TIndexType> : IDisposable
         vbo.Bind();
     }
 
+    public uint Handle => _handle;
+
     public void Bind()
     {
-        _context.Gl.BindVertexArray(_handle);
+        _context.State.BindVertexArray(_handle);
     }
 
     public void Dispose()
     {
+        _context.State.ForgetVertexArray(_handle);
         _context.Gl.DeleteVertexArray(_handle);
         GC.SuppressFinalize(this);
     }

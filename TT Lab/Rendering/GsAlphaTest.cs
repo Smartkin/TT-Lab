@@ -4,10 +4,34 @@ using Twinsanity.TwinsanityInterchange.Common;
 namespace TT_Lab.Rendering;
 
 /// <summary>
+/// What a draw does with the fragments failing a material's alpha test, for what they write next to what passing fragments write
+/// (<see cref="GsAlphaTest.FailDrawOf"/>)
+/// </summary>
+public enum AlphaFailDraw
+{
+    /// <summary>
+    /// They write nothing (KEEP, ZB_ONLY without depth writes): left out
+    /// </summary>
+    LeftOut,
+    /// <summary>
+    /// They write what passing fragments write (FB_ONLY without depth writes) or nothing fails: drawn with them
+    /// </summary>
+    WithPassing,
+    /// <summary>
+    /// They write something else (FB_ONLY and RGB_ONLY without the depth the passing fragments write, RGB_ONLY without alpha, ZB_ONLY only
+    /// the depth): GL can't leave a write alone for some fragments of a draw, so they're drawn on their own after the passing ones, a
+    /// triangle at a time like the GS writes them or, for a part whose triangles never lie over each other, an instance at a time
+    /// (RenderBatch.DrawApart)
+    /// </summary>
+    Apart,
+}
+
+/// <summary>
 /// The GS's alpha test (TEST's ATE, ATST, AREF and AFAIL, the shader's settings): the fragment's alpha, 128 being 1, against the reference
-/// byte. A fragment that fails keeps nothing (KEEP), only its color (FB_ONLY, RGB_ONLY without its alpha) or only its depth (ZB_ONLY).
-/// <c>MainPass.frag</c> does the same: it can't leave the depth alone for a fragment it draws, so the colors of FB_ONLY and RGB_ONLY are
-/// drawn with their depth, and ZB_ONLY is left out like KEEP. Retail materials test GEQUAL and keep nothing, a few GEQUAL 125 FB_ONLY
+/// byte. A fragment that fails keeps nothing (KEEP), only its color (FB_ONLY, RGB_ONLY without its alpha) or only its depth (ZB_ONLY), its
+/// depth only ever written while the shader writes depth (ZMSK). Retail materials test GEQUAL and keep nothing but 11 that keep the color
+/// (FB_ONLY): the school's landscape billboards (roof01, roof03, roof05, buschase, crgpa04) write depth where they pass, never where they're
+/// see-through, and a billboard drawn before another one in front of it doesn't hide it
 /// </summary>
 public static class GsAlphaTest
 {
@@ -40,8 +64,33 @@ public static class GsAlphaTest
     }
 
     /// <summary>
-    /// Whether a fragment failing the test still draws its color
+    /// What a fragment failing the test writes: the color but its alpha, the alpha and the depth, the depth only while the shader writes it
     /// </summary>
-    public static bool FailedDrawsColor(TwinShader.ProcessAfterAlphaTestFailed fail) =>
-        fail is TwinShader.ProcessAfterAlphaTestFailed.FB_ONLY or TwinShader.ProcessAfterAlphaTestFailed.RGB_ONLY;
+    public static (bool Color, bool Alpha, bool Depth) FailedWrites(TwinShader.ProcessAfterAlphaTestFailed fail, bool depthWrite) => fail switch
+    {
+        TwinShader.ProcessAfterAlphaTestFailed.FB_ONLY => (true, true, false),
+        TwinShader.ProcessAfterAlphaTestFailed.RGB_ONLY => (true, false, false),
+        TwinShader.ProcessAfterAlphaTestFailed.ZB_ONLY => (false, false, depthWrite),
+        _ => (false, false, false),
+    };
+
+    /// <summary>
+    /// How the fragments failing the test are drawn, by what they write next to the passing ones (the color with its alpha and the depth
+    /// the shader writes)
+    /// </summary>
+    public static AlphaFailDraw FailDrawOf(int method, TwinShader.ProcessAfterAlphaTestFailed fail, bool depthWrite)
+    {
+        if (method is < 0 or (int)TwinShader.AlphaTestMethod.ALWAYS)
+        {
+            return AlphaFailDraw.WithPassing;
+        }
+
+        var (color, alpha, depth) = FailedWrites(fail, depthWrite);
+        if (!color && !depth)
+        {
+            return AlphaFailDraw.LeftOut;
+        }
+
+        return color && alpha && depth == depthWrite ? AlphaFailDraw.WithPassing : AlphaFailDraw.Apart;
+    }
 }

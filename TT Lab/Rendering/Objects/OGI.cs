@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using GlmSharp;
@@ -24,6 +25,16 @@ public class OGI : Renderable, IPrimitiveRenderable, ILightAnchor
     private TwinSkeleton defaultSkeleton = new();
     // The collision hulls' edges and the joint each is on, drawn where the joints are
     private readonly List<(int Joint, vec3[] Vertexes, (int, int)[] Edges)> _hulls = [];
+    // Every hull's lines as they were drawn last, made again when the transform they're drawn with changes: every object draws its hulls
+    // every frame, and they rarely move
+    private HullLines[] _hullLines = [];
+
+    private sealed class HullLines(int edges)
+    {
+        public readonly float[] Records = new float[edges * PrimitiveRenderer.LineRecordFloats];
+        public mat4 Transform;
+        public bool IsMade;
+    }
     
     public OGI(RenderContext context, TwinSkeletonManager skeletonManager, MeshService meshService, OGIData ogiData, string name = "") : base(context, name)
     {
@@ -51,13 +62,30 @@ public class OGI : Renderable, IPrimitiveRenderable, ILightAnchor
             return;
         }
 
-        foreach (var (joint, vertexes, edges) in _hulls)
+        if (_hullLines.Length != _hulls.Count)
         {
+            _hullLines = _hulls.Select(hull => new HullLines(hull.Edges.Length)).ToArray();
+        }
+
+        for (var i = 0; i < _hulls.Count; i++)
+        {
+            var (joint, vertexes, edges) = _hulls[i];
             var transform = joint != OGIData.NoJoint && defaultSkeleton.Bones.TryGetValue(joint, out var bone) ? bone.WorldTransform : WorldTransform;
-            foreach (var (from, to) in edges)
+            var lines = _hullLines[i];
+            if (!lines.IsMade || lines.Transform != transform)
             {
-                renderer.DrawLine((transform * new vec4(vertexes[from], 1.0f)).xyz, (transform * new vec4(vertexes[to], 1.0f)).xyz, HullColor, 1.5f, PrimitiveLayer.WorldXRay);
+                for (var edge = 0; edge < edges.Length; edge++)
+                {
+                    var (from, to) = edges[edge];
+                    PrimitiveRenderer.LineRecord(lines.Records.AsSpan(edge * PrimitiveRenderer.LineRecordFloats, PrimitiveRenderer.LineRecordFloats),
+                        (transform * new vec4(vertexes[from], 1.0f)).xyz, (transform * new vec4(vertexes[to], 1.0f)).xyz, HullColor, HullColor, 1.5f);
+                }
+
+                lines.Transform = transform;
+                lines.IsMade = true;
             }
+
+            renderer.DrawLines(lines.Records, PrimitiveLayer.WorldXRay);
         }
     }
 

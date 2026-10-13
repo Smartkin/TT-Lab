@@ -1,6 +1,7 @@
 #include "Includes/ModelLayout.frag"
 
-uniform TwinMaterial twin_material;
+// The drawn material's values, read from the material table first thing
+TwinMaterial twin_material;
 
 // The lens every camera of the game has (GameFog)
 const float GAME_NEAR = 0.1;
@@ -11,6 +12,13 @@ const float GAME_FAR = 1500.0;
 vec4 SampleTexture(vec2 uv)
 {
     float level = twin_material.mipmapped > 0.5 ? log2(max(ViewDepth, 1.0e-6)) * twin_material.lod_scale + twin_material.lod_k : 0.0;
+#ifdef TT_BINDLESS
+    // An indirect draw's texture with the material's sampler, through its handle
+    if (DrawTexture != uvec2(0))
+    {
+        return textureLod(sampler2D(DrawTexture), uv, level);
+    }
+#endif
     return textureLod(Texture[0], uv, level);
 }
 
@@ -80,6 +88,7 @@ bool Fogged()
 
 void main()
 {
+    twin_material = LoadTwinMaterial(DrawMaterial);
     vec4 Diffuse = InstanceColor;
     vec2 screenUvs = gl_FragCoord.xy / Resolution;
     vec2 uvs = twin_material.uv_offset + Texpos;
@@ -87,7 +96,7 @@ void main()
     vec4 textureColor = twin_material.use_texture > 0.5 ? SampleTexture(uvs) : vec4(1.0);
     vec3 resultColor = textureColor.rgb * Color.rgb;
     float resultAlpha = textureColor.a * Color.a;
-    // The reflection surface draws the copy of the frame drawn so far (ScreenCopyPass), never its texture: at the pixel's place moved by the
+    // The reflection surface draws the copy of the frame drawn so far (ScreenCopy), never its texture: at the pixel's place moved by the
     // normal on the screen, clamped, times its lit colors, 128 being 1 for the copy (it isn't halved like a texture). The offset is on the
     // game's screen axes: GL's x is the other way round (TT Lab shows its frame mirrored) and its rows go up where the game's go down
     if (twin_material.reflect_dist.x > 0.0)
@@ -109,12 +118,16 @@ void main()
         resultAlpha = mix(1.0, panoramaTexture.a * Color.a, twin_material.alpha_blend);
     }
 
-    // What fails the test is left out, but for the methods drawing the color of what fails: the depth can't be left alone for a fragment
-    // drawn, it's drawn with it
-    if (twin_material.alpha_method >= 0 && twin_material.alpha_fail_draws < 0.5 && !AlphaPasses(resultAlpha))
+    // What fails the test is left out, but where it writes what passing fragments do, or in the draw of the failing fragments of a material
+    // whose failing fragments write something else (AlphaSubpass 2, the passing ones drawn before it)
+    if (twin_material.alpha_method >= 0)
     {
-        discard;
-        return;
+        bool passes = AlphaPasses(resultAlpha);
+        if (AlphaSubpass == 1 ? !passes : AlphaSubpass == 2 ? passes : !passes && twin_material.alpha_fail_draws < 0.5)
+        {
+            discard;
+            return;
+        }
     }
 
     vec4 resultBlend = vec4(resultColor, mix(1.0, resultAlpha, twin_material.alpha_blend));

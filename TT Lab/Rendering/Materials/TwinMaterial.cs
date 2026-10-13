@@ -1,4 +1,3 @@
-﻿using GlmSharp;
 using Silk.NET.OpenGL;
 using TT_Lab.Rendering.Shaders;
 using TT_Lab.Rendering.UniformDescs;
@@ -6,108 +5,141 @@ using Twinsanity.TwinsanityInterchange.Common;
 
 namespace TT_Lab.Rendering.Materials;
 
+/// <summary>
+/// A shader of a material as the Generic program draws it: its values are an entry of the context's <see cref="MaterialTable"/>, its
+/// texture, sampler, blending and depth are GL state set through the state cache. What a pass's materials leave set is put back once at
+/// the pass's end (<see cref="Renderer"/>), not after every draw
+/// </summary>
 public class TwinMaterial(RenderContext context, TwinMaterialDesc materialDesc) : Material
 {
-    private bool _isBlendingEnabled;
-    private bool _previousBlend;
-    private bool _previousDepthWrite;
-    private TwinMaterialDesc _materialDesc = materialDesc;
-
-    public TwinMaterialDesc GetCurrentMaterialDesc() => _materialDesc;
+    private readonly TwinMaterialDesc _materialDesc = materialDesc;
+    private int _entry;
+    private int _generation = -1;
+    private uint _sampler;
+    private ulong _handle;
+    private int _handleGeneration = -1;
 
     private ShaderProgram Program => context.CurrentPass.Program;
 
-    public void ApplyFog(int @override)
+    /// <summary>
+    /// The material's entry in the context's material table
+    /// </summary>
+    public int Entry
     {
-        Program.SetUniform(KnownUniform.MaterialFog, @override);
+        get
+        {
+            Resolve();
+            return _entry;
+        }
     }
 
-    public void ApplyDeform(int mode, float speed, vec3 amplitude)
-    {
-        Program.SetUniform(KnownUniform.MaterialDeformMode, mode);
-        Program.SetUniform(KnownUniform.MaterialDeformSpeed, speed);
-        Program.SetUniform(KnownUniform.MaterialDeformAmplitude, amplitude);
-    }
-
-    public void ApplyBillboardRender(bool @override)
-    {
-        Program.SetUniform(KnownUniform.MaterialBillboardRender, @override ? 1.0f : 0.0f);
-    }
-
-    public void ApplyUseTexture(bool @override)
-    {
-        Program.SetUniform(KnownUniform.MaterialUseTexture, @override ? 1.0f : 0.0f);
-    }
+    public bool HasTexture => _materialDesc.Texture != null;
 
     /// <summary>
+    /// Whether the fragments failing the alpha test write something else than the passing ones (<see cref="AlphaFailDraw.Apart"/>): every
+    /// instance is drawn twice then (<see cref="BeginPassing"/>, <see cref="BeginFailing"/>), never in an indirect draw
     /// </summary>
-    /// <param name="override">x component whether it's turned on or off and y is the actual distance</param>
-    public void ApplyReflectDistance(vec2 @override)
+    public bool FailsApart => _materialDesc.FailDraw == AlphaFailDraw.Apart;
+
+    public Buffers.TextureBuffer? Texture => _materialDesc.Texture;
+
+    /// <summary>
+    /// The texture with the material's sampler as a bindless handle, 0 without one (no bindless textures, no texture or a deleted one)
+    /// </summary>
+    public ulong TextureHandle
     {
-        Program.SetUniform(KnownUniform.MaterialReflectDist, @override);
+        get
+        {
+            Resolve();
+            var texture = _materialDesc.Texture;
+            if (texture == null || context.Bindless is not { } bindless || texture.Handler == 0)
+            {
+                return 0;
+            }
+
+            if (_handleGeneration != texture.Generation)
+            {
+                _handle = texture.GetHandle(bindless, _sampler);
+                _handleGeneration = texture.Generation;
+            }
+
+            return _handle;
+        }
     }
 
-    public void ApplyUvOffset(vec2 @override)
+    private void Resolve()
     {
-        Program.SetUniform(KnownUniform.MaterialUvOffset, @override);
-    }
-
-    // The scrolls and the shader animation's U and V tracks at the render time, where the shader takes them. The color the animation drives
-    // goes into the shader's color, which only the shadows' volumes' program reads (the shader record's second quadword): the game draws
-    // every other shader the same whatever it is
-    private void ApplyAnimation()
-    {
-        var animation = _materialDesc.Animation != null && (_materialDesc.AnimatesU || _materialDesc.AnimatesV)
-            ? ShaderAnimationSampler.At(_materialDesc.Animation, context.Time).Uv
-            : vec2.Zero;
-        ApplyUvOffset(ShaderScroll.At(_materialDesc.ScrollU, _materialDesc.ScrollV, _materialDesc.ScrollPhases, _materialDesc.ScrollSpeeds, context.Time, animation));
-    }
-
-    public void ApplyAlphaTest(int method, int reference, bool failDrawsColor)
-    {
-        Program.SetUniform(KnownUniform.MaterialAlphaMethod, method);
-        Program.SetUniform(KnownUniform.MaterialAlphaReference, (float)reference);
-        Program.SetUniform(KnownUniform.MaterialAlphaFailDraws, failDrawsColor ? 1.0f : 0.0f);
-    }
-
-    // The GS's mip choice (TEX1) and the sampler of its filter and coordinates, over the texture's own settings
-    private void ApplyTextureSampling()
-    {
-        Program.SetUniform(KnownUniform.MaterialMipmapped, _materialDesc.Mipmapped ? 1.0f : 0.0f);
-        Program.SetUniform(KnownUniform.MaterialLodScale, (float)(1 << _materialDesc.LodL));
-        Program.SetUniform(KnownUniform.MaterialLodK, _materialDesc.LodK);
-        context.Gl.BindSampler(0, context.Samplers.Get(_materialDesc.MagnifiesLinearly, _materialDesc.ClampsCoordinates));
-    }
-
-    public void ApplyEnvMap(float @override)
-    {
-        Program.SetUniform(KnownUniform.MaterialEnvMap, @override);
-    }
-
-    public void ApplyEditorShading(bool @override)
-    {
-        Program.SetUniform(KnownUniform.MaterialEditorShading, @override ? 1.0f : 0.0f);
-    }
-
-    public void ApplyLit(bool @override)
-    {
-        Program.SetUniform(KnownUniform.MaterialLit, @override ? 1.0f : 0.0f);
-    }
-
-    public void ApplyAlphaBlending(bool @override)
-    {
-        Program.SetUniform(KnownUniform.MaterialAlphaBlend, @override ? 1.0f : 0.0f);
-        _isBlendingEnabled = @override;
-        context.State.SetBlend(@override);
-    }
-
-    public void ApplyBlending(TwinShader.AlphaBlendPresets @override)
-    {
-        if (!_isBlendingEnabled)
+        var table = context.Materials;
+        if (_generation == table.Generation)
         {
             return;
         }
 
+        _entry = table.IndexOf(_materialDesc);
+        _generation = table.Generation;
+        // The GS's filter and coordinates over the texture's own settings (GsTextureFiltering)
+        _sampler = context.Samplers.Get(_materialDesc.MagnifiesLinearly, _materialDesc.ClampsCoordinates);
+    }
+
+    // The GS tests the depth whether it writes it or not
+    private DepthFunction DepthFunction => _materialDesc.DepthTest switch
+    {
+        TwinShader.DepthTestMethod.NEVER => DepthFunction.Never,
+        TwinShader.DepthTestMethod.ALWAYS => DepthFunction.Always,
+        TwinShader.DepthTestMethod.GREATER => DepthFunction.Less,
+        // GEQUAL, and the test of a byte past the four methods, which drew with the Lequal every material put back after its draw
+        _ => DepthFunction.Lequal,
+    };
+
+    private bool Blends => _materialDesc.AlphaBlend.Equals(1.0f);
+
+    /// <summary>
+    /// Whether the other material draws with the same GL state, blending and depth, what lets their draws be one indirect draw
+    /// </summary>
+    public bool DrawsLike(TwinMaterial other)
+    {
+        var desc = other._materialDesc;
+        if (Blends != other.Blends || _materialDesc.DepthWrite != desc.DepthWrite || DepthFunction != other.DepthFunction)
+        {
+            return false;
+        }
+
+        if (!Blends)
+        {
+            return true;
+        }
+
+        if (_materialDesc.CustomBlend != desc.CustomBlend)
+        {
+            return false;
+        }
+
+        return _materialDesc.CustomBlend
+            ? _materialDesc.BlendA == desc.BlendA && _materialDesc.BlendB == desc.BlendB && _materialDesc.BlendC == desc.BlendC && _materialDesc.BlendD == desc.BlendD
+              && _materialDesc.BlendFix == desc.BlendFix
+            : _materialDesc.BlendFunc == desc.BlendFunc;
+    }
+
+    /// <summary>
+    /// The GL state the material draws with: blending and depth
+    /// </summary>
+    public void ApplyState()
+    {
+        var state = context.State;
+        state.MaterialBinds++;
+        var blends = Blends;
+        state.SetBlend(blends);
+        if (blends)
+        {
+            ApplyBlending();
+        }
+
+        state.SetDepthMask(_materialDesc.DepthWrite);
+        state.SetDepthFunc(DepthFunction);
+    }
+
+    private void ApplyBlending()
+    {
         if (_materialDesc.CustomBlend)
         {
             GsBlending.ApplyFormula(context, _materialDesc.BlendA, _materialDesc.BlendB, _materialDesc.BlendC, _materialDesc.BlendD, _materialDesc.BlendFix);
@@ -116,64 +148,54 @@ public class TwinMaterial(RenderContext context, TwinMaterialDesc materialDesc) 
 
         // The material shader hands over its color, so Brighten brightens what's behind by the color rather than the alpha. No retail
         // material blends with it
-        GsBlending.Apply(context.State, @override);
-    }
-
-    public void ApplyDepthWrite(bool @override)
-    {
-        context.State.SetDepthMask(@override);
-    }
-
-    // The GS tests the depth whether it writes it or not
-    public void ApplyDepthTest(TwinShader.DepthTestMethod @override)
-    {
-        var state = context.State;
-        switch (@override)
-        {
-            case TwinShader.DepthTestMethod.NEVER:
-                state.SetDepthFunc(DepthFunction.Never);
-                break;
-            case TwinShader.DepthTestMethod.ALWAYS:
-                state.SetDepthFunc(DepthFunction.Always);
-                break;
-            case TwinShader.DepthTestMethod.GEQUAL:
-                state.SetDepthFunc(DepthFunction.Lequal);
-                break;
-            case TwinShader.DepthTestMethod.GREATER:
-                state.SetDepthFunc(DepthFunction.Less);
-                break;
-        }
+        GsBlending.Apply(context.State, _materialDesc.BlendFunc);
     }
 
     public override void Bind()
     {
-        _previousBlend = context.State.Blend;
-        _previousDepthWrite = context.State.DepthMask;
+        Resolve();
+        // Without a texture the unit keeps the one drawn before, which the shader still reads for environment maps
         _materialDesc.Texture?.Bind();
-        ApplyUseTexture(_materialDesc.UseTexture.Equals(1.0f));
-        ApplyTextureSampling();
-        ApplyDeform(_materialDesc.DeformMode, _materialDesc.DeformSpeed, _materialDesc.DeformAmplitude);
-        ApplyBillboardRender(_materialDesc.BillboardRender);
-        ApplyAlphaTest(_materialDesc.AlphaTestMethod, _materialDesc.AlphaReference, _materialDesc.AlphaFailDrawsColor);
-        ApplyEnvMap(_materialDesc.EnvMap);
-        ApplyAnimation();
-        ApplyReflectDistance(_materialDesc.ReflectDist);
-        ApplyAlphaBlending(_materialDesc.AlphaBlend.Equals(1.0f));
-        ApplyBlending(_materialDesc.BlendFunc);
-        ApplyDepthWrite(_materialDesc.DepthWrite);
-        ApplyDepthTest(_materialDesc.DepthTest);
-        ApplyFog(_materialDesc.Fog);
-        ApplyEditorShading(_materialDesc.EditorShading);
-        ApplyLit(_materialDesc.Lit);
+        context.State.BindSampler(0, _sampler);
+        Program.SetMaterialEntry(_entry);
+        ApplyState();
+    }
+
+    /// <summary>
+    /// A draw of the fragments passing the alpha test, with the material's own writes
+    /// </summary>
+    public void BeginPassing()
+    {
+        var state = context.State;
+        state.SetColorMask(true, true, true, true);
+        state.SetDepthMask(_materialDesc.DepthWrite);
+        Program.SetAlphaSubpass(1);
+    }
+
+    /// <summary>
+    /// A draw of the fragments failing the alpha test, with what their AFAIL writes of the material's writes
+    /// </summary>
+    public void BeginFailing()
+    {
+        var (color, alpha, depth) = GsAlphaTest.FailedWrites(_materialDesc.AlphaFail, _materialDesc.DepthWrite);
+        var state = context.State;
+        state.SetColorMask(color, color, color, alpha);
+        state.SetDepthMask(depth);
+        Program.SetAlphaSubpass(2);
+    }
+
+    /// <summary>
+    /// Back to the draws of every fragment with the material's writes
+    /// </summary>
+    public void EndSubpasses()
+    {
+        var state = context.State;
+        state.SetColorMask(true, true, true, true);
+        state.SetDepthMask(_materialDesc.DepthWrite);
+        Program.SetAlphaSubpass(0);
     }
 
     public override void Unbind()
     {
-        var state = context.State;
-        state.SetDepthMask(_previousDepthWrite);
-        state.SetBlend(_previousBlend);
-        context.Gl.BindSampler(0, 0);
-        // Materials without depth writes keep whatever depth test is set, which shouldn't depend on what got drawn before them
-        state.SetDepthFunc(DepthFunction.Lequal);
     }
 }

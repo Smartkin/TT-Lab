@@ -12,9 +12,9 @@ namespace TT_Lab.Rendering.Objects;
 /// distance squared, here to the middle of the box the LOD is culled by, picks the first mesh up to the first switch distance and the next
 /// one past each switch. The game draws nothing nearer than the nearest distance or farther than the farthest (-1 none), which the viewport
 /// only does when its toolbar says so (<see cref="RenderContext.CullsLods"/>): the editor shows every LOD otherwise. Every level is a child,
-/// the one of the distance shown every frame on the render thread before the batches gather their instances
+/// the one of the distance shown every frame on the render thread before any batch gathers its instances (<see cref="Renderer"/>)
 /// </summary>
-public sealed class LodVisual : Renderable, IInstancedRenderable
+public sealed class LodVisual : Renderable
 {
     private readonly List<Renderable?> _levels = [];
     private readonly int _nearest;
@@ -33,6 +33,7 @@ public sealed class LodVisual : Renderable, IInstancedRenderable
             var model = meshService.GetMesh(mesh, true).Model;
             if (model != null)
             {
+                model.IsPlaced = true;
                 // Shown by the distance, not with the LOD
                 model.SetInheritVisibility(false);
                 AddChild(model);
@@ -41,6 +42,11 @@ public sealed class LodVisual : Renderable, IInstancedRenderable
             _levels.Add(model);
         }
     }
+
+    /// <summary>
+    /// How the LOD's closest level turns to the camera (<see cref="Mesh.Turn"/>), the one picking goes by
+    /// </summary>
+    public int Turn => _levels is [Mesh mesh, ..] ? mesh.Turn : InstanceBuffer.NoTurn;
 
     /// <summary>
     /// Which level the game draws at a squared distance (the game's integer of it, compared unsigned like the game's) by the switch distances
@@ -74,22 +80,25 @@ public sealed class LodVisual : Renderable, IInstancedRenderable
 
     private static uint GameDistance(float distanceSquared) => (uint)Math.Clamp(distanceSquared, 0.0f, uint.MaxValue);
 
-    public void PrepareInstances(InstanceBuffer instances)
+    /// <summary>
+    /// Shows the level of the camera's distance, only changing the levels whose visibility changes
+    /// </summary>
+    public void ChooseLevel(bool hasCamera, vec3 cameraPosition, bool cullsLods)
     {
-        var camera = Context.FrameCamera;
         var level = 0;
-        if (camera.IsValid)
+        if (hasCamera)
         {
             var center = (RenderTransform * new vec4(_boxCenter, 1.0f)).xyz;
-            var distanceSquared = (center - camera.Position).LengthSqr;
-            level = Context.CullsLods && !IsDrawnAt(_nearest, _farthest, distanceSquared) ? -1 : LevelAt(_switches, _levels.Count, distanceSquared);
+            var distanceSquared = (center - cameraPosition).LengthSqr;
+            level = cullsLods && !IsDrawnAt(_nearest, _farthest, distanceSquared) ? -1 : LevelAt(_switches, _levels.Count, distanceSquared);
         }
 
+        var visible = IsVisible;
         for (var i = 0; i < _levels.Count; i++)
         {
-            if (_levels[i] is { } mesh)
+            if (_levels[i] is { } mesh && mesh.IsVisible != (visible && i == level))
             {
-                mesh.IsVisible = IsVisible && i == level;
+                mesh.IsVisible = visible && i == level;
             }
         }
     }

@@ -31,7 +31,13 @@ public class Scenery : Renderable
             }
             else
             {
-                model = meshService.GetMesh(placement.Model, true).Model;
+                var mesh = meshService.GetMesh(placement.Model, true).Model;
+                if (mesh != null)
+                {
+                    mesh.IsPlaced = true;
+                }
+
+                model = mesh;
             }
 
             if (model == null)

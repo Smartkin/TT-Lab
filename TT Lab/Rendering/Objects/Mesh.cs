@@ -1,33 +1,49 @@
 using System;
 using System.Collections.Generic;
-using Silk.NET.OpenGL;
+using System.Linq;
 using TT_Lab.Rendering.Buffers;
-using TT_Lab.Rendering.Materials;
+using Twinsanity.TwinsanityInterchange.Common;
 
 namespace TT_Lab.Rendering.Objects;
 
 public class Mesh(RenderContext context, List<ModelBuffer> models) : Renderable(context)
 {
     private readonly IReadOnlyList<ModelBuffer> _models = models;
-    private PolygonMode _renderMode = PolygonMode.Fill;
-    private readonly List<MaterialPropertyOverrider> _materialOverrides = [];
-
-    public void SetRenderMode(PolygonMode mode)
-    {
-        _renderMode = mode;
-    }
-
-    public void AddMaterialOverride(MaterialPropertyOverrider overrider)
-    {
-        _materialOverrides.Add(overrider);
-    }
-
-    public void RemoveMaterialOverride(MaterialPropertyOverrider overrider)
-    {
-        _materialOverrides.Remove(overrider);
-    }
+    // The batches drawing the mesh, told when what its instances are made of changes. Replaced whole: the UI thread reads it
+    private RenderBatch[] _batches = [];
 
     public IReadOnlyList<ModelBuffer> GetModels() => _models;
+
+    /// <summary>
+    /// Whether the mesh is placed in a scenery (a placed mesh, a LOD's level, a dynamic scenery's model): the game turns those to face the
+    /// camera when a shader of any of their parts' materials is a billboard's, never an object's parts (SetPlacedModelRenderDMA)
+    /// </summary>
+    public bool IsPlaced { get; set; }
+
+    /// <summary>
+    /// How the mesh's instances turn to the camera
+    /// </summary>
+    public int Turn => IsPlaced && _models.Any(model => model.Material.Shaders.Any(shader => shader.ShaderType == TwinShader.Type.UnlitBillboard))
+        ? InstanceBuffer.BillboardTurn
+        : InstanceBuffer.NoTurn;
+
+    internal void JoinBatch(RenderBatch batch)
+    {
+        _batches = [.. _batches, batch];
+    }
+
+    internal void LeaveBatch(RenderBatch batch)
+    {
+        _batches = Array.FindAll(_batches, other => other != batch);
+    }
+
+    protected override void OnDrawnChanged()
+    {
+        foreach (var batch in _batches)
+        {
+            batch.MarkChanged();
+        }
+    }
 
     public virtual Mesh Clone()
     {
@@ -35,49 +51,16 @@ public class Mesh(RenderContext context, List<ModelBuffer> models) : Renderable(
         return mesh;
     }
 
-    public override (String, Int32)[] GetPriorityPasses()
-    {
-        var result = new List<(String, int)>();
-        foreach (var model in _models)
-        {
-            result.AddRange(model.GetPriorityPass());
-        }
-
-        return result.ToArray();
-    }
-
     /// <summary>
-    /// Meshes that need their own uniforms or state can't be drawn in the same draw as the other meshes using their model
+    /// Meshes that need their own uniforms can't be drawn in the same draw as the other meshes using their model
     /// </summary>
-    public virtual bool RequiresIndividualDraw => _renderMode != PolygonMode.Fill || _materialOverrides.Count > 0;
+    public virtual bool RequiresIndividualDraw => false;
 
     public virtual void BeginIndividualDraw(ModelBuffer model)
     {
-        Context.State.SetPolygonMode(_renderMode);
-        var material = model.GetMaterial();
-        if (material == null)
-        {
-            return;
-        }
-
-        foreach (var materialPropertyOverrider in _materialOverrides)
-        {
-            materialPropertyOverrider.Override(material);
-        }
     }
 
     public virtual void EndIndividualDraw(ModelBuffer model)
     {
-        Context.State.SetPolygonMode(PolygonMode.Fill);
-        var material = model.GetMaterial();
-        if (material == null)
-        {
-            return;
-        }
-
-        foreach (var materialPropertyOverrider in _materialOverrides)
-        {
-            materialPropertyOverrider.UnOverride(material);
-        }
     }
 }

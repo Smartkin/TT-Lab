@@ -226,22 +226,22 @@ public class LevelChunk : SerializableAsset
         }
 
         var chunkResourceList = property.Find(nameof(ChunkResources))!;
-        var idx = 0;
-        foreach (var uri in ChunkResources)
+        // The game draws the chunk's scenery and the linked chunks' before the instances, the scene's draws go by the order their objects are
+        // made in (SceneOrder): an Xbox chunk lists its instances first
+        var resources = ChunkResources.Select((uri, index) => (Asset: assetManager.GetAsset(uri), Index: index))
+            .OrderBy(resource => resource.Asset switch { Instance.Scenery => 0, Instance.ChunkLinks => 1, _ => 2 });
+        foreach (var (asset, idx) in resources)
         {
-            var asset = assetManager.GetAsset(uri);
             // Named like the Chunk Resources panel's folders
             viewportContext.Progress?.Invoke($"{ChunkResourcesTreeViewModel.KindName(asset.GetType())}: {asset.Alias}", done++, total);
-            var data = assetManager.GetAssetData(uri);
+            var data = assetManager.GetAssetData(asset.URI);
             var dataDoc = chunkResourceList.Find($"[{idx}]");
             if (dataDoc is not null)
             {
                 result.AddRange(data.GetViewportObjects(viewportContext, dataDoc));
             }
-
-            idx++;
         }
-        
+
         return result;
     }
 

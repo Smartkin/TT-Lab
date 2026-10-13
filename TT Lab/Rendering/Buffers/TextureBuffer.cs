@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Threading;
 using Avalonia;
 using Avalonia.Media.Imaging;
 using GlmSharp;
@@ -15,6 +17,20 @@ public unsafe class TextureBuffer : IDisposable
     private readonly InternalFormat _internalFormat = InternalFormat.Rgba8;
     private readonly PixelFormat _pixelFormat = PixelFormat.Bgra;
     private readonly PixelType _pixelType = PixelType.UnsignedByte;
+    // Bindless handles of the texture with the samplers it's drawn with, after which the texture can't change
+    private Dictionary<uint, ulong>? _handles;
+
+    /// <summary>
+    /// Changes when the texture's handles go (the texture made again or deleted), the ones taken before are no use then
+    /// </summary>
+    public int Generation { get; private set; }
+
+    private static int _handlesReleased;
+
+    /// <summary>
+    /// Changes whenever any texture's handles go
+    /// </summary>
+    public static int HandlesReleased => Volatile.Read(ref _handlesReleased);
 
     private TextureBuffer(RenderContext renderContext)
     {
@@ -77,15 +93,62 @@ public unsafe class TextureBuffer : IDisposable
         Unbind();
     }
 
+    /// <summary>
+    /// The texture with the sampler as a bindless handle (<see cref="BindlessTextures"/>), made the first time it's asked for
+    /// </summary>
+    public ulong GetHandle(BindlessTextures bindless, uint sampler)
+    {
+        _handles ??= [];
+        if (!_handles.TryGetValue(sampler, out var handle))
+        {
+            handle = bindless.MakeHandle(_textureBuffer, sampler);
+            _handles[sampler] = handle;
+        }
+
+        return handle;
+    }
+
+    // A texture with handles can't change: it's made again
+    private void ReleaseHandles()
+    {
+        if (_handles == null)
+        {
+            return;
+        }
+
+        foreach (var handle in _handles.Values)
+        {
+            _renderContext.Bindless?.Release(handle);
+        }
+
+        _handles = null;
+        Generation++;
+        Interlocked.Increment(ref _handlesReleased);
+        _renderContext.State.ForgetTexture(_textureBuffer);
+        _renderContext.Gl.DeleteTexture(_textureBuffer);
+        _textureBuffer = _renderContext.Gl.GenTexture();
+        Bind();
+        _renderContext.Gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Repeat);
+        _renderContext.Gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
+        _renderContext.Gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
+        _renderContext.Gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
+        _renderContext.Gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMaxLevel, 0);
+        Unbind();
+    }
+
     public void InvalidateWithData(Bitmap bitmap)
     {
+        ReleaseHandles();
         _data = new byte[(int)bitmap.Size.Width * (int)bitmap.Size.Height * 4];
         CopyImageData(bitmap);
+        Bind();
         UploadTextureData((uint)bitmap.Size.Width, (uint)bitmap.Size.Height);
+        Unbind();
     }
 
     public void Resize(ivec2 newSize)
     {
+        ReleaseHandles();
         Bind();
         _renderContext.Gl.PixelStore(PixelStoreParameter.UnpackAlignment, 1);
         _renderContext.Gl.Finish();
@@ -109,15 +172,15 @@ public unsafe class TextureBuffer : IDisposable
         Unbind();
     }
 
+    // Through the state cache, so a material binding the texture its unit already holds makes no GL call
     public void Bind(TextureUnit unit = TextureUnit.Texture0)
     {
-        _renderContext.Gl.ActiveTexture(unit);
-        _renderContext.Gl.BindTexture(TextureTarget.Texture2D, _textureBuffer);
+        _renderContext.State.BindTexture(unit - TextureUnit.Texture0, _textureBuffer);
     }
 
     public void Unbind()
     {
-        _renderContext.Gl.BindTexture(TextureTarget.Texture2D, 0);
+        _renderContext.State.UnbindActiveTexture();
     }
 
     private void InitDefaultParams(uint width, uint height)
@@ -157,8 +220,21 @@ public unsafe class TextureBuffer : IDisposable
             return;
         }
         
-        _renderContext.Gl.BindTexture(TextureTarget.Texture2D, 0);
+        _renderContext.State.UnbindActiveTexture();
         _renderContext.Gl.Finish();
+        if (_handles != null)
+        {
+            foreach (var handle in _handles.Values)
+            {
+                _renderContext.Bindless?.Release(handle);
+            }
+
+            Interlocked.Increment(ref _handlesReleased);
+        }
+
+        _handles = null;
+        Generation++;
+        _renderContext.State.ForgetTexture(_textureBuffer);
         _renderContext.Gl.DeleteTexture(_textureBuffer);
         _textureBuffer = 0;
     }

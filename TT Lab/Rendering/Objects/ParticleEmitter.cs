@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Runtime.CompilerServices;
 using GlmSharp;
 using Silk.NET.OpenGL;
@@ -53,6 +54,7 @@ public sealed class ParticleEmitter : Renderable
             _context.Destroy -= Release;
             Batches.Remove(_context);
             Particles.Dispose();
+            _context.State.ForgetVertexArray(EmptyVao);
             _context.Gl.DeleteVertexArray(EmptyVao);
             FrameCopy?.Dispose();
             FrameCopy = null;
@@ -60,6 +62,10 @@ public sealed class ParticleEmitter : Renderable
     }
 
     private readonly record struct Draw(int First, int Count, Byte BlendMode, TextureBuffer Page, TwinShader.AlphaBlendPresets PageBlend, vec2 Distortion, int Queued);
+
+    // A particle as Particle.vert reads it
+    [StructLayout(LayoutKind.Sequential)]
+    private readonly record struct ParticleRecord(vec4 PositionAngle, vec4 SizeJibber, vec4 Color, vec4 TextureRect);
 
     /// <param name="pageBlends">The alpha blending of every page's material, the Page material mode draws with it</param>
     public ParticleEmitter(RenderContext context, string name, IEnumerable<LabURI> pages, IEnumerable<TwinShader.AlphaBlendPresets> pageBlends, int seed) : base(context, name)
@@ -123,17 +129,14 @@ public sealed class ParticleEmitter : Renderable
         var textureRect = new vec4(TexturePixel(system.TextureStart.X), TexturePixel(system.TextureStart.Y), TexturePixel(system.TextureEnd.X), TexturePixel(system.TextureEnd.Y));
         var gravity = _simulation.GravityRotation;
         var time = _simulation.Time;
-        var data = buffer.Allocate(particles.Count, out var first);
+        _simulation.PrepareSteps();
+        var data = MemoryMarshal.Cast<float, ParticleRecord>(buffer.Allocate(particles.Count, out var first));
         for (var i = 0; i < particles.Count; i++)
         {
             var particle = particles[i];
-            _simulation.Evaluate(particle, time, out var color, out var size, out var angle, out var jibber);
+            _simulation.EvaluateStep(particle, time, out var color, out var size, out var angle, out var jibber);
             var position = origin + gravity * _simulation.PositionAt(particle, time);
-            var element = data.Slice(i * FloatsPerParticle, FloatsPerParticle);
-            StreamStorageBuffer.Write(element, new vec4(position, angle));
-            StreamStorageBuffer.Write(element[4..], new vec4(size.x, size.y, jibber.x, jibber.y));
-            StreamStorageBuffer.Write(element[8..], color);
-            StreamStorageBuffer.Write(element[12..], textureRect);
+            data[i] = new ParticleRecord(new vec4(position, angle), new vec4(size.x, size.y, jibber.x, jibber.y), color, textureRect);
         }
 
         var pageBlend = system.TexturePage < _pageBlends.Length ? _pageBlends[system.TexturePage] : TwinShader.AlphaBlendPresets.Mix;
@@ -154,7 +157,9 @@ public sealed class ParticleEmitter : Renderable
         batch.Particles.Upload();
         var gl = context.Gl;
         var state = context.State;
-        gl.BindVertexArray(batch.EmptyVao);
+        // Pages and the frame copy are sampled with their own filtering, a material's sampler left on the unit would replace it
+        state.BindSampler(0, 0);
+        state.BindVertexArray(batch.EmptyVao);
         var program = context.GetProgram("Particle");
         var hexagons = context.GetProgram("ParticleDistortion");
         var copied = false;
@@ -180,7 +185,7 @@ public sealed class ParticleEmitter : Renderable
             gl.DrawArraysInstancedBaseInstance(PrimitiveType.Triangles, 0, 6, (uint)draw.Count, (uint)draw.First);
         }
 
-        gl.BindVertexArray(0);
+        state.BindVertexArray(0);
         batch.Draws.Clear();
         batch.Particles.Clear();
     }

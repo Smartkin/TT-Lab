@@ -9,9 +9,9 @@ public class ModelBufferBlendSkin(RenderContext context, BlendSkinModelBufferBui
 {
     private readonly RenderContext _context = context;
 
-    public override bool Bind(string passName)
+    public override bool Bind(int shader)
     {
-        var initialBind = base.Bind(passName);
+        var initialBind = base.Bind(shader);
         if (!initialBind)
         {
             return false;

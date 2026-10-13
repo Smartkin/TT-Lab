@@ -71,8 +71,66 @@ public class GsDrawingTests
         Assert.False(GsAlphaTest.Passes((int)TwinShader.AlphaTestMethod.NEVER, 1.0f, 0));
         Assert.True(GsAlphaTest.Passes((int)TwinShader.AlphaTestMethod.LESS, 0.1f, 50));
         Assert.True(GsAlphaTest.Passes(GsAlphaTest.MethodOf(TwinShader.AlphaTest.OFF, TwinShader.AlphaTestMethod.NEVER), 0.0f, 255));
-        Assert.True(GsAlphaTest.FailedDrawsColor(TwinShader.ProcessAfterAlphaTestFailed.FB_ONLY));
-        Assert.False(GsAlphaTest.FailedDrawsColor(TwinShader.ProcessAfterAlphaTestFailed.ZB_ONLY));
+    }
+
+    // A fragment failing the test writes what its AFAIL says (TEST, the GS's pixel pipeline), its depth only while the shader writes depth
+    // (ZBUF's ZMSK). GL can't leave a write alone for some fragments of a draw: when they write something else than the passing ones,
+    // they're drawn apart. roof05's landscape billboards (GEQUAL 125, FB_ONLY, writing depth) wrote depth over their see-through texels
+    // and hid the billboards drawn after them
+    [Theory]
+    [InlineData(TwinShader.ProcessAfterAlphaTestFailed.KEEP, false, AlphaFailDraw.LeftOut)]
+    [InlineData(TwinShader.ProcessAfterAlphaTestFailed.KEEP, true, AlphaFailDraw.LeftOut)]
+    [InlineData(TwinShader.ProcessAfterAlphaTestFailed.FB_ONLY, false, AlphaFailDraw.WithPassing)]
+    [InlineData(TwinShader.ProcessAfterAlphaTestFailed.FB_ONLY, true, AlphaFailDraw.Apart)]
+    [InlineData(TwinShader.ProcessAfterAlphaTestFailed.RGB_ONLY, false, AlphaFailDraw.Apart)]
+    [InlineData(TwinShader.ProcessAfterAlphaTestFailed.RGB_ONLY, true, AlphaFailDraw.Apart)]
+    [InlineData(TwinShader.ProcessAfterAlphaTestFailed.ZB_ONLY, false, AlphaFailDraw.LeftOut)]
+    [InlineData(TwinShader.ProcessAfterAlphaTestFailed.ZB_ONLY, true, AlphaFailDraw.Apart)]
+    public void FailingFragmentsAreDrawnByWhatTheyWrite(TwinShader.ProcessAfterAlphaTestFailed fail, bool depthWrite, AlphaFailDraw draw)
+    {
+        Assert.Equal(draw, GsAlphaTest.FailDrawOf((int)TwinShader.AlphaTestMethod.GEQUAL, fail, depthWrite));
+        // Without a test or with one that can't fail nothing fails
+        Assert.Equal(AlphaFailDraw.WithPassing, GsAlphaTest.FailDrawOf(-1, fail, depthWrite));
+        Assert.Equal(AlphaFailDraw.WithPassing, GsAlphaTest.FailDrawOf((int)TwinShader.AlphaTestMethod.ALWAYS, fail, depthWrite));
+    }
+
+    [Fact]
+    public void FailingFragmentsWriteWhatTheirModeKeeps()
+    {
+        Assert.Equal((true, true, false), GsAlphaTest.FailedWrites(TwinShader.ProcessAfterAlphaTestFailed.FB_ONLY, true));
+        Assert.Equal((true, false, false), GsAlphaTest.FailedWrites(TwinShader.ProcessAfterAlphaTestFailed.RGB_ONLY, true));
+        Assert.Equal((false, false, true), GsAlphaTest.FailedWrites(TwinShader.ProcessAfterAlphaTestFailed.ZB_ONLY, true));
+        Assert.Equal((false, false, false), GsAlphaTest.FailedWrites(TwinShader.ProcessAfterAlphaTestFailed.ZB_ONLY, false));
+        Assert.Equal((false, false, false), GsAlphaTest.FailedWrites(TwinShader.ProcessAfterAlphaTestFailed.KEEP, true));
+    }
+
+    // The GS writes a triangle's pixels before the next one's, so a part whose triangles can lie over each other on screen draws its failing
+    // fragments apart a triangle at a time (RenderBatch.DrawApart): the nitro crate's broken pieces have rims and inset faces. No triangle of
+    // a flat part lies over another, like the school's billboard grids, which draw an instance at a time
+    [Fact]
+    public void OnlyPartsInOnePlaneAreDrawnWhole()
+    {
+        Assert.True(MeshBuilder.IsFlat(Corners((0, 0, 0), (1, 0, 0), (0, 1, 0), (1, 0, 0), (1, 1, 0), (0, 1, 0))));
+        // Turned and moved, a plane is still one
+        Assert.True(MeshBuilder.IsFlat(Corners((10, 0, 5), (10, 2, 5), (11, 0, 6), (11, 0, 6), (10, 2, 5), (11, 2, 6))));
+        // A rim standing on the face
+        Assert.False(MeshBuilder.IsFlat(Corners((0, 0, 0), (1, 0, 0), (0, 1, 0), (0, 0, 0), (1, 0, 0), (0, 0, 0.2f))));
+        // A triangle that's a point doesn't decide the plane
+        Assert.False(MeshBuilder.IsFlat(Corners((0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0), (1, 0, 0), (0, 1, 0), (0, 0, 0), (1, 0, 0), (0, 0, 1))));
+        Assert.True(MeshBuilder.IsFlat(Corners((0, 0, 0), (1, 0, 0), (0, 0, 1))));
+    }
+
+    private static float[] Corners(params (float X, float Y, float Z)[] corners)
+    {
+        var data = new float[corners.Length * MeshBuilder.RigidVertexFloats];
+        for (var i = 0; i < corners.Length; i++)
+        {
+            data[i * MeshBuilder.RigidVertexFloats] = corners[i].X;
+            data[i * MeshBuilder.RigidVertexFloats + 1] = corners[i].Y;
+            data[i * MeshBuilder.RigidVertexFloats + 2] = corners[i].Z;
+        }
+
+        return data;
     }
 
     [Fact]

@@ -19,6 +19,8 @@ public class DynamicScenery : Renderable
                 continue;
             }
 
+            mesh.Model.IsPlaced = true;
+
             var bounds = dynamicModel.BoundingBox;
             var model = new DynamicSceneryMesh(context, mesh.Model, dynamicModel.Animation)
             {

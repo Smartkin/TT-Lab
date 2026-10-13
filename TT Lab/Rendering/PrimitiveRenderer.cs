@@ -101,7 +101,22 @@ public sealed class PrimitiveRenderer : IDisposable
 
     public void DrawLine(vec3 start, vec3 end, vec4 startColor, vec4 endColor, float width, PrimitiveLayer layer = PrimitiveLayer.World)
     {
-        var line = _lines[(int)layer].Add(LineFloats);
+        LineRecord(_lines[(int)layer].Add(LineFloats), start, end, startColor, endColor, width);
+    }
+
+    /// <summary>
+    /// Lines as <see cref="LineRecord"/> made them, drawn as if each was drawn on its own
+    /// </summary>
+    public void DrawLines(ReadOnlySpan<float> lines, PrimitiveLayer layer)
+    {
+        lines.CopyTo(_lines[(int)layer].Add(lines.Length));
+    }
+
+    /// <summary>
+    /// What <see cref="DrawLine(vec3, vec3, vec4, vec4, float, PrimitiveLayer)"/> puts in for a line, for lines kept to draw again
+    /// </summary>
+    public static void LineRecord(Span<float> line, vec3 start, vec3 end, vec4 startColor, vec4 endColor, float width)
+    {
         line[0] = start.x;
         line[1] = start.y;
         line[2] = start.z;
@@ -113,6 +128,8 @@ public sealed class PrimitiveRenderer : IDisposable
         StreamStorageBuffer.Write(line[8..], startColor);
         StreamStorageBuffer.Write(line[12..], endColor);
     }
+
+    public const int LineRecordFloats = LineFloats;
 
     public void DrawPolyline(ReadOnlySpan<vec3> points, vec4 color, float width = 2.0f, PrimitiveLayer layer = PrimitiveLayer.World, bool closed = false)
     {
@@ -317,7 +334,7 @@ public sealed class PrimitiveRenderer : IDisposable
         state.SetCullFace(false);
         state.SetDepthMask(true);
         state.SetDepthFunc(DepthFunction.Lequal);
-        _context.Gl.BindVertexArray(0);
+        _context.State.BindVertexArray(0);
         Clear();
     }
 
@@ -343,7 +360,7 @@ public sealed class PrimitiveRenderer : IDisposable
         var shapeProgram = _context.GetProgram("PrimitiveShape");
         shapeProgram.Use();
         shapeProgram.SetUniform(KnownUniform.Opacity, opacity);
-        gl.BindVertexArray(_shapeVao);
+        _context.State.BindVertexArray(_shapeVao);
         state.SetCullFace(true);
         state.SetDepthMask(writeDepth);
         DrawShapes(layer, _opaqueShapeRanges);
@@ -351,7 +368,7 @@ public sealed class PrimitiveRenderer : IDisposable
         if (DrawGrids(layer, opacity, lineDepthBias))
         {
             shapeProgram.Use();
-            gl.BindVertexArray(_shapeVao);
+            _context.State.BindVertexArray(_shapeVao);
         }
 
         DrawShapes(layer, _transparentShapeRanges);
@@ -367,7 +384,7 @@ public sealed class PrimitiveRenderer : IDisposable
         lineProgram.Use();
         lineProgram.SetUniform(KnownUniform.Opacity, opacity);
         lineProgram.SetUniform(KnownUniform.DepthBias, lineDepthBias);
-        gl.BindVertexArray(_lineVao);
+        _context.State.BindVertexArray(_lineVao);
         gl.DrawArraysInstancedBaseInstance(PrimitiveType.Triangles, 0, 6, (uint)lineCount, (uint)lineBase);
     }
 
@@ -385,7 +402,7 @@ public sealed class PrimitiveRenderer : IDisposable
         gridProgram.SetUniform(KnownUniform.Opacity, opacity);
         gridProgram.SetUniform(KnownUniform.DepthBias, depthBias);
         _context.State.SetCullFace(false);
-        _context.Gl.BindVertexArray(_lineVao);
+        _context.State.BindVertexArray(_lineVao);
         _context.Gl.DrawArraysInstancedBaseInstance(PrimitiveType.Triangles, 0, 6, (uint)gridCount, (uint)gridBase);
         _context.State.SetCullFace(true);
         return true;
@@ -480,7 +497,7 @@ public sealed class PrimitiveRenderer : IDisposable
         _shapeRanges[(int)PrimitiveShape.Disc] = PrimitiveMeshes.AddDisc(vertices);
 
         _shapeVao = gl.GenVertexArray();
-        gl.BindVertexArray(_shapeVao);
+        _context.State.BindVertexArray(_shapeVao);
         _shapeVbo = gl.GenBuffer();
         gl.BindBuffer(BufferTargetARB.ArrayBuffer, _shapeVbo);
         var vertexData = vertices.ToArray();
@@ -494,7 +511,7 @@ public sealed class PrimitiveRenderer : IDisposable
         gl.EnableVertexAttribArray(0);
         gl.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, false, stride, (void*)(3 * sizeof(float)));
         gl.EnableVertexAttribArray(1);
-        gl.BindVertexArray(0);
+        _context.State.BindVertexArray(0);
     }
 
     public void Dispose()
@@ -504,6 +521,8 @@ public sealed class PrimitiveRenderer : IDisposable
         _gridBuffer?.Dispose();
         if (_shapeVao != 0)
         {
+            _context.State.ForgetVertexArray(_shapeVao);
+            _context.State.ForgetVertexArray(_lineVao);
             _context.Gl.DeleteVertexArray(_shapeVao);
             _context.Gl.DeleteVertexArray(_lineVao);
             _context.Gl.DeleteBuffer(_shapeVbo);

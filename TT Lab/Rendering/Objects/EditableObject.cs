@@ -30,6 +30,7 @@ public class EditableObject : Renderable
     public vec3 Offset;
     protected bool Selected;
     private quat _orientation = quat.Identity;
+    private readonly Renderable? _visual;
     public bool IsSelected => Selected;
     public vec4 SelectedColor { get; set; } = new(0.3f, 0.3f, 0.3f, 1.0f);
     public vec4 UnselectedColor { get; set; } = new(1.0f, 1.0f, 1.0f, 1.0f);
@@ -44,6 +45,7 @@ public class EditableObject : Renderable
         Size = size;
         Offset = offset;
         Scl = vec3.Ones;
+        _visual = visual;
 
         if (visual != null)
         {
@@ -64,12 +66,33 @@ public class EditableObject : Renderable
     public quat Orientation => _orientation;
 
     /// <summary>
+    /// Whether the object's model turns to the camera, a placed model with a billboard's shader (<see cref="BillboardTurn"/>)
+    /// </summary>
+    public bool TurnsToCamera => _visual switch
+    {
+        Mesh mesh => mesh.Turn == InstanceBuffer.BillboardTurn,
+        LodVisual lod => lod.Turn == InstanceBuffer.BillboardTurn,
+        _ => false,
+    };
+
+    /// <summary>
+    /// Where the object's model is drawn seen from a place: its transform, turned to the place when the model turns to the camera
+    /// </summary>
+    public mat4 DrawnTransformFrom(vec3 eye)
+    {
+        var world = WorldTransform;
+        return TurnsToCamera ? world * new mat4(BillboardTurn.Of(world, eye)) : world;
+    }
+
+    /// <summary>
     /// Where the object's box used for picking and outlining its selection is, maps the cube from -1 to 1 onto it
     /// </summary>
     public virtual mat4 GetBoundsTransform()
     {
         var halfSize = vec3.Max(vec3.Abs(Size), new vec3(MinimumBoxSize)) * 0.5f;
-        return WorldTransform * mat4.Translate(Offset + Size * 0.5f) * mat4.Scale(halfSize);
+        // Turned the way the last frame drew it
+        var drawn = TurnsToCamera ? DrawnTransformFrom(Context.FrameCamera.Position) : WorldTransform;
+        return drawn * mat4.Translate(Offset + Size * 0.5f) * mat4.Scale(halfSize);
     }
 
     protected virtual void InitSceneTransform()

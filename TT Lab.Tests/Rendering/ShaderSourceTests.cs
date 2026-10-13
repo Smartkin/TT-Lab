@@ -27,6 +27,18 @@ public class ShaderSourceTests
         Assert.DoesNotContain("#include \"", source);
     }
 
+    // GLSL takes extensions before anything else, the switches' defines come after
+    [Fact]
+    public void BindlessShadersEnableTheExtensionFirst()
+    {
+        var lines = Shader.LoadSource("MainPass.frag", Shader.ShaderSwitches.Bindless).Split("\r\n");
+
+        Assert.Equal("#version 460 core", lines[0]);
+        Assert.Equal("#extension GL_ARB_bindless_texture : require", lines[1]);
+        Assert.Contains("#define TT_BINDLESS", lines[2]);
+        Assert.DoesNotContain("GL_ARB_bindless_texture", Shader.LoadSource("MainPass.frag"));
+    }
+
     [Fact]
     public void RelativePathsResolveLikeTheFileSystem()
     {

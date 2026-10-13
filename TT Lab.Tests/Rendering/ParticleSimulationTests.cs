@@ -306,6 +306,47 @@ public sealed class ParticleSimulationTests
         Assert.Equal(1.0f, jibber.x, 3);
     }
 
+    // Every particle drawn takes its looks from the values of its life's step, made once a frame per emitter: they're the curves' to the bit,
+    // also after the keys are edited in place
+    [Fact]
+    public void TheLifeStepsHoldTheCurvesValues()
+    {
+        var system = System(lifeTime: 2.0f);
+        system.ColorGradients[0] = new Vector4(0, 10, 20, 30);
+        system.ColorGradients[1] = new Vector4(0.4f, 200, 100, 50);
+        system.ColorGradients[2] = new Vector4(1, 0, 255, 128);
+        system.AlphaGradient = Curve((0, 128), (0.7f, 32), (1, 0));
+        system.SizeWidth = Curve((0, 5000), (0.3f, 9000), (1, 15000));
+        system.Rotation = Curve((0, 0), (1, 16384));
+        system.JibberXFreq = 3.0f;
+        system.JibberXAmp = 2500.0f;
+        system.JibberYFreq = 0.5f;
+        system.JibberYAmp = 100.0f;
+        var simulation = new ParticleSimulation { System = system };
+        var particle = new ParticleSimulation.Particle { SpawnTime = 1.0f, LifeTime = 2.0f };
+
+        void AssertStepsAreTheCurves()
+        {
+            simulation.PrepareSteps();
+            for (var step = 0; step < ParticleSimulation.LifeSteps; step++)
+            {
+                var time = particle.SpawnTime + (step + 0.25f) / ParticleSimulation.LifeSteps * particle.LifeTime;
+                simulation.Evaluate(particle, time, out var color, out var size, out var angle, out var jibber);
+                simulation.EvaluateStep(particle, time, out var stepColor, out var stepSize, out var stepAngle, out var stepJibber);
+                Assert.Equal(Bits(color.x, color.y, color.z, color.w, size.x, size.y, angle, jibber.x, jibber.y),
+                    Bits(stepColor.x, stepColor.y, stepColor.z, stepColor.w, stepSize.x, stepSize.y, stepAngle, stepJibber.x, stepJibber.y));
+            }
+        }
+
+        AssertStepsAreTheCurves();
+        system.AlphaGradient[1].Y = 96;
+        system.ColorGradients[1].Z = 7;
+        system.JibberYAmp = 300.0f;
+        AssertStepsAreTheCurves();
+    }
+
+    private static int[] Bits(params float[] values) => values.Select(BitConverter.SingleToInt32Bits).ToArray();
+
     // The game adds 2^19 to the rectangle's values and keeps the low 10 bits of the pixel, so both offsets in its data work
     [Fact]
     public void TextureRectanglesKeepTheLowBitsOfThePixel()

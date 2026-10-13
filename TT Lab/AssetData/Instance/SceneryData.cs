@@ -1189,6 +1189,11 @@ public class SceneryData : AbstractAssetData
             return null;
         }
 
+        if (mesh is Rendering.Objects.Mesh placedMesh)
+        {
+            placedMesh.IsPlaced = true;
+        }
+
         // Darkened like a selected instance a mesh disappeared against the dark walls around it
         var editable = new EditableObject(renderContext, mesh, name, min, size) { SelectedColor = new vec4(1.0f, 0.78f, 0.5f, 1.0f) };
         editable.SetLocalTransform(placement.Matrix.ToGlm());

@@ -77,7 +77,7 @@ public static class PreviewRender
 
             var distance = Math.Max(radius, 0.25f) / MathF.Tan(fov * 0.5f) * Margin;
             camera.SetLocalTransform(mat4.LookAt(center + ViewDirection * distance, center, vec3.UnitY).Inverse);
-            scene.UpdateRenderTransform();
+            context.FlushRenderTransforms();
             renderer.DrawEditorPrimitives = false;
             renderer.RenderNow(0.0f);
             return ReadFrame(context, width, height, size);
@@ -100,7 +100,7 @@ public static class PreviewRender
             }
 
             camera.SetLocalTransform(savedCamera);
-            scene.UpdateRenderTransform();
+            context.FlushRenderTransforms();
         }
     }
 

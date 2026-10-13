@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using Silk.NET.OpenGL;
-using TT_Lab.AssetData.Graphics;
 using TT_Lab.Rendering.Passes;
 using Twinsanity.TwinsanityInterchange.Common;
 
@@ -12,17 +11,34 @@ namespace TT_Lab.Rendering.Services;
 public enum PassPriority
 {
     Skydome = -10,
-    Opaque = 1,
-    // The opaque passes drawing a copy of the frame, after every other opaque pass
-    OpaqueScreenCopies = 2,
-    Transparent = 10000,
+    // The scene in the game's order (SceneOrder): the buckets up to the particles', the particles, the buckets after them
+    Scene = 1,
+    Particles = 2,
+    LateScene = 3,
+    // TT Lab's own, after the game's
     VolumeInsides = 40000,
     VolumeOutsides = 40001,
-    Particles = 50000,
     Preview = 60000,
     PreviewSilhouette = 60001,
     Billboards = 100000,
-    Primitive = int.MaxValue
+}
+
+/// <summary>
+/// One of a pass's draws: a renderable drawing itself (<see cref="Shader"/> -1) or a shader of a batch's material, the first draw of a
+/// material reading a copy of the frame taking the copy first (<see cref="ScreenCopy"/>)
+/// </summary>
+public readonly record struct PassEntry(Renderable Renderable, int Shader, bool CopiesScreen = false)
+{
+    public void Draw(float delta)
+    {
+        if (Shader >= 0 && Renderable is RenderBatch batch)
+        {
+            batch.RenderShader(Shader, delta);
+            return;
+        }
+
+        Renderable.Render(delta);
+    }
 }
 
 public class PassService
@@ -30,151 +46,167 @@ public class PassService
     public const string EVERY_PASS = "EveryPass";
     // Every part of the sky draws in this one pass, blended or not
     public const string SkydomePassName = nameof(TwinShader.Type.UnlitSkydome);
+    public const string ScenePassName = "SCENE";
+    public const string LateScenePassName = "LATE_SCENE";
     public const string ParticlesPass = "PARTICLES";
     public const string VolumeInsidesPass = "VOLUME_INSIDES";
     public const string VolumeOutsidesPass = "VOLUME_OUTSIDES";
     public const string PreviewPassName = "PREVIEW";
     public const string PreviewSilhouettePassName = "PREVIEW_SILHOUETTE";
-    
+    public const string BillboardsPassName = "CUSTOM_BILLBOARDS";
+
+    // The game draws the particle pages in bucket 22, after the level's own materials of the bucket (UpdateAndDrawParticles comes after
+    // the scene is submitted): the scene's first pass has the buckets up to it, the later ones go after the particles
+    private const uint ParticlesBucket = 22;
+
     private readonly Dictionary<string, RenderPass> _passes = [];
-    private readonly SortedList<PassPriority, RenderPass> _sortedPasses = new(new DuplicateKeyComparer<PassPriority>());
-    private readonly Dictionary<string, SortedList<int, Renderable>> _passRenderables = [];
-    private readonly IList<RenderPass> _skydomePasses;
-    private readonly IList<RenderPass> _opaquePasses;
-    private readonly IList<RenderPass> _transparentPasses;
-    private readonly IList<RenderPass> _billboardPasses;
-    private readonly IList<RenderPass> _primitivePasses;
+    private readonly Dictionary<RenderPass, PassContent> _contents = [];
+    private readonly List<(PassPriority Priority, RenderPass Pass)> _sortedPasses = [];
+
+    private sealed class PassContent
+    {
+        // Ordered by their priority, equal ones in the order they came
+        public readonly List<(long Priority, PassEntry Entry)> Fixed = [];
+        public readonly List<(RenderBatch Batch, int Shader)> SceneDraws = [];
+        public PassEntry[]? Entries;
+        public int EntriesDrawnAloneVersion = -1;
+    }
 
     public PassService(RenderContext context)
     {
-        foreach (var passType in Enum.GetValues<TwinShader.Type>())
-        {
-            var passName = passType.ToString();
-            var passPriorityOpaque = PassPriority.Opaque;
-            var passPriorityTransparent = PassPriority.Transparent;
-            switch (passType)
-            {
-                case TwinShader.Type.StandardUnlit:
-                    break;
-                case TwinShader.Type.StandardLit:
-                    break;
-                case TwinShader.Type.LitSkinnedModel:
-                    break;
-                case TwinShader.Type.UnlitSkydome:
-                    RegisterPass(SkydomePassName, new SkydomePass(context, SkydomePassName, context.GetProgram("Generic")), PassPriority.Skydome);
-                    continue;
-                case TwinShader.Type.ColorOnly:
-                    break;
-                case TwinShader.Type.LitEnvironmentMap:
-                    break;
-                case TwinShader.Type.UiShader:
-                    break;
-                case TwinShader.Type.LitMetallic:
-                    break;
-                // The game draws a copy of the frame drawn so far, which the pass takes as it starts
-                case TwinShader.Type.LitReflectionSurface:
-                    RegisterPass(passName, new ScreenCopyPass(context, passName, context.GetProgram("Generic"), passType), PassPriority.OpaqueScreenCopies);
-                    RegisterPass(passName + "Transparent", new ScreenCopyPass(context, passName + "Transparent", context.GetProgram("Generic"), passType), passPriorityTransparent);
-                    continue;
-                case TwinShader.Type.SHADER_17:
-                    break;
-                case TwinShader.Type.Particle:
-                    break;
-                case TwinShader.Type.Decal:
-                    break;
-                case TwinShader.Type.SHADER_20:
-                    break;
-                case TwinShader.Type.UnlitGlossy:
-                    break;
-                case TwinShader.Type.UnlitEnvironmentMap:
-                    break;
-                case TwinShader.Type.UnlitClothDeformation:
-                    break;
-                case TwinShader.Type.SHADER_25:
-                    break;
-                case TwinShader.Type.UnlitClothDeformation2:
-                    break;
-                case TwinShader.Type.UnlitBillboard:
-                    break;
-                case TwinShader.Type.SHADER_30:
-                    break;
-                case TwinShader.Type.SHADER_31:
-                    break;
-                case TwinShader.Type.SHADER_32:
-                    break;
-            }
-            
-            RenderPass renderPass = new GenericPass(context, passName, context.GetProgram("Generic"), passType);
-            RegisterPass(passType.ToString(), renderPass, passPriorityOpaque);
-            RenderPass renderPassTransparent = new GenericPass(context, passName + "Transparent", context.GetProgram("Generic"), passType);
-            RegisterPass(passType + "Transparent", renderPassTransparent, passPriorityTransparent);
-        }
-        
-        RegisterPass("CUSTOM_BILLBOARDS", new BillboardPass(context, "CUSTOM_BILLBOARDS", context.GetProgram("Generic")), PassPriority.Billboards);
-        RegisterPass(ParticlesPass, new ParticlePass(context, ParticlesPass, context.GetProgram("Particle")), PassPriority.Particles);
-        RegisterPass(VolumeInsidesPass, new VolumePass(context, VolumeInsidesPass, context.GetProgram("Generic"), TriangleFace.Front), PassPriority.VolumeInsides);
-        RegisterPass(VolumeOutsidesPass, new VolumePass(context, VolumeOutsidesPass, context.GetProgram("Generic"), TriangleFace.Back), PassPriority.VolumeOutsides);
-        RegisterPass(PreviewPassName, new PreviewPass(context, PreviewPassName, context.GetProgram("Generic"), false), PassPriority.Preview);
-        RegisterPass(PreviewSilhouettePassName, new PreviewPass(context, PreviewSilhouettePassName, context.GetProgram("Generic"), true), PassPriority.PreviewSilhouette);
+        var generic = context.GetProgram("Generic");
+        RegisterPass(new SkydomePass(context, SkydomePassName, generic), PassPriority.Skydome);
+        RegisterPass(new GenericPass(context, ScenePassName, generic, TwinShader.Type.StandardUnlit), PassPriority.Scene);
+        RegisterPass(new ParticlePass(context, ParticlesPass, context.GetProgram("Particle")), PassPriority.Particles);
+        RegisterPass(new GenericPass(context, LateScenePassName, generic, TwinShader.Type.StandardUnlit), PassPriority.LateScene);
+        RegisterPass(new VolumePass(context, VolumeInsidesPass, generic, TriangleFace.Front), PassPriority.VolumeInsides);
+        RegisterPass(new VolumePass(context, VolumeOutsidesPass, generic, TriangleFace.Back), PassPriority.VolumeOutsides);
+        RegisterPass(new PreviewPass(context, PreviewPassName, generic, false), PassPriority.Preview);
+        RegisterPass(new PreviewPass(context, PreviewSilhouettePassName, generic, true), PassPriority.PreviewSilhouette);
+        RegisterPass(new BillboardPass(context, BillboardsPassName, generic), PassPriority.Billboards);
 
-        _skydomePasses = GetPassesWith(priority => priority == PassPriority.Skydome);
-        _opaquePasses = GetPassesWith(priority => priority is PassPriority.Opaque or PassPriority.OpaqueScreenCopies);
-        _transparentPasses = GetPassesWith(priority => priority is >= PassPriority.Transparent and < PassPriority.Billboards);
-        _billboardPasses = GetPassesWith(priority => priority == PassPriority.Billboards);
-        _primitivePasses = GetPassesWith(priority => priority == PassPriority.Primitive);
+        SkydomePasses = [_passes[SkydomePassName]];
+        ScenePass = _passes[ScenePassName];
+        ParticlePass = _passes[ParticlesPass];
+        LateScenePass = _passes[LateScenePassName];
+        OverlayPasses = [_passes[VolumeInsidesPass], _passes[VolumeOutsidesPass], _passes[PreviewPassName], _passes[PreviewSilhouettePassName]];
+        BillboardPasses = [_passes[BillboardsPassName]];
+        DrawnPasses = _sortedPasses.Select(entry => entry.Pass).ToArray();
     }
 
-    private IList<RenderPass> GetPassesWith(Func<PassPriority, bool> predicate)
-    {
-        return _sortedPasses.Where(kv => predicate(kv.Key)).Select(kv => kv.Value).ToArray();
-    }
+    /// <summary>
+    /// Changes whenever a renderable goes into or out of a pass
+    /// </summary>
+    public int Version { get; private set; }
 
+    public IList<RenderPass> SkydomePasses { get; }
+
+    /// <summary>
+    /// The scene's draws in the game's order (<see cref="SceneOrder"/>) up to the particles' bucket
+    /// </summary>
+    public RenderPass ScenePass { get; }
+
+    public RenderPass ParticlePass { get; }
+
+    /// <summary>
+    /// The scene's draws past the particles' bucket, and TT Lab's own see-through visuals after them
+    /// </summary>
+    public RenderPass LateScenePass { get; }
+
+    /// <summary>
+    /// TT Lab's own draws after the game's: trigger and camera volumes, what's about to be placed
+    /// </summary>
+    public IList<RenderPass> OverlayPasses { get; }
+
+    public IList<RenderPass> BillboardPasses { get; }
+
+    /// <summary>
+    /// Every pass in the order the frame draws them
+    /// </summary>
+    public IList<RenderPass> DrawnPasses { get; }
+
+    /// <summary>
+    /// A renderable drawing itself in the passes it names, by their priority, <see cref="EVERY_PASS"/> for all of them (the camera)
+    /// </summary>
     public void RegisterRenderableInPasses(Renderable renderable, (string, int)[] passPriorities)
     {
-        if (passPriorities.Length == 1)
+        Version++;
+        if (passPriorities is [(EVERY_PASS, var everyPriority)])
         {
-            var passPriority = passPriorities[0];
-            if (passPriority.Item1 == EVERY_PASS)
+            foreach (var content in _contents.Values)
             {
-                foreach (var renderPass in _passes.Values)
-                {
-                    _passRenderables[renderPass.Name].Add(passPriority.Item2, renderable);
-                }
-
-                return;
+                AddFixed(content, everyPriority, new PassEntry(renderable, -1));
             }
-        }
-        
-        foreach (var passPriority in passPriorities)
-        {
-            _passRenderables[passPriority.Item1].Add(passPriority.Item2, renderable);
-        }
-    }
 
-    public void UnregisterRenderableInPasses(Renderable renderable)
-    {
-        foreach (var passRenderablesValue in _passRenderables.Values)
+            return;
+        }
+
+        foreach (var (passName, priority) in passPriorities)
         {
-            var index = passRenderablesValue.IndexOfValue(renderable);
-            if (index == -1)
+            if (!_passes.TryGetValue(passName, out var pass))
             {
+                Log.WriteLine($"No pass {passName} to draw {renderable.Name} in", Log.LogType.Warning);
                 continue;
             }
-            
-            passRenderablesValue.RemoveAt(index);
+
+            AddFixed(_contents[pass], priority, new PassEntry(renderable, -1));
         }
     }
 
-    public IList<RenderPass> GetSkydomePasses() => _skydomePasses;
+    /// <summary>
+    /// A batch's draws: a preview draws in the preview passes as its material would, every other batch each shader of its material in the
+    /// pass the shader goes in (the sky's, one a shader names for itself, the scene's)
+    /// </summary>
+    public void RegisterBatch(RenderBatch batch)
+    {
+        Version++;
+        if (batch.IsPreview)
+        {
+            AddFixed(_contents[_passes[PreviewPassName]], 0, new PassEntry(batch, -1));
+            AddFixed(_contents[_passes[PreviewSilhouettePassName]], 0, new PassEntry(batch, -1));
+            return;
+        }
 
-    public IList<RenderPass> GetTransparentPasses() => _transparentPasses;
+        var buffer = batch.Buffer;
+        for (var shader = 0; shader < buffer.ShaderCount; shader++)
+        {
+            var named = buffer.NamedPassOf(shader);
+            if (named == SkydomePassName)
+            {
+                AddFixed(_contents[_passes[SkydomePassName]], buffer.SkyPriorityOf(shader), new PassEntry(batch, shader));
+                continue;
+            }
 
-    // Transparent passes used to be included here too which drew everything transparent twice
-    public IList<RenderPass> GetPasses() => _opaquePasses;
+            Debug.Assert(named == null || _passes.ContainsKey(named), $"No pass {named} for a shader to draw in");
+            if (named != null && _passes.TryGetValue(named, out var pass))
+            {
+                AddFixed(_contents[pass], 0, new PassEntry(batch, shader));
+                continue;
+            }
 
-    public IList<RenderPass> GetBillboardPasses() => _billboardPasses;
+            var scene = buffer.Bucket <= ParticlesBucket ? ScenePass : LateScenePass;
+            var content = _contents[scene];
+            content.SceneDraws.Add((batch, shader));
+            content.Entries = null;
+        }
+    }
 
-    public IList<RenderPass> GetPrimitivePasses() => _primitivePasses;
+    /// <summary>
+    /// Takes every draw of the renderable out of every pass
+    /// </summary>
+    public void UnregisterRenderableInPasses(Renderable renderable)
+    {
+        Version++;
+        foreach (var content in _contents.Values)
+        {
+            var removed = content.Fixed.RemoveAll(entry => entry.Entry.Renderable == renderable);
+            removed += content.SceneDraws.RemoveAll(draw => draw.Batch == renderable);
+            if (removed > 0)
+            {
+                content.Entries = null;
+            }
+        }
+    }
 
     public RenderPass GetRenderPass(string name)
     {
@@ -182,37 +214,53 @@ public class PassService
         return _passes[name];
     }
 
-    public IList<Renderable> GetRenderablesInPass(string passName)
+    /// <summary>
+    /// What the pass draws, in order: what draws itself by its priority (the camera first), then a scene's draws in the game's order
+    /// </summary>
+    public IReadOnlyList<PassEntry> GetEntries(RenderPass pass)
     {
-        return _passRenderables[passName].Values;
-    }
-    
-    private void RegisterPass(string name, RenderPass renderPass, PassPriority priority)
-    {
-        Debug.Assert(!_passes.ContainsKey(name), $"Attempting to add existing pass {name}!");
-        _passes.Add(name, renderPass);
-        _sortedPasses.Add(priority, renderPass);
-        _passRenderables.Add(name, new SortedList<Int32, Renderable>(new DuplicateKeyComparer<Int32>()));
-    }
-    
-    
-    // https://stackoverflow.com/questions/5716423/c-sharp-sortable-collection-which-allows-duplicate-keys
-    private class DuplicateKeyComparer<TKey>
-        :
-            IComparer<TKey> where TKey : IComparable
-    {
-        #region IComparer<TKey> Members
-
-        public int Compare(TKey? x, TKey? y)
+        var content = _contents[pass];
+        // Whether a batch has skins decides where its draws go
+        var drawnAlone = RenderBatch.DrawnAloneVersion;
+        if (content.Entries != null && (content.SceneDraws.Count == 0 || content.EntriesDrawnAloneVersion == drawnAlone))
         {
-            var result = x?.CompareTo(y);
-
-            if (result == 0)
-                return -1; // Handle equality as being greater. Note: this will break Remove(key) or
-            else          // IndexOfKey(key) since the comparer never returns 0 to signal key equality
-                return result!.Value;
+            return content.Entries;
         }
 
-        #endregion
+        var entries = new List<PassEntry>(content.Fixed.Count + content.SceneDraws.Count);
+        entries.AddRange(content.Fixed.Select(entry => entry.Entry));
+        var draws = content.SceneDraws;
+        var order = SceneOrder.Order(draws.Select(draw => new SceneOrder.Draw(draw.Batch.Buffer.Bucket, draw.Batch.DrawsAlone, draw.Batch.Buffer.Material,
+            draw.Batch.Sequence, draw.Shader, draw.Batch.Buffer.GameModel, draw.Batch.Buffer.PartIndex)).ToList());
+        object? previousMaterial = null;
+        foreach (var index in order)
+        {
+            var (batch, shader) = draws[index];
+            var material = batch.Buffer.Material;
+            // The game copies the frame for a material reading the copy once, as it starts drawing it (WriteScreenCopy)
+            var copies = material != previousMaterial && batch.Buffer.ReadsScreenCopy;
+            entries.Add(new PassEntry(batch, shader, copies));
+            previousMaterial = material;
+        }
+
+        content.Entries = entries.ToArray();
+        content.EntriesDrawnAloneVersion = drawnAlone;
+        return content.Entries;
+    }
+
+    private static void AddFixed(PassContent content, long priority, PassEntry entry)
+    {
+        var index = content.Fixed.FindLastIndex(existing => existing.Priority <= priority) + 1;
+        content.Fixed.Insert(index, (priority, entry));
+        content.Entries = null;
+    }
+
+    private void RegisterPass(RenderPass renderPass, PassPriority priority)
+    {
+        Debug.Assert(!_passes.ContainsKey(renderPass.Name), $"Attempting to add existing pass {renderPass.Name}!");
+        _passes.Add(renderPass.Name, renderPass);
+        _contents.Add(renderPass, new PassContent());
+        _sortedPasses.Add((priority, renderPass));
+        _sortedPasses.Sort((a, b) => a.Priority.CompareTo(b.Priority));
     }
 }

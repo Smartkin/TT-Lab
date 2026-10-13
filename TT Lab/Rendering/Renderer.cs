@@ -33,6 +33,12 @@ public class Renderer : IView
     private readonly BatchStorage _batchStorage;
     private readonly List<Renderable> _updaters = [];
     private readonly List<IInstancedRenderable> _instancedRenderables = [];
+    // The batches writing their instances every frame, after every batch that changed wrote its kept ones
+    private readonly List<RenderBatch> _frameBatches = [];
+    // Every batch whose instances were written this frame, the indirect draws of the others stay as they were
+    private readonly List<RenderBatch> _writtenBatches = [];
+    // Picking their levels before the batches gather their instances: a batch registered before the LOD gathered last frame's levels
+    private readonly List<LodVisual> _lods = [];
     private readonly List<IPrimitiveRenderable> _primitiveRenderables = [];
     private readonly object _renderablesLock = new();
     private VertexArrayObject<float, float> _emptyVao;
@@ -48,6 +54,8 @@ public class Renderer : IView
     private readonly Stopwatch _renderTime = new();
     private readonly Stopwatch _updateWatch = new();
     private bool _isInitialized;
+    // Whether the frame being drawn draws the passes' batches in indirect draws
+    private bool _drawsIndirect;
     private byte[] _framebufferData = [];
     private object _updatersLock = new();
     private object _framebufferWriteLock = new();
@@ -84,16 +92,11 @@ public class Renderer : IView
 
     private void BatchStorageOnNewBatchCreated(RenderBatch renderBatch)
     {
-        lock (_renderablesLock)
-        {
-            _instancedRenderables.Add(renderBatch);
-        }
-
-        _passService.RegisterRenderableInPasses(renderBatch, renderBatch.GetPriorityPasses());
+        _passService.RegisterBatch(renderBatch);
         renderBatch.RequestPassSwitch += () =>
         {
             _passService.UnregisterRenderableInPasses(renderBatch);
-            _passService.RegisterRenderableInPasses(renderBatch, renderBatch.GetPriorityPasses());
+            _passService.RegisterBatch(renderBatch);
         };
     }
 
@@ -153,6 +156,11 @@ public class Renderer : IView
                 _instancedRenderables.Add(instanced);
             }
 
+            if (renderable is LodVisual lod)
+            {
+                _lods.Add(lod);
+            }
+
             if (renderable is IPrimitiveRenderable primitives)
             {
                 _primitiveRenderables.Add(primitives);
@@ -182,6 +190,11 @@ public class Renderer : IView
             if (renderable is IInstancedRenderable instanced && renderable is not RenderBatch)
             {
                 _instancedRenderables.Remove(instanced);
+            }
+
+            if (renderable is LodVisual lod)
+            {
+                _lods.Remove(lod);
             }
 
             if (renderable is IPrimitiveRenderable primitives)
@@ -267,6 +280,8 @@ public class Renderer : IView
 
         var gl = _renderContext.Gl;
         _renderContext.State.Reset();
+        // One time for the whole frame: the material table's scrolls and every pass's Time uniform
+        _renderContext.Time = Time;
         var fog = _renderContext.Fog;
         // The game clears a chunk without a sky to black (SetUpFrame), the editor's other views are grey
         gl.ClearColor(fog != null ? Color.Black : Color.DimGray);
@@ -276,18 +291,24 @@ public class Renderer : IView
         BindFogTable(fog);
 
         PrepareInstances();
+        _renderContext.Materials.Prepare(_renderContext.Time);
+        _drawsIndirect = _renderContext.DrawsIndirect;
+        if (_drawsIndirect)
+        {
+            _renderContext.IndirectDraws.Build(_passService, _writtenBatches);
+        }
         
         RenderSkydome((float)delta);
         RenderBackgroundFog(fog);
 
-        // Opaque objects pass
-        PerformPassChain((float)delta, _passService.GetPasses);
-        
-        // Alpha blending pass
-        PerformPassChain((float)delta, _passService.GetTransparentPasses);
-        
-        // Billboards pass
-        PerformPassChain((float)delta, _passService.GetBillboardPasses);
+        // The scene in the game's order (SceneOrder): its buckets up to the particles', the particles, the buckets after them
+        PerformPass((float)delta, _passService.ScenePass);
+        PerformPass((float)delta, _passService.ParticlePass);
+        PerformPass((float)delta, _passService.LateScenePass);
+
+        // TT Lab's own: volumes, what's about to be placed, the icons
+        PerformPassChain((float)delta, _passService.OverlayPasses);
+        PerformPassChain((float)delta, _passService.BillboardPasses);
         
         // Primitives pass
         RenderPrimitives();
@@ -317,7 +338,7 @@ public class Renderer : IView
     private void RenderSkydome(float delta)
     {
         // The scene's camera is in every pass
-        if (!_passService.GetSkydomePasses().Any(pass => _passService.GetRenderablesInPass(pass.Name).Any(renderable => renderable is not Scene.Camera)))
+        if (!_passService.SkydomePasses.Any(pass => _passService.GetEntries(pass).Any(entry => entry.Renderable is not Scene.Camera)))
         {
             return;
         }
@@ -335,7 +356,7 @@ public class Renderer : IView
         gl.Viewport(0, 0, (uint)size.x, (uint)size.y);
         gl.Scissor(0, 0, (uint)size.x, (uint)size.y);
         gl.Clear(ClearBufferMask.ColorBufferBit);
-        PerformPassChain(delta, _passService.GetSkydomePasses);
+        PerformPassChain(delta, _passService.SkydomePasses);
         gl.Viewport(0, 0, (uint)_frameBufferSize.x, (uint)_frameBufferSize.y);
         gl.Scissor(0, 0, (uint)_frameBufferSize.x, (uint)_frameBufferSize.y);
         gl.BindFramebuffer(FramebufferTarget.ReadFramebuffer, _skyBuffer.Handler);
@@ -361,7 +382,7 @@ public class Renderer : IView
         }
 
         _fogTable.Bind(TextureUnit.Texture7);
-        _renderContext.Gl.ActiveTexture(TextureUnit.Texture0);
+        _renderContext.State.SetActiveTexture(0);
     }
 
     // The PS2's fog over everything the opaque passes don't draw over: the sky and the cleared background have the depth 0, which picks the
@@ -400,8 +421,43 @@ public class Renderer : IView
     {
         var instances = _renderContext.Instances;
         instances.Clear();
+        var camera = _renderContext.FrameCamera;
+        var cullsLods = _renderContext.CullsLods;
         lock (_renderablesLock)
         {
+            foreach (var lod in _lods)
+            {
+                lod.ChooseLevel(camera.IsValid, camera.Position, cullsLods);
+            }
+
+            // The batches that changed keep their instances again first, the frame's are written after the kept ones
+            _writtenBatches.Clear();
+            while (_renderContext.TakeChangedBatch(out var batch))
+            {
+                var kept = batch.PrepareKeptInstances(instances);
+                _writtenBatches.Add(batch);
+                if (kept != batch.IsFrameBatch)
+                {
+                    continue;
+                }
+
+                batch.IsFrameBatch = !kept;
+                if (kept)
+                {
+                    _frameBatches.Remove(batch);
+                }
+                else
+                {
+                    _frameBatches.Add(batch);
+                }
+            }
+
+            foreach (var batch in _frameBatches)
+            {
+                batch.PrepareInstances(instances);
+                _writtenBatches.Add(batch);
+            }
+
             foreach (var instancedRenderable in _instancedRenderables)
             {
                 instancedRenderable.PrepareInstances(instances);
@@ -438,9 +494,9 @@ public class Renderer : IView
         _primitiveRenderer.Render(camera);
     }
 
-    private void PerformPassChain(float delta, Func<IList<RenderPass>> passGetter)
+    private void PerformPassChain(float delta, IList<RenderPass> passes)
     {
-        foreach (var pass in passGetter.Invoke())
+        foreach (var pass in passes)
         {
             PerformPass(delta, pass);
         }
@@ -448,9 +504,9 @@ public class Renderer : IView
 
     private void PerformPass(float delta, RenderPass pass)
     {
-        var renderables = _passService.GetRenderablesInPass(pass.Name);
-        // Only 1 renderable indicates we only have the camera
-        if (renderables.Count <= 1)
+        var entries = _passService.GetEntries(pass);
+        // Only the camera, which is in every pass
+        if (entries.Count <= 1)
         {
             return;
         }
@@ -458,14 +514,42 @@ public class Renderer : IView
         if (pass.StartPass())
         {
             var program = _renderContext.CurrentPass.Program;
-            _renderContext.Time = Time;
-            program.SetUniform(KnownUniform.Time, (float)Time);
+            program.SetUniform(KnownUniform.Time, (float)_renderContext.Time);
             program.SetUniform(KnownUniform.Resolution, new vec2(_frameBufferSize.x, _frameBufferSize.y));
         }
 
-        foreach (var renderable in renderables)
+        // The materials' state stays set from one draw to the next and what the pass started with comes back at its end: it used to come
+        // back after every draw, which turned blending off and on again around every opaque draw
+        var state = _renderContext.State;
+        state.ForgetBindings();
+        var blend = state.Blend;
+        var depthMask = state.DepthMask;
+        var binds = state.MaterialBinds;
+        if (_drawsIndirect)
         {
-            renderable.Render(delta);
+            _renderContext.IndirectDraws.Draw(pass, delta);
+        }
+        else
+        {
+            foreach (var entry in entries)
+            {
+                if (entry.CopiesScreen)
+                {
+                    _renderContext.ScreenCopy.Take();
+                }
+
+                entry.Draw(delta);
+            }
+        }
+
+        if (state.MaterialBinds != binds)
+        {
+            state.SetBlend(blend);
+            state.SetDepthMask(depthMask);
+            state.SetColorMask(true, true, true, true);
+            state.SetDepthFunc(DepthFunction.Lequal);
+            // The particles sample their pages without a sampler
+            state.BindSampler(0, 0);
         }
 
         pass.EndPass();

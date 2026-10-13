@@ -23,11 +23,6 @@ public class Camera : EditableObject
         _cameraTrigger.SetInheritDiffuse(false);
     }
 
-    public override (String, Int32)[] GetPriorityPasses()
-    {
-        return [("ColorOnly", 10)];
-    }
-
     protected override void RenderSelf(float delta)
     {
         base.RenderSelf(delta);

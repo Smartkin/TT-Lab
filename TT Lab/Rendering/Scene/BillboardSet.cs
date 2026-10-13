@@ -62,16 +62,6 @@ public class BillboardSet : Renderable, IInstancedRenderable
         _billboards.Remove(billboard);
     }
 
-    public override void UpdateRenderTransform()
-    {
-        base.UpdateRenderTransform();
-
-        foreach (var billboard in _billboards)
-        {
-            billboard.UpdateRenderTransform();
-        }
-    }
-
     public void PrepareInstances(InstanceBuffer instances)
     {
         _baseInstance = instances.Count;
@@ -89,14 +79,14 @@ public class BillboardSet : Renderable, IInstancedRenderable
                 continue;
             }
 
-            instances.Add(billboard.RenderTransform, billboard.IsHighlighted ? HighlightColor : Diffuse);
+            instances.Add(billboard.RenderTransform, billboard.IsHighlighted ? HighlightColor : Diffuse, InstanceBuffer.NoLightSet, InstanceBuffer.FacesView);
             _instanceCount++;
         }
     }
 
     protected override void RenderSelf(float delta)
     {
-        if (_instanceCount == 0 || !_planeBuffer.Bind())
+        if (_instanceCount == 0 || !_planeBuffer.Bind(0))
         {
             return;
         }
@@ -104,7 +94,7 @@ public class BillboardSet : Renderable, IInstancedRenderable
         var program = Context.CurrentPass.Program;
         program.SetUniform(KnownUniform.FlipY, 1.0f);
         program.SetUniform(KnownUniform.DiffuseOnly, _useDiffuseOnly ? 1.0f : 0.0f);
-        Context.Gl.DrawArraysInstancedBaseInstance(PrimitiveType.Triangles, 0, _planeBuffer.IndexCount, (uint)_instanceCount, (uint)_baseInstance);
+        Context.Gl.DrawArraysInstancedBaseInstance(PrimitiveType.Triangles, _planeBuffer.FirstVertex, _planeBuffer.IndexCount, (uint)_instanceCount, (uint)_baseInstance);
         program.SetUniform(KnownUniform.FlipY, 0.0f);
         program.SetUniform(KnownUniform.DiffuseOnly, 0.0f);
         _planeBuffer.Unbind();

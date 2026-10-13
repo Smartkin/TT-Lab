@@ -7,25 +7,6 @@ namespace TT_Lab.Rendering.UniformDescs;
 
 public struct TwinMaterialDesc()
 {
-    public const string DeformModePath = "twin_material.deform_mode";
-    public const string DeformSpeedPath = "twin_material.deform_speed";
-    public const string DeformAmplitudePath = "twin_material.deform_amplitude";
-    public const string BillboardRenderPath = "twin_material.billboard_render";
-    public const string UvOffsetPath = "twin_material.uv_offset";
-    public const string ReflectDistPath = "twin_material.reflect_dist";
-    public const string AlphaMethodPath = "twin_material.alpha_method";
-    public const string AlphaReferencePath = "twin_material.alpha_reference";
-    public const string AlphaFailDrawsPath = "twin_material.alpha_fail_draws";
-    public const string AlphaBlendPath = "twin_material.alpha_blend";
-    public const string EnvMapPath = "twin_material.env_map";
-    public const string UseTexturePath = "twin_material.use_texture";
-    public const string MipmappedPath = "twin_material.mipmapped";
-    public const string LodScalePath = "twin_material.lod_scale";
-    public const string LodKPath = "twin_material.lod_k";
-    public const string FogPath = "twin_material.fog";
-    public const string EditorShadingPath = "twin_material.editor_shading";
-    public const string LitPath = "twin_material.lit";
-
     /// <summary>
     /// Fogged by neither version of the game's fog: what the editor draws
     /// </summary>
@@ -53,7 +34,6 @@ public struct TwinMaterialDesc()
     public int DeformMode { get; init; }
     public float DeformSpeed { get; init; }
     public vec3 DeformAmplitude { get; init; } = vec3.Zero;
-    public bool BillboardRender { get; init; } = false;
     /// <summary>
     /// Lit by the game's lights: the vertex color times the object's light set (<c>MainPass.vert</c>)
     /// </summary>
@@ -74,12 +54,16 @@ public struct TwinMaterialDesc()
     public bool AnimatesV { get; init; }
     public vec2 ReflectDist { get; init; } = vec2.Zero;
     /// <summary>
-    /// The GS's alpha test (<see cref="GsAlphaTest"/>): its method, -1 without one, the reference byte and whether failing fragments still
-    /// draw their color
+    /// The GS's alpha test (<see cref="GsAlphaTest"/>): its method, -1 without one, the reference byte and what failing fragments write
+    /// (AFAIL)
     /// </summary>
     public int AlphaTestMethod { get; init; } = -1;
     public int AlphaReference { get; init; }
-    public bool AlphaFailDrawsColor { get; init; }
+    public TwinShader.ProcessAfterAlphaTestFailed AlphaFail { get; init; }
+    /// <summary>
+    /// How the fragments failing the test are drawn, by what they write next to the passing ones
+    /// </summary>
+    public AlphaFailDraw FailDraw => GsAlphaTest.FailDrawOf(AlphaTestMethod, AlphaFail, DepthWrite);
     public float AlphaBlend { get; init; } = 0.0f;
     /// <summary>
     /// Where the picture is read instead of the UVs: 0 the UVs, 1 like the environment maps, 2 like the metallic shader

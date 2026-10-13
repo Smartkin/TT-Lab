@@ -2,7 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.InteropServices;
+using System.Threading;
 using GlmSharp;
+using TT_Lab.Rendering.Lighting;
 using TT_Lab.Rendering.Services;
 
 namespace TT_Lab.Rendering;
@@ -31,6 +34,8 @@ public abstract class Renderable
     private bool _inheritRotation = true;
     private bool _inheritDiffuse = true;
     private bool _inheritVisibility = true;
+    // 1 while the renderable waits in its context's queue of changed render transforms
+    private int _queued;
 
     protected Renderable(RenderContext context, string name = "")
     {
@@ -114,13 +119,40 @@ public abstract class Renderable
 
     public virtual void EndRender() {}
 
-    public virtual void UpdateRenderTransform()
+    /// <summary>
+    /// The renderable goes into its context's queue of what changed since the frame before (<see cref="RenderContext.FlushRenderTransforms"/>),
+    /// from any thread
+    /// </summary>
+    protected void QueueRenderTransform()
     {
-        _cachedRenderTransform = _cachedWorldTransform;
-        foreach (var child in Children)
+        if (Context != null && Interlocked.Exchange(ref _queued, 1) == 0)
         {
-            child.UpdateRenderTransform();
+            Context.QueueRenderTransform(this);
         }
+    }
+
+    /// <summary>
+    /// What changed becomes what's rendered, out of the context's queue on the render thread
+    /// </summary>
+    internal void ApplyRenderTransform()
+    {
+        // Out of the queue before reading anything: a change made meanwhile puts the renderable in again
+        Interlocked.Exchange(ref _queued, 0);
+        TakeRenderState();
+    }
+
+    /// <summary>
+    /// The world transform becomes the transform it's rendered with, and what else the renderable draws with what's been set (bones, weights)
+    /// </summary>
+    protected virtual void TakeRenderState()
+    {
+        if (SameBits(_cachedRenderTransform, _cachedWorldTransform))
+        {
+            return;
+        }
+
+        _cachedRenderTransform = _cachedWorldTransform;
+        OnDrawnChanged();
     }
 
     public T GetChild<T>(string name) where T : Renderable
@@ -130,7 +162,7 @@ public abstract class Renderable
         {
             return (T)result;
         }
-        foreach (var child in _children.Values)
+        foreach (var child in ChildArray)
         {
             result = child.GetChild(name);
             if (result != null)
@@ -262,8 +294,12 @@ public abstract class Renderable
 
     public void AddChild(Renderable child)
     {
-        _children.Add(child.Name, child);
-        _childrenSnapshot = null;
+        lock (_children)
+        {
+            _children.Add(child.Name, child);
+            _childrenSnapshot = null;
+        }
+
         child.Parent = this;
         child.UpdateTransform();
         ChildAdded?.Invoke(child);
@@ -272,14 +308,17 @@ public abstract class Renderable
     public void RemoveChild(Renderable child)
     {
         // Only the child itself: another one of the same name, made again for the same asset, went with a removal of the one it replaced
-        if (!_children.TryGetValue(child.Name, out var existing) || existing != child)
+        lock (_children)
         {
-            return;
+            if (!_children.TryGetValue(child.Name, out var existing) || existing != child)
+            {
+                return;
+            }
+
+            _children.Remove(child.Name);
+            _childrenSnapshot = null;
         }
 
-        _children.Remove(child.Name);
-
-        _childrenSnapshot = null;
         child.Parent = null;
         child.UpdateTransform();
         ChildRemoved?.Invoke(child);
@@ -290,11 +329,26 @@ public abstract class Renderable
     /// </summary>
     public void KillChildren()
     {
-        _children.Clear();
-        _childrenSnapshot = null;
+        lock (_children)
+        {
+            _children.Clear();
+            _childrenSnapshot = null;
+        }
     }
 
     protected virtual void RenderSelf(float delta) {}
+
+    /// <summary>
+    /// The renderable's visibility, color or transform as rendered changed: what's drawn of it has to be gathered again. From any thread,
+    /// after the change
+    /// </summary>
+    protected virtual void OnDrawnChanged() {}
+
+    // Compared by their bits, so even a change only a NaN's payload or a zero's sign tells apart counts
+    private static bool SameBits<T>(in T a, in T b) where T : unmanaged
+    {
+        return MemoryMarshal.AsBytes(new ReadOnlySpan<T>(in a)).SequenceEqual(MemoryMarshal.AsBytes(new ReadOnlySpan<T>(in b)));
+    }
 
     protected virtual void UpdateSelf(float delta) {}
 
@@ -304,8 +358,37 @@ public abstract class Renderable
         set
         {
             _parent = value;
+            Interlocked.Increment(ref _parentsVersion);
             UpdateTransform();
         }
+    }
+
+    private static int _parentsVersion;
+
+    /// <summary>
+    /// Changes whenever a renderable gets another parent, what cached walks up the scene go by
+    /// </summary>
+    internal static int ParentsVersion => Volatile.Read(ref _parentsVersion);
+
+    internal Renderable? CachedLightAnchor { get; set; }
+    internal int LightAnchorVersion { get; set; } = -1;
+
+    /// <summary>
+    /// As a light anchor (<see cref="LightAnchor"/>): the light set it was given in the frame's instance buffer, and the lights at
+    /// it the last time they were gathered
+    /// </summary>
+    internal ref AnchorLighting AnchorLight => ref _anchorLight;
+
+    private AnchorLighting _anchorLight;
+
+    internal struct AnchorLighting
+    {
+        public Buffers.InstanceBuffer? Buffer;
+        public int Frame;
+        public int Index;
+        public SceneLights? Lights;
+        public vec3 Position;
+        public LightSet Set;
     }
 
     /// <summary>
@@ -325,7 +408,9 @@ public abstract class Renderable
     private void UpdateTransform()
     {
         _cachedWorldTransform = CalculateWorldTransform();
-        foreach (var child in _children.Values)
+        // Only what changed has its render transform made again, the whole scene every frame took a millisecond
+        QueueRenderTransform();
+        foreach (var child in ChildArray)
         {
             child.UpdateTransform();
         }
@@ -372,17 +457,45 @@ public abstract class Renderable
         get => _diffuse;
         set
         {
+            var changed = !SameBits(_diffuse, value);
             _diffuse = value;
-
-            foreach (var child in _children.Values.Where(child => child._inheritDiffuse))
+            if (changed)
             {
-                child.Diffuse = value;
+                OnDrawnChanged();
+            }
+
+            foreach (var child in ChildArray)
+            {
+                if (child._inheritDiffuse)
+                {
+                    child.Diffuse = value;
+                }
             }
         }
     }
 
     public mat4 RenderTransform => _cachedRenderTransform;
-    public IReadOnlyList<Renderable> Children => _childrenSnapshot ??= _children.Values.ToArray();
+    public IReadOnlyList<Renderable> Children => ChildArray;
+
+    // The children as they were last changed. Children get added and removed on the render thread while the UI thread goes through them
+    // (visibility, transforms), so the copy is made and dropped under the same lock
+    private Renderable[] ChildArray
+    {
+        get
+        {
+            var snapshot = _childrenSnapshot;
+            if (snapshot != null)
+            {
+                return snapshot;
+            }
+
+            lock (_children)
+            {
+                return _childrenSnapshot ??= _children.Values.ToArray();
+            }
+        }
+    }
+
     public string Name { get; }
 
     public virtual bool DoesUpdates => false;
@@ -393,7 +506,7 @@ public abstract class Renderable
         set
         {
             _canUpdate = value;
-            foreach (var child in _children.Values)
+            foreach (var child in ChildArray)
             {
                 child.CanUpdate = value;
             }
@@ -405,11 +518,19 @@ public abstract class Renderable
         get => _isVisible;
         set
         {
+            var changed = _isVisible != value;
             _isVisible = value;
-
-            foreach (var child in _children.Values.Where(child => child._inheritVisibility))
+            if (changed)
             {
-                child.IsVisible = value;
+                OnDrawnChanged();
+            }
+
+            foreach (var child in ChildArray)
+            {
+                if (child._inheritVisibility)
+                {
+                    child.IsVisible = value;
+                }
             }
         }
     }

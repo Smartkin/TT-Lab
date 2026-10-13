@@ -11,6 +11,7 @@ using TT_Lab.Assets;
 using TT_Lab.Rendering.Buffers;
 using TT_Lab.Rendering.Factories;
 using TT_Lab.Rendering.Lighting;
+using TT_Lab.Rendering.Materials;
 using TT_Lab.Rendering.Native;
 using TT_Lab.Rendering.Passes;
 using TT_Lab.Rendering.Services;
@@ -41,6 +42,10 @@ public class RenderContext : IDisposable
     private readonly Dictionary<string, ShaderProgram> _programs = [];
     private GL _gl;
     private readonly ConcurrentQueue<Action> _renderQueue = new();
+    // What changed since its render transform was last taken (Renderable.ApplyRenderTransform)
+    private readonly ConcurrentQueue<Renderable> _changedTransforms = new();
+    // The batches whose kept instances changed (RenderBatch.MarkChanged)
+    private readonly ConcurrentQueue<RenderBatch> _changedBatches = new();
     private bool _invalidated = true;
     private bool _isGlAccessible = true;
     private int _outputBuffer = -1;
@@ -95,8 +100,10 @@ public class RenderContext : IDisposable
         Gl.DepthMask(true);
         Gl.DepthFunc(DepthFunction.Lequal);
 
+        Bindless = BindlessTextures.Of(Gl);
+        DrawsIndirect = Bindless != null;
         var colorVertShader = new Shader(this, ShaderType.VertexShader, "MainPass.vert");
-        var colorFragShader = new Shader(this, ShaderType.FragmentShader, "MainPass.frag");
+        var colorFragShader = new Shader(this, ShaderType.FragmentShader, "MainPass.frag", Bindless != null ? Shader.ShaderSwitches.Bindless : Shader.ShaderSwitches.None);
         var program = new ShaderProgram(this, colorVertShader, colorFragShader);
         _programs.Add("Generic", program);
         WriteProgramUniforms(program);
@@ -144,10 +151,18 @@ public class RenderContext : IDisposable
     [MemberNotNull(nameof(MaterialService))]
     [MemberNotNull(nameof(Instances))]
     [MemberNotNull(nameof(Samplers))]
+    [MemberNotNull(nameof(Materials))]
+    [MemberNotNull(nameof(VertexPool))]
+    [MemberNotNull(nameof(IndirectDraws))]
+    [MemberNotNull(nameof(ScreenCopy))]
     private void InitServices()
     {
+        IndirectDraws = new IndirectDraws(this);
+        ScreenCopy = new ScreenCopy(this);
         Instances = new InstanceBuffer(this);
         Samplers = new TextureSamplers(this);
+        Materials = new MaterialTable(this);
+        VertexPool = new VertexPool(this);
         PrimitiveRenderer = new PrimitiveRenderer(this);
         SkeletonManager = new TwinSkeletonManager(this);
         MeshBuilder = new MeshBuilder(this);
@@ -164,6 +179,20 @@ public class RenderContext : IDisposable
     public GlStateCache State { get; }
     public InstanceBuffer Instances { get; private set; }
     public TextureSamplers Samplers { get; private set; }
+    public MaterialTable Materials { get; private set; }
+    public VertexPool VertexPool { get; private set; }
+    public IndirectDraws IndirectDraws { get; private set; }
+    public ScreenCopy ScreenCopy { get; private set; }
+
+    /// <summary>
+    /// Bindless textures, none when the driver can't draw a pass's batches in indirect draws
+    /// </summary>
+    public BindlessTextures? Bindless { get; private set; }
+
+    /// <summary>
+    /// Whether the passes' batches are drawn in indirect draws (<see cref="Rendering.IndirectDraws"/>), only with bindless textures
+    /// </summary>
+    public bool DrawsIndirect { get; set; }
     // Camera the current frame gets rendered from, only valid on the render thread while rendering
     public FrameCamera FrameCamera { get; set; }
     public PassService PassService { get; private set; }
@@ -231,6 +260,33 @@ public class RenderContext : IDisposable
     public void QueueRenderAction(Action action)
     {
         _renderQueue.Enqueue(action);
+    }
+
+    internal void QueueRenderTransform(Renderable renderable)
+    {
+        _changedTransforms.Enqueue(renderable);
+    }
+
+    internal void QueueChangedBatch(RenderBatch batch)
+    {
+        _changedBatches.Enqueue(batch);
+    }
+
+    internal bool TakeChangedBatch(out RenderBatch batch)
+    {
+        return _changedBatches.TryDequeue(out batch!);
+    }
+
+    /// <summary>
+    /// What moved since becomes what's rendered (the UI thread moves things while a frame is drawn): after every frame and before pictures
+    /// are taken, on the render thread
+    /// </summary>
+    public void FlushRenderTransforms()
+    {
+        while (_changedTransforms.TryDequeue(out var renderable))
+        {
+            renderable.ApplyRenderTransform();
+        }
     }
 
     public void PerformRender(float delta)
@@ -307,6 +363,10 @@ public class RenderContext : IDisposable
         Destroy?.Invoke();
         Instances.Dispose();
         Samplers.Dispose();
+        Materials.Dispose();
+        VertexPool.Dispose();
+        IndirectDraws.Dispose();
+        ScreenCopy.Dispose();
         PrimitiveRenderer.Dispose();
         Gl.Dispose();
         SetGlAccessibility(false);

@@ -16,6 +16,8 @@ public class Shader : IDisposable
         BlendSkinning = 1 << 1,
         AlphaBlending = 1 << 2,
         Texturing = 1 << 3,
+        // Samples the textures of indirect draws through their handles (BindlessTextures)
+        Bindless = 1 << 4,
     }
     
     private readonly RenderContext _context;
@@ -59,7 +61,8 @@ public class Shader : IDisposable
             ProcessSwitches(ref source, switches);
         }
 
-        source = "#version 460 core\r\n" + source;
+        // Extensions are enabled before anything else
+        source = "#version 460 core\r\n" + (switches.HasFlag(ShaderSwitches.Bindless) ? "#extension GL_ARB_bindless_texture : require\r\n" : "") + source;
         ProcessIncludes(ref source, initialShaderPath);
         return source;
     }
@@ -85,6 +88,11 @@ public class Shader : IDisposable
         if (switches.HasFlag(ShaderSwitches.Texturing))
         {
             stringBuilder.AppendLine("#define USE_TEXTURES");
+        }
+
+        if (switches.HasFlag(ShaderSwitches.Bindless))
+        {
+            stringBuilder.AppendLine("#define TT_BINDLESS");
         }
         
         shaderSource = stringBuilder + shaderSource;

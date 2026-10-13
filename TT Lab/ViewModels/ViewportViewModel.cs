@@ -1796,7 +1796,7 @@ public partial class ViewportViewModel : ReactiveObject
 
     private void RendererOnFinishRender()
     {
-        _scene?.UpdateRenderTransform();
+        _renderContext?.FlushRenderTransforms();
         Dispatcher.UIThread.Post(() =>
         {
             _renderer?.DoUpdate();

@@ -1,6 +1,7 @@
 #include "Includes/ModelLayout.vert"
 
-uniform TwinMaterial twin_material;
+// The drawn material's values, read from the material table first thing
+TwinMaterial twin_material;
 
 vec3 GetVertexOffset(sampler2D offsets, int shapeId, int vertexId)
 {
@@ -49,6 +50,34 @@ vec3 ClothOffset(vec3 position)
 	return twin_material.deform_amplitude * vec3(ClothWave(rows.x, 0), ClothWave(rows.y, 1), ClothWave(rows.z, 2));
 }
 
+// The game turns a placed model with a billboard's shader (Unlit Billboard) about its up axis to face the camera before its placement's
+// matrix (the decomp's Billboard, SetPlacedModelRenderDMA): the camera taken into the model's space with the rigid inverse of the matrix,
+// the turn's rows (the columns here) its side and back of up and the way from the camera: a reflection, which puts the model's local +X
+// on the right of the game's screen (world -X seen from +Z), its pictures the right way round. A length too small to normalize gives 0,
+// an up along the way a tilted one
+const float BillboardEpsilon = 2.49999976e-09;
+const vec3 TiltedUp = vec3(-0.0499299988, 0.998749971, 0.0);
+
+mat3 BillboardTurn(mat4 model, vec3 eye)
+{
+	mat3 rotation = mat3(model);
+	vec3 way = -(transpose(rotation) * (eye - model[3].xyz));
+	vec3 up = vec3(0.0, 1.0, 0.0);
+	vec3 toWay = up - way;
+	if (dot(toWay, toWay) <= dot(up, way) * BillboardEpsilon)
+	{
+		up = TiltedUp;
+	}
+
+	vec3 side = cross(up, way);
+	float sideLength = dot(side, side);
+	side *= sideLength > BillboardEpsilon ? 1.0 / sqrt(sideLength) : 0.0;
+	vec3 back = cross(up, side);
+	float backLength = dot(back, back);
+	back *= backLength > BillboardEpsilon ? 1.0 / sqrt(backLength) : 0.0;
+	return mat3(side, up, back);
+}
+
 // The game's environment and metallic shaders read their pictures by directions of the object's space taken through its clip matrix
 // (VU1 programs 0x1D, 0x14 and 0x17, Rendering/EnvironmentMapping): on the camera's axes, x the shown frame's right (GL's view x mirrored,
 // the frame is shown mirrored), y up, z ahead, scaled by the game's lens (GameClipScale)
@@ -91,12 +120,38 @@ vec3 LitColor(LightSet lights, vec3 normal, vec3 color)
 
 void main()
 {
+	if (DrawBase >= 0)
+	{
+		DrawEntry draw = drawEntries[DrawBase + gl_DrawID];
+		DrawMaterial = draw.material;
+		DrawTexture = draw.texture;
+	}
+	else
+	{
+		DrawMaterial = MaterialEntry;
+		DrawTexture = uvec2(0);
+	}
+
+	twin_material = LoadTwinMaterial(DrawMaterial);
 	InstanceData instance = instances[gl_BaseInstance + gl_InstanceID];
 	mat4 modelMatrix = instance.Model;
 	// The game moves the sky to the camera before drawing it (FUN_001ba350), so it's never any nearer
 	if (FollowsCamera)
 	{
 		modelMatrix[3].xyz += EyePosition;
+	}
+
+	// The game turns only the matrices a placed model is drawn with: its eye and, while it's wholly in view, its clip matrix stay the model's
+	// (SetPlacedModelRenderDMA), so the shaders reading them look up as if it hadn't turned
+	mat4 lookupMatrix = modelMatrix;
+	// A placed model with a billboard's shader turns to the camera like the game turns it, the editor's icons face the view
+	if (instance.Lighting.y == 1)
+	{
+		modelMatrix = modelMatrix * mat4(BillboardTurn(modelMatrix, EyePosition));
+	}
+	else if (instance.Lighting.y == 2)
+	{
+		modelMatrix = mat4(vec4(normalize(cross(vec3(0.0, 1.0, 0.0), InverseView[2].xyz)), 0.0), vec4(0.0, 1.0, 0.0, 0.0), vec4(normalize(cross(InverseView[0].xyz, vec3(0.0, 1.0, 0.0))), 0.0), modelMatrix[3]);
 	}
 
 	mat4 viewModel = StartView * modelMatrix;
@@ -107,12 +162,6 @@ void main()
 	if (twin_material.deform_speed != 0.0 || twin_material.deform_amplitude != vec3(0.0))
 	{
 		processedPosition += ClothOffset(in_Position);
-	}
-
-	// Billboard
-	if (twin_material.billboard_render > 0.5)
-	{
-		viewModel = StartView * mat4(vec4(normalize(cross(vec3(0.0, 1.0, 0.0), InverseView[2].xyz)), 0.0), vec4(0.0, 1.0, 0.0, 0.0), vec4(normalize(cross(InverseView[0].xyz, vec3(0.0, 1.0, 0.0))), 0.0), modelMatrix[3]);
 	}
 
 	// Vertex based animation
@@ -139,9 +188,10 @@ void main()
 	ViewPosition = vec3(modelMatrix * vec4(processedPosition, 1.0));
 	ViewDepth = -(StartView * vec4(ViewPosition, 1.0)).z;
 	vec3 worldNormal = mat3(modelMatrix) * processedNormal;
-	EnvUv = twin_material.env_map > 0.0 ? EnvironmentUv(ViewPosition, worldNormal) : vec2(0.0);
+	vec3 lookupNormal = mat3(lookupMatrix) * processedNormal;
+	EnvUv = twin_material.env_map > 0.0 ? EnvironmentUv(vec3(lookupMatrix * vec4(processedPosition, 1.0)), lookupNormal) : vec2(0.0);
 	// The reflection surface's program (0x18) moves its screen copy's coordinates by FloatParam[0] times the normal through the clip matrix
-	ReflectOffset = twin_material.reflect_dist.x > 0.0 ? ToGameClip(worldNormal).xy * twin_material.reflect_dist.y : vec2(0.0);
+	ReflectOffset = twin_material.reflect_dist.x > 0.0 ? ToGameClip(lookupNormal).xy * twin_material.reflect_dist.y : vec2(0.0);
 	gl_Position = StartProjection * viewModel * vec4(processedPosition, 1.0);
 	Texpos = in_Texpos;
 	Normal = in_Normal;

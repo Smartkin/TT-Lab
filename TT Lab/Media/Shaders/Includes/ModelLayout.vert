@@ -15,7 +15,8 @@ struct InstanceData
 {
     mat4 Model;
     vec4 Color;
-    // x: the object's light set in lightSets, -1 when it isn't lit
+    // x: the object's light set in lightSets, -1 when it isn't lit, y: how it turns to the camera (InstanceBuffer: 0 not, 1 the game's
+    // billboard turn, 2 facing the view)
     ivec4 Lighting;
 };
 
@@ -55,6 +56,9 @@ out vec2 EnvUv;
 out float ViewDepth;
 // The reflection surface's offset of its screen copy's coordinates (game's screen axes)
 out vec2 ReflectOffset;
+// The material's entry in the material table, and the bindless handle of an indirect draw's texture (none for the texture on unit 0)
+flat out int DrawMaterial;
+flat out uvec2 DrawTexture;
 
 #include "GlobalUniformsDeclaration.glsl"
 // Vertex shader specific uniforms

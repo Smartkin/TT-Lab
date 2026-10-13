@@ -1,5 +1,4 @@
 ﻿using System;
-using TT_Lab.Rendering.UniformDescs;
 
 namespace TT_Lab.Rendering.Shaders;
 
@@ -29,24 +28,9 @@ public enum KnownUniform
     ShapeOffset,
     ShapeStart,
     MorphWeights,
-    MaterialUseTexture,
-    MaterialDeformMode,
-    MaterialDeformSpeed,
-    MaterialDeformAmplitude,
-    MaterialBillboardRender,
-    MaterialUvOffset,
-    MaterialReflectDist,
-    MaterialAlphaMethod,
-    MaterialAlphaReference,
-    MaterialAlphaFailDraws,
-    MaterialAlphaBlend,
-    MaterialEnvMap,
-    MaterialMipmapped,
-    MaterialLodScale,
-    MaterialLodK,
-    MaterialFog,
-    MaterialEditorShading,
-    MaterialLit,
+    MaterialEntry,
+    DrawBase,
+    AlphaSubpass,
     ViewProjection,
     ViewportSize,
     LightDirection,
@@ -71,28 +55,7 @@ public static class KnownUniforms
         var names = new string[Enum.GetValues<KnownUniform>().Length];
         foreach (var uniform in Enum.GetValues<KnownUniform>())
         {
-            names[(int)uniform] = uniform switch
-            {
-                KnownUniform.MaterialUseTexture => TwinMaterialDesc.UseTexturePath,
-                KnownUniform.MaterialDeformMode => TwinMaterialDesc.DeformModePath,
-                KnownUniform.MaterialDeformSpeed => TwinMaterialDesc.DeformSpeedPath,
-                KnownUniform.MaterialDeformAmplitude => TwinMaterialDesc.DeformAmplitudePath,
-                KnownUniform.MaterialBillboardRender => TwinMaterialDesc.BillboardRenderPath,
-                KnownUniform.MaterialUvOffset => TwinMaterialDesc.UvOffsetPath,
-                KnownUniform.MaterialReflectDist => TwinMaterialDesc.ReflectDistPath,
-                KnownUniform.MaterialAlphaMethod => TwinMaterialDesc.AlphaMethodPath,
-                KnownUniform.MaterialAlphaReference => TwinMaterialDesc.AlphaReferencePath,
-                KnownUniform.MaterialAlphaFailDraws => TwinMaterialDesc.AlphaFailDrawsPath,
-                KnownUniform.MaterialAlphaBlend => TwinMaterialDesc.AlphaBlendPath,
-                KnownUniform.MaterialEnvMap => TwinMaterialDesc.EnvMapPath,
-                KnownUniform.MaterialMipmapped => TwinMaterialDesc.MipmappedPath,
-                KnownUniform.MaterialLodScale => TwinMaterialDesc.LodScalePath,
-                KnownUniform.MaterialLodK => TwinMaterialDesc.LodKPath,
-                KnownUniform.MaterialFog => TwinMaterialDesc.FogPath,
-                KnownUniform.MaterialEditorShading => TwinMaterialDesc.EditorShadingPath,
-                KnownUniform.MaterialLit => TwinMaterialDesc.LitPath,
-                _ => uniform.ToString()
-            };
+            names[(int)uniform] = uniform.ToString();
         }
 
         return names;

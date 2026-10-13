@@ -13,13 +13,6 @@ public class Scene : Renderable
         Camera = new Camera(context);
     }
 
-    public override void UpdateRenderTransform()
-    {
-        Camera.UpdateRenderTransform();
-        
-        base.UpdateRenderTransform();
-    }
-
     public void UpdateResolution(vec2 resolution)
     {
         Camera.SetResolution(resolution);

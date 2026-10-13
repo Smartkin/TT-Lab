@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using GlmSharp;
 using TT_Lab.Rendering.Buffers;
 using TT_Lab.Rendering.Shaders;
@@ -13,6 +14,8 @@ public class SkinnedMesh : Mesh
 
     private readonly mat4[] _boneMatrices = new mat4[MaxBones];
     private readonly float[] _renderBoneMatrices = new float[MaxBones * 16];
+    // Bones are posed on the render thread, the matrices drawn with are only copied again after that
+    private bool _bonesChanged;
 
     public SkinnedMesh(RenderContext context, List<ModelBuffer> models) : base(context, models)
     {
@@ -32,16 +35,22 @@ public class SkinnedMesh : Mesh
 
     public override bool RequiresIndividualDraw => true;
 
-    public override void UpdateRenderTransform()
+    protected override void TakeRenderState()
     {
-        CopyBoneMatrices();
+        if (_bonesChanged)
+        {
+            _bonesChanged = false;
+            CopyBoneMatrices();
+        }
 
-        base.UpdateRenderTransform();
+        base.TakeRenderState();
     }
 
     public void SetBoneMatrix(int boneIndex, mat4 boneMatrix)
     {
         _boneMatrices[boneIndex] = boneMatrix;
+        _bonesChanged = true;
+        QueueRenderTransform();
     }
 
     public override void BeginIndividualDraw(ModelBuffer model)
@@ -62,9 +71,6 @@ public class SkinnedMesh : Mesh
 
     private void CopyBoneMatrices()
     {
-        for (var i = 0; i < MaxBones; i++)
-        {
-            StreamStorageBuffer.Write(_renderBoneMatrices.AsSpan(i * 16, 16), _boneMatrices[i]);
-        }
+        MemoryMarshal.Cast<mat4, float>(_boneMatrices).CopyTo(_renderBoneMatrices);
     }
 }

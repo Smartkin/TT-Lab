@@ -30,11 +30,12 @@ public class SkydomePassTests
             Part(3, TwinShader.AlphaBlending.ON),
         };
 
-        var passes = parts.SelectMany(part => part.GetPriorityPass()).ToList();
+        var passes = parts.SelectMany(part => Enumerable.Range(0, part.ShaderCount).Select(shader => (Pass: part.NamedPassOf(shader), Priority: part.SkyPriorityOf(shader))))
+            .ToList();
 
-        Assert.All(passes, pass => Assert.Equal(PassService.SkydomePassName, pass.Item1));
-        Assert.Equal(passes.Select(pass => pass.Item2).Order(), passes.Select(pass => pass.Item2));
-        Assert.Equal(passes.Count, passes.Select(pass => pass.Item2).Distinct().Count());
+        Assert.All(passes, pass => Assert.Equal(PassService.SkydomePassName, pass.Pass));
+        Assert.Equal(passes.Select(pass => pass.Priority).Order(), passes.Select(pass => pass.Priority));
+        Assert.Equal(passes.Count, passes.Select(pass => pass.Priority).Distinct().Count());
     }
 
     [Fact]
@@ -42,10 +43,10 @@ public class SkydomePassTests
     {
         var material = new MaterialData(null!)
         {
-            Shaders = [new LabShader { ShaderType = TwinShader.Type.UnlitSkydome, ABlending = TwinShader.AlphaBlending.ON, ForcedShaderName = "StandardUnlit" }],
+            Shaders = [new LabShader { ShaderType = TwinShader.Type.UnlitSkydome, ABlending = TwinShader.AlphaBlending.ON, ForcedShaderName = PassService.VolumeInsidesPass }],
         };
         var part = new ModelBuffer(null!, null!, null!, material);
 
-        Assert.Equal("StandardUnlit", Assert.Single(part.GetPriorityPass()).Item1);
+        Assert.Equal(PassService.VolumeInsidesPass, part.NamedPassOf(0));
     }
 }

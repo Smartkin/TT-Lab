@@ -31,21 +31,24 @@ public class BlendSkinnedMesh(RenderContext context, List<ModelBufferBlendSkin> 
         }
 
         _weights[shapeIndex] = weight;
+        QueueRenderTransform();
     }
 
     public void ResetShapeWeights()
     {
         Array.Clear(_weights);
+        QueueRenderTransform();
     }
 
-    public override void UpdateRenderTransform()
+    // The weights drawn with become the ones given (the blend skin's editor sets them from the UI thread) with the bones' matrices, after the frame
+    protected override void TakeRenderState()
     {
         for (var i = 0; i < _renderWeights.Length; i++)
         {
             _renderWeights[i] = i < _weights.Length ? _weights[i] : 0.0f;
         }
 
-        base.UpdateRenderTransform();
+        base.TakeRenderState();
     }
 
     public override void BeginIndividualDraw(ModelBuffer model)

@@ -19,6 +19,7 @@ using BlendSkin = TT_Lab.Assets.Graphics.BlendSkin;
 using Collision = TT_Lab.Assets.Instance.Collision;
 using CollisionMesh = TT_Lab.Rendering.Objects.Collision;
 using Model = TT_Lab.Assets.Graphics.Model;
+using RenderBuckets = TT_Lab.Assets.Graphics.RenderBuckets;
 using RigidModel = TT_Lab.Assets.Graphics.RigidModel;
 using Skin = TT_Lab.Assets.Graphics.Skin;
 
@@ -67,7 +68,45 @@ public class MeshFactory
         var assetManager = AssetManager.Get();
         var asset = assetManager.GetAsset(uri);
         Debug.Assert(_constructors.ContainsKey(asset.GetType()), $"Unsupported mesh type {asset.GetType()}");
-        return _constructors[asset.GetType()](asset.GetData<AbstractAssetData>());
+        var data = asset.GetData<AbstractAssetData>();
+        var mesh = _constructors[asset.GetType()](data);
+        if (data is RigidModelData rigidModel)
+        {
+            GiveGameModel(mesh, asset, rigidModel);
+        }
+
+        return mesh;
+    }
+
+    // Every placed mesh of a scenery is a model of its own here, but the build makes one model of the placements of the same parts and
+    // materials, and the game draws a model's instances together (SceneOrder): they're known by those, in their scenery or model
+    private static void GiveGameModel(Mesh mesh, IAsset asset, RigidModelData data)
+    {
+        var owner = asset;
+        while (owner.InternalOwner is { } next)
+        {
+            owner = next;
+        }
+
+        var hash = new HashCode();
+        hash.Add(owner.URI);
+        foreach (var material in data.Materials)
+        {
+            hash.Add(material);
+        }
+
+        var parts = mesh.GetModels();
+        foreach (var part in parts)
+        {
+            hash.Add(part.DataHash);
+        }
+
+        var gameModel = hash.ToHashCode();
+        for (var i = 0; i < parts.Count; i++)
+        {
+            parts[i].GameModel = gameModel;
+            parts[i].PartIndex = i;
+        }
     }
 
     private Mesh CreateCube()
@@ -123,6 +162,7 @@ public class MeshFactory
         }
         
         var material = new MaterialData(null);
+        material.DmaChainIndex = RenderBuckets.EditorVisuals;
         material.Shaders[0].TxtMapping = TwinShader.TextureMapping.OFF;
         material.Shaders[0].ShaderType = TwinShader.Type.ColorOnly;
         material.Shaders[0].ABlending = TwinShader.AlphaBlending.ON;
@@ -184,6 +224,7 @@ public class MeshFactory
         }
         
         var material = new MaterialData(null);
+        material.DmaChainIndex = RenderBuckets.EditorVisuals;
         material.Shaders[0].TxtMapping = TwinShader.TextureMapping.OFF;
         material.Shaders[0].ShaderType = TwinShader.Type.ColorOnly;
         material.Shaders[0].ABlending = TwinShader.AlphaBlending.ON;
@@ -223,6 +264,7 @@ public class MeshFactory
         }
 
         var material = new MaterialData(null);
+        material.DmaChainIndex = RenderBuckets.EditorVisuals;
         material.Shaders[0].TxtMapping = TwinShader.TextureMapping.OFF;
         material.Shaders[0].ShaderType = TwinShader.Type.ColorOnly;
         material.Shaders[0].ABlending = TwinShader.AlphaBlending.ON;
@@ -270,7 +312,8 @@ public class MeshFactory
             }
         }
 
-        var buffer = new ModelBuffer(_renderContext, _meshBuilder.BuildRigidVaoFromVertexes(vertexes, faces), _materialFactory, material);
+        // Made again whenever the material turns lit or unlit
+        var buffer = new ModelBuffer(_renderContext, _meshBuilder.BuildRigidVaoFromVertexes(vertexes, faces, ownBuffer: true), _materialFactory, material);
         return new Mesh(_renderContext, [buffer]);
     }
 
@@ -335,7 +378,8 @@ public class MeshFactory
         return _meshBuilder.BuildRigidVaoFromVertexes(
             collisionData.Vertexes.Select(v => new Vertex(new Vector4(v.X, v.Y, v.Z, v.W))).ToList(),
             triangles.Select(t => t.Face).ToList(),
-            i => CollisionSurface.GetEditorColor(assetManager.DoesAssetExist(triangles[i].Surface) ? assetManager.GetAsset(triangles[i].Surface) : null).GetVector());
+            i => CollisionSurface.GetEditorColor(assetManager.DoesAssetExist(triangles[i].Surface) ? assetManager.GetAsset(triangles[i].Surface) : null).GetVector(),
+            ownBuffer: true);
     }
 
     private SkinnedMesh CreateSkinnedMesh(SkinData skin)
@@ -373,7 +417,7 @@ public class MeshFactory
                 }
             }
 
-            var skin = _meshBuilder.BuildSkinnedVaoFromVertexes(blend.Vertexes, blend.Faces);
+            var skin = _meshBuilder.BuildSkinnedVaoFromVertexes(blend.Vertexes, blend.Faces, ownBuffer: true);
             var bufferBuild = new BlendSkinModelBufferBuild(skin, new BlendSkinShapeBuild(shapeOffsets, shapeStart), vec3.Ones);
             buffers.Add(new ModelBufferBlendSkin(_renderContext, bufferBuild, _materialFactory, material));
         }

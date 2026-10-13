@@ -222,7 +222,7 @@ public partial class ViewportViewModel
             var placement = (SceneryPlacement)viewportObject.DuplicatedElement!.GetValue()!;
             var origin = ToSystem(ray.Origin);
             var direction = ToSystem(ray.Direction);
-            foreach (var (a, b, c) in PlacementTriangles(placement))
+            foreach (var (a, b, c) in PlacementTriangles(placement, DrawnMatrix(viewportObject, ray.Origin)))
             {
                 if (CollisionEdits.RayTriangle(origin, direction, a, b, c) is { } hit && hit < best)
                 {
@@ -235,9 +235,15 @@ public partial class ViewportViewModel
         return picked;
     }
 
-    // The triangles of a placed mesh where it's placed, a LOD's as it's drawn up close, counter-clockwise seen from where its vertexes'
-    // normals point
-    internal static IEnumerable<(NVector3 A, NVector3 B, NVector3 C)> PlacementTriangles(SceneryPlacement placement)
+    // A placed mesh with a billboard's shader is drawn turned to the camera, it's hit where it's drawn
+    private static System.Numerics.Matrix4x4? DrawnMatrix(ViewportObject viewportObject, vec3 eye)
+    {
+        return viewportObject.Render is EditableObject { TurnsToCamera: true } editable ? ToSystem(editable.DrawnTransformFrom(eye)) : null;
+    }
+
+    // The triangles of a placed mesh where it's placed (or where it's drawn), a LOD's as it's drawn up close, counter-clockwise seen from
+    // where its vertexes' normals point
+    internal static IEnumerable<(NVector3 A, NVector3 B, NVector3 C)> PlacementTriangles(SceneryPlacement placement, System.Numerics.Matrix4x4? drawn = null)
     {
         var assetManager = AssetManager.Get();
         var model = placement.Model;
@@ -256,7 +262,7 @@ public partial class ViewportViewModel
             yield break;
         }
 
-        var matrix = placement.Matrix.ToSystem();
+        var matrix = drawn ?? placement.Matrix.ToSystem();
         var modelData = assetManager.GetAssetData<ModelData>(modelUri);
         for (var part = 0; part < modelData.Vertexes.Count && part < modelData.Faces.Count; part++)
         {
@@ -309,7 +315,7 @@ public partial class ViewportViewModel
                 continue;
             }
 
-            foreach (var (a, b, c) in PlacementTriangles(placement))
+            foreach (var (a, b, c) in PlacementTriangles(placement, DrawnMatrix(viewportObject, ray.Origin)))
             {
                 if (CollisionEdits.RayTriangle(origin, direction, a, b, c) is { } distance && distance < best)
                 {
@@ -856,11 +862,11 @@ public partial class ViewportViewModel
         var origin = ToSystem(ray.Origin);
         var direction = ToSystem(ray.Direction);
         float? distance = CollisionEdits.Pick(geometry, origin, direction, out var collisionDistance) != null ? collisionDistance : null;
-        foreach (var placement in _viewportObjects.Where(viewportObject => viewportObject.Render.IsVisible && viewportObject.DuplicatedElement?.GetValue() is SceneryPlacement)
-                     .Where(viewportObject => GizmoMath.IntersectBox(ray, viewportObject.Render.GetBoundsTransform()) != null)
-                     .Select(viewportObject => (SceneryPlacement)viewportObject.DuplicatedElement!.GetValue()!))
+        foreach (var viewportObject in _viewportObjects.Where(viewportObject => viewportObject.Render.IsVisible && viewportObject.DuplicatedElement?.GetValue() is SceneryPlacement)
+                     .Where(viewportObject => GizmoMath.IntersectBox(ray, viewportObject.Render.GetBoundsTransform()) != null))
         {
-            foreach (var (a, b, c) in PlacementTriangles(placement))
+            var placement = (SceneryPlacement)viewportObject.DuplicatedElement!.GetValue()!;
+            foreach (var (a, b, c) in PlacementTriangles(placement, DrawnMatrix(viewportObject, ray.Origin)))
             {
                 if (CollisionEdits.RayTriangle(origin, direction, a, b, c) is { } hit && (distance == null || hit < distance))
                 {
@@ -1033,6 +1039,12 @@ public partial class ViewportViewModel
     #endregion
 
     private static NVector3 ToSystem(vec3 vector) => new(vector.x, vector.y, vector.z);
+
+    // glm's columns are System.Numerics' rows
+    private static System.Numerics.Matrix4x4 ToSystem(mat4 matrix) => new(matrix.Column0.x, matrix.Column0.y, matrix.Column0.z, matrix.Column0.w,
+        matrix.Column1.x, matrix.Column1.y, matrix.Column1.z, matrix.Column1.w,
+        matrix.Column2.x, matrix.Column2.y, matrix.Column2.z, matrix.Column2.w,
+        matrix.Column3.x, matrix.Column3.y, matrix.Column3.z, matrix.Column3.w);
 
     private static vec3 ToGlm(NVector3 vector) => new(vector.X, vector.Y, vector.Z);
 }
