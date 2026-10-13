@@ -26,9 +26,12 @@ public static class GlmExtensions
         return new vec3((float)angles.x, (float)angles.y, (float)angles.z);
     }
 
-    private static dvec3 EulerAnglesOf(quat rotation)
+    public static dvec3 ToEulerAngles(this dquat rotation) => EulerAnglesOf(rotation.x, rotation.y, rotation.z, rotation.w);
+
+    private static dvec3 EulerAnglesOf(quat rotation) => EulerAnglesOf(rotation.x, rotation.y, rotation.z, rotation.w);
+
+    private static dvec3 EulerAnglesOf(double x, double y, double z, double w)
     {
-        double x = rotation.x, y = rotation.y, z = rotation.z, w = rotation.w;
         var length = Math.Sqrt(x * x + y * y + z * z + w * w);
         if (!(length > 0.0))
         {

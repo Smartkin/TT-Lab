@@ -33,6 +33,7 @@ import hashlib
 import json
 import math
 import os
+import struct
 import tempfile
 import typing
 import uuid
@@ -41,6 +42,7 @@ import bpy
 import numpy
 from mathutils import Euler, Matrix, Quaternion, Vector
 
+from . import animation_frames
 from . import flags
 from . import hulls
 from . import model_bounds
@@ -1605,7 +1607,8 @@ def _export_ogi(file: tlm.TlmFile, root: bpy.types.Object, tree: typing.Dict[str
             joints.append(joint)
 
         armature_node["joints"] = sorted(joints, key=lambda joint: joint["index"])
-        armature_node["animations"] = _export_animations(file, root, armature, joint_of_bone, rests, descendants)
+        armature_node["animations"], joint_tracks = _export_animations(file, root, armature, joint_of_bone, rests, descendants)
+        _choose_additional_rotations(armature_node["joints"], joint_tracks)
 
     joint_of_group_names = joint_of_bone
     for blender_object in descendants:
@@ -1886,8 +1889,14 @@ def _imported_joints(armature: bpy.types.Object) -> int:
     return sum(1 for bone in armature.data.bones if bone.get(BIND_PROPERTY) is not None)
 
 
+# A joint's keys in an animation as the export writes them: its entry in the file, its rotation in every frame and the game's angles of it
+# the action carries, when it does
+JointTrack = typing.Tuple[typing.Dict[str, typing.Any], typing.Any, typing.Optional[animation_frames.GameAngles]]
+
+
 def _export_animations(file: tlm.TlmFile, root: bpy.types.Object, armature: bpy.types.Object, joint_of_bone: typing.Dict[str, int],
-                       rests: typing.Dict[int, typing.Any], descendants: typing.List[bpy.types.Object]) -> typing.List[typing.Dict[str, typing.Any]]:
+                       rests: typing.Dict[int, typing.Any], descendants: typing.List[bpy.types.Object]
+                       ) -> typing.Tuple[typing.List[typing.Dict[str, typing.Any]], typing.Dict[int, typing.List[JointTrack]]]:
     relative_rests = _relative_rests(armature, joint_of_bone, rests)
     shape_object = next((child for child in descendants if role_of(child) == "shape" and _draws(child)), None)
     key_blocks = list(shape_object.data.shape_keys.key_blocks)[1:] if shape_object is not None and shape_object.data.shape_keys is not None else []
@@ -1895,6 +1904,7 @@ def _export_animations(file: tlm.TlmFile, root: bpy.types.Object, armature: bpy.
     imported_joints = _imported_joints(armature)
     stretches = _location_stretches(root, armature)
     result = []
+    joint_tracks: typing.Dict[int, typing.List[JointTrack]] = {}
     actions = _owned_actions(root, armature, joint_of_bone)
     dropped = [action.name for action in _owned_actions(root, armature, joint_of_bone, deleted=True)]
     if dropped:
@@ -1930,8 +1940,15 @@ def _export_animations(file: tlm.TlmFile, root: bpy.types.Object, armature: bpy.
         if "joint_count" in meta:
             animation["joint_count"] = skeleton.animation_joint_count(int(meta["joint_count"]), int(meta.get("model_joints", imported_joints)), bones)
 
+        game_angles: typing.List[animation_frames.GameAngles] = []
         if "exact" in meta:
-            animation["exact"] = file.write_view(base64.b64decode(meta["exact"]), "u8")
+            exact = base64.b64decode(meta["exact"])
+            animation["exact"] = file.write_view(exact, "u8")
+            try:
+                game_angles = animation_frames.game_angles(exact)
+            except (struct.error, ValueError):
+                # Bytes that don't read keep nothing of the game's
+                game_angles = []
 
         slot = next((slot for slot in action.slots if slot.target_id_type == "OBJECT"), None)
         bag = _existing_channelbag(action, slot) if slot is not None else None
@@ -1963,14 +1980,18 @@ def _export_animations(file: tlm.TlmFile, root: bpy.types.Object, armature: bpy.
                 scales.extend(key_scale)
 
             entry = flags.find_flags(bone, action.name)
-            joints.append({
+            joint = {
                 "joint": index,
                 "translation": file.write_view(_constant_or_all(translations, 3), "f32"),
                 "rotation": file.write_view(_constant_or_all(rotations, 4), "f32"),
                 "scale": file.write_view(_constant_or_all(scales, 3), "f32"),
                 "independent_scaling": bool(entry.independent_scaling) if entry is not None else False,
                 "additional_rotation": bool(entry.uses_additional_rotation) if entry is not None else False,
-            })
+            }
+            joints.append(joint)
+            # Every frame's rotation as (w, x, y, z), like tlm_math's
+            joint_tracks.setdefault(index, []).append((joint, numpy.array(rotations, dtype=numpy.float64).reshape(-1, 4)[:, (3, 0, 1, 2)],
+                                                       game_angles[index] if index < len(game_angles) else None))
 
         animation["joints"] = sorted(joints, key=lambda joint: joint["joint"])
         facial = meta.get("facial")
@@ -2005,7 +2026,31 @@ def _export_animations(file: tlm.TlmFile, root: bpy.types.Object, armature: bpy.
 
         result.append(animation)
 
-    return result
+    return result, joint_tracks
+
+
+def _choose_additional_rotations(joints: typing.List[typing.Dict[str, typing.Any]], tracks: typing.Dict[int, typing.List[JointTrack]]) -> None:
+    """Gives every joint the additional rotation the game blends its animations best with (animation_frames), and turns the angles of the
+    animations made of their keys by it. Joints keep theirs while an animation keeping the game's values for them turns by it: TT Lab
+    keeps the game's angles of every frame whose keys still hold them (TlmAnimations.HoldsRotation)."""
+    for joint in joints:
+        joint_tracks = tracks.get(joint["index"], [])
+        stored = joint.get("data", {}).get("AdditionalAnimationRotation")
+        current = tlm_math.xyzw_to_wxyz(stored) if isinstance(stored, list) and len(stored) == 4 else animation_frames.IDENTITY
+        keeping = animation_frames.holding([(game[1] if game is not None else [], rotations, current if entry["additional_rotation"] else None)
+                                            for entry, rotations, game in joint_tracks])
+        if any(keeps and track[0]["additional_rotation"] for keeps, track in zip(keeping, joint_tracks)):
+            continue
+
+        made = [track for keeps, track in zip(keeping, joint_tracks) if not keeps]
+        chosen = animation_frames.choose_frame([rotations for _, rotations, _ in made], current)
+        if chosen == current:
+            continue
+
+        joint.setdefault("data", {})["AdditionalAnimationRotation"] = list(tlm_math.wxyz_to_xyzw(chosen))
+        if chosen != animation_frames.IDENTITY:
+            for entry, _, _ in made:
+                entry["additional_rotation"] = True
 
 
 def _shape_curve(key_curves: typing.Dict[str, typing.Any], key_blocks: typing.List[typing.Any], shape: int) -> typing.Any:

@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using GlmSharp;
 using TT_Lab.Assets;
+using TT_Lab.AssetData.Graphics.TlModel;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Attributes;
 using TT_Lab.Extensions;
@@ -214,6 +215,57 @@ public class AnimationData
         animationSample.Rotation = (sampleTime, systemQuaternion);
         animationSample.Scale = (sampleTime, systemScale);
         return animationSample;
+    }
+
+    /// <summary>
+    /// The joint's local transform a share of the way from a frame to the next, worked out the way the game's AnimateJoint does
+    /// </summary>
+    /// <remarks>
+    /// Translations, scales and each of the three Euler angles go straight from a frame's value to the next's, an angle taken round to
+    /// the next's side when they're more than half a turn apart (ReadJointAngle), then the rotation of the angles is turned by the joint's
+    /// additional rotation. Two frames of nearby rotations whose angles are far apart (the other set of angles of a rotation) swing the
+    /// joint around on the way
+    /// </remarks>
+    public (vec3 Translation, quat Rotation, vec3 Scale) GetJointPose(int jointIndex, OGIData ogiData, int frame, int nextFrame, float share)
+    {
+        const int turnShift = 4;
+        const int halfTurn = 0x8000;
+        const int fullTurn = 0x10000;
+        const float angleToRadians = MathF.PI / halfTurn;
+        var frames = MainAnimation.AnimatedTransformations.Count;
+        var now = TlmAnimations.GetRawValues(this, jointIndex, frames == 0 ? -1 : Math.Clamp(frame, 0, frames - 1));
+        var next = TlmAnimations.GetRawValues(this, jointIndex, frames == 0 ? -1 : Math.Clamp(nextFrame, 0, frames - 1));
+        var angles = new float[3];
+        for (var axis = 0; axis < angles.Length; axis++)
+        {
+            var current = now[3 + axis] << turnShift;
+            var coming = next[3 + axis] << turnShift;
+            var difference = current - coming;
+            if (difference > halfTurn)
+            {
+                current -= fullTurn;
+            }
+            else if (difference < -halfTurn)
+            {
+                current += fullTurn;
+            }
+
+            angles[axis] = Toward(current * angleToRadians, coming * angleToRadians);
+        }
+
+        var rotation = new quat(new vec3(angles[0], angles[1], angles[2]));
+        if (MainAnimation.JointSettings[jointIndex].UseAdditionalRotation && jointIndex < ogiData.Joints.Count)
+        {
+            var additional = ogiData.Joints[jointIndex].AdditionalAnimationRotation;
+            rotation = new quat(additional.X, additional.Y, additional.Z, additional.W) * rotation;
+        }
+
+        return (Values(0), rotation, Values(6));
+
+        float Toward(float from, float to) => from + (to - from) * share;
+
+        vec3 Values(int channel) => new(Toward(now[channel] / 4096f, next[channel] / 4096f), Toward(now[channel + 1] / 4096f, next[channel + 1] / 4096f),
+            Toward(now[channel + 2] / 4096f, next[channel + 2] / 4096f));
     }
 
     public MorphAnimationSample GetAnimationSampleForMorphAnimation(int animationFrame)

@@ -36,7 +36,8 @@ class TTT_AnimationFlags(PropertyGroup):
     )
     uses_additional_rotation: bpy.props.BoolProperty(
         name="Additional rotation",
-        description="The joint's additional rotation from the model is applied on top of this animation's rotation",
+        description="The game turns the joint's angles in this animation by the joint's additional rotation. Exporting decides it, and the "
+                    "additional rotation, for joints whose animations aren't the game's own any more: it keeps their angles away from gimbal lock",
         default=False,
     )
     # What the imported file had, resetting the flags goes back to it

@@ -5,6 +5,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using GlmSharp;
 using TT_Lab.AssetData.Code;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
@@ -444,6 +445,41 @@ public sealed class OgiAnimationEditorTests : IDisposable
             Assert.Equal((from.X + to.X) / 2, pose.Joints[joint].Translation.x, 4);
             Assert.Equal((from.Z + to.Z) / 2, pose.Joints[joint].Translation.z, 4);
         }
+    }
+
+    // The game turns a joint angle by angle (AnimateJoint), each angle the shorter way round: the same rotation written as the other set
+    // of angles in the next frame swings the joint around on the way there, in the game and in the viewer
+    [AvaloniaFact]
+    public void PosesBetweenFramesTurnAngleByAngleLikeTheGame()
+    {
+        var animation = new AnimationData
+        {
+            ID = 0x1, Name = "Swing", TotalFrames = 2, DefaultFPS = 25, MainAnimation = TestAnimations.CreateTwinAnimation(2, Joints, rawValues: (joint, frame) =>
+            {
+                var values = TestAnimations.RawValues(joint, frame);
+                // (x, y, z) and (x + half a turn, half a turn - y, z + half a turn) are the same rotation
+                (values[3], values[4], values[5]) = (joint, frame) switch
+                {
+                    (0, 0) => ((short)300, (short)500, (short)-700),
+                    (0, _) => ((short)2348, (short)1548, (short)1348),
+                    (_, 0) => ((short)100, (short)200, (short)2000),
+                    _ => ((short)140, (short)200, (short)-2000)
+                };
+                return values;
+            })
+        };
+        var ogi = ((IAsset)AddOgi("Skeleton", animation)).GetData<OGIData>();
+
+        var pose = OgiAnimationsViewModel.SamplePose(animation, ogi, 0.5);
+
+        Assert.True(Math.Abs(quat.Dot(Rotation(300, 500, -700), Rotation(2348, 1548, 1348))) > 0.99999f, "The frames aren't the same rotation");
+        AssertSameRotation(Rotation(1324, 1024, 324), pose.Joints[0].Rotation);
+        AssertSameRotation(Rotation(120, 200, -2048), pose.Joints[1].Rotation);
+
+        static quat Rotation(float x, float y, float z) => new(new vec3(x, y, z) / 4096f * MathF.PI * 2);
+
+        static void AssertSameRotation(quat expected, quat actual) =>
+            Assert.True(Math.Abs(quat.Dot(expected, actual)) > 0.99999f, $"{actual} isn't the game's blend {expected}");
     }
 
     // The game's looping playback blends the last frame into the first (SetAnimationData), played once the last frame holds

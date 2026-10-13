@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Numerics;
 using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
@@ -268,7 +267,8 @@ public partial class OgiAnimationsViewModel : DocumentDataViewModel<List<Animati
         });
     }
 
-    // Looping, the last frame blends into the first like the game's (SetAnimationData), once, the last frame holds
+    // Looping, the last frame blends into the first like the game's (SetAnimationData), once, the last frame holds. Between frames the
+    // joints move the way the game moves them, angle by angle, swings the game makes on the way included
     internal static Pose SamplePose(AnimationData animation, OGIData ogi, double frame, bool loops = false)
     {
         var lastFrame = Math.Max(animation.TotalFrames - 1, 0);
@@ -283,19 +283,10 @@ public partial class OgiAnimationsViewModel : DocumentDataViewModel<List<Animati
 
         var joints = new List<JointPose>();
         var jointCount = Math.Min(animation.MainAnimation.JointSettings.Count, ogi.Joints.Count);
-        var mainFrames = animation.MainAnimation.AnimatedTransformations.Count;
         for (var i = 0; i < jointCount; i++)
         {
-            var parent = ogi.Joints[i].ParentIndex;
-            var from = animation.GetAnimationSampleForMainAnimation(i, parent, ogi, Math.Min(first, Math.Max(mainFrames - 1, 0)));
-            var to = animation.GetAnimationSampleForMainAnimation(i, parent, ogi, Math.Min(second, Math.Max(mainFrames - 1, 0)));
-            var translation = Vector3.Lerp(from.Translation.Item2, to.Translation.Item2, t);
-            var rotation = Quaternion.Slerp(from.Rotation.Item2, to.Rotation.Item2, t);
-            var scale = Vector3.Lerp(from.Scale.Item2, to.Scale.Item2, t);
-            joints.Add(new JointPose(i, !animation.MainAnimation.JointSettings[i].IndependentScaling,
-                new vec3(translation.X, translation.Y, translation.Z),
-                new quat(rotation.X, rotation.Y, rotation.Z, rotation.W),
-                new vec3(scale.X, scale.Y, scale.Z)));
+            var (translation, rotation, scale) = animation.GetJointPose(i, ogi, first, second, t);
+            joints.Add(new JointPose(i, !animation.MainAnimation.JointSettings[i].IndependentScaling, translation, rotation, scale));
         }
 
         Single[]? weights = null;

@@ -68,7 +68,7 @@ Every animation of the OGI is an action, with a slot for the armature and one fo
 
 - Twinsanity lets each joint turn inheriting its parent's scale on or off per animation. Select a bone and use the **Twin Tech Bone Settings Per Animation** panel in the bone properties, it shows the settings for the active action and **Add Current Animation** adds them for an action that has none yet:
   - *Doesn't inherit parent's scale*: the joint ignores its parent's scale. The viewport previews it by switching the bone's `Inherit Scale` between `Full` and `None` as the active action changes, on the armatures of Twin Tech models only: other rigs in the scene keep their bones' settings.
-  - *Uses additional rotation*: the joint applies its additional animation rotation.
+  - *Uses additional rotation*: the game turns the joint's angles in this animation by the joint's additional rotation. Exporting decides it for the joints whose animations aren't the game's own any more, see the rotations below.
 - New actions become new animations of the OGI, which game objects can then play: exporting gives a new action, or a copy of one, an ID of its own from 0x8000 up, which it keeps (save the .blend afterwards), so adding or renaming actions never changes what a game object plays.
 - An action's frames are its frame range, from its first frame: an imported action has a manual frame range from 0, lengthen or shorten it there. Keys are sampled on every whole frame, the face's too, which always has as many frames as the action.
 - Bones turn by the curves of their rotation mode (quaternion, Euler angles or axis and angle), or by the rotation curves the action has when it has none of that mode (actions keyed while the bone turned another way).
@@ -76,7 +76,7 @@ Every animation of the OGI is an action, with a slot for the armature and one fo
 - A scaled armature object (FBX rigs come in at 0.01) is fine: its bones' rests and the animations' moves are both written with its scale.
 - Only keys are exported: what constraints (IK, Copy Rotation...) and drivers do to bones isn't, exporting warns about such bones. Bake the actions first (Pose > Animation > Bake Action, with Visual Keying).
 - Adding bones gives every animation keys for them, imported ones included: every joint of the model reads its animation's keys, and the game's animations only have keys for the joints of their model.
-- Rotations are stored as Euler angles with 1/4096 of a turn precision.
+- Rotations are stored as Euler angles with 1/4096 of a turn precision. The game blends a joint from frame to frame angle by angle, each of the three the shorter way round, not along the shortest turn: close to a middle angle of a quarter turn (gimbal lock) that strays far from the turn, and a run's thigh swinging past it twitched every time the run started over. Exporting gives every joint whose animations don't keep the game's values the additional rotation that keeps their angles away from gimbal lock, and turns them by it (in the file, the scene keeps its settings), TT Lab then picks every frame's angles so that the game's blends follow the turns, the last frame's into the first included. TT Lab's viewer plays the animations the way the game blends them.
 
 #### Playing the game's animations on another model
 

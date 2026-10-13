@@ -57,7 +57,7 @@ public class TlmAnimationTests
         {
             var rotation = RandomRotation(random);
 
-            var angles = TlmAnimations.ToContinuousEulerAngles(rotation, null);
+            var angles = TlmAnimationFrames.ChooseAngles([rotation], [null])[0];
 
             AssertSameRotation(rotation, new quat(angles));
         }
@@ -72,9 +72,10 @@ public class TlmAnimationTests
     {
         var rotation = new quat(new vec3(x, y, z));
 
-        var angles = TlmAnimations.ToContinuousEulerAngles(rotation, new vec3(x, y, z));
+        var angles = TlmAnimationFrames.ChooseAngles([rotation, rotation], [new vec3(x, y, z), null]);
 
-        AssertSameRotation(rotation, new quat(angles));
+        AssertSameRotation(rotation, new quat(angles[1]));
+        AssertSameRotation(rotation, new quat(TlmAnimationFrames.ChooseAngles([rotation], [null])[0]));
     }
 
     // Rounding put the sine of the middle angle of a turn of exactly 90 degrees past 1, which made the angles NaN and broke the
@@ -83,14 +84,13 @@ public class TlmAnimationTests
     public void TurningThroughGimbalLockStaysOnTheSameAxis()
     {
         var rotations = new[] { new quat(new vec3(0, glm.Radians(88.0f), 0)), new quat(0, 0.70710683f, 0, 0.70710683f), new quat(new vec3(0, glm.Radians(92.0f), 0)) };
-        vec3? previous = null;
-        foreach (var (rotation, degrees) in rotations.Zip(new[] { 88.0f, 90.0f, 92.0f }))
-        {
-            var angles = TlmAnimations.ToContinuousEulerAngles(rotation, previous);
 
+        var angles = TlmAnimationFrames.ChooseAngles(rotations, [null, null, null]);
+
+        foreach (var (frame, degrees) in angles.Zip(new[] { 88.0f, 90.0f, 92.0f }))
+        {
             Assert.Equal((0, TlmAnimations.ToRawRotation(glm.Radians(degrees)), 0),
-                (TlmAnimations.ToRawRotation(angles.x), TlmAnimations.ToRawRotation(angles.y), TlmAnimations.ToRawRotation(angles.z)));
-            previous = angles;
+                (TlmAnimations.ToRawRotation(frame.x), TlmAnimations.ToRawRotation(frame.y), TlmAnimations.ToRawRotation(frame.z)));
         }
     }
 
@@ -98,22 +98,36 @@ public class TlmAnimationTests
     [Fact]
     public void ConsecutiveFramesDontJump()
     {
-        vec3? previous = null;
-        for (var frame = 0; frame < 400; frame++)
+        var expected = Enumerable.Range(0, 400).Select(frame => new vec3(frame * 0.05f, MathF.Sin(frame * 0.02f) * 1.4f, -frame * 0.03f)).ToArray();
+
+        var angles = TlmAnimationFrames.ChooseAngles(expected.Select(frame => new quat(frame)).ToArray(), new vec3?[expected.Length]);
+
+        for (var frame = 0; frame < angles.Length; frame++)
         {
-            var expected = new vec3(frame * 0.05f, MathF.Sin(frame * 0.02f) * 1.4f, -frame * 0.03f);
-            var rotation = new quat(expected);
-
-            var angles = TlmAnimations.ToContinuousEulerAngles(rotation, previous);
-
-            AssertSameRotation(rotation, new quat(angles));
-            if (previous != null)
+            AssertSameRotation(new quat(expected[frame]), new quat(angles[frame]));
+            if (frame > 0)
             {
-                Assert.True((angles - previous.Value).Length < 0.2f, $"Frame {frame} jumped from {previous} to {angles}");
+                Assert.True((angles[frame] - angles[frame - 1]).Length < 0.2f, $"Frame {frame} jumped from {angles[frame - 1]} to {angles[frame]}");
             }
-
-            previous = angles;
         }
+    }
+
+    // A thigh's run cycle (made up: its X axis going past gimbal lock once a cycle and back the other way, far from it): frame by frame the
+    // angles switched to the other set near gimbal lock, and the game's blend from the last frame into the first swung the leg around by
+    // 57 degrees every time the run started over
+    [Fact]
+    public void LoopsBlendTheirLastFrameIntoTheFirstAlongTheTurn()
+    {
+        var rotations = PassingGimbalLock();
+
+        var angles = TlmAnimationFrames.ChooseAngles(rotations, new vec3?[rotations.Length]);
+
+        for (var frame = 0; frame < rotations.Length; frame++)
+        {
+            AssertSameRotation(rotations[frame], new quat(angles[frame]));
+        }
+
+        Assert.InRange(TlmAnimationFrames.LargestDeviation(angles), 0, 8);
     }
 
     [Fact]
@@ -409,6 +423,35 @@ public class TlmAnimationTests
                 }
             }
         }
+    }
+
+    // The bone's X axis passes 5 degrees from where gimbal lock turns it to (Z) between two frames and comes back far from it, the bone
+    // turned from X the shortest way
+    private static quat[] PassingGimbalLock()
+    {
+        var closest = new vec3(MathF.Sin(glm.Radians(5.0f)), 0, MathF.Cos(glm.Radians(5.0f)));
+        var directions = new[] { -60, -35, -12, 12, 35, 60 }.Select(degrees => closest * MathF.Cos(glm.Radians((float)degrees)) + vec3.UnitY * MathF.Sin(glm.Radians((float)degrees))).ToList();
+        var far = new vec3(0.9f, 0, 0.44f).Normalized;
+        var (start, end) = (directions[^1], directions[0]);
+        for (var step = 1; step <= 6; step++)
+        {
+            var share = step / 7.0f * 2;
+            directions.Add(share <= 1 ? Slerp(start, far, share) : Slerp(far, end, share - 1));
+        }
+
+        return directions.Select(direction => ShortestTurn(vec3.UnitX, direction)).ToArray();
+
+        static vec3 Slerp(vec3 from, vec3 to, float share)
+        {
+            var angle = MathF.Acos(Math.Clamp(vec3.Dot(from, to), -1, 1));
+            return (from * MathF.Sin((1 - share) * angle) + to * MathF.Sin(share * angle)) / MathF.Sin(angle);
+        }
+    }
+
+    private static quat ShortestTurn(vec3 from, vec3 to)
+    {
+        var axis = vec3.Cross(from, to);
+        return new quat(axis.x, axis.y, axis.z, 1 + vec3.Dot(from, to)).Normalized;
     }
 
     private static quat RandomRotation(Random random)

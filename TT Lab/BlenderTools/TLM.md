@@ -178,6 +178,12 @@ Dynamic scenery models keep their hulls the same way, as `hull` children without
   action and writes it back, edited or not. TT Lab keeps the game's values of every joint, frame and track whose keys still round to
   them (translations, scales and weights to the same 1/4096, rotations closer than half of the game's 1/4096 of a turn) and makes
   the rest from the keys. An animation whose keys all hold is `exact`.
+- `additional_rotation` makes the game turn the joint's Euler angles by the joint's `AdditionalAnimationRotation` (AnimateJoint), TT Lab keeps the
+  angles as the turn from it. The game blends a joint from frame to frame angle by angle, each the shorter way round, which strays far from the turn
+  close to a middle angle of a quarter turn (gimbal lock). The add-on's export gives every joint the additional rotation the game blends its
+  animations best with (`animation_frames.py`: where gimbal lock is decides it, the turn about it doesn't) and sets `additional_rotation` in the
+  animations made from keys; a joint keeps its own while an animation keeping the game's values (`exact`) turns by it. TT Lab picks every frame's
+  set of angles so the game's blends follow the turns, from the last frame into the first too when the last frame comes back near the first.
 - `joint_count` is the amount of joints the animation has, which can be more or fewer than the skeleton's (a few of the game's are).
   Joints without keys keep their values from `exact`. Every joint of the model reads the settings of its index from the animation
   playing, with no check, so the add-on gives an animation one for every bone once the model has more bones than when the animation

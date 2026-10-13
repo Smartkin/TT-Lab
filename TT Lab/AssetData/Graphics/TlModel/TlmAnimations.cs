@@ -5,7 +5,6 @@ using System.Linq;
 using System.Text.Json.Nodes;
 using GlmSharp;
 using TT_Lab.AssetData.Code;
-using TT_Lab.Extensions;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Common.Animation;
 using TransformType = Twinsanity.TwinsanityInterchange.Common.Animation.Enums.TransformType;
@@ -289,7 +288,8 @@ public static class TlmAnimations
     }
 
     // Raw values of translation XYZ, rotation XYZ and scale XYZ for every frame. A frame whose keys still hold the game's values keeps
-    // them, joints without keys keep the game's values or stay at their rest
+    // them, joints without keys keep the game's values or stay at their rest. The angles of the other frames are chosen over the whole
+    // track, so that the game's blends between them follow their turns (TlmAnimationFrames)
     private static Int16[][] SampleJoint(TlmFile file, JsonObject? keys, IReadOnlyList<TwinJoint> joints, Int32 jointIndex, Boolean useAdditionalRotation, Int32 frames,
         AnimationData? original, ref Boolean edited)
     {
@@ -302,52 +302,71 @@ public static class TlmAnimations
         var originalMain = original?.MainAnimation;
         var hasOriginal = originalMain != null && jointIndex < originalMain.JointSettings.Count;
         var originalFrames = originalMain?.AnimatedTransformations.Count ?? 0;
-        var channels = Enumerable.Range(0, 9).Select(_ => new Int16[Math.Max(frames, 1)]).ToArray();
-        vec3? previousAngles = null;
-        for (var frame = 0; frame < channels[0].Length; frame++)
+        var count = Math.Max(frames, 1);
+        var values = new Int16[count][];
+        var originals = new Int16[]?[count];
+        var kept = new vec3?[count];
+        var turns = new quat[count];
+        for (var frame = 0; frame < count; frame++)
         {
-            var originalValues = hasOriginal ? GetRawValues(original!, jointIndex, originalFrames == 0 ? -1 : Math.Min(frame, originalFrames - 1)) : null;
-            Int16[] values;
-            if (keys == null && originalValues != null)
+            originals[frame] = hasOriginal ? GetRawValues(original!, jointIndex, originalFrames == 0 ? -1 : Math.Min(frame, originalFrames - 1)) : null;
+            if (keys == null && originals[frame] != null)
             {
-                values = originalValues;
+                values[frame] = originals[frame]!;
+                continue;
             }
-            else
+
+            var translation = Key(translations, 3, frame) is { } t ? new vec3(t[0], t[1], t[2]) :
+                joint != null ? new vec3(joint.LocalTranslation.X, joint.LocalTranslation.Y, joint.LocalTranslation.Z) : vec3.Zero;
+            var rotation = Key(rotations, 4, frame) is { } r ? new quat(r[0], r[1], r[2], r[3]) :
+                joint != null ? new quat(joint.LocalRotation.X, joint.LocalRotation.Y, joint.LocalRotation.Z, joint.LocalRotation.W) : quat.Identity;
+            var scale = Key(scales, 3, frame) is { } s ? new vec3(s[0], s[1], s[2]) : vec3.Ones;
+            values[frame] =
+            [
+                ToRawValue(translation.x), ToRawValue(translation.y), ToRawValue(translation.z), 0, 0, 0,
+                ToRawValue(scale.x), ToRawValue(scale.y), ToRawValue(scale.z)
+            ];
+            if (originals[frame] is { } originalValues && HoldsRotation(originalValues, rotation, useAdditionalRotation ? additionalRotation : quat.Identity))
             {
-                var translation = Key(translations, 3, frame) is { } t ? new vec3(t[0], t[1], t[2]) :
-                    joint != null ? new vec3(joint.LocalTranslation.X, joint.LocalTranslation.Y, joint.LocalTranslation.Z) : vec3.Zero;
-                var rotation = Key(rotations, 4, frame) is { } r ? new quat(r[0], r[1], r[2], r[3]) :
-                    joint != null ? new quat(joint.LocalRotation.X, joint.LocalRotation.Y, joint.LocalRotation.Z, joint.LocalRotation.W) : quat.Identity;
-                var scale = Key(scales, 3, frame) is { } s ? new vec3(s[0], s[1], s[2]) : vec3.Ones;
-                values =
-                [
-                    ToRawValue(translation.x), ToRawValue(translation.y), ToRawValue(translation.z), 0, 0, 0,
-                    ToRawValue(scale.x), ToRawValue(scale.y), ToRawValue(scale.z)
-                ];
-                if (originalValues != null && HoldsRotation(originalValues, rotation, useAdditionalRotation ? additionalRotation : quat.Identity))
+                var angles = new vec3(ToAngle(originalValues[3]), ToAngle(originalValues[4]), ToAngle(originalValues[5]));
+                kept[frame] = angles;
+                turns[frame] = new quat(angles);
+                continue;
+            }
+
+            turns[frame] = useAdditionalRotation ? inverseAdditionalRotation * rotation : rotation;
+        }
+
+        if (keys != null || !hasOriginal)
+        {
+            // Most joints don't move in most animations
+            var chosen = Array.TrueForAll(kept, angles => angles == null) && Array.TrueForAll(turns, turn => turn == turns[0])
+                ? Enumerable.Repeat(TlmAnimationFrames.ChooseAngles([turns[0]], [null])[0], count).ToArray()
+                : TlmAnimationFrames.ChooseAngles(turns, kept);
+            for (var frame = 0; frame < count; frame++)
+            {
+                if (originals[frame] is { } originalValues && kept[frame] != null)
                 {
-                    Array.Copy(originalValues, 3, values, 3, 3);
+                    Array.Copy(originalValues, 3, values[frame], 3, 3);
                 }
                 else
                 {
-                    if (useAdditionalRotation)
-                    {
-                        rotation = inverseAdditionalRotation * rotation;
-                    }
-
-                    var angles = WithinRawRange(ToContinuousEulerAngles(rotation, previousAngles));
-                    values[3] = ToRawRotation(angles.x);
-                    values[4] = ToRawRotation(angles.y);
-                    values[5] = ToRawRotation(angles.z);
+                    var angles = WithinRawRange(chosen[frame]);
+                    values[frame][3] = ToRawRotation(angles.x);
+                    values[frame][4] = ToRawRotation(angles.y);
+                    values[frame][5] = ToRawRotation(angles.z);
                 }
 
-                edited |= originalValues == null || !values.SequenceEqual(originalValues);
+                edited |= originals[frame] == null || !values[frame].SequenceEqual(originals[frame]!);
             }
+        }
 
-            previousAngles = new vec3(ToAngle(values[3]), ToAngle(values[4]), ToAngle(values[5]));
+        var channels = Enumerable.Range(0, 9).Select(_ => new Int16[count]).ToArray();
+        for (var frame = 0; frame < count; frame++)
+        {
             for (var channel = 0; channel < channels.Length; channel++)
             {
-                channels[channel][frame] = values[channel];
+                channels[channel][frame] = values[frame][channel];
             }
         }
 
@@ -466,55 +485,6 @@ public static class TlmAnimations
         return result;
     }
 
-    /// <summary>
-    /// The Euler angles of the rotation, of the two sets describing it the one closest to the previous frame's angles
-    /// </summary>
-    /// <remarks>
-    /// The game interpolates every angle on its own, each angle is unwrapped to be less than half a turn away from the previous one
-    /// </remarks>
-    public static vec3 ToContinuousEulerAngles(quat rotation, vec3? previous)
-    {
-        rotation = rotation.NormalizedSafe;
-        var angles = rotation.ToEulerAngles();
-        var candidates = new List<vec3>();
-        AddCandidate(angles.x, angles.y);
-        AddCandidate(angles.x + MathF.PI, MathF.PI - angles.y);
-        // At gimbal lock only the difference of the first and last angles matters, keeping the first one from the previous frame
-        // stops it from jumping around
-        if (previous != null)
-        {
-            AddCandidate(previous.Value.x, angles.y);
-            AddCandidate(previous.Value.x, MathF.PI - angles.y);
-        }
-
-        if (candidates.Count == 0)
-        {
-            return previous == null ? angles : Unwrap(angles, previous.Value);
-        }
-
-        return previous == null ? candidates[0] : candidates.MinBy(candidate => (candidate - previous.Value).LengthSqr);
-
-        void AddCandidate(Single x, Single y)
-        {
-            var candidate = WithSolvedLastAngle(rotation, x, y);
-            // Written so NaN, which fails every comparison, doesn't pass either
-            if (!(Math.Abs(quat.Dot(new quat(candidate), rotation)) >= 0.999999f))
-            {
-                return;
-            }
-
-            candidates.Add(previous == null ? candidate : Unwrap(candidate, previous.Value));
-        }
-    }
-
-    // Rotations are built as qz * qy * qx so taking qy * qx back out leaves only the rotation around Z. Solving the last angle
-    // this way is exact while reading all three angles from the quaternion loses a lot of precision close to gimbal lock
-    private static vec3 WithSolvedLastAngle(quat rotation, Single x, Single y)
-    {
-        var zRotation = rotation * new quat(new vec3(x, y, 0)).Inverse;
-        return new vec3(x, y, 2 * MathF.Atan2(zRotation.z, zRotation.w));
-    }
-
     // A joint that keeps spinning one way adds a turn to its angle every turn, whole turns come off before the raw value overflows.
     // The game's own animations wrap their angles every turn
     private static vec3 WithinRawRange(vec3 angles)
@@ -525,17 +495,6 @@ public static class TlmAnimations
         {
             const Single turn = MathF.PI * 2;
             return Math.Abs(angle) < turn * 7 ? angle : angle - MathF.Round(angle / turn) * turn;
-        }
-    }
-
-    private static vec3 Unwrap(vec3 angles, vec3 previous)
-    {
-        return new vec3(UnwrapAngle(angles.x, previous.x), UnwrapAngle(angles.y, previous.y), UnwrapAngle(angles.z, previous.z));
-
-        static Single UnwrapAngle(Single angle, Single previousAngle)
-        {
-            const Single turn = MathF.PI * 2;
-            return angle + MathF.Round((previousAngle - angle) / turn) * turn;
         }
     }
 
