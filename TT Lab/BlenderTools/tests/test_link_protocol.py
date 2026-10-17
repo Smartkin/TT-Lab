@@ -81,7 +81,7 @@ class DiscoveryTests(unittest.TestCase):
 
         self.assertEqual(["/home/me/.local/state/tt-lab/blender"], folders)
         self.assertEqual(["/state/tt-lab/blender", "/home/me/.local/state/tt-lab/blender"], link_protocol.state_folders({"HOME": "/home/me", "XDG_STATE_HOME": "/state"}, "linux"))
-        self.assertEqual([os.path.join("C:\\Users\\me\\AppData\\Local", "TT Lab", "Blender")],
+        self.assertEqual(["C:\\Users\\me\\AppData\\Local\\TT Lab\\Blender"],
                          link_protocol.state_folders({"LOCALAPPDATA": "C:\\Users\\me\\AppData\\Local"}, "win32"))
 
 

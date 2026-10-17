@@ -22,8 +22,11 @@ A message is a frame: the header's length and the payload's length (unsigned 32 
 running TT Lab writes a discovery file per process into its state folder: the port and token to connect with and the project it has
 open."""
 
+import functools
 import json
+import ntpath
 import os
+import posixpath
 import struct
 import sys
 import typing
@@ -77,20 +80,20 @@ class Decoder:
 
 
 def state_folders(environment: typing.Optional[typing.Mapping[str, str]] = None, platform: str = sys.platform) -> typing.List[str]:
-    """The folders TT Lab may keep its discovery files in: its state folder's blender folder. A Blender of the Flatpak has its own
-    XDG_STATE_HOME, TT Lab's is the host's."""
+    """The folders TT Lab may keep its discovery files in: its state folder's blender folder, as paths of the platform. A Blender of the
+    Flatpak has its own XDG_STATE_HOME, TT Lab's is the host's."""
     environment = os.environ if environment is None else environment
     if platform.startswith("win"):
-        local = environment.get("LOCALAPPDATA") or os.path.join(os.path.expanduser("~"), "AppData", "Local")
-        return [os.path.join(local, "TT Lab", "Blender")]
+        local = environment.get("LOCALAPPDATA") or ntpath.join(os.path.expanduser("~"), "AppData", "Local")
+        return [ntpath.join(local, "TT Lab", "Blender")]
 
     home = environment.get("HOME") or os.path.expanduser("~")
     folders = []
     state = environment.get("XDG_STATE_HOME", "")
-    if state and os.path.isabs(state) and "/.var/app/" not in state:
-        folders.append(os.path.join(state, "tt-lab", "blender"))
+    if state and posixpath.isabs(state) and "/.var/app/" not in state:
+        folders.append(posixpath.join(state, "tt-lab", "blender"))
 
-    folders.append(os.path.join(home, ".local", "state", "tt-lab", "blender"))
+    folders.append(posixpath.join(home, ".local", "state", "tt-lab", "blender"))
     return list(dict.fromkeys(folders))
 
 
@@ -128,8 +131,7 @@ def _is_running(pid: typing.Any) -> bool:
         return False
 
     if sys.platform.startswith("win"):
-        # Windows keeps no signal 0, the file being there is the best there is
-        return True
+        return _is_running_on_windows(pid)
 
     try:
         os.kill(pid, 0)
@@ -141,6 +143,49 @@ def _is_running(pid: typing.Any) -> bool:
         return False
 
     return True
+
+
+# OpenProcess's right to read a process's exit code, the exit code of a process still running and the error of another user's process
+_PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+_STILL_ACTIVE = 259
+_ERROR_ACCESS_DENIED = 5
+
+
+@functools.lru_cache(maxsize=None)
+def _kernel32() -> typing.Any:
+    import ctypes
+    from ctypes import wintypes
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+    kernel32.OpenProcess.restype = wintypes.HANDLE
+    kernel32.GetExitCodeProcess.argtypes = (wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD))
+    kernel32.GetExitCodeProcess.restype = wintypes.BOOL
+    kernel32.CloseHandle.argtypes = (wintypes.HANDLE,)
+    kernel32.CloseHandle.restype = wintypes.BOOL
+    return kernel32
+
+
+def _is_running_on_windows(pid: int) -> bool:
+    """Whether the process is there, asked for its exit code: Windows has no signal 0, os.kill ends the process with any other. A TT Lab
+    that crashed left its discovery file, which was taken for a running TT Lab's."""
+    import ctypes
+    from ctypes import wintypes
+
+    if pid > 0xFFFFFFFF:
+        return False
+
+    kernel32 = _kernel32()
+    handle = kernel32.OpenProcess(_PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+    if not handle:
+        # Another user's process is there, a process id of none isn't
+        return ctypes.get_last_error() == _ERROR_ACCESS_DENIED
+
+    try:
+        code = wintypes.DWORD()
+        return bool(kernel32.GetExitCodeProcess(handle, ctypes.byref(code))) and code.value == _STILL_ACTIVE
+    finally:
+        kernel32.CloseHandle(handle)
 
 
 # What starts TT Lab, a record TT Lab leaves in its state folder when it runs (BlenderLinkServer.ExecutableFile)

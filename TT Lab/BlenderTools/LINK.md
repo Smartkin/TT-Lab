@@ -18,7 +18,8 @@ A running TT Lab listens on a free port of the loopback (127.0.0.1) and writes a
   "addon_version": "1.0.0", "project": { "uuid": "<UUID>", "path": "/projects/Mod", "name": "Mod" } }
 ```
 
-`project` is `null` while no project is open. TT Lab writes the file again when the project changes and deletes it when it quits. The
+`project` is `null` while no project is open. TT Lab writes the file again when the project changes and deletes it when it quits; the
+add-on leaves out the file of a process that's gone (a TT Lab that crashed), asking Windows for the process's exit code. The
 add-on links a model whose file is in a project to the TT Lab with that project open, by its UUID, else by its folder. A Blender of the
 Flatpak reads the host's state folder.
 
