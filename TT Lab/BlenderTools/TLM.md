@@ -44,30 +44,49 @@ Parts refer to materials by their index in `materials`. A material is one of the
 { "uri": "res://Global PS2_Project/Material/lambert2", "name": "lambert2" }
 ```
 
-or, for a material made in Blender that the project doesn't have yet, an embedded one TT Lab turns into project assets when it
-loads the file (`blender_id` finds the one it made before while it makes the same: the ID TT Lab's build gives the material it makes
-of the entry is the one the material was made of or has now, a blend file copied keeps its materials' IDs):
+A file the Blender add-on writes has `"exported_by": "twin_tech_tools <version>"` at its top, which TT Lab's own files never have. TT Lab
+reads such a file, takes what it brings and writes the file again without it, by URIs: the next export into the file finds that and knows
+TT Lab has what it sent there. A model written through a linked TT Lab (LINK.md) names its materials by their URIs only, TT Lab has them as
+Blender shows them already; only a material the link didn't make yet comes with what follows.
+
+A material Blender changed or made has `data`: the material as TT Lab keeps it in its data file (Newtonsoft's JSON of `MaterialData`:
+`Name`, `DmaChainIndex`, `Shaders` with every `LabShader` field, enums as numbers, the vectors as their floats' bits), with a shader's
+picture of the file as `"Image": <index>` into the entry's `images`:
+
+- `changed`: the paths of the values Blender changed since it last had the material TT Lab had (`["DmaChainIndex"]`,
+  `["Shaders", 0, "ABlending"]`, a vector's component `["Shaders", 0, "UvScrollSpeed", 2]`, a shader's picture as its `TextureId`, its
+  animation whole as `Animation`). TT Lab sets those over what its material has by then, the values it changed meanwhile stay. Without
+  `changed` (a material made in Blender TT Lab never had) all of `data` is the material's.
+- `shader_sources`: when Blender's shaders aren't the ones it had in their order, where each one came from among TT Lab's material's
+  shaders (-1 for one added in Blender): TT Lab's shaders are put in Blender's order before the paths are set.
+- `images`: the pictures the shaders draw, each `{ "name", "blender_id"?, "uri"?, "png"? }`: `uri` is the project texture it is (painted in
+  Blender, its `png` goes into that texture), `blender_id` the add-on's ID of a picture made in Blender, which TT Lab finds the texture it
+  made of it by among the textures made for the model (its `BlenderOwner` parameter is the model's URI); `png` only while TT Lab doesn't
+  have the picture as Blender shows it.
+
+A material made in Blender has a `blender_id` too, which finds the material TT Lab made of it among the ones made for the model (a blend
+file copied and exported over another model makes that model's own), changed in place from then on:
+
+```json
+{ "name": "Hat", "blender_id": "<uuid>",
+  "data": { "Name": "HAT", "DmaChainIndex": 2, "Shaders": [ { "ShaderType": 1, "TxtMapping": 1, "Image": 0, ... } ] },
+  "images": [ { "png": <u8 view>, "name": "Hat", "blender_id": "<uuid>" } ] }
+```
+
+TT Lab writes the file again with what it made of Blender's as its own: the material's URI with its `blender_id` and its pictures'
+textures, which the add-on takes as the project's from then on:
+
+```json
+{ "uri": "res://PS2_Project/Material/Hat", "name": "Hat", "blender_id": "<uuid>",
+  "images": [ { "blender_id": "<uuid>", "uri": "res://PS2_Project/Texture/Hat" } ] }
+```
+
+The materials and textures made for a model that a file the add-on wrote no longer uses are deleted once nothing else uses them. An
+earlier add-on wrote a material made in Blender without settings as its picture, which TT Lab makes an unlit material of (a skin's the
+skinned shader), blended with `"alpha": "BLEND"` and a cut-out of `alpha_cutoff` with `"alpha": "CLIP"`:
 
 ```json
 { "name": "New material", "blender_id": "<uuid>", "alpha": "BLEND", "image": { "png": <u8 view>, "name": "wood.png" } }
-```
-
-which TT Lab makes an unlit material of its image (a skin's the skinned shader), blended with `"alpha": "BLEND"` and a cut-out
-of `alpha_cutoff` with `"alpha": "CLIP"`.
-
-A material with Twin Tech settings in Blender has `data`: the material as TT Lab keeps it in its data file (Newtonsoft's JSON of
-`MaterialData`: `Name`, `DmaChainIndex`, `Shaders` with every `LabShader` field, enums as numbers, the vectors as their floats'
-bits). A project material only has it when it was changed in Blender, with the changes over what the project had when the file
-was written; a material made in Blender always has it, and no `image`. TT Lab gives the material those settings and saves it, then
-writes the file again without them. A shader drawing a picture made in Blender has `"Image": <index>` into the entry's `images`,
-which TT Lab makes textures of the project (found again by their `blender_id` while they make the same, like materials: a picture
-changed in Blender is another texture). The add-on names such a texture in `TextureId` instead of sending the picture only while the
-picture's PNG is the one TT Lab made the texture of, whose SHA-256 the texture's `BlenderImagePng` parameter keeps:
-
-```json
-{ "uri": "res://Global PS2_Project/Material/lambert2", "name": "lambert2",
-  "data": { "Name": "lambert2", "DmaChainIndex": 2, "Shaders": [ { "ShaderType": 2, "ABlending": 1, "Image": 0, ... } ] },
-  "images": [ { "png": <u8 view>, "name": "Painted", "blender_id": "<uuid>" } ] }
 ```
 
 ## Nodes
@@ -135,6 +154,7 @@ Dynamic scenery models keep their hulls the same way, as `hull` children without
 {
   "index": 3, "parent": 1, "name": "Joint 3",
   "bind": [16 floats],
+  "bone": { "axes": [-2, 1, 3], "length": 0.25 },
   "data": {
     "Id": 255, "Detail": 0, "AdditionalAnimationRotation": [4],
     "LocalTranslation": [4], "LocalRotation": [4], "WorldTranslation": [4], "InverseBindMatrix": [16], "UnusedRotation": [4]
@@ -150,8 +170,15 @@ Dynamic scenery models keep their hulls the same way, as `hull` children without
   walk's order when the indexes its bones have don't follow it. TT Lab refuses files that break it.
 - `Id` is the ID the game finds the joint by, 255 for none (most of the game's models have none): an object's header counts the IDs
   its animations and scripts use, which find their joint by it (N. Gin's joint 4 has ID 0, joint 3 ID 1).
-- `bind` is the joint's matrix in model space (column vectors, 16 floats row after row) that bones get as their rest pose. It's the
-  inverse of the game's inverse bind matrix, which can have a scale bones can't.
+- `bind` is the joint's matrix in model space (column vectors, 16 floats row after row) that bones get as their rest pose, with their
+  own axes (`bone`). It's the inverse of the game's inverse bind matrix, which can have a scale bones can't.
+- `bone` is what the joint's bone is in Blender, which the add-on writes and TT Lab keeps with the joint, for the next import to make
+  the same bone: `axes` are the joint's axes the bone's X, Y and Z are, each one more than the axis's index and negative turned
+  around (`[1, 2, 3]` is the joint's own, `[-2, 1, 3]` has the bone's Y along the joint's X), `length` the bone's in the model's
+  space. Without it the add-on picks the axes (a bone points down its limb at the child its joint was aimed at and keeps the roll of
+  the bone before it on a chain, else X to the model's left when it stands up or hangs down and Z up when it points to the side) and
+  the length (to the child). What follows a joint is in the joint's frame in the file; in Blender bodies and hulls are in the bone's
+  axes, an exit point keeps the joint's (its axes are what the game turns what it holds by).
 - `data` holds the game's values, which TT Lab keeps while the bone is still where `bind` put it, ignoring the scale. A moved bone
   gets its local transform from its parent's bone, and its inverse bind matrix from where it is with the scale it had.
 - `UnusedRotation` is reserved: the game's tools set it but the game doesn't use it, it's kept so the game's files come back the same.

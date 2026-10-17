@@ -716,6 +716,95 @@ def merge_material(base: typing.Optional[typing.Dict[str, typing.Any]], theirs: 
     return result, new_base, applied
 
 
+def shown_picture(values: typing.Dict[str, typing.Any]) -> str:
+    """What a shader Blender shows draws: "blender:<id>" for a picture of Blender's, "uri:<uri>" for a project texture's, "" for none."""
+    if "picture" in values:
+        return str(values["picture"] or "")
+
+    texture = values.get("texture") or ""
+    return "uri:" + texture if texture else ""
+
+
+def picture_of(shader: typing.Dict[str, typing.Any]) -> str:
+    """What a shader of a material's JSON draws, like shown_picture: a snapshot of what Blender sent keeps it as its "Picture"."""
+    if isinstance(shader.get("Picture"), str):
+        return shader["Picture"]
+
+    uri = uri_of(shader.get("TextureId"))
+    return "uri:" + uri if uri and uri != EMPTY_URI else ""
+
+
+def _changed_paths(field: Field, raw: typing.Any, value: typing.Any, path: typing.List[typing.Any]) -> typing.List[typing.List[typing.Any]]:
+    if field.kind in ("floats", "bits"):
+        shown = field.shown(raw)
+        return [path + [index] for index in range(field.size) if not _same_float(value[index], shown[index])]
+
+    return [] if field.same(value, field.shown(raw)) else [path]
+
+
+def changes(base: typing.Optional[typing.Dict[str, typing.Any]], shown: typing.Dict[str, typing.Any], known: bool = True
+            ) -> typing.Tuple[typing.Dict[str, typing.Any], typing.Optional[typing.List[typing.List[typing.Any]]], typing.Optional[typing.List[int]]]:
+    """What Blender changed of a material since the base, the settings it was given (known: the ones TT Lab had last): the material's JSON
+    as Blender shows it (the base's values where Blender still shows them, bits and all), the paths of the values Blender changed (each
+    component of a vector, a shader's picture as its TextureId, its animation whole) and, when Blender's shaders aren't the base's in their
+    order, where each one came from among the base's (-1 for one added in Blender). TT Lab takes the paths' values over what its material
+    has by then: what it changed meanwhile and Blender didn't stays. Of a base TT Lab never had (a material made in Blender) all of it is
+    Blender's, no paths."""
+    base = base if isinstance(base, dict) else {}
+    if not known:
+        return _without_snapshot_keys(merge_material(base, base, shown)[0]), None, None
+
+    data = merge_material(base, base, shown)[0]
+    changed: typing.List[typing.List[typing.Any]] = []
+    for field in MATERIAL_FIELDS:
+        if field.prop in shown:
+            changed.extend(_changed_paths(field, base.get(field.key), shown[field.prop], [field.key]))
+
+    base_shaders = _shaders(base)
+    shown_shaders = shown.get("shaders", [])
+    sources = [int(values.get("source", -1)) for values in shown_shaders]
+    for index, values in enumerate(shown_shaders):
+        source = sources[index]
+        if not 0 <= source < len(base_shaders):
+            # Blender's whole
+            continue
+
+        original = base_shaders[source]
+        for field in SHADER_FIELDS:
+            if field.prop in values and field.prop != "texture":
+                changed.extend(_changed_paths(field, original.get(field.key), values[field.prop], ["Shaders", index, field.key]))
+
+        if shown_picture(values) != picture_of(original):
+            changed.append(["Shaders", index, "TextureId"])
+
+        if "animation" in values and values["animation"] != animation_view(original.get("Animation")):
+            changed.append(["Shaders", index, "Animation"])
+
+    return _without_snapshot_keys(data), changed, (None if sources == list(range(len(base_shaders))) else sources)
+
+
+def _without_snapshot_keys(data: typing.Dict[str, typing.Any]) -> typing.Dict[str, typing.Any]:
+    for shader in _shaders(data):
+        shader.pop("Picture", None)
+        shader.pop("Uid", None)
+
+    return data
+
+
+def snapshot(data: typing.Dict[str, typing.Any], shown: typing.Dict[str, typing.Any]) -> typing.Dict[str, typing.Any]:
+    """The settings Blender sent as the base it compares with once TT Lab took them: each shader with what it draws as its "Picture" (a
+    picture of Blender's has no texture TT Lab made of it yet) and its Blender shader's "Uid" (Blender's shaders are found among the base's
+    by it)."""
+    result = copy.deepcopy(data)
+    for shader, values in zip(_shaders(result), shown.get("shaders", [])):
+        shader.pop("Image", None)
+        shader["Picture"] = shown_picture(values)
+        if values.get("uid"):
+            shader["Uid"] = values["uid"]
+
+    return result
+
+
 def shows(shader: typing.Dict[str, typing.Any], shown: typing.Dict[str, typing.Any]) -> bool:
     """Whether Blender shows the shader's values."""
     if shown.get("image") is not None:

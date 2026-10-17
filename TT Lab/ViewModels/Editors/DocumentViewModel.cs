@@ -10,6 +10,7 @@ using DynamicData;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
 using Splat;
+using TT_Lab.AssetData;
 using TT_Lab.Assets;
 using TT_Lab.Command;
 using TT_Lab.Controls;
@@ -28,6 +29,12 @@ public partial class DocumentViewModel : ReactiveObject
     /// Any document saved, what plays the project's files (PCSX2) builds them again
     /// </summary>
     public static event Action<DocumentViewModel>? Saved;
+
+    /// <summary>
+    /// An asset got changed outside the chunks' documents (<see cref="TellChanged"/>): its own editor, an undo, its changes discarded. What
+    /// Blender links to hears of it
+    /// </summary>
+    internal static event Action<IAsset>? AssetChanged;
 
     public ReactiveLifecycle Lifecycle { get; } = new();
     public DocumentRootViewModel Root { get; }
@@ -196,6 +203,7 @@ public partial class DocumentViewModel : ReactiveObject
     /// </summary>
     internal static void TellChanged(IAsset asset)
     {
+        AssetChanged?.Invoke(asset);
         List<DocumentViewModel> documents;
         lock (OpenChunkDocuments)
         {
@@ -249,6 +257,47 @@ public partial class DocumentViewModel : ReactiveObject
     }
 
     /// <summary>
+    /// Replaces an asset's data whole (the node of its data, the document's own asset's or one it links, a chunk's scenery) as a step of
+    /// the history that keeps the data before and after it as the bytes of its file (a picture painted in Blender, a model Blender wrote):
+    /// undone, the data before is read back
+    /// </summary>
+    /// <summary>
+    /// An asset's data replaced whole in a document's graph (a picture or model Blender wrote, that step undone or redone): the viewports of
+    /// other documents draw it anew
+    /// </summary>
+    internal static event Action<PropertyGraph.PropertyGraph, IAsset>? DataReplaced;
+
+    // The other documents showing the asset show its new data first, the viewports then draw what they show
+    internal static void TellDataReplaced(PropertyGraph.PropertyGraph graph, IAsset asset)
+    {
+        Tools.Blender.LinkedDocuments.FollowReplacedData(graph, asset);
+        DataReplaced?.Invoke(graph, asset);
+    }
+
+    /// <summary>
+    /// The asset's data replaced whole, a step keeping its file before and after. Data writing the same file is no step: whether it replaced it
+    /// </summary>
+    internal bool ReplaceData(PropertyNode node, AbstractAssetData data, string description)
+    {
+        if (node.Target is not IAsset asset || node.Metadata?.PropertyInfo.Name != nameof(SerializableAsset.AssetData))
+        {
+            throw new InvalidOperationException($"{description}: {node.Path} isn't an asset's data");
+        }
+
+        var before = AssetDataBytes.Of(asset.GetData<AbstractAssetData>(), asset);
+        var after = AssetDataBytes.Of(data, asset);
+        if (before.AsSpan().SequenceEqual(after))
+        {
+            return false;
+        }
+
+        History.ExpectData(new UndoHistory.DataStep(node.Path, asset, data.GetType(), before, after, description));
+        node.ReplaceValue(data);
+        TellDataReplaced(PropertyGraph, asset);
+        return true;
+    }
+
+    /// <summary>
     /// The document's editor closed, its views stop following their assets
     /// </summary>
     public void Close()
@@ -259,6 +308,7 @@ public partial class DocumentViewModel : ReactiveObject
         }
 
         _viewsToFollow.Clear();
+        History.Close();
     }
 
     private void FindSideNodes(PropertyNode node)

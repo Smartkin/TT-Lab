@@ -1,0 +1,28 @@
+{
+  "bodies": [
+    {
+      "name": "Shield",
+      "joint": 9,
+      "offset": [
+        0.1,
+        0.05,
+        -0.02
+      ]
+    },
+    {
+      "name": "Visor",
+      "joint": 5,
+      "offset": [
+        0.0,
+        0.03,
+        0.05
+      ]
+    }
+  ],
+  "turned": {
+    "animation": "Run",
+    "joint": 9,
+    "frame": 2,
+    "degrees": 30.0
+  }
+}

@@ -180,6 +180,12 @@ public record ViewportObject(EditableObject Render, string DocumentName, Propert
     /// </summary>
     public Func<bool>? Refresh { get; init; }
 
+    /// <summary>
+    /// Whether its visuals are made of the asset's data (an instance's model, the sky, a linked chunk's scenery): that data replaced whole
+    /// in another document (a model Blender wrote), it's made again
+    /// </summary>
+    public Func<LabURI, bool>? Draws { get; init; }
+
     // What the inspector doesn't let be edited can't be dragged either, like the load wall of a link that doesn't use it
     public bool IsTransformSupported(TransformMode mode)
     {

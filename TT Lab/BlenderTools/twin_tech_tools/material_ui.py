@@ -16,12 +16,12 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 """The Twin Tech Material panel: every setting TT Lab edits of a material and its shaders, grayed out where the game doesn't read
-it, and the operators picking the project's materials and textures."""
+it. Every material a model's part draws with is a Twin Tech material (materials): a project material's settings are the project's,
+a material made in Blender is added to the project when the model is written."""
 
 import array
 import contextlib
 import typing
-import uuid
 
 import bpy
 
@@ -64,83 +64,10 @@ def _draws_skins(material: bpy.types.Material) -> bool:
     return any(tlm_blender.role_of(blender_object) in _SKINNED_ROLES for blender_object in _users(material))
 
 
-def _is_global(context: bpy.types.Context) -> bool:
-    root = tlm_blender.find_root(getattr(context, "object", None))
-    path = root.get(tlm_blender.PATH_PROPERTY, "") if root is not None else ""
-    project = projects.open_project(path) if path else None
-    package = projects.package_of(project.root, path) if project is not None else None
-    return package is not None and package.split("://", 1)[-1].lower().startswith("global")
-
-
 def _shown(item: typing.Any) -> typing.Dict[str, typing.Any]:
     values = {field.prop: getattr(item, field.prop) for field in gs_material.SHADER_FIELDS}
     values["has_animation"] = item.has_animation
     return values
-
-
-class TTT_OT_MaterialUseSettings(bpy.types.Operator):
-    """Draws the material and writes it into model files with Twin Tech settings: the project material's, or the ones TT Lab gives
-    a material made in Blender. Its nodes are made again. When the project material's settings aren't found, it asks whether to make it
-    a new material with those instead"""
-
-    bl_idname = "ttt.material_use_settings"
-    bl_label = "Use Twin Tech Settings"
-    bl_options = {"REGISTER", "UNDO"}
-
-    new_material: bpy.props.BoolProperty(options={"HIDDEN", "SKIP_SAVE"},
-                                         description="A project material whose settings aren't found becomes a new material with the ones TT Lab gives "
-                                                     "a material made in Blender (TT Lab adds it to the project, the project's material stays as it is)")
-
-    @classmethod
-    def poll(cls, context):
-        return _material(context) is not None
-
-    def invoke(self, context, event):
-        material = _material(context)
-        problem = _project_settings(material, context)[2] if material.get(tlm_blender.URI_PROPERTY) and not self.new_material else ""
-        if not problem:
-            return self.execute(context)
-
-        self.new_material = True
-        return context.window_manager.invoke_confirm(self, event, title="%s's settings weren't found" % material.name,
-                                                     message="%s. Make it a new material?" % (problem[0].upper() + problem[1:]),
-                                                     confirm_text="Make a New Material", icon="QUESTION")
-
-    def execute(self, context):
-        material = _material(context)
-        uri = material.get(tlm_blender.URI_PROPERTY, "")
-        if uri:
-            project, data, problem = _project_settings(material, context)
-            if data is not None:
-                material_settings.load(material, data, project)
-                return {"FINISHED"}
-
-            if not self.new_material:
-                self.report({"ERROR"}, "The settings of %s weren't found: %s" % (uri, problem))
-                return {"CANCELLED"}
-
-            # With the link kept the file would bring the new settings for the project's material, which a project without it drops for
-            # a placeholder and one with it takes whole
-            _detach(material)
-            self.report({"INFO"}, "%s is a new material, which TT Lab adds to the project" % material.name)
-
-        material_settings.make(material, skin=_draws_skins(material), global_package=_is_global(context))
-        return {"FINISHED"}
-
-
-def _project_settings(material: bpy.types.Material, context: bpy.types.Context
-                      ) -> typing.Tuple[typing.Optional[projects.Project], typing.Optional[typing.Dict[str, typing.Any]], str]:
-    """The project and the settings of the project material the material links, None and why when they can't be read."""
-    project, _ = project_of(context)
-    if project is None:
-        return None, None, "the model isn't part of a TT Lab project here"
-
-    project_material = project.materials.get(material.get(tlm_blender.URI_PROPERTY, ""))
-    if project_material is None:
-        return project, None, "the project %s doesn't have it" % project.name
-
-    data = project_material.read()
-    return project, data, "" if data is not None else "its file in the project %s can't be read" % project.name
 
 
 class TTT_OT_MaterialShaderAdd(bpy.types.Operator):
@@ -202,192 +129,102 @@ class TTT_OT_MaterialShaderMove(bpy.types.Operator):
         return {"FINISHED"}
 
 
-_texture_items_cache: typing.List[typing.Tuple[str, str, str]] = []
+class TTT_OT_MaterialMakeOwn(bpy.types.Operator):
+    """Gives this model a copy of the project material of its own, made in Blender: what's changed of it from now on changes the copy,
+    which TT Lab adds to the project when the model is written. The other models drawing the material keep it as it is. Its pictures stay
+    the project's textures until they're made this model's own too (to take them to another project)"""
 
-
-def _texture_items(self, context):
-    project, platform = project_of(context)
-    if project is None:
-        _texture_items_cache[:] = [("NONE", "No TT Lab project", "The model isn't part of a TT Lab project")]
-    else:
-        _texture_items_cache[:] = [(texture.uri, texture.label, texture.uri) for texture in project.textures_of_platform(platform)]
-
-    return _texture_items_cache
-
-
-class TTT_OT_PickProjectTexture(bpy.types.Operator):
-    """Draws the shader with one of the project's textures"""
-
-    bl_idname = "ttt.pick_project_texture"
-    bl_label = "Pick Project Texture"
+    bl_idname = "ttt.material_make_own"
+    bl_label = "Make It This Model's Own"
     bl_options = {"REGISTER", "UNDO"}
-    bl_property = "texture"
-
-    texture: bpy.props.EnumProperty(name="Texture", items=_texture_items)
 
     @classmethod
     def poll(cls, context):
-        return material_settings.is_managed(_material(context)) and len(material_settings.settings_of(_material(context)).shaders) > 0
-
-    def invoke(self, context, event):
-        context.window_manager.invoke_search_popup(self)
-        return {"RUNNING_MODAL"}
-
-    def execute(self, context):
-        if self.texture == "NONE":
-            return {"CANCELLED"}
-
-        project, _ = project_of(context)
-        image = material_settings.texture_image(project, self.texture)
-        if image is None:
-            self.report({"ERROR"}, "The picture of %s can't be read" % self.texture)
-            return {"CANCELLED"}
-
-        settings = material_settings.settings_of(_material(context))
-        settings.shaders[settings.active_shader].image = image
-        return {"FINISHED"}
-
-
-_material_items_cache: typing.List[typing.Tuple[str, str, str]] = []
-
-
-def _material_items(self, context):
-    project, platform = project_of(context)
-    if project is None:
-        _material_items_cache[:] = [("NONE", "No TT Lab project", "The model isn't part of a TT Lab project")]
-        return _material_items_cache
-
-    _material_items_cache[:] = [(material.uri, material.label, material.uri) for material in project.materials_of_packages([])
-                                if platform is None or projects.platform_of(material.package) in (platform, None)]
-    return _material_items_cache
-
-
-class TTT_OT_PickProjectMaterial(bpy.types.Operator):
-    """Makes the material one of the project's materials, with its settings"""
-
-    bl_idname = "ttt.pick_project_material"
-    bl_label = "Pick Project Material"
-    bl_options = {"REGISTER", "UNDO"}
-    bl_property = "material"
-
-    material: bpy.props.EnumProperty(name="Material", items=_material_items)
-
-    @classmethod
-    def poll(cls, context):
-        return _material(context) is not None
-
-    def invoke(self, context, event):
-        context.window_manager.invoke_search_popup(self)
-        return {"RUNNING_MODAL"}
-
-    def execute(self, context):
-        if self.material == "NONE":
-            return {"CANCELLED"}
-
-        project, _ = project_of(context)
-        project_material = project.materials.get(self.material) if project is not None else None
-        data = project_material.read() if project_material is not None else None
-        if data is None:
-            self.report({"ERROR"}, "The project's %s can't be read" % self.material)
-            return {"CANCELLED"}
-
         material = _material(context)
-        material[tlm_blender.URI_PROPERTY] = self.material
-        material.name = project_material.name
-        material_settings.load(material, data, project)
+        if material is None or not material.get(tlm_blender.URI_PROPERTY):
+            return False
+
+        if tlm_blender.find_root(getattr(context, "object", None)) is None:
+            cls.poll_message_set("The active object isn't part of a model")
+            return False
+
+        return True
+
+    def execute(self, context):
+        from . import materials
+
+        root = tlm_blender.find_root(context.object)
+        copy = materials.make_own(_material(context), root)
+        self.report({"INFO"}, "%s draws with %s of its own" % (root.name, copy.name))
         return {"FINISHED"}
 
 
-class TTT_OT_MaterialRevert(bpy.types.Operator):
-    """Takes the project's settings of the material again, what was changed in Blender is lost"""
+def _project_pictures(material: typing.Optional[bpy.types.Material], every: bool) -> typing.List[bpy.types.Image]:
+    """The project textures' pictures the material draws: every shader's, or the active shader's."""
+    if not material_settings.is_managed(material):
+        return []
 
-    bl_idname = "ttt.material_revert"
-    bl_label = "Revert to the Project's"
+    settings = material_settings.settings_of(material)
+    items = list(settings.shaders) if every else [settings.shaders[settings.active_shader]] if 0 <= settings.active_shader < len(settings.shaders) else []
+    pictures = []
+    for item in items:
+        if item.image is not None and item.image.get(material_settings.TEXTURE_URI_PROPERTY) and item.image not in pictures:
+            pictures.append(item.image)
+
+    return pictures
+
+
+class TTT_OT_PictureMakeOwn(bpy.types.Operator):
+    """Gives this model's material a copy of the project texture's picture of its own, made in Blender: writing the model makes it a texture
+    of the model's, of the project it's written to (a model brought from another project drew that project's texture). The project's
+    materials keep the project's picture"""
+
+    bl_idname = "ttt.picture_make_own"
+    bl_label = "Make It This Model's Own"
     bl_options = {"REGISTER", "UNDO"}
+
+    all_pictures: bpy.props.BoolProperty(name="Every Picture", description="Every project texture the material draws, not only the shader's",
+                                         options={"SKIP_SAVE"})
 
     @classmethod
     def poll(cls, context):
-        return material_settings.is_managed(_material(context)) and bool(_material(context).get(tlm_blender.URI_PROPERTY))
-
-    def execute(self, context):
         material = _material(context)
-        project, _ = project_of(context)
-        uri = material[tlm_blender.URI_PROPERTY]
-        project_material = project.materials.get(uri) if project is not None else None
-        data = project_material.read() if project_material is not None else None
-        if data is None:
-            self.report({"ERROR"}, "The project's %s can't be read" % uri)
-            return {"CANCELLED"}
+        if not _project_pictures(material, True):
+            return False
 
-        material_settings.load(material, data, project)
-        return {"FINISHED"}
+        if material.get(tlm_blender.URI_PROPERTY):
+            cls.poll_message_set("The project's material keeps the project's picture: make the material this model's own first")
+            return False
 
+        if tlm_blender.find_root(getattr(context, "object", None)) is None:
+            cls.poll_message_set("The active object isn't part of a model")
+            return False
 
-class TTT_OT_ReloadProject(bpy.types.Operator):
-    """Reads the project's materials and textures again, after they were changed in TT Lab. Materials changed in Blender keep their
-    changes, Revert takes the project's again"""
-
-    bl_idname = "ttt.reload_project"
-    bl_label = "Reload Project Materials"
-    bl_options = {"REGISTER", "UNDO"}
+        return True
 
     def execute(self, context):
-        root = tlm_blender.find_root(getattr(context, "object", None))
-        path = root.get(tlm_blender.PATH_PROPERTY, "") if root is not None else ""
-        project = projects.open_project(path or bpy.data.filepath, refresh=True) if path or bpy.data.filepath else None
-        if project is None:
-            self.report({"WARNING"}, "The model isn't part of a TT Lab project")
+        from . import materials
+
+        root = tlm_blender.find_root(context.object)
+        pictures = _project_pictures(_material(context), self.all_pictures)
+        if not pictures:
+            self.report({"INFO"}, "The shader draws no project texture")
             return {"CANCELLED"}
 
-        for image in bpy.data.images:
-            if image.filepath and image.packed_file is None:
-                image.reload()
-
-        kept = []
-        for material in bpy.data.materials:
-            if not material.get(tlm_blender.URI_PROPERTY):
-                continue
-
-            if material_settings.is_managed(material) and is_changed_in_blender(material, project):
-                kept.append(material.name)
-                continue
-
-            tlm_blender.show_project_material(material, project)
-
-        if kept:
-            self.report({"INFO"}, "%s keep what was changed in Blender" % ", ".join(kept))
-
+        copies = [materials.make_picture_own(picture, root) for picture in pictures]
+        self.report({"INFO"}, "%s draws with %s of its own" % (root.name, ", ".join(copy.name for copy in copies)))
         return {"FINISHED"}
 
 
-def is_changed_in_blender(material: bpy.types.Material, project: typing.Optional[projects.Project] = None) -> bool:
-    """Whether the material's settings differ from the project's it was read from."""
-    base = material_settings.base_of(material)
-    return gs_material.is_changed(gs_material.merge_material(base, base, material_settings.shown(material, [], project))[0], base)
+def _models_drawing(material: bpy.types.Material) -> typing.List[str]:
+    """The models of the scene drawing the material."""
+    roots = []
+    for blender_object in _users(material):
+        root = tlm_blender.find_root(blender_object)
+        if root is not None and tlm_blender.in_scene(root) and root.name not in roots:
+            roots.append(root.name)
 
-
-class TTT_OT_MaterialDetach(bpy.types.Operator):
-    """Makes the material one of Blender's with the same settings: TT Lab adds it to the project as a new material, the project's
-    material stays as it is"""
-
-    bl_idname = "ttt.material_detach"
-    bl_label = "Make a New Material"
-    bl_options = {"REGISTER", "UNDO"}
-
-    @classmethod
-    def poll(cls, context):
-        return material_settings.is_managed(_material(context)) and bool(_material(context).get(tlm_blender.URI_PROPERTY))
-
-    def execute(self, context):
-        # Sent whole from now on, over the project material's values the add-on doesn't show
-        _detach(_material(context))
-        return {"FINISHED"}
-
-
-def _detach(material: bpy.types.Material) -> None:
-    """Makes a project's material one of Blender's, which TT Lab adds to the project as a new material."""
-    del material[tlm_blender.URI_PROPERTY]
-    material[tlm_blender.BLENDER_ID_PROPERTY] = uuid.uuid4().hex
+    return sorted(roots)
 
 
 class TTT_OT_AddVertexColors(bpy.types.Operator):
@@ -574,31 +411,27 @@ class TTT_PT_Material(bpy.types.Panel):
             column = layout.column()
             if uri:
                 column.label(text=uri, icon="MATERIAL")
-                column.label(text="Drawn without the project material's settings", icon="INFO")
+                column.label(text="The project's settings of it weren't found, it's drawn plain", icon="INFO")
             else:
-                column.label(text="Made in Blender: TT Lab makes it an unlit material of its picture", icon="INFO")
+                column.label(text="Becomes a Twin Tech material once a model's part draws with it", icon="INFO")
 
-            row = layout.row()
-            row.operator(TTT_OT_MaterialUseSettings.bl_idname, icon="SHADING_TEXTURE")
-            row.operator(TTT_OT_PickProjectMaterial.bl_idname, icon="VIEWZOOM", text="")
             _draw_emit_colors_warning(layout, material, context)
             return
 
         box = layout.box()
         if uri:
             box.label(text=uri, icon="MATERIAL")
-            if is_changed_in_blender(material, project_of(context)[0]):
-                box.label(text="Changed in Blender: exporting the model changes the project's material", icon="MODIFIER")
+            box.label(text="The project's: changing it changes it for every model drawing it", icon="INFO")
+            others = _models_drawing(material)
+            if len(others) > 1:
+                box.label(text="Drawn by %s here" % ", ".join(others), icon="OBJECT_DATA")
+
+            box.operator(TTT_OT_MaterialMakeOwn.bl_idname, icon="DUPLICATE")
         else:
-            box.label(text="Made in Blender: TT Lab adds it to the project", icon="INFO")
-
-        row = box.row(align=True)
-        row.operator(TTT_OT_PickProjectMaterial.bl_idname, icon="VIEWZOOM")
-        if uri:
-            row.operator(TTT_OT_MaterialRevert.bl_idname, icon="LOOP_BACK", text="")
-            row.operator(TTT_OT_MaterialDetach.bl_idname, icon="DUPLICATE", text="")
-
-        row.operator(TTT_OT_ReloadProject.bl_idname, icon="FILE_REFRESH", text="")
+            box.label(text="Made in Blender: writing the model adds it to the project", icon="INFO")
+            if _project_pictures(material, True):
+                box.label(text="It draws project textures, which another project doesn't have", icon="TEXTURE")
+                box.operator(TTT_OT_PictureMakeOwn.bl_idname, text="Make Its Pictures This Model's Own", icon="DUPLICATE").all_pictures = True
 
         if any(_lacks_colors(blender_object) for blender_object in _users(material)):
             warning = layout.row()
@@ -669,12 +502,12 @@ class TTT_PT_MaterialShader(_ShaderPanel, bpy.types.Panel):
         column = layout.column()
         column.active = item.texture_mapping
         column.template_ID(item, "image", open="image.open")
-        row = column.row(align=True)
-        row.operator(TTT_OT_PickProjectTexture.bl_idname, icon="VIEWZOOM")
-        if item.texture:
-            column.label(text=item.texture, icon="TEXTURE")
-        elif item.image is not None:
-            column.label(text="Goes into the model file, TT Lab makes it a texture", icon="IMAGE_DATA")
+        image = item.image
+        if image is not None and image.get(material_settings.TEXTURE_URI_PROPERTY):
+            column.label(text=image[material_settings.TEXTURE_URI_PROPERTY], icon="TEXTURE")
+            column.operator(TTT_OT_PictureMakeOwn.bl_idname, icon="DUPLICATE")
+        elif image is not None:
+            column.label(text="Made in Blender: writing the model makes it a texture", icon="IMAGE_DATA")
 
         if gs_material.texture_source(item.shader_type) == "frame":
             column.label(text="This type draws the frame behind it, not the texture", icon="INFO")

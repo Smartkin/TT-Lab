@@ -17,7 +17,7 @@ import bpy
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import twin_tech_tools  # noqa: E402
-from twin_tech_tools import gs_material, material_settings, material_ui, project as projects, tlm, tlm_blender, tlm_templates  # noqa: E402
+from twin_tech_tools import gs_material, material_settings, material_ui, materials, project as projects, tlm, tlm_blender, tlm_templates  # noqa: E402
 
 FIXTURES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures")
 SHINY = "res://PS2_Test/Material/Shiny"
@@ -145,18 +145,28 @@ def check_made_in_blender(directory):
     clear()
     root = tlm_templates.new_ogi(bpy.context, "Box")
     body = next(child for child in tlm_blender._descendants(root) if tlm_blender.role_of(child) == "body")
-    skin = next(child for child in tlm_blender._descendants(root) if tlm_blender.role_of(child) == "skin")
+    # A skin rigged the way Blender rigs one: deformed by the armature
+    armature = tlm_blender.armature_of(root)
+    skin = bpy.data.objects.new("Skin", bpy.data.meshes.new("Skin"))
+    skin.data.from_pydata([(0, 0, 0), (1, 0, 0), (1, 1, 0)], [], [(0, 1, 2)])
+    skin.parent = armature
+    skin.modifiers.new("Armature", "ARMATURE").object = armature
+    for collection in root.users_collection:
+        collection.objects.link(skin)
     ps2_path = os.path.join(directory, "assets", "PS2_Test", "OGI", "Box.tlm")
     xbox_path = os.path.join(directory, "assets", "Xbox mod", "OGI", "Box.tlm")
     os.makedirs(os.path.dirname(ps2_path), exist_ok=True)
     material = bpy.data.materials.new("Shiny Box")
     body.data.materials.append(material)
-    with bpy.context.temp_override(material=material, object=body):
-        bpy.ops.ttt.material_use_settings()
+    materials.make_twin_tech(material, False, root)
 
     settings = material_settings.settings_of(material)
     check(settings.shaders[0].shader_type == "StandardUnlit", "a rigid part's new material isn't unlit")
-    skin.data.materials.append(material)
+    # The skin draws with a material of its own, one material can't draw both (the checks refuse it)
+    skin_material = bpy.data.materials.new("Shiny Skin")
+    materials.make_twin_tech(skin_material, True, root)
+    material_settings.settings_of(skin_material).shaders[0].shader_type = "StandardLit"
+    skin.data.materials.append(skin_material)
     check(tlm_blender.export_problem(root, ps2_path) is None, "an unlit mesh without emit colors is refused")
     check(not any("emit colors" in text for text in panel_shows(material, body)), "the panel warns about the emit colors of an unlit material")
 
@@ -165,7 +175,7 @@ def check_made_in_blender(directory):
     check("Body has no emit colors, which its material Shiny Box's Standard Lit shader lights" in problem, "a lit mesh without emit colors isn't refused: %s" % problem)
     check("has no emit colors" in (tlm_blender.export_problem(root) or ""), "a model outside of a project isn't the PS2 version's")
     check(tlm_blender.export_problem(root, xbox_path) is None, "an Xbox model's mesh is refused")
-    check(not tlm_blender.is_rigid_part(skin) and skin not in material_ui._lacking_emit_colors(material), "a skin is taken for a rigid part")
+    check(not tlm_blender.is_rigid_part(skin) and skin not in material_ui._lacking_emit_colors(skin_material), "a skin is taken for a rigid part")
     shown = panel_shows(material, body)
     check("A mesh drawn with it has no emit colors, which Standard Lit lights" in shown and "ttt.add_emit_colors" in shown,
           "the panel doesn't offer to add the emit colors: %s" % shown)
@@ -225,6 +235,9 @@ def check_made_in_blender(directory):
     check("Can't export: Body has no emit colors" in error and not os.path.exists(ps2_path), "a lit mesh without emit colors got exported: %s" % error)
     os.makedirs(os.path.dirname(xbox_path), exist_ok=True)
     check(bpy.ops.ttt.export_tlm(filepath=xbox_path) == {"FINISHED"}, "an Xbox model without emit colors wasn't exported")
+    check(root.get(tlm_blender.PATH_PROPERTY) == xbox_path, "the model didn't learn the file it was written to")
+    # The PS2 model's again
+    root[tlm_blender.PATH_PROPERTY] = ps2_path
 
     # Colors of the face corners make emit colors of the face corners
     _remove(body.data, tlm_blender.COLOR_ATTRIBUTE)
@@ -318,8 +331,7 @@ def check_scenery():
     collision = next(child for child in descendants if tlm_blender.role_of(child) == "collision")
     material = bpy.data.materials.new("Lit Ground")
     ground.data.materials.append(material)
-    with bpy.context.temp_override(material=material, object=ground):
-        bpy.ops.ttt.material_use_settings()
+    materials.make_twin_tech(material, False, root)
 
     material_settings.settings_of(material).shaders[0].shader_type = "StandardLit"
     lit = tlm_blender.lit_without_emit_colors(root, "")

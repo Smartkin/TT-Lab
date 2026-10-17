@@ -32,9 +32,11 @@ import bmesh
 import bpy
 from mathutils import Matrix
 
+from . import axes
 from . import collision_builder
 from . import tlm
 from . import tlm_blender
+from . import tlm_math
 from . import tlm_mesh
 
 # Kinds of the nodes that have a mesh of the model's parts
@@ -43,6 +45,8 @@ COLLISION_TRIANGLE_ATTRIBUTE = "tt_collision_triangle"
 COLLISION_VERTEX_ATTRIBUTE = "tt_collision_vertex"
 SURFACE_PROPERTY = "ttt_surface"
 DYNAMIC_PROPERTY = "ttt_dynamic"
+# Their arrow, the empty's Z axis, is the node's Z axis: the light's direction
+LIGHT_KINDS = ("ambient_light", "directional_light", "point_light", "spot_light")
 
 _EMPTY_DISPLAY = {"scenery_meshes": ("PLAIN_AXES", 0.5), "scenery_lods": ("PLAIN_AXES", 0.5), "scenery_lod": ("PLAIN_AXES", 1.0),
                   "lights": ("PLAIN_AXES", 0.5), "ambient_light": ("SPHERE", 0.5), "directional_light": ("SINGLE_ARROW", 1.0),
@@ -51,8 +55,9 @@ _EMPTY_DISPLAY = {"scenery_meshes": ("PLAIN_AXES", 0.5), "scenery_lods": ("PLAIN
 
 def import_children(context: bpy.types.Context, file: tlm.TlmFile, tree_node: typing.Dict[str, typing.Any], parent: bpy.types.Object,
                     collection: bpy.types.Collection, materials: typing.List[bpy.types.Material]) -> None:
-    for child in tlm.children(tree_node):
+    for order, child in enumerate(tlm.children(tree_node)):
         blender_object = _import_node(context, file, child, parent, collection, materials)
+        blender_object[tlm_blender.ORDER_PROPERTY] = order
         import_children(context, file, child, blender_object, collection, materials)
 
 
@@ -79,7 +84,7 @@ def _import_node(context: bpy.types.Context, file: tlm.TlmFile, tree_node: typin
     if kind == "dynamic_model":
         _import_movement(context, file, tree_node, blender_object)
     else:
-        tlm_blender._set_node_transform(blender_object, tree_node)
+        tlm_blender._set_node_transform(blender_object, tree_node, tlm_blender.LIGHT_FRAME if kind in LIGHT_KINDS else tlm_blender.MODEL_FRAME)
 
     return blender_object
 
@@ -96,8 +101,8 @@ def _import_collision(file: tlm.TlmFile, tree_node: typing.Dict[str, typing.Any]
     mesh = bpy.data.meshes.new(tree_node.get("name") or "Collision")
     for index, surface in enumerate(tree_node.get("surfaces", [])):
         start = len(positions) // 3
-        part_positions = file.read_view(surface.get("position"), "f32")
-        faces = file.read_view(surface.get("faces"), "u32")
+        part_positions = axes.points(file.read_view(surface.get("position"), "f32"))
+        faces = axes.triangles(file.read_view(surface.get("faces"), "u32"))
         triangles = file.read_view(surface.get("triangles"), "i32")
         vertexes = file.read_view(surface.get("vertexes"), "i32")
         positions.extend(part_positions)
@@ -170,9 +175,10 @@ def _surface_material(surface: typing.Dict[str, typing.Any]) -> bpy.types.Materi
 
 
 def _import_movement(context: bpy.types.Context, file: tlm.TlmFile, tree_node: typing.Dict[str, typing.Any], blender_object: bpy.types.Object) -> None:
-    """A dynamic model's movement as an action of its object: its location and rotation on every frame, as the game has them."""
+    """A dynamic model's movement as an action of its object: its location and rotation on every frame, the game's angles in Blender's
+    axes (axes.euler)."""
     movement = tree_node.get("animation")
-    blender_object.rotation_mode = "XYZ"
+    blender_object.rotation_mode = axes.BLENDER_EULER_ORDER
     if not isinstance(movement, dict):
         return
 
@@ -186,8 +192,9 @@ def _import_movement(context: bpy.types.Context, file: tlm.TlmFile, tree_node: t
     if frames == 0:
         return
 
-    translations = file.read_view(movement.get("translation"), "f32")
+    translations = axes.points(file.read_view(movement.get("translation"), "f32"))
     rotations = file.read_view(movement.get("rotation"), "f32")
+    rotations = [value for start in range(0, len(rotations) - 2, 3) for value in axes.euler(rotations[start:start + 3])]
     action = bpy.data.actions.new("%s Movement" % blender_object.name)
     action.use_fake_user = True
     slot = action.slots.new(id_type="OBJECT", name=blender_object.name)
@@ -206,7 +213,7 @@ def _import_movement(context: bpy.types.Context, file: tlm.TlmFile, tree_node: t
 
 def export_children(file: tlm.TlmFile, blender_object: bpy.types.Object, tree_node: typing.Dict[str, typing.Any],
                     materials: "tlm_blender._FileMaterials") -> None:
-    for child in sorted(tlm_blender.live_children(blender_object), key=lambda child: child.name):
+    for child in tlm_blender.in_file_order(tlm_blender.live_children(blender_object)):
         node = _export_node(file, child, materials)
         if node is not None:
             tlm.add_child(tree_node, node)
@@ -222,7 +229,7 @@ def _export_node(file: tlm.TlmFile, blender_object: bpy.types.Object, materials:
     elif kind == "hull" and blender_object.type == "MESH":
         tlm_blender.export_hull(file, blender_object, node)
     elif blender_object.type == "MESH":
-        node["mesh"] = tlm_mesh.to_parts(file, tlm_blender._read_mesh(blender_object, materials, False), False)
+        node["mesh"] = tlm_mesh.to_parts(file, tlm_blender._mesh_to_game(tlm_blender._read_mesh(blender_object, materials, False)), False)
 
     if kind == "dynamic_model":
         node["animation"] = _export_movement(file, blender_object)
@@ -233,17 +240,27 @@ def _export_node(file: tlm.TlmFile, blender_object: bpy.types.Object, materials:
 
 
 def _local_transform(blender_object: bpy.types.Object, tree_node: typing.Dict[str, typing.Any]) -> None:
-    """The object's transform relative to its parent, the way Blender's parenting has it."""
-    local = blender_object.matrix_parent_inverse @ blender_object.matrix_basis
-    translation, rotation, scale = local.decompose()
-    if translation.length > 1e-7:
-        tree_node["translation"] = list(translation)
+    """The object's transform relative to its parent, the way Blender's parenting has it, in the game's space."""
+    frame = tlm_blender.LIGHT_FRAME if tlm_blender.role_of(blender_object) in LIGHT_KINDS else tlm_blender.MODEL_FRAME
+    local = tlm_blender.local_transform(blender_object)
+    translation, rotation, scale = tlm_blender.game_transform(local, frame)
+    stored = blender_object.get(tlm_blender.LIGHT_ROTATION_PROPERTY)
+    # A light still turned the way it was imported has the game's rotation, which Blender's is of give or take its rounding errors
+    if frame == tlm_blender.LIGHT_FRAME and stored is not None and len(stored) == 4:
+        shown = axes.frame_rotation([float(value) for value in stored])
+        current = tlm_math.wxyz_to_xyzw(tuple(local[1]))
+        # The game's quaternions aren't always of unit length to the last bit, nor are Blender's
+        lengths = sum(value * value for value in shown) ** 0.5 * sum(value * value for value in current) ** 0.5
+        if lengths > 1e-12 and abs(sum(a * b for a, b in zip(shown, current))) / lengths > 1.0 - 1e-9:
+            rotation = [float(value) for value in stored]
+    if sum(value * value for value in translation) ** 0.5 > 1e-7:
+        tree_node["translation"] = translation
 
-    if abs(abs(rotation.w) - 1.0) > 1e-7:
-        tree_node["rotation"] = [rotation.x, rotation.y, rotation.z, rotation.w]
+    if abs(abs(rotation[3]) - 1.0) > 1e-7:
+        tree_node["rotation"] = rotation
 
     if any(abs(value - 1.0) > 1e-7 for value in scale):
-        tree_node["scale"] = list(scale)
+        tree_node["scale"] = scale
 
 
 def _export_collision(file: tlm.TlmFile, blender_object: bpy.types.Object, tree_node: typing.Dict[str, typing.Any]) -> None:
@@ -253,9 +270,11 @@ def _export_collision(file: tlm.TlmFile, blender_object: bpy.types.Object, tree_
     vertex_count = len(mesh.vertices)
     positions = array.array("f", [0.0] * vertex_count * 3)
     mesh.vertices.foreach_get("co", positions)
+    positions = axes.points_back(positions)
     triangle_count = len(mesh.loop_triangles)
     triangle_vertices = array.array("i", [0] * triangle_count * 3)
     mesh.loop_triangles.foreach_get("vertices", triangle_vertices)
+    triangle_vertices = axes.triangles(triangle_vertices)
     triangle_polygons = array.array("i", [0] * triangle_count)
     mesh.loop_triangles.foreach_get("polygon_index", triangle_polygons)
     polygon_materials = array.array("i", [0] * len(mesh.polygons))
@@ -336,9 +355,10 @@ def _export_movement(file: tlm.TlmFile, blender_object: bpy.types.Object) -> typ
     slot = animation_data.action_slot if animation_data is not None and action is not None else None
     bag = tlm_blender._existing_channelbag(action, slot) if slot is not None else None
     curves = {(fcurve.data_path, fcurve.array_index): fcurve for fcurve in bag.fcurves} if bag is not None else {}
-    for path, key, rest in (("location", "translation", tuple(blender_object.location)), ("rotation_euler", "rotation", tuple(blender_object.rotation_euler))):
+    for path, key, rest, convert in (("location", "translation", tuple(blender_object.location), axes.point_back),
+                                     ("rotation_euler", "rotation", tuple(blender_object.rotation_euler), axes.euler_back)):
         tracks = [tlm_blender._sample(curves.get((path, component)), frames, rest[component], start) for component in range(3)]
-        movement[key] = file.write_view([track[frame] for frame in range(frames) for track in tracks], "f32")
+        movement[key] = file.write_view([value for frame in range(frames) for value in convert([track[frame] for track in tracks])], "f32")
 
     return movement
 
@@ -364,7 +384,7 @@ def collision_sources(start: bpy.types.Object) -> typing.List[bpy.types.Object]:
         if blender_object.type == "MESH" and (kind in ("", "mesh", "scenery_mesh") or kind == "lod_mesh" and int(tlm_blender._write_data(blender_object).get("Level", 0)) == 0):
             sources.append(blender_object)
 
-        pending.extend(sorted(tlm_blender.live_children(blender_object), key=lambda child: child.name, reverse=True))
+        pending.extend(reversed(tlm_blender.in_file_order(tlm_blender.live_children(blender_object))))
 
     return sources
 
@@ -384,22 +404,23 @@ def generate_collision(root: bpy.types.Object, start: bpy.types.Object, surface:
         collision = tlm_blender._new_object("Collision", bpy.data.meshes.new("Collision"), root, collection)
         collision[tlm_blender.KIND_PROPERTY] = "collision"
         tlm_blender._read_data(collision, "Collision", {})
-        # A new object's world matrix is only worked out by an update, under the root it turns Y up into Z up
+        # A new object's world matrix is only worked out by an update
         bpy.context.view_layer.update()
 
+    # The collision is made in the game's space (its floors are Y up), the collision mesh's points of Blender's axes (axes)
     to_collision = collision.matrix_world.inverted()
     sources = []
     for source in collision_sources(start):
         mesh = source.data
         mesh.calc_loop_triangles()
         matrix = to_collision @ source.matrix_world
-        positions = [tuple(matrix @ vertex.co) for vertex in mesh.vertices]
-        # A mirrored object's triangles face the other way where it is
-        mirrored = matrix.determinant() < 0
+        positions = [axes.point_back(matrix @ vertex.co) for vertex in mesh.vertices]
+        # A mirrored object's triangles face the other way where it is, and so does the game's reflection of every one
+        turned = not matrix.determinant() < 0
         triangles = []
         for triangle in mesh.loop_triangles:
             a, b, c = (positions[index] for index in triangle.vertices)
-            triangles.append((a, c, b) if mirrored else (a, b, c))
+            triangles.append((a, c, b) if turned else (a, b, c))
 
         sources.append(triangles)
 
@@ -408,8 +429,8 @@ def generate_collision(root: bpy.types.Object, start: bpy.types.Object, surface:
     existing_triangles: typing.List[collision_builder.Triangle] = []
     if not replace:
         mesh.calc_loop_triangles()
-        existing_positions = [tuple(vertex.co) for vertex in mesh.vertices]
-        existing_triangles = [tuple(triangle.vertices) for triangle in mesh.loop_triangles]
+        existing_positions = [axes.point_back(vertex.co) for vertex in mesh.vertices]
+        existing_triangles = [(triangle.vertices[0], triangle.vertices[2], triangle.vertices[1]) for triangle in mesh.loop_triangles]
 
     result = collision_builder.add_meshes(existing_positions, existing_triangles, sources, weld, flip, tolerance, hull_distance, coarser_where_crowded)
     positions = list(existing_positions) + list(result.positions)
@@ -434,14 +455,14 @@ def generate_collision(root: bpy.types.Object, start: bpy.types.Object, surface:
     target.verts.ensure_lookup_table()
     vertexes = list(target.verts)
     for position in result.positions:
-        vertex = target.verts.new(position)
+        vertex = target.verts.new(axes.point(position))
         if vertex_order is not None:
             vertex[vertex_order] = -1
 
         vertexes.append(vertex)
 
     for corners in result.triangles:
-        face = target.faces.new([vertexes[corner] for corner in corners])
+        face = target.faces.new([vertexes[corner] for corner in axes.face(list(corners))])
         face.material_index = slot
         if triangle_order is not None:
             face[triangle_order] = -1

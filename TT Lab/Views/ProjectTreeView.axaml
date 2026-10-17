@@ -67,6 +67,10 @@
                                 </EventTrigger>
                             </Interaction.Behaviors>
                         </TextBox>
+                        <Border IsVisible="{Binding IsLinkedToBlender}" Background="#E87D0D" CornerRadius="3" Margin="6,0,0,0" Padding="4,0" VerticalAlignment="Center"
+                                ToolTip.Tip="Linked to Blender: what Blender changes of it shows here at once, saving the blend file saves it">
+                            <TextBlock Text="Blender" FontSize="10" Foreground="White"/>
+                        </Border>
                     </StackPanel>
                     </Border>
                 </TreeDataTemplate>

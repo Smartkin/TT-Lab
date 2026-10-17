@@ -300,13 +300,23 @@ public sealed class TransformGizmo
     }
 
     /// <summary>
+    /// Raised once a drag that was going is over, however it ended: let go of, given up on, or its selection deselected under it
+    /// </summary>
+    public event Action? DragEnded;
+
+    /// <summary>
     /// Ends the drag and gives where the target was before it
     /// </summary>
     public GizmoTransform? EndDrag()
     {
-        var start = _drag?.Start;
+        var drag = _drag;
         _drag = null;
-        return start;
+        if (drag != null)
+        {
+            DragEnded?.Invoke();
+        }
+
+        return drag?.Start;
     }
 
     public void Draw(PrimitiveRenderer renderer, in FrameCamera camera, GizmoTransform target)

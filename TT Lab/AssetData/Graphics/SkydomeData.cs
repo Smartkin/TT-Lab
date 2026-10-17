@@ -77,7 +77,7 @@ public class SkydomeData : AbstractAssetData
         }
 
         DisposedValue = false;
-        if (materials.AddedToProject)
+        if (materials.Finish() && !AssetDataScope.IsReadingDry)
         {
             SaveInternal(dataPath, settings);
         }
@@ -160,6 +160,7 @@ public class SkydomeData : AbstractAssetData
         {
             IsSelectable = false
         };
-        return [new ViewportObject(editableObject, $"SKYDOME_EDITABLE_{property.Path}", property) { Category = ViewportObjectCategory.Skydome }];
+        var sky = Owner.URI;
+        return [new ViewportObject(editableObject, $"SKYDOME_EDITABLE_{property.Path}", property) { Category = ViewportObjectCategory.Skydome, Draws = uri => uri == sky }];
     }
 }

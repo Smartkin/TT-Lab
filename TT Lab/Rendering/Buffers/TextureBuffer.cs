@@ -136,6 +136,25 @@ public unsafe class TextureBuffer : IDisposable
         Unbind();
     }
 
+    /// <summary>
+    /// Other pixels for the texture (its asset's picture replaced), what draws it draws them: straight alpha like the GS's, as many levels as
+    /// asked for
+    /// </summary>
+    public void Replace(ReadOnlySpan<byte> pixels, uint width, uint height, int levels)
+    {
+        // Handles taken of it don't see other pixels, it's made again
+        ReleaseHandles();
+        _data = pixels.ToArray();
+        Bind();
+        _renderContext.Gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMaxLevel, 0);
+        UploadTextureData(width, height);
+        Unbind();
+        if (levels > 1)
+        {
+            GenerateMipmaps(levels);
+        }
+    }
+
     public void InvalidateWithData(Bitmap bitmap)
     {
         ReleaseHandles();

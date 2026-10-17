@@ -83,6 +83,34 @@ public sealed class OgiAnimationEditorTests : IDisposable
         }
     }
 
+    // A model Blender wrote replaces the OGI's data whole: its open editor shows the new data's animations, and the old ones again once the
+    // step is undone. The asset's editors kept the old data's nodes and showed the model that was replaced
+    [AvaloniaFact]
+    public void AnOgisEditorShowsItsDataReplacedWhole()
+    {
+        var ogi = AddOgi("Skeleton", CreateAnimation(0x1, "Walk"), CreateAnimation(0x2, "Run"));
+        var document = new DocumentViewModel(ogi);
+        document.Initialize();
+        var window = new Window { Content = new DocumentView { ViewModel = document }, Width = 900, Height = 700 };
+        window.Show();
+        Pump();
+        string[] Shown() => window.GetVisualDescendants().OfType<OgiAnimationsView>().Where(view => view.IsEffectivelyVisible)
+            .SelectMany(view => view.ViewModel!.Animations.Select(animation => animation.Name)).ToArray();
+        Assert.Equal(["Walk", "Run"], Shown());
+
+        var replacement = new OGIData(ogi) { Joints = ((OGIData)ogi.GetData()).Joints };
+        replacement.SetAnimations([CreateAnimation(0x3, "Jump")]);
+        document.ReplaceData(document.PropertyGraph.Find("Root.AssetData")!, replacement, "From Blender: Skeleton written");
+        Pump();
+        Assert.Equal(["Jump"], Shown());
+
+        document.Undo();
+        Pump();
+        Assert.Equal(["Walk", "Run"], Shown());
+        window.Close();
+        document.Close();
+    }
+
     [AvaloniaFact]
     public void SlotsPickFromTheAnimationsOfTheirOgi()
     {

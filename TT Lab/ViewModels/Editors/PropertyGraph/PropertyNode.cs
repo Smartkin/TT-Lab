@@ -425,6 +425,31 @@ public class PropertyNode
     }
 
     /// <summary>
+    /// Sets a value of other values than the ones under the node (an asset's whole data read again from a file): what's under it is made
+    /// again for it, the old children would read lists of other lengths. The history hears of it like of any change. An asset's data
+    /// replaced is let go of without disposing it, like reading a file again does: data made of the same file shares its internal assets
+    /// (a scenery's collision, named after what it's made of), which disposing the old data deleted
+    /// </summary>
+    internal void ReplaceValue(object? value)
+    {
+        var oldValue = GetValue();
+        if (ReferenceEquals(oldValue, value) || Metadata == null)
+        {
+            return;
+        }
+
+        if (Target is IAsset asset && value is AssetData.AbstractAssetData)
+        {
+            asset.UnloadData();
+        }
+
+        Metadata.PropertyInfo.SetValue(Target, value);
+        RebuildChildren();
+        RaiseGraphChange(oldValue, value);
+        RaiseDescendantsChanged();
+    }
+
+    /// <summary>
     /// The value got changed outside the document's editors (a chunk's view following its asset): what's under it is made again for it and
     /// its editors show it. Nothing the graph's history hears of
     /// </summary>

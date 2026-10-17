@@ -137,6 +137,17 @@ class SchemaTests(unittest.TestCase):
 
 
 class ContainerTests(unittest.TestCase):
+    def test_boxes_of_the_models_space_are_shown_in_blenders_axes(self):
+        element = Element(schema.OBJECT_TYPES)
+        twintech.read_container(element.ttt, schema.OBJECT_TYPES, {schema.KEY: SAMPLES["Ogi"]})
+
+        # The game's (x, y, z) is Blender's (-x, -z, y): the box from (-1, 0, -1) to (1, 2, 1) spans Z from 0 to 2
+        self.assertEqual(element.ttt.ogi.bounding_box_min, (-1.0, -1.0, 0.0, 1.0))
+        self.assertEqual(element.ttt.ogi.bounding_box_max, (1.0, 1.0, 2.0, 1.0))
+        written = twintech.write_container(element.ttt, schema.OBJECT_TYPES)
+        self.assertEqual(written["BoundingBoxMin"], SAMPLES["Ogi"]["BoundingBoxMin"])
+        self.assertEqual(written["BoundingBoxMax"], SAMPLES["Ogi"]["BoundingBoxMax"])
+
     def test_reading_fills_the_types_properties(self):
         element = Element(schema.OBJECT_TYPES)
 

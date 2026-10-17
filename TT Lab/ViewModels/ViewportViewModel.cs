@@ -226,7 +226,9 @@ public partial class ViewportViewModel : ReactiveObject
         FrameSelectionCommand = ReactiveCommand.Create(FrameSelection);
         InitPrefabs();
         InitGameLaunch();
+        InitBlenderEditing();
         InitSceneryMode();
+        _drag.Ended += OnDragEnded;
         this.WhenAnyValue(x => x.ActiveTool).Subscribe(_ =>
         {
             this.RaisePropertyChanged(nameof(IsSelectTool));
@@ -296,6 +298,7 @@ public partial class ViewportViewModel : ReactiveObject
             ShowsSkeletons = Preferences.GetPreference<bool>(Preferences.OgiViewerSkeleton);
         }
         FollowGameLaunch(document);
+        FollowBlenderEditing();
 
         this.WhenAnyValue(x => x._document!.IsReady)
             .Where(x => x)
@@ -324,11 +327,13 @@ public partial class ViewportViewModel : ReactiveObject
         document.PropertyGraph.Changed += PropertyGraphOnChanged;
         document.PropertyGraph.Changed += FollowCollisionShape;
         document.PropertyGraph.Followed += PropertyGraphOnFollowed;
+        DocumentViewModel.DataReplaced += OnDataReplaced;
         Disposable.Create(() =>
         {
             document.PropertyGraph.Changed -= PropertyGraphOnChanged;
             document.PropertyGraph.Changed -= FollowCollisionShape;
             document.PropertyGraph.Followed -= PropertyGraphOnFollowed;
+            DocumentViewModel.DataReplaced -= OnDataReplaced;
         }).DisposeWith(_closeDisposables);
     }
 
@@ -392,6 +397,8 @@ public partial class ViewportViewModel : ReactiveObject
     public void Close()
     {
         _closeDisposables.Dispose();
+        // A drag going on as the editor closes is a step of the history all the same
+        EndDragStep();
         Host.Initialized -= PrepareRender;
         if (_keyboard != null)
         {
@@ -447,6 +454,7 @@ public partial class ViewportViewModel : ReactiveObject
             _renderer.Camera = _scene.Camera;
 
             _editingContext = new EditingContext(renderContext, _scene);
+            _drag.Follow(_editingContext.Gizmo);
             _editingContext.SetTransformMode(ActiveTool);
             _editingContext.SetTransformLocality(TransformSpace);
             ApplySnapping();
@@ -483,6 +491,13 @@ public partial class ViewportViewModel : ReactiveObject
             return;
         }
 
+        // A drag that something else ended still ends its step here
+        if (_drag.IsDragging)
+        {
+            EndDragStep();
+            return;
+        }
+
         var pressed = _leftPress;
         _leftPress = null;
         if (IsRubberBanding)
@@ -496,30 +511,6 @@ public partial class ViewportViewModel : ReactiveObject
         {
             MouseSelect(mouse.Position.X, mouse.Position.Y);
         }
-    }
-
-    // A drag of the gizmo is one step to undo, however long it takes
-    private IDisposable? _dragStep;
-
-    private void BeginDragStep()
-    {
-        _dragStep?.Dispose();
-        var name = SelectedObject == _trianglePivot && _selectedTriangles.Length > 0 ? (_selectedTriangles.Length > 1 ? $"{_selectedTriangles.Length} collision triangles" : "a collision triangle")
-            : SelectedObject?.DuplicatedElement?.GetValue() is AssetData.Instance.Scenery.SceneryPlacement ? (SelectionCount > 1 ? $"{SelectionCount} meshes" : "a mesh")
-            : (SelectedObject?.Property.Find("[data]")?.GetValue() as IAsset)?.Alias ?? SelectedObject?.DocumentName ?? "the selection";
-        var verb = ActiveTool switch
-        {
-            TransformMode.ROTATE => "Rotated",
-            TransformMode.SCALE => "Scaled",
-            _ => "Moved",
-        };
-        _dragStep = _document?.History.BeginGroup($"{verb} {name}");
-    }
-
-    private void EndDragStep()
-    {
-        _dragStep?.Dispose();
-        _dragStep = null;
     }
 
     private void OnMouseDown(IMouse mouse, MouseButton button)
@@ -1211,13 +1202,16 @@ public partial class ViewportViewModel : ReactiveObject
         CanRender = true;
         this.RaisePropertyChanged(nameof(CanRender));
 
-        // What got inspected before the scene had its objects (a chunk made again keeps what it inspected) gets selected now
+        // What got inspected before the scene had its objects (a chunk made again keeps what it inspected) gets selected now, then what the
+        // building read of data replaced meanwhile is made again, reselected
         Dispatcher.UIThread.Post(() =>
         {
             if (_document?.Inspector is { } inspector)
             {
                 SelectInspected(inspector.Property);
             }
+
+            RebuildWhatWasReplacedWhileBuilding();
         });
     }
 
@@ -1284,6 +1278,12 @@ public partial class ViewportViewModel : ReactiveObject
     {
         if (!_renderInit)
         {
+            // The scene being built may have read the data before (Blender wrote the chunk's scenery meanwhile)
+            if (ReplacedDataOwner(change) is { } replacedOwner)
+            {
+                RememberReplacedWhileBuilding(replacedOwner, change.Node);
+            }
+
             return;
         }
 
@@ -1317,10 +1317,17 @@ public partial class ViewportViewModel : ReactiveObject
         // An asset is under every link to it, changed under one link it's changed for the objects of the others as well (the object of
         // every instance of it)
         var changedAsset = DocumentViewModel.GetOwningAsset(changed)?.URI;
+        // An asset's data replaced whole (a model Blender wrote, or that undone): what's drawn of it is made again of the new data
+        var replaced = ReplacedDataOwner(change);
+        if (replaced != null)
+        {
+            ForgetMeshesOf(replaced);
+        }
+
         foreach (var viewportObject in _viewportObjects)
         {
             // Links to other resources have their whole data below them, pointing one to another resource replaces it
-            if (viewportObject.Property == change.Node)
+            if (viewportObject.Property == change.Node || replaced != null && IsWithin(changed, viewportObject.Property))
             {
                 AddRebuild(ref rebuilds, viewportObject.Property);
                 continue;
@@ -1445,6 +1452,159 @@ public partial class ViewportViewModel : ReactiveObject
             .Where(viewportObject => viewportObject.Property.Parent == chunkResources && !chunkResources.Children.Contains(viewportObject.Property)).ToList()));
     }
 
+    // An asset's data replaced whole anywhere (a picture or model Blender wrote, that step undone): a picture this scene draws is drawn anew,
+    // and what it draws of another document's model is made again (its own document's replacements are its changes)
+    private void OnDataReplaced(PropertyGraph graph, IAsset asset)
+    {
+        // Without a context the scene gets built of the new data
+        var renderContext = _renderContext;
+        if (renderContext == null)
+        {
+            return;
+        }
+
+        // Queued while the scene is being built, it runs once the scene is: what's queued meanwhile waits for the building
+        if (asset is Assets.Graphics.Texture)
+        {
+            renderContext.QueueRenderAction(() => renderContext.TextureService.Refresh(asset.URI));
+            return;
+        }
+
+        if (graph == _document?.PropertyGraph)
+        {
+            return;
+        }
+
+        // The building may have read the old data, its objects are only there to be found once it's done
+        if (!_renderInit)
+        {
+            RememberReplacedWhileBuilding(asset, null);
+            return;
+        }
+
+        RebuildWhatDraws(asset);
+    }
+
+    private void RebuildWhatDraws(IAsset asset)
+    {
+        List<PropertyNode>? rebuilds = null;
+        foreach (var viewportObject in _viewportObjects.Where(viewportObject => viewportObject.Draws?.Invoke(asset.URI) == true))
+        {
+            AddRebuild(ref rebuilds, viewportObject.Property);
+        }
+
+        if (rebuilds == null)
+        {
+            return;
+        }
+
+        ForgetMeshesOf(asset);
+        foreach (var property in rebuilds)
+        {
+            RebuildViewportObjects(property);
+        }
+    }
+
+    // The asset whose data the change replaced whole (a model Blender wrote, or that undone), none for any other change
+    private static IAsset? ReplacedDataOwner(PropertyChange change)
+    {
+        return change.Kind == PropertyChangeKind.Value && change.Node.Target is IAsset owner && change.Node.Metadata?.PropertyInfo.Name == nameof(SerializableAsset.AssetData)
+            ? owner : null;
+    }
+
+    // Data replaced whole while the scene was being built, which the building may have read before it was: what's drawn of it is made again
+    // once the scene is built. With the node of a replacement in the scene's own document, none for another document's
+    private readonly List<(IAsset Asset, PropertyNode? Node)> _replacedWhileBuilding = [];
+
+    private void RememberReplacedWhileBuilding(IAsset asset, PropertyNode? node)
+    {
+        // Without a context the scene gets built of the new data
+        if (_renderContext == null)
+        {
+            return;
+        }
+
+        lock (_replacedWhileBuilding)
+        {
+            if (!_replacedWhileBuilding.Contains((asset, node)))
+            {
+                _replacedWhileBuilding.Add((asset, node));
+            }
+        }
+    }
+
+    private void RebuildWhatWasReplacedWhileBuilding()
+    {
+        List<(IAsset Asset, PropertyNode? Node)> replaced;
+        lock (_replacedWhileBuilding)
+        {
+            replaced = [.. _replacedWhileBuilding];
+            _replacedWhileBuilding.Clear();
+        }
+
+        foreach (var (asset, node) in replaced)
+        {
+            if (node == null)
+            {
+                RebuildWhatDraws(asset);
+                continue;
+            }
+
+            ForgetMeshesOf(asset);
+            List<PropertyNode>? rebuilds = null;
+            foreach (var viewportObject in _viewportObjects.Where(viewportObject => IsWithin(node, viewportObject.Property)))
+            {
+                AddRebuild(ref rebuilds, viewportObject.Property);
+            }
+
+            foreach (var property in rebuilds ?? [])
+            {
+                RebuildViewportObjects(property);
+            }
+        }
+    }
+
+    // The meshes made of the asset's own data are made again of the new data. Its parts' URIs are of their content: a part the new data still
+    // has keeps its mesh, the others are let go of once nothing draws them. Every one of them used to be made again, and nothing let go of
+    // the ones made before
+    private void ForgetMeshesOf(IAsset asset)
+    {
+        var renderContext = _renderContext;
+        if (renderContext == null)
+        {
+            return;
+        }
+
+        var own = asset.URI;
+        var parts = PartsOf(asset);
+        renderContext.QueueRenderAction(() =>
+        {
+            renderContext.MeshService.Forget([own]);
+            renderContext.MeshService.ForgetWhenUndrawn(parts);
+        });
+    }
+
+    /// <summary>
+    /// The internal assets the asset's data made and the ones they made, of its old data as well as its new while the project has them
+    /// </summary>
+    internal static List<LabURI> PartsOf(IAsset asset)
+    {
+        return AssetManager.Get().GetAssets().Where(part => part.IsInternal && IsPartOf(part, asset)).Select(part => part.URI).ToList();
+    }
+
+    private static bool IsPartOf(IAsset part, IAsset asset)
+    {
+        for (var owner = part.InternalOwner; owner != null; owner = owner.InternalOwner)
+        {
+            if (owner == asset)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static void AddRebuild(ref List<PropertyNode>? rebuilds, PropertyNode property)
     {
         rebuilds ??= [];
@@ -1516,6 +1676,12 @@ public partial class ViewportViewModel : ReactiveObject
     /// </summary>
     private void RebuildViewportObjects(PropertyNode property, string? selectName = null)
     {
+        // Objects a gizmo drag moves are made again once it's over, with what's selected of them then
+        if (selectName == null && _drag.Defer(property))
+        {
+            return;
+        }
+
         var selectedName = selectName ?? (SelectedObject?.Property == property ? SelectedObject.DocumentName : null);
         RebuildViewportObjects(property, selectedName == null ? null : viewportObject => viewportObject.DocumentName == selectedName, selectName != null);
     }

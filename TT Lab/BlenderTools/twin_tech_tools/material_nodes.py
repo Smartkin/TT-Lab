@@ -55,6 +55,10 @@ class Pass:
         self.animation_paths = animation_paths
 
 
+# On an Image Texture node drawing a shader's picture, the shader's index
+PASS_PROPERTY = "ttt_pass"
+
+
 def build(material: bpy.types.Material, passes: typing.Sequence[Pass]) -> None:
     """Makes the material's node tree draw the passes, replacing what it had."""
     if material.node_tree is None or not material.use_nodes:
@@ -240,6 +244,8 @@ class _Builder:
 
         texture = self._node("ShaderNodeTexImage", image=image, extension="REPEAT",
                              interpolation="Closest" if shown.get("texture_filter") == "NEAREST" else "Linear")
+        # The shader's picture, a picture given to the node in the Shader Editor becomes the shader's (material_settings.take_node_pictures)
+        texture[PASS_PROPERTY] = self.pass_index
         self._connect(self.texture_coordinates(shader_pass), texture.inputs["Vector"])
         texture_color = texture.outputs["Color"]
         if not image.colorspace_settings.is_data:
@@ -295,13 +301,13 @@ class _Builder:
 
     def clip(self, direction: typing.Any) -> typing.Tuple[typing.Any, typing.Any, typing.Any]:
         """A direction of the world through the clip matrix's turn and scale: on the view's axes scaled by the game's lens. The game's
-        camera looks along +Z, Blender's along -Z, and the game's x is Blender's -x: imported models are the game's turned Z up, which
-        Blender shows mirrored from the console (TT Lab mirrors its frame before showing it), so every point reads the game's texel."""
+        camera looks along +Z, Blender's along -Z. Blender shows models the way the console does (axes), so its view's x and y are the
+        game's and every point reads the game's texel."""
         transform = self._node("ShaderNodeVectorTransform", vector_type="VECTOR", convert_from="WORLD", convert_to="CAMERA")
         self._connect(direction, transform.inputs[0])
         x, y, z = self.separate(transform.outputs[0])
         scale = gs_material.CLIP_SCALE
-        return self.math("MULTIPLY", x, -scale[0]), self.math("MULTIPLY", y, scale[1]), self.math("MULTIPLY", z, -scale[2])
+        return self.math("MULTIPLY", x, scale[0]), self.math("MULTIPLY", y, scale[1]), self.math("MULTIPLY", z, -scale[2])
 
     def environment(self) -> bpy.types.NodeSocket:
         """VU1 programs 0x14 and 0x1D: the way to the eye plus the normal through the clip matrix, normalized to d, the picture read at

@@ -14,13 +14,16 @@ namespace TT_Lab.ViewModels.Editors;
 /// <remarks>
 /// Changing something after undoing starts a branch next to the one undone, which stays to go back to. Steps are kept by the paths of
 /// what they changed, nodes get made again when links and lists change. Replacing a whole asset's data (a texture's picture, a sound)
-/// can't be undone, the history starts over after it
+/// can't be undone, the history starts over after it, unless what replaced it kept the data before and after as the bytes of its file
+/// (<see cref="DocumentViewModel.ReplaceData"/>: a picture painted in Blender, a model Blender wrote)
 /// </remarks>
 public sealed class UndoHistory
 {
     // Changes of one value this close to each other, like typing or dragging, are one step
     private static readonly TimeSpan MergeTime = TimeSpan.FromSeconds(1);
     private const int MaxEntries = 2000;
+    // Steps of data replaced whole keep it twice as the bytes of its file, the oldest go first
+    private const int MaxDataSteps = 20;
 
     /// <summary>
     /// A state of the document, reached by the step from its parent's
@@ -80,11 +83,20 @@ public sealed class UndoHistory
     private GroupStep? _group;
     private string? _groupDescription;
     private int _groupDepth;
+
+    /// <summary>
+    /// Whether a step of several changes is being made (BeginGroup): what's changed meanwhile goes into it
+    /// </summary>
+    public bool IsGrouping => _groupDepth > 0;
     private Entry? _saved;
     private int _entries;
     private int _branches;
+    private DataStep? _expectedData;
 
     public event Action? Changed;
+
+    // The histories of the open documents: what their steps keep of data replaced whole links assets nothing may delete meanwhile
+    private static readonly List<WeakReference<UndoHistory>> Open = [];
 
     public UndoHistory(PropertyGraph.PropertyGraph graph)
     {
@@ -92,6 +104,79 @@ public sealed class UndoHistory
         Root = new Entry(null, null, "Opened", 0, 0);
         Current = Root;
         _saved = Root;
+        lock (Open)
+        {
+            Open.RemoveAll(reference => !reference.TryGetTarget(out _));
+            Open.Add(new WeakReference<UndoHistory>(this));
+        }
+    }
+
+    /// <summary>
+    /// The document closed: its steps can't be undone any more
+    /// </summary>
+    public void Close()
+    {
+        lock (Open)
+        {
+            Open.RemoveAll(reference => !reference.TryGetTarget(out var history) || history == this);
+        }
+    }
+
+    /// <summary>
+    /// Whether a step of an open document links the asset (a value it set or took back, a model's file a Blender wrote and the one before
+    /// it): undoing or redoing it puts the link back
+    /// </summary>
+    internal static bool KeepsLinkTo(LabURI asset) => LinksKept(new HashSet<string> { asset.ToString() }).Count > 0;
+
+    /// <summary>
+    /// Which of the assets (their URIs) a step of an open document's history links, every history gone over once for all of them: each one
+    /// went over every history again, by reflection, on the UI thread
+    /// </summary>
+    internal static HashSet<string> LinksKept(IReadOnlySet<string> assets)
+    {
+        var kept = new HashSet<string>();
+        if (assets.Count == 0)
+        {
+            return kept;
+        }
+
+        List<UndoHistory> histories;
+        lock (Open)
+        {
+            histories = Open.Select(reference => reference.TryGetTarget(out var history) ? history : null).OfType<UndoHistory>().ToList();
+        }
+
+        foreach (var step in histories.SelectMany(history => StepsOf(history.Root)))
+        {
+            kept.UnionWith(step.Links().Where(assets.Contains));
+            if (kept.Count == assets.Count)
+            {
+                break;
+            }
+        }
+
+        return kept;
+    }
+
+    // Every step of the tree, its entries kept on a stack: iterators nested in each other made a history of thousands of steps in a row
+    // quadratic
+    private static IEnumerable<Step> StepsOf(Entry root)
+    {
+        var entries = new Stack<Entry>();
+        entries.Push(root);
+        while (entries.Count > 0)
+        {
+            var entry = entries.Pop();
+            if (entry.Step != null)
+            {
+                yield return entry.Step;
+            }
+
+            foreach (var child in entry.Children)
+            {
+                entries.Push(child);
+            }
+        }
     }
 
     public Entry Root { get; private set; }
@@ -126,6 +211,14 @@ public sealed class UndoHistory
 
         if (!CanUndoChange(change))
         {
+            if (_expectedData is { } expected && expected.Path == change.Node.Path)
+            {
+                _expectedData = null;
+                expected.Share(DataNextTo(expected.Path));
+                Add(expected, expected.Description, false);
+                return;
+            }
+
             Clear();
             return;
         }
@@ -218,10 +311,56 @@ public sealed class UndoHistory
         Changed?.Invoke();
     }
 
+    /// <summary>
+    /// The next change replacing the data at the step's path is the step, which keeps the data before and after it. Any other replacing
+    /// of data still starts the history over
+    /// </summary>
+    internal void ExpectData(DataStep step)
+    {
+        _expectedData = step;
+    }
+
+    // The files of the data at the path that the steps next to where the document is keep: the last data step made before (its data after
+    // it is the data now, unless something else changed it since) and the ones undone from here (their data before them is). A new step
+    // keeps the same bytes once instead of copies of its own, two copies of a model file each step (a scenery's are 12 MB) duplicated
+    // between consecutive ones
+    private IEnumerable<byte[]> DataNextTo(string path)
+    {
+        var last = _group == null ? null : DataStepsIn(_group).LastOrDefault(step => step.Path == path);
+        for (var entry = Current; last == null && entry?.Step != null; entry = entry.Parent)
+        {
+            last = DataStepsIn(entry.Step).LastOrDefault(step => step.Path == path);
+        }
+
+        if (last != null)
+        {
+            yield return last.After;
+            yield return last.Before;
+        }
+
+        foreach (var undone in Current.Children.Where(child => child.Step != null).SelectMany(child => DataStepsIn(child.Step!)).Where(step => step.Path == path))
+        {
+            yield return undone.Before;
+            yield return undone.After;
+        }
+    }
+
+    private static IEnumerable<DataStep> DataStepsIn(Step step) => step switch
+    {
+        DataStep data => [data],
+        GroupStep group => group.Steps.SelectMany(DataStepsIn),
+        _ => [],
+    };
+
+    /// <summary>
+    /// How many steps of data replaced whole the history keeps: a document of no tab Blender changes keeps fewer, nobody undoes there
+    /// </summary>
+    internal int MostDataSteps { get; set; } = MaxDataSteps;
+
     // The oldest branches away from where the document is go first, then the oldest steps
     private void Trim()
     {
-        while (Count(Root) > MaxEntries)
+        while (Count(Root) > MaxEntries || DataSteps(Root) > MostDataSteps)
         {
             var old = Root.Children.FirstOrDefault(child => child != Current && !child.IsAncestorOf(Current));
             if (old != null)
@@ -243,6 +382,10 @@ public sealed class UndoHistory
     }
 
     private static int Count(Entry entry) => 1 + entry.Children.Sum(Count);
+
+    private static int DataSteps(Entry entry) => (entry.Step is { } step && HoldsData(step) ? 1 : 0) + entry.Children.Sum(DataSteps);
+
+    private static bool HoldsData(Step step) => step is DataStep || step is GroupStep group && group.Steps.Any(HoldsData);
 
     /// <summary>
     /// Makes everything changed until it's disposed one step, like placing an instance and moving it to the cursor
@@ -405,6 +548,28 @@ public sealed class UndoHistory
         Changed?.Invoke();
     }
 
+    /// <summary>
+    /// Whether the steps from the oldest the history keeps to where the document is are all the entries', and the history let go of the
+    /// one it was saved at: undoing them all doesn't get back to what was saved, the files have it
+    /// </summary>
+    internal bool KeepsTooFewToUndo(Func<Entry, bool> entries)
+    {
+        if (_saved != null)
+        {
+            return false;
+        }
+
+        for (var entry = Current; entry.Parent != null; entry = entry.Parent)
+        {
+            if (!entries(entry))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     // What the change is to the one looking at the history, the asset it's in and what of it changed
     private static string Describe(PropertyChange change)
     {
@@ -473,6 +638,9 @@ public sealed class UndoHistory
 
         // Of what the step changes, lists for what goes into or out of them
         public abstract IEnumerable<string> Paths { get; }
+
+        // The assets undoing or redoing it puts a link to back
+        public abstract IEnumerable<string> Links();
     }
 
     private sealed class ValueStep(string path, object? oldValue, object? newValue) : Step
@@ -513,6 +681,8 @@ public sealed class UndoHistory
         public override void Redo(PropertyGraph.PropertyGraph graph) => graph.Find(_path)?.SetValue(_newValue);
 
         public override IEnumerable<string> Paths => [_path];
+
+        public override IEnumerable<string> Links() => AssetLinks.UrisInValue(oldValue).Concat(AssetLinks.UrisInValue(_newValue));
     }
 
     private sealed class InsertStep(string list, int index, object? value) : Step
@@ -522,6 +692,8 @@ public sealed class UndoHistory
         public override void Redo(PropertyGraph.PropertyGraph graph) => graph.Find(list)?.InsertElement(index, value!);
 
         public override IEnumerable<string> Paths => [list];
+
+        public override IEnumerable<string> Links() => AssetLinks.UrisInValue(value);
     }
 
     private sealed class RemoveStep(string list, int index, object? value) : Step
@@ -531,6 +703,8 @@ public sealed class UndoHistory
         public override void Redo(PropertyGraph.PropertyGraph graph) => Remove(graph, list, index);
 
         public override IEnumerable<string> Paths => [list];
+
+        public override IEnumerable<string> Links() => AssetLinks.UrisInValue(value);
     }
 
     private static void Remove(PropertyGraph.PropertyGraph graph, string list, int index)
@@ -539,6 +713,76 @@ public sealed class UndoHistory
         {
             node.RemoveElement(node.Children[index]);
         }
+    }
+
+    /// <summary>
+    /// An asset's data replaced whole: what it was and what it became as the bytes of its file, read back into new data (the replaced
+    /// data objects are disposed)
+    /// </summary>
+    internal sealed class DataStep(string path, IAsset asset, Type type, byte[] before, byte[] after, string description) : Step
+    {
+        private HashSet<string>? _links;
+        // The same bytes as the data steps next to it where they're the same file (Share), nothing writes into them
+        private byte[] _before = before;
+        private byte[] _after = after;
+
+        public string Path => path;
+
+        /// <summary>
+        /// The data's file before the step
+        /// </summary>
+        public byte[] Before => _before;
+
+        /// <summary>
+        /// The data's file after the step
+        /// </summary>
+        public byte[] After => _after;
+
+        /// <summary>
+        /// Whether the data before or after it links the asset (a model's file names its materials, a material's JSON its textures)
+        /// </summary>
+        public override IEnumerable<string> Links() => _links ??= AssetLinks.UrisInDataBytes(_before).Concat(AssetLinks.UrisInDataBytes(_after)).ToHashSet();
+
+        public string Description => description;
+
+        /// <summary>
+        /// Keeps the files other steps keep instead of its own copies where they're the same, the first of them that is
+        /// </summary>
+        public void Share(IEnumerable<byte[]> files)
+        {
+            var sharesBefore = false;
+            var sharesAfter = false;
+            foreach (var file in files)
+            {
+                if (!sharesBefore && IsSame(_before, file))
+                {
+                    _before = file;
+                    sharesBefore = true;
+                }
+                else if (!sharesAfter && IsSame(_after, file))
+                {
+                    _after = file;
+                    sharesAfter = true;
+                }
+            }
+        }
+
+        private static bool IsSame(byte[] own, byte[] other) => ReferenceEquals(own, other) || own.Length == other.Length && own.AsSpan().SequenceEqual(other);
+
+        public override void Undo(PropertyGraph.PropertyGraph graph) => Set(graph, _before);
+
+        public override void Redo(PropertyGraph.PropertyGraph graph) => Set(graph, _after);
+
+        private void Set(PropertyGraph.PropertyGraph graph, byte[] bytes)
+        {
+            if (graph.Find(path) is { } node)
+            {
+                node.ReplaceValue(AssetDataBytes.Read(asset, type, bytes));
+                DocumentViewModel.TellDataReplaced(graph, asset);
+            }
+        }
+
+        public override IEnumerable<string> Paths => [path];
     }
 
     private sealed class GroupStep : Step
@@ -574,5 +818,7 @@ public sealed class UndoHistory
         }
 
         public override IEnumerable<string> Paths => Steps.SelectMany(step => step.Paths);
+
+        public override IEnumerable<string> Links() => Steps.SelectMany(step => step.Links());
     }
 }

@@ -763,7 +763,9 @@ public sealed class CopyPasteValuesTests : IDisposable
         }
 
         var header = window.GetVisualDescendants().OfType<DocumentModelView>().First(view => view.ViewModel!.IsAssetRoot).Header;
-        var icons = ((StackPanel)Assert.Single(window.GetVisualDescendants().OfType<Button>(), button => Equals(ToolTip.GetTip(button), DocumentNodeViewModel.CopyAssetValuesHint)).Parent!).Children;
+        // Edit in Blender is only a model's
+        var icons = ((StackPanel)Assert.Single(window.GetVisualDescendants().OfType<Button>(), button => Equals(ToolTip.GetTip(button), DocumentNodeViewModel.CopyAssetValuesHint)).Parent!)
+            .Children.Where(icon => icon.IsVisible).ToList();
         Assert.Equal(3, icons.Count);
         Assert.All(icons, icon =>
         {

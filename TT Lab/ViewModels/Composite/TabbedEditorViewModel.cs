@@ -63,7 +63,8 @@ public abstract partial class TabbedEditorViewModel : Document
 
         // Whichever document it has, being made again gives it another
         this.WhenAnyValue(x => x.Document!.IsDirty).Subscribe(_ => ChangeDisplayName());
-        _creationTask = StartLoading(null);
+        // What Blender changed of the asset in a document no tab showed, the tab takes it over with its history
+        _creationTask = StartLoading(Tools.Blender.LinkedDocuments.HandOver(asset));
     }
 
     /// <summary>
@@ -252,8 +253,8 @@ public abstract partial class TabbedEditorViewModel : Document
     private void DiscardData()
     {
         var editors = Locator.Current.GetService<EditorsViewModel>();
-        var usedElsewhere = _asset is not LevelChunk && editors != null && editors.ScenesEditorsViewModel.Tabs.Concat(editors.ResourcesEditorsViewModel.Tabs)
-            .Any(tab => tab != this && tab.IsLoaded && tab.GetReferencedAssets().Contains(_asset.URI));
+        var usedElsewhere = _asset is not LevelChunk && (editors != null && editors.ScenesEditorsViewModel.Tabs.Concat(editors.ResourcesEditorsViewModel.Tabs)
+            .Any(tab => tab != this && tab.IsLoaded && tab.GetReferencedAssets().Contains(_asset.URI)) || Tools.Blender.LinkedDocuments.Uses(_asset.URI));
         if (usedElsewhere)
         {
             _asset.UnloadData();

@@ -72,8 +72,53 @@ public class Renderer : IView
         _passService = renderContext.PassService;
         renderContext.Render += DoRender;
         renderContext.ResizeFramebuffer += RenderContextOnResizeFramebuffer;
+        renderContext.RenderQueueProcessed += ReleaseForgottenMeshes;
         renderContext.Destroy += Dispose;
         _updateWatch.Start();
+    }
+
+    // What the last look at the forgotten meshes saw: one only gets undrawn when a mesh leaves the scene, or when more gets forgotten
+    private (int Removals, int Forgotten) _releaseLookedAt = (-1, -1);
+
+    // The meshes the context forgot (a model made again of new data, that undone or redone) give back what they were drawn from once no
+    // batch draws them, and their batches go: every copy stayed on the GPU and in the passes until the tab closed
+    private void ReleaseForgottenMeshes()
+    {
+        var lookingAt = (_batchStorage.Removals, _renderContext.MeshService.ForgottenVersion);
+        if (lookingAt == _releaseLookedAt)
+        {
+            return;
+        }
+
+        _releaseLookedAt = lookingAt;
+        var released = _renderContext.MeshService.ReleaseUndrawn(_batchStorage.Draws);
+        if (released.Count == 0)
+        {
+            return;
+        }
+
+        var dropped = new List<RenderBatch>();
+        foreach (var model in released)
+        {
+            _batchStorage.Drop(model, dropped);
+        }
+
+        if (dropped.Count == 0)
+        {
+            return;
+        }
+
+        _passService.UnregisterBatches(dropped);
+        var gone = new HashSet<RenderBatch>(dropped, ReferenceEqualityComparer.Instance);
+        lock (_renderablesLock)
+        {
+            _frameBatches.RemoveAll(gone.Contains);
+        }
+
+        foreach (var batch in dropped)
+        {
+            batch.IsFrameBatch = false;
+        }
     }
 
     private void RenderContextOnResizeFramebuffer()
@@ -682,6 +727,7 @@ public class Renderer : IView
         Closing?.Invoke();
         _renderContext.Render -= DoRender;
         _renderContext.ResizeFramebuffer -= RenderContextOnResizeFramebuffer;
+        _renderContext.RenderQueueProcessed -= ReleaseForgottenMeshes;
         _renderContext.Destroy -= Dispose;
         DeleteRenderBuffer();
         

@@ -172,6 +172,8 @@ public class ShellViewModel : Screen, ILabManager
         Log.WriteLine(installed ? "The twinstudio tools are installed, the Tools menu and the disc's files use them" : "The twinstudio tools couldn't all be installed, see the messages above", installed ? Log.LogType.Info : Log.LogType.Warning);
     }
 
+    public Task InstallBlenderAddon() => Tools.Blender.BlenderAddonInstaller.InstallIntoPreferredBlender();
+
     public async Task OpenBuildDialog()
     {
         if (_projectManager.OpenedProject is not TT_Lab.Project.Project project)
@@ -225,6 +227,67 @@ public class ShellViewModel : Screen, ILabManager
         if (proj != string.Empty)
         {
             await OpenProjectAt(System.IO.Path.GetDirectoryName(proj)!);
+        }
+    }
+
+    /// <summary>
+    /// TT Lab started with a project's folder on its command line (Blender's Open in TT Lab while no TT Lab ran): the project opens, then the
+    /// asset of the data file after --open-file
+    /// </summary>
+    public Task OpenFromCommandLine(IReadOnlyList<string> args)
+    {
+        var (folder, file) = ParseCommandLine(args);
+        return folder == null ? Task.CompletedTask : OpenProjectAndFile(folder, file);
+    }
+
+    internal static (string? Folder, string? File) ParseCommandLine(IReadOnlyList<string> args)
+    {
+        var file = args.SkipWhile(arg => arg != "--open-file").Skip(1).FirstOrDefault();
+        var folder = args.Where((arg, index) => !arg.StartsWith("--") && (index == 0 || args[index - 1] != "--open-file")).FirstOrDefault();
+        return (folder, file);
+    }
+
+    /// <summary>
+    /// Opens the project of the folder (the open project's editors ask about their changes first, like opening any project) and, once it's
+    /// read, the asset whose data file the file is: what Blender's Open in TT Lab asks
+    /// </summary>
+    internal async Task OpenProjectAndFile(string folder, string? file)
+    {
+        if (File.Exists(folder))
+        {
+            folder = Path.GetDirectoryName(folder)!;
+        }
+
+        folder = Path.GetFullPath(folder);
+        if (_projectManager.OpenedProject?.ProjectPath is not { } open || !AssetFileStamps.PathComparer.Equals(Path.GetFullPath(open), folder))
+        {
+            if (!await EditorsViewModel.CloseAllEditors())
+            {
+                return;
+            }
+
+            EditorsViewModel.ClearRecentlyClosed();
+            new OpenProjectCommand(folder).Execute();
+        }
+
+        if (file == null)
+        {
+            return;
+        }
+
+        // The project reads in the background
+        for (var waited = 0; waited < 1200 && (_projectManager.ProjectReadyAt == null || !_projectManager.WorkableProject); waited++)
+        {
+            await Task.Delay(100);
+        }
+
+        if (Tools.Blender.BlenderLinkAssets.ModelAt(file) is { } asset)
+        {
+            OpenEditor(asset);
+        }
+        else
+        {
+            Log.WriteLine($"The project has no asset of the file {file}", Log.LogType.Warning);
         }
     }
 

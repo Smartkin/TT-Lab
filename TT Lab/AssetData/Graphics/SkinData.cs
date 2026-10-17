@@ -130,7 +130,7 @@ public class SkinData : AbstractAssetData
         SubSkins = [];
         ReadTlmMesh(file, file.Root?[TlmNodes.MeshKey] as JsonObject, materials);
         DisposedValue = false;
-        if (materials.AddedToProject)
+        if (materials.Finish() && !AssetDataScope.IsReadingDry)
         {
             SaveInternal(dataPath, settings);
         }

@@ -52,6 +52,17 @@ public class Mesh(RenderContext context, List<ModelBuffer> models) : Renderable(
     }
 
     /// <summary>
+    /// Frees what the mesh's models are drawn from, which its copies share: only once nothing draws them any more. On the render thread
+    /// </summary>
+    public virtual void ReleaseBuffers()
+    {
+        foreach (var model in _models)
+        {
+            model.Release();
+        }
+    }
+
+    /// <summary>
     /// Meshes that need their own uniforms can't be drawn in the same draw as the other meshes using their model
     /// </summary>
     public virtual bool RequiresIndividualDraw => false;

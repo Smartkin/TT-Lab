@@ -61,7 +61,7 @@ public sealed class PreferencesWindowTests : IDisposable
     {
         var view = Show(Presence());
         var sections = Sections(view);
-        Assert.Equal(["General", "Direct Game Launch", "Discord Rich Presence"], sections.Select(Title));
+        Assert.Equal(["General", "Direct Game Launch", "Blender", "Discord Rich Presence"], sections.Select(Title));
         Assert.All(sections, section => Assert.True(section.IsExpanded));
 
         sections[1].IsExpanded = false;
@@ -71,7 +71,7 @@ public sealed class PreferencesWindowTests : IDisposable
         Assert.Equal(["Direct Game Launch"], Preferences.GetPreference<List<string>>(Preferences.CollapsedPreferenceSections));
 
         var again = Show(Presence());
-        Assert.Equal([true, false, true], Sections(again).Select(section => section.IsExpanded));
+        Assert.Equal([true, false, true, true], Sections(again).Select(section => section.IsExpanded));
     }
 
     [AvaloniaFact]

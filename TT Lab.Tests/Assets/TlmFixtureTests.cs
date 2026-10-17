@@ -32,6 +32,7 @@ public sealed class TlmFixtureTests : IDisposable
     private const string BlenderCustomizedName = "ogi_customized_in_blender.tlm";
     private const string BlenderSwappedName = "ogi_swapped_in_blender.tlm";
     private const string BlenderRetargetedName = "ogi_retargeted_in_blender.tlm";
+    private const string BlenderRiggedName = "ogi_rigged_in_blender.tlm";
     private const string SceneryFixtureName = "scenery.tlm";
     private const string SceneryBlenderExportName = "scenery_from_blender.tlm";
     private const string SceneryCollisionName = "scenery_collision_from_blender.tlm";
@@ -39,10 +40,16 @@ public sealed class TlmFixtureTests : IDisposable
     private const string OgiTemplateName = "ogi_template.tlm";
     private const string SceneryTemplateName = "scenery_template.tlm";
     private const string SaveIconTemplateName = "save_icon_template.tlm";
+    private const string SkydomeTemplateName = "skydome_template.tlm";
+    private const string ModelTemplateName = "model_template.tlm";
     private const string SaveIconFixtureName = "save_icon.tlm";
     private const string SaveIconBlenderExportName = "save_icon_from_blender.tlm";
     private const string SaveIconBlenderEditName = "save_icon_edited_in_blender.tlm";
     private const string MaterialsName = "ogi_materials_from_blender.tlm";
+    private const string MaterialsBaseName = "ogi_materials_from_blender_base.json";
+    private const string MirroredName = "ogi_mirrored.tlm";
+    private const string MirroredBlenderExportName = "ogi_mirrored_from_blender.tlm";
+    private const string MirroredBlenderEditName = "ogi_mirrored_edited_in_blender.tlm";
 
     private readonly TestProject _project = new();
     private readonly TestAssets _assets;
@@ -97,6 +104,12 @@ public sealed class TlmFixtureTests : IDisposable
     public void FixtureIsWhatTtLabWrites()
     {
         CheckFixture(FixtureName, Bytes(((IAsset)_ogi).GetData<OGIData>().WriteTlm()));
+    }
+
+    [Fact]
+    public void MirroredFixtureIsWhatTtLabWrites()
+    {
+        CheckFixture(MirroredName, Bytes(((IAsset)_assets.AddMirroredOgi()).GetData<OGIData>().WriteTlm()));
     }
 
     [Fact]
@@ -218,13 +231,17 @@ public sealed class TlmFixtureTests : IDisposable
     }
 
     // The add-on's export of the model after its material was edited in Blender (tests/blender_materials.py, against a project of its own
-    // whose fur material has a shader of an animated U track over a lit one): the shader animation keyed, a picture painted on the first
-    // shader and a new name, which the project's material takes
+    // whose fur material, next to the fixture, has a shader of an animated U track over a lit one): the shader animation keyed, a picture
+    // painted on the first shader and a new name, what Blender changed since it had the material, which the project's material takes
     [AvaloniaFact]
     public void MaterialSettingsChangedInBlenderAreTheProjects()
     {
         _project.BuildProjectTree("Global PS2_Test/Material", "Global PS2_Test/Texture");
         var fur = _project.AssetManager.GetAllAssetsOf<Material>().Single(material => material.Alias == "Crash Fur");
+        // The pictures the add-on's project drew it with
+        _assets.AddTexture("Fur", 0xFF3264C8);
+        _assets.AddTexture("Gloss", 0xFF282828);
+        ((IAsset)fur).GetData<MaterialData>().PopulateFrom(File.ReadAllText(FixturePath(MaterialsBaseName)));
 
         new OGIData(_ogi).ReadTlm(TlmFile.Load(FixturePath(MaterialsName)));
 
@@ -264,6 +281,114 @@ public sealed class TlmFixtureTests : IDisposable
         Assert.Equal(blendSkinBefore, _assets.Export(_assets.Get(read.BlendSkin)));
         // Skins and models get their IDs from what they hold
         Assert.Equal(before, _assets.Export(_ogi));
+    }
+
+    // The add-on gives the character's bones axes of their own, pointing down their limbs and the twins mirrored the way Blender mirrors
+    // bones, and keeps the game's values while they're where they were imported, the head's too, whose roll Blender keeps imprecisely
+    // (blender_bone_axes.py exported it unchanged): the model comes back as the game has it
+    [Fact]
+    public void BlendersExportOfAimedBonesIsTheSameModel()
+    {
+        var ogi = _assets.AddMirroredOgi();
+        var data = ((IAsset)ogi).GetData<OGIData>();
+        var before = _assets.Export(ogi);
+        var skinBefore = _assets.Export(_assets.Get(data.Skin));
+        var bodiesBefore = data.RigidModelIds.Select(body => _assets.Export(_assets.Get(body))).ToList();
+        var bodyJoints = data.RigidModelJointIndices.ToList();
+        var animationsBefore = data.Animations.Select(animation => (animation.ID, animation.Name, TlmAnimations.GetExactBytes(animation))).ToList();
+        var joints = data.Joints.Select(TestGeometry.Serialize).ToList();
+        var inverseBinds = data.SkinInverseMatrices.Select(TestGeometry.Serialize).ToList();
+        var exitPoints = data.ExitPoints.Select(TestGeometry.Serialize).ToList();
+        var hulls = data.CollisionHulls.Select(TestGeometry.Serialize).ToList();
+        var hullJoints = data.CollisionHullJoints.ToList();
+
+        var read = new OGIData(ogi);
+        var changed = read.ReadTlm(TlmFile.Load(FixturePath(MirroredBlenderExportName)));
+        ogi.SetData(read);
+
+        Assert.False(changed);
+        Assert.Equal(joints, read.Joints.Select(TestGeometry.Serialize));
+        Assert.Equal(inverseBinds, read.SkinInverseMatrices.Select(TestGeometry.Serialize));
+        Assert.Equal(animationsBefore, read.Animations.Select(animation => (animation.ID, animation.Name, TlmAnimations.GetExactBytes(animation))));
+        Assert.Equal(exitPoints, read.ExitPoints.Select(TestGeometry.Serialize));
+        Assert.Equal(hulls, read.CollisionHulls.Select(TestGeometry.Serialize));
+        Assert.Equal(hullJoints, read.CollisionHullJoints);
+        Assert.Equal(bodyJoints, read.RigidModelJointIndices);
+        Assert.Equal(bodiesBefore, read.RigidModelIds.Select(body => _assets.Export(_assets.Get(body))));
+        Assert.Equal(skinBefore, _assets.Export(_assets.Get(read.Skin)));
+        Assert.Equal(before, _assets.Export(ogi));
+
+        // What the bones are in Blender goes along with the joints whenever TT Lab writes the file, for the next import to make the same bones
+        var exported = TlmFile.Load(FixturePath(MirroredBlenderExportName)).Root.FindChild(OGIData.ArmatureKind)!["joints"]!.AsArray().OfType<JsonObject>().ToList();
+        var written = read.WriteTlm().Root.FindChild(OGIData.ArmatureKind)!["joints"]!.AsArray().OfType<JsonObject>().ToDictionary(joint => joint.GetInt("index"));
+        Assert.All(exported, joint =>
+        {
+            Assert.NotNull(joint[OGIData.BlenderBoneKey]);
+            Assert.True(JsonNode.DeepEquals(joint[OGIData.BlenderBoneKey], written[joint.GetInt("index")][OGIData.BlenderBoneKey]), $"joint {joint.GetInt("index")}'s bone");
+        });
+    }
+
+    // Bodies put in Blender on aimed bones at offsets in their joints' frames, one on the mirrored right upper arm's and one on the head's, and
+    // the right upper arm turned by 30 degrees about its Z on a frame of Run through its bone's axes (blender_bone_axes.py): the bodies are
+    // at the offsets from their joints and the joint's key on that frame is the turn after its rest's, everything else is the game's
+    [Fact]
+    public void EditsOfAimedBonesInBlenderAreTheGames()
+    {
+        var ogi = _assets.AddMirroredOgi();
+        var data = ((IAsset)ogi).GetData<OGIData>();
+        var expectations = Expectations(MirroredBlenderEditName);
+        var bodies = data.RigidModelIds.Count;
+        var run = data.Animations.Single(animation => animation.Name == "Run");
+        var reach = TlmAnimations.GetExactBytes(data.Animations.Single(animation => animation.Name == "Reach"));
+        var turned = expectations["turned"]!.AsObject();
+        var (turnedJoint, turnedFrame) = (turned.GetInt("joint"), turned.GetInt("frame"));
+        var rest = data.Joints[turnedJoint].LocalRotation;
+        var restRotation = new quat(rest.X, rest.Y, rest.Z, rest.W).Normalized;
+        var expected = restRotation * quat.FromAxisAngle(glm.Radians(turned["degrees"]!.GetValue<float>()), vec3.UnitZ) * restRotation.Inverse *
+                       KeyRotation(run, data.Joints, turnedJoint, turnedFrame);
+
+        var read = new OGIData(ogi);
+        Assert.True(read.ReadTlm(TlmFile.Load(FixturePath(MirroredBlenderEditName))));
+        ogi.SetData(read);
+
+        var added = expectations["bodies"]!.AsArray().OfType<JsonObject>().ToList();
+        Assert.Equal(bodies + added.Count, read.RigidModelIds.Count);
+        for (var i = 0; i < added.Count; i++)
+        {
+            Assert.Equal(added[i].GetInt("joint"), read.RigidModelJointIndices[bodies + i]);
+            var positions = Positions(_assets, read.RigidModelIds[bodies + i]);
+            AssertClose(Vector(added[i], "offset"), positions.Aggregate(Vector3.Add) / positions.Count);
+        }
+
+        var runAfter = read.Animations.Single(animation => animation.Name == "Run");
+        Assert.Equal(reach, TlmAnimations.GetExactBytes(read.Animations.Single(animation => animation.Name == "Reach")));
+        for (var joint = 0; joint < run.MainAnimation.JointSettings.Count; joint++)
+        {
+            for (var frame = 0; frame < run.TotalFrames; frame++)
+            {
+                var before = TlmAnimations.GetRawValues(run, joint, frame);
+                var after = TlmAnimations.GetRawValues(runAfter, joint, frame);
+                if (joint != turnedJoint || frame != turnedFrame)
+                {
+                    Assert.Equal(before, after);
+                    continue;
+                }
+
+                Assert.Equal(before[..3].Concat(before[6..]), after[..3].Concat(after[6..]));
+            }
+        }
+
+        // The game's angles are 4096ths of a turn
+        var actual = KeyRotation(runAfter, read.Joints, turnedJoint, turnedFrame);
+        Assert.True(2 * MathF.Acos(Math.Min(1f, Math.Abs(quat.Dot(expected.Normalized, actual.Normalized)))) < 2e-3f, $"Expected {expected}, got {actual}");
+    }
+
+    // A joint's rotation in a key, after its additional rotation when the joint uses it
+    private static quat KeyRotation(AnimationData animation, IReadOnlyList<Twinsanity.TwinsanityInterchange.Common.TwinJoint> joints, int joint, int frame)
+    {
+        var rotation = JointRotation(animation, joint, frame);
+        var additional = joints[joint].AdditionalAnimationRotation;
+        return animation.MainAnimation.JointSettings[joint].UseAdditionalRotation ? new quat(additional.X, additional.Y, additional.Z, additional.W) * rotation : rotation;
     }
 
     // A bone turned on one frame and a vertex moved in Blender change only those, everything else stays as the game has it
@@ -509,6 +634,33 @@ public sealed class TlmFixtureTests : IDisposable
         Assert.Equal(bodyBefore, _assets.Export(_assets.Get(read.RigidModelIds[0])));
     }
 
+    // Meshes rigged the way Blender rigs them, without Twin Tech types or holders (blender_roundtrip.py --rigged): the mesh the armature
+    // deforms is skin, the meshes on bones (parented to one or following one by Child Of) rigid bodies of their joints and the mesh left
+    // under the root a rigid body of joint 0, where it is in the game's space
+    [AvaloniaFact]
+    public void MeshesRiggedInBlenderAreTheModelsParts()
+    {
+        // The material made in Blender for them becomes a material of the package
+        _project.BuildProjectTree("Global PS2_Test/Material", "Global PS2_Test/Texture");
+        var data = ((IAsset)_ogi).GetData<OGIData>();
+        var expectations = Expectations(BlenderRiggedName);
+        var skinBefore = _assets.Get(data.Skin).GetData<SkinData>().SubSkins.Sum(subSkin => subSkin.Vertexes.Count);
+        var jointsBefore = data.RigidModelJointIndices.Select(joint => (int)joint).ToList();
+
+        var read = new OGIData(_ogi);
+        read.ReadTlm(TlmFile.Load(FixturePath(BlenderRiggedName)));
+        _ogi.SetData(read);
+
+        var skin = _assets.Get(read.Skin).GetData<SkinData>();
+        Assert.Equal(skinBefore + expectations.GetInt("skin_vertexes_added"), skin.SubSkins.Sum(subSkin => subSkin.Vertexes.Count));
+        var added = expectations.GetFloats("body_joints_added").Select(joint => (int)joint);
+        Assert.Equal(jointsBefore.Concat(added).Order(), read.RigidModelJointIndices.Select(joint => (int)joint).Order());
+        var baseModel = read.RigidModelIds.Zip(read.RigidModelJointIndices).Single(body => body.Second == 0 && !data.RigidModelIds.Contains(body.First)).First;
+        var positions = Positions(_assets, baseModel);
+        AssertClose(Vector(expectations, "base_offset"), positions.Aggregate(Vector3.Add) / positions.Count);
+        Assert.NotEmpty(_assets.Export(_ogi));
+    }
+
     // The animations retargeted to a copy of the model whose bone "Joint 1" was moved up and "Joint 2" named "Tail", keeping the
     // joints where the animations put them: the copy's joints rest elsewhere, its animations are the game's (see blender_roundtrip.py
     // --retarget)
@@ -567,9 +719,9 @@ public sealed class TlmFixtureTests : IDisposable
         return rotation;
     }
 
-    // The add-on's OGI template (Add > Twin Tech > OGI Model, blender_templates.py exports it as it comes) is a model: two joints (one joint
-    // and no exit points and the game would draw no skin), its box a rigid body on the second, and a skin and a blend skin left empty to
-    // fill, which the model doesn't have until they are
+    // The add-on's OGI template (Add > Twin Tech > OGI Model, blender_templates.py exports it as it comes) is a model: joint 0 and its box,
+    // a mesh the armature neither deforms nor carries, so a rigid body of joint 0. Meshes rigged to the armature become its skin and rigid
+    // bodies of other joints
     [Fact]
     public void OgiTemplateMadeInBlenderIsAModel()
     {
@@ -578,18 +730,64 @@ public sealed class TlmFixtureTests : IDisposable
         _ogi.SetData(read);
 
         // The game marks a root joint's parent with 0xFF
-        Assert.Equal([(0, 0xFF), (1, 0)], read.Joints.Select(joint => (joint.Index, joint.ParentIndex)));
+        Assert.Equal([(0, 0xFF)], read.Joints.Select(joint => (joint.Index, joint.ParentIndex)));
         Assert.Equal(LabURI.Empty, read.Skin);
         Assert.Equal(LabURI.Empty, read.BlendSkin);
         Assert.Empty(read.Animations);
         var body = Assert.Single(read.RigidModelIds);
-        Assert.Equal((Byte)1, Assert.Single(read.RigidModelJointIndices));
+        Assert.Equal((Byte)0, Assert.Single(read.RigidModelJointIndices));
         Assert.Empty(read.ExitPoints);
         Assert.Empty(read.CollisionHulls);
         Assert.Equal((-0.5f, 0f, -0.5f, 1f), (read.BoundingBox[0].X, read.BoundingBox[0].Y, read.BoundingBox[0].Z, read.BoundingBox[0].W));
         Assert.Equal((0.5f, 1f, 0.5f, 1f), (read.BoundingBox[1].X, read.BoundingBox[1].Y, read.BoundingBox[1].Z, read.BoundingBox[1].W));
         Assert.NotEmpty(_assets.Export(_assets.Get(body)));
         Assert.NotEmpty(_assets.Export(_ogi));
+    }
+
+    // The add-on's skydome template (Add > Twin Tech > Skydome) is a sky: a dome around the camera, its faces facing in, drawn with a
+    // material made in Blender with a sky's settings (shader type 10 in render bucket 0 testing no depth, which the game only draws skies
+    // with), which reading the file makes a material of the sky's package
+    [AvaloniaFact]
+    public void SkydomeTemplateMadeInBlenderIsASkydome()
+    {
+        var sky = ReadTemplate(new Skydome(), "Sky", SkydomeTemplateName);
+        var data = ((IAsset)sky).GetData<SkydomeData>();
+
+        var mesh = _assets.Get(Assert.Single(data.Meshes));
+        var meshData = mesh.GetData<MeshData>();
+        var material = _assets.Get<Material>(Assert.Single(meshData.Materials.Distinct()));
+        Assert.False(material.IsInternal);
+        var materialData = ((IAsset)material).GetData<MaterialData>();
+        Assert.Equal(0u, materialData.DmaChainIndex);
+        var shader = Assert.Single(materialData.Shaders);
+        Assert.Equal(TwinShader.Type.UnlitSkydome, shader.ShaderType);
+        Assert.Equal(TwinShader.DepthTestMethod.ALWAYS, shader.DepthTest);
+        Assert.NotEmpty(_assets.Export(sky));
+    }
+
+    // The add-on's model template (Add > Twin Tech > Model) is a mesh asset: a box drawn unlit with a checker picture, which reading the
+    // file makes a material and a texture of the mesh's package
+    [AvaloniaFact]
+    public void ModelTemplateMadeInBlenderIsAMesh()
+    {
+        var mesh = ReadTemplate(new Mesh(), "Box", ModelTemplateName);
+        var data = ((IAsset)mesh).GetData<MeshData>();
+
+        var material = _assets.Get<Material>(Assert.Single(data.Materials.Distinct()));
+        Assert.False(material.IsInternal);
+        var shader = Assert.Single(((IAsset)material).GetData<MaterialData>().Shaders);
+        Assert.Equal(TwinShader.Type.StandardUnlit, shader.ShaderType);
+        Assert.False(_assets.Get(shader.TextureId).IsInternal);
+        Assert.NotEmpty(_assets.Export(mesh));
+    }
+
+    private T ReadTemplate<T>(T asset, string name, string template) where T : SerializableAsset
+    {
+        _project.BuildProjectTree("Global PS2_Test/Material", "Global PS2_Test/Texture");
+        _project.Add(asset, name);
+        Directory.CreateDirectory(Path.GetDirectoryName(asset.FullDataPath)!);
+        File.Copy(FixturePath(template), asset.FullDataPath, true);
+        return asset;
     }
 
     // The add-on's save icon template (Add > Twin Tech > PS2 Save Icon) is a save icon: a box of the console's full vertex colors, the game's

@@ -23,6 +23,13 @@ public class BlendSkinnedMesh(RenderContext context, List<ModelBufferBlendSkin> 
         return mesh;
     }
 
+    // The shapes' offsets go with the vertexes
+    public override void ReleaseBuffers()
+    {
+        base.ReleaseBuffers();
+        vertexOffsets.Dispose();
+    }
+
     public void SetShapeWeight(int shapeIndex, float weight)
     {
         if (shapeIndex >= _weights.Length)

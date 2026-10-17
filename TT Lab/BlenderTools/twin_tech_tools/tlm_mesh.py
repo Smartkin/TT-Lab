@@ -53,6 +53,8 @@ class MeshData:
         self.vertex_parts = array.array("i")
         # Offsets of every vertex for every shape
         self.shapes: typing.List[array.array] = []
+        # The offsets as the file has them, while the ones above are converted to Blender's axes
+        self.twin_shapes: typing.List[array.array] = []
         # Per face
         self.face_parts = array.array("i")
         self.face_materials = array.array("i")
@@ -199,6 +201,9 @@ class CornerMesh:
         self.group_influences: typing.Optional[typing.List[typing.List[typing.Tuple[int, float]]]] = None
         self.vertex_parts: typing.Sequence[int] = []
         self.shapes: typing.List[typing.Sequence[float]] = []
+        # Where every shape puts the vertexes, its offsets are worked out of these in the game's space (axes), which keeps their zeros'
+        # signs: worked out in Blender's they'd be the other sign once turned around
+        self.shape_positions: typing.List[typing.Sequence[float]] = []
         # The game's offsets of every shape, None for shapes made in Blender
         self.twin_shapes: typing.List[typing.Optional[typing.Sequence[float]]] = []
         # What every part kept from the file, by the part's number

@@ -73,7 +73,7 @@ public class DynamicSceneryData : AbstractAssetData
         var materials = new TlmMaterials(file, Owner);
         ReadTlmNodes(file, materials, file.Root == null ? [] : TlmTreeNode.Of(file.Root).Traverse().Where(node => node.Kind == DynamicSceneryModelData.TlmKind));
         DisposedValue = false;
-        if (materials.AddedToProject)
+        if (materials.Finish() && !AssetDataScope.IsReadingDry)
         {
             SaveInternal(dataPath, settings);
         }

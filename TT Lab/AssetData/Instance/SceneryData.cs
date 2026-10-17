@@ -626,7 +626,7 @@ public class SceneryData : AbstractAssetData
             Placements[i].Node = paths[i];
         }
 
-        return materials.AddedToProject || hadTree;
+        return materials.Finish() || hadTree;
     }
 
     // The root holds the chunk's objects (SceneryBounds): one the file left to what got placed in it (made in Blender) or one without room
@@ -877,7 +877,7 @@ public class SceneryData : AbstractAssetData
     {
         var writeAgain = ReadTlm(TlmFile.Load(dataPath));
         DisposedValue = false;
-        if (writeAgain)
+        if (writeAgain && !AssetDataScope.IsReadingDry)
         {
             // Materials made in Blender are referred to from now on, a file of 1.0.0's tree has this TT Lab's list
             SaveInternal(dataPath, settings);

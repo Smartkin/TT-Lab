@@ -1,0 +1,22 @@
+schema_version = "1.0.0"
+
+id = "twin_tech_tools"
+version = "1.0.0"
+name = "Twin Tech Tools"
+tagline = "Edit TT Lab's Crash Twinsanity models in Blender"
+maintainer = "Smyshliaev \"Smartkin\" Vladislav <klon2223@gmail.com>"
+type = "add-on"
+website = "https://github.com/Smartkin/TT-Lab"
+tags = ["Import-Export", "Game Engine"]
+
+blender_version_min = "4.5.0"
+
+license = ["SPDX:GPL-2.0-or-later"]
+copyright = ["2025 Smyshliaev \"Smartkin\" Vladislav"]
+
+[permissions]
+files = "Import and export TT Lab model files, read TT Lab projects"
+network = "Link to the TT Lab running on this computer"
+
+[build]
+paths_exclude_pattern = ["__pycache__/", "*.pyc", "*.pyo"]

@@ -85,7 +85,7 @@ public class OGIData : AbstractAssetData
         // Chunks building in parallel load the same OGIs, and loading one can write its file
         lock (Owner)
         {
-            if (ReadTlm(TlmFile.Load(dataPath)))
+            if (ReadTlm(TlmFile.Load(dataPath)) && !AssetDataScope.IsReadingDry)
             {
                 // Animations edited in Blender are kept as the game stores them from now on, new ones keep the IDs they got and materials
                 // made in Blender are referred to
@@ -105,6 +105,9 @@ public class OGIData : AbstractAssetData
     internal const string JointIdCountKey = "JointIdCount";
     public const string ExitPointKind = "exit_point";
     public const string CollisionHullsKind = "collision_hulls";
+    // What a joint's bone is in Blender (the joint's axes it has and its length), which the add-on writes for its next import to make
+    // the same bone again: kept with the joint, the game has no use for it
+    internal const string BlenderBoneKey = "bone";
     private const Int32 NoParent = 0xFF;
     /// <summary>
     /// The joint of a hull that isn't on any, in the model's space
@@ -155,7 +158,7 @@ public class OGIData : AbstractAssetData
         {
             var inverse = i < SkinInverseMatrices.Count ? SkinInverseMatrices[i].ToSystem() : Matrix4x4.Invert(restWorlds[i], out var restInverse) ? restInverse : Matrix4x4.Identity;
             var bind = Matrix4x4.Invert(inverse, out var inverted) ? inverted : restWorlds[i];
-            return (JsonNode)new JsonObject
+            var node = new JsonObject
             {
                 ["index"] = joint.Index,
                 ["parent"] = joint.ParentIndex == NoParent ? -1 : joint.ParentIndex,
@@ -173,6 +176,12 @@ public class OGIData : AbstractAssetData
                     ["UnusedRotation"] = TlmJson.ToJson(joint.UnusedRotation)
                 }
             };
+            if (_blenderBones.TryGetValue(joint.Index, out var bone))
+            {
+                node[BlenderBoneKey] = bone.DeepClone();
+            }
+
+            return (JsonNode)node;
         }).ToArray());
         armature["animations"] = new JsonArray(Animations.Select(animation => (JsonNode)TlmAnimations.Write(file, animation, Joints)).ToArray());
 
@@ -282,7 +291,24 @@ public class OGIData : AbstractAssetData
 
         var animationsChanged = ReadAnimations(file, armature);
         WarnAboutPartsLitWithoutEmitColors();
-        return animationsChanged || materials.AddedToProject || renumbered;
+        WarnAboutWhatItsUsersNeed(file);
+        var materialsChanged = materials.Finish();
+        return animationsChanged || materialsChanged || renumbered;
+    }
+
+    // A model Blender wrote over the OGI: what the game objects drawing it need of it (ModelUsers), which the add-on shows while it's linked
+    private void WarnAboutWhatItsUsersNeed(TlmFile file)
+    {
+        var assetManager = AssetManager.Get();
+        if (file.Json[TlmMaterials.ExportedByKey] == null || assetManager.IsCreating || assetManager.IsBuilding || AssetDataScope.IsReadingDry || Owner.URI == null)
+        {
+            return;
+        }
+
+        foreach (var problem in Tools.Blender.ModelUsers.Check(Owner.URI, this))
+        {
+            Log.WriteLine($"{Owner.Alias} from Blender: {problem.Text}", Log.LogType.Warning);
+        }
     }
 
     // StandardLit and the shaders drawing its color light a rigid model's vertexes by their emit colors, the fourth quad word of every
@@ -414,6 +440,7 @@ public class OGIData : AbstractAssetData
     {
         Joints.Clear();
         SkinInverseMatrices.Clear();
+        _blenderBones.Clear();
         var jointJsons = (armature?["joints"] as JsonArray ?? []).OfType<JsonObject>().ToList();
         if (jointJsons.Count == 0)
         {
@@ -426,6 +453,14 @@ public class OGIData : AbstractAssetData
         if (SkeletonProblem(byIndex, parents, skinned) is { } problem)
         {
             throw new InvalidDataException(problem);
+        }
+
+        foreach (var (index, json) in byIndex)
+        {
+            if (json[BlenderBoneKey] is JsonObject bone)
+            {
+                _blenderBones[index] = (JsonObject)bone.DeepClone();
+            }
         }
 
         var jointsAmount = parents.Length;
@@ -837,6 +872,7 @@ public class OGIData : AbstractAssetData
     public LabURI BlendSkin { get; set; }
 
     private OgiMaterialSlot[]? _materialSlots;
+    private readonly Dictionary<Int32, JsonObject> _blenderBones = new();
 
     // The materials the meshes draw with, made of the models' parts once the inspector shows them: another one picked for a slot goes into
     // every part of it, which the file is written from

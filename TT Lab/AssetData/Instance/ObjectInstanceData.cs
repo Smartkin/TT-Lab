@@ -447,6 +447,7 @@ public class ObjectInstanceData : AbstractAssetData
             // Another model is easier to make from scratch
             RenderDependencies = objectProperty == null ? [] : [objectProperty],
             Refresh = () => ModelOf(property) == model,
+            Draws = uri => uri == model,
         }];
     }
 

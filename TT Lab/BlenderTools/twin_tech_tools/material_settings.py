@@ -18,17 +18,22 @@
 """The Twin Tech settings of a Blender material: every value TT Lab edits of the project's material (or of one made in Blender),
 kept on the material and drawn the way the game draws them (material_nodes).
 
-A material imported from a model file keeps the project's JSON it was made from as its base. Exporting writes what was changed
-in Blender since then over what the project has by then (gs_material.merge_material), TT Lab takes it into the project's material.
+A material keeps the JSON its settings were given as its base, the project's material's when it was imported. Exporting sends what was
+changed in Blender since the base (gs_material.changes) and TT Lab takes that over what its material has by then. Once TT Lab took what
+was sent, that's the base. A material made in Blender has a base TT Lab never had (`known` off): all of it is sent.
 A shader animation's tracks are the shaders' `anim_*` values, keyframed on the material: an animated track has keys, a static one
 none. Frame `f` of the game's animation is at `f * scene fps / animation fps` of the scene, and the loop's end gets the first
 frame's value again, so Blender plays it the way the game does.
 """
 
 import contextlib
+import hashlib
 import json
+import os
 import re
+import tempfile
 import typing
+import uuid
 
 import bpy
 
@@ -36,10 +41,12 @@ from . import gs_material
 from . import material_nodes
 
 PROPERTY = "ttt_material"
-# On an image loaded from a project texture, its URI
+# On an image of a project texture, its URI
 TEXTURE_URI_PROPERTY = "ttt_texture_uri"
-# The add-on's ID of a picture made in Blender, TT Lab makes it a texture once and uses that one for it from then on
+# The add-on's ID of a picture made in Blender, TT Lab finds the texture it made of it for the model by it
 IMAGE_ID_PROPERTY = "ttt_blender_id"
+# The SHA-256 of the PNG TT Lab is known to have of the picture: it's only sent while it isn't that
+PNG_CONFIRMED_PROPERTY = "ttt_png_confirmed"
 TRACK_PROPS = ("anim_u", "anim_v", "anim_r", "anim_g", "anim_b", "anim_a")
 _SHADER_PATH = re.compile(r"^%s\.shaders\[(\d+)\]\.(.+)$" % PROPERTY)
 
@@ -60,6 +67,10 @@ def suspended() -> typing.Iterator[None]:
 def _changed(self: typing.Any, context: typing.Any) -> None:
     if _suspended == 0 and isinstance(self.id_data, bpy.types.Material):
         refresh(self.id_data)
+        # Linked to TT Lab, what changed goes there
+        from . import link_sync
+
+        link_sync.mark(self.id_data)
 
 
 def _image_changed(self: typing.Any, context: typing.Any) -> None:
@@ -122,7 +133,7 @@ def _field_property(field: gs_material.Field) -> typing.Any:
 def _shader_annotations() -> typing.Dict[str, typing.Any]:
     annotations = {field.prop: _field_property(field) for field in gs_material.SHADER_FIELDS}
     annotations.update({
-        "source": bpy.props.IntProperty(default=-1, options={"HIDDEN"}, description="The shader of the project's material it was read from"),
+        "uid": bpy.props.StringProperty(options={"HIDDEN"}, description="The shader's ID, which finds it among the base's shaders"),
         "image": bpy.props.PointerProperty(type=bpy.types.Image, name="Picture", update=_image_changed,
                                            description="What the pass draws: a project texture's picture, any other one goes into the model file "
                                                        "with the material and becomes a texture of the project"),
@@ -151,7 +162,8 @@ def _material_annotations() -> typing.Dict[str, typing.Any]:
         "managed": bpy.props.BoolProperty(options={"HIDDEN"}, description="The material is drawn and exported with its Twin Tech settings"),
         "shaders": bpy.props.CollectionProperty(type=TTT_ShaderSettings),
         "active_shader": bpy.props.IntProperty(options={"HIDDEN"}),
-        "base": bpy.props.StringProperty(options={"HIDDEN"}, description="The project's material the settings were read from, as JSON"),
+        "base": bpy.props.StringProperty(options={"HIDDEN"}, description="The settings the material was given or TT Lab last took, as JSON"),
+        "known": bpy.props.BoolProperty(options={"HIDDEN"}, description="TT Lab has the base's settings: only what changed since is sent"),
     })
     return annotations
 
@@ -175,12 +187,14 @@ def shader_path(index: int, prop: str) -> str:
 # Reading
 
 def load(material: bpy.types.Material, data: typing.Dict[str, typing.Any], project: typing.Any = None,
-         images: typing.Sequence[typing.Optional[bpy.types.Image]] = ()) -> None:
-    """Gives the material the settings of a material's JSON, the base exporting compares with. Shaders link the project's textures,
-    or the file's pictures by their index (`Image`)."""
+         images: typing.Sequence[typing.Optional[bpy.types.Image]] = (), known: bool = False, blocks: typing.Any = None) -> None:
+    """Gives the material the settings of a material's JSON as its base, known when they're what TT Lab has (a project material's).
+    Shaders draw the project's textures, or the file's pictures by their index (`Image`). The scene's picture of a texture is the
+    project's (blocks: materials.ProjectBlocks), never another project's of the same URI."""
     settings = settings_of(material)
     shown = gs_material.shown_material(data)
-    shaders = gs_material._shaders(data)
+    base = json.loads(json.dumps(data))
+    shaders = gs_material._shaders(base)
     with suspended():
         settings.managed = True
         for field in gs_material.MATERIAL_FIELDS:
@@ -191,19 +205,50 @@ def load(material: bpy.types.Material, data: typing.Dict[str, typing.Any], proje
         for index, values in enumerate(shown["shaders"]):
             item = settings.shaders.add()
             _set_shader(item, values)
-            item.source = values["source"]
-            picture = shaders[index].get("Image")
+            item.uid = uuid.uuid4().hex
+            shaders[index]["Uid"] = item.uid
+            picture = shaders[index].pop("Image", None)
             if isinstance(picture, int) and 0 <= picture < len(images):
                 item.image = images[picture]
-            elif values["texture"] and project is not None:
-                item.image = texture_image(project, values["texture"])
+            elif values["texture"]:
+                # The scene's picture of the texture without a project too
+                item.image = texture_image(project, values["texture"], blocks)
 
+            # What the shader draws as Blender sees it, an image's ID or texture
+            shaders[index]["Picture"] = picture_identity(item.image) if item.image is not None else ""
             _write_animation(material, index, values["animation"])
 
         settings.active_shader = 0
-        settings.base = json.dumps(data)
+        settings.base = json.dumps(base)
+        settings.known = known
 
     refresh(material)
+
+
+def confirm(material: bpy.types.Material, snapshot: typing.Dict[str, typing.Any]) -> None:
+    """TT Lab took what was sent of the material: it's the base from now on."""
+    settings = settings_of(material)
+    with suspended():
+        settings.base = json.dumps(snapshot)
+        settings.known = True
+
+
+def picture_identity(image: bpy.types.Image, assign: bool = False) -> str:
+    """What TT Lab knows the picture by: its Blender ID ("blender:<id>"), a project texture's URI ("uri:<uri>") for a picture of the
+    project's. A picture of neither gets its ID when it's assigned (writing a model), else it goes by its name meanwhile."""
+    blender_id = image.get(IMAGE_ID_PROPERTY, "")
+    if blender_id:
+        return "blender:" + blender_id
+
+    uri = image.get(TEXTURE_URI_PROPERTY, "")
+    if uri:
+        return "uri:" + uri
+
+    if not assign:
+        return "image:" + image.name
+
+    image[IMAGE_ID_PROPERTY] = uuid.uuid4().hex
+    return "blender:" + image[IMAGE_ID_PROPERTY]
 
 
 def _set_shader(item: TTT_ShaderSettings, values: typing.Dict[str, typing.Any]) -> None:
@@ -219,38 +264,60 @@ def _set_shader(item: TTT_ShaderSettings, values: typing.Dict[str, typing.Any]) 
             setattr(item, prop, view.value_at(track, 0))
 
 
-def texture_image(project: typing.Any, uri: str) -> typing.Optional[bpy.types.Image]:
-    """The picture of a project texture, loaded once."""
-    for image in bpy.data.images:
-        if image.get(TEXTURE_URI_PROPERTY) == uri:
-            return image
+def texture_image(project: typing.Any, uri: str, blocks: typing.Any = None) -> typing.Optional[bpy.types.Image]:
+    """The picture of a project texture, read once: a copy packed into the blend file, painting and saving it never writes the project's
+    file (TT Lab's texture, which other models draw too). Writing the model sends it to TT Lab once it was changed. The scene's picture of
+    the texture is the project's (blocks: materials.ProjectBlocks), another project's of the same URI gets one of its own."""
+    candidates = [image for image in bpy.data.images if image.get(TEXTURE_URI_PROPERTY) == uri]
+    found = blocks.pick(candidates) if blocks is not None else next(iter(candidates), None)
+    if found is not None:
+        return found
 
     texture = project.textures.get(uri) if project is not None else None
     if texture is None:
         return None
 
     try:
-        image = bpy.data.images.load(texture.png_path, check_existing=True)
-    except RuntimeError:
+        with open(texture.png_path, "rb") as file:
+            png = file.read()
+    except OSError:
+        return None
+
+    image = packed_image(png, texture.name)
+    if image is None:
         return None
 
     image[TEXTURE_URI_PROPERTY] = uri
-    # The pixels' colors as the file has them whatever their alpha, the game's textures keep colors where they're see-through
-    image.alpha_mode = "CHANNEL_PACKED"
+    image[PNG_CONFIRMED_PROPERTY] = hashlib.sha256(png).hexdigest()
     return image
 
 
-def make(material: bpy.types.Material, skin: bool = False, global_package: bool = False) -> None:
-    """Gives a material made in Blender the settings TT Lab gives such materials, drawing its picture."""
-    image = next((node.image for node in material.node_tree.nodes if node.type == "TEX_IMAGE" and node.image is not None), None) \
-        if material.node_tree is not None else None
-    blended = getattr(material, "surface_render_method", "") == "BLENDED"
-    load(material, gs_material.new_material(material.name, skin=skin, textured=image is not None, blended=blended, global_package=global_package))
-    if image is not None:
-        with suspended():
-            settings_of(material).shaders[0].image = image
+def packed_image(png: bytes, name: str) -> typing.Optional[bpy.types.Image]:
+    """A picture of PNG bytes packed into the blend file, of no file on the disk."""
+    if len(png) == 0:
+        return None
 
-        refresh(material)
+    directory = tempfile.mkdtemp()
+    path = os.path.join(directory, "image.png")
+    try:
+        with open(path, "wb") as image_file:
+            image_file.write(png)
+
+        image = bpy.data.images.load(path)
+        image.pack()
+        image.name = name
+        image.filepath_raw = ""
+    except RuntimeError:
+        return None
+    finally:
+        if os.path.exists(path):
+            os.remove(path)
+
+        os.rmdir(directory)
+
+    # The pixels' colors as the file has them whatever their alpha, the game's textures keep colors where they're see-through
+    image.alpha_mode = "CHANNEL_PACKED"
+    return image
 
 
 # Drawing
@@ -269,6 +336,23 @@ def refresh(material: bpy.types.Material) -> None:
     material_nodes.build(material, passes(material))
 
 
+def take_node_pictures(material: bpy.types.Material) -> bool:
+    """A picture given to a shader's Image Texture node in the Shader Editor is the shader's: the node tree is made again of the settings
+    whenever they change, which put the shader's picture back, and writing the model wrote the shader's."""
+    if not is_managed(material) or material.node_tree is None:
+        return False
+
+    shaders = settings_of(material).shaders
+    taken = [(int(node[material_nodes.PASS_PROPERTY]), node.image) for node in material.node_tree.nodes
+             if node.type == "TEX_IMAGE" and material_nodes.PASS_PROPERTY in node and node.image is not None]
+    taken = [(index, image) for index, image in taken if 0 <= index < len(shaders) and shaders[index].image != image]
+    # Each one draws the node tree again
+    for index, image in taken:
+        shaders[index].image = image
+
+    return len(taken) > 0
+
+
 def draw_default(material: bpy.types.Material, image: typing.Optional[bpy.types.Image], blended: bool = False) -> None:
     """Draws a material without settings of its own the way TT Lab makes such materials: unlit, the picture times the vertex colors."""
     shader = gs_material.shown_shader(gs_material.new_material(material.name, textured=image is not None, blended=blended)["Shaders"][0])
@@ -282,28 +366,29 @@ def _value(item: TTT_ShaderSettings, field: gs_material.Field) -> typing.Any:
 
 # Writing
 
-def shown(material: bpy.types.Material, images: typing.List[bpy.types.Image], project: typing.Any = None,
-          png_hash: typing.Optional[typing.Callable[[bpy.types.Image], str]] = None) -> typing.Dict[str, typing.Any]:
-    """The material's settings the way gs_material compares them. A picture that isn't a project texture's (or was changed) gets an
-    index into the images going into the file with it, one TT Lab made a texture of is that texture: given the SHA-256 of a picture's
-    PNG, only while TT Lab made the texture of that PNG (a picture copied with another blend file keeps its ID, TT Lab checks one it
-    gets by what its build makes of it)."""
+def shown(material: bpy.types.Material, images: typing.Optional[typing.List[bpy.types.Image]] = None,
+          sends: typing.Optional[typing.Callable[[bpy.types.Image], bool]] = None) -> typing.Dict[str, typing.Any]:
+    """The material's settings the way gs_material compares them, each shader found among the base's by its ID (source) and with what it
+    draws (picture). Given the images going into the file and whether a picture has to be sent (what TT Lab has of it isn't what Blender
+    shows), a project texture's picture TT Lab has stays that texture and any other gets its index among the images: a picture of Blender's
+    gets its ID then."""
     settings = settings_of(material)
+    base = base_of(material)
+    uids = [shader.get("Uid") for shader in gs_material._shaders(base)] if base is not None else []
     result: typing.Dict[str, typing.Any] = {field.prop: getattr(settings, field.prop) for field in gs_material.MATERIAL_FIELDS}
     result["shaders"] = []
     for index, item in enumerate(settings.shaders):
         values = {field.prop: _value(item, field) for field in gs_material.SHADER_FIELDS}
-        values["source"] = item.source
+        values["uid"] = item.uid
+        values["source"] = uids.index(item.uid) if item.uid and item.uid in uids else -1
         values["animation"] = shown_animation(material, index)
         values["image"] = None
+        values["picture"] = ""
         image = item.image
         if image is not None:
+            values["picture"] = picture_identity(image, images is not None)
             uri = image.get(TEXTURE_URI_PROPERTY, "")
-            if not uri and project is not None:
-                texture = project.texture_of_image(image.get(IMAGE_ID_PROPERTY, ""), png_hash(image) if png_hash is not None else None)
-                uri = texture.uri if texture is not None else ""
-
-            if uri and not image.is_dirty:
+            if images is None or uri and not (sends(image) if sends is not None else False):
                 values["texture"] = uri
             else:
                 values["texture"] = ""
@@ -324,17 +409,6 @@ def base_of(material: bpy.types.Material) -> typing.Optional[typing.Dict[str, ty
         return None
 
     return base if isinstance(base, dict) else None
-
-
-def commit(material: bpy.types.Material, base: typing.Dict[str, typing.Any], applied: bool) -> None:
-    """Keeps the base merging made once the model file is written. Blender's shaders are the base's in their order once the project
-    has Blender's list of them."""
-    settings = settings_of(material)
-    with suspended():
-        settings.base = json.dumps(base)
-        if applied:
-            for index, item in enumerate(settings.shaders):
-                item.source = index
 
 
 # Animations
@@ -492,7 +566,7 @@ def add_shader(material: bpy.types.Material) -> None:
     with suspended():
         item = settings.shaders.add()
         _set_shader(item, gs_material.shown_shader(gs_material.new_shader()))
-        item.source = -1
+        item.uid = uuid.uuid4().hex
         settings.active_shader = len(settings.shaders) - 1
 
     refresh(material)

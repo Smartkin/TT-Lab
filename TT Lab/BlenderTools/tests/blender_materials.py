@@ -3,13 +3,13 @@
     blender --background --factory-startup --python tests/blender_materials.py [-- fixtures/ogi_materials_from_blender.tlm]
 
 Importing the fixture model gives its material the project's settings and draws them, exporting it unchanged writes no settings,
-what's changed in Blender goes over what TT Lab changed meanwhile, the shader animation's keys come back as the game's frames,
-materials made in Blender go into the file with their settings and pictures, a project material whose settings aren't found only
-becomes a new material once the user says so, and a render shows the colors the game would.
-Given a path, the model with its material's animation keyed, a picture painted and a new name is written there, TT Lab's
-TlmFixtureTests read it as ogi_materials_from_blender.tlm. Prints MATERIALS OK."""
+what's changed in Blender since TT Lab had the material is sent (TT Lab keeps what it changed meanwhile) until TT Lab read the file,
+pictures go into the file once, the shader animation's keys come back as the game's frames, materials made in Blender go into the
+file with their settings and pictures, copies and a model's own copy are materials of their own, and a render shows the colors the
+game would. Given a path, the model with its material's animation keyed, a picture painted and a new name is written there, with the
+project's material it changes next to it (_base.json): TT Lab's TlmFixtureTests read them as ogi_materials_from_blender.tlm. Prints
+MATERIALS OK."""
 import copy
-import hashlib
 import json
 import os
 import shutil
@@ -20,7 +20,7 @@ import bpy
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import twin_tech_tools  # noqa: E402
-from twin_tech_tools import gs_material, material_settings, material_ui, png, tlm, tlm_blender  # noqa: E402
+from twin_tech_tools import gs_material, material_settings, material_ui, materials, png, tlm, tlm_blender  # noqa: E402
 
 FIXTURES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures")
 PACKAGE = "Global PS2_Test"
@@ -119,103 +119,136 @@ def export(root, path):
     return tlm.TlmFile.load(path).materials
 
 
-def check_import_and_merge(directory):
+def tt_lab_reads(path):
+    """What TT Lab does once it read the file: writes it again without what it took, a material it made of Blender's by its URI with its
+    Blender ID and its pictures' textures."""
+    file = tlm.TlmFile.load(path)
+    for index, entry in enumerate(file.materials):
+        if not isinstance(entry, dict):
+            continue
+
+        written = {"uri": entry.get("uri") or "res://%s/Material/%s" % (PACKAGE, entry["name"]), "name": entry["name"]}
+        if entry.get("blender_id"):
+            written["blender_id"] = entry["blender_id"]
+
+        images = [{"blender_id": image["blender_id"], "uri": image.get("uri") or "res://%s/Texture/%s" % (PACKAGE, image["name"])}
+                  for image in entry.get("images", []) if image.get("blender_id")]
+        if images:
+            written["images"] = images
+
+        file.materials[index] = written
+
+    file.json.pop("exported_by", None)
+    file.save(path)
+
+
+def check_import_and_sync(directory):
     model, material_path = make_project(directory)
     root = tlm_blender.import_file(bpy.context, model)
     check(bpy.context.scene.view_settings.view_transform == "Standard", "the view isn't Standard after importing")
     material = bpy.data.materials["Crash Fur"]
     settings = material_settings.settings_of(material)
-    check(settings.managed, "the project's material has no settings")
+    check(settings.managed and settings.known, "the project's material has no settings TT Lab has")
     check((settings.game_name, settings.render_bucket, len(settings.shaders)) == ("CRASH_FUR", "BUCKET_3", 2), "the material's values aren't the project's")
     lit, gloss = settings.shaders
     check((lit.shader_type, lit.texture_mapping, lit.lod_k, lit.texture) == ("StandardLit", True, -4.3125, FUR_TEXTURE), "the first shader isn't the project's")
     check((gloss.shader_type, gloss.blending, gloss.blend_preset, gloss.depth_write, gloss.scroll_u) == ("UnlitEnvironmentMap", True, "Add", "NOT_UPDATE", "Linear"),
           "the second shader isn't the project's")
     check(lit.image is not None and lit.image.get(material_settings.TEXTURE_URI_PROPERTY) == FUR_TEXTURE, "the fur texture's picture wasn't loaded")
+    # Painted and saved in Blender it would have written TT Lab's texture, which other models draw too
+    check(lit.image.packed_file is not None and not lit.image.filepath, "the project's picture isn't a packed copy")
     check(material.surface_render_method == "BLENDED", "a blended material isn't drawn blended")
     kinds = {node.bl_idname for node in material.node_tree.nodes}
     for kind in ("ShaderNodeEmission", "ShaderNodeBsdfTransparent", "ShaderNodeTexImage", "ShaderNodeVectorTransform", "ShaderNodeValue"):
         check(kind in kinds, "the material's nodes have no %s" % kind)
 
     check(any(driver.driver.expression == "frame * fps_base / fps" for driver in material.node_tree.animation_data.drivers), "the scroll doesn't follow the time")
+    check_panels(material, next(child for child in tlm_blender._descendants(root) if child.type == "MESH"))
 
     # Nothing changed, nothing to take into the project
-    path = os.path.join(directory, "export.tlm")
-    entry = export(root, path)[0]
+    entry = export(root, model)[0]
     check(entry == {"name": "Crash Fur", "uri": FUR}, "an unchanged material went into the file with %s" % sorted(entry))
 
-    # Changed in Blender while TT Lab changed others: Blender's changes go over the project's
+    # Changed in Blender while TT Lab changed another value: what Blender changed is sent, TT Lab keeps its value
     theirs = read_json(material_path)
     theirs["Shaders"][1]["FixedAlphaValue"] = 77
     write_json(material_path, theirs)
     lit.blending = True
     gloss.alpha_reference = 50
     settings.game_name = "FUR"
-    data = export(root, path)[0]["data"]
-    check(data["Name"] == "FUR" and data["Shaders"][0]["ABlending"] == 1 and data["Shaders"][1]["AlphaValueToBeComparedTo"] == 50,
-          "Blender's changes aren't in the file")
-    check(data["Shaders"][1]["FixedAlphaValue"] == 77 and data["Shaders"][0]["LeftoverVector"] == [0x7FC00001, 1, 2, 3], "the project's values didn't stay")
-    check(material_ui.is_changed_in_blender(material), "the material isn't changed in Blender")
+    entry = export(root, model)[0]
+    check(entry.get("changed") == [["Name"], ["Shaders", 0, "ABlending"], ["Shaders", 1, "AlphaValueToBeComparedTo"]], "what Blender changed is %s" % entry.get("changed"))
+    data = entry["data"]
+    check(data["Name"] == "FUR" and data["Shaders"][0]["ABlending"] == 1 and data["Shaders"][1]["AlphaValueToBeComparedTo"] == 50, "Blender's changes aren't in the file")
+    check(data["Shaders"][0]["LeftoverVector"] == [0x7FC00001, 1, 2, 3], "what Blender doesn't show isn't as the project had it")
+    # Written again before TT Lab read the file, all of it again
+    check(export(root, model)[0].get("changed") == entry["changed"], "a file TT Lab didn't read lost what Blender changed")
 
-    # TT Lab took them: the next export sends nothing and the project's is the base
-    write_json(material_path, data)
-    entry = export(root, path)[0]
-    check("data" not in entry, "a material the project has went into the file again")
-    check(not material_ui.is_changed_in_blender(material), "the material is still changed after TT Lab took it")
+    # TT Lab took it: nothing more to send, and what TT Lab changes afterwards isn't taken back. Another project of the same name's material
+    # of the URI, which comes first, isn't the one TT Lab took
+    other_root = tlm_blender.import_file(bpy.context, make_project(os.path.join(directory, "Other"))[0])
+    others = [material for material, _ in materials._drawn(other_root).values() if material.get(tlm_blender.URI_PROPERTY) == FUR]
+    check(len(others) == 1 and others[0] != material, "the other project's model draws %s" % [material.name for material in others])
+    others[0].name = "A Crash Fur"
+    tt_lab_reads(model)
+    check("data" not in export(root, model)[0], "a material TT Lab has went into the file again")
+    other_pictures = [item.image for item in material_settings.settings_of(others[0]).shaders if item.image is not None]
+    check(not set(other_pictures) & {lit.image, gloss.image}, "the other project's material draws this project's pictures")
+    tlm_blender.remove_model(other_root)
+    bpy.data.materials.remove(others[0])
+    for image in other_pictures:
+        bpy.data.images.remove(image)
+
     theirs = read_json(material_path)
     theirs["Shaders"][0]["ABlending"] = 0
     write_json(material_path, theirs)
-    check("data" not in export(root, path)[0], "Blender took back a change made in TT Lab")
+    tt_lab_reads(model)
+    check("data" not in export(root, model)[0], "Blender took back a change made in TT Lab")
 
-    # A picture made in Blender goes into the file with the material
+    # A picture made in Blender goes into the file once, TT Lab makes a texture of it the picture is from then on
     picture = bpy.data.images.new("Painted", 4, 4)
     picture.pixels = [0.5, 0.25, 1.0, 1.0] * 16
     lit.image = picture
-    check(lit.texture == "" and lit.texture_mapping, "picking a picture didn't make it the texture")
-    entry = export(root, path)[0]
-    check(entry["data"]["Shaders"][0]["Image"] == 0 and entry["data"]["Shaders"][0]["TextureId"] == {"_uri": "res://EMPTY"}, "the picture isn't the shader's")
-    check(entry["images"][0]["name"] == "Painted" and entry["images"][0]["blender_id"], "the picture isn't in the file")
-
-    # A picture TT Lab made a texture of is that texture while it's the PNG the texture was made of: a blend file copied keeps its pictures'
-    # IDs, and the copy's picture of another file goes into the file for TT Lab to tell by what its build makes of it
-    wood_path = os.path.join(directory, "wood.png")
-    _picture(wood_path, (120, 80, 40, 255))
-    wood = bpy.data.images.load(wood_path)
-    wood[material_settings.IMAGE_ID_PROPERTY] = "copied-id"
-    with open(wood_path, "rb") as file:
-        wood_png = hashlib.sha256(file.read()).hexdigest()
-
-    textures = os.path.join(directory, "assets", PACKAGE, "Texture")
-    _asset(textures, "Copied", "Texture", ".png", (10, 10, 10, 255), {"BlenderImage": "copied-id", "BlenderImagePng": "0" * 64})
-    material_ui.projects.open_project(model, refresh=True)
-    lit.image = wood
-    entry = export(root, path)[0]
-    check(entry["data"]["Shaders"][0].get("Image") == 0 and entry["images"][0]["blender_id"] == "copied-id", "a picture was taken for another PNG's texture of its ID")
-    _asset(textures, "Wood", "Texture", ".png", (120, 80, 40, 255), {"BlenderImage": "copied-id", "BlenderImagePng": wood_png})
-    material_ui.projects.open_project(model, refresh=True)
-    entry = export(root, path)[0]
-    check(entry["data"]["Shaders"][0]["TextureId"] == {"_uri": "res://%s/Texture/Wood" % PACKAGE} and "images" not in entry,
-          "the picture isn't the texture made of its PNG: %s" % entry["data"]["Shaders"][0]["TextureId"])
-    material_settings.texture_image(material_ui.projects.open_project(model), FUR_TEXTURE)
-    lit.image = material_settings.texture_image(material_ui.projects.open_project(model), FUR_TEXTURE)
-    check(lit.texture == FUR_TEXTURE, "picking the project's picture again didn't link its texture")
-    return root
+    entry = export(root, model)[0]
+    check(entry.get("changed") == [["Shaders", 0, "TextureId"]] and entry["data"]["Shaders"][0]["Image"] == 0, "the picture isn't the shader's: %s" % entry.get("changed"))
+    image_entry = entry["images"][0]
+    check(image_entry["name"] == "Painted" and image_entry.get("blender_id") and "png" in image_entry and "uri" not in image_entry, "the picture isn't in the file: %s" % image_entry)
+    tt_lab_reads(model)
+    check("data" not in export(root, model)[0], "a picture TT Lab has went into the file again")
+    check(picture.get(material_settings.TEXTURE_URI_PROPERTY) == "res://%s/Texture/Painted" % PACKAGE, "the picture didn't learn its texture")
+    # Painted over, it goes to its texture
+    picture.pixels = [1.0, 1.0, 0.0, 1.0] * 16
+    entry = export(root, model)[0]
+    check(entry.get("changed") == [] and entry["images"][0].get("uri") == "res://%s/Texture/Painted" % PACKAGE and "png" in entry["images"][0],
+          "the painted picture isn't sent for its texture: %s" % entry.get("images"))
+    tt_lab_reads(model)
+    check("data" not in export(root, model)[0], "the painted picture went into the file again")
+    # The project's own picture painted goes to the project's texture
+    gloss.image.pixels = [0.1, 0.9, 0.1, 1.0] * (len(gloss.image.pixels) // 4)
+    entry = export(root, model)[0]
+    check(entry.get("changed") == [] and entry["images"][0].get("uri") == GLOSS_TEXTURE and "png" in entry["images"][0], "the painted project picture isn't sent for its texture")
+    tt_lab_reads(model)
+    check("data" not in export(root, model)[0], "the project picture went into the file again")
+    return root, model
 
 
-def check_shader_list(root, directory):
+def check_shader_list(root, model):
     material = bpy.data.materials["Crash Fur"]
     settings = material_settings.settings_of(material)
     material_settings.add_shader(material)
-    check(len(settings.shaders) == 3 and settings.shaders[2].source == -1, "the added shader isn't new")
     material_settings.add_shader(material)
     material_settings.add_shader(material)
     check(len(settings.shaders) == gs_material.MAX_SHADERS, "a material got more than %d shaders" % gs_material.MAX_SHADERS)
     material_settings.remove_shader(material, 3)
     material_settings.move_shader(material, 2, -1)
     check([item.shader_type for item in settings.shaders] == ["StandardLit", "StandardLit", "UnlitEnvironmentMap"], "the shaders didn't move")
-    data = export(root, os.path.join(directory, "export.tlm"))[0]["data"]
+    entry = export(root, model)[0]
+    check(entry.get("shader_sources") == [0, -1, 1], "the shaders came from %s" % entry.get("shader_sources"))
+    data = entry["data"]
     check([item["ShaderType"] for item in data["Shaders"]] == [2, 2, 22], "the file doesn't have Blender's shaders")
     check(data["Shaders"][2]["XScrollSettings"] == 2, "the moved shader lost its values")
+    tt_lab_reads(model)
+    check("data" not in export(root, model)[0], "the shaders went into the file again once TT Lab had them")
 
 
 def check_animation(directory, fixture=None):
@@ -239,11 +272,14 @@ def check_animation(directory, fixture=None):
 
     curve.keyframe_points[2].co.y = 0.75
     curve.update()
-    animation = export(root, path)[0]["data"]["Shaders"][1]["Animation"]
+    entry = export(root, path)[0]
+    check(entry.get("changed") == [["Shaders", 1, "Animation"]], "the keyed animation isn't what changed: %s" % entry.get("changed"))
+    animation = entry["data"]["Shaders"][1]["Animation"]
     check([frame["Transforms"][0]["PureValue"] for frame in animation["AnimatedTransformations"]] == [0, 1024, 3072, 3072],
           "the keyed values aren't the file's: %s" % animation["AnimatedTransformations"])
     check(animation["Header"] == 10 << 16 | 4, "the animation's timing changed")
-    # What TT Lab's fixture test reads: the keyed animation, a picture painted in Blender on the first shader and a new name
+    # What TT Lab's fixture test reads: the keyed animation, a picture painted in Blender on the first shader and a new name, over the
+    # project's material that goes next to it
     picture = bpy.data.images.new("Painted", 4, 4)
     picture.pixels = [1.0, 0.0, 0.0, 1.0] * 16
     material_settings.settings_of(material).shaders[0].image = picture
@@ -251,6 +287,10 @@ def check_animation(directory, fixture=None):
     file_path = fixture or path
     entry = export(root, file_path)[0]
     check(entry["data"]["Shaders"][0]["Image"] == 0 and entry["images"][0]["name"] == "Painted", "the painted picture isn't in the file")
+    check(entry.get("changed") == [["Name"], ["Shaders", 0, "TextureId"], ["Shaders", 1, "Animation"]], "what changed is %s" % entry.get("changed"))
+    if fixture is not None:
+        write_json(os.path.splitext(fixture)[0] + "_base.json", read_json(material_path))
+
     # Painted and never saved, its pixels as Blender has them
     width, height, pixels = png.decode(tlm.TlmFile.load(file_path).read_view(entry["images"][0]["png"], "u8").tobytes())
     check((width, height, pixels[:4]) == (4, 4, bytes((255, 0, 0, 255))), "the painted picture isn't red: %r" % pixels[:4])
@@ -313,122 +353,83 @@ def check_panels(material, blender_object):
 
 
 def check_made_in_blender(directory):
+    """A material made in Blender for a model's part is a Twin Tech material of its picture, its Base Color's, and goes into the file with
+    all of its settings and the picture. A copy of a project material is a material of its own, and so is one made a model's own."""
     clear()
-    mesh = bpy.data.meshes.new("Plane")
-    mesh.from_pydata([(0, 0, 0), (1, 0, 0), (1, 1, 0)], [], [(0, 1, 2)])
-    plane = bpy.data.objects.new("Plane", mesh)
-    bpy.context.scene.collection.objects.link(plane)
+    model, _ = make_project(os.path.join(directory, "made"))
+    root = tlm_blender.import_file(bpy.context, model)
+    body = next(child for child in tlm_blender._descendants(root) if tlm_blender.role_of(child) == "body")
     material = bpy.data.materials.new("Painted")
-    mesh.materials.append(material)
-    bpy.context.view_layer.objects.active = plane
-    with bpy.context.temp_override(material=material, object=plane):
-        bpy.ops.ttt.material_use_settings()
+    material.use_nodes = True
+    texture = material.node_tree.nodes.new("ShaderNodeTexImage")
+    picture = bpy.data.images.new("Wood.png", 4, 4)
+    texture.image = picture
+    material.node_tree.links.new(texture.outputs["Color"], material.node_tree.nodes["Principled BSDF"].inputs["Base Color"])
+    body.data.materials.clear()
+    body.data.materials.append(material)
+    if body.data.color_attributes.get("Color") is not None:
+        body.data.color_attributes.remove(body.data.color_attributes["Color"])
 
+    made = materials.make_drawn_twin_tech(root)
+    materials._give_vertex_colors(made)
     settings = material_settings.settings_of(material)
-    check(settings.managed and settings.shaders[0].shader_type == "StandardUnlit" and settings.shaders[0].receives_shadows, "a new material isn't TT Lab's")
-    with bpy.context.temp_override(material=material, object=plane):
-        bpy.ops.ttt.add_vertex_colors()
-
-    check(mesh.color_attributes.get("Color") is not None, "the mesh didn't get vertex colors")
-    check_panels(material, plane)
+    check(made == [material] and settings.managed and not settings.known and settings.shaders[0].shader_type == "StandardUnlit"
+          and settings.shaders[0].receives_shadows and settings.shaders[0].image == picture, "a new material isn't TT Lab's of its picture")
+    check(body.data.color_attributes.get("Color") is not None, "the mesh drawn with it didn't get vertex colors")
+    # A picture given to the shader's node in the Shader Editor is the shader's
+    node = next(node for node in material.node_tree.nodes if node.type == "TEX_IMAGE")
+    other_picture = bpy.data.images.new("Planks", 4, 4)
+    node.image = other_picture
+    check(material_settings.take_node_pictures(material) and settings.shaders[0].image == other_picture, "the node's picture isn't the shader's")
+    check(next(node for node in material.node_tree.nodes if node.type == "TEX_IMAGE").image == other_picture, "the node tree lost the picture")
+    settings.shaders[0].image = picture
+    check_panels(material, body)
     settings.shaders[0].has_animation = True
     check(settings.shaders[0].anim_fps == 30 and settings.shaders[0].anim_b == 1.0, "a new animation isn't TT Lab's")
-    check_panels(material, plane)
-    picture = bpy.data.images.new("Wood", 4, 4)
-    settings.shaders[0].image = picture
-    file = tlm.TlmFile("RigidModel", "Plane")
-    materials = tlm_blender._FileMaterials(file)
-    check(materials.index_of(material) == 0, "the material isn't the file's first")
-    entry = file.materials[0]
-    check(entry["blender_id"] == material[tlm_blender.BLENDER_ID_PROPERTY] and entry["data"]["Shaders"][0]["Image"] == 0 and len(entry["images"]) == 1,
+    check_panels(material, body)
+    entries = export(root, model)
+    entry = next(entry for entry in entries if entry["name"] == "Painted")
+    check(entry["blender_id"] == material[tlm_blender.BLENDER_ID_PROPERTY] and "uri" not in entry and "changed" not in entry
+          and entry["data"]["Shaders"][0]["Image"] == 0 and len(entry["images"]) == 1 and "png" in entry["images"][0],
           "a material made in Blender isn't in the file with its settings and picture: %s" % sorted(entry))
-    # Read back, it's the same material
-    path = os.path.join(directory, "made.tlm")
-    file.root = tlm.node("rigid_model", "Plane")
-    file.save(path)
+    # Read back without TT Lab, it's the same material
     del material[tlm_blender.BLENDER_ID_PROPERTY]
-    again = tlm_blender._embedded_material(tlm.TlmFile.load(path), tlm.TlmFile.load(path).materials[0])
+    file = tlm.TlmFile.load(model)
+    again = tlm_blender._embedded_material(file, next(entry for entry in file.materials if entry["name"] == "Painted"))
     check(material_settings.settings_of(again).managed and material_settings.settings_of(again).shaders[0].image is not None, "the file's material lost its settings")
 
+    # A project material copied (its slot's copy button) becomes a material of its own, the original stays the project's
+    fur = bpy.data.materials["Crash Fur"]
+    copy = fur.copy()
+    split = materials.split_copies()
+    check(split == [copy] and not copy.get(tlm_blender.URI_PROPERTY) and not material_settings.settings_of(copy).known and fur.get(tlm_blender.URI_PROPERTY) == FUR,
+          "a copied project material is still the project's: %s" % split)
 
-class _WindowManager:
-    """Stands in for the window manager while a pressed button asks, which background mode never shows."""
+    # Made this model's own, the other models keep the project's
+    other = bpy.data.objects.new("Other", bpy.data.meshes.new("Other"))
+    other.data.materials.append(fur)
+    bpy.context.scene.collection.objects.link(other)
+    skin = next(child for child in tlm_blender._descendants(root) if any(slot.material == fur for slot in child.material_slots))
+    own = materials.make_own(fur, root)
+    check(all(slot.material != fur for slot in skin.material_slots) and other.data.materials[0] == fur and not own.get(tlm_blender.URI_PROPERTY)
+          and not material_settings.settings_of(own).known, "the model's own copy isn't one")
 
-    def __init__(self):
-        self.asked = []
-
-    def invoke_confirm(self, operator, event, **settings):
-        self.asked.append(settings)
-        return {"RUNNING_MODAL"}
-
-
-def _press_use_settings(material, blender_object):
-    """What pressing Use Twin Tech Settings asks, None when it goes straight on."""
-    window_manager = _WindowManager()
-    context = type("Context", (), {"material": material, "object": blender_object, "window_manager": window_manager})()
-    executed = []
-    operator = type("Operator", (), {"new_material": False, "execute": lambda self, context: executed.append(True) or {"FINISHED"}})()
-    material_ui.TTT_OT_MaterialUseSettings.invoke(operator, context, None)
-    check(len(window_manager.asked) + len(executed) == 1, "pressing the button both asked and went on")
-    check(operator.new_material == bool(window_manager.asked), "confirming the question wouldn't make a new material")
-    return window_manager.asked[0] if window_manager.asked else None
-
-
-def _use_settings(material, blender_object, **settings):
-    """Runs Use Twin Tech Settings without asking, the error it reports or None."""
-    with bpy.context.temp_override(material=material, object=blender_object):
-        try:
-            bpy.ops.ttt.material_use_settings(**settings)
-        except RuntimeError as error:
-            return str(error)
-
-    return None
-
-
-def check_settings_not_found(directory):
-    """A project material whose settings can't be read (the model's project isn't here, it doesn't have the material or its file doesn't read)
-    only becomes a new material once the user says so: pressing Use Twin Tech Settings asks, run without asking it says why and changes nothing.
-    Made a new material it has no link and a Blender ID, TT Lab adds it to the project instead of taking its settings for the project's."""
-    clear()
-    model, _ = make_project(directory)
-    root = tlm_blender.import_file(bpy.context, model)
-    body = next(child for child in tlm_blender._descendants(root) if child.type == "MESH")
-    mesh = bpy.data.meshes.new("Plane")
-    mesh.from_pydata([(0, 0, 0), (1, 0, 0), (1, 1, 0)], [], [(0, 1, 2)])
-    plane = bpy.data.objects.new("Plane", mesh)
-    bpy.context.scene.collection.objects.link(plane)
-    broken = _asset(os.path.join(directory, "assets", PACKAGE, "Material"), "Broken", "Material", ".data", {})
-    with open(broken, "w", encoding="utf-8") as file:
-        file.write("{ not json")
-
-    material_ui.projects.open_project(model, refresh=True)
-    cases = (("Lost", plane, "res://PS2_Elsewhere/Material/Lost", "The model isn't part of a TT Lab project here"),
-             ("Gone", body, "res://%s/Material/Gone" % PACKAGE, "The project Test doesn't have it"),
-             ("Broken", body, "res://%s/Material/Broken" % PACKAGE, "Its file in the project Test can't be read"))
-    for name, blender_object, uri, reason in cases:
-        material = bpy.data.materials.new(name)
-        material[tlm_blender.URI_PROPERTY] = uri
-        asked = _press_use_settings(material, blender_object)
-        check(asked is not None and asked["title"] == "%s's settings weren't found" % name and asked["message"] == reason + ". Make it a new material?"
-              and asked["confirm_text"] == "Make a New Material", "pressing the button for %s asked %s" % (name, asked))
-        error = _use_settings(material, blender_object)
-        check(error is not None and reason[1:] in error and uri in error, "run without asking, %s reported %s" % (name, error))
-        check(material.get(tlm_blender.URI_PROPERTY) == uri and not material_settings.is_managed(material) and tlm_blender.BLENDER_ID_PROPERTY not in material,
-              "run without asking, %s changed" % name)
-        check(_use_settings(material, blender_object, new_material=True) is None, "%s couldn't be made a new material" % name)
-        settings = material_settings.settings_of(material)
-        check(tlm_blender.URI_PROPERTY not in material and material.get(tlm_blender.BLENDER_ID_PROPERTY) and settings.managed
-              and [item.shader_type for item in settings.shaders] == ["StandardUnlit"], "%s isn't a new material with TT Lab's settings" % name)
-        # The model's package is a global one
-        check(settings.render_bucket == ("BUCKET_3" if blender_object == body else "BUCKET_2"), "%s's new settings are in %s" % (name, settings.render_bucket))
-        check(_press_use_settings(material, blender_object) is None, "a material made in Blender asked")
-
-    # Settings that are found are used as they are
-    material = bpy.data.materials.new("Found")
-    material[tlm_blender.URI_PROPERTY] = FUR
-    check(_press_use_settings(material, body) is None, "pressing the button for a project material the project has asked")
-    check(_use_settings(material, body) is None and material_settings.settings_of(material).game_name == "CRASH_FUR" and material.get(tlm_blender.URI_PROPERTY) == FUR,
-          "a project material the project has didn't get its settings")
+    # Its pictures made the model's own as well (a model taken to another project): copies made in Blender, written with their PNGs; the
+    # project's material keeps the project's picture, and its own picture isn't offered while it's the project's
+    picture = next(item.image for item in material_settings.settings_of(own).shaders if item.image is not None)
+    check(picture.get(material_settings.TEXTURE_URI_PROPERTY) == FUR_TEXTURE, "the model's own copy doesn't draw the project's picture")
+    with bpy.context.temp_override(object=skin, material=fur):
+        check(not bpy.ops.ttt.picture_make_own.poll(), "the project material's picture was offered to be made the model's own")
+    with bpy.context.temp_override(object=skin, material=own):
+        check(bpy.ops.ttt.picture_make_own(all_pictures=True) == {"FINISHED"}, "the pictures weren't made the model's own")
+    shaders = material_settings.settings_of(own).shaders
+    pictures = [item.image for item in shaders if item.image is not None]
+    check(pictures and picture not in pictures and not any(image.get(material_settings.TEXTURE_URI_PROPERTY) for image in pictures)
+          and all(item.texture == "" for item in shaders), "the model's own material still draws the project's texture")
+    check(any(item.image == picture for item in material_settings.settings_of(fur).shaders), "the project's material lost its picture")
+    entry = next(entry for entry in export(root, model) if entry["name"] == own.name)
+    check(entry["images"] and all("png" in image and "uri" not in image for image in entry["images"])
+          and FUR_TEXTURE not in json.dumps(entry), "the file names the project's texture: %s" % entry["images"])
 
 
 def check_render(directory):
@@ -507,8 +508,8 @@ def check_render(directory):
 
 def check_environment_map(directory, scene, results):
     """A sphere drawn with an environment map of a picture red on its left half and blue on its right: the game reads the picture by the
-    half vector on the screen's axes, the right of the sphere as the console shows it blue. Blender shows the console's frame mirrored,
-    so its right is red."""
+    half vector on the screen's axes, the right of the sphere as the console shows it blue. Blender shows the console's frame (axes), so
+    its right is blue too."""
     split = bpy.data.images.new("split", 8, 8, alpha=True)
     split.pixels = [channel for row in range(8) for column in range(8) for channel in ((1.0, 0.0, 0.0, 1.0) if column < 4 else (0.0, 0.0, 1.0, 1.0))]
     bpy.ops.mesh.primitive_uv_sphere_add(radius=0.4, segments=48, ring_count=24)
@@ -528,7 +529,7 @@ def check_environment_map(directory, scene, results):
     pixels = bpy.data.images.load(scene.render.filepath).pixels[:]
     left, right = [[round(value * 255) for value in pixels[(16 * 32 + column) * 4:(16 * 32 + column) * 4 + 3]] for column in (8, 24)]
     results["environment"] = (left, right)
-    check(right[0] > 100 and right[2] < 20 and left[2] > 100 and left[0] < 20, "the environment map reads its picture the wrong way round: %s" % (results["environment"],))
+    check(right[2] > 100 and right[0] < 20 and left[0] > 100 and left[2] < 20, "the environment map reads its picture the wrong way round: %s" % (results["environment"],))
 
 
 def main():
@@ -536,12 +537,11 @@ def main():
     directory = tempfile.mkdtemp(prefix="ttt_materials_")
     try:
         clear()
-        root = check_import_and_merge(os.path.join(directory, "merge"))
-        check_shader_list(root, os.path.join(directory, "merge"))
+        root, model = check_import_and_sync(os.path.join(directory, "merge"))
+        check_shader_list(root, model)
         arguments = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
         check_animation(os.path.join(directory, "animation"), os.path.abspath(arguments[0]) if arguments else None)
         check_made_in_blender(directory)
-        check_settings_not_found(os.path.join(directory, "not_found"))
         check_render(directory)
     finally:
         shutil.rmtree(directory, ignore_errors=True)

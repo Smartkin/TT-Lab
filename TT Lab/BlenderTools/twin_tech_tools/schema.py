@@ -198,11 +198,14 @@ class Field:
 class TwinType:
     """A type of element TT Lab writes, told apart by the Type in its extras."""
 
-    def __init__(self, name: str, label: str, fields: typing.List[Field], description: str = ""):
+    def __init__(self, name: str, label: str, fields: typing.List[Field], description: str = "",
+                 blender_boxes: typing.Sequence[typing.Tuple[str, str]] = ()):
         self.name = name
         self.label = label
         self.fields = fields
         self.description = description
+        # The keys of the corners of boxes in the model's space the properties have in Blender's axes, the extras in the game's
+        self.blender_boxes = [(snake_case(low), snake_case(high)) for low, high in blender_boxes]
         self.attr = snake_case(name)
         self.by_key = {field.key: field for field in fields}
 
@@ -430,12 +433,14 @@ JOINT = TwinType("Joint", "Joint", [
 
 OBJECT_TYPES = [
     TwinType("Ogi", "OGI", [
-        Field("BoundingBoxMin", "vec4", default=(0.0, 0.0, 0.0, 1.0)),
-        Field("BoundingBoxMax", "vec4", default=(1.0, 1.0, 1.0, 1.0)),
+        Field("BoundingBoxMin", "vec4", default=(0.0, 0.0, 0.0, 1.0), description="Smallest corner of the model's box: its instances' collision "
+              "without hulls, their shadows and physics"),
+        Field("BoundingBoxMax", "vec4", default=(1.0, 1.0, 1.0, 1.0), description="Biggest corner of the model's box"),
         Field("JointIdCount", "int", default=-1, label="Joint ID Count", advanced=True,
               description="How many joint IDs the game binds as the game's model has it, kept while as many joints have an ID. -1 binds every ID, only the game's "
                           "models whose IDs have gaps have another"),
-    ], "A model with a skeleton: its armature, skin, shape, rigid bodies, exit points and collision hulls are under it"),
+    ], "A model with a skeleton: its armature, skin, shape, rigid bodies, exit points and collision hulls are under it",
+        blender_boxes=[("BoundingBoxMin", "BoundingBoxMax")]),
     TwinType("Skin", "Skin", [], "A mesh the armature deforms"),
     TwinType("BlendSkin", "Blend skin", [], "A mesh the armature deforms, whose shape keys are the shapes the facial animations blend"),
     TwinType("Body", "Rigid body", [Field("Order", "int", description="Position among the model's rigid bodies")],
@@ -450,7 +455,7 @@ OBJECT_TYPES = [
         Field("UnusedByte", "byte", description="Read into the chunk and never used, 0 on every level but one", advanced=True),
         Field("LightOrder", "ints", description="Index and kind of every light in the order the Xbox version lists them", advanced=True),
         Field("TreeNodes", "list", item=TREE_NODE, description="The game's values of the tree's nodes, kept while they're still what TT Lab works out", advanced=True),
-    ], "A level's scenery: its meshes and LODs, the lights, the collision and the dynamic scenery are under it"),
+    ], "A level's scenery: its meshes and LODs, the lights, the collision and the dynamic scenery are under it", blender_boxes=[("BoundsMin", "BoundsMax")]),
     TwinType("Skydome", "Skydome", [], "The sky of a level, its meshes are under it"),
     TwinType("Model", "Model", [], "A model's geometry, its parts have no materials"),
     TwinType("RigidModel", "Rigid model", [], "A model drawn with materials"),
@@ -503,7 +508,7 @@ OBJECT_TYPES = [
         Field("UsesLod", "bool", label="Uses LOD", description="Draws through a LOD instead of a mesh"),
         Field("BoundingBoxMin", "vec4", default=(0.0, 0.0, 0.0, 1.0)),
         Field("BoundingBoxMax", "vec4", default=(1.0, 1.0, 1.0, 1.0)),
-    ], "A scenery mesh moving by its animation, its collision hulls are under it"),
+    ], "A scenery mesh moving by its animation, its collision hulls are under it", blender_boxes=[("BoundingBoxMin", "BoundingBoxMax")]),
     TwinType("SkydomeMesh", "Skydome mesh", [Field("Order", "int", description="Position among the skydome's meshes")]),
     TwinType("SaveIcon", "Save icon", [
         Field("TextureType", "uint", default=7, description="The texture's kind, 6 or 7 as it is, 14 or 15 (bit 3) run length encoded"),

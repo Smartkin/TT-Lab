@@ -54,6 +54,14 @@ public class RenderBatch : Renderable, IInstancedRenderable
     }
 
     /// <summary>
+    /// The batch's model got released and the batch goes (<see cref="Services.BatchStorage.Drop"/>)
+    /// </summary>
+    internal void Detach()
+    {
+        _batchedBuffer.MaterialReplaced -= BatchedBufferOnMaterialReplaced;
+    }
+
+    /// <summary>
     /// Has the batch's instances written again, from any thread: told after the change
     /// </summary>
     public void MarkChanged()
@@ -77,6 +85,11 @@ public class RenderBatch : Renderable, IInstancedRenderable
     public int InstanceCount => _instanceCount;
 
     public int BaseInstance => _baseInstance;
+
+    /// <summary>
+    /// How many meshes of the scene draw the batch's model, shown or not
+    /// </summary>
+    public int MeshCount => _meshes.Count;
 
     /// <summary>
     /// Whether the batch has anything to draw this frame
@@ -176,8 +189,8 @@ public class RenderBatch : Renderable, IInstancedRenderable
     {
         // Out of the queue before reading the meshes: a change made meanwhile puts the batch in again
         Interlocked.Exchange(ref _changed, 0);
-        // Batches stay when their meshes go (BatchStorage keeps them, a model made again gets new ones): an emptied one gives its instances
-        // back and isn't written every frame, a mesh joining it puts it in the queue again
+        // Batches stay when their meshes go (BatchStorage keeps them until their model is released, a model made again gets new ones): an
+        // emptied one gives its instances back and isn't written every frame, a mesh joining it puts it in the queue again
         if (_meshes.Count == 0)
         {
             ReleaseKeptInstances(instances);

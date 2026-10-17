@@ -8,7 +8,8 @@ first vertex of the rigid body moved along X before exporting, which makes ogi_e
 gets what a modder does to it (the skin's object moved, a shape key, bodies and an exit point put on bones, a bone added, an
 animation made longer and one made in Blender from frame 1 at 60 frames a second with a bone in Euler angles), making
 ogi_customized_in_blender.tlm, and with --swap its skin and shape are swapped for meshes made in Blender, making
-ogi_swapped_in_blender.tlm. With --retarget its animations are retargeted to a second copy of it whose bone "Joint 1" was moved
+ogi_swapped_in_blender.tlm. With --rigged meshes rigged the way Blender rigs them, without Twin Tech types, are added: a mesh deformed
+by the armature, one parented to a bone, one following a bone and one left under the root, making ogi_rigged_in_blender.tlm. With --retarget its animations are retargeted to a second copy of it whose bone "Joint 1" was moved
 and "Joint 2" renamed, so the joint animates from where it was moved to, and the copy is exported as ogi_retargeted_in_blender.tlm.
 A save icon (fixtures/save_icon.tlm) makes save_icon_from_blender.tlm, with --edit its first vertex is moved half a unit along X and the
 second shape's middle key halved, making save_icon_edited_in_blender.tlm. With --collision a scenery (fixtures/scenery.tlm) gets its
@@ -31,6 +32,9 @@ from mathutils import Matrix, Vector
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import twin_tech_tools  # noqa: E402
+from twin_tech_tools import axes  # noqa: E402
+from twin_tech_tools import checks  # noqa: E402
+from twin_tech_tools import materials  # noqa: E402
 from twin_tech_tools import tlm  # noqa: E402
 from twin_tech_tools import tlm_blender  # noqa: E402
 from twin_tech_tools import tlm_scenery  # noqa: E402
@@ -123,17 +127,18 @@ def _add_placements(root):
     written as a placed mesh and a LOD of two levels by what they're in"""
     meshes, lods = _scenery_groups(root)
     rock = _new_mesh_object("Rock made in Blender", root, meshes, *_cube())
-    rock.location = (10.0, 0.0, 10.0)
+    rock.location = axes.point((10.0, 0.0, 10.0))
     lod = bpy.data.objects.new("LOD made in Blender", None)
     root.users_collection[0].objects.link(lod)
     lod.parent = lods
-    lod.location = (-10.0, 0.0, 10.0)
+    lod.location = axes.point((-10.0, 0.0, 10.0))
     near = _new_mesh_object("Near", root, lod, *_cube())
     far = _new_mesh_object("Far", root, lod, *_cube(1.0))
     _check(tlm_blender.role_of(rock) == "scenery_mesh", "the mesh made in Meshes is a %s" % tlm_blender.role_of(rock))
     _check(tlm_blender.role_of(lod) == "scenery_lod", "the empty made in LODs is a %s" % tlm_blender.role_of(lod))
     _check(tlm_blender.role_of(near) == tlm_blender.role_of(far) == "lod_mesh", "the meshes made in the LOD are %s" % tlm_blender.role_of(near))
-    return {"Meshes": len(meshes.children), "Lods": len(lods.children), "AddedLevels": 2, "AddedMesh": list(rock.location), "AddedLod": list(lod.location)}
+    return {"Meshes": len(meshes.children), "Lods": len(lods.children), "AddedLevels": 2, "AddedMesh": list(axes.point_back(rock.location)),
+            "AddedLod": list(axes.point_back(lod.location))}
 
 
 def _edit(root):
@@ -144,7 +149,8 @@ def _edit(root):
     path = 'pose.bones["Joint 1"].rotation_quaternion'
     curves = [next(fcurve for fcurve in bag.fcurves if fcurve.data_path == path and fcurve.array_index == index) for index in range(4)]
     rotation = Quaternion([curve.evaluate(2) for curve in curves])
-    turned = Quaternion((0.0, 0.0, 1.0), math.radians(30)) @ rotation
+    # 30 degrees about the joint's Z axis, in its bone's frame (axes)
+    turned = Quaternion(axes.joint_rotation_wxyz(tuple(Quaternion((0.0, 0.0, 1.0), math.radians(30))))) @ rotation
     for index, curve in enumerate(curves):
         # A track of one key gets a key on every frame, the others keep their values
         if len(curve.keyframe_points) == 1:
@@ -158,7 +164,8 @@ def _edit(root):
         curve.update()
 
     body = next(child for child in tlm_blender._descendants(root) if tlm_blender.role_of(child) == "body")
-    body.data.vertices[0].co.x += 0.1
+    # Along the game's X in the joint's frame
+    body.data.vertices[0].co += Vector(axes.joint_point((0.1, 0.0, 0.0)))
 
 
 # Blender adds shape keys at full weight, the face has to start at rest while no facial animation plays
@@ -167,7 +174,7 @@ def _edit_icon(root):
     mesh_object = next(child for child in root.children if child.type == "MESH")
     key = mesh_object.data.shape_keys
     for block in key.key_blocks:
-        block.data[0].co.x += 0.5
+        block.data[0].co += Vector(axes.point((0.5, 0.0, 0.0)))
 
     bag = tlm_blender._existing_channelbag(key.animation_data.action, key.animation_data.action_slot)
     fcurve = next(fcurve for fcurve in bag.fcurves if fcurve.data_path == 'key_blocks["Shape 1"].value')
@@ -208,11 +215,8 @@ def _cube(size=0.5):
 
 
 def _follow_bone(blender_object, root, armature, bone_name):
-    """A Child Of constraint set up the way the importer sets them up, the object's transform is relative to the bone."""
-    constraint = blender_object.constraints.new("CHILD_OF")
-    constraint.target = armature
-    constraint.subtarget = bone_name
-    constraint.inverse_matrix = root.matrix_basis.inverted()
+    """A Child Of constraint set up the way the importer sets them up, the object's transform is relative to the joint's frame."""
+    tlm_blender.follow_bone(blender_object, root, armature, bone_name)
 
 
 # What a modder does: the skin's object put elsewhere under the root, the shape's weights left unnormalized, a shape key added, a
@@ -228,7 +232,8 @@ def _customize(root):
 
     placement = Matrix.Translation((0.1, 0.2, 0.3)) @ Matrix.Rotation(math.radians(-90), 4, "X") @ Matrix.Diagonal((1.5, 1.5, 1.5, 1.0))
     skin.matrix_basis = placement
-    expectations["skin_placement"] = [value for row in placement for value in row]
+    # TT Lab checks it in the game's space
+    expectations["skin_placement"] = [value for row in axes.matrix_back([list(row) for row in placement]) for value in row]
 
     # Blender clamps weights to 1, halving keeps every vertex's shares
     for vertex in shape.data.vertices:
@@ -237,14 +242,14 @@ def _customize(root):
 
     key = shape.shape_key_add(name="Smile", from_mix=False)
     key.value = 0.0
-    key.data[0].co = key.data[0].co + Vector((0.0, 0.1, 0.0))
+    key.data[0].co = key.data[0].co + Vector(axes.point((0.0, 0.1, 0.0)))
     expectations["new_shape_offset"] = [0.0, 0.1, 0.0]
 
     material = skin.material_slots[0].material
     cube = _new_mesh_object("Hat", root, bodies, *_cube(), material=material)
     cube.ttt.type = "Body"
     cube.ttt.body.order = 1
-    cube.matrix_basis = Matrix.Translation((0.5, 0.0, 0.0))
+    cube.matrix_basis = Matrix.Translation(axes.joint_point((0.5, 0.0, 0.0)))
     _follow_bone(cube, root, armature, "Joint 2")
     expectations["hat_offset"] = [0.5, 0.0, 0.0]
 
@@ -253,7 +258,7 @@ def _customize(root):
     badge.ttt.body.order = 2
     badge.parent_type = "BONE"
     badge.parent_bone = "Joint 1"
-    badge.matrix_basis = Matrix.Translation((0.3, 0.0, 0.0))
+    badge.matrix_basis = Matrix.Translation(axes.joint_point((0.3, 0.0, 0.0)))
     expectations["badge_offset"] = [0.3, armature.data.bones["Joint 1"].length, 0.0]
 
     exit_point = bpy.data.objects.new("Hand", None)
@@ -261,12 +266,13 @@ def _customize(root):
     exit_point.parent = exit_points
     exit_point.ttt.type = "ExitPoint"
     exit_point.ttt.exit_point.id = 9
-    exit_point.matrix_basis = Matrix.Translation((0.0, 0.25, 0.0))
+    exit_point.matrix_basis = Matrix.Translation(axes.joint_point((0.0, 0.25, 0.0)))
     _follow_bone(exit_point, root, armature, "Joint 1")
     expectations["hand_offset"] = [0.0, 0.25, 0.0]
 
     hull = next(child for child in tlm_blender._descendants(root) if tlm_blender.role_of(child) == "hull")
-    hull.matrix_basis = Matrix.Translation((0.0, 0.5, 0.0)) @ hull.matrix_basis
+    # It follows joint 2, the move is in the joint's frame
+    hull.matrix_basis = Matrix.Translation(axes.joint_point((0.0, 0.5, 0.0))) @ hull.matrix_basis
     expectations["hull_offset"] = [0.0, 0.5, 0.0]
 
     # A tail under the last joint, which no animation has keys of, and two frames more of Walk, whose face holds its last weights
@@ -275,7 +281,7 @@ def _customize(root):
     parent = armature.data.edit_bones["Joint 2"]
     tail = armature.data.edit_bones.new("Tail")
     tail.head = parent.tail
-    tail.tail = parent.tail + Vector((0.0, 0.25, 0.0))
+    tail.tail = parent.tail + Vector(axes.point((0.0, 0.25, 0.0)))
     tail.parent = parent
     bpy.ops.object.mode_set(mode="OBJECT")
     expectations["joints"] = len(armature.data.bones)
@@ -307,6 +313,35 @@ def _customize(root):
     return expectations
 
 
+# Meshes rigged the way Blender rigs them, none of them given a Twin Tech type or put in a holder: a mesh deformed by the armature
+# (Ctrl+P > With Automatic Weights), one parented to a bone (Ctrl+P > Bone), one following a bone by Child Of and one left under the root.
+# The first is skin, the others rigid bodies of their bones' joints and of joint 0
+def _rig(root):
+    armature = tlm_blender.armature_of(root)
+    # A material made in Blender drawing the arm (skin) and the rigid bodies, which the game can't do: refused until it's split
+    material = bpy.data.materials.new("Painted")
+    arm = _new_mesh_object("Arm", root, armature, *_cube(0.2), material=material)
+    arm.vertex_groups.new(name="Joint 1").add(list(range(8)), 1.0, "REPLACE")
+    arm.modifiers.new("Armature", "ARMATURE").object = armature
+    hat = _new_mesh_object("Hat", root, armature, *_cube(0.1), material=material)
+    hat.parent_type = "BONE"
+    hat.parent_bone = "Joint 2"
+    hat.matrix_basis = Matrix.Translation(axes.joint_point((0.0, 0.1, 0.0)))
+    sword = _new_mesh_object("Sword", root, root, *_cube(0.15), material=material)
+    _follow_bone(sword, root, armature, "Joint 1")
+    base = _new_mesh_object("Base", root, root, *_cube(0.3), material=material)
+    base.location = axes.point((0.0, -0.5, 0.0))
+    roles = {blender_object.name: tlm_blender.role_of(blender_object) for blender_object in (arm, hat, sword, base)}
+    _check(roles == {"Arm": "skin", "Hat": "body", "Sword": "body", "Base": "body"}, "the rigged meshes are %s" % roles)
+    _check([problem.subjects for problem in checks.refused(root)] == [["Painted"]], "the shared material isn't refused alone: %s" % checks.refused(root))
+    rigid = materials.split_rigid(material, root)
+    _check(rigid is not None and hat.material_slots[0].material == rigid and arm.material_slots[0].material == material, "the split didn't go by the parts")
+    _check(not checks.refused(root), "the rigged model is refused: %s" % checks.refused(root))
+    shaders = [materials.material_settings.settings_of(target).shaders[0].shader_type for target in (material, rigid)]
+    _check(shaders == ["LitSkinnedModel", "StandardUnlit"], "the split materials draw with %s" % shaders)
+    return {"skin_vertexes_added": 8, "body_joints_added": [2, 1, 0], "base_offset": [0.0, -0.5, 0.0]}
+
+
 # The armature object scaled and joint 0 moved by an action: returns where Blender shows the joint, which the export has to write
 def _scale_armature(root):
     armature = tlm_blender.armature_of(root)
@@ -328,7 +363,8 @@ def _check_scaled(target, shown):
     hop = next(animation for animation in tlm.find_child(file.root, "armature")["animations"] if animation["name"] == "Hop")
     keys = next(keys for keys in hop["joints"] if keys["joint"] == 0)
     written = list(file.read_view(keys["translation"], "f32"))[:3]
-    _check(all(abs(a - b) < 1e-5 for a, b in zip(written, shown)), "joint 0 was written at %s, Blender shows it at %s" % (written, list(shown)))
+    shown = axes.point_back(shown)
+    _check(all(abs(a - b) < 1e-5 for a, b in zip(written, shown)), "joint 0 was written at %s, Blender shows it at %s in the game's space" % (written, list(shown)))
 
 
 # The skin and the shape swapped for meshes made in Blender: a cube weighted to two bones without normalizing and a triangle with
@@ -345,17 +381,18 @@ def _swap(root):
     skin.vertex_groups.new(name="Joint 2").add(list(range(8)), 0.5, "REPLACE")
     skin.modifiers.new("Armature", "ARMATURE").object = armature
 
-    shape = _new_mesh_object("Triangle Face", root, root, [(0.0, 1.0, 0.0), (0.2, 1.0, 0.0), (0.0, 1.2, 0.0)], [(0, 1, 2)])
+    shape = _new_mesh_object("Triangle Face", root, root, [axes.point(corner) for corner in ((0.0, 1.0, 0.0), (0.2, 1.0, 0.0), (0.0, 1.2, 0.0))],
+                             [tuple(axes.face([0, 1, 2]))])
     shape.ttt.type = "BlendSkin"
     shape.vertex_groups.new(name="Joint 0").add([0, 1, 2], 0.5, "REPLACE")
     shape.modifiers.new("Armature", "ARMATURE").object = armature
     shape.shape_key_add(name="Basis", from_mix=False)
     smile = shape.shape_key_add(name="Smile", from_mix=False)
     smile.value = 0.0
-    smile.data[0].co = smile.data[0].co + Vector((0.2, 0.0, 0.0))
+    smile.data[0].co = smile.data[0].co + Vector(axes.point((0.2, 0.0, 0.0)))
     frown = shape.shape_key_add(name="Frown", from_mix=False)
     frown.value = 0.0
-    frown.data[1].co = frown.data[1].co + Vector((0.0, 0.0, 0.2))
+    frown.data[1].co = frown.data[1].co + Vector(axes.point((0.0, 0.0, 0.2)))
     tlm_blender.sync_shape_keys(armature)
     return {"skin_weights": [2.0 / 3.0, 1.0 / 3.0], "smile_offset": [0.2, 0.0, 0.0], "frown_offset": [0.0, 0.0, 0.2]}
 
@@ -381,8 +418,8 @@ def _retarget(root, source):
     bpy.context.view_layer.objects.active = armature
     bpy.ops.object.mode_set(mode="EDIT")
     bone = armature.data.edit_bones["Joint 1"]
-    bone.head += Vector((0.0, 0.1, 0.0))
-    bone.tail += Vector((0.0, 0.1, 0.0))
+    bone.head += Vector(axes.point((0.0, 0.1, 0.0)))
+    bone.tail += Vector(axes.point((0.0, 0.1, 0.0)))
     bpy.ops.object.mode_set(mode="OBJECT")
     bpy.context.view_layer.update()
     count = tlm_blender.retarget_animations(root, other)
@@ -400,7 +437,7 @@ def main():
         blend = arguments[index + 1]
         del arguments[index:index + 2]
 
-    modes = [mode for mode in ("--edit", "--customize", "--swap", "--retarget", "--collision", "--add", "--scaled") if mode in arguments]
+    modes = [mode for mode in ("--edit", "--customize", "--swap", "--retarget", "--collision", "--add", "--scaled", "--rigged") if mode in arguments]
     for mode in modes:
         arguments.remove(mode)
 
@@ -426,6 +463,9 @@ def main():
 
     if "--swap" in modes:
         expectations = _swap(root)
+
+    if "--rigged" in modes:
+        expectations = _rig(root)
 
     if "--retarget" in modes:
         root, expectations = _retarget(root, source)

@@ -3,6 +3,7 @@ using System;
 using TT_Lab.AssetData;
 using TT_Lab.AssetData.Graphics;
 using TT_Lab.Attributes;
+using TT_Lab.Attributes.EditorParamWrappers;
 using TT_Lab.ViewModels.Editors;
 using TT_Lab.ViewModels.Editors.Graphics;
 using Twinsanity.TwinsanityInterchange.Common;
@@ -24,7 +25,11 @@ public class Texture : SerializableAsset
     [Editable]
     public ITwinTexture.TextureFunction TextureFunction { get; set; }
     
+    // Worked out of the picture's size (UseGameLayout), not edited: a node so a picture Blender painted of another size changes it in the
+    // same step of the history, which undo puts back
     [JsonProperty(Required = Required.Always)]
+    [Editable]
+    [EditorHidden]
     public ITwinTexture.TexturePixelFormat PixelFormat { get; set; }
     
     [JsonProperty(Required = Required.Always)]

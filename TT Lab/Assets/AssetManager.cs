@@ -34,8 +34,18 @@ public class AssetManager
     {
         var previous = _accessedAssets.Value;
         _accessedAssets.Value = accessedAssets;
-        return Disposable.Create(() => _accessedAssets.Value = previous);
+        Interlocked.Increment(ref _recordings);
+        return Disposable.Create(() =>
+        {
+            _accessedAssets.Value = previous;
+            Interlocked.Decrement(ref _recordings);
+        });
     }
+
+    private int _recordings;
+
+    // Whether any build is writing a file, on any flow
+    internal bool AnyBuilding => Volatile.Read(ref _recordings) > 0;
 
     internal IDisposable HookLookups(Action<IAsset> hook)
     {

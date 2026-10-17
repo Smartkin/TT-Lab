@@ -24,11 +24,17 @@ they work on Blender's properties and on stand-ins alike.
 
 import typing
 
+from . import axes
 from . import schema
 
 
 def assign(group: typing.Any, twin_type: schema.TwinType, values: typing.Dict[str, typing.Any]) -> None:
-    """Sets the properties of a type's group to the values read from the extras."""
+    """Sets the properties of a type's group to the values read from the extras, boxes in the model's space in Blender's axes."""
+    values = dict(values)
+    for low, high in twin_type.blender_boxes:
+        defaults = {field.attr: field.default_value() for field in twin_type.fields}
+        values[low], values[high] = axes.box(values.get(low, defaults[low]), values.get(high, defaults[high]))
+
     for field in twin_type.fields:
         value = values.get(field.attr, field.default_value())
         kind = field.kind
@@ -66,6 +72,9 @@ def collect(group: typing.Any, twin_type: schema.TwinType) -> typing.Dict[str, t
             values[field.attr] = tuple(value)
         else:
             values[field.attr] = value
+
+    for low, high in twin_type.blender_boxes:
+        values[low], values[high] = axes.box_back(values[low], values[high])
 
     return values
 

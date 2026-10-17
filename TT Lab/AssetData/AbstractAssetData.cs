@@ -51,9 +51,12 @@ public abstract class AbstractAssetData(IAsset owner) : IDocumentModel
         // Resolved up front and the working directory is left alone, assets load and save in parallel
         var projectPath = Locator.Current.GetService<ProjectManager>()!.OpenedProject!.ProjectPath;
         var fullPath = System.IO.Path.Combine(projectPath, dataPath);
+        // A model file the add-on wrote that loading takes and writes again: the Blender that wrote it knows it by what it wrote
+        var exported = Tools.Blender.TakenExports.Before(fullPath, Owner);
         try
         {
             LoadInternal(fullPath, settings);
+            Tools.Blender.TakenExports.After(fullPath, exported);
             // After what loading wrote itself (materials made in Blender added to the project), the project's watcher doesn't take it for
             // another program's change
             AssetFileStamps.Record(fullPath);

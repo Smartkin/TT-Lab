@@ -26,6 +26,14 @@ public sealed class AssetDataScope : IDisposable
 
     public static AssetDataScope? Current => CurrentScope.Value;
 
+    /// <summary>
+    /// A scope that only checks that files read: reading changes nothing, no file is written again and nothing is made of what a file
+    /// brings (a model's materials made in Blender), the read after the check does that
+    /// </summary>
+    public bool IsDryRead { get; init; }
+
+    public static bool IsReadingDry => CurrentScope.Value?.IsDryRead == true;
+
     public AssetDataScope()
     {
         _previous = CurrentScope.Value;

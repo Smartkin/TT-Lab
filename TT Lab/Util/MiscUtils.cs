@@ -139,7 +139,8 @@ public static class MiscUtils
         return string.Empty;
     }
 
-    public static async Task<string> GetSaveFileFromDialogueAsync(string title, string filterName, IReadOnlyList<string> filters, string suggestedFileName, string defaultExtension)
+    public static async Task<string> GetSaveFileFromDialogueAsync(string title, string filterName, IReadOnlyList<string> filters, string suggestedFileName, string defaultExtension,
+        string? startFolder = null)
     {
         if (Application.Current!.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime { MainWindow: { } owner })
         {
@@ -152,7 +153,8 @@ public static class MiscUtils
             SuggestedFileName = suggestedFileName,
             DefaultExtension = defaultExtension,
             FileTypeChoices = [new FilePickerFileType(filterName) { Patterns = filters }],
-            ShowOverwritePrompt = true
+            ShowOverwritePrompt = true,
+            SuggestedStartLocation = startFolder != null && Directory.Exists(startFolder) ? await owner.StorageProvider.TryGetFolderFromPathAsync(startFolder) : null
         });
 
         return file?.TryGetLocalPath() ?? string.Empty;

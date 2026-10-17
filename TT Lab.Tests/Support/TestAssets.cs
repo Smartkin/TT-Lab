@@ -1,8 +1,10 @@
-﻿using TT_Lab.AssetData;
+﻿using GlmSharp;
+using TT_Lab.AssetData;
 using TT_Lab.AssetData.Code;
 using TT_Lab.AssetData.Graphics;
 using TT_Lab.AssetData.Graphics.Shaders;
 using TT_Lab.AssetData.Graphics.SubModels;
+using TT_Lab.AssetData.Graphics.TlModel;
 using TT_Lab.AssetData.Instance;
 using TT_Lab.AssetData.Instance.Collision;
 using TT_Lab.AssetData.Instance.DynamicScenery;
@@ -26,7 +28,9 @@ using Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.SubItems;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.SM;
 using static TT_Lab.Tests.Support.TestGeometry;
 using Material = TT_Lab.Assets.Graphics.Material;
+using Matrix4x4 = System.Numerics.Matrix4x4;
 using Mesh = TT_Lab.Assets.Graphics.Mesh;
+using Quaternion = System.Numerics.Quaternion;
 using Skin = TT_Lab.Assets.Graphics.Skin;
 using Texture = TT_Lab.Assets.Graphics.Texture;
 using Vector3 = System.Numerics.Vector3;
@@ -116,12 +120,23 @@ public sealed class TestAssets(TestProject project, int seed = 31)
         return mesh;
     }
 
-    public Skin AddSkin(LabURI material, string name = "Crash Skin")
+    /// <param name="joints">The joints the made-up parts' joints 0, 1 and 2 stand for</param>
+    public Skin AddSkin(LabURI material, string name = "Crash Skin", int[]? joints = null)
     {
         var skin = project.Add(new Skin(), name);
         var data = new SkinData(skin);
         data.SubSkins.AddRange(new[] { SubSkin(_random, TwinVifPadding.NopPerByte, 0, [38, 20]), SubSkin(_random, TwinVifPadding.QuadWord, 0, [9]) }.Select(subSkin =>
         {
+            if (joints != null)
+            {
+                foreach (var info in subSkin.SkinJoints)
+                {
+                    info.JointIndex1 = joints[info.JointIndex1];
+                    info.JointIndex2 = info.WeightsAmount > 1 ? joints[info.JointIndex2] : info.JointIndex2;
+                    info.JointIndex3 = info.WeightsAmount > 2 ? joints[info.JointIndex3] : info.JointIndex3;
+                }
+            }
+
             subSkin.Compile();
             var read = Deserialize(new PS2SubSkin(), Serialize(subSkin));
             var part = StripParts.FromSkin(read);
@@ -222,6 +237,181 @@ public sealed class TestAssets(TestProject project, int seed = 31)
         };
         ogi.SetData(data);
         return ogi;
+    }
+
+    /// <summary>
+    /// A character skeleton of 15 joints aimed the way the game's tools aimed them, every joint with children pointing one of its axes at
+    /// its child: the arms behavior-mirrored (the right joint's frame the left's mirror image with every axis turned around, so the right
+    /// arm aims along -X), the legs plainly mirrored (only X turned around), the chest at the spine's place, the head and its nose looking a
+    /// hair off straight ahead on the middle line, and two plainly mirrored eyes looking a hair off straight ahead to the side, short and
+    /// far from the origin, which Blender keeps with their roll a few thousandths of a radian off. A skin weighted to the upper arms and an
+    /// eye, rigid models on the left upper arm and the right hand, exit points on the right hand, the head and the right eye, a hull on the
+    /// left hand, and two animations turning, moving and unevenly scaling the joints
+    /// </summary>
+    /// <remarks>
+    /// The joints: 0 hips, 1 spine, 2 chest, 3 head, 4 nose, 5 and 6 the eyes (left, right), 7 and 9 the upper arms, 8 and 10 the hands, 11
+    /// and 13 the thighs, 12 and 14 the shins. The game's left is its -X
+    /// </remarks>
+    public OGI AddMirroredOgi(string name = "Mirror")
+    {
+        var joints = MirroredSkeleton();
+        var ogi = project.Add(new OGI(), name, 0x6);
+        var material = AddSkinMaterial($"{name} Fur");
+        var skin = AddSkin(material.URI, $"{name} Skin", [7, 9, 5]);
+        var arm = AddRigidModel($"{name} Arm", material.URI, material.URI);
+        var glove = AddRigidModel($"{name} Glove", material.URI, material.URI);
+        var worlds = joints.Select(joint => joint.Frame.At(joint.Position)).ToArray();
+        var data = new OGIData(ogi)
+        {
+            BoundingBox = [new Vector4(-1, 0, -1, 1), new Vector4(28, 2, 1.5f, 1)],
+            Joints = joints.Select((joint, index) =>
+            {
+                // Rest poses that agree with the bind poses, like the game's
+                var parentInverse = Matrix4x4.Identity;
+                if (joint.Parent >= 0)
+                {
+                    Matrix4x4.Invert(worlds[joint.Parent], out parentInverse);
+                }
+
+                Matrix4x4.Decompose(worlds[index] * parentInverse, out _, out var rotation, out var translation);
+                rotation = Quaternion.Normalize(rotation);
+                return new TwinJoint
+                {
+                    Index = index, ParentIndex = joint.Parent < 0 ? 0xFF : joint.Parent, Id = joint.Id, ChildCount = joints.Count(other => other.Parent == index),
+                    Detail = index == 0 ? 1 : 0, LocalTranslation = new Vector4(translation.X, translation.Y, translation.Z, 1),
+                    LocalRotation = new Vector4(rotation.X, rotation.Y, rotation.Z, rotation.W), WorldTranslation = new Vector4(joint.Position.X, joint.Position.Y, joint.Position.Z, 1),
+                    UnusedRotation = new Vector4(0, 0, 0, 1),
+                    // The right upper arm's animations turn it by 20 degrees about its Y first
+                    AdditionalAnimationRotation = index == 9 ? new Vector4(0, MathF.Sin(MathF.PI / 18), 0, MathF.Cos(MathF.PI / 18)) : new Vector4(0, 0, 0, 1)
+                };
+            }).ToList(),
+            JointIdCount = (Byte)joints.Count(joint => joint.Id != 0xFF),
+            SkinInverseMatrices = worlds.Select(world => (Matrix4x4.Invert(world, out var inverse) ? inverse : Matrix4x4.Identity).ToTwin()).ToList(),
+            ExitPoints =
+            [
+                new TwinExitPoint { ID = 0, ParentJointIndex = 10, Matrix = (Matrix4x4.CreateFromYawPitchRoll(0.3f, -0.2f, 0.5f) * Matrix4x4.CreateTranslation(0.04f, -0.01f, 0.02f)).ToTwin() },
+                new TwinExitPoint { ID = 1, ParentJointIndex = 3, Matrix = (Matrix4x4.CreateRotationX(0.35f) * Matrix4x4.CreateTranslation(0, 0.1f, 0.06f)).ToTwin() },
+                new TwinExitPoint { ID = 2, ParentJointIndex = 6, Matrix = (Matrix4x4.CreateRotationY(-0.6f) * Matrix4x4.CreateTranslation(0.03f, 0.015f, -0.01f)).ToTwin() }
+            ],
+            RigidModelIds = [arm.URI, glove.URI],
+            RigidModelJointIndices = [7, 10],
+            CollisionHulls = [TwinCollisionHull.CreateBox(new Vector4(-0.05f, -0.03f, -0.04f, 1), new Vector4(0.05f, 0.03f, 0.04f, 1))],
+            CollisionHullJoints = [8],
+            Skin = skin.URI
+        };
+
+        // Every joint's rest pose, the keys move, turn and scale from
+        var rests = data.Joints.Select(joint => (joint.LocalTranslation, Angles: new quat(joint.LocalRotation.X, joint.LocalRotation.Y, joint.LocalRotation.Z, joint.LocalRotation.W).ToEulerAngles())).ToList();
+        short[] Key(int joint, int frame, int variant)
+        {
+            var (translation, angles) = rests[joint];
+            var direction = joint % 2 == 0 ? 1 : -1;
+            return
+            [
+                (short)(TlmAnimations.ToRawValue(translation.X) + (joint switch { 0 => frame * 120, 7 or 9 => frame * 25 * direction, _ => 0 }) + variant * 9),
+                (short)(TlmAnimations.ToRawValue(translation.Y) + (joint == 0 ? frame * 60 : 0)),
+                (short)(TlmAnimations.ToRawValue(translation.Z) + (joint is 11 or 13 ? frame * 30 : 0)),
+                (short)(TlmAnimations.ToRawRotation(angles.x) + frame * 41 * direction + variant * 5),
+                (short)(TlmAnimations.ToRawRotation(angles.y) + frame * 17 * direction),
+                (short)(TlmAnimations.ToRawRotation(angles.z) - frame * 29 + joint * 3 * variant),
+                (short)(joint switch { 7 => 4096 + frame * 200, 13 => 4096 - frame * 120, _ => 4096 }),
+                (short)(joint switch { 1 => 4096 + frame * 300, 13 => 4096 + frame * 80, _ => 4096 }),
+                (short)(joint switch { 7 => 4096 - frame * 150, 10 => 4096 + frame * 400, _ => 4096 })
+            ];
+        }
+
+        data.Animations =
+        [
+            new AnimationData { ID = 0x20, Name = "Run", TotalFrames = 5, DefaultFPS = 25, MainAnimation = TestAnimations.CreateTwinAnimation(5, joints.Count, rawValues: (joint, frame) => Key(joint, frame, 0)) },
+            new AnimationData { ID = 0x21, Name = "Reach", TotalFrames = 3, DefaultFPS = 30, MainAnimation = TestAnimations.CreateTwinAnimation(3, joints.Count, independentScaling: joint => joint == 10,
+                additionalRotation: joint => joint == 9, rawValues: (joint, frame) => Key(joint, frame, 1)) }
+        ];
+        ogi.SetData(data);
+        return ogi;
+    }
+
+    private readonly record struct SkeletonJoint(int Parent, int Id, Vector3 Position, JointFrame Frame);
+
+    // A joint's frame: its axes in the model's space, Z = X x Y
+    private readonly record struct JointFrame(Vector3 X, Vector3 Y, Vector3 Z)
+    {
+        public static JointFrame Of(Vector3 x, Vector3 y)
+        {
+            x = Vector3.Normalize(x);
+            y = Vector3.Normalize(y - Vector3.Dot(y, x) * x);
+            return new JointFrame(x, y, Vector3.Cross(x, y));
+        }
+
+        public static JointFrame OfZ(Vector3 z, Vector3 x)
+        {
+            z = Vector3.Normalize(z);
+            x = Vector3.Normalize(x - Vector3.Dot(x, z) * z);
+            return new JointFrame(x, Vector3.Cross(z, x), z);
+        }
+
+        public JointFrame TurnedAboutX(float angle) => new(X, MathF.Cos(angle) * Y + MathF.Sin(angle) * Z, MathF.Cos(angle) * Z - MathF.Sin(angle) * Y);
+
+        public JointFrame TurnedAboutZ(float angle) => new(MathF.Cos(angle) * X + MathF.Sin(angle) * Y, MathF.Cos(angle) * Y - MathF.Sin(angle) * X, Z);
+
+        // The mirror image in the model's X: the tools turned every axis of a behavior-mirrored joint around, only X of a plain mirror's
+        public JointFrame Mirrored(bool behavior) => behavior ? new(-Mirror(X), -Mirror(Y), -Mirror(Z)) : new(-Mirror(X), Mirror(Y), Mirror(Z));
+
+        // Its bind pose, transforming row vectors like System.Numerics
+        public Matrix4x4 At(Vector3 position) => new(X.X, X.Y, X.Z, 0, Y.X, Y.Y, Y.Z, 0, Z.X, Z.Y, Z.Z, 0, position.X, position.Y, position.Z, 1);
+
+        public static Vector3 Mirror(Vector3 value) => value with { X = -value.X };
+    }
+
+    private static List<SkeletonJoint> MirroredSkeleton()
+    {
+        var hips = new Vector3(0, 1, 0);
+        var spine = new Vector3(0, 1.25f, 0);
+        var head = new Vector3(0, 1.6f, 0.02f);
+        var shoulder = new Vector3(-0.25f, 1.5f, 0);
+        var hand = new Vector3(-0.55f, 1.35f, 0.05f);
+        var thigh = new Vector3(-0.12f, 0.95f, 0);
+        var knee = new Vector3(-0.14f, 0.5f, 0.02f);
+        // X up the spine at the head, Z across; the chest half a turn about its X from it
+        var spineAim = Vector3.Normalize(head - spine);
+        var spineFrame = new JointFrame(spineAim, new Vector3(0, spineAim.Z, -spineAim.Y), -Vector3.UnitX);
+        var chestFrame = new JointFrame(spineFrame.X, -spineFrame.Y, -spineFrame.Z);
+        // X ahead a hair down at the nose, close enough to make the nose shorter than a fortieth of the skeleton, the nose's a hair up, Z
+        // across: Blender's -Y, where it keeps bones pointing to the side a little imprecisely
+        var headFrame = Pitched(1.2e-3f);
+        var noseFrame = Pitched(-4e-4f);
+        var nose = head + headFrame.X * 0.02f;
+        // The left eye's X ahead a hair to the left and up, Y up
+        var eye = head + new Vector3(-0.03f, 0.025f, 0.04f);
+        const float eyeOff = 4e-4f;
+        var eyeAzimuth = MathF.PI * 140 / 180;
+        var eyeFrame = JointFrame.Of(new Vector3(MathF.Sin(eyeOff) * MathF.Cos(eyeAzimuth), MathF.Sin(eyeOff) * MathF.Sin(eyeAzimuth), MathF.Cos(eyeOff)), Vector3.UnitY);
+        // X along the arm at the hand, twisted; the hand bent from it
+        var armFrame = JointFrame.Of(hand - shoulder, Vector3.UnitY).TurnedAboutX(MathF.PI * 25 / 180);
+        var handFrame = armFrame.TurnedAboutZ(MathF.PI / 6);
+        // Z down the leg at the knee, X across turned forward; the shin bent from it
+        var legFrame = JointFrame.OfZ(knee - thigh, Vector3.UnitX).TurnedAboutZ(MathF.PI / 12);
+        var shinFrame = legFrame.TurnedAboutX(-MathF.PI / 15);
+        return
+        [
+            new(-1, 0, hips, JointFrame.Of(Vector3.UnitX, Vector3.UnitY)),
+            new(0, 0xFF, spine, spineFrame),
+            new(1, 0xFF, spine, chestFrame),
+            new(2, 1, head, headFrame),
+            new(3, 0xFF, nose, noseFrame),
+            new(3, 0xFF, eye, eyeFrame),
+            new(3, 0xFF, JointFrame.Mirror(eye), eyeFrame.Mirrored(false)),
+            new(2, 0xFF, shoulder, armFrame),
+            new(7, 2, hand, handFrame),
+            new(2, 0xFF, JointFrame.Mirror(shoulder), armFrame.Mirrored(true)),
+            new(9, 3, JointFrame.Mirror(hand), handFrame.Mirrored(true)),
+            new(0, 0xFF, thigh, legFrame),
+            new(11, 0xFF, knee, shinFrame),
+            new(0, 0xFF, JointFrame.Mirror(thigh), legFrame.Mirrored(false)),
+            new(13, 0xFF, JointFrame.Mirror(knee), shinFrame.Mirrored(false))
+        ];
+
+        // X ahead turned down by the angle about the model's X, Z across
+        static JointFrame Pitched(float angle) => JointFrame.Of(new Vector3(0, -MathF.Sin(angle), MathF.Cos(angle)), new Vector3(0, MathF.Cos(angle), MathF.Sin(angle)));
     }
 
     public static Matrix4 MatrixWithNegativeZeros()

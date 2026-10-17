@@ -223,6 +223,44 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
             Action = StartDeletingAsset,
         });
         RegisterRelocationItems();
+        if (Tools.Blender.BlenderEditing.CanEdit(Asset))
+        {
+            RegisterMenuItem(new MenuItemSettings
+            {
+                Header = "Edit in Blender",
+                Action = EditInBlender,
+            });
+            var useExisting = RegisterMenuItem(new MenuItemSettings
+            {
+                Header = Tools.Blender.BlenderEditing.UseExistingHeader,
+                Action = UseBlendFile,
+            });
+            Avalonia.Controls.ToolTip.SetTip(useExisting, Tools.Blender.BlenderEditing.UseExistingHint);
+        }
+    }
+
+    private async void EditInBlender()
+    {
+        try
+        {
+            await Tools.Blender.BlenderEditing.EditAsync(Asset);
+        }
+        catch (Exception exception)
+        {
+            Log.WriteLine($"Editing {Alias} in Blender failed: {exception.Message}", Log.LogType.Error);
+        }
+    }
+
+    private async void UseBlendFile()
+    {
+        try
+        {
+            await Tools.Blender.BlenderEditing.UseBlendFileAsync(Asset);
+        }
+        catch (Exception exception)
+        {
+            Log.WriteLine($"Using a blend file for {Alias} failed: {exception.Message}", Log.LogType.Error);
+        }
     }
 
     // Duplicate and Move To..., for what can be copied or moved
@@ -329,6 +367,8 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
 
         Alias = NewAlias;
         Asset.Serialize(SerializationFlags.SetDirectoryToAssets);
+        // What the Blenders linked to it know it by
+        Editors.DocumentViewModel.TellChanged(Asset);
     }
 
     private async void RenameFolder(Folder folder, string name)
@@ -465,6 +505,11 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
             }
         }
     }
+
+    /// <summary>
+    /// A Blender linked to TT Lab draws it (Tools.Blender.LinkMarks)
+    /// </summary>
+    public bool IsLinkedToBlender => Tools.Blender.LinkMarks.IsLinked(_asset.URI);
 
     public String Alias
     {

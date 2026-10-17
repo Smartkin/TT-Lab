@@ -1,5 +1,6 @@
 using Avalonia.Headless.XUnit;
 using TT_Lab.AssetData.Instance;
+using TT_Lab.Assets;
 using TT_Lab.Tests.Support;
 using TT_Lab.ViewModels.Editors;
 using Twinsanity.TwinsanityInterchange.Common;
@@ -185,5 +186,89 @@ public sealed class UndoHistoryTests : IDisposable
         Change(document, FirstX, 5.0f);
 
         Assert.Equal("Path › Points[0] › X = 5", document.History.Current.Description);
+    }
+
+    // A path whose first point is at x, as data replacing the path's whole (what a model Blender wrote is)
+    private static PathData PathAt(Path path, float x) => new(path)
+    {
+        Points = [new Vector3(x, 0, 0), new Vector3(1, 0, 0), new Vector3(2, 0, 0)], ArcLengths = [], InverseSteps = [],
+    };
+
+    private static float FirstXOf(Path path) => ((IAsset)path).GetData<PathData>().Points[0].X;
+
+    private static UndoHistory.DataStep CurrentDataStep(DocumentViewModel document) => Assert.IsType<UndoHistory.DataStep>(document.History.Current.Step);
+
+    // Steps of data replaced whole keep its file before and after them: Blender writing the same model again and again kept every file
+    // twice, the one after a step and the same one before the next
+    [AvaloniaFact]
+    public void ConsecutiveDataStepsShareTheirFiles()
+    {
+        var (document, _) = OpenPath();
+        var path = (Path)document.DocumentModel;
+        var data = document.PropertyGraph.Find("Root.AssetData")!;
+
+        Assert.True(document.ReplaceData(data, PathAt(path, 5), "From Blender: Path written"));
+        var first = CurrentDataStep(document);
+        Assert.True(document.ReplaceData(document.PropertyGraph.Find("Root.AssetData")!, PathAt(path, 7), "From Blender: Path written again"));
+        var second = CurrentDataStep(document);
+
+        Assert.Same(first.After, second.Before);
+        Assert.NotSame(first.Before, second.After);
+        document.Undo();
+        Assert.Equal(5.0f, FirstXOf(path));
+        document.Undo();
+        Assert.Equal(0.0f, FirstXOf(path));
+        document.Redo();
+        document.Redo();
+        Assert.Equal(7.0f, FirstXOf(path));
+    }
+
+    // Something else changing the data in between, the next step's file before it is another one
+    [AvaloniaFact]
+    public void DataStepsKeepTheirOwnFileOfDataChangedInBetween()
+    {
+        var (document, _) = OpenPath();
+        var path = (Path)document.DocumentModel;
+
+        Assert.True(document.ReplaceData(document.PropertyGraph.Find("Root.AssetData")!, PathAt(path, 5), "From Blender: Path written"));
+        var first = CurrentDataStep(document);
+        Change(document, FirstX, 6.0f);
+        Assert.True(document.ReplaceData(document.PropertyGraph.Find("Root.AssetData")!, PathAt(path, 7), "From Blender: Path written again"));
+        var second = CurrentDataStep(document);
+
+        Assert.NotSame(first.After, second.Before);
+        Assert.False(first.After.AsSpan().SequenceEqual(second.Before));
+        document.Undo();
+        Assert.Equal(6.0f, FirstXOf(path));
+        document.Undo();
+        Assert.Equal(5.0f, FirstXOf(path));
+        document.Undo();
+        Assert.Equal(0.0f, FirstXOf(path));
+        document.Redo();
+        document.Redo();
+        document.Redo();
+        Assert.Equal(7.0f, FirstXOf(path));
+    }
+
+    // Written again after its step got undone, the new step starts from the same file as the undone one
+    [AvaloniaFact]
+    public void AStepAfterUndoingSharesTheFileOfTheUndoneOne()
+    {
+        var (document, _) = OpenPath();
+        var path = (Path)document.DocumentModel;
+
+        Assert.True(document.ReplaceData(document.PropertyGraph.Find("Root.AssetData")!, PathAt(path, 5), "From Blender: Path written"));
+        var undone = CurrentDataStep(document);
+        document.Undo();
+        Assert.True(document.ReplaceData(document.PropertyGraph.Find("Root.AssetData")!, PathAt(path, 5), "From Blender: Path written again"));
+        var again = CurrentDataStep(document);
+
+        Assert.Same(undone.Before, again.Before);
+        Assert.Same(undone.After, again.After);
+        Assert.Equal(2, document.History.Root.Children.Count);
+        document.Undo();
+        Assert.Equal(0.0f, FirstXOf(path));
+        document.History.GoTo(document.History.Root.Children[0]);
+        Assert.Equal(5.0f, FirstXOf(path));
     }
 }

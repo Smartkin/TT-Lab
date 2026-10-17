@@ -29,10 +29,6 @@ PROJECT_EXTENSION = ".tson"
 _MATERIAL_TYPE = "TT_Lab.Assets.Graphics.Material,"
 _TEXTURE_TYPE = "TT_Lab.Assets.Graphics.Texture,"
 _ASSET_FOLDERS = ("Material", "Texture")
-# Parameters of the textures TT Lab made of pictures made in Blender: the picture's ID, and the SHA-256 of the picture's PNG the texture
-# was made of (a blend file copied keeps its pictures' IDs, the copy's picture of another file is another texture)
-BLENDER_IMAGE_PARAMETER = "BlenderImage"
-BLENDER_IMAGE_PNG_PARAMETER = "BlenderImagePng"
 
 
 class ProjectMaterial:
@@ -77,15 +73,11 @@ class ProjectMaterial:
 
 
 class ProjectTexture:
-    def __init__(self, uri: str, name: str, png_path: str, package: str = "", blender_image: str = "", blender_png: str = ""):
+    def __init__(self, uri: str, name: str, png_path: str, package: str = ""):
         self.uri = uri
         self.name = name
         self.png_path = png_path
         self.package = package
-        # The add-on's ID of the picture TT Lab made the texture of, a picture of a model file's material made in Blender, and the SHA-256
-        # of the picture's PNG
-        self.blender_image = blender_image
-        self.blender_png = blender_png
 
     @property
     def label(self) -> str:
@@ -103,6 +95,8 @@ class Project:
     def __init__(self, root: str):
         self.root = root
         self.name = _project_name(root)
+        # Made once with the project, a project copied or moved keeps it
+        self.uuid = _project_value(root, "UUID")
         self.materials: typing.Dict[str, ProjectMaterial] = {}
         self.textures: typing.Dict[str, ProjectTexture] = {}
         self._first_dependencies: typing.Dict[str, str] = {}
@@ -160,17 +154,7 @@ class Project:
                 if asset_type.startswith(_MATERIAL_TYPE):
                     self.materials[uri] = ProjectMaterial(uri, name, uri_of(metadata.get("Package")), base + ".data")
                 elif asset_type.startswith(_TEXTURE_TYPE):
-                    parameters = metadata.get("Parameters") if isinstance(metadata.get("Parameters"), dict) else {}
-                    self.textures[uri] = ProjectTexture(uri, name, base + ".png", uri_of(metadata.get("Package")), str(parameters.get(BLENDER_IMAGE_PARAMETER) or ""),
-                                                        str(parameters.get(BLENDER_IMAGE_PNG_PARAMETER) or ""))
-
-    def texture_of_image(self, blender_image: str, png: typing.Optional[str] = None) -> typing.Optional[ProjectTexture]:
-        """The texture TT Lab made of a picture made in Blender: of the picture's ID and, given the SHA-256 of the picture's PNG, of that
-        PNG. A blend file copied keeps its pictures' IDs, and the copy's picture of another file isn't the first file's texture."""
-        if not blender_image:
-            return None
-
-        return next((texture for texture in self.textures.values() if texture.blender_image == blender_image and (png is None or texture.blender_png == png)), None)
+                    self.textures[uri] = ProjectTexture(uri, name, base + ".png", uri_of(metadata.get("Package")))
 
     def texture_of(self, material: ProjectMaterial) -> typing.Optional[ProjectTexture]:
         """The texture the material is drawn with, its first shader's that has one."""
@@ -181,18 +165,13 @@ class Project:
 
         return None
 
-    def materials_of_packages(self, packages: typing.Iterable[str]) -> typing.List[ProjectMaterial]:
-        wanted = set(packages)
-        return sorted((material for material in self.materials.values() if not wanted or material.package in wanted), key=lambda material: material.name.lower())
-
-    def textures_of_platform(self, platform: typing.Optional[str]) -> typing.List[ProjectTexture]:
-        """The textures a model of the version can draw, both versions' without one."""
-        return sorted((texture for texture in self.textures.values() if platform is None or platform_of(texture.package) in (platform, None)),
-                      key=lambda texture: texture.label.lower())
-
 
 def find_root(path: str) -> typing.Optional[str]:
-    """The folder of the project the file is in, None when it isn't in one."""
+    """The folder of the project the file is in, None when it isn't in one. A path that isn't one of this computer (another system's, like
+    a Windows path on Linux) is in none: made absolute it'd be taken from the working directory."""
+    if not path or not os.path.isabs(path):
+        return None
+
     directory = os.path.dirname(os.path.abspath(path))
     while True:
         try:
@@ -208,19 +187,34 @@ def find_root(path: str) -> typing.Optional[str]:
         directory = parent
 
 
-def _project_name(root: str) -> str:
-    """The project's name, which its packages of a version are named after: its file's, which TT Lab names after it."""
+def _project_file(root: str) -> typing.Optional[str]:
     try:
         files = sorted(name for name in os.listdir(root) if name.endswith(PROJECT_EXTENSION))
     except OSError:
         files = []
 
-    if len(files) == 0:
+    return os.path.join(root, files[0]) if files else None
+
+
+def _project_value(root: str, key: str) -> str:
+    path = _project_file(root)
+    data = _load_json(path) if path is not None else None
+    value = data.get(key) if isinstance(data, dict) else None
+    return str(value) if value else ""
+
+
+def uuid_of(root: str) -> str:
+    """The project's UUID, the same in its copies."""
+    return _project_value(root, "UUID")
+
+
+def _project_name(root: str) -> str:
+    """The project's name, which its packages of a version are named after: its file's, which TT Lab names after it."""
+    path = _project_file(root)
+    if path is None:
         return ""
 
-    data = _load_json(os.path.join(root, files[0]))
-    name = data.get("Name") if isinstance(data, dict) else None
-    return str(name) if name else files[0][:-len(PROJECT_EXTENSION)]
+    return _project_value(root, "Name") or os.path.basename(path)[:-len(PROJECT_EXTENSION)]
 
 
 def version_of_file(path: str) -> str:
@@ -238,6 +232,14 @@ def package_of(root: str, path: str) -> typing.Optional[str]:
     return "res://" + parts[0] if len(parts) > 1 and parts[0] != ".." else None
 
 
+def is_global_package_file(path: str) -> bool:
+    """Whether a file of a project's assets is in one of the global packages (the startup's and the default chunk's assets), whose
+    materials the game draws in other render buckets."""
+    root = find_root(path)
+    package = package_of(root, path) if root is not None else None
+    return package is not None and package.startswith("res://Global ")
+
+
 def platform_of(package: str) -> typing.Optional[str]:
     """The version of the game a package is for, None for the packages both share. TT Lab names them after it."""
     name = package.upper()
@@ -251,9 +253,13 @@ _projects: typing.Dict[str, Project] = {}
 
 
 def open_project(path: str, refresh: bool = False) -> typing.Optional[Project]:
-    """The project the file is in, indexed once and reused."""
-    root = find_root(path)
-    if root is None:
+    """The project the file is in, read-only: indexed once and reused, again when asked to (importing a model reads what TT Lab made since)."""
+    return open_project_at(find_root(path) or "", refresh)
+
+
+def open_project_at(root: str, refresh: bool = False) -> typing.Optional[Project]:
+    """The project of the folder, like open_project. A path in it isn't the folder: its search starts at the path's own folder."""
+    if not root or _project_file(root) is None:
         return None
 
     if refresh or root not in _projects:

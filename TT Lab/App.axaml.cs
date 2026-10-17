@@ -72,7 +72,15 @@ public partial class App : Application
             var window = new ShellView(Services.GetRequiredService<ILabManager>());
 
             desktop.MainWindow = window;
+            // A project's folder given (Blender's Open in TT Lab started TT Lab) opens once the window shows
+            if (desktop.Args is { Length: > 0 } arguments && Services.GetRequiredService<ILabManager>() is ShellViewModel shell)
+            {
+                window.Opened += (_, _) => _ = shell.OpenFromCommandLine(arguments);
+            }
+
             Services.GetRequiredService<Tools.Discord.DiscordPresence>().Start();
+            // Blender links its scenes' models to the project TT Lab has open
+            Services.GetRequiredService<Tools.Blender.BlenderLinkServer>().Start();
             // The context viewports keep current, made before anything unpacks the game's assets (ViewportHost.PinGlLibrary)
             System.Threading.Tasks.Task.Run(ViewportHost.MakeGlAnchor);
             desktop.Startup += (_, _) =>
@@ -81,6 +89,7 @@ public partial class App : Application
             };
             desktop.Exit += async (_, _) =>
             {
+                Services.GetRequiredService<Tools.Blender.BlenderLinkServer>().Stop();
                 using (_host)
                 {
                     await _host.StopAsync();

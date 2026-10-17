@@ -30,6 +30,9 @@ public abstract partial class DocumentCompositeViewModel : DocumentNodeViewModel
     private PropertyNode? _pendingReveal;
     private int _builtChildrenVersion;
     private bool _isBuilt;
+    // The nodes laid out with this one's (an asset's data) are heard as well: their children made again (the data replaced whole, a model
+    // Blender wrote) are what this composite shows
+    private readonly SerialDisposable _inlineFollow = new();
 
     public abstract ReactiveCommand<Unit, Unit>? AddCommand { get; }
 
@@ -101,6 +104,8 @@ public abstract partial class DocumentCompositeViewModel : DocumentNodeViewModel
         var graph = Document.PropertyGraph;
         graph.PresentationChanged += OnPresentationChanged;
         Disposable.Create(() => graph.PresentationChanged -= OnPresentationChanged).DisposeWith(disposables);
+        FollowInlineNodes();
+        Disposable.Create(() => _inlineFollow.Disposable = null).DisposeWith(disposables);
 
         this.WhenAnyValue(x => x.IsExpanded)
             .Subscribe(x =>
@@ -109,7 +114,7 @@ public abstract partial class DocumentCompositeViewModel : DocumentNodeViewModel
                 // value got another type meanwhile
                 if (x && _isBuilt)
                 {
-                    if (_builtChildrenVersion != Property.ChildrenVersion)
+                    if (_builtChildrenVersion != ShownVersion)
                     {
                         Rebuild();
                     }
@@ -133,15 +138,53 @@ public abstract partial class DocumentCompositeViewModel : DocumentNodeViewModel
     protected override void PropertyOnChanged()
     {
         base.PropertyOnChanged();
-        if (_isBuilt && IsExpanded && _builtChildrenVersion != Property.ChildrenVersion)
+        if (_isBuilt && IsExpanded && _builtChildrenVersion != ShownVersion)
         {
             Rebuild();
         }
     }
 
+    // How many times what it shows was made again: its children and the children of the nodes laid out with its own
+    private int ShownVersion => InlineVersion(Property);
+
+    private static int InlineVersion(PropertyNode property) => property.ChildrenVersion + property.Children.Where(IsInline).Sum(InlineVersion);
+
+    private void FollowInlineNodes()
+    {
+        var followed = new CompositeDisposable();
+        foreach (var inline in InlineNodes(Property))
+        {
+            inline.Changed += InlineChanged;
+            Disposable.Create(() => inline.Changed -= InlineChanged).DisposeWith(followed);
+        }
+
+        _inlineFollow.Disposable = followed;
+    }
+
+    private void InlineChanged()
+    {
+        if (_isBuilt && IsExpanded && _builtChildrenVersion != ShownVersion)
+        {
+            Rebuild();
+        }
+    }
+
+    private static IEnumerable<PropertyNode> InlineNodes(PropertyNode property)
+    {
+        foreach (var child in property.Children.Where(IsInline))
+        {
+            yield return child;
+            foreach (var inline in InlineNodes(child))
+            {
+                yield return inline;
+            }
+        }
+    }
+
     protected void Rebuild()
     {
-        _builtChildrenVersion = Property.ChildrenVersion;
+        _builtChildrenVersion = ShownVersion;
+        FollowInlineNodes();
         var viewModels = GetShownChildren(Property)
             .Select((propertyChild, order) =>
             {

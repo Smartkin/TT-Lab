@@ -15,7 +15,10 @@ namespace TT_Lab.Assets.Factory;
 
 public static class AssetFactory
 {
-    public static IAsset? CreateAsset(Type type, Folder folder, string name, string variation, ITwinIdGeneratorService idGenerator, Func<IAsset, AssetCreationStatus>? dataCreator = null, Enums.Layouts? layout = null)
+    /// <param name="unsaved">The asset isn't written, like a layout's instance until its chunk gets saved: a material Blender made, written
+    /// when Blender's file gets saved</param>
+    public static IAsset? CreateAsset(Type type, Folder folder, string name, string variation, ITwinIdGeneratorService idGenerator, Func<IAsset, AssetCreationStatus>? dataCreator = null,
+        Enums.Layouts? layout = null, bool unsaved = false)
     {
         Debug.Assert(type.IsAssignableTo(typeof(IAsset)), $"The type {type.Name} must implement IAsset");
         var newAsset = (IAsset)Activator.CreateInstance(type)!;
@@ -46,14 +49,15 @@ public static class AssetFactory
             containingFolder.AddChild(newAsset);
         }
 
-        if (type != typeof(Folder) && layout is null)
+        // What the asset links to is known from the start, deleting what it links to fixes it
+        if (type != typeof(Folder) && layout is null && !unsaved)
         {
-            newAsset.Serialize(SerializationFlags.SetDirectoryToAssets | SerializationFlags.SaveData);
+            newAsset.Serialize(SerializationFlags.SetDirectoryToAssets | SerializationFlags.SaveData | SerializationFlags.FixReferences);
         }
-        else if (type != typeof(Folder) && newAsset is SerializableAsset unsaved)
+        else if (type != typeof(Folder) && newAsset is SerializableAsset unsavedAsset)
         {
             // A layout's instance is written when the chunk it was made for gets saved
-            unsaved.IsUnsaved = true;
+            unsavedAsset.IsUnsaved = true;
         }
 
         // The tree shows the new asset, or the first folder made for it
@@ -200,7 +204,7 @@ public static class AssetFactory
             containingFolder.AddChild(newAsset);
         }
 
-        newAsset.Serialize(SerializationFlags.SetDirectoryToAssets | SerializationFlags.SaveData);
+        newAsset.Serialize(SerializationFlags.SetDirectoryToAssets | SerializationFlags.SaveData | SerializationFlags.FixReferences);
         
         var parent = (createdIn ?? containingFolder).GetResourceTreeElement();
         IAsset treeAsset = createdFolder ?? newAsset;

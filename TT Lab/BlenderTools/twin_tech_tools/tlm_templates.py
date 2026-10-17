@@ -17,10 +17,11 @@
 
 """New models to build in Blender, laid out the way imported ones are so they export the same way.
 
-An OGI template is a root with an armature of two joints, a box rigid body on the second, an empty skin and blend skin the armature
-deforms and the holders of the rigid bodies, exit points and collision hulls. A scenery template is a root with the tree node the game
+An OGI template is a root with an armature of joint 0, a box that's its rigid body and the holders of the exit points and collision
+hulls, a skydome template a dome, a model template a box with its picture. A scenery template is a root with the tree node the game
 culls it with holding a ground mesh, its lights, its collision and its dynamic scenery. A save icon template is a root with the icon's
-mesh and its textured material. Everything under a root is in the game's space, Y up, the root turns it Z up for Blender.
+mesh and its textured material. Their geometry is laid out in the game's space, Y up, and put in Blender's axes the way an import puts a
+model's (axes).
 """
 
 import json
@@ -30,6 +31,8 @@ import uuid
 import bpy
 from mathutils import Vector
 
+from . import axes
+from . import gs_material
 from . import material_settings
 from . import tlm_blender
 from . import tlm_scenery
@@ -74,7 +77,6 @@ def _root(context: bpy.types.Context, name: str, asset_type: str, kind: str) -> 
     tlm_blender.use_standard_view(context)
     root = tlm_blender._new_object(name, None, None, collection)
     root.empty_display_type = "PLAIN_AXES"
-    root.matrix_basis = tlm_blender.Y_UP
     root[tlm_blender.ROOT_PROPERTY] = asset_type
     root[tlm_blender.PATH_PROPERTY] = ""
     root[tlm_blender.UID_PROPERTY] = uuid.uuid4().hex
@@ -93,13 +95,25 @@ def _empty(name: str, kind: str, parent: bpy.types.Object, collection: bpy.types
 EMPTY: Geometry = ([], [], [])
 
 
-def _mesh_object(name: str, geometry: Geometry, kind: str, parent: bpy.types.Object, collection: bpy.types.Collection) -> bpy.types.Object:
-    """A mesh of the geometry with the attributes imported meshes have, all of it one part."""
+def _mesh_object(name: str, geometry: Geometry, kind: str, parent: bpy.types.Object, collection: bpy.types.Collection,
+                 frame: str = tlm_blender.MODEL_FRAME) -> bpy.types.Object:
+    """A mesh of the geometry of the game's space with the attributes imported meshes have, all of it one part, in the frame's axes."""
     positions, faces, uvs = geometry
+    convert = axes.joint_point if frame == tlm_blender.JOINT_FRAME else axes.point
+    turned_faces = []
+    corner_uvs = []
+    start = 0
+    for face in faces:
+        # The reflection turns the faces around, their corners' UVs go along
+        order = axes.face(list(range(len(face))))
+        turned_faces.append(tuple(face[corner] for corner in order))
+        corner_uvs.extend(uvs[start + corner] for corner in order)
+        start += len(face)
+
     mesh = bpy.data.meshes.new(name)
-    mesh.from_pydata(positions, [], faces)
+    mesh.from_pydata([convert(position) for position in positions], [], turned_faces)
     mesh.update()
-    mesh.uv_layers.new(name="UVMap").data.foreach_set("uv", [value for uv in uvs for value in uv])
+    mesh.uv_layers.new(name="UVMap").data.foreach_set("uv", [value for uv in corner_uvs for value in uv])
     mesh.attributes.new(tlm_blender.PART_ATTRIBUTE, "INT", "FACE")
     mesh.attributes.new(tlm_blender.VERTEX_PART_ATTRIBUTE, "INT", "POINT")
     blender_object = tlm_blender._new_object(name, mesh, parent, collection)
@@ -108,10 +122,11 @@ def _mesh_object(name: str, geometry: Geometry, kind: str, parent: bpy.types.Obj
 
 
 def new_ogi(context: bpy.types.Context, name: str = "OGI") -> bpy.types.Object:
-    """A new OGI: the root with its bounding box around the box, an armature of joint 0 and joint 1 under it, the box a rigid body following
-    joint 1, a skin and a blend skin the armature deforms that are empty, to be filled with the model's meshes (the model has none of them
-    until they are), and the empty holders exit points and hulls go under. The game gives a model of one joint and no exit points no
-    animator and draws only its rigid models (ModelNode::SetOgi): the second joint lets a skin show once it's filled."""
+    """A new OGI: the root with its bounding box around the box, an armature of joint 0 and the box, a rigid body of joint 0 (a mesh
+    neither deformed nor on a bone is one, parts), with the holders exit points and hulls go in. Meshes rigged to the armature the way
+    Blender rigs them become the model's: deformed by it its skin (the blend skin with shape keys), parented to a bone a rigid body of the
+    bone's joint. The game gives a model of one joint and no exit points no animator and draws only its rigid models
+    (ModelNode::SetOgi): a skin needs a bone under the root."""
     root, collection = _root(context, name, "Ogi", "ogi")
     half = SKIN_SIZE / 2.0
     tlm_blender._read_data(root, "Ogi", {"BoundingBoxMin": (-half, 0.0, -half, 1.0), "BoundingBoxMax": (half, SKIN_SIZE, half, 1.0)})
@@ -121,40 +136,95 @@ def new_ogi(context: bpy.types.Context, name: str = "OGI") -> bpy.types.Object:
     armature[tlm_blender.KIND_PROPERTY] = "armature"
     context.view_layer.objects.active = armature
     bpy.ops.object.mode_set(mode="EDIT")
+    # Pointing up it rests unturned, like the game's roots
     root_bone = armature_data.edit_bones.new("Joint 0")
-    root_bone.head = (0.0, 0.0, 0.0)
-    root_bone.tail = (0.0, half, 0.0)
-    body_bone = armature_data.edit_bones.new("Joint 1")
-    body_bone.head = (0.0, half, 0.0)
-    body_bone.tail = (0.0, SKIN_SIZE, 0.0)
-    body_bone.parent = root_bone
+    root_bone.head = axes.point((0.0, 0.0, 0.0))
+    root_bone.tail = axes.point((0.0, half, 0.0))
     bpy.ops.object.mode_set(mode="OBJECT")
-    for index, bone_name in enumerate(("Joint 0", "Joint 1")):
-        tlm_blender._read_data(armature_data.bones[bone_name], "Joint", {"Index": index})
-        armature.pose.bones[bone_name].rotation_mode = "QUATERNION"
+    tlm_blender._read_data(armature_data.bones["Joint 0"], "Joint", {"Index": 0})
+    armature.pose.bones["Joint 0"].rotation_mode = "QUATERNION"
 
-    skin = _mesh_object("Skin", EMPTY, "skin", root, collection)
-    tlm_blender._read_data(skin, "Skin", {})
-    skin.modifiers.new("Armature", "ARMATURE").object = armature
-    blend_skin = _mesh_object("Blend Skin", EMPTY, "shape", root, collection)
-    tlm_blender._read_data(blend_skin, "BlendSkin", {})
-    # Its shapes are the shape keys over this one
-    blend_skin.shape_key_add(name="Basis", from_mix=False).interpolation = "KEY_LINEAR"
-    blend_skin.modifiers.new("Armature", "ARMATURE").object = armature
-
-    bodies = _empty("Rigid Bodies", "rigid_bodies", root, collection, "PLAIN_AXES", 0.1)
-    body = _mesh_object("Body", box(SKIN_SIZE, SKIN_SIZE, SKIN_SIZE), "body", bodies, collection)
-    tlm_blender._read_data(body, "Body", {})
-    # Like an imported body: it follows its bone through a Child Of constraint, where it is in the joint's space. Joint 1 rests half way up
-    body[tlm_blender.JOINT_PROPERTY] = 1
-    body.location = (0.0, -half, 0.0)
-    constraint = body.constraints.new("CHILD_OF")
-    constraint.target = armature
-    constraint.subtarget = "Joint 1"
-    constraint.inverse_matrix = root.matrix_basis.inverted()
+    body = _mesh_object("Body", box(SKIN_SIZE, SKIN_SIZE, SKIN_SIZE), "", root, collection)
+    del body[tlm_blender.KIND_PROPERTY]
     for holder_name, kind in (("Exit Points", "exit_points"), ("Collision Hulls", "collision_hulls")):
         _empty(holder_name, kind, root, collection, "PLAIN_AXES", 0.1)
 
+    return root
+
+
+# The sky's dome: big enough to hold what the camera sees of a level from where it is, drawn around it (the game draws it at the camera)
+SKY_RADIUS = 50.0
+SKY_TOP = (0.35, 0.55, 0.95)
+SKY_HORIZON = (0.85, 0.9, 1.0)
+
+
+def _dome(radius: float, rings: int = 8, segments: int = 16) -> Geometry:
+    """The upper half of a sphere around the origin and a ring below the horizon, its faces facing in: the camera is inside it."""
+    import math
+
+    positions = [(0.0, radius, 0.0)]
+    for ring in range(1, rings + 1):
+        # Down to a little below the horizon
+        angle = math.radians(100.0) * ring / rings
+        for segment in range(segments):
+            turn = 2.0 * math.pi * segment / segments
+            positions.append((radius * math.sin(angle) * math.cos(turn), radius * math.cos(angle), radius * math.sin(angle) * math.sin(turn)))
+
+    # Counter-clockwise seen from inside
+    faces = []
+    for segment in range(segments):
+        following = (segment + 1) % segments
+        faces.append((0, 1 + segment, 1 + following))
+
+    for ring in range(rings - 1):
+        start = 1 + ring * segments
+        below = start + segments
+        for segment in range(segments):
+            following = (segment + 1) % segments
+            faces.append((start + segment, below + segment, below + following, start + following))
+
+    uvs = [(0.0, 0.0)] * sum(len(face) for face in faces)
+    return positions, faces, uvs
+
+
+def new_skydome(context: bpy.types.Context, name: str = "Skydome") -> bpy.types.Object:
+    """A new sky: the root and a dome drawn with the vertex colors of its corners, a sky's material (the game's skies are shader type 10 in
+    render bucket 0 testing no depth, drawn around the camera before the level)."""
+    root, collection = _root(context, name, "Skydome", "skydome")
+    dome = _mesh_object("Sky", _dome(SKY_RADIUS), "skydome_mesh", root, collection)
+    tlm_blender._read_data(dome, "SkydomeMesh", {"Order": 0})
+    colors = dome.data.color_attributes.new(tlm_blender.COLOR_ATTRIBUTE, "BYTE_COLOR", "POINT")
+    shades = []
+    for vertex in dome.data.vertices:
+        height = max(0.0, min(1.0, vertex.co.z / SKY_RADIUS))
+        shades.extend([horizon + (top - horizon) * height for top, horizon in zip(SKY_TOP, SKY_HORIZON)] + [1.0])
+
+    colors.data.foreach_set("color_srgb", shades)
+    dome.data.color_attributes.active_color = colors
+    dome.data.color_attributes.render_color_index = dome.data.color_attributes.find(tlm_blender.COLOR_ATTRIBUTE)
+    material = bpy.data.materials.new(name)
+    shader = gs_material.new_shader(10)
+    shader["DepthTest"] = 1
+    shader["ZValueDrawingMask"] = 1
+    material_settings.load(material, {"ActivatedShaders": 0, "Name": gs_material.ascii_name(name), "DmaChainIndex": 0, "Shaders": [shader]})
+    dome.data.materials.append(material)
+    return root
+
+
+def new_model(context: bpy.types.Context, name: str = "Model") -> bpy.types.Object:
+    """A new model the scenery and LODs place: the root and a box standing on the ground with a checkered picture made in Blender."""
+    root, collection = _root(context, name, "Mesh", "mesh")
+    model = _mesh_object(name, box(SKIN_SIZE, SKIN_SIZE, SKIN_SIZE), "part_mesh", root, collection)
+    colors = model.data.color_attributes.new(tlm_blender.COLOR_ATTRIBUTE, "BYTE_COLOR", "POINT")
+    colors.data.foreach_set("color_srgb", [128.0 / 255.0, 128.0 / 255.0, 128.0 / 255.0, 1.0] * len(model.data.vertices))
+    model.data.color_attributes.active_color = colors
+    material = bpy.data.materials.new(name)
+    material_settings.load(material, gs_material.new_material(name, textured=True))
+    with material_settings.suspended():
+        material_settings.settings_of(material).shaders[0].image = _checker_image(name + " Texture", ICON_TEXTURE_SIZE, 8)
+
+    material_settings.refresh(material)
+    model.data.materials.append(material)
     return root
 
 
@@ -173,13 +243,13 @@ def new_scenery(context: bpy.types.Context, name: str = "Scenery") -> bpy.types.
     lights = _empty("Lights", "lights", root, collection, *tlm_scenery._EMPTY_DISPLAY["lights"])
     ambient = _empty("Ambient Light", "ambient_light", lights, collection, *tlm_scenery._EMPTY_DISPLAY["ambient_light"])
     tlm_blender._read_data(ambient, "AmbientLight", {"Color": (THIRD_GREY, THIRD_GREY, THIRD_GREY, 0.0), "Intensity": 4.5})
-    ambient.location = (0.0, 5.0, 0.0)
+    tlm_blender._set_node_transform(ambient, {"translation": [0.0, 5.0, 0.0]}, tlm_blender.LIGHT_FRAME)
     sun = _empty("Directional Light", "directional_light", lights, collection, *tlm_scenery._EMPTY_DISPLAY["directional_light"])
     tlm_blender._read_data(sun, "DirectionalLight", {"Color": (THIRD_GREY, THIRD_GREY, THIRD_GREY, 0.0), "Intensity": 3.0})
-    # The arrow points at where the light comes from: from above, a little to the side so faces don't all get the same light
-    sun.rotation_mode = "QUATERNION"
-    sun.rotation_quaternion = Vector((0.0, 0.0, 1.0)).rotation_difference(Vector((0.3, 1.0, 0.3)).normalized())
-    sun.location = (0.0, 10.0, 0.0)
+    # The arrow, the node's Z axis, points at where the light comes from: from above, a little to the side so faces don't all get the
+    # same light
+    turn = Vector((0.0, 0.0, 1.0)).rotation_difference(Vector((0.3, 1.0, 0.3)).normalized())
+    tlm_blender._set_node_transform(sun, {"translation": [0.0, 10.0, 0.0], "rotation": [turn.x, turn.y, turn.z, turn.w]}, tlm_blender.LIGHT_FRAME)
 
     collision = _mesh_object("Collision", ground(GROUND_SIZE), "collision", root, collection)
     tlm_blender._read_data(collision, "Collision", {})

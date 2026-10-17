@@ -208,6 +208,30 @@ public class PassService
         }
     }
 
+    /// <summary>
+    /// Takes every draw of the batches out of every pass at once, the batches of the models a scene let go of: a scenery's thousands one
+    /// after another would go through every pass's draws for each
+    /// </summary>
+    public void UnregisterBatches(IReadOnlyCollection<RenderBatch> batches)
+    {
+        if (batches.Count == 0)
+        {
+            return;
+        }
+
+        Version++;
+        var gone = new HashSet<Renderable>(batches, ReferenceEqualityComparer.Instance);
+        foreach (var content in _contents.Values)
+        {
+            var removed = content.Fixed.RemoveAll(entry => gone.Contains(entry.Entry.Renderable));
+            removed += content.SceneDraws.RemoveAll(draw => gone.Contains(draw.Batch));
+            if (removed > 0)
+            {
+                content.Entries = null;
+            }
+        }
+    }
+
     public RenderPass GetRenderPass(string name)
     {
         Debug.Assert(_passes.ContainsKey(name), $"Attempting to get unregistered pass {name}!");

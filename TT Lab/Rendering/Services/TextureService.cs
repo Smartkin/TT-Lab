@@ -73,6 +73,29 @@ public class TextureService
     }
 
     /// <summary>
+    /// The texture asset's picture replaced (painted in Blender): what draws it draws the new one. On the render thread
+    /// </summary>
+    public void Refresh(LabURI uri)
+    {
+        var assetManager = AssetManager.Get();
+        if (!_textures.TryGetValue(uri, out var texture) || !assetManager.DoesAssetExist(uri))
+        {
+            return;
+        }
+
+        var textureAsset = assetManager.GetAsset<Texture>(uri);
+        var textureData = assetManager.GetAssetData<TextureData>(uri);
+        if (textureData.Bitmap == null)
+        {
+            return;
+        }
+
+        var width = textureData.Bitmap.PixelSize.Width;
+        var height = textureData.Bitmap.PixelSize.Height;
+        texture.Replace(MemoryMarshal.AsBytes(textureData.GetPixels().AsSpan()), (uint)width, (uint)height, PS2AnyTexture.LevelsOf(width, height, textureAsset.GenerateMipmaps));
+    }
+
+    /// <summary>
     /// A picture that's no texture asset (a save icon's), drawn by materials naming the URI it's given; giving the URI again replaces it
     /// </summary>
     public TextureBuffer SetTexture(LabURI uri, byte[] bgra, uint width, uint height)

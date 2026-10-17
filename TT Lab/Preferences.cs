@@ -52,6 +52,8 @@ namespace TT_Lab
         public const string OgiViewerSkeleton = "OgiViewerSkeleton";
         // Whether Discord shows what's done in TT Lab (Tools/Discord)
         public const string DiscordRichPresence = "DiscordRichPresence";
+        // Blender's executable, or its Flatpak's ID, that models are edited in (Tools/Blender), found on its own when empty
+        public const string BlenderPath = "BlenderPath";
         // The Preferences window's sections left collapsed, by their titles
         public const string CollapsedPreferenceSections = "CollapsedPreferenceSections";
 
@@ -77,6 +79,7 @@ namespace TT_Lab
             Settings[Pcsx2Arguments] = "";
             Settings[OgiViewerSkeleton] = false;
             Settings[DiscordRichPresence] = false;
+            Settings[BlenderPath] = "";
             Settings[CollapsedPreferenceSections] = new List<string>();
         }
 

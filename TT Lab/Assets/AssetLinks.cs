@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using TT_Lab.Attributes;
 using TT_Lab.Project;
 
 namespace TT_Lab.Assets;
@@ -166,9 +167,105 @@ internal static class AssetLinks
         return ReadModelJson(path) is { } json ? UrisIn(json).ToList() : [];
     }
 
+    /// <summary>
+    /// The URIs a model file's bytes name, none of what isn't a model file (a picture)
+    /// </summary>
+    public static List<string> UrisInModelBytes(Byte[] bytes)
+    {
+        using var stream = new MemoryStream(bytes, false);
+        return ReadModelJson(stream) is { } json ? UrisIn(json).ToList() : [];
+    }
+
+    /// <summary>
+    /// The URIs a data file's bytes name: a model file's JSON, or the JSON data itself (a material's), none of a picture
+    /// </summary>
+    public static List<string> UrisInDataBytes(Byte[] bytes)
+    {
+        if (UrisInModelBytes(bytes) is { Count: > 0 } models)
+        {
+            return models;
+        }
+
+        var start = bytes.AsSpan().IndexOfAnyExcept(" \t\r\n\uFEFF"u8);
+        return start >= 0 && bytes[start] is (Byte)'{' or (Byte)'[' ? UrisIn(Encoding.UTF8.GetString(bytes)).ToList() : [];
+    }
+
+    /// <summary>
+    /// The assets a value links, walking what holds links (TT Lab's types marked to reference assets, lists, links themselves) like the
+    /// references of an asset's data are found
+    /// </summary>
+    public static HashSet<string> UrisInValue(object? value)
+    {
+        var found = new HashSet<string>();
+        AddUris(value, found, new HashSet<object>(ReferenceEqualityComparer.Instance));
+        return found;
+    }
+
+    private static void AddUris(object? value, HashSet<string> found, HashSet<object> visited)
+    {
+        switch (value)
+        {
+            case null or string:
+                return;
+            case LabURI uri:
+                if (uri != LabURI.Empty)
+                {
+                    found.Add(uri.ToString());
+                }
+
+                return;
+        }
+
+        if (value.GetType().IsValueType || !visited.Add(value))
+        {
+            return;
+        }
+
+        if (value is System.Collections.IEnumerable list)
+        {
+            foreach (var item in list)
+            {
+                AddUris(item, found, visited);
+            }
+
+            return;
+        }
+
+        if (value.GetType().GetCustomAttributes(typeof(ReferencesAssetsAttribute), true).Length == 0)
+        {
+            return;
+        }
+
+        foreach (var property in value.GetType().GetProperties())
+        {
+            if (property.PropertyType == typeof(string) || property.GetIndexParameters().Length > 0 || !property.CanRead
+                || property.GetCustomAttributes(typeof(JsonIgnoreAttribute), true).Length > 0)
+            {
+                continue;
+            }
+
+            object? held;
+            try
+            {
+                held = property.GetValue(value);
+            }
+            catch (System.Reflection.TargetInvocationException)
+            {
+                continue;
+            }
+
+            AddUris(held, found, visited);
+        }
+    }
+
     private static string? ReadModelJson(string path)
     {
         using var stream = new FileStream(path, FileMode.Open, FileAccess.Read);
+        return ReadModelJson(stream);
+    }
+
+    private static string? ReadModelJson(Stream stream)
+    {
         var header = new Byte[TlmHeaderSize];
         if (stream.Read(header, 0, TlmHeaderSize) != TlmHeaderSize || !header.AsSpan(0, 4).SequenceEqual(TlmMagic))
         {

@@ -72,6 +72,25 @@ public class ModelBuffer(RenderContext context, ModelBufferBuild build, Material
         old.Release();
     }
 
+    /// <summary>
+    /// Whether what the model was drawn from was let go of (<see cref="Release"/>): nothing may draw it any more
+    /// </summary>
+    public bool IsReleased { get; private set; }
+
+    /// <summary>
+    /// Frees the model's vertexes, its range of the context's vertex pool or its own buffers, once nothing draws it. On the render thread
+    /// </summary>
+    public void Release()
+    {
+        if (IsReleased)
+        {
+            return;
+        }
+
+        IsReleased = true;
+        _build.Release();
+    }
+
     private void InvalidateMaterials()
     {
         _materials.Clear();

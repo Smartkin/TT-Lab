@@ -75,6 +75,28 @@ public sealed class TransformGizmoTests
         Assert.False(gizmo.IsDragging);
     }
 
+    // However a drag ends (let go of, given up on, its selection deselected under it), it's told once: the viewport ends the drag's step
+    // of the history then
+    [Fact]
+    public void ADragEndingIsToldOnce()
+    {
+        var gizmo = CreateGizmo(TransformMode.TRANSLATE);
+        var ended = 0;
+        gizmo.DragEnded += () => ended++;
+        var grab = vec3.UnitX * Size(vec3.Zero) * 0.7f;
+
+        Assert.Null(gizmo.EndDrag());
+        Assert.Equal(0, ended);
+
+        Assert.True(gizmo.BeginDrag(_camera, Origin, Screen(grab)));
+        gizmo.Drag(_camera, Screen(grab + new vec3(1, 0, 0)));
+        Assert.Equal(0, ended);
+        Assert.Equal(Origin, gizmo.EndDrag());
+        Assert.Equal(1, ended);
+        gizmo.EndDrag();
+        Assert.Equal(1, ended);
+    }
+
     [Fact]
     public void DraggingAPlaneMovesAlongIt()
     {

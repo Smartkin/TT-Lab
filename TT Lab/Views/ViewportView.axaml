@@ -6,6 +6,7 @@
              xmlns:controls="clr-namespace:TT_Lab.Controls"
              xmlns:rendering="clr-namespace:TT_Lab.Rendering"
              xmlns:interfaces="clr-namespace:TT_Lab.ViewModels.Interfaces"
+             xmlns:blender="clr-namespace:TT_Lab.Tools.Blender"
              x:DataType="viewmodels:ViewportViewModel"
              HorizontalAlignment="Stretch"
              VerticalAlignment="Stretch"
@@ -64,6 +65,28 @@
                 </Button>
                 <!-- Playing the chunk in PCSX2, what it uses is in Preferences > Direct Game Launch -->
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="2">
+                    <Button x:Name="EditSceneryInBlender" Classes="tool" Command="{Binding EditSceneryInBlenderCommand}" IsVisible="{Binding HasSceneryToEdit}"
+                            ToolTip.Tip="Edit the scenery in Blender: its blend file opens in Blender (a new one or an existing one the first time), linked to TT Lab, saving it writes the scenery as a step of this scene">
+                        <Button.ContextFlyout>
+                            <MenuFlyout>
+                                <MenuItem Header="Edit the Scenery in Blender" Command="{Binding EditSceneryInBlenderCommand}"/>
+                                <MenuItem Header="{x:Static blender:BlenderEditing.UseExistingHeader}" Command="{Binding UseBlendFileForSceneryCommand}"
+                                          ToolTip.Tip="{x:Static blender:BlenderEditing.UseExistingHint}"/>
+                            </MenuFlyout>
+                        </Button.ContextFlyout>
+                        <PathIcon Data="M14,6 A7,7 0 1 1 13.99,6 Z M14,9 A4,4 0 1 0 14.01,9 Z M14,11.5 A1.5,1.5 0 1 1 13.99,11.5 Z M1.5,6 L3,4.5 L9.5,9.5 L8,11 Z"/>
+                    </Button>
+                    <Button x:Name="SceneryBlenderMenu" Classes="tool" IsVisible="{Binding HasSceneryToEdit}" Padding="1,4"
+                            ToolTip.Tip="More of Blender: use an existing blend file, whose scenery replaces this chunk's">
+                        <PathIcon Data="M6,9 L12,15 L18,9 Z" Width="9" Height="9"/>
+                        <Button.Flyout>
+                            <MenuFlyout Placement="BottomEdgeAlignedRight">
+                                <MenuItem Header="Edit the Scenery in Blender" Command="{Binding EditSceneryInBlenderCommand}"/>
+                                <MenuItem Header="{x:Static blender:BlenderEditing.UseExistingHeader}" Command="{Binding UseBlendFileForSceneryCommand}"
+                                          ToolTip.Tip="{x:Static blender:BlenderEditing.UseExistingHint}"/>
+                            </MenuFlyout>
+                        </Button.Flyout>
+                    </Button>
                     <Button x:Name="PlayInGame" Classes="tool" Classes.active="{Binding IsPlayingThisChunk}" Command="{Binding PlayInGameCommand}"
                             ToolTip.Tip="{Binding PlayInGameHint}" ToolTip.ShowOnDisabled="True">
                         <PathIcon Data="M7,4 L20,12 L7,20 Z"/>

@@ -68,5 +68,7 @@ internal static class AssetFileStamps
         return BinaryPrimitives.ReadUInt64LittleEndian(SHA256.HashData(stream));
     }
 
+    public static void Forget(string path) => Stamps.TryRemove(Normalize(path), out _);
+
     public static void Clear() => Stamps.Clear();
 }

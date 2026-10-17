@@ -99,7 +99,8 @@ def unregister():
 
 
 def get_all_submodules(directory):
-    return list(iter_submodules(directory, directory.name))
+    # The add-on's package, which is bl_ext.<repository>.twin_tech_tools for an extension, never just its folder's name
+    return list(iter_submodules(directory, __package__))
 
 
 def iter_submodules(path, package_name):

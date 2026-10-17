@@ -73,6 +73,18 @@
         <Copy Condition="$(RuntimeIdentifier.StartsWith('linux'))" SourceFiles="@(PublishNativeLibrariesLinux)" DestinationFolder="$(PublishDir)" />
     </Target>
 
+    <!-- Copying BlenderTools\dist next to TT Lab leaves the zips an earlier build put there, and the add-on of the highest version among
+         them is taken for the one TT Lab comes with (BlenderAddonInstaller.BundledZip): only the ones dist has stay -->
+    <Target Name="RemoveStaleAddonZips" AfterTargets="CopyFilesToOutputDirectory;Publish">
+        <ItemGroup>
+            <LeftAddonZips Include="$([System.IO.Path]::Combine($(MSBuildProjectDirectory), $(OutDir)))BlenderTools\dist\twin_tech_tools-*.zip" />
+            <LeftAddonZips Include="$([System.IO.Path]::Combine($(MSBuildProjectDirectory), $(PublishDir)))BlenderTools\dist\twin_tech_tools-*.zip" />
+            <StaleAddonZips Include="@(LeftAddonZips)" Condition="!Exists('$(MSBuildProjectDirectory)\BlenderTools\dist\%(LeftAddonZips.Filename)%(LeftAddonZips.Extension)')" />
+        </ItemGroup>
+
+        <Delete Files="@(StaleAddonZips)" />
+    </Target>
+
     <ItemGroup>
         <PackageReference Include="Avalonia" Version="11.3.12" />
         <PackageReference Include="Avalonia.AvaloniaEdit" Version="11.3.0" />

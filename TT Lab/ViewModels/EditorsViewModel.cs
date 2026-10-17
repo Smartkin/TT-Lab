@@ -71,7 +71,7 @@ public class EditorsViewModel
     // What's asked when another program changed what editors have unsaved changes to, tests answer it themselves
     internal Func<string, Task<bool>> AskToReloadChangedFiles { get; set; } = ExternalChangeDialogue.Ask;
 
-    private List<TabbedEditorViewModel> AllTabs => ScenesEditorsViewModel.Tabs.Concat(ResourcesEditorsViewModel.Tabs).ToList();
+    internal List<TabbedEditorViewModel> AllTabs => ScenesEditorsViewModel.Tabs.Concat(ResourcesEditorsViewModel.Tabs).ToList();
 
     private static readonly TimeSpan WaitForEditors = TimeSpan.FromMilliseconds(250);
 
@@ -89,6 +89,23 @@ public class EditorsViewModel
     /// the next read takes the file
     /// </summary>
     public Task ReloadChangedFiles(IReadOnlyCollection<string> paths) => Reload(paths, true);
+
+    /// <summary>
+    /// Makes the editors showing assets TT Lab changed outside of them again (what a model exported from Blender brought into its
+    /// materials and textures), asking first about unsaved changes to them like for files changed outside TT Lab
+    /// </summary>
+    public Task ShowChangedAssets(IReadOnlyCollection<IAsset> assets)
+    {
+        foreach (var asset in assets)
+        {
+            _forced.Add(AssetFileStamps.Normalize(asset.FullDataPath));
+        }
+
+        return Reload(assets.Select(asset => asset.FullDataPath).ToList(), true);
+    }
+
+    // What TT Lab wrote itself that the editors take anyway
+    private readonly HashSet<string> _forced = new(AssetFileStamps.PathComparer);
 
     private async Task Reload(IEnumerable<string> paths, bool ask)
     {
@@ -149,7 +166,8 @@ public class EditorsViewModel
             return;
         }
 
-        var written = paths.Where(path => !AssetFileStamps.IsAsRecorded(path)).Select(AssetFileStamps.Normalize).ToHashSet(AssetFileStamps.PathComparer);
+        var written = paths.Where(path => _forced.Remove(AssetFileStamps.Normalize(path)) || !AssetFileStamps.IsAsRecorded(path)).Select(AssetFileStamps.Normalize)
+            .ToHashSet(AssetFileStamps.PathComparer);
         if (written.Count == 0)
         {
             return;
@@ -204,6 +222,8 @@ public class EditorsViewModel
         var reloading = tabs.Except(kept).Where(tab => tab.Shows(rereadUris)).ToList();
         var discarding = reloading.Where(tab => discard && asked.Contains(tab)).ToList();
         var keptStates = new Dictionary<TabbedEditorViewModel, TabbedEditorViewModel.KeptState?>();
+        // What Blender changed of them and didn't save goes, the files are another program's now
+        Tools.Blender.LinkedDocuments.Release(rereadUris);
         foreach (var tab in reloading)
         {
             keptStates[tab] = await tab.Unload(discarding.Contains(tab), rereadUris, NameAssets(reread));
@@ -237,10 +257,11 @@ public class EditorsViewModel
         }
     }
 
-    // Read the way an editor reads it, in a scope of its own the read data and what it makes go with
+    // Read the way an editor reads it, in a scope of its own the read data and what it makes go with. Nothing the file brings is taken
+    // yet (a model's materials made in Blender), the question comes first and the read after it takes it
     private static Task<bool> CanRead(IAsset asset) => Task.Run(() =>
     {
-        using var scope = new AssetDataScope();
+        using var scope = new AssetDataScope { IsDryRead = true };
         scope.ReadAgain(asset);
         try
         {
@@ -369,9 +390,22 @@ public class EditorsViewModel
         return await ScenesEditorsViewModel.CloseTabsReferencing(assets) && await ResourcesEditorsViewModel.CloseTabsReferencing(assets);
     }
 
+    /// <summary>
+    /// Whether an open editor shows the asset, one it showed since it opened included: deleting it would close the editor
+    /// </summary>
+    public bool IsShown(LabURI asset)
+    {
+        return AllTabs.Any(tab => tab.GetReferencedAssets().Contains(asset));
+    }
+
     // Editors closed before their assets moved open them where they are now
     public void FollowMovedAssets(IReadOnlyDictionary<LabURI, LabURI> moved)
     {
+        if (Splat.Locator.Current.GetService(typeof(Tools.Blender.BlenderLinkServer)) is Tools.Blender.BlenderLinkServer link)
+        {
+            link.TellMoved(moved);
+        }
+
         var changed = false;
         for (var i = 0; i < _recentlyClosed.Count; i++)
         {
@@ -433,6 +467,8 @@ public class EditorsViewModel
         }
 
         var referencedAssets = openTabs.SelectMany(tab => tab.GetReferencedAssets()).ToHashSet();
+        // What Blender changed and didn't save is in the data of documents no tab shows
+        referencedAssets.UnionWith(Tools.Blender.LinkedDocuments.ReferencedAssets());
         var assetManager = AssetManager.Get();
         var releasedAssets = 0;
         foreach (var asset in assetManager.GetAssets())

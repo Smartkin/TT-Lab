@@ -232,6 +232,81 @@ class MergeTests(unittest.TestCase):
         self.assertEqual(gs_material.f32(0.1), result["Shaders"][0]["FloatParam"][0])
 
 
+class ChangesTests(unittest.TestCase):
+    def shown(self, material=RETAIL):
+        return gs_material.shown_material(material)
+
+    def test_nothing_changed_has_no_paths(self):
+        data, changed, sources = gs_material.changes(RETAIL, self.shown())
+
+        self.assertEqual([], changed)
+        self.assertIsNone(sources)
+        self.assertFalse(gs_material.is_changed(data, RETAIL))
+
+    def test_the_values_blender_changed_are_its_paths(self):
+        shown = self.shown()
+        shown["render_bucket"] = "BUCKET_6"
+        shown["shaders"][1]["alpha_reference"] = 50
+        scroll = list(shown["shaders"][0]["uv_scroll"])
+        scroll[3] = 2.0
+        shown["shaders"][0]["uv_scroll"] = tuple(scroll)
+
+        data, changed, sources = gs_material.changes(RETAIL, shown)
+
+        self.assertEqual([["DmaChainIndex"], ["Shaders", 0, "UvScrollSpeed", 3], ["Shaders", 1, "AlphaValueToBeComparedTo"]], changed)
+        self.assertIsNone(sources)
+        self.assertEqual((6, 50), (data["DmaChainIndex"], data["Shaders"][1]["AlphaValueToBeComparedTo"]))
+        # What Blender doesn't show stays as the base has it, NaN bits included
+        self.assertEqual([0x7FC00001, 1, 2, 3], data["Shaders"][0]["LeftoverVector"])
+
+    def test_a_base_tt_lab_never_had_is_all_blenders(self):
+        _, changed, sources = gs_material.changes(RETAIL, self.shown(), known=False)
+
+        self.assertIsNone(changed)
+        self.assertIsNone(sources)
+
+    def test_shaders_moved_or_added_in_blender_say_where_they_came_from(self):
+        shown = self.shown()
+        added = gs_material.shown_shader(gs_material.new_shader(4))
+        added.update(source=-1, animation=None)
+        first = dict(shown["shaders"][1], alpha_reference=60)
+        shown["shaders"] = [first, added]
+
+        data, changed, sources = gs_material.changes(RETAIL, shown)
+
+        self.assertEqual([1, -1], sources)
+        self.assertEqual([["Shaders", 0, "AlphaValueToBeComparedTo"]], changed)
+        self.assertEqual([22, 4], [shader["ShaderType"] for shader in data["Shaders"]])
+
+    def test_a_picture_is_what_it_draws(self):
+        shown = self.shown()
+        shown["shaders"][0]["picture"] = "blender:painted"
+        shown["shaders"][0]["texture"] = ""
+        shown["shaders"][0]["image"] = 0
+        shown["shaders"][1]["picture"] = "uri:res://PS2/Texture/Sky"
+
+        data, changed, _ = gs_material.changes(RETAIL, shown)
+
+        self.assertEqual([["Shaders", 0, "TextureId"]], changed)
+        self.assertEqual(0, data["Shaders"][0]["Image"])
+        # Once TT Lab took it the snapshot has what each shader draws
+        snapshot = gs_material.snapshot(data, shown)
+        self.assertEqual(["blender:painted", "uri:res://PS2/Texture/Sky"], [shader["Picture"] for shader in snapshot["Shaders"]])
+        self.assertNotIn("Image", snapshot["Shaders"][0])
+        _, changed, _ = gs_material.changes(snapshot, shown)
+        self.assertEqual([], changed)
+
+    def test_snapshot_keys_are_never_sent(self):
+        shown = self.shown()
+        shown["shaders"][0]["uid"] = "first"
+        snapshot = gs_material.snapshot(gs_material.changes(RETAIL, shown)[0], shown)
+        self.assertEqual("first", snapshot["Shaders"][0]["Uid"])
+
+        data, _, _ = gs_material.changes(snapshot, shown)
+
+        self.assertTrue(all("Uid" not in shader and "Picture" not in shader for shader in data["Shaders"]))
+
+
 class AnimationTests(unittest.TestCase):
     def test_tracks_are_read_where_the_game_reads_them(self):
         view = gs_material.animation_view(animation())

@@ -232,6 +232,7 @@ public class ChunkLinksData : AbstractAssetData
             InspectorFocus = linkProperty,
             DuplicatedElement = linkProperty,
             RenderDependencies = [linksProperty],
+            Draws = uri => uri == linkedSceneryUri,
             Refresh = () =>
             {
                 if (isRebuildNeeded())

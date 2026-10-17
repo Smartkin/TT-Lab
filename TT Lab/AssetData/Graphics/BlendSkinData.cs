@@ -139,7 +139,7 @@ public class BlendSkinData : AbstractAssetData
         }
 
         DisposedValue = false;
-        if (materials.AddedToProject)
+        if (materials.Finish() && !AssetDataScope.IsReadingDry)
         {
             SaveInternal(dataPath, settings);
         }

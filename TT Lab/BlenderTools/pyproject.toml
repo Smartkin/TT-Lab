@@ -28,9 +28,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]
-source = "code"
-path = "twin_tech_tools/__init__.py"
-expression = "'.'.join([str(v) for v in bl_info['version']])"
+source = "regex"
+path = "twin_tech_tools/blender_manifest.toml"
+pattern = '^version = "(?P<version>[^"]+)"'
 
 [tool.uv]
 managed = true

@@ -1,0 +1,203 @@
+{
+  "ActivatedShaders": 262146,
+  "Name": "CRASH_FUR",
+  "DmaChainIndex": 3,
+  "Shaders": [
+    {
+      "ForcedShaderName": null,
+      "ShaderName": "StandardLit",
+      "ShaderType": 2,
+      "IntParam": 0,
+      "FloatParam": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "ABlending": 0,
+      "AlphaRegSettingsIndex": 0,
+      "ATest": 0,
+      "ATestMethod": 0,
+      "AlphaValueToBeComparedTo": 0,
+      "ProcessMethodWhenAlphaTestFailed": 0,
+      "DAlphaTest": 0,
+      "DAlphaTestMode": 0,
+      "DepthTest": 2,
+      "ShdMethod": 1,
+      "TxtMapping": 1,
+      "MethodOfSpecifyingTextureCoordinates": 1,
+      "Fog": 0,
+      "ContextNum": 0,
+      "UseCustomAlphaRegSettings": false,
+      "SpecOfColA": 0,
+      "SpecOfColB": 0,
+      "SpecOfAlphaC": 0,
+      "SpecOfColD": 0,
+      "FixedAlphaValue": 0,
+      "TextureFilterWhenTextureIsExpanded": 1,
+      "AlphaCorrectionValue": true,
+      "ZValueDrawingMask": 0,
+      "LodParamK": 65467,
+      "LodParamL": 0,
+      "TextureId": {
+        "_uri": "res://Global PS2_Test/Texture/Fur"
+      },
+      "UnusedValue": 4,
+      "XScrollSettings": 0,
+      "YScrollSettings": 0,
+      "UnusedFlag": false,
+      "AntiAliasing": false,
+      "AnimationDrivesColor": false,
+      "LeftoverVector": [
+        2143289345,
+        1,
+        2,
+        3
+      ],
+      "ShaderColor": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "UvScrollSpeed": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "Animation": null
+    },
+    {
+      "ForcedShaderName": null,
+      "ShaderName": "StandardLit",
+      "ShaderType": 22,
+      "IntParam": 0,
+      "FloatParam": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "ABlending": 1,
+      "AlphaRegSettingsIndex": 1,
+      "ATest": 0,
+      "ATestMethod": 0,
+      "AlphaValueToBeComparedTo": 0,
+      "ProcessMethodWhenAlphaTestFailed": 0,
+      "DAlphaTest": 0,
+      "DAlphaTestMode": 0,
+      "DepthTest": 2,
+      "ShdMethod": 1,
+      "TxtMapping": 1,
+      "MethodOfSpecifyingTextureCoordinates": 1,
+      "Fog": 0,
+      "ContextNum": 0,
+      "UseCustomAlphaRegSettings": false,
+      "SpecOfColA": 0,
+      "SpecOfColB": 0,
+      "SpecOfAlphaC": 0,
+      "SpecOfColD": 0,
+      "FixedAlphaValue": 0,
+      "TextureFilterWhenTextureIsExpanded": 1,
+      "AlphaCorrectionValue": true,
+      "ZValueDrawingMask": 1,
+      "LodParamK": 0,
+      "LodParamL": 0,
+      "TextureId": {
+        "_uri": "res://Global PS2_Test/Texture/Gloss"
+      },
+      "UnusedValue": 0,
+      "XScrollSettings": 1,
+      "YScrollSettings": 0,
+      "UnusedFlag": false,
+      "AntiAliasing": false,
+      "AnimationDrivesColor": false,
+      "LeftoverVector": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "ShaderColor": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "UvScrollSpeed": [
+        0,
+        0,
+        1056964608,
+        0
+      ],
+      "Animation": {
+        "Header": 655364,
+        "TotalFrames": 4,
+        "AnimationSettings": [
+          {
+            "TranslateX": 0,
+            "TranslateY": 1,
+            "ColorR": 1,
+            "ColorG": 1,
+            "ColorB": 1,
+            "ColorA": 1,
+            "StaticTransformationIndex": 0,
+            "AnimationTransformationIndex": 0
+          }
+        ],
+        "StaticTransformations": [
+          {
+            "PureValue": 0
+          },
+          {
+            "PureValue": 4096
+          },
+          {
+            "PureValue": 4096
+          },
+          {
+            "PureValue": 4096
+          },
+          {
+            "PureValue": 4096
+          }
+        ],
+        "AnimatedTransformations": [
+          {
+            "Count": 1,
+            "Transforms": [
+              {
+                "PureValue": 0
+              }
+            ]
+          },
+          {
+            "Count": 1,
+            "Transforms": [
+              {
+                "PureValue": 1024
+              }
+            ]
+          },
+          {
+            "Count": 1,
+            "Transforms": [
+              {
+                "PureValue": 2048
+              }
+            ]
+          },
+          {
+            "Count": 1,
+            "Transforms": [
+              {
+                "PureValue": 3072
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -377,10 +377,11 @@ public class EditingContext
         }
 
         var start = _gizmo.DragStart!.Value;
-        _gizmo.EndDrag();
         ApplyTransform(SelectedInstance, start, start);
         ApplyToExtras(start, start);
         SelectedInstance.TransformTarget?.Cancel();
+        // Over once everything is back, the drag's step of the history takes the moves back in with it (TransformGizmo.DragEnded)
+        _gizmo.EndDrag();
     }
 
     // The other selected objects follow the gizmo's, only in what their data lets them change

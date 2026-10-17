@@ -102,7 +102,7 @@ public class RigidModelData : AbstractAssetData
         var parts = TlmMeshes.ReadMesh(file, file.Root?[TlmNodes.MeshKey] as JsonObject, false, file.Root?.GetTransform());
         SetFromParts(Owner, parts.Select(p => (p.Part, materials.GetRequired(p.Material))).ToList(), Owner.Name);
         DisposedValue = false;
-        if (materials.AddedToProject)
+        if (materials.Finish() && !AssetDataScope.IsReadingDry)
         {
             SaveInternal(dataPath, settings);
         }

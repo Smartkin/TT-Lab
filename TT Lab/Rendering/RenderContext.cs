@@ -301,7 +301,15 @@ public class RenderContext : IDisposable
         {
             renderAction.Invoke();
         }
+
+        RenderQueueProcessed?.Invoke();
     }
+
+    /// <summary>
+    /// Raised on the render thread once the queued work is done, whether a frame gets rendered after it or not (a hidden tab's): what it
+    /// made is in the scene then, what it took out of it can be let go of
+    /// </summary>
+    public event Action? RenderQueueProcessed;
 
     public ShaderProgram GetProgram(string shaderName)
     {

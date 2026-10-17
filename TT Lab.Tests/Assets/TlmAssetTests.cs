@@ -11,6 +11,7 @@ using TT_Lab.Assets.Factory;
 using TT_Lab.Assets.Graphics;
 using TT_Lab.Extensions;
 using TT_Lab.Tests.Support;
+using TT_Lab.Tools.Blender;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items;
 using TwinShader = Twinsanity.TwinsanityInterchange.Common.TwinShader;
 
@@ -470,11 +471,11 @@ public sealed class TlmAssetTests : IDisposable
         Assert.Equal(assetsBefore + 2, _project.AssetManager.GetAssets().Count(asset => !asset.IsInternal));
     }
 
-    // A blend file copied keeps its materials' Blender IDs, and the copy's material, drawing another picture, got the material the first
-    // file's export made. A material made in Blender is found again only while what the Blender material makes has the ID the build gives
-    // what the material was made of, or what it is now (made before what it was made of was kept)
+    // A material made in Blender is found again by its Blender ID among the ones made for the model it was made for: a blend file copied
+    // and exported over another model makes that model's own, exported over the same model again (another picture painted) changes the
+    // same material and texture in place, nothing new is made
     [AvaloniaFact]
-    public void ACopiedBlenderMaterialOfAnotherPictureIsAnotherMaterial()
+    public void BlenderMaterialsAreFoundByTheirIdWithinTheirModel()
     {
         _project.BuildProjectTree("Global PS2_Test/Material", "Global PS2_Test/Texture");
         var spin = AddChair("Spin");
@@ -487,52 +488,176 @@ public sealed class TlmAssetTests : IDisposable
 
         Assert.NotEqual(spinMaterial, deadMaterial);
         Assert.Equal((0xFFC02020, 0xFF2020C0), (PixelOf(spinMaterial), PixelOf(deadMaterial)));
-        var material = _assets.Get<Material>(spinMaterial);
-        Assert.Equal(BuildId(material), material.Parameters[TlmMaterials.BlenderMaterialHashParameter]?.ToString());
+        Assert.Equal(spin.URI.ToString(), _assets.Get<Material>(spinMaterial).Parameters[BlenderAssets.OwnerParameter]?.ToString());
+        var texture = TextureOfMaterial(spinMaterial);
+        var assetsBefore = _project.AssetManager.GetAssets().Count(asset => !asset.IsInternal);
 
-        material.Parameters.Remove(TlmMaterials.BlenderMaterialHashParameter);
-        var again = AddChair("Again");
-        WithBlenderMaterial(again.FullDataPath, Picture(0xFFC02020));
+        WithBlenderMaterial(spin.FullDataPath, Picture(0xFF20C040));
+        spin.UnloadData();
 
-        Assert.Equal(spinMaterial, BlenderMaterialOf(again));
-        Assert.Equal(BuildId(material), material.Parameters[TlmMaterials.BlenderMaterialHashParameter]?.ToString());
-
-        // The ID the build gives the material while its data and its texture's are loaded, the build keeps the first it works out
-        string BuildId(Material made)
-        {
-            var shader = ((IAsset)made).GetData<MaterialData>().Shaders.Single();
-            ((IAsset)_assets.Get<Texture>(shader.TextureId)).GetData<TextureData>();
-            return made.ExportTwinID.ToString("X8");
-        }
+        Assert.Equal(spinMaterial, BlenderMaterialOf(spin));
+        Assert.Equal(texture, TextureOfMaterial(spinMaterial));
+        Assert.Equal(0xFF20C040, PixelOf(spinMaterial));
+        Assert.Equal(assetsBefore, _project.AssetManager.GetAssets().Count(asset => !asset.IsInternal));
     }
 
-    // What's changed in TT Lab of a material made in Blender doesn't make it another one, the next export of the Blender material finds it
-    // by what it was made of. Another picture painted in Blender makes another material, the one before stays for what draws it
+    // Exported again, a material made in Blender gets what Blender changed since it last had the material's settings: the values changed
+    // in TT Lab meanwhile stay
     [AvaloniaFact]
-    public void BlenderMaterialsChangedInTTLabAreFoundAgain()
+    public void WhatBlenderChangedGoesOverWhatTTLabChanged()
+    {
+        _project.BuildProjectTree("Global PS2_Test/Material", "Global PS2_Test/Texture");
+        var rigidModel = _assets.AddRigidModel("Window", _assets.AddMaterial("Frame").URI);
+        rigidModel.Serialize(SerializationFlags.SaveData);
+        var shader = JsonNode.Parse(Newtonsoft.Json.JsonConvert.SerializeObject(new LabShader { ShaderType = TwinShader.Type.StandardUnlit }))!.AsObject();
+        shader["Image"] = 0;
+        var settings = new JsonObject { ["ActivatedShaders"] = 0, ["Name"] = "GLASS", ["DmaChainIndex"] = 2, ["Shaders"] = new JsonArray(shader) };
+        WithSettings(rigidModel.FullDataPath, settings, 0xFF808080, blenderMaterial: "glass-id");
+        var material = _assets.Get<Material>(((IAsset)rigidModel).GetData<RigidModelData>().Materials[0]);
+        var data = ((IAsset)material).GetData<MaterialData>();
+        data.DmaChainIndex = 6;
+        material.Serialize(SerializationFlags.SaveData | SerializationFlags.PreserveData);
+
+        // Nothing changed in Blender since
+        WithSettings(rigidModel.FullDataPath, settings, 0xFF808080, blenderMaterial: "glass-id", changed: []);
+        rigidModel.UnloadData();
+        Assert.Equal(material.URI, ((IAsset)rigidModel).GetData<RigidModelData>().Materials[0]);
+        Assert.Equal(6u, ((IAsset)material).GetData<MaterialData>().DmaChainIndex);
+
+        // The blending changed in Blender
+        settings["Shaders"]![0]!["ABlending"] = 1;
+        WithSettings(rigidModel.FullDataPath, settings, 0xFF808080, blenderMaterial: "glass-id", changed: [new JsonArray("Shaders", 0, "ABlending")]);
+        rigidModel.UnloadData();
+        ((IAsset)rigidModel).GetData<RigidModelData>();
+        data = ((IAsset)material).GetData<MaterialData>();
+        Assert.Equal((6u, TwinShader.AlphaBlending.ON), (data.DmaChainIndex, data.Shaders[0].ABlending));
+
+        // A shader added in Blender before the first, the first one moved after it keeping what TT Lab changed in it
+        data.Shaders[0].FixedAlphaValue = 99;
+        material.Serialize(SerializationFlags.SaveData | SerializationFlags.PreserveData);
+        var added = JsonNode.Parse(Newtonsoft.Json.JsonConvert.SerializeObject(new LabShader { ShaderType = TwinShader.Type.UnlitEnvironmentMap }))!.AsObject();
+        settings["Shaders"] = new JsonArray(added, shader.DeepClone());
+        WithSettings(rigidModel.FullDataPath, settings, 0xFF808080, blenderMaterial: "glass-id", changed: [], sources: [-1, 0]);
+        rigidModel.UnloadData();
+        ((IAsset)rigidModel).GetData<RigidModelData>();
+        data = ((IAsset)material).GetData<MaterialData>();
+        Assert.Equal([TwinShader.Type.UnlitEnvironmentMap, TwinShader.Type.StandardUnlit], data.Shaders.Select(s => s.ShaderType));
+        Assert.Equal((Byte)99, data.Shaders[1].FixedAlphaValue);
+    }
+
+    // The add-on refuses a model whose file doesn't use one of its materials and pictures made in Blender any more only once nothing else
+    // uses it: TT Lab deletes them, the ones another model draws stay
+    [AvaloniaFact]
+    public async Task UnusedBlenderMaterialsAreDeletedOnceNothingElseUsesThem()
     {
         _project.BuildProjectTree("Global PS2_Test/Material", "Global PS2_Test/Texture");
         var chair = AddChair("Chair");
-        WithBlenderMaterial(chair.FullDataPath, Picture(0xFFC02020));
-        var material = _assets.Get<Material>(BlenderMaterialOf(chair));
-        ((IAsset)material).GetData<MaterialData>().DmaChainIndex = 6;
-        material.Serialize(SerializationFlags.SaveData | SerializationFlags.PreserveData);
+        WithBlenderMaterial(chair.FullDataPath, Picture(0xFFC02020), exported: true);
+        var wood = BlenderMaterialOf(chair);
+        var woodTexture = TextureOfMaterial(wood);
+        var stool = AddChair("Stool");
+        WithBlenderMaterial(stool.FullDataPath, Picture(0xFF2020C0), id: "stool-id", exported: true);
+        var stoolWood = BlenderMaterialOf(stool);
+        // Another model draws the stool's
+        var bench = _assets.AddRigidModel("Bench", stoolWood);
+        bench.Serialize(SerializationFlags.SaveData);
+
+        // Exported without them
+        var varnish = _assets.AddMaterial("Varnish");
+        foreach (var model in new[] { chair, stool })
+        {
+            var file = TlmFile.Load(model.FullDataPath);
+            file.Materials[1] = new JsonObject { ["uri"] = varnish.URI.ToString(), ["name"] = "Varnish" };
+            file.Json[TlmMaterials.ExportedByKey] = "twin_tech_tools test";
+            file.Save(model.FullDataPath);
+            model.UnloadData();
+            ((IAsset)model).GetData<RigidModelData>();
+        }
+
+        await Settle(() => _project.AssetManager.DoesAssetExist(wood));
+
+        Assert.False(_project.AssetManager.DoesAssetExist(wood));
+        Assert.False(_project.AssetManager.DoesAssetExist(woodTexture));
+        Assert.True(_project.AssetManager.DoesAssetExist(stoolWood));
+        Assert.True(_project.AssetManager.DoesAssetExist(TextureOfMaterial(stoolWood)));
+    }
+
+    // Read, a file the add-on wrote is written again by its URIs: the materials made of Blender's with their Blender IDs and their pictures'
+    // textures, which the add-on takes for the project's from then on
+    [AvaloniaFact]
+    public void TheFileWrittenAgainNamesWhatWasMadeOfBlenders()
+    {
+        _project.BuildProjectTree("Global PS2_Test/Material", "Global PS2_Test/Texture");
+        var shader = JsonNode.Parse(Newtonsoft.Json.JsonConvert.SerializeObject(new LabShader { TxtMapping = TwinShader.TextureMapping.ON }))!.AsObject();
+        shader["Image"] = 0;
+        var rigidModel = _assets.AddRigidModel("Window", _assets.AddMaterial("Frame").URI);
+        rigidModel.Serialize(SerializationFlags.SaveData);
+        WithSettings(rigidModel.FullDataPath, new JsonObject { ["ActivatedShaders"] = 0, ["Name"] = "FRAME", ["DmaChainIndex"] = 2, ["Shaders"] = new JsonArray(shader) },
+            0xFFC02020, blenderMaterial: "frame-id");
+
+        var material = ((IAsset)rigidModel).GetData<RigidModelData>().Materials[0];
+
+        var entry = TlmFile.Load(rigidModel.FullDataPath).Materials[0]!.AsObject();
+        Assert.Equal((material.ToString(), "frame-id"), (entry.GetString("uri"), entry.GetString("blender_id")));
+        Assert.Null(entry["data"]);
+        var image = Assert.Single(entry["images"]!.AsArray())!.AsObject();
+        Assert.Equal(("scratch-id", TextureOfMaterial(material).ToString()), (image.GetString("blender_id"), image.GetString("uri")));
+        Assert.Null(image["png"]);
+        // What the material draws is known from the start: deleting the texture fixes it
+        Assert.Contains(TextureOfMaterial(material), _assets.Get(material).References);
+    }
+
+    // Pictures and materials of Blender's are named after their names in Blender, a picture's without its file's extension, plain ASCII and
+    // apart from the package's others of the kind in any case
+    [AvaloniaFact]
+    public void BlenderAssetsAreNamedLikeTheProjectsOthers()
+    {
+        _project.BuildProjectTree("Global PS2_Test/Material", "Global PS2_Test/Texture");
+        _assets.AddTexture("crash", 0xFF808080);
+
+        Assert.Equal("Crash 2", BlenderAssets.UniqueName<Texture>(_project.Project.GlobalPackagePS2.URI, "Crash.png.png", true));
+        Assert.Equal("T_Hat", BlenderAssets.UniqueName<Texture>(_project.Project.GlobalPackagePS2.URI, "T_Hat.PNG", true));
+        Assert.Equal("_____", BlenderAssets.UniqueName<Material>(_project.Project.GlobalPackagePS2.URI, "Шапка"));
+        Assert.Equal("Wood.png", BlenderAssets.UniqueName<Material>(_project.Project.GlobalPackagePS2.URI, "Wood.png"));
+    }
+
+    // Checking that a file another program wrote reads, before asking about the unsaved changes an editor has to it, takes nothing of what
+    // it brings: no material is made and the file isn't written again, the read after the question does that (choosing to keep the
+    // changes and saving them wrote the old model back over what the check had already taken)
+    [AvaloniaFact]
+    public void ADryReadTakesNothingTheFileBrings()
+    {
+        _project.BuildProjectTree("Global PS2_Test/Material", "Global PS2_Test/Texture");
+        var chair = AddChair("Chair");
+        WithBlenderMaterial(chair.FullDataPath, Picture(0xFFC02020), exported: true);
+        var bytes = File.ReadAllBytes(chair.FullDataPath);
         var assetsBefore = _project.AssetManager.GetAssets().Count(asset => !asset.IsInternal);
 
-        WithBlenderMaterial(chair.FullDataPath, Picture(0xFFC02020));
-        chair.UnloadData();
+        using (var scope = new AssetDataScope { IsDryRead = true })
+        {
+            scope.ReadAgain(chair);
+            ((IAsset)chair).GetData<RigidModelData>();
+        }
 
-        Assert.Equal(material.URI, BlenderMaterialOf(chair));
-        Assert.Equal(6u, ((IAsset)material).GetData<MaterialData>().DmaChainIndex);
         Assert.Equal(assetsBefore, _project.AssetManager.GetAssets().Count(asset => !asset.IsInternal));
+        Assert.Equal(bytes, File.ReadAllBytes(chair.FullDataPath));
 
-        WithBlenderMaterial(chair.FullDataPath, Picture(0xFF2020C0));
-        chair.UnloadData();
-        var repainted = BlenderMaterialOf(chair);
+        ((IAsset)chair).GetData<RigidModelData>();
 
-        Assert.NotEqual(material.URI, repainted);
-        Assert.Equal((0xFFC02020, 0xFF2020C0), (PixelOf(material.URI), PixelOf(repainted)));
+        Assert.Equal(assetsBefore + 2, _project.AssetManager.GetAssets().Count(asset => !asset.IsInternal));
+        Assert.NotEqual(bytes, File.ReadAllBytes(chair.FullDataPath));
     }
+
+    private static async Task Settle(Func<bool> waiting)
+    {
+        for (var i = 0; i < 100 && waiting(); i++)
+        {
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            await Task.Delay(20);
+        }
+    }
+
+    private LabURI TextureOfMaterial(LabURI material) => ((IAsset)_assets.Get<Material>(material)).GetData<MaterialData>().Shaders.Single().TextureId;
 
     private RigidModel AddChair(string name)
     {
@@ -631,9 +756,9 @@ public sealed class TlmAssetTests : IDisposable
         LabShader ShaderOf(LabURI material) => _project.AssetManager.GetAssetData<MaterialData>(material).Shaders[0];
     }
 
-    // The add-on edits a project material's settings, exporting the model brings what was changed in Blender: the material takes them and
-    // is saved, the pictures made in Blender become textures, made once for a picture (another picture painted over it is another
-    // texture), and the file is written again without the settings
+    // The add-on edits a project material's settings, exporting the model brings what was changed in Blender: the material takes them in
+    // place and is saved, a picture made in Blender becomes a texture of the material and a picture painted over in Blender goes into that
+    // same texture, and the file is written again without the settings
     [AvaloniaFact]
     public void ProjectMaterialsTakeTheSettingsChangedInBlender()
     {
@@ -645,7 +770,7 @@ public sealed class TlmAssetTests : IDisposable
         var settings = JsonNode.Parse(Newtonsoft.Json.JsonConvert.SerializeObject(((IAsset)varnish).GetData<MaterialData>()))!.AsObject();
         settings["Shaders"]![0]!["ABlending"] = 1;
         settings["Shaders"]![0]!["Image"] = 0;
-        WithSettings(rigidModel.FullDataPath, settings, 0xFF20C040);
+        WithSettings(rigidModel.FullDataPath, settings, 0xFF20C040, changed: [new JsonArray("Shaders", 0, "ABlending"), new JsonArray("Shaders", 0, "TextureId")]);
 
         ((IAsset)rigidModel).GetData<RigidModelData>();
 
@@ -661,27 +786,25 @@ public sealed class TlmAssetTests : IDisposable
 
         // The same picture again, the same texture
         var assetsBefore = _project.AssetManager.GetAssets().Count(asset => !asset.IsInternal);
-        WithSettings(rigidModel.FullDataPath, settings, 0xFF20C040);
+        WithSettings(rigidModel.FullDataPath, settings, 0xFF20C040, changed: []);
         rigidModel.UnloadData();
         ((IAsset)rigidModel).GetData<RigidModelData>();
 
         Assert.Equal(texture.URI, ((IAsset)varnish).GetData<MaterialData>().Shaders[0].TextureId);
         Assert.Equal(assetsBefore, _project.AssetManager.GetAssets().Count(asset => !asset.IsInternal));
 
-        // Painted over in Blender, another texture: the one before stays as it is for what draws it
-        WithSettings(rigidModel.FullDataPath, settings, 0xFF0000FF);
+        // Painted over in Blender, the same texture gets the pixels
+        WithSettings(rigidModel.FullDataPath, settings, 0xFF0000FF, changed: []);
         rigidModel.UnloadData();
         ((IAsset)rigidModel).GetData<RigidModelData>();
 
-        var painted = ((IAsset)varnish).GetData<MaterialData>().Shaders[0].TextureId;
-        Assert.NotEqual(texture.URI, painted);
-        Assert.Equal((0xFF20C040, 0xFF0000FF), (PixelOfTexture(texture.URI), PixelOfTexture(painted)));
-        Assert.Equal(assetsBefore + 1, _project.AssetManager.GetAssets().Count(asset => !asset.IsInternal));
+        Assert.Equal(texture.URI, ((IAsset)varnish).GetData<MaterialData>().Shaders[0].TextureId);
+        Assert.Equal(0xFF0000FF, PixelOfTexture(texture.URI));
+        Assert.Equal(assetsBefore, _project.AssetManager.GetAssets().Count(asset => !asset.IsInternal));
     }
 
-    // A material made in Blender with the add-on's settings becomes a material of the project with them, every export bringing them again:
-    // the same settings find it again, its picture painted over in Blender is another texture and so another material, other settings
-    // make another material too, the ones before stay for what draws them
+    // A material made in Blender with the add-on's settings becomes a material of the project with them, and exported again it's the same
+    // material, taking the settings and pictures Blender brings in place
     [AvaloniaFact]
     public void MaterialsMadeInBlenderComeWithTheirSettings()
     {
@@ -698,62 +821,43 @@ public sealed class TlmAssetTests : IDisposable
         Assert.Equal(("glass-id", "Rigid"), (material.Parameters[TlmMaterials.BlenderMaterialParameter]?.ToString(), material.Parameters[TlmMaterials.BlenderMaterialUseParameter]?.ToString()));
         var data = ((IAsset)material).GetData<MaterialData>();
         Assert.Equal(("GLASS", 16u, TwinShader.Type.UnlitEnvironmentMap, TwinShader.AlphaBlending.ON), (data.Name, data.DmaChainIndex, data.Shaders[0].ShaderType, data.Shaders[0].ABlending));
-        Assert.Equal("scratch-id", _assets.Get(data.Shaders[0].TextureId).Parameters[TlmMaterials.BlenderImageParameter]?.ToString());
-
-        WithSettings(rigidModel.FullDataPath, settings, 0xFF808080, blenderMaterial: "glass-id");
-        rigidModel.UnloadData();
-        Assert.Equal(material.URI, ((IAsset)rigidModel).GetData<RigidModelData>().Materials[0]);
-
-        WithSettings(rigidModel.FullDataPath, settings, 0xFF2020C0, blenderMaterial: "glass-id");
-        rigidModel.UnloadData();
-        var painted = ((IAsset)rigidModel).GetData<RigidModelData>().Materials[0];
-        var paintedTexture = _project.AssetManager.GetAssetData<MaterialData>(painted).Shaders[0].TextureId;
-        Assert.NotEqual(material.URI, painted);
-        Assert.Equal((0xFF808080, 0xFF2020C0), (PixelOfTexture(data.Shaders[0].TextureId), PixelOfTexture(paintedTexture)));
+        var texture = data.Shaders[0].TextureId;
+        Assert.Equal("scratch-id", _assets.Get(texture).Parameters[TlmMaterials.BlenderImageParameter]?.ToString());
 
         settings["DmaChainIndex"] = 17;
-        WithSettings(rigidModel.FullDataPath, settings, 0xFF2020C0, blenderMaterial: "glass-id");
+        WithSettings(rigidModel.FullDataPath, settings, 0xFF2020C0, blenderMaterial: "glass-id", changed: [new JsonArray("DmaChainIndex")]);
         rigidModel.UnloadData();
-        var other = ((IAsset)rigidModel).GetData<RigidModelData>().Materials[0];
-        Assert.NotEqual(painted, other);
-        Assert.Equal(paintedTexture, _project.AssetManager.GetAssetData<MaterialData>(other).Shaders[0].TextureId);
-        Assert.Equal((17u, 16u), (_project.AssetManager.GetAssetData<MaterialData>(other).DmaChainIndex, _project.AssetManager.GetAssetData<MaterialData>(painted).DmaChainIndex));
+
+        Assert.Equal(material.URI, ((IAsset)rigidModel).GetData<RigidModelData>().Materials[0]);
+        data = ((IAsset)material).GetData<MaterialData>();
+        Assert.Equal((17u, texture), (data.DmaChainIndex, data.Shaders[0].TextureId));
+        Assert.Equal(0xFF2020C0, PixelOfTexture(texture));
     }
 
-    // A blend file copied keeps its pictures' IDs, and the copy's picture of another file gave the first file's texture its pixels, which
-    // changed every model drawing it. A picture finds the texture again only while it makes what the texture was made of or what it is now
-    // (made before what it was made of was kept), and the add-on is told the PNG it was made of, which it names the texture instead of
+    // A picture made in Blender is found again by its Blender ID among the ones made for its model: a blend file copied and exported over
+    // another model makes that model's own texture, the first model's texture keeps its pixels
     [AvaloniaFact]
-    public void ACopiedBlenderPictureOfAnotherFileIsAnotherTexture()
+    public void BlenderPicturesAreFoundByTheirIdWithinTheirModel()
     {
         _project.BuildProjectTree("Global PS2_Test/Material", "Global PS2_Test/Texture");
         var shader = JsonNode.Parse(Newtonsoft.Json.JsonConvert.SerializeObject(new LabShader { TxtMapping = TwinShader.TextureMapping.ON }))!.AsObject();
         shader["Image"] = 0;
         var settings = new JsonObject { ["ActivatedShaders"] = 0, ["Name"] = "FRAME", ["DmaChainIndex"] = 2, ["Shaders"] = new JsonArray(shader) };
-        var spin = AddWindow("Spin", settings, 0xFFC02020);
-        var dead = AddWindow("Dead", settings, 0xFF2020C0);
+        var spin = AddWindow("Spin", 0xFFC02020);
+        var dead = AddWindow("Dead", 0xFF2020C0);
 
         var spinTexture = TextureOf(spin);
         var deadTexture = TextureOf(dead);
 
         Assert.NotEqual(spinTexture, deadTexture);
         Assert.Equal((0xFFC02020, 0xFF2020C0), (PixelOfTexture(spinTexture), PixelOfTexture(deadTexture)));
-        var texture = _assets.Get<Texture>(spinTexture);
-        Assert.Equal(PngHash(0xFFC02020), texture.Parameters[TlmMaterials.BlenderImagePngParameter]?.ToString());
-        Assert.Equal(texture.ExportTwinID.ToString("X8"), texture.Parameters[TlmMaterials.BlenderImageHashParameter]?.ToString());
+        Assert.Equal(spin.URI.ToString(), _assets.Get<Texture>(spinTexture).Parameters[BlenderAssets.OwnerParameter]?.ToString());
 
-        texture.Parameters.Remove(TlmMaterials.BlenderImageHashParameter);
-        texture.Parameters.Remove(TlmMaterials.BlenderImagePngParameter);
-        var again = AddWindow("Again", settings, 0xFFC02020);
-
-        Assert.Equal(spinTexture, TextureOf(again));
-        Assert.Equal(PngHash(0xFFC02020), texture.Parameters[TlmMaterials.BlenderImagePngParameter]?.ToString());
-
-        RigidModel AddWindow(string name, JsonObject windowSettings, uint color)
+        RigidModel AddWindow(string name, uint color)
         {
             var rigidModel = _assets.AddRigidModel(name, _assets.AddMaterial($"{name} Frame").URI);
             rigidModel.Serialize(SerializationFlags.SaveData);
-            WithSettings(rigidModel.FullDataPath, windowSettings, color, blenderMaterial: $"{name}-id");
+            WithSettings(rigidModel.FullDataPath, settings, color, blenderMaterial: "window-id");
             return rigidModel;
         }
 
@@ -783,7 +887,9 @@ public sealed class TlmAssetTests : IDisposable
         Assert.Equal((TwinShader.AlphaTest.ON, TwinShader.AlphaTestMethod.GEQUAL, (byte)64), (shader.ATest, shader.ATestMethod, shader.AlphaValueToBeComparedTo));
     }
 
-    private static void WithSettings(string path, JsonObject settings, uint color, string? blenderMaterial = null)
+    // The model's first material as the add-on exports it: its settings with the paths of what was changed since TT Lab last had them
+    // (none for all of them) and its picture
+    private static void WithSettings(string path, JsonObject settings, uint color, string? blenderMaterial = null, JsonArray? changed = null, JsonArray? sources = null)
     {
         var file = TlmFile.Load(path);
         var png = SettingsPicture(color);
@@ -796,6 +902,17 @@ public sealed class TlmAssetTests : IDisposable
 
         entry["data"] = settings.DeepClone();
         entry["images"] = new JsonArray(new JsonObject { ["png"] = file.Write(png.AsSpan()), ["name"] = "scratch.png", ["blender_id"] = "scratch-id" });
+        if (changed != null)
+        {
+            entry["changed"] = changed;
+        }
+
+        if (sources != null)
+        {
+            entry["shader_sources"] = sources;
+        }
+
+        file.Json[TlmMaterials.ExportedByKey] = "twin_tech_tools test";
         file.Save(path);
     }
 
@@ -831,10 +948,16 @@ public sealed class TlmAssetTests : IDisposable
         Assert.False(((IAsset)plain).IsLoaded);
     }
 
-    private static void WithBlenderMaterial(string path, byte[] png, int index = 1, string id = "wood-id")
+    // The model's material of the index as an add-on of before the add-on's settings exported a material of its picture
+    private static void WithBlenderMaterial(string path, byte[] png, int index = 1, string id = "wood-id", bool exported = false)
     {
         var file = TlmFile.Load(path);
         file.Materials[index] = new JsonObject { ["name"] = "Wood", ["blender_id"] = id, ["alpha"] = "BLEND", ["image"] = new JsonObject { ["png"] = file.Write(png.AsSpan()), ["name"] = "wood.png" } };
+        if (exported)
+        {
+            file.Json[TlmMaterials.ExportedByKey] = "twin_tech_tools test";
+        }
+
         file.Save(path);
     }
 }

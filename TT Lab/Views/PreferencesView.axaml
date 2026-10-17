@@ -66,6 +66,28 @@
                 </Expander>
             </Border>
             <Border BorderBrush="DimGray" BorderThickness="1">
+                <Expander x:Name="BlenderSection" ContentTransition="{x:Null}" IsExpanded="{Binding IsBlenderExpanded}" HorizontalAlignment="Stretch">
+                    <Expander.Header>
+                        <TextBlock Text="Blender" Padding="5"/>
+                    </Expander.Header>
+                    <StackPanel>
+                        <TextBlock Margin="5" TextWrapping="Wrap" Opacity="0.8"
+                                   Text="Edit in Blender opens TT Lab's models in Blender 4.5 or newer with the add-on TT Lab comes with. While TT Lab has their project open, what Blender changes of their materials and pictures shows in TT Lab at once and saving the blend file saves the models."/>
+                        <Grid Margin="5" ColumnDefinitions="Auto,2*,30,30">
+                            <Label VerticalAlignment="Center" Grid.Column="0" Content="Blender"/>
+                            <TextBox x:Name="BlenderPath" Grid.Column="1" Margin="5, 0, 0, 0" HorizontalAlignment="Stretch" Watermark="{Binding FoundBlender}" Height="30" TextWrapping="NoWrap" VerticalAlignment="Center" Text="{Binding BlenderPath}" IsReadOnly="True"/>
+                            <Button Command="{Binding ChooseBlender}" Grid.Column="2" Content="..." ToolTip.Tip="Pick Blender's executable"/>
+                            <Button Command="{Binding ForgetBlender}" Grid.Column="3" Content="×" ToolTip.Tip="Find Blender on its own: on the path, its Flatpak, Steam's or its install in Program Files"/>
+                        </Grid>
+                        <StackPanel Margin="5" Orientation="Horizontal" Spacing="8">
+                            <Button x:Name="InstallBlenderAddon" Command="{Binding InstallBlenderAddon}" Content="Install the add-on"
+                                    ToolTip.Tip="Installs the add-on TT Lab comes with into the Blender, enabled, and turns TT Lab 1.0.0's add-on off"/>
+                            <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" Text="{Binding BlenderAddon}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Expander>
+            </Border>
+            <Border BorderBrush="DimGray" BorderThickness="1">
                 <Expander x:Name="DiscordSection" ContentTransition="{x:Null}" IsExpanded="{Binding IsDiscordExpanded}" HorizontalAlignment="Stretch">
                     <Expander.Header>
                         <TextBlock Text="Discord Rich Presence" Padding="5"/>

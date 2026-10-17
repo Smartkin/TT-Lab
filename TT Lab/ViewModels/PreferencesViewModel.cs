@@ -20,6 +20,7 @@ public class PreferencesViewModel : Screen
     public const string GeneralSection = "General";
     public const string DirectGameLaunchSection = "Direct Game Launch";
     public const string DiscordSection = "Discord Rich Presence";
+    public const string BlenderSection = "Blender";
 
     private static readonly IBrush PresenceOff = new SolidColorBrush(Color.FromRgb(0x55, 0x55, 0x55));
     private static readonly IBrush PresenceConnecting = new SolidColorBrush(Color.FromRgb(0xE8, 0xC3, 0x3A));
@@ -69,6 +70,12 @@ public class PreferencesViewModel : Screen
     {
         get => IsExpanded(DiscordSection);
         set => SetExpanded(DiscordSection, value);
+    }
+
+    public bool IsBlenderExpanded
+    {
+        get => IsExpanded(BlenderSection);
+        set => SetExpanded(BlenderSection, value);
     }
 
     private static bool IsExpanded(string section) => !Preferences.GetPreference<List<string>>(Preferences.CollapsedPreferenceSections).Contains(section);
@@ -224,4 +231,53 @@ public class PreferencesViewModel : Screen
     }
 
     public void ForgetDiscImage() => Pcsx2DiscImage = "";
+
+    // Blender: what Edit in Blender opens models in (Tools/Blender), none picked finds it on its own
+    public string BlenderPath
+    {
+        get => Preferences.GetPreference<string>(Preferences.BlenderPath);
+        set
+        {
+            Preferences.SetPreference(Preferences.BlenderPath, value);
+            NotifyOfPropertyChange();
+            NotifyOfPropertyChange(nameof(FoundBlender));
+        }
+    }
+
+    public string FoundBlender => Tools.Blender.BlenderInstall.Find("") switch
+    {
+        { IsFlatpak: true } => $"Found: its Flatpak ({Tools.Blender.BlenderInstall.FlatpakId})",
+        { } install => $"Found: {install.Executable}",
+        null => "Not found, pick its executable"
+    };
+
+    private string _blenderAddon = string.Empty;
+
+    // How installing the add-on went
+    public string BlenderAddon
+    {
+        get => _blenderAddon;
+        private set
+        {
+            _blenderAddon = value;
+            NotifyOfPropertyChange();
+        }
+    }
+
+    public async Task ChooseBlender()
+    {
+        var picked = await MiscUtils.GetFileFromDialogueAsync("Pick Blender's executable", "Blender", OperatingSystem.IsWindows() ? ["*.exe"] : ["*"]);
+        if (!string.IsNullOrEmpty(picked))
+        {
+            BlenderPath = picked;
+        }
+    }
+
+    public void ForgetBlender() => BlenderPath = "";
+
+    public async Task InstallBlenderAddon()
+    {
+        BlenderAddon = "Installing...";
+        BlenderAddon = await Tools.Blender.BlenderAddonInstaller.InstallIntoPreferredBlender() ?? "Installed";
+    }
 }

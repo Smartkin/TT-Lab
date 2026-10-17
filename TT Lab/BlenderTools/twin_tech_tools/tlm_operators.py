@@ -19,12 +19,14 @@
 
 import os
 import traceback
+import typing
 
 import bpy
 from bpy_extras.io_utils import ExportHelper, ImportHelper
 
+from . import checks
 from . import collision_builder
-from . import retarget
+from . import materials
 from . import tlm
 from . import tlm_blender
 from . import tlm_scenery
@@ -32,7 +34,8 @@ from . import tlm_templates
 
 
 class TTT_OT_ImportTlm(bpy.types.Operator, ImportHelper):
-    """Imports a TT Lab model file. Models of a TT Lab project show the project's materials"""
+    """Imports a TT Lab model file. Models of a TT Lab project show the project's materials. A model the scene has of the file is put in
+    its place after asking"""
 
     bl_idname = "ttt.import_tlm"
     bl_label = "Import TT Lab Model"
@@ -40,8 +43,14 @@ class TTT_OT_ImportTlm(bpy.types.Operator, ImportHelper):
 
     filename_ext = ".tlm"
     filter_glob: bpy.props.StringProperty(default="*.tlm", options={"HIDDEN"})
+    as_copy: bpy.props.BoolProperty(name="Import as a Copy", description="Imports the model next to the one the scene has of the file, instead of "
+                                                                         "putting it in that one's place")
 
     def execute(self, context):
+        existing = tlm_blender.model_of_file(self.filepath)
+        if existing is not None and not self.as_copy:
+            return bpy.ops.ttt.reimport_tlm("INVOKE_DEFAULT", filepath=self.filepath, root=existing.name)
+
         try:
             root = tlm_blender.import_file(context, self.filepath)
         except (OSError, tlm.TlmError, ValueError) as error:
@@ -53,6 +62,174 @@ class TTT_OT_ImportTlm(bpy.types.Operator, ImportHelper):
 
         root.select_set(True)
         context.view_layer.objects.active = root
+        return {"FINISHED"}
+
+
+class TTT_OT_EditFromTTLab(bpy.types.Operator):
+    """Makes the blend file TT Lab's Edit in Blender edits a model in: the model imported into the scene and the scene saved where TT Lab
+    says, without writing the model (it's as TT Lab has it). Linked once TT Lab is found"""
+
+    bl_idname = "ttt.edit_from_tt_lab"
+    bl_label = "Edit a TT Lab Model"
+    bl_options = {"INTERNAL"}
+
+    model: bpy.props.StringProperty(options={"HIDDEN"})
+    blend: bpy.props.StringProperty(options={"HIDDEN"})
+
+    def execute(self, context):
+        from . import save_hook
+
+        try:
+            root = tlm_blender.import_file(context, self.model)
+        except (OSError, tlm.TlmError, ValueError) as error:
+            self.report({"ERROR"}, "Couldn't import %s: %s" % (self.model, error))
+            return {"CANCELLED"}
+
+        for selected in context.selected_objects:
+            selected.select_set(False)
+
+        root.select_set(True)
+        context.view_layer.objects.active = root
+        os.makedirs(os.path.dirname(self.blend) or ".", exist_ok=True)
+        with save_hook.leaving_models_alone():
+            bpy.ops.wm.save_as_mainfile(filepath=self.blend)
+
+        return {"FINISHED"}
+
+
+# How the kinds of model files are said, a blend file's model of the kind replaces a TT Lab model of it
+_KIND_NAMES = {"Ogi": "game model", "Scenery": "scenery", "Skydome": "skydome", "Mesh": "model", "Model": "model", "SaveIcon": "save icon",
+               "DynamicScenery": "dynamic scenery", "Collision": "collision", "RigidModel": "rigid model", "Skin": "skin", "BlendSkin": "blend skin"}
+# The blend file's models the dialog offers, kept: Blender reads the strings of a dynamic enum's items after the callback returned
+_candidate_items: typing.List[typing.Tuple[str, str, str]] = []
+
+
+def _candidate_enum(self, context):
+    from . import link_sync
+
+    _candidate_items[:] = [(root.name, root.name, root.get(tlm_blender.PATH_PROPERTY, "") or "Made in Blender") for root in link_sync.candidates(self.asset_type)] \
+        or [("NONE", "No model", "The blend file has no model of the kind")]
+    return _candidate_items
+
+
+class TTT_OT_TTLabRequest(bpy.types.Operator):
+    """Keeps what TT Lab's Use an Existing Blend File asks for while Blender starts: until a model of the kind is picked, the scene's models of
+    the kind aren't linked to TT Lab (they'd be their files' models meanwhile)"""
+
+    bl_idname = "ttt.tt_lab_request"
+    bl_label = "TT Lab's Request"
+    bl_options = {"INTERNAL"}
+
+    model: bpy.props.StringProperty(options={"HIDDEN"})
+    asset_type: bpy.props.StringProperty(options={"HIDDEN"})
+    name: bpy.props.StringProperty(options={"HIDDEN"})
+
+    def execute(self, context):
+        from . import link_sync
+
+        link_sync.request(self.model, self.asset_type, self.name)
+        return {"FINISHED"}
+
+
+class TTT_OT_UseForTTLabModel(bpy.types.Operator):
+    """Puts a model of the blend file in a TT Lab model's place (TT Lab's Use an Existing Blend File): the model is given the TT Lab model's
+    file and replaces it through TT Lab once it's linked, when the checks and TT Lab take it, and the blend file is saved, the model's from
+    then on. Asks which model when the file has several of the kind"""
+
+    bl_idname = "ttt.use_for_tt_lab_model"
+    bl_label = "Replace TT Lab's Model"
+    bl_options = {"UNDO", "INTERNAL"}
+
+    model: bpy.props.StringProperty(options={"HIDDEN"})
+    asset_type: bpy.props.StringProperty(options={"HIDDEN"})
+    name: bpy.props.StringProperty(options={"HIDDEN"})
+    root: bpy.props.EnumProperty(name="Model", description="The model of the blend file that replaces TT Lab's", items=_candidate_enum)
+
+    def invoke(self, context, event):
+        from . import link_sync
+
+        link_sync.request(self.model, self.asset_type, self.name)
+        candidates = link_sync.candidates(self.asset_type)
+        # The Twin Tech Model panel's button says which
+        if len(candidates) < 2 or self.properties.is_property_set("root"):
+            return self.execute(context)
+
+        own = tlm_blender.model_of_file(self.model)
+        self.root = own.name if own in candidates else candidates[0].name
+        return context.window_manager.invoke_props_dialog(self, width=480, title="Which model replaces %s?" % self.name, confirm_text="Replace")
+
+    def draw(self, context):
+        self.layout.label(text="The model picked replaces %s in TT Lab" % self.name)
+        self.layout.prop(self, "root")
+
+    def cancel(self, context):
+        from . import link_sync
+        from . import save_hook
+
+        link_sync.drop_request()
+        save_hook.tell("INFO", "Nothing replaces %s: select a model of the kind and use the Twin Tech Model panel's Replace %s in TT Lab" % (self.name, self.name))
+
+    # Run without invoking (Blender in the background never invokes), the file's only model of the kind: an unset choice reads as its first
+    def execute(self, context):
+        from . import link_sync
+        from . import save_hook
+
+        candidates = link_sync.candidates(self.asset_type)
+        picked = self.root if self.properties.is_property_set("root") else ""
+        root = next((candidate for candidate in candidates if picked and candidate.name == picked), None) or (candidates[0] if len(candidates) == 1 else None)
+        if root is None:
+            link_sync.drop_request()
+            kind = _KIND_NAMES.get(self.asset_type, self.asset_type + " model")
+            save_hook.tell("ERROR", "%s has no %s to replace %s with: import or make one in it and use the Twin Tech Model panel's Replace %s in TT Lab"
+                           % (os.path.basename(bpy.data.filepath) or "The blend file", kind, self.name, self.name) if not candidates
+                           else "%s has %d %ss, pick the one that replaces %s" % (os.path.basename(bpy.data.filepath) or "The blend file", len(candidates), kind, self.name))
+            return {"CANCELLED"}
+
+        _in_object_mode(context)
+        # Selected first: nothing fails once it's bound
+        _select_only(context, root)
+        link_sync.use_for(root, self.model, self.name)
+        save_hook.tell("INFO", "%s replaces %s in TT Lab once Blender linked it" % (root.name, self.name))
+        return {"FINISHED"}
+
+
+class TTT_OT_ReimportTlm(bpy.types.Operator):
+    """Puts the file's model in the place of the scene's model of it: what was changed in Blender since goes with it"""
+
+    bl_idname = "ttt.reimport_tlm"
+    bl_label = "Import the Model Again"
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
+
+    filepath: bpy.props.StringProperty(options={"HIDDEN"})
+    root: bpy.props.StringProperty(options={"HIDDEN"})
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_confirm(self, event, title="Import %s again?" % os.path.basename(self.filepath),
+                                                     message="%s is put in its place, what was changed in Blender since goes" % self.root,
+                                                     confirm_text="Import Again", icon="WARNING")
+
+    def execute(self, context):
+        root = bpy.data.objects.get(self.root)
+        if root is None or not root.get(tlm_blender.ROOT_PROPERTY):
+            self.report({"ERROR"}, "%s isn't a model of the scene any more" % self.root)
+            return {"CANCELLED"}
+
+        from . import link_sync
+
+        _in_object_mode(context)
+        try:
+            # A linked model as TT Lab has it
+            new_root = link_sync.take_tt_labs(context, root, self.filepath)
+        except (OSError, tlm.TlmError, ValueError) as error:
+            self.report({"ERROR"}, "Couldn't import %s: %s" % (self.filepath, error))
+            return {"CANCELLED"}
+
+        if new_root is None:
+            self.report({"ERROR"}, "TT Lab didn't give %s: it's as it was, try again" % self.root)
+            return {"CANCELLED"}
+
+        _select_only(context, new_root)
+        self.report({"INFO"}, "%s is the file's model again" % new_root.name)
         return {"FINISHED"}
 
 
@@ -97,11 +274,20 @@ class TTT_OT_ExportTlm(bpy.types.Operator, ExportHelper):
         return True
 
     def _check(self, context, path=None):
-        """The model to export to the path, its own file by default, None when something keeps it from being exported."""
+        """The model to export to the path, its own file by default, None when something keeps it from being exported (checks)."""
         root, problem = _model_to_export(context)
-        problem = problem or tlm_blender.export_problem(root, path)
         if problem is not None:
             self.report({"ERROR"}, "Can't export: %s" % problem)
+            return None
+
+        materials.make_drawn_twin_tech(root)
+        refused = checks.refused(root, path)
+        for found in refused[1:]:
+            self.report({"ERROR"}, found.text)
+
+        if refused:
+            more = " (and %d more, the Twin Tech Checks panel lists them)" % (len(refused) - 1) if len(refused) > 1 else ""
+            self.report({"ERROR"}, "Can't export: %s%s" % (refused[0].text, more))
             return None
 
         return root
@@ -156,10 +342,9 @@ def _in_object_mode(context):
 
 
 class TTT_OT_NewOgi(bpy.types.Operator):
-    """Makes a new OGI model to build a game object's model in: its root, an armature of joint 0 and joint 1, a box rigid body on joint 1,
-    an empty skin and blend skin the armature deforms and the holders the exit points and collision hulls go under. Replace the box or
-    fill the skin with the model's meshes, add bones and animations as needed, keep the root's bounding box around the meshes and export
-    it over an OGI's file in a TT Lab project to make that OGI the model"""
+    """Makes a new OGI model to build a game object's model in: its root, an armature of joint 0, a box (its rigid body) and the holders
+    the exit points and collision hulls go in. Rig meshes to the armature the way Blender rigs them (Ctrl+P), add bones and animations as
+    needed and export it over an OGI's file in a TT Lab project to make that OGI the model"""
 
     bl_idname = "ttt.new_ogi"
     bl_label = "OGI Model"
@@ -168,6 +353,36 @@ class TTT_OT_NewOgi(bpy.types.Operator):
     def execute(self, context):
         _in_object_mode(context)
         root = tlm_templates.new_ogi(context)
+        _select_only(context, root)
+        return {"FINISHED"}
+
+
+class TTT_OT_NewSkydome(bpy.types.Operator):
+    """Makes a new sky to build a level's sky in: its root and a dome drawn with its vertex colors and a sky's material. Export it over a
+    skydome's file in a TT Lab project to make that skydome the sky"""
+
+    bl_idname = "ttt.new_skydome"
+    bl_label = "Skydome"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        _in_object_mode(context)
+        root = tlm_templates.new_skydome(context)
+        _select_only(context, root)
+        return {"FINISHED"}
+
+
+class TTT_OT_NewModel(bpy.types.Operator):
+    """Makes a new model sceneries and LODs place: its root and a box with a picture. Export it over a mesh's file in a TT Lab project to make
+    that mesh the model"""
+
+    bl_idname = "ttt.new_model"
+    bl_label = "Model"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        _in_object_mode(context)
+        root = tlm_templates.new_model(context)
         _select_only(context, root)
         return {"FINISHED"}
 
@@ -212,69 +427,11 @@ class TTT_MT_Add(bpy.types.Menu):
 
     def draw(self, context):
         self.layout.operator(TTT_OT_NewOgi.bl_idname, icon="OUTLINER_OB_ARMATURE")
+        self.layout.operator(TTT_OT_NewSkydome.bl_idname, icon="WORLD_DATA")
+        self.layout.operator(TTT_OT_NewModel.bl_idname, icon="MESH_CUBE")
+        self.layout.separator()
         self.layout.operator(TTT_OT_NewScenery.bl_idname, icon="WORLD")
         self.layout.operator(TTT_OT_NewSaveIcon.bl_idname, icon="IMAGE_DATA")
-
-
-_MATCH_ITEMS = [
-    (retarget.MATCH_AUTO, "Automatically", "Joint indexes when the target's skeleton is the source's (every joint they share has the same parent), names and then the hierarchy otherwise"),
-    (retarget.MATCH_INDEX, "Joint Indexes", "A bone with one of the source's joint indexes is that joint, whatever its place: for a copy of the source's skeleton"),
-    (retarget.MATCH_NAME, "Names, Then The Hierarchy", "Indexes are left out, exporting numbers any rig's bones: bones named like the source's joints are those, the rest by their place in the hierarchy"),
-    (retarget.MATCH_NAME_ONLY, "Name Only", "Bones named like the source's joints are those joints and nothing else matches: the target's other bones stay as they are, new "
-                                         "joints keeping their names. The matched bones have to be under each other like the joints are, other bones may be in between"),
-]
-
-
-def _is_armature(self, blender_object):
-    return blender_object.type == "ARMATURE"
-
-
-class TTT_OT_Retarget(bpy.types.Operator):
-    """Plays the source armature's animations on the target armature: the target's bones get the source's joint names, indexes and
-    settings (by joint index while the target's skeleton is the source's, then by name, then by the hierarchy in order, the rest new
-    joints), the bodies, exit points and hulls on the source's bones go on the target's bones of their joints (on its root joint when
-    it has none of theirs), every animation of the source becomes the target's under the same name and ID, in which the matched bones
-    turn from their own rests as much as the source's do on every frame and move as far, and the source's own animations go. Export the
-    target's model afterwards"""
-
-    bl_idname = "ttt.retarget"
-    bl_label = "Perform Retargeting"
-    bl_options = {"REGISTER", "UNDO"}
-
-    # Always offered: pressing it says what's missing
-    @classmethod
-    def poll(cls, context):
-        return True
-
-    def execute(self, context):
-        scene = context.scene
-        source, target = scene.ttt_retarget_source, scene.ttt_retarget_target
-        problem = tlm_blender.retarget_problem(source, target)
-        if problem is not None:
-            self.report({"ERROR"}, "Can't retarget: %s" % problem)
-            return {"CANCELLED"}
-
-        _in_object_mode(context)
-        source_name, target_name = source.name, target.name
-        try:
-            count, matched, taken, moved = tlm_blender.retarget_armature(context, source, target, scene.ttt_retarget_match)
-        except ValueError as error:
-            self.report({"ERROR"}, "Can't retarget: %s" % error)
-            return {"CANCELLED"}
-
-        how = ", ".join("%d by %s" % (matched[way], label) for way, label in ((retarget.BY_INDEX, "joint index"), (retarget.BY_NAME, "name"),
-                                                                             (retarget.BY_ORDER, "the hierarchy"), (retarget.NEW, "none, new joints"),
-                                                                             (retarget.KEPT, "none, kept as they are")) if matched.get(way))
-        followed = "; bodies, exit points and hulls moved onto its bones: %d" % len(moved) if moved else ""
-        self.report({"INFO"}, "%s plays the %d animations of %s now; bones matched %s%s" % (target_name, count, source_name, how, followed))
-        if taken:
-            self.report({"WARNING"}, "Other actions are named %s already, so these kept Blender's numbers" % ", ".join(taken))
-
-        lost = ["%s (on %s)" % (name, joint) for name, joint in moved if joint is not None]
-        if lost:
-            self.report({"WARNING"}, "%s has no bone of these joints, what was on them follows its root joint: %s" % (target_name, ", ".join(lost)))
-
-        return {"FINISHED"}
 
 
 _surface_items_cache = []
@@ -370,41 +527,248 @@ class TTT_PT_Model(bpy.types.Panel):
         return tlm_blender.find_root(context.object) is not None
 
     def draw(self, context):
+        from . import link_sync
+        from . import project as projects
+        from . import save_hook
+
         layout = self.layout
         root = tlm_blender.find_root(context.object)
         path = root.get(tlm_blender.PATH_PROPERTY, "")
         layout.label(text=os.path.basename(path) if path else root.name, icon="FILE_3D")
-        layout.operator(TTT_OT_ExportTlm.bl_idname, icon="EXPORT")
+        folder = projects.find_root(path) if path else None
+        if link_sync.is_linked(root):
+            layout.label(text="Linked to TT Lab: what changes goes there, syncing writes the model", icon="LINKED")
+            if root.get(link_sync.CHANGED_IN_TT_LAB_PROPERTY) and link_sync.replacing(root) is None:
+                layout.label(text="Changed in TT Lab since: syncing asks what to do with it", icon="ERROR")
+        elif folder is not None:
+            layout.label(text="TT Lab doesn't have the project open: syncing writes the model into its file", icon="UNLINKED")
+
+        if path:
+            row = layout.row(align=True)
+            row.operator(save_hook.TTT_OT_SyncWithTTLab.bl_idname, icon="FILE_REFRESH")
+            preferences = save_hook.preferences()
+            if preferences is not None:
+                row.prop(preferences, "sync_on_save", text="")
+
+        request = link_sync.last_request()
+        if request is not None and root.get(tlm_blender.ROOT_PROPERTY) == request["asset_type"] and link_sync.replacing(root) is None \
+                and not (path and _same_path(path, request["model"])):
+            replace = layout.operator(TTT_OT_UseForTTLabModel.bl_idname, text="Replace %s in TT Lab" % request["name"], icon="FILE_REFRESH")
+            replace.model, replace.asset_type, replace.name, replace.root = request["model"], request["asset_type"], request["name"], root.name
+        elif link_sync.replacing(root) is not None:
+            layout.label(text="Replaces %s in TT Lab once TT Lab takes it" % link_sync.replacing(root), icon="FILE_REFRESH")
+
+        row = layout.row(align=True)
+        row.operator(TTT_OT_ExportTlm.bl_idname, icon="EXPORT")
+        row.operator(TTT_OT_OpenInTTLab.bl_idname, icon="WINDOW", text="")
+        if folder is None and root.get(tlm_blender.ROOT_PROPERTY) in NEW_ASSET_TYPES:
+            layout.operator(TTT_OT_AddToTTLab.bl_idname, icon="ADD")
         if root.get(tlm_blender.KIND_PROPERTY) == "scenery":
             layout.operator(TTT_OT_GenerateCollision.bl_idname, icon="MOD_PHYSICS")
 
 
-class TTT_PT_Retargeting(bpy.types.Panel):
-    """Plays one armature's animations on another: the target's bones become the source's joints and the source's animations the
-    target's, retargeted to its bones"""
+def _same_path(path, other):
+    return os.path.normcase(os.path.abspath(path)) == os.path.normcase(os.path.abspath(other))
 
-    bl_label = "Twin Tech Animation Retargeting"
-    bl_space_type = "PROPERTIES"
-    bl_region_type = "WINDOW"
-    bl_context = "object"
-    bl_options = {"DEFAULT_CLOSED"}
+
+# The kinds of models made in Blender TT Lab makes assets of
+NEW_ASSET_TYPES = ("Ogi", "Skydome", "Mesh")
+# The folders the running TT Lab offers, for the dialog's choice
+_new_asset_folders: typing.List[typing.Tuple[str, str, str]] = []
+
+
+def _connect_to_running_tt_lab(running=None):
+    """A link to the running TT Lab with a project open (the newest, else the one of the discovery file given), welcomed, or why there's
+    none."""
+    from . import link_client
+    from . import link_protocol
+
+    running = link_protocol.any_tt_lab() if running is None else running
+    if running is None or not running.get("project"):
+        return None, "No TT Lab with a project open runs"
+
+    try:
+        client = link_client.Client(int(running["port"]))
+    except (OSError, KeyError, ValueError) as error:
+        return None, "TT Lab didn't answer: %s" % error
+
+    welcome = client.ask({"type": "hello", "token": running.get("token", ""), "protocol": link_protocol.PROTOCOL, "blend": "", "blender": bpy.app.version_string,
+                          "addon": tlm_blender.ADDON_VERSION})
+    if welcome is None or welcome[0].get("type") != "welcome":
+        client.close()
+        return None, "TT Lab didn't link: %s" % (welcome[0].get("text", "") if welcome else "no answer")
+
+    return client, (running.get("project") or {}).get("name", "")
+
+
+class TTT_OT_AddToTTLab(bpy.types.Operator):
+    """Makes the model made in Blender an asset of the project the running TT Lab has open, in the folder picked: its materials and pictures
+    become the model's own, and the model is linked to TT Lab from then on"""
+
+    bl_idname = "ttt.add_to_tt_lab"
+    bl_label = "Add to TT Lab's Project"
+    bl_options = {"REGISTER"}
+
+    name: bpy.props.StringProperty(name="Name", description="The new asset's name, plain ASCII")
+    folder: bpy.props.EnumProperty(name="Folder", description="Where in the project the model goes",
+                                   items=lambda self, context: _new_asset_folders or [("", "No folder", "")])
 
     @classmethod
     def poll(cls, context):
-        return context.object is not None
+        from . import link_protocol
 
-    def draw(self, context):
-        layout = self.layout
-        scene = context.scene
-        layout.prop(scene, "ttt_retarget_source", icon="ARMATURE_DATA")
-        layout.prop(scene, "ttt_retarget_target", icon="ARMATURE_DATA")
-        layout.prop(scene, "ttt_retarget_match")
-        source = scene.ttt_retarget_source
-        if source is not None and source.type == "ARMATURE":
-            count = len(tlm_blender._owned_actions(tlm_blender.find_root(source), source, [bone.name for bone in source.data.bones]))
-            layout.label(text="%d animations of %s" % (count, source.name), icon="ACTION")
+        root = tlm_blender.find_root(context.object)
+        if root is None or root.get(tlm_blender.ROOT_PROPERTY) not in NEW_ASSET_TYPES:
+            cls.poll_message_set("TT Lab makes assets of a game model, a skydome or a model made in Blender")
+            return False
 
-        layout.operator(TTT_OT_Retarget.bl_idname, icon="PLAY")
+        running = link_protocol.any_tt_lab()
+        if running is None or not running.get("project"):
+            cls.poll_message_set("Open the project in TT Lab first")
+            return False
+
+        return True
+
+    def invoke(self, context, event):
+        client, why = _connect_to_running_tt_lab()
+        if client is None:
+            self.report({"ERROR"}, why)
+            return {"CANCELLED"}
+
+        answer = client.ask({"type": "new_model_targets"})
+        client.close()
+        folders = answer[0].get("folders", []) if answer is not None else []
+        _new_asset_folders[:] = [(folder["uri"], folder["label"], folder["uri"]) for folder in folders if isinstance(folder, dict) and folder.get("uri")]
+        if not _new_asset_folders:
+            self.report({"ERROR"}, "TT Lab's project has no folder models are made in")
+            return {"CANCELLED"}
+
+        root = tlm_blender.find_root(context.object)
+        self.name = root.name
+        return context.window_manager.invoke_props_dialog(self, width=480, title="Add to %s" % why)
+
+    def execute(self, context):
+        from . import link_protocol
+        from . import link_sync
+
+        root = tlm_blender.find_root(context.object)
+        name = self.name.strip()
+        if not name or not name.isascii():
+            self.report({"ERROR"}, "Give the model a name of plain ASCII")
+            return {"CANCELLED"}
+
+        running = link_protocol.any_tt_lab()
+        client, why = _connect_to_running_tt_lab(running)
+        if client is None:
+            self.report({"ERROR"}, why)
+            return {"CANCELLED"}
+
+        # The model is the project's from now on, like a model exported into its files or put in a model's place: what it draws of another
+        # project (an imported model's materials and pictures) is made its own, what other projects' models draw too copied for it. Any
+        # file in the project's folder tells separate the project
+        into = os.path.join(running["project"].get("path", ""), "assets", name + ".tlm")
+        link_sync.separate(root, into, before_settings=True)
+        materials.make_drawn_twin_tech(root)
+        link_sync.separate(root, into, before_settings=False)
+        file, _, warnings = tlm_blender.build_file(root, "")
+        answer = client.ask({"type": "create_model", "name": name, "folder": self.folder}, file.to_bytes(), timeout=60.0)
+        client.close()
+        if answer is None or answer[0].get("type") != "created":
+            self.report({"ERROR"}, "TT Lab didn't add it: %s" % (answer[0].get("text", "") if answer else "no answer"))
+            return {"CANCELLED"}
+
+        # The model it stood for keeps its file: TT Lab's Edit in Blender forgets the blend file for it, and what Blender kept of it (its
+        # revision, what TT Lab said) isn't of the new model
+        previous = root.get(tlm_blender.PATH_PROPERTY, "")
+        link_sync.unbind(root)
+        if previous and not link_sync._same_file(previous, answer[0]["path"]):
+            link_sync._release(previous)
+
+        root[tlm_blender.PATH_PROPERTY] = answer[0]["path"]
+        for warning in warnings:
+            self.report({"WARNING"}, warning)
+
+        self.report({"INFO"}, "TT Lab has the model now, linked once Blender finds it")
+        return {"FINISHED"}
+
+
+class TTT_OT_OpenInTTLab(bpy.types.Operator):
+    """Shows the model in TT Lab: the TT Lab that has its project open, else a running one opens the project (asking about its own unsaved
+    changes first), else TT Lab starts with it"""
+
+    bl_idname = "ttt.open_in_tt_lab"
+    bl_label = "Open in TT Lab"
+    bl_options = {"REGISTER"}
+
+    @classmethod
+    def poll(cls, context):
+        from . import project as projects
+
+        root = tlm_blender.find_root(context.object)
+        path = root.get(tlm_blender.PATH_PROPERTY, "") if root is not None else ""
+        if not path or projects.find_root(path) is None:
+            cls.poll_message_set("The model isn't a model of a TT Lab project: import it from one")
+            return False
+
+        return True
+
+    def execute(self, context):
+        import subprocess
+
+        from . import link_client
+        from . import link_protocol
+        from . import link_sync
+        from . import project as projects
+
+        root = tlm_blender.find_root(context.object)
+        path = root[tlm_blender.PATH_PROPERTY]
+        link = link_sync.link_of(root)
+        if link is not None and root.get(link_sync.MODEL_URI_PROPERTY):
+            link.client.send({"type": "open_asset", "uri": root[link_sync.MODEL_URI_PROPERTY]})
+            return {"FINISHED"}
+
+        folder = projects.find_root(path)
+        # The TT Lab that has the project open, else any (it opens the project)
+        running = (link_protocol.tt_lab_of(folder, projects.uuid_of(folder)) if folder else None) or link_protocol.any_tt_lab()
+        if running is not None:
+            try:
+                client = link_client.Client(int(running["port"]))
+            except (OSError, KeyError, ValueError) as error:
+                self.report({"ERROR"}, "TT Lab didn't answer: %s" % error)
+                return {"CANCELLED"}
+
+            import time
+
+            answers = []
+            client.send({"type": "hello", "token": running.get("token", ""), "protocol": link_protocol.PROTOCOL, "blend": "", "blender": bpy.app.version_string,
+                         "addon": tlm_blender.ADDON_VERSION})
+            client.send({"type": "open_project", "project": folder, "path": path}, answered=lambda header, payload: answers.append(header))
+            # Closed with its answer unread, the socket would be reset before TT Lab read the question
+            end = time.time() + 3.0
+            while not answers and not client.closed and time.time() < end:
+                client.take()
+                time.sleep(0.02)
+
+            client.close()
+            if answers and answers[0].get("type") == "error":
+                self.report({"ERROR"}, "TT Lab didn't open the project: %s" % answers[0].get("text", ""))
+                return {"CANCELLED"}
+            self.report({"INFO"}, "TT Lab opens the project, asking about its own unsaved changes first")
+            return {"FINISHED"}
+
+        command = link_protocol.tt_lab_command()
+        if command is None:
+            self.report({"ERROR"}, "No TT Lab ran on this computer yet: start TT Lab once, Blender starts it from then on")
+            return {"CANCELLED"}
+
+        try:
+            subprocess.Popen(command + [folder, "--open-file", path], start_new_session=True)
+        except OSError as error:
+            self.report({"ERROR"}, "TT Lab didn't start: %s" % error)
+            return {"CANCELLED"}
+
+        self.report({"INFO"}, "TT Lab starts with the project")
+        return {"FINISHED"}
 
 
 def _menu_import(self, context):
@@ -421,11 +785,6 @@ def _menu_add(self, context):
 
 
 def register():
-    bpy.types.Scene.ttt_retarget_source = bpy.props.PointerProperty(type=bpy.types.Object, name="Source Armature", poll=_is_armature,
-                                                                    description="The armature playing the animations, they go to the target")
-    bpy.types.Scene.ttt_retarget_target = bpy.props.PointerProperty(type=bpy.types.Object, name="Target Armature", poll=_is_armature,
-                                                                    description="The armature to play the source's animations, its bones become the source's joints")
-    bpy.types.Scene.ttt_retarget_match = bpy.props.EnumProperty(name="Match Bones By", items=_MATCH_ITEMS, default=retarget.MATCH_AUTO)
     bpy.types.TOPBAR_MT_file_import.append(_menu_import)
     bpy.types.TOPBAR_MT_file_export.append(_menu_export)
     bpy.types.VIEW3D_MT_add.append(_menu_add)
@@ -435,6 +794,3 @@ def unregister():
     bpy.types.VIEW3D_MT_add.remove(_menu_add)
     bpy.types.TOPBAR_MT_file_import.remove(_menu_import)
     bpy.types.TOPBAR_MT_file_export.remove(_menu_export)
-    for name in ("ttt_retarget_source", "ttt_retarget_target", "ttt_retarget_match"):
-        if hasattr(bpy.types.Scene, name):
-            delattr(bpy.types.Scene, name)

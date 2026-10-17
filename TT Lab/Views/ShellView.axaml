@@ -61,6 +61,8 @@
                 <Separator/>
                 <MenuItem Command="{Binding OpenToolsFolder}" Header="Open tools folder"/>
                 <MenuItem Command="{Binding InstallTools}" Header="Install the tools" ToolTip.Tip="Downloads the latest twinstudio release of twinmusic and twinpss for this system into the tools folder, in place of what's there"/>
+                <Separator/>
+                <MenuItem Command="{Binding InstallBlenderAddon}" Header="Install the Blender add-on" ToolTip.Tip="Installs the add-on TT Lab comes with into Blender (4.5 or newer, the one picked in the Preferences or found) and turns TT Lab 1.0.0's add-on off"/>
             </MenuItem>
             <MenuItem Header="Window">
                 <MenuItem Command="{Binding ShowProjectTree}" Header="Project Tree"/>
