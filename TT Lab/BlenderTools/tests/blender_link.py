@@ -159,6 +159,83 @@ def use_for_another_model(fake, root, model, project_root, directory):
     clear_replacements()
 
 
+def undo_and_redo_keep_what_tt_lab_made(fake, root_name):
+    """A model's own copy keeps the Blender ID TT Lab made a material of in every undo step having it: undone and redone, or undone to it
+    from a copy of it, it's that material again, and no other is made. The picker links the model to the project's material again, which
+    the link asks TT Lab for."""
+    def skin():
+        return next(child for child in tlm_blender._descendants(bpy.data.objects[root_name]) if tlm_blender.role_of(child) == "skin")
+
+    def make_own(name):
+        with bpy.context.temp_override(object=skin(), material=bpy.data.materials[name]):
+            check(bpy.ops.ttt.material_make_own("EXEC_DEFAULT", True) == {"FINISHED"}, "%s wasn't made the model's own" % name)
+
+        made = "%s %s" % (name, root_name)
+        check(tick_until(lambda: bpy.data.materials[made].get(tlm_blender.URI_PROPERTY)), "TT Lab didn't make %s" % made)
+        return made
+
+    def drawn():
+        return sorted({slot.material.name for slot in skin().material_slots if slot.material})
+
+    bpy.ops.ed.undo_push(message="Linked")
+    own = make_own("Crash Fur")
+    uri = bpy.data.materials[own][tlm_blender.URI_PROPERTY]
+    made = len(fake.of("create_material"))
+    bpy.ops.ed.undo()
+    check(drawn() == ["Crash Fur"], "undo didn't give the skin the project's material back: %s" % drawn())
+    bpy.ops.ed.redo()
+    check(tick_until(lambda: bpy.data.materials[own].get(tlm_blender.URI_PROPERTY) == uri), "redo didn't bring back what TT Lab made of the copy")
+    tick_until(lambda: False, 0.6)
+    check(len(fake.of("create_material")) == made, "redo made another material in TT Lab: %s" % [header["name"] for header, _ in fake.of("create_material")][made:])
+
+    # The copy TT Lab made is the project's, which can be made the model's own too: undone, it's the copy again
+    again = make_own(own)
+    made = len(fake.of("create_material"))
+    bpy.ops.ed.undo()
+    check(drawn() == [own] and again not in bpy.data.materials, "undo didn't give the skin the copy back: %s" % drawn())
+    check(tick_until(lambda: bpy.data.materials[own].get(tlm_blender.URI_PROPERTY) == uri), "undo lost what TT Lab made of the copy")
+    tick_until(lambda: False, 0.6)
+    check(len(fake.of("create_material")) == made, "undo made another material in TT Lab: %s" % [header["name"] for header, _ in fake.of("create_material")][made:])
+
+    # Linked to the project's material again, TT Lab is asked what it has of it
+    linked = len(fake.of("link_model"))
+    with bpy.context.temp_override(object=skin(), material=bpy.data.materials[own]):
+        check(bpy.ops.ttt.material_link_project("EXEC_DEFAULT", True, material=FUR) == {"FINISHED"}, "the model wasn't linked to the project's material")
+
+    check(drawn() == ["Crash Fur"], "the skin draws %s" % drawn())
+    check(tick_until(lambda: len(fake.of("link_model")) > linked and link_sync.link_of(bpy.data.objects[root_name]) is not None
+                     and not link_sync.link_of(bpy.data.objects[root_name]).linking), "the model wasn't linked again")
+    check(FUR in fake.of("link_model")[-1][0]["materials"], "linked again with %s" % fake.of("link_model")[-1][0]["materials"])
+
+
+def syncing_writes_every_animation(fake, root_name):
+    """Animations made in Blender and left for another one are the model's: syncing wrote only the one playing (Blender 5 doesn't stash the
+    action it switches from, which was taken for deleted)."""
+    root = bpy.data.objects[root_name]
+    armature = tlm_blender.armature_of(root)
+    played = armature.animation_data.action
+    made = []
+    for name in ("Jump", "Dance"):
+        action = bpy.data.actions.new(name)
+        bag = tlm_blender._channelbag(action, action.slots.new("OBJECT", armature.name))
+        fcurve = bag.fcurves.new('pose.bones["Joint 1"].location', index=0)
+        fcurve.keyframe_points.insert(0, 0.0)
+        fcurve.keyframe_points.insert(4, 1.0)
+        # Played as the Action Editor plays it
+        armature.animation_data.action = action
+        bpy.context.view_layer.update()
+        made.append(name)
+
+    armature.animation_data.action = played
+    bpy.context.view_layer.update()
+    writes = len(fake.of("write_model"))
+    check(save_hook.sync() == [], "the model wasn't synced")
+    check(tick_until(lambda: len(fake.of("write_model")) > writes), "syncing didn't write the model")
+    written = tlm.TlmFile.from_bytes(fake.of("write_model")[-1][1])
+    animations = [animation["name"] for animation in tlm.find_child(written.root, "armature")["animations"]]
+    check(set(made + ["Walk", "Wave"]) <= set(animations), "syncing wrote the animations %s" % animations)
+
+
 def main():
     twin_tech_tools.register()
     # Saving writes the models, as Always on Save does: these checks are of what's written
@@ -258,6 +335,11 @@ def main():
         with open(model, "rb") as file:
             check(file.read() == before, "the model's file was written in Blender")
 
+        # Undo makes the scene's blocks again, the root among them
+        root_name = root.name
+        undo_and_redo_keep_what_tt_lab_made(fake, root_name)
+        syncing_writes_every_animation(fake, root_name)
+        root = bpy.data.objects[root_name]
         use_for_another_model(fake, root, model, project_root, directory)
     finally:
         link_sync.drop_all()

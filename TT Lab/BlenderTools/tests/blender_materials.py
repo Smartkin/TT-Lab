@@ -432,6 +432,91 @@ def check_made_in_blender(directory):
           and FUR_TEXTURE not in json.dumps(entry), "the file names the project's texture: %s" % entry["images"])
 
 
+def _drawn_by(root):
+    return sorted({slot.material.name for child in tlm_blender._descendants(root) if child.type == "MESH" for slot in child.material_slots if slot.material})
+
+
+def check_undo_and_picker(directory):
+    """A model's own copy and its pictures' copies have their Blender IDs in the step making them: redone, they're what TT Lab made of them
+    and no new ones. The Twin Tech Material panel's picker links the model's parts drawn with a material to a project material instead, of
+    the model's package and the packages it depends on, one the scene doesn't have made of the project's files; undo gives the parts their
+    material back."""
+    clear()
+    project_root = os.path.join(directory, "undo")
+    model, _ = make_project(project_root)
+    assets = os.path.join(project_root, "assets")
+    eyes = "res://%s/Material/Crash Eyes" % PACKAGE
+    _asset(os.path.join(assets, PACKAGE, "Material"), "Crash Eyes", "Material", ".data", gs_material.new_material("CRASH_EYES", skin=True, textured=False))
+    # A material of a package the model's doesn't depend on
+    foreign = "res://Other_Test/Material/Foreign"
+    os.makedirs(os.path.join(assets, "Other_Test", "Material"))
+    write_json(os.path.join(assets, "Other_Test", "Material", "Foreign.json"), {"URI": {"_uri": foreign}, "Type": "TT_Lab.Assets.Graphics.Material, TT Lab",
+                                                                              "Alias": "Foreign", "Package": {"_uri": "res://Other_Test"}})
+    write_json(os.path.join(assets, "Other_Test", "Material", "Foreign.data"), gs_material.new_material("FOREIGN", skin=True, textured=False))
+    root = tlm_blender.import_file(bpy.context, model)
+    root_name = root.name
+    bpy.context.view_layer.update()
+    # Undo in the background starts with the first step pushed
+    bpy.ops.ed.undo_push(message="Imported")
+
+    def skin():
+        return next(child for child in tlm_blender._descendants(bpy.data.objects[root_name]) if tlm_blender.role_of(child) == "skin")
+
+    with bpy.context.temp_override(object=skin(), material=bpy.data.materials["Crash Fur"]):
+        check(bpy.ops.ttt.material_make_own("EXEC_DEFAULT", True) == {"FINISHED"}, "the material wasn't made the model's own")
+
+    own_name = "Crash Fur %s" % root_name
+    identity = bpy.data.materials[own_name].get(tlm_blender.BLENDER_ID_PROPERTY)
+    check(identity and _drawn_by(bpy.data.objects[root_name]) == [own_name], "the model's own copy has no Blender ID of the step making it")
+    with bpy.context.temp_override(object=skin(), material=bpy.data.materials[own_name]):
+        check(bpy.ops.ttt.picture_make_own("EXEC_DEFAULT", True, all_pictures=True) == {"FINISHED"}, "the pictures weren't made the model's own")
+
+    pictures = {item.image.name: item.image.get(material_settings.IMAGE_ID_PROPERTY) for item in material_settings.settings_of(bpy.data.materials[own_name]).shaders
+                if item.image is not None}
+    check(pictures and all(pictures.values()), "the pictures' copies have no Blender IDs of the step making them: %s" % pictures)
+    bpy.ops.ed.undo()
+    bpy.ops.ed.undo()
+    check(_drawn_by(bpy.data.objects[root_name]) == ["Crash Fur"] and own_name not in bpy.data.materials, "undo didn't give the model the project's material back")
+    bpy.ops.ed.redo()
+    bpy.ops.ed.redo()
+    own = bpy.data.materials.get(own_name)
+    check(own is not None and own.get(tlm_blender.BLENDER_ID_PROPERTY) == identity, "redo made the copy again under another Blender ID")
+    redone = {item.image.name: item.image.get(material_settings.IMAGE_ID_PROPERTY) for item in material_settings.settings_of(own).shaders if item.image is not None}
+    check(redone == pictures, "redo made the pictures' copies again under other Blender IDs: %s, %s" % (redone, pictures))
+    # A picture given to a shader is given its ID with it
+    painted = bpy.data.images.new("Painted", 4, 4)
+    material_settings.settings_of(own).shaders[0].image = painted
+    check(painted.get(material_settings.IMAGE_ID_PROPERTY), "a picture given to a shader has no Blender ID")
+
+    # The picker offers the package's materials and the scene's of them, not another package's
+    offered = [uri for uri, _, _ in material_ui._offered_materials(bpy.data.objects[root_name], refresh=True)]
+    check(offered == [eyes, FUR], "the picker offers %s" % offered)
+    write_json(os.path.join(assets, PACKAGE, PACKAGE + ".json"), {"URI": {"_uri": "res://" + PACKAGE}, "Dependencies": [{"_uri": "res://Other_Test"}]})
+    offered = [uri for uri, _, _ in material_ui._offered_materials(bpy.data.objects[root_name], refresh=True)]
+    check(offered == [eyes, FUR, foreign], "the picker doesn't offer the materials of the packages the model's depends on: %s" % offered)
+    with bpy.context.temp_override(object=skin(), material=own):
+        check(bpy.ops.ttt.material_link_project.poll(), "the picker isn't offered for a model's material")
+        check(bpy.ops.ttt.material_link_project("EXEC_DEFAULT", True, material=FUR) == {"FINISHED"}, "the model wasn't linked to the project material")
+
+    check(_drawn_by(bpy.data.objects[root_name]) == ["Crash Fur"], "the model's parts draw %s" % _drawn_by(bpy.data.objects[root_name]))
+    bpy.ops.ed.undo()
+    check(_drawn_by(bpy.data.objects[root_name]) == [own_name], "undo didn't give the parts their material back")
+    # One the scene doesn't have is made with the project's settings, which TT Lab has
+    with bpy.context.temp_override(object=skin(), material=bpy.data.materials[own_name]):
+        check(bpy.ops.ttt.material_link_project("EXEC_DEFAULT", True, material=eyes) == {"FINISHED"}, "the model wasn't linked to a material the scene doesn't have")
+
+    linked = next(material for material in bpy.data.materials if material.get(tlm_blender.URI_PROPERTY) == eyes)
+    settings = material_settings.settings_of(linked)
+    check(_drawn_by(bpy.data.objects[root_name]) == [linked.name] and settings.managed and settings.known and settings.game_name == "CRASH_EYES",
+          "the project material wasn't made of the project's files: %s" % _drawn_by(bpy.data.objects[root_name]))
+    # Nothing to link: a mesh outside of a model, a collision's surface
+    loose = bpy.data.objects.new("Loose", bpy.data.meshes.new("Loose"))
+    loose.data.materials.append(linked)
+    bpy.context.scene.collection.objects.link(loose)
+    with bpy.context.temp_override(object=loose, material=linked):
+        check(not bpy.ops.ttt.material_link_project.poll(), "the picker is offered for a mesh outside of a model")
+
+
 def check_render(directory):
     """The game's colors on a plane facing up under an orthographic camera, over black: the fur texture (200, 100, 50) times grey vertex
     colors of 0x80 unlit, and lit by the default lights from above; mixed by a vertex alpha of 0x80; and a gloss texture (40, 40, 40)
@@ -542,6 +627,7 @@ def main():
         arguments = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
         check_animation(os.path.join(directory, "animation"), os.path.abspath(arguments[0]) if arguments else None)
         check_made_in_blender(directory)
+        check_undo_and_picker(directory)
         check_render(directory)
     finally:
         shutil.rmtree(directory, ignore_errors=True)

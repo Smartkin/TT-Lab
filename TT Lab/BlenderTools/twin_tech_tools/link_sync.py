@@ -268,6 +268,14 @@ def _link_model(link: Link, root: bpy.types.Object) -> None:
                      _model_linked(link, root_name, path, header, uid))
 
 
+def relink(root: bpy.types.Object) -> None:
+    """The linked model draws another project material than it was linked with (picked in the Twin Tech Material panel): linked again, TT
+    Lab says what it has of it (a step of Blender's when it isn't what the project's files have) and tells its changes from then on."""
+    link = link_of(root)
+    if link is not None and root.name in link.models and not _held_back(root):
+        _link_model(link, root)
+
+
 def _drawn_uris(root: bpy.types.Object) -> typing.Tuple[typing.List[str], typing.List[str]]:
     """The URIs of the project's materials the model draws with and of the pictures they draw."""
     from . import materials
@@ -553,10 +561,7 @@ def separate(root: bpy.types.Object, path: str, previous: typing.Optional[str] =
             if image.as_pointer() in (everywhere if foreign else other_projects):
                 materials.copy_for(image, [root])
             elif foreign:
-                for key in (material_settings.TEXTURE_URI_PROPERTY, material_settings.PNG_CONFIRMED_PROPERTY, material_settings.IMAGE_ID_PROPERTY):
-                    if key in image:
-                        del image[key]
-
+                material_settings.as_made_in_blender(image)
                 for material, _ in materials._drawn(root).values():
                     for item in _pictured(material):
                         if item.image == image:
@@ -1115,18 +1120,24 @@ def _make_material(link: Link, material: bpy.types.Material, root: bpy.types.Obj
     link.making.add(material.name)
     link.client.send({"type": "create_material", "owner": link.models.get(root.name, ""), "blender_id": material[tlm_blender.BLENDER_ID_PROPERTY],
                       "name": material.name, "data": data, "images": entry_images},
-                     answered=lambda header, payload, name=material.name: _material_made(link, name, header, data, shown))
+                     answered=lambda header, payload, name=material.name, blender_id=material[tlm_blender.BLENDER_ID_PROPERTY]:
+                     _material_made(link, name, blender_id, header, data, shown))
 
 
-def _material_made(link: Link, name: str, header: typing.Dict[str, typing.Any], data: typing.Dict[str, typing.Any], shown: typing.Dict[str, typing.Any]) -> None:
+def _material_made(link: Link, name: str, blender_id: str, header: typing.Dict[str, typing.Any], data: typing.Dict[str, typing.Any],
+                   shown: typing.Dict[str, typing.Any]) -> None:
     link.making.discard(name)
+    if header.get("type") != "created":
+        return
+
+    # Undone before TT Lab answered, redo brings it back with the URI
+    link.made[blender_id] = header["uri"]
     material = bpy.data.materials.get(name)
-    if material is None or header.get("type") != "created":
+    if material is None or material.get(tlm_blender.BLENDER_ID_PROPERTY) != blender_id:
         return
 
     material[tlm_blender.URI_PROPERTY] = header["uri"]
     link.names[header["uri"]] = material.name
-    link.made[material.get(tlm_blender.BLENDER_ID_PROPERTY, "")] = header["uri"]
     snapshot = gs_material.snapshot(data, shown)
     material_settings.confirm(material, snapshot)
     link.state[header["uri"]] = snapshot
@@ -1149,19 +1160,23 @@ def _make_picture(link: Link, image: bpy.types.Image, root: bpy.types.Object) ->
     link.making.add(image.name)
     digest = hashlib.sha256(png).hexdigest()
     link.client.send({"type": "create_picture", "owner": link.models.get(root.name, ""), "blender_id": image[material_settings.IMAGE_ID_PROPERTY], "name": image.name},
-                     png, answered=lambda header, payload, name=image.name: _picture_made(link, name, header, digest))
+                     png, answered=lambda header, payload, name=image.name, blender_id=image[material_settings.IMAGE_ID_PROPERTY]:
+                     _picture_made(link, name, blender_id, header, digest))
 
 
-def _picture_made(link: Link, name: str, header: typing.Dict[str, typing.Any], digest: str) -> None:
+def _picture_made(link: Link, name: str, blender_id: str, header: typing.Dict[str, typing.Any], digest: str) -> None:
     link.making.discard(name)
+    if header.get("type") != "created":
+        return
+
+    link.made[blender_id] = header["uri"]
     image = bpy.data.images.get(name)
-    if image is None or header.get("type") != "created":
+    if image is None or image.get(material_settings.IMAGE_ID_PROPERTY) != blender_id:
         return
 
     image[material_settings.TEXTURE_URI_PROPERTY] = header["uri"]
     image[material_settings.PNG_CONFIRMED_PROPERTY] = digest
     link.names[header["uri"]] = image.name
-    link.made[image.get(material_settings.IMAGE_ID_PROPERTY, "")] = header["uri"]
     link.unsaved.add(header["uri"])
 
 
@@ -1634,13 +1649,19 @@ def _write_model(root: bpy.types.Object, force: bool, checks: typing.Any) -> typ
 
     if link is None or root.name not in link.models:
         # No TT Lab has the project open
-        tlm_blender.export_file(root, path)
+        for warning in tlm_blender.export_file(root, path):
+            _tell("WARNING", warning)
+
         return None
 
     if root.get(CHANGED_IN_TT_LAB_PROPERTY) and not force:
         return "%s was changed in TT Lab since: overwrite it, take TT Lab's or skip it" % root.name
 
-    file, materials, _ = tlm_blender.build_file(root, path, linked=True)
+    file, materials, warnings = tlm_blender.build_file(root, path, linked=True)
+    # What the file is written without (animations taken for deleted, modifiers): the Export button says it too
+    for warning in warnings:
+        _tell("WARNING", warning)
+
     link.client.send({"type": "write_model", "uri": link.models[root.name], "revision": root.get(REVISION_PROPERTY, ""), "force": force}, file.to_bytes(),
                      answered=lambda header, payload, name=root.name, materials=materials: _model_written(link, name, header, materials))
     return None

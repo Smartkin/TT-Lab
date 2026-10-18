@@ -126,9 +126,10 @@ namespace TT_Lab.Project
 
             if (_searchAsset == string.Empty)
             {
+                // The folders stay open the way they were: the tree's view gets new items, which open by their rows (every sync of the file
+                // system closed the whole tree)
                 foreach (var item in _internalTree)
                 {
-                    item.IsExpanded = false;
                     item.LoadChildrenBack();
                 }
                 lock (_treeLock)
@@ -138,6 +139,8 @@ namespace TT_Lab.Project
             }
             else
             {
+                // The matches stay in closed folders: the tree's view makes a row for everything in an open folder, and a few letters
+                // opening every folder holding a match made thousands of them on every keystroke
                 foreach (var e in _internalTree)
                 {
                     if (e.Asset.Type == typeof(Folder) || e.Asset.Type == typeof(Package))
@@ -147,11 +150,7 @@ namespace TT_Lab.Project
                             ProjectTree.Add(e);
                         }
                     }
-                    var asset = FilterAsset(e, _searchAsset);
-                    if (asset != null)
-                    {
-                        asset.IsExpanded = true;
-                    }
+                    FilterAsset(e, _searchAsset);
                 }
             }
             _eventAggregator.PublishOnUIThreadAsync(new ProjectManagerMessage(nameof(ProjectTree)));
@@ -175,7 +174,6 @@ namespace TT_Lab.Project
                     if (child != null)
                     {
                         foundChild = true;
-                        asset.IsExpanded = true;
                         asset.AddChild(child);
                     }
                 }

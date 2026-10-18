@@ -213,7 +213,7 @@ public sealed class ProjectTreeTests : IDisposable
         AddObject("kept");
         var doomed = AddObject("doomed");
         _project.BuildProjectTree();
-        var window = new Window { Content = new ProjectTreeView { ViewModel = new ProjectTreeViewModel(Manager, new TestProject.NullEventAggregator()) }, Width = 400, Height = 900 };
+        var window = new Window { Content = new ProjectTreeView { ViewModel = new ProjectTreeViewModel(Manager, new TestProject.NullEventAggregator(), new ScenesEditorsViewModel(), new ResourcesEditorsViewModel()) }, Width = 400, Height = 900 };
         window.Show();
         Expand(window, "assets", _project.Project.GlobalPackagePS2.Name, "GameObject");
         Assert.Contains("doomed", ShownNames(window));

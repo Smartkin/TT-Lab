@@ -103,7 +103,7 @@ public sealed class ProjectTreeDragTests : IDisposable
         var crate = _project.Add(new GameObject(), "Crate", 0x10);
         crate.SetData(new GameObjectData(crate) { Name = "Crate" });
         _project.BuildProjectTree();
-        var view = new ProjectTreeView { DataContext = new ProjectTreeViewModel(Manager, new EventAggregator()) };
+        var view = new ProjectTreeView { DataContext = new ProjectTreeViewModel(Manager, new EventAggregator(), new ScenesEditorsViewModel(), new ResourcesEditorsViewModel()) };
         var floating = Show(view, 400, 600);
         var scene = new Scene { Background = Brushes.Black };
         var main = Show(scene, 1400, 700);
@@ -137,7 +137,7 @@ public sealed class ProjectTreeDragTests : IDisposable
             asked.Add(title);
             return Task.FromResult<int?>(answers.Count == 0 ? null : 0);
         };
-        var view = new ProjectTreeView { DataContext = new ProjectTreeViewModel(Manager, new EventAggregator()) };
+        var view = new ProjectTreeView { DataContext = new ProjectTreeViewModel(Manager, new EventAggregator(), new ScenesEditorsViewModel(), new ResourcesEditorsViewModel()) };
         var window = Show(view, 400, 700);
         PrefabDropTargets.Windows = () => [window];
         var package = _project.Project.GlobalPackagePS2.Name;

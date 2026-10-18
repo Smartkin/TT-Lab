@@ -129,7 +129,7 @@ public class DockLayoutTests
         var scenes = new ScenesEditorsViewModel();
         var resources = new ResourcesEditorsViewModel();
         var log = new LogViewModel(aggregator, projectManager);
-        var projectTree = new ProjectTreeViewModel(projectManager, aggregator);
+        var projectTree = new ProjectTreeViewModel(projectManager, aggregator, scenes, resources);
         var chunkResources = new ChunkResourcesViewModel(scenes);
         var chunkInspector = new ChunkInspectorViewModel(scenes);
         var history = new HistoryViewModel(scenes, resources);

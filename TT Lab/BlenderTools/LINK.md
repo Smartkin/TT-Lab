@@ -139,6 +139,8 @@ whatever this project has at their URIs; a model of no file, or of another syste
 TT Lab doesn't link (it has no model of the file) is a model of no file then, which no save writes into that file. Once it's linked, and what it draws is the project's, Blender sends `write_model` with
 `replacing` and `force`, then `save`, and saves the blend file. A replacement TT Lab refuses is said why and waits: syncing
 once it's fixed writes it as a replacement. Saved while no TT Lab has the project open, the model's file is left alone until one does.
+The Twin Tech Model panel's Link to Another TT Lab Model makes the same choice in Blender: a file browser picks the model file of a project's
+model of the model's kind (the asset's `<name>.json` next to it), which the model is given the same way, the rest going as above.
 
 ## What the blend file keeps
 
@@ -148,5 +150,8 @@ another model's place and not taken yet, that model's name and data file (`ttt_r
 What TT Lab said of a model is kept by the root's `ttt_uid` too: undo putting back another model of the name (the one before Take TT
 Lab's) gives it what it had, and a model of the name that isn't the one linked (its file imported again) links its own.
 Each material and image keeps its URI, its Blender ID and the snapshot of what TT Lab had last (the material's `base` and `known`, the
-image's `ttt_png_confirmed`). Linking again merges three ways with the snapshot as the base: what Blender changed since goes to TT Lab,
+image's `ttt_png_confirmed`). One made in Blender gets its Blender ID in the undo step making it (a copy made a model's own, a material
+made Twin Tech, a picture given to a shader): undo and redo bring it back with it, the URI TT Lab gave the ID is put back (what TT Lab
+answered isn't in Blender's undo), and `create_material` or `create_picture` of it again gets the one TT Lab made. Given when it was first
+sent, the steps before had none, and undoing to one of them made TT Lab make another material of it. Linking again merges three ways with the snapshot as the base: what Blender changed since goes to TT Lab,
 what TT Lab changed comes into Blender.

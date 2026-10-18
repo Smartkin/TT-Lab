@@ -81,18 +81,27 @@ public sealed class Pcsx2DevFolder(string path)
     public bool WriteFile(string relativePath, byte[] bytes) => WriteIfChanged(Path.Combine(FolderPath, GamePath(relativePath)), bytes);
 
     /// <summary>
-    /// The build's files (build/archives, what a build packs into the archive) over the archive's
+    /// The build's files (build/archives, what a build packs into the archive) over the archive's, the game's paths of the ones that changed
     /// </summary>
-    public int CopyBuiltFiles(string buildFilesPath)
+    public List<string> CopyBuiltFiles(string buildFilesPath)
     {
         if (!Directory.Exists(buildFilesPath))
         {
-            return 0;
+            return [];
         }
 
         return Directory.EnumerateFiles(buildFilesPath, "*", SearchOption.AllDirectories)
-            .Count(file => CopyIfChanged(file, Path.Combine(FolderPath, GamePath(Path.GetRelativePath(buildFilesPath, file)))));
+            .Select(file => (Source: file, GamePath: GamePath(Path.GetRelativePath(buildFilesPath, file))))
+            .Where(file => CopyIfChanged(file.Source, Path.Combine(FolderPath, file.GamePath)))
+            .Select(file => file.GamePath).ToList();
     }
+
+    /// <summary>
+    /// Whether the game reads the file only as it boots (the decomp's <c>GameController::Starting</c>): the startup's files (the default
+    /// chunk, its particles' decals, the icons, the font, the front end's sounds, the level select) and the language's texts. It reads the
+    /// others when it needs them
+    /// </summary>
+    public static bool IsReadAtBoot(string gamePath) => gamePath.StartsWith("STARTUP/") || gamePath.StartsWith("LANGUAGE/CODE/") || gamePath.StartsWith("LANGUAGE/AGENTLAB/");
 
     /// <summary>
     /// The music and speech banks next to the archive (Crash6/*.mh and *.mb), which twinmusic edits
@@ -110,15 +119,25 @@ public sealed class Pcsx2DevFolder(string path)
             .Count(file => CopyIfChanged(file, Path.Combine(FolderPath, "CRASH6", Path.GetFileName(file).ToUpperInvariant())));
     }
 
-    // A copy gets its source's time, so a copy whose size and time still match is up to date. Written next to it and moved in, the
-    // game never reads half a file
+    // A copy gets its source's time, so a copy whose size and time still match is up to date, and one of the same bytes only takes the
+    // source's time: Play builds the chunks whose assets are loaded again, the default chunk with them, and they mostly come out the same.
+    // Written next to it and moved in, the game never reads half a file
     private static bool CopyIfChanged(string source, string destination)
     {
         var sourceInfo = new FileInfo(source);
         var destinationInfo = new FileInfo(destination);
-        if (destinationInfo.Exists && destinationInfo.Length == sourceInfo.Length && destinationInfo.LastWriteTimeUtc == sourceInfo.LastWriteTimeUtc)
+        if (destinationInfo.Exists && destinationInfo.Length == sourceInfo.Length)
         {
-            return false;
+            if (destinationInfo.LastWriteTimeUtc == sourceInfo.LastWriteTimeUtc)
+            {
+                return false;
+            }
+
+            if (HaveSameBytes(source, destination))
+            {
+                TakeTime(destination, sourceInfo.LastWriteTimeUtc);
+                return false;
+            }
         }
 
         Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
@@ -127,6 +146,40 @@ public sealed class Pcsx2DevFolder(string path)
         File.SetLastWriteTimeUtc(temporary, sourceInfo.LastWriteTimeUtc);
         MoveIn(temporary, destination);
         return true;
+    }
+
+    // Files of the same length a block at a time, the music bank is hundreds of megabytes
+    private static bool HaveSameBytes(string first, string second)
+    {
+        using var firstStream = new FileStream(first, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        using var secondStream = new FileStream(second, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        var firstBlock = new byte[0x10000];
+        var secondBlock = new byte[0x10000];
+        while (true)
+        {
+            var read = firstStream.ReadAtLeast(firstBlock, firstBlock.Length, false);
+            if (secondStream.ReadAtLeast(secondBlock, secondBlock.Length, false) != read || !firstBlock.AsSpan(0, read).SequenceEqual(secondBlock.AsSpan(0, read)))
+            {
+                return false;
+            }
+
+            if (read < firstBlock.Length)
+            {
+                return true;
+            }
+        }
+    }
+
+    private static void TakeTime(string destination, DateTime time)
+    {
+        try
+        {
+            File.SetLastWriteTimeUtc(destination, time);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // It only spares comparing the bytes again next time
+        }
     }
 
     // Windows doesn't replace a file something has open, the game may be reading it

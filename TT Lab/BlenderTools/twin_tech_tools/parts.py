@@ -24,7 +24,10 @@ parented to something that does) a rigid body of that bone's joint and a mesh th
 joint 0. Exit points and hulls have nothing of Blender's to tell them by, they're typed objects or in their holders. Empties are
 folders. Objects of other kinds (curves, text, Blender's lights) are refused, they'd be left out: they go outside the root or get
 converted to meshes. So is a part following a bone by its Child Of and another by what it's parented to (an imported one parented to a
-bone with Ctrl+P > Bone): Blender moves it with both, the game with one joint; and one following vertexes (Ctrl+P > Vertex).
+bone with Ctrl+P > Bone): Blender moves it with both, the game with one joint; and one following vertexes (Ctrl+P > Vertex). The game
+moves a part with one joint, fully: a part and what it's under carry one plain Child Of to a bone of the model's armature at most
+(switched on, at Influence 1, every channel on, in World or Custom space) and no other constraint that moves it, the export would
+write anything else somewhere other than where Blender shows it.
 """
 
 import typing
@@ -47,13 +50,55 @@ HOLDERS = {"rigid_bodies": BODY, "exit_points": EXIT_POINT, "collision_hulls": H
 # Blender's kinds of objects a model can have
 MODEL_OBJECT_TYPES = ("MESH", "EMPTY", "ARMATURE")
 
+# What makes a part follow one bone plainly, keeping it where it is with the armature at rest
+FOLLOW_ONE_BONE = "ttt.follow_one_bone"
+FOLLOW_ONE_BONE_TEXT = "Make It Follow One Bone"
+REMOVE_CONSTRAINTS_TEXT = "Remove Its Constraints"
+
+# A Child Of's channels, by Blender's names of them
+CHILD_OF_CHANNELS = (("use_location_x", "Location X"), ("use_location_y", "Location Y"), ("use_location_z", "Location Z"),
+                     ("use_rotation_x", "Rotation X"), ("use_rotation_y", "Rotation Y"), ("use_rotation_z", "Rotation Z"),
+                     ("use_scale_x", "Scale X"), ("use_scale_y", "Scale Y"), ("use_scale_z", "Scale Z"))
+_SPACES = {"WORLD": "World Space", "CUSTOM": "Custom Space", "POSE": "Pose Space", "LOCAL_WITH_PARENT": "Local With Parent",
+           "LOCAL": "Local Space", "LOCAL_OWNER_ORIENT": "Local Space (Owner Orientation)"}
+
+
+class ConstraintInfo:
+    """A constraint of an object as far as the game following the object goes."""
+
+    def __init__(self, name: str, constraint_type: str, enabled: bool = True, influence: float = 1.0, target: typing.Optional[str] = None,
+                 target_type: str = "", subtarget: str = "", bone_found: bool = True, channels_off: typing.Sequence[str] = (),
+                 owner_space: str = "WORLD", target_space: str = "WORLD", has_space_object: bool = True):
+        self.name = name
+        self.constraint_type = constraint_type
+        self.enabled = enabled
+        self.influence = influence
+        # The object it takes, its type and the bone of it
+        self.target = target
+        self.target_type = target_type
+        self.subtarget = subtarget
+        # Whether the target armature has the bone
+        self.bone_found = bone_found
+        # A Child Of's channels switched off, by their names in Blender
+        self.channels_off = list(channels_off)
+        self.owner_space = owner_space
+        self.target_space = target_space
+        # Whether a Custom space has its object
+        self.has_space_object = has_space_object
+
+    @property
+    def moves(self) -> bool:
+        """Whether it moves the object: switched on, at some influence."""
+        return self.enabled and self.influence > 0.0
+
 
 class ObjectInfo:
     """An object under a model's root as far as telling what it is goes."""
 
     def __init__(self, name: str, object_type: str, parent: typing.Optional[str] = None, twin_type: str = "", kind: str = "",
                  parent_type: str = "OBJECT", parent_bone: str = "", deformed_by: typing.Sequence[str] = (),
-                 follows: typing.Optional[typing.Tuple[str, str]] = None, shape_keys: int = 0):
+                 follows: typing.Optional[typing.Tuple[str, str]] = None, shape_keys: int = 0,
+                 constraints: typing.Optional[typing.Sequence[ConstraintInfo]] = None):
         self.name = name
         self.object_type = object_type
         # The object it's under, None for the root's own
@@ -68,18 +113,28 @@ class ObjectInfo:
         self.follows = follows
         # Shape keys past the basis
         self.shape_keys = shape_keys
+        # Its constraints in their order. Told only what it follows, that's a plain Child Of; told only its constraints, it follows the first
+        # Child Of to a bone of an armature (object_info tells both)
+        if constraints is None:
+            constraints = [ConstraintInfo("Child Of", "CHILD_OF", target=follows[0], target_type="ARMATURE", subtarget=follows[1])] if follows else []
+        elif follows is None:
+            self.follows = next(((constraint.target, constraint.subtarget) for constraint in constraints if constraint.constraint_type == "CHILD_OF" and
+                                 constraint.target and constraint.target_type == "ARMATURE" and constraint.subtarget), None)
+
+        self.constraints = list(constraints)
 
 
 class Problem:
     """Something that keeps the model from being written, or that it's written without: refused, or a warning."""
 
-    def __init__(self, text: str, subjects: typing.Sequence[str] = (), refused: bool = True, fix: str = ""):
+    def __init__(self, text: str, subjects: typing.Sequence[str] = (), refused: bool = True, fix: str = "", fix_text: str = ""):
         self.text = text
         # The objects it's about
         self.subjects = list(subjects)
         self.refused = refused
-        # The operator that fixes it, when there's one
+        # The operator that fixes it, when there's one, and its button's label when it isn't the operator's
         self.fix = fix
+        self.fix_text = fix_text
 
     def __repr__(self) -> str:
         return "%s(%r)" % ("Refused" if self.refused else "Warning", self.text)
@@ -121,13 +176,25 @@ def ogi_roles(objects: typing.Sequence[ObjectInfo]) -> typing.Tuple[typing.Dict[
             problems.append(Problem("%s is deformed by %s, which isn't the model's armature %s: an OGI's meshes follow its own skeleton"
                                     % (info.name, ", ".join(other), armature or "(none)"), [info.name]))
 
-        if info.follows is not None and info.follows[0] != armature:
-            problems.append(Problem("%s follows %s of %s, which isn't the model's armature: it would be left where it is"
-                                    % (info.name, info.follows[1], info.follows[0]), [info.name]))
-
         if roles[info.name] == SKIN and info.shape_keys > 0 and role == SKIN:
             problems.append(Problem("%s is the skin and has shape keys, which only the blend skin's meshes can have: make it the blend skin"
                                     % info.name, [info.name], fix="ttt.make_blend_skin"))
+
+    # What moves a part, its own constraints and those of what it's under, is checked as a whole (constraint_reasons). Without an armature
+    # (deleted, which empties the Child Ofs' targets) there's nothing to follow, the model is refused for that
+    moving: typing.Set[str] = set()
+    for info in objects:
+        if armature is not None and roles.get(info.name) in (BODY, EXIT_POINT, HULL):
+            moving.update(carriers(info, by_name, armature))
+
+    for info in objects:
+        if info.name in moving:
+            problem = _constraint_problem(info, armature)
+            if problem is not None:
+                problems.append(problem)
+        elif info.object_type == "MESH" and info.follows is not None and info.follows[0] != armature:
+            problems.append(Problem("%s follows %s of %s, which isn't the model's armature: it would be left where it is"
+                                    % (info.name, info.follows[1], info.follows[0]), [info.name]))
 
     for info in objects:
         if roles.get(info.name) not in (BODY, EXIT_POINT, HULL):
@@ -147,6 +214,80 @@ def ogi_roles(objects: typing.Sequence[ObjectInfo]) -> typing.Tuple[typing.Dict[
                                     % (info.name, info.follows[1], under, under, info.follows[1]), [info.name], fix="ttt.remove_child_of"))
 
     return roles, problems
+
+
+def carriers(info: ObjectInfo, by_name: typing.Dict[str, ObjectInfo], armature: typing.Optional[str]) -> typing.List[str]:
+    """The part and the objects it's under, whose constraints move it too, up to the root or a bone."""
+    names: typing.List[str] = []
+    current: typing.Optional[ObjectInfo] = info
+    while current is not None and current.name not in names:
+        names.append(current.name)
+        if current.parent_type not in ("OBJECT", "ARMATURE") or current.parent is None or current.parent == armature:
+            break
+
+        current = by_name.get(current.parent)
+
+    return names
+
+
+def constraint_reasons(info: ObjectInfo, armature: typing.Optional[str]) -> typing.List[str]:
+    """Why the object's constraints aren't what the game does with a part, following one joint fully: one plain Child Of to a bone of the
+    model's armature at most (switched on, at Influence 1, every channel on, in World or Custom space) and nothing else moving it. A
+    switched off Child Of counts, the export would take it for one the part follows; other constraints that move nothing don't."""
+    reasons: typing.List[str] = []
+    child_ofs = [constraint for constraint in info.constraints if constraint.constraint_type == "CHILD_OF"]
+    if len(child_ofs) > 1:
+        reasons.append("it has %d Child Ofs (%s)" % (len(child_ofs), ", ".join(constraint.name for constraint in child_ofs)))
+
+    for constraint in child_ofs:
+        name = constraint.name
+        if not constraint.enabled:
+            reasons.append("%s is switched off" % name)
+
+        if abs(constraint.influence - 1.0) > 1e-6:
+            reasons.append("%s is at Influence %s" % (name, ("%.3f" % constraint.influence).rstrip("0").rstrip(".")))
+
+        if constraint.channels_off:
+            reasons.append("%s has %s switched off" % (name, ", ".join(constraint.channels_off)))
+
+        if constraint.owner_space not in ("WORLD", "CUSTOM") or constraint.owner_space == "CUSTOM" and not constraint.has_space_object:
+            reasons.append("%s's owner space is %s" % (name, _SPACES.get(constraint.owner_space, constraint.owner_space) +
+                                                       (" without an object" if constraint.owner_space == "CUSTOM" else "")))
+
+        if constraint.target_space != "WORLD":
+            reasons.append("%s's target space is %s" % (name, _SPACES.get(constraint.target_space, constraint.target_space)))
+
+        if not constraint.target:
+            reasons.append("%s has no target" % name)
+        elif constraint.target_type != "ARMATURE":
+            reasons.append("%s follows %s, which isn't a bone" % (name, constraint.target))
+        elif not constraint.subtarget:
+            reasons.append("%s follows the armature %s itself, not one of its bones" % (name, constraint.target))
+        elif constraint.target != armature:
+            reasons.append("%s follows %s of %s, which isn't the model's armature" % (name, constraint.subtarget, constraint.target))
+
+    reasons.extend("%s moves it" % constraint.name for constraint in info.constraints if constraint.constraint_type != "CHILD_OF" and constraint.moves)
+    return reasons
+
+
+def kept_child_of(info: ObjectInfo, armature: typing.Optional[str]) -> typing.Optional[ConstraintInfo]:
+    """The Child Of that making the object follow one bone keeps: of those to a bone of the model's armature that move it, the one of the
+    highest influence, the first of them."""
+    candidates = [constraint for constraint in info.constraints if constraint.constraint_type == "CHILD_OF" and constraint.moves and
+                  constraint.target_type == "ARMATURE" and constraint.target == armature and constraint.subtarget and constraint.bone_found]
+    return max(candidates, key=lambda constraint: constraint.influence) if candidates else None
+
+
+def _constraint_problem(info: ObjectInfo, armature: typing.Optional[str]) -> typing.Optional[Problem]:
+    reasons = constraint_reasons(info, armature)
+    if not reasons:
+        return None
+
+    kept = kept_child_of(info, armature)
+    label = FOLLOW_ONE_BONE_TEXT if kept is not None else REMOVE_CONSTRAINTS_TEXT
+    return Problem("%s has constraints the game can't follow: %s. The game moves a part with one joint, fully: %s keeps it where it is with "
+                   "the armature at rest%s" % (info.name, "; ".join(reasons), label, ", following %s alone" % kept.subtarget if kept is not None else ""),
+                   [info.name], fix=FOLLOW_ONE_BONE, fix_text=label)
 
 
 def _given_role(info: ObjectInfo, by_name: typing.Dict[str, ObjectInfo]) -> typing.Optional[str]:

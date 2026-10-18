@@ -35,14 +35,21 @@ _SKINNED_ROLES = ("skin", "shape")
 
 def project_of(context: bpy.types.Context) -> typing.Tuple[typing.Optional[projects.Project], typing.Optional[str]]:
     """The project of the active object's model (or of the blend file) and the version of the game its package is for."""
-    root = tlm_blender.find_root(getattr(context, "object", None))
-    path = root.get(tlm_blender.PATH_PROPERTY, "") if root is not None else ""
-    project = projects.open_project(path or bpy.data.filepath) if path or bpy.data.filepath else None
+    project, package = _project_and_package(tlm_blender.find_root(getattr(context, "object", None)))
     if project is None:
         return None, None
 
-    package = projects.package_of(project.root, path) if path else None
     return project, projects.platform_of(package) if package else None
+
+
+def _project_and_package(root: typing.Optional[bpy.types.Object], refresh: bool = False) -> typing.Tuple[typing.Optional[projects.Project], typing.Optional[str]]:
+    """The project of the model (of the blend file for a model of no file) and the URI of its file's package, None for a model of no file."""
+    path = root.get(tlm_blender.PATH_PROPERTY, "") if root is not None else ""
+    project = projects.open_project(path or bpy.data.filepath, refresh) if path or bpy.data.filepath else None
+    if project is None:
+        return None, None
+
+    return project, projects.package_of(project.root, path) if path else None
 
 
 def _material(context: bpy.types.Context) -> typing.Optional[bpy.types.Material]:
@@ -156,6 +163,124 @@ class TTT_OT_MaterialMakeOwn(bpy.types.Operator):
         root = tlm_blender.find_root(context.object)
         copy = materials.make_own(_material(context), root)
         self.report({"INFO"}, "%s draws with %s of its own" % (root.name, copy.name))
+        return {"FINISHED"}
+
+
+# The project materials the picker offers and the project and package they're of, kept: Blender reads the strings of a dynamic enum's items
+# after the callback returned, and asks for them while the search is typed
+_offered: typing.List[typing.Tuple[str, str, str]] = []
+_offered_for: typing.List[typing.Optional[typing.Tuple[str, typing.Optional[str]]]] = [None]
+_NO_MATERIAL = "NONE"
+
+
+def _offered_materials(root: typing.Optional[bpy.types.Object], refresh: bool = False) -> typing.List[typing.Tuple[str, str, str]]:
+    """The project materials the model can draw, by URI: the ones of its package and the packages it depends on (every one of the project's
+    for a model of no file), the scene's of them TT Lab made since the project's files were read too. Read again when refreshed (the picker
+    opened), what TT Lab saved since included."""
+    from . import materials
+
+    project, package = _project_and_package(root, refresh)
+    if project is None:
+        return []
+
+    key = (project.root, package)
+    if not refresh and _offered_for[0] == key:
+        return _offered
+
+    packages = set(project.packages_used_by(package)) if package else None
+    found = {uri: (material.label, material.package) for uri, material in project.materials.items() if packages is None or material.package in packages}
+    blocks = materials.ProjectBlocks(project.root)
+    for material in bpy.data.materials:
+        uri = str(material.get(tlm_blender.URI_PROPERTY, ""))
+        owner = "res://" + uri.split("://", 1)[-1].split("/")[0] if uri else ""
+        if uri and uri not in found and (packages is None or owner in packages) and blocks.pick([material]) is material:
+            found[uri] = (projects.ProjectMaterial(uri, material.name, owner, "").label, owner)
+
+    # Packages have materials of a name in the same place (the global package's and a version's own)
+    labels: typing.Dict[str, int] = {}
+    for label, _ in found.values():
+        labels[label] = labels.get(label, 0) + 1
+
+    _offered[:] = sorted(((uri, label if labels[label] == 1 else "%s, %s" % (label, owner.split("://", 1)[-1]), uri) for uri, (label, owner) in found.items()),
+                         key=lambda item: (item[1].lower(), item[0]))
+    _offered_for[0] = key
+    return _offered
+
+
+def _material_items(self, context):
+    root = bpy.data.objects.get(self.model) if self.model else tlm_blender.find_root(getattr(context, "object", None))
+    return _offered_materials(root) or [(_NO_MATERIAL, "No material", "The project has no material the model can draw")]
+
+
+class TTT_OT_MaterialLinkProject(bpy.types.Operator):
+    """Draws this model's parts drawn with the material with one of the project's materials, picked by its name: it's the project's as TT
+    Lab has it, its settings and pictures. The other models drawing the material keep it"""
+
+    bl_idname = "ttt.material_link_project"
+    bl_label = "Link to a Project Material"
+    # No redo panel: the material is kept as its place among the items, which the next picker reads again
+    bl_options = {"UNDO"}
+    bl_property = "material"
+
+    material: bpy.props.EnumProperty(name="Material", items=_material_items, options={"SKIP_SAVE"})
+    # What the picker was opened for: the search runs the operator in its own region's context
+    target: bpy.props.StringProperty(options={"HIDDEN", "SKIP_SAVE"})
+    model: bpy.props.StringProperty(options={"HIDDEN", "SKIP_SAVE"})
+
+    @classmethod
+    def poll(cls, context):
+        from . import tlm_scenery
+
+        material = _material(context)
+        if material is None:
+            return False
+
+        root = tlm_blender.find_root(getattr(context, "object", None))
+        if root is None:
+            cls.poll_message_set("The active object isn't part of a model")
+            return False
+
+        if tlm_scenery.is_surface(material):
+            cls.poll_message_set("A collision's materials are its surfaces")
+            return False
+
+        if _project_and_package(root)[0] is None:
+            cls.poll_message_set("The model isn't of a TT Lab project: export it to a model file of one, or save the blend file in one")
+            return False
+
+        return True
+
+    def invoke(self, context, event):
+        self.target = _material(context).name
+        self.model = tlm_blender.find_root(context.object).name
+        _offered_materials(bpy.data.objects[self.model], refresh=True)
+        context.window_manager.invoke_search_popup(self)
+        return {"RUNNING_MODAL"}
+
+    def execute(self, context):
+        from . import link_sync
+        from . import materials
+
+        material = bpy.data.materials.get(self.target) if self.target else _material(context)
+        root = bpy.data.objects.get(self.model) if self.model else tlm_blender.find_root(getattr(context, "object", None))
+        project = _project_and_package(root)[0]
+        if material is None or root is None or project is None or self.material == _NO_MATERIAL:
+            self.report({"WARNING"}, "No project material was picked")
+            return {"CANCELLED"}
+
+        picked = materials.project_material(project, self.material)
+        if picked is None:
+            self.report({"ERROR"}, "The project has no material %s" % self.material)
+            return {"CANCELLED"}
+
+        if picked == material:
+            self.report({"INFO"}, "%s draws with %s already" % (root.name, picked.name))
+            return {"CANCELLED"}
+
+        materials.use_instead(material, picked, root)
+        # Linked, TT Lab says what it has of it, and tells its changes from then on
+        link_sync.relink(root)
+        self.report({"INFO"}, "%s draws with %s instead of %s" % (root.name, picked.name, material.name))
         return {"FINISHED"}
 
 
@@ -362,6 +487,14 @@ def _emit_lighting_shader(material: bpy.types.Material, context: bpy.types.Conte
     return gs_material.type_label(shader_type) if shader_type is not None else None
 
 
+def _draw_link_project(layout: typing.Any, context: bpy.types.Context, material: bpy.types.Material, text: str = "") -> None:
+    """The project material picker, for the materials of a model's parts: a collision's are its surfaces."""
+    from . import tlm_scenery
+
+    if tlm_blender.find_root(getattr(context, "object", None)) is not None and not tlm_scenery.is_surface(material):
+        layout.operator(TTT_OT_MaterialLinkProject.bl_idname, text=text or TTT_OT_MaterialLinkProject.bl_label, icon="LINKED")
+
+
 def _draw_emit_colors_warning(layout: typing.Any, material: bpy.types.Material, context: bpy.types.Context) -> None:
     """Exporting refuses a PS2 model's rigid mesh drawn with a shader lighting its emit colors without them."""
     shader = _emit_lighting_shader(material, context)
@@ -415,6 +548,7 @@ class TTT_PT_Material(bpy.types.Panel):
             else:
                 column.label(text="Becomes a Twin Tech material once a model's part draws with it", icon="INFO")
 
+            _draw_link_project(column, context, material)
             _draw_emit_colors_warning(layout, material, context)
             return
 
@@ -427,11 +561,14 @@ class TTT_PT_Material(bpy.types.Panel):
                 box.label(text="Drawn by %s here" % ", ".join(others), icon="OBJECT_DATA")
 
             box.operator(TTT_OT_MaterialMakeOwn.bl_idname, icon="DUPLICATE")
+            _draw_link_project(box, context, material, "Link to Another Project Material")
         else:
             box.label(text="Made in Blender: writing the model adds it to the project", icon="INFO")
             if _project_pictures(material, True):
                 box.label(text="It draws project textures, which another project doesn't have", icon="TEXTURE")
                 box.operator(TTT_OT_PictureMakeOwn.bl_idname, text="Make Its Pictures This Model's Own", icon="DUPLICATE").all_pictures = True
+
+            _draw_link_project(box, context, material)
 
         if any(_lacks_colors(blender_object) for blender_object in _users(material)):
             warning = layout.row()

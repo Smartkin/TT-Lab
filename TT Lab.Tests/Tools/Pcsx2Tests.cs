@@ -368,7 +368,7 @@ public sealed class Pcsx2Tests : IDisposable
         File.WriteAllBytes(Path.Combine(build, "Levels", "earth", "hub", "beach.rm2"), [10, 11, 12]);
 
         Assert.Equal(3, folder.ExtractArchive(disc));
-        Assert.Equal(1, folder.CopyBuiltFiles(build));
+        Assert.Equal(["LEVELS/EARTH/HUB/BEACH.RM2"], folder.CopyBuiltFiles(build));
         Assert.Equal(2, folder.CopySoundBanks(disc));
 
         Assert.Equal([1, 2, 3], File.ReadAllBytes(Path.Combine(folder.FolderPath, "STARTUP", "DEFAULT.RM2")));
@@ -378,7 +378,7 @@ public sealed class Pcsx2Tests : IDisposable
         Assert.Empty(Directory.EnumerateFiles(folder.FolderPath, "*.tmp", SearchOption.AllDirectories));
         // Nothing changed, nothing's written again
         Assert.Equal(0, folder.ExtractArchive(disc));
-        Assert.Equal(0, folder.CopyBuiltFiles(build));
+        Assert.Empty(folder.CopyBuiltFiles(build));
         Assert.Equal(0, folder.CopySoundBanks(disc));
     }
 
@@ -412,8 +412,52 @@ public sealed class Pcsx2Tests : IDisposable
         File.WriteAllBytes(chunk, [3, 4]);
         File.SetLastWriteTimeUtc(chunk, DateTime.UtcNow.AddMinutes(1));
 
-        Assert.Equal(1, folder.CopyBuiltFiles(build));
+        Assert.Equal(["LEVELS/EARTH/HUB/BEACH.RM2"], folder.CopyBuiltFiles(build));
         Assert.Equal([3, 4], File.ReadAllBytes(Path.Combine(folder.FolderPath, "LEVELS", "EARTH", "HUB", "BEACH.RM2")));
+    }
+
+    // Play builds the chunks whose assets are loaded again, the default chunk with them, and they mostly come out the same: a reload only
+    // counts what changed, and the game boots again only when the default chunk really did
+    [Fact]
+    public void AFileBuiltAgainTheSameHasntChanged()
+    {
+        var build = Path.Combine(_root, "build", "archives");
+        var folder = new Pcsx2DevFolder(Path.Combine(_root, "build", "pcsx2"));
+        var chunk = Path.Combine(build, "Startup", "Default.rm2");
+        Directory.CreateDirectory(Path.GetDirectoryName(chunk)!);
+        var bytes = new byte[0x25000];
+        new Random(3).NextBytes(bytes);
+        File.WriteAllBytes(chunk, bytes);
+        folder.CopyBuiltFiles(build);
+        var copy = Path.Combine(folder.FolderPath, "STARTUP", "DEFAULT.RM2");
+
+        var builtAgain = DateTime.UtcNow.AddMinutes(1);
+        File.SetLastWriteTimeUtc(chunk, builtAgain);
+        Assert.Empty(folder.CopyBuiltFiles(build));
+        // It takes the time of the build's, the next look doesn't compare them again
+        Assert.Equal(builtAgain, File.GetLastWriteTimeUtc(copy));
+
+        // The last block of a file of the same length
+        bytes[^1] ^= 0xFF;
+        File.WriteAllBytes(chunk, bytes);
+        File.SetLastWriteTimeUtc(chunk, DateTime.UtcNow.AddMinutes(2));
+        Assert.Equal(["STARTUP/DEFAULT.RM2"], folder.CopyBuiltFiles(build));
+        Assert.Equal(bytes, File.ReadAllBytes(copy));
+    }
+
+    [Theory]
+    [InlineData("STARTUP/DEFAULT.RM2", true)]
+    [InlineData("STARTUP/FONTS/CRASH_EURO.PSF", true)]
+    [InlineData("STARTUP/LEVELSELECT.TXT", true)]
+    [InlineData("LANGUAGE/CODE/ENGLISH.TXT", true)]
+    [InlineData("LANGUAGE/AGENTLAB/FRENCH.TXT", true)]
+    [InlineData("LANGUAGE/TITLES/ENGLISH/LEVEL01.PSM", false)]
+    [InlineData("LANGUAGE/LOADING/LOADING1.PSM", false)]
+    [InlineData("LEVELS/EARTH/HUB/BEACH.RM2", false)]
+    [InlineData("EXTRAS/UNSEEN/UNSEEN48.PSM", false)]
+    public void TheGameReadsTheStartupAndTheLanguagesTextsOnlyAsItBoots(string gamePath, bool readAtBoot)
+    {
+        Assert.Equal(readAtBoot, Pcsx2DevFolder.IsReadAtBoot(gamePath));
     }
 
     [Fact]

@@ -66,6 +66,8 @@
             </MenuItem>
             <MenuItem Header="Window">
                 <MenuItem Command="{Binding ShowProjectTree}" Header="Project Tree"/>
+                <MenuItem x:Name="LocateInProjectTreeItem" Command="{Binding LocateInProjectTree}" Header="Locate in Project Tree" InputGesture="Alt+Shift+L"
+                          IsEnabled="{Binding ProjectOpened}" ToolTip.Tip="Picks the row of the asset of the editor last worked in, in the Project Tree, or the row of what holds it when the tree doesn't list it"/>
                 <MenuItem Command="{Binding ShowChunkResources}" Header="Chunk Resources"/>
                 <MenuItem Command="{Binding ShowChunkInspector}" Header="Inspector"/>
                 <MenuItem Command="{Binding ShowScenes}" Header="Scenes"/>

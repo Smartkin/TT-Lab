@@ -305,6 +305,13 @@ public class ShellViewModel : Screen, ILabManager
 
     public void ShowProjectTree() => DockFactory.ShowPanel(_projectTree);
 
+    // Locate in Project Tree (Alt+Shift+L): the tree comes to the front, or back when it was closed, with the editor's asset picked
+    public void LocateInProjectTree()
+    {
+        DockFactory.ShowPanel(_projectTree);
+        _projectTree.Locate();
+    }
+
     public void ShowScenes() => DockFactory.ShowPanel(EditorsViewModel.ScenesEditorsViewModel);
 
     public void ShowResources() => DockFactory.ShowPanel(EditorsViewModel.ResourcesEditorsViewModel);

@@ -1,10 +1,15 @@
 using System;
+using System.Linq;
+using System.Reactive.Disposables;
+using System.Reactive.Disposables.Fluent;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
+using ReactiveUI;
 using ReactiveUI.Avalonia;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
@@ -16,6 +21,8 @@ namespace TT_Lab.Views;
 public partial class ProjectTreeView : ReactiveUserControl<ProjectTreeViewModel>, IAssetDropTarget
 {
     private const double DragDistance = 6.0;
+    // How many layout passes the folders opened on the way to a located row get to make its container in
+    private const int RevealTries = 20;
     private static readonly Cursor DropCursor = new(StandardCursorType.DragCopy);
     private static readonly Cursor MoveCursor = new(StandardCursorType.DragMove);
     private static readonly Cursor NoDropCursor = new(StandardCursorType.No);
@@ -34,6 +41,21 @@ public partial class ProjectTreeView : ReactiveUserControl<ProjectTreeViewModel>
     public ProjectTreeView()
     {
         InitializeComponent();
+        this.WhenActivated(disposables =>
+        {
+            if (ViewModel is not { } viewModel)
+            {
+                return;
+            }
+
+            viewModel.RevealRequested += Reveal;
+            Disposable.Create(() => viewModel.RevealRequested -= Reveal).DisposeWith(disposables);
+            // Located while the panel was closed, reopening it to locate makes the view afterwards
+            if (viewModel.PendingReveal is { } pending)
+            {
+                Reveal(pending);
+            }
+        });
         // Dragging a game object's row a little starts dragging it into a scene, a plain click keeps selecting the row
         ProjectTree.AddHandler(PointerPressedEvent, OnPressed, RoutingStrategies.Tunnel);
         ProjectTree.AddHandler(PointerMovedEvent, OnMoved, RoutingStrategies.Tunnel);
@@ -225,6 +247,33 @@ public partial class ProjectTreeView : ReactiveUserControl<ProjectTreeViewModel>
         {
             row.IsTargetItem = true;
         }
+    }
+
+    // Once the folders down to it are open and laid out, the located row is scrolled to and gets the focus, for the keyboard to carry on
+    // from it. The containers of the folders opened on the way are made by layout passes, a level or so each
+    private void Reveal(ResourceTreeElementViewModel row)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            for (var tries = 0; tries < RevealTries; tries++)
+            {
+                if (ViewModel is not { } viewModel || !ReferenceEquals(ProjectTree.ItemsSource, viewModel.ProjectTree) || TopLevel.GetTopLevel(this) == null)
+                {
+                    return;
+                }
+
+                if (ProjectTree.TreeContainerFromItem(row) is TreeViewItem { IsEffectivelyVisible: true } item)
+                {
+                    var header = item.GetVisualDescendants().OfType<Border>().FirstOrDefault(border => border.Classes.Contains("row") && border.DataContext == row);
+                    (header ?? (Control)item).BringIntoView();
+                    item.Focus(NavigationMethod.Directional);
+                    viewModel.Revealed(row);
+                    return;
+                }
+
+                ProjectTree.UpdateLayout();
+            }
+        }, DispatcherPriority.Loaded);
     }
 
     private static bool IsInTextBox(Visual visual)

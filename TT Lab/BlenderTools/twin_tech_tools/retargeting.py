@@ -15,14 +15,15 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-"""Retarget and Replace: a rig takes a model's place, playing the model's animations.
+"""Retargeting: a rig plays a model's animations, which leave the model.
 
 The rig is an armature of the scene (made a model when it isn't part of one) or a model file's. Its table says which of the model's joints
 each of its bones stands for (pairing: literally a subtree of the model's skeleton, the rest new joints at rest), and is kept with its
-armature. Replacing renames and numbers the bones as their joints with their settings and IDs, retargets every animation of the model
-to them, carries the model's exit points and hulls onto the bones of their joints (the rig's own of the same place win, what followed
-a joint no bone stands for goes to the nearest one that does), and keeps the model hidden as what the rig was retargeted from, so the
-table can be changed and the rig retargeted again. What couldn't be carried over is told in the checks."""
+armature. Retargeting renames and numbers the bones as their joints with their settings and IDs, gives the rig a copy of every animation of
+the model under its name and ID, carries the model's exit points and hulls onto the bones of their joints (the rig's own of the same place
+win, what followed a joint no bone stands for goes to the nearest one that does) and deletes the model's animations. Nothing else of the
+model changes: it keeps its place, name, file and link to TT Lab (the rig took them over and the model was kept hidden before). What
+couldn't be carried over is told in the checks."""
 
 import json
 import typing
@@ -30,28 +31,20 @@ import typing
 import bpy
 from mathutils import Matrix, Vector
 
+from . import flags
 from . import pairing
 from . import tlm_blender
 from . import twintech_properties as properties
 
-# On a model kept hidden as what another was retargeted from
+# On a model an earlier add-on kept hidden as what another was retargeted from (its TT Lab Retarget Sources collection): never a model of
+# the scene's, the files it has stay
 SOURCE_PROPERTY = "ttt_retarget_source"
-# On a model made by retargeting: the hidden model it was retargeted from
-SOURCE_OF_PROPERTY = "ttt_source"
 # On a model made by retargeting: what couldn't be carried over to it, as JSON
 NOTES_PROPERTY = "ttt_retarget_notes"
-# The collection the hidden models are kept in
-SOURCES_COLLECTION = "TT Lab Retarget Sources"
 
 
 def is_source(root: typing.Optional[bpy.types.Object]) -> bool:
     return root is not None and bool(root.get(SOURCE_PROPERTY))
-
-
-def source_of(root: bpy.types.Object) -> bpy.types.Object:
-    """What the model plays the animations of: the hidden model it was retargeted from, else itself."""
-    source = root.get(SOURCE_OF_PROPERTY)
-    return source if isinstance(source, bpy.types.Object) and source.name in bpy.data.objects and tlm_blender.armature_of(source) is not None else root
 
 
 def notes_of(root: bpy.types.Object) -> typing.List[str]:
@@ -111,6 +104,9 @@ def problems(source_root: bpy.types.Object, rig: bpy.types.Object) -> typing.Lis
     if rig == source_armature:
         return ["The rig is the model's own armature"]
 
+    if tlm_blender.find_root(rig) == source_root:
+        return ["The rig is part of the model: an OGI has one skeleton"]
+
     return pairing.problems(skeleton_of(source_armature), skeleton_of(rig), table_of(rig))
 
 
@@ -137,35 +133,29 @@ def as_model(context: bpy.types.Context, rig: bpy.types.Object) -> bpy.types.Obj
     return root
 
 
-def replace(context: bpy.types.Context, root: bpy.types.Object, rig: bpy.types.Object, shapes: typing.Optional[typing.Dict[str, typing.Optional[str]]] = None
-            ) -> typing.Tuple[bpy.types.Object, int, typing.List[str]]:
-    """Makes the rig the model, playing its animations: see the module. Refuses a table that isn't a subtree of the model's skeleton,
-    nothing changes then. Returns the model the rig is part of, how many animations were retargeted and what couldn't be carried over."""
-    source_root = source_of(root)
-    found = problems(source_root, rig)
+def retarget(context: bpy.types.Context, root: bpy.types.Object, rig: bpy.types.Object, shapes: typing.Optional[typing.Dict[str, typing.Optional[str]]] = None
+             ) -> typing.Tuple[bpy.types.Object, int, typing.List[str]]:
+    """Gives the rig the model's animations, which leave the model: see the module. Refuses a table that isn't a subtree of the model's
+    skeleton, nothing changes then. Returns the model the rig is part of, how many animations it got and what couldn't be carried over."""
+    found = problems(root, rig)
     if found:
         raise ValueError("; ".join(found))
 
-    source_armature = tlm_blender.armature_of(source_root)
+    source_armature = tlm_blender.armature_of(root)
     source_skeleton = skeleton_of(source_armature)
     target_root = as_model(context, rig)
-    shape_pairs = {source: target for target, source in (shapes or pairing.pair_shapes(shape_names(source_root), shape_names(target_root))).items() if source}
+    shape_pairs = {source: target for target, source in (shapes or pairing.pair_shapes(shape_names(root), shape_names(target_root))).items() if source}
     notes: typing.List[str] = []
     if any(abs(value - rig.matrix_world.to_scale()[0]) > 1e-4 for value in rig.matrix_world.to_scale()):
         notes.append("%s is scaled unevenly (%s): its animations' moves were scaled by its mean scale" % (rig.name, tuple(round(value, 4) for value in rig.matrix_world.to_scale())))
 
     # Named as the joints first: renaming a bone only renames the curves of the action its armature plays
-    renamed = _assign_joints(source_armature, rig, table_of(rig), notes)
+    _assign_joints(source_armature, rig, table_of(rig), notes)
     pairs = table_of(rig)
     bones = {joint: bone for bone, joint in pairs.items() if joint is not None}
-    count = tlm_blender.retarget_animations(source_root, target_root, bones=bones, shapes=shape_pairs)
-    _carry_attachments(source_root, source_armature, target_root, rig, source_skeleton, skeleton_of(rig), pairs, notes)
-    if target_root != root:
-        _take_place(context, root, target_root, source_root)
-
-    # Once a model retargeted before took its copies' names with it
-    _name_copies(source_root, rig)
-
+    count = tlm_blender.retarget_animations(root, target_root, bones=bones, shapes=shape_pairs)
+    _carry_attachments(root, source_armature, target_root, rig, source_skeleton, skeleton_of(rig), pairs, notes)
+    _move_animations(root, source_armature, rig)
     target_root[NOTES_PROPERTY] = json.dumps(notes)
     first = next(iter(tlm_blender.animations_of(target_root)), None)
     if first is not None:
@@ -175,24 +165,27 @@ def replace(context: bpy.types.Context, root: bpy.types.Object, rig: bpy.types.O
     return target_root, count, notes
 
 
-# The model's animations kept with it, their copies the rig plays take their names
-SOURCE_ACTION_SUFFIX = " (retarget source)"
-
-
-def _name_copies(source_root: bpy.types.Object, rig: bpy.types.Object) -> None:
+def _move_animations(root: bpy.types.Object, source_armature: bpy.types.Object, rig: bpy.types.Object) -> None:
+    """The model's animations are the rig's now: deleted from the model with its bones' settings of them, their copies take their names
+    and are the rig's own from now on. One the rig got no copy of stays."""
     owner = rig.get(tlm_blender.UID_PROPERTY)
     copies = {action.get(tlm_blender.RETARGETED_PROPERTY): action for action in bpy.data.actions
               if action.get(tlm_blender.OWNER_PROPERTY) == owner and action.get(tlm_blender.RETARGETED_PROPERTY)}
-    for action in tlm_blender.animations_of(source_root):
+    for action in tlm_blender.animations_of(root):
         copy = copies.get(action.get(tlm_blender.UID_PROPERTY))
         if copy is None:
             continue
 
-        name = action.name[:-len(SOURCE_ACTION_SUFFIX)] if action.name.endswith(SOURCE_ACTION_SUFFIX) else action.name
-        if not action.name.endswith(SOURCE_ACTION_SUFFIX):
-            action.name = name + SOURCE_ACTION_SUFFIX
-
+        name = action.name
+        bpy.data.actions.remove(action)
         copy.name = name
+        del copy[tlm_blender.RETARGETED_PROPERTY]
+
+    for bone in source_armature.data.bones:
+        entries = getattr(bone, flags.FLAGS_PROPERTY)
+        for index in reversed(range(len(entries))):
+            if entries[index].action is None:
+                entries.remove(index)
 
 
 def _assign_joints(source_armature: bpy.types.Object, rig: bpy.types.Object, pairs: pairing.Pairs, notes: typing.List[str]) -> typing.Dict[str, str]:
@@ -327,9 +320,11 @@ def _kept_joint(blender_object: bpy.types.Object, source_armature: bpy.types.Obj
 
 def _copy_attachment(blender_object: bpy.types.Object, kind: str, source_root: bpy.types.Object, target_root: bpy.types.Object, rig: bpy.types.Object,
                      joint: typing.Optional[str], rest: Matrix, target_bone: typing.Optional[str], source_armature: bpy.types.Object, scale: float) -> bpy.types.Object:
-    """A copy of the exit point or hull under the rig's model following the bone, where the original is from its joint's rest: turned as
-    the rig's bone points from the way the joint's bone points, its offset scaled. The bones' own axes (the roll about the way they
-    point) differ between rigs, their ways don't. What follows no bone is where it was in its model."""
+    """A copy of the exit point or hull under the rig's model following the bone, where the original is from its joint's rest: its offset
+    scaled and turned as the rig's bone points from the way the joint's bone points (the bones' own axes, the roll about the way they
+    point, differ between rigs, their ways don't). A hull turns with it, it wraps the limb. An exit point keeps its axes: the rig's bone
+    turns in the world as much as the joint does, so what it holds turns the way it did on every frame, and turned with the bone it
+    held it askew. What follows no bone is where it was in its model."""
     copy = blender_object.copy()
     if copy.data is not None:
         copy.data = copy.data.copy()
@@ -346,8 +341,9 @@ def _copy_attachment(blender_object: bpy.types.Object, kind: str, source_root: b
         joint_rest = source_armature.matrix_world @ source_armature.data.bones[joint].matrix_local
         bone_rest = rig.matrix_world @ rig.data.bones[target_bone].matrix_local
         turn = _way(joint_rest).rotation_difference(_way(bone_rest)).to_matrix().to_4x4()
-        turned = turn @ Matrix.Translation(-rest.translation) @ rest
-        world = Matrix.Translation(bone_rest.translation + turn.to_3x3() @ ((rest.translation - joint_rest.translation) * scale)) @ turned
+        own_axes = Matrix.Translation(-rest.translation) @ rest
+        world = Matrix.Translation(bone_rest.translation + turn.to_3x3() @ ((rest.translation - joint_rest.translation) * scale)) @ \
+            (own_axes if kind == "exit_point" else turn @ own_axes)
     else:
         world = target_root.matrix_world @ source_root.matrix_world.inverted() @ blender_object.matrix_world
 
@@ -371,62 +367,3 @@ def _way(rest: Matrix) -> Vector:
     """The way a bone at its rest points, in the world"""
     return (rest.to_3x3() @ Vector((0.0, 1.0, 0.0))).normalized()
 
-
-def _take_place(context: bpy.types.Context, root: bpy.types.Object, target_root: bpy.types.Object, source_root: bpy.types.Object) -> None:
-    """The rig's model takes the model's place: its name, file, asset type and collections. The model is kept hidden as what it was
-    retargeted from, a model retargeted from it before goes (with the animations it played) for the new one."""
-    from . import link_sync
-
-    name = root.name
-    target_root[tlm_blender.PATH_PROPERTY] = root.get(tlm_blender.PATH_PROPERTY, "")
-    target_root[tlm_blender.ROOT_PROPERTY] = root.get(tlm_blender.ROOT_PROPERTY) or target_root.get(tlm_blender.ROOT_PROPERTY)
-    # What TT Lab said of the model and what it waits to replace are the rig's model's now
-    for key in (link_sync.REPLACES_PROPERTY, link_sync.MODEL_URI_PROPERTY, link_sync.REVISION_PROPERTY, link_sync.CHANGED_IN_TT_LAB_PROPERTY,
-                link_sync.TT_LAB_PROBLEMS_PROPERTY):
-        if key in root:
-            target_root[key] = root[key]
-        elif key in target_root:
-            del target_root[key]
-
-    collections = list(root.users_collection)
-    tlm_blender._move_to_collections(target_root, collections)
-    if source_root != root:
-        for action in tlm_blender.animations_of(root):
-            bpy.data.actions.remove(action)
-
-        tlm_blender.remove_model(root)
-    else:
-        _keep_hidden(context, root)
-
-    target_root.name = name
-    tlm_blender._drop_name_numbers(tlm_blender._descendants(target_root))
-    target_root[SOURCE_OF_PROPERTY] = source_root
-    for link in link_sync._links.values():
-        if name in link.models:
-            link.record(target_root)
-
-
-def _keep_hidden(context: bpy.types.Context, root: bpy.types.Object) -> None:
-    sources = bpy.data.collections.get(SOURCES_COLLECTION)
-    if sources is None:
-        sources = bpy.data.collections.new(SOURCES_COLLECTION)
-        context.scene.collection.children.link(sources)
-
-    tlm_blender._move_to_collections(root, [sources])
-    root[SOURCE_PROPERTY] = True
-    root.name = root.name + " (retarget source)"
-    layer = _layer_collection(context.view_layer.layer_collection, sources.name)
-    if layer is not None:
-        layer.exclude = True
-
-
-def _layer_collection(layer: typing.Any, name: str) -> typing.Any:
-    if layer.name == name:
-        return layer
-
-    for child in layer.children:
-        found = _layer_collection(child, name)
-        if found is not None:
-            return found
-
-    return None

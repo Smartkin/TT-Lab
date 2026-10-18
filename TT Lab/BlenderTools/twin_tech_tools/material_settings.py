@@ -82,6 +82,8 @@ def _image_changed(self: typing.Any, context: typing.Any) -> None:
         self.texture = self.image.get(TEXTURE_URI_PROPERTY, "") if self.image is not None else ""
         if self.image is not None:
             self.texture_mapping = True
+            # A picture of Blender's gets its Blender ID in the step giving it to the shader (materials.as_made_in_blender)
+            picture_identity(self.image, assign=True)
 
     _changed(self, context)
 
@@ -249,6 +251,16 @@ def picture_identity(image: bpy.types.Image, assign: bool = False) -> str:
 
     image[IMAGE_ID_PROPERTY] = uuid.uuid4().hex
     return "blender:" + image[IMAGE_ID_PROPERTY]
+
+
+def as_made_in_blender(image: bpy.types.Image) -> None:
+    """Makes a copy of a picture a picture of its own made in Blender, of no texture TT Lab has, with a Blender ID of its own in the step
+    making it (materials.as_made_in_blender)."""
+    for key in (TEXTURE_URI_PROPERTY, PNG_CONFIRMED_PROPERTY):
+        if key in image:
+            del image[key]
+
+    image[IMAGE_ID_PROPERTY] = uuid.uuid4().hex
 
 
 def _set_shader(item: TTT_ShaderSettings, values: typing.Dict[str, typing.Any]) -> None:

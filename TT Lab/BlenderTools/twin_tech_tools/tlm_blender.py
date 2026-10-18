@@ -1172,6 +1172,55 @@ def child_of_input(constraint: typing.Any, world: Matrix) -> Matrix:
     return world
 
 
+def follow_one_bone(context: bpy.types.Context, blender_object: bpy.types.Object) -> None:
+    """Leaves the part one plain Child Of to a bone at most and nothing else moving it, where Blender shows it with the armatures at rest
+    (the caller puts them there): of the Child Ofs to a bone of its model's armature that move it the one of the highest influence stays
+    (parts.kept_child_of), everything else goes, and the one kept gets Influence 1, every channel, World space (or the Custom space it had)
+    and its inverse worked out again so the part doesn't move. An exit point, which can't be sheared, gets the nearest axes that aren't. A
+    part squashed flat (its inverse set while its bone was scaled to nothing) goes back where its own transform puts it: the inverse set
+    again at rest, the identity for an import's Child Of, which takes the part's transform from the bone."""
+    root = find_root(blender_object)
+    armature = armature_of(root) if root is not None else None
+    shown = blender_object.matrix_world.copy()
+    relative = root.matrix_world.inverted() @ shown if root is not None else shown
+    squashed = is_squashed(relative)
+    if not squashed and role_of(blender_object) == "exit_point" and is_sheared(relative, EXIT_POINT_SHEAR_TOLERANCE):
+        shown = Matrix.LocRotScale(*shown.decompose())
+
+    kept_info = parts.kept_child_of(object_info(blender_object, root), armature.name if armature is not None else None)
+    kept = blender_object.constraints.get(kept_info.name) if kept_info is not None else None
+    for constraint in [constraint for constraint in blender_object.constraints if constraint != kept]:
+        blender_object.constraints.remove(constraint)
+
+    if kept is None:
+        context.view_layer.update()
+        if not squashed:
+            blender_object.matrix_world = shown
+
+        return
+
+    kept.influence = 1.0
+    for attribute, _ in parts.CHILD_OF_CHANNELS:
+        setattr(kept, attribute, True)
+
+    kept.target_space = "WORLD"
+    if kept.owner_space != "CUSTOM" or kept.space_object is None:
+        kept.owner_space = "WORLD"
+
+    # Where the part is without it, what the Child Of takes it from
+    kept.mute = True
+    context.view_layer.update()
+    unconstrained = blender_object.matrix_world.copy()
+    kept.mute = False
+    followed = armature.matrix_world @ armature.data.bones[kept.subtarget].matrix_local
+    if squashed:
+        kept.inverse_matrix = Matrix.Identity(4) if kept.owner_space == "CUSTOM" else followed.inverted_safe()
+    else:
+        kept.inverse_matrix = followed.inverted_safe() @ shown @ child_of_input(kept, unconstrained).inverted_safe()
+
+    context.view_layer.update()
+
+
 def _import_attached(container_node: typing.Dict[str, typing.Any], kind: str, root: bpy.types.Object, armature: bpy.types.Object,
                      bone_names: typing.Dict[int, str], aims: typing.Dict[int, axes.Aim], collection: bpy.types.Collection, create: typing.Callable,
                      keeps_joint_frame: bool = False) -> None:
@@ -1231,14 +1280,16 @@ def add_hull_object(file: tlm.TlmFile, tree_node: typing.Dict[str, typing.Any], 
 
 
 def export_hull(file: tlm.TlmFile, blender_object: bpy.types.Object, tree_node: typing.Dict[str, typing.Any], frame: str = MODEL_FRAME,
-                aim: axes.Aim = axes.IDENTITY_AIM) -> None:
-    """The hull's vertexes and faces from its mesh, with what it came with for TT Lab to tell whether the mesh changed."""
+                aim: axes.Aim = axes.IDENTITY_AIM, shear: typing.Optional[Matrix] = None) -> None:
+    """The hull's vertexes and faces from its mesh, with what it came with for TT Lab to tell whether the mesh changed. The shear of its
+    placement (shear_of), which its node's transform can't hold, goes into the vertexes."""
     mesh: bpy.types.Mesh = blender_object.data
     positions = array.array("f", [0.0] * len(mesh.vertices) * 3)
     mesh.vertices.foreach_get("co", positions)
 
     def convert(point: typing.Sequence[float]) -> Vector:
-        return axes.joint_point(axes.unaimed_vector(point, aim)) if frame == JOINT_FRAME else axes.point_back(point)
+        converted = axes.joint_point(axes.unaimed_vector(point, aim)) if frame == JOINT_FRAME else axes.point_back(point)
+        return shear @ Vector(converted) if shear is not None else converted
 
     points = [convert(positions[vertex * 3:vertex * 3 + 3]) for vertex in range(len(mesh.vertices))]
     polygons = [axes.face(list(polygon.vertices)) for polygon in mesh.polygons]
@@ -1482,7 +1533,16 @@ def assign_action(armature: bpy.types.Object, action: bpy.types.Action) -> None:
     if object_slot is not None:
         animation_data.action_slot = object_slot
 
+    keep_animation(action)
     sync_shape_keys(armature)
+
+
+def keep_animation(action: typing.Optional[bpy.types.Action]) -> None:
+    """An animation a model plays is kept by a fake user, like an imported one: Blender 5 doesn't stash the action it switches from any more,
+    and one made in Blender was left without users once another one played, which Blender doesn't save and the export took for deleted:
+    syncing wrote only the animation playing. Clearing its fake user (Shift and the action's X) deletes it."""
+    if action is not None and not action.use_fake_user and action.library is None:
+        action.use_fake_user = True
 
 
 def sync_shape_keys(armature: bpy.types.Object) -> None:
@@ -1532,7 +1592,17 @@ def object_info(blender_object: bpy.types.Object, root: typing.Optional[bpy.type
                             container.type if container is not None else "", str(blender_object.get(KIND_PROPERTY, "")), blender_object.parent_type,
                             blender_object.parent_bone, [modifier.object.name for modifier in blender_object.modifiers
                                                          if modifier.type == "ARMATURE" and modifier.object is not None],
-                            follows, max(0, len(keys) - 1))
+                            follows, max(0, len(keys) - 1), [_constraint_info(constraint) for constraint in blender_object.constraints])
+
+
+def _constraint_info(constraint: bpy.types.Constraint) -> parts.ConstraintInfo:
+    target = getattr(constraint, "target", None)
+    subtarget = getattr(constraint, "subtarget", "") or ""
+    target_type = target.type if target is not None else ""
+    channels_off = [label for attribute, label in parts.CHILD_OF_CHANNELS if not getattr(constraint, attribute)] if constraint.type == "CHILD_OF" else []
+    return parts.ConstraintInfo(constraint.name, constraint.type, not constraint.mute, constraint.influence, target.name if target is not None else None,
+                                target_type, subtarget, target_type != "ARMATURE" or subtarget in target.data.bones, channels_off, constraint.owner_space,
+                                constraint.target_space, getattr(constraint, "space_object", None) is not None)
 
 
 def role_of(blender_object: bpy.types.Object) -> typing.Optional[str]:
@@ -1942,6 +2012,50 @@ def _is_identity(matrix: Matrix, translation_tolerance: float = 1e-4, rotation_t
         all(abs(value - 1.0) <= scale_tolerance for value in scale)
 
 
+# Past this a placement's shear isn't rounding: a rigid body's or hull's goes into its vertexes, an exit point's is refused (it has none)
+SHEAR_TOLERANCE = 1e-5
+EXIT_POINT_SHEAR_TOLERANCE = 1e-4
+
+
+def shear_of(matrix: Matrix) -> Matrix:
+    """What's left of the matrix's 3x3 past the rotation and scale a node's transform holds (_write_transform): the identity but for a
+    sheared one, a Child Of whose inverse was set while its bone was scaled unevenly."""
+    _, rotation, scale = matrix.decompose()
+    return (rotation.to_matrix() @ Matrix.Diagonal(scale)).inverted_safe() @ matrix.to_3x3()
+
+
+def is_sheared(matrix: Matrix, tolerance: float = SHEAR_TOLERANCE) -> bool:
+    left = shear_of(matrix)
+    return any(abs(left[row][column] - (1.0 if row == column else 0.0)) > tolerance for row in range(3) for column in range(3))
+
+
+def is_squashed(matrix: Matrix) -> bool:
+    """Whether the matrix flattens what it places onto a plane, a line or a point: a Child Of's inverse set while its bone was scaled to
+    nothing, the way animations hide joints."""
+    linear = matrix.to_3x3()
+    lengths = [linear.col[index].length for index in range(3)]
+    return min(lengths) < 1e-6 or abs(linear.determinant()) < 1e-6 * lengths[0] * lengths[1] * lengths[2]
+
+
+def _shear_mesh(mesh: tlm_mesh.CornerMesh, shear: Matrix) -> None:
+    """Puts the shear of a part's placement into its vertexes, in the game's space (_mesh_to_game): the node's transform holds the rest."""
+    positions = array.array("f")
+    for i in range(0, len(mesh.positions), 3):
+        positions.extend(shear @ Vector(mesh.positions[i:i + 3]))
+
+    mesh.positions = positions
+    if mesh.corner_normals is not None:
+        normal_matrix = shear.inverted_safe().transposed()
+        normals = array.array("f")
+        for i in range(0, len(mesh.corner_normals), 3):
+            normal = normal_matrix @ Vector(mesh.corner_normals[i:i + 3])
+            normals.extend(normal.normalized() if normal.length > 1e-12 else normal)
+
+        mesh.corner_normals = normals
+
+    mesh.shapes = [array.array("f", (value for i in range(0, len(shape), 3) for value in shear @ Vector(shape[i:i + 3]))) for shape in mesh.shapes]
+
+
 def _write_transform(tree_node: typing.Dict[str, typing.Any], matrix: Matrix) -> None:
     """The node's transform, none for a matrix that's the identity but for rounding errors."""
     if _is_identity(matrix):
@@ -2123,14 +2237,18 @@ def _export_ogi(file: tlm.TlmFile, root: bpy.types.Object, tree: typing.Dict[str
         body = tlm.add_child(bodies, tlm.node("body", blender_object.name, _write_data(blender_object)))
         body["joint"], placement, frame, aim = _attached_placement(root, blender_object, armature, joint_of_bone, rests, joint_of_stored=joint_of_stored)
         _write_transform(body, placement)
-        body["mesh"] = tlm_mesh.to_parts(file, _mesh_to_game(_read_mesh(blender_object, materials, False), frame, aim), False)
+        mesh = _mesh_to_game(_read_mesh(blender_object, materials, False), frame, aim)
+        if is_sheared(placement):
+            _shear_mesh(mesh, shear_of(placement))
+
+        body["mesh"] = tlm_mesh.to_parts(file, mesh, False)
 
     # The game finds a hull's joint by its place in the hulls (CollisionJointIndices)
     for blender_object in in_file_order(child for child in descendants if role_of(child) == "hull" and child.type == "MESH"):
         hull = tlm.add_child(hulls, tlm.node("hull", blender_object.name, _write_data(blender_object) or None))
         hull["joint"], placement, frame, aim = _attached_placement(root, blender_object, armature, joint_of_bone, rests, NO_JOINT, joint_of_stored)
         _write_transform(hull, placement)
-        export_hull(file, blender_object, hull, frame, aim)
+        export_hull(file, blender_object, hull, frame, aim, shear_of(placement) if is_sheared(placement) else None)
 
     # The game finds an exit point by its place (BindExitPoints, a character's hand is 0 and its head 1) and never reads its ID: the exit
     # points go in the order of their IDs, then the file's, with their places as IDs

@@ -87,6 +87,22 @@ class FileTests(unittest.TestCase):
         self.assertEqual(read.json, file.json)
         self.assertEqual(bytes(read._binary), bytes(file._binary))
 
+    def test_the_json_is_read_without_the_binary_data(self):
+        directory = tempfile.mkdtemp()
+        try:
+            whole, cut, other = (os.path.join(directory, name) for name in ("whole.tlm", "cut.tlm", "other.tlm"))
+            data = tlm.TlmFile.load(FIXTURE).to_bytes()
+            for path, content in ((whole, data), (cut, data[:40]), (other, b"glTF" + b"\0" * 16)):
+                with open(path, "wb") as file:
+                    file.write(content)
+
+            self.assertEqual(tlm.TlmFile.read_json(whole), tlm.TlmFile.load(FIXTURE).json)
+            for path in (cut, other):
+                with self.assertRaises(tlm.TlmError):
+                    tlm.TlmFile.read_json(path)
+        finally:
+            shutil.rmtree(directory)
+
 
 class MathTests(unittest.TestCase):
     def setUp(self):
@@ -463,6 +479,22 @@ class ProjectTests(unittest.TestCase):
     def test_files_outside_of_projects_have_none(self):
         self.assertIsNone(project.find_root(os.path.join(tempfile.gettempdir(), "nowhere", "model.tlm")))
 
+    # Link to Another TT Lab Model takes the model files of the project's assets, which have their metadata next to them
+    def test_model_files_are_the_assets_whose_data_they_are(self):
+        prefab = os.path.join(self.root, "prefabs", "Crash.tlm")
+        unknown = os.path.join(os.path.dirname(self.model), "Stray.tlm")
+        os.makedirs(os.path.dirname(prefab))
+        for path in (self.model, prefab, unknown):
+            shutil.copy(FIXTURE, path)
+
+        self._write(os.path.splitext(self.model)[0] + ".json", {"URI": {"_uri": "res://Global PS2_Test/OGI/Crash"}, "Alias": "Crash Bandicoot"})
+        self._write(os.path.splitext(prefab)[0] + ".json", {"URI": {"_uri": "res://Global PS2_Test/OGI/Crash"}})
+
+        self.assertEqual(project.model_asset_of(self.model), {"uri": "res://Global PS2_Test/OGI/Crash", "name": "Crash Bandicoot"})
+        self.assertIsNone(project.model_asset_of(unknown))
+        self.assertIsNone(project.model_asset_of(prefab))
+        self.assertIsNone(project.model_asset_of(FIXTURE))
+
     def test_materials_are_drawn_with_their_texture(self):
         opened = project.Project(self.root)
 
@@ -505,6 +537,21 @@ class ProjectTests(unittest.TestCase):
         self.assertEqual(project.version_of_file(os.path.join(assets, "Mod of the mod", "OGI", "Model.tlm")), "XBOX")
         self.assertEqual(project.version_of_file(self.model), "PS2")
         self.assertEqual(project.version_of_file(os.path.join(tempfile.gettempdir(), "nowhere", "model.tlm")), "PS2")
+
+    # The Twin Tech Material panel's picker offers the materials of these, which TT Lab doesn't ask to add a dependency for
+    def test_packages_use_the_packages_they_depend_on_and_theirs(self):
+        assets = os.path.join(self.root, "assets")
+        for name, dependencies in (("PS2_Test", ["res://Global PS2_Test"]), ("Mod", ["res://PS2_Test", "res://Extras"]), ("Extras", ["res://Mod"]),
+                                   ("XBOX_Test", [])):
+            os.makedirs(os.path.join(assets, name), exist_ok=True)
+            self._write(os.path.join(assets, name, name + ".json"), {"Dependencies": [{"_uri": uri} for uri in dependencies], "URI": {"_uri": "res://" + name}})
+
+        opened = project.Project(self.root)
+
+        self.assertEqual(opened.packages_used_by("res://Mod"), ["res://Mod", "res://PS2_Test", "res://Extras", "res://Global PS2_Test"])
+        self.assertEqual(opened.packages_used_by("res://XBOX_Test"), ["res://XBOX_Test"])
+        # A package without its file, like the global packages of a project made up in a test
+        self.assertEqual(opened.packages_used_by("res://Global PS2_Test"), ["res://Global PS2_Test"])
 
 
 if __name__ == "__main__":

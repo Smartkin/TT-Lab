@@ -143,6 +143,125 @@ class OgiRoleTests(unittest.TestCase):
         self.assertEqual("ttt.make_blend_skin", problems[0].fix)
 
 
+Constraint = parts.ConstraintInfo
+
+
+def _child_of(name="Child Of", bone="Hand", **settings):
+    return Constraint(name, "CHILD_OF", target=settings.pop("target", "Armature"), target_type=settings.pop("target_type", "ARMATURE"), subtarget=bone,
+                      **settings)
+
+
+class ConstraintTests(unittest.TestCase):
+    """The game moves a part with one joint fully: one plain Child Of to a bone at most, nothing else moving it."""
+
+    def test_one_plain_child_of_to_a_bone_passes(self):
+        objects = [
+            Info("Armature", "ARMATURE"),
+            Info("Sword", "MESH", constraints=[_child_of()]),
+            # The import's: its owner space is the model's root
+            Info("Hand Point", "EMPTY", twin_type="ExitPoint", constraints=[_child_of(owner_space="CUSTOM")]),
+            # Constraints moving nothing are left alone
+            Info("Shield", "MESH", constraints=[_child_of(), Constraint("Copy Location", "COPY_LOCATION", enabled=False),
+                                                Constraint("Damped Track", "DAMPED_TRACK", influence=0.0)]),
+            Info("Loose", "MESH"),
+        ]
+
+        roles, problems = parts.ogi_roles(objects)
+
+        self.assertEqual([], problems)
+        self.assertEqual("Hand", parts.joint_bone(objects[1], "Armature"))
+
+    def test_child_ofs_the_game_cant_follow_are_refused(self):
+        settings = {"Off": {"enabled": False}, "Half": {"influence": 0.5}, "None": {"influence": 0.0},
+                    "Unturned": {"channels_off": ["Rotation X", "Rotation Z"]}, "Local": {"owner_space": "LOCAL"},
+                    "Target Local": {"target_space": "LOCAL_WITH_PARENT"}, "No Space": {"owner_space": "CUSTOM", "has_space_object": False},
+                    "Nothing": {"target": None, "target_type": ""}, "Empty": {"target": "Socket", "target_type": "EMPTY", "bone": ""},
+                    "Whole": {"bone": ""}}
+        objects = [Info("Armature", "ARMATURE")] + [Info(name, "MESH", constraints=[_child_of(**dict(values))]) for name, values in settings.items()]
+
+        roles, problems = parts.ogi_roles(objects)
+
+        self.assertEqual([[name] for name in settings], [problem.subjects for problem in problems])
+        self.assertTrue(all(problem.refused and problem.fix == parts.FOLLOW_ONE_BONE for problem in problems))
+        texts = dict(zip(settings, (problem.text for problem in problems)))
+        self.assertIn("Child Of is switched off", texts["Off"])
+        self.assertIn("Child Of is at Influence 0.5", texts["Half"])
+        self.assertIn("Child Of is at Influence 0", texts["None"])
+        self.assertIn("Child Of has Rotation X, Rotation Z switched off", texts["Unturned"])
+        self.assertIn("Child Of's owner space is Local Space", texts["Local"])
+        self.assertIn("Child Of's target space is Local With Parent", texts["Target Local"])
+        self.assertIn("Child Of's owner space is Custom Space without an object", texts["No Space"])
+        self.assertIn("Child Of has no target", texts["Nothing"])
+        self.assertIn("Child Of follows Socket, which isn't a bone", texts["Empty"])
+        self.assertIn("Child Of follows the armature Armature itself", texts["Whole"])
+        # What still follows a bone once it's made plain says so, the rest only has its constraints taken away
+        labels = {name: problem.fix_text for name, problem in zip(settings, problems)}
+        self.assertEqual([parts.FOLLOW_ONE_BONE_TEXT, parts.REMOVE_CONSTRAINTS_TEXT, parts.REMOVE_CONSTRAINTS_TEXT, parts.REMOVE_CONSTRAINTS_TEXT],
+                         [labels["Half"], labels["Off"], labels["None"], labels["Empty"]])
+        self.assertIn("following Hand alone", texts["Half"])
+
+    def test_a_second_child_of_and_other_constraints_moving_a_part_are_refused(self):
+        objects = [
+            Info("Armature", "ARMATURE"),
+            # Parent switching: the hand at 1, the back at 0
+            Info("Sword", "MESH", constraints=[_child_of("Child Of"), _child_of("Child Of.001", "Back", influence=0.0)]),
+            Info("Eye", "EMPTY", twin_type="ExitPoint", constraints=[_child_of(), Constraint("Damped Track", "DAMPED_TRACK", target="Target",
+                                                                                              target_type="EMPTY")]),
+        ]
+
+        roles, problems = parts.ogi_roles(objects)
+
+        self.assertEqual([["Sword"], ["Eye"]], [problem.subjects for problem in problems])
+        self.assertIn("it has 2 Child Ofs (Child Of, Child Of.001)", problems[0].text)
+        self.assertIn("Child Of.001 is at Influence 0", problems[0].text)
+        self.assertIn("following Hand alone", problems[0].text)
+        self.assertIn("Damped Track moves it", problems[1].text)
+        self.assertEqual(parts.FOLLOW_ONE_BONE_TEXT, problems[1].fix_text)
+
+    def test_the_child_of_kept_has_the_highest_influence(self):
+        armature = "Armature"
+        choices = Info("Sword", "MESH", constraints=[_child_of("A", "Hand", influence=0.25), _child_of("B", "Back", influence=0.75),
+                                                     _child_of("C", "Hip", influence=0.75), _child_of("D", "Head", enabled=False),
+                                                     _child_of("E", "Foot", bone_found=False), _child_of("F", "Tail", target="Other Rig")])
+
+        self.assertEqual("B", parts.kept_child_of(choices, armature).name)
+        self.assertIsNone(parts.kept_child_of(Info("Off", "MESH", constraints=[_child_of(enabled=False)]), armature))
+
+    def test_what_a_part_is_under_counts_and_nothing_else(self):
+        objects = [
+            Info("Armature", "ARMATURE"),
+            # A socket following the hand halfway, with a gun under it
+            Info("Socket", "EMPTY", constraints=[_child_of(influence=0.5)]),
+            Info("Gun", "MESH", parent="Socket"),
+            # An empty above no part, and the skin, aren't parts the game moves with a joint
+            Info("Props", "EMPTY", constraints=[_child_of(enabled=False)]),
+            Info("Skin", "MESH", deformed_by=["Armature"], constraints=[Constraint("Copy Location", "COPY_LOCATION")]),
+            Info("Other Skin", "MESH", deformed_by=["Armature"], follows=("Old Rig", "Hand")),
+        ]
+
+        roles, problems = parts.ogi_roles(objects)
+
+        self.assertEqual([["Socket"], ["Other Skin"]], [problem.subjects for problem in problems])
+        self.assertIn("Child Of is at Influence 0.5", problems[0].text)
+        self.assertIn("follows Hand of Old Rig, which isn't the model's armature", problems[1].text)
+        self.assertEqual(["Gun", "Socket"], parts.carriers(objects[2], {info.name: info for info in objects}, "Armature"))
+
+    def test_without_an_armature_there_is_nothing_to_follow(self):
+        # Deleting the armature empties the Child Ofs' targets, the model is refused for having no armature
+        roles, problems = parts.ogi_roles([Info("Sword", "MESH", constraints=[_child_of(target=None, target_type="")])])
+
+        self.assertEqual([], problems)
+
+    def test_another_armatures_bone_is_refused_once(self):
+        objects = [Info("Armature", "ARMATURE"), Info("Sword", "MESH", constraints=[_child_of(target="Old Rig")], follows=("Old Rig", "Hand"))]
+
+        roles, problems = parts.ogi_roles(objects)
+
+        self.assertEqual([["Sword"]], [problem.subjects for problem in problems])
+        self.assertIn("follows Hand of Old Rig, which isn't the model's armature", problems[0].text)
+        self.assertEqual(parts.REMOVE_CONSTRAINTS_TEXT, problems[0].fix_text)
+
+
 class ShapeKeyTests(unittest.TestCase):
     def test_the_blend_skins_meshes_share_their_shape_keys(self):
         self.assertEqual([], parts.shape_key_problems({"Face": ["Smile", "Blink"], "Teeth": ["Smile", "Blink"]}, 15))

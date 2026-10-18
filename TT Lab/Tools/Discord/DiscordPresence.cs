@@ -198,9 +198,6 @@ public sealed class DiscordPresence : IDisposable
     // The editor of the panel last worked in, the other panel's when that one has none open, like the History panel follows
     private static Func<PresenceInputs> InputsOf(ProjectManager projects, ScenesEditorsViewModel scenes, ResourcesEditorsViewModel resources, Pcsx2Service pcsx2)
     {
-        EditorsViewerViewModel lastUsed = scenes;
-        scenes.Used += () => lastUsed = scenes;
-        resources.Used += () => lastUsed = resources;
         return () =>
         {
             var phase = projects.IsCreatingProject || projects.IsOpeningProject ? ProjectPhase.Loading
@@ -209,8 +206,7 @@ public sealed class DiscordPresence : IDisposable
             IAsset? asset = null;
             if (phase == ProjectPhase.Ready)
             {
-                var other = lastUsed == scenes ? (EditorsViewerViewModel)resources : scenes;
-                var editor = lastUsed.ActiveEditor ?? other.ActiveEditor;
+                var editor = EditorsViewerViewModel.CurrentEditor(scenes, resources);
                 var assets = projects.OpenedProject!.AssetManager;
                 asset = editor != null && assets.DoesAssetExist(editor.EditableResource) ? assets.GetAsset(editor.EditableResource) : null;
             }

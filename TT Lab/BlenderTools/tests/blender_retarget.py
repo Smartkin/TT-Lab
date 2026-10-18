@@ -2,17 +2,18 @@
 
     blender --background --factory-startup --python tests/blender_retarget.py
 
-A model file's rig (the fixture with a joint moved and renamed) takes the model's place: its bones are the joints the table pairs them
-with, it plays the model's animations the way the model does, keeps its own exit points and hulls, and the model is kept hidden. Then
-a rig made in Blender (bigger, with a bone of no joint) is retargeted from the kept model in the first one's place: a pair that isn't
-a subtree of the skeleton is refused, the exit point and hull follow their joints' bones scaled, the joint IDs come along, and a rig
-leaving a joint out gets what followed it on the joint above. The mirrored fixture's exit points and hull follow bones whose own axes
+A model file's rig (the fixture with a joint moved and renamed) gets the model's animations: its bones are the joints the table pairs them
+with, it plays the model's animations the way the model did under their names and IDs and keeps its own exit points and hulls, and the
+model loses its animations and nothing else (its place, name, file and collection stay). Then a rig made in Blender (bigger, with a bone
+of no joint) gets the animations of the model imported again: a pair that isn't a subtree of the skeleton is refused, the exit point and
+hull follow their joints' bones scaled, the joint IDs come along, and a rig leaving a joint out gets what followed it on the joint above. The mirrored fixture's exit points and hull follow bones whose own axes
 are picked of their joints': imported, they're where the file puts them from their bones (an exit point's frame the game's in its
 joint's, whichever the bone's own axes are); retargeted to a rig made in Blender over the model with every bone rolled a quarter turn,
 the exported file puts them where they were, the exit points' frames (one scaled unevenly) too, an exit point taken off its bone keeps
-its joint, and on a rig whose forearms point other ways the ones following them turn with them about their heads. What follows no bone
+its joint, and on a rig whose forearms point other ways the ones following them move with them about their heads, the hull turned with
+its forearm, the exit point keeping its axes (the rig's bones turn in the world as their joints do). What follows no bone
 goes where it was in its model whatever the roots' places, a model moved and turned retargets with everything where it is on it, and a
-rig of bones named longer than 50 bytes retargets. Prints RETARGET OK."""
+rig of bones named longer than 50 bytes retargets. Undone, the model has its animations back. Prints RETARGET OK."""
 import math
 import os
 import sys
@@ -23,7 +24,7 @@ from mathutils import Matrix, Vector
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import twin_tech_tools  # noqa: E402
-from twin_tech_tools import axes, pairing_ui, replace, tlm, tlm_blender, tlm_math, twintech_properties  # noqa: E402
+from twin_tech_tools import axes, pairing_ui, retargeting, tlm, tlm_blender, tlm_math, twintech_properties  # noqa: E402
 
 FIXTURES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures")
 
@@ -86,12 +87,22 @@ def _make_incoming_file(path):
     _clear()
 
 
-def _models():
-    return [blender_object for blender_object in bpy.data.objects if blender_object.get(tlm_blender.ROOT_PROPERTY) and not replace.is_source(blender_object)]
+def _rig_model(rig):
+    """The model the rig is part of once it got the animations."""
+    root = tlm_blender.find_root(rig)
+    check(root is not None and root.get(tlm_blender.KIND_PROPERTY) == "ogi", "%s isn't part of a model" % rig.name)
+    return root
 
 
-def _sources():
-    return [blender_object for blender_object in bpy.data.objects if replace.is_source(blender_object)]
+def _check_model_kept(root, name, path, collection, armature):
+    """Retargeting only deleted the model's animations: it's the model it was where it was, at no hidden place, its bones' settings of the
+    deleted animations gone too."""
+    check(root.name in bpy.data.objects and root.name == name and root.get(tlm_blender.PATH_PROPERTY, "") == path, "the model isn't where it was: %s" % root.name)
+    check(list(root.users_collection) == [collection] and not retargeting.is_source(root), "the model was moved or hidden")
+    check(tlm_blender.armature_of(root) == armature and armature.visible_get(), "the model's armature was replaced or hidden")
+    check(tlm_blender.animations_of(root) == [], "the model kept the animations %s" % [action.name for action in tlm_blender.animations_of(root)])
+    check(all(len(getattr(bone, "ttt_animation_flags")) == 0 for bone in armature.data.bones), "the bones kept settings of the deleted animations")
+    check(not any(blender_object.get(retargeting.SOURCE_PROPERTY) for blender_object in bpy.data.objects), "a model was kept hidden as a retarget source")
 
 
 def _rig(name, heads, parents, scale, offset):
@@ -152,21 +163,19 @@ def check_from_a_file():
     os.remove(incoming_path)
     rig = pairing_ui.rig_of(root)
     check(rig is not None and rig != original, "the imported rig isn't the model's rig")
-    check(replace.table_of(rig) == {"Joint 0": "Joint 0", "Joint 1": "Joint 1", "Tail": "Joint 2"}, "the table is %s" % replace.table_of(rig))
-    check(bpy.ops.ttt.retarget_replace.poll(), "Retarget and Replace is grayed out")
+    check(retargeting.table_of(rig) == {"Joint 0": "Joint 0", "Joint 1": "Joint 1", "Tail": "Joint 2"}, "the table is %s" % retargeting.table_of(rig))
+    check(bpy.ops.ttt.retarget.poll(), "Retarget is grayed out")
+    rig_model = tlm_blender.find_root(rig)
+    rig_name, rig_path = rig_model.name, rig_model[tlm_blender.PATH_PROPERTY]
     bpy.context.view_layer.objects.active = skin
-    check(bpy.ops.ttt.retarget_replace() == {"FINISHED"}, "the rig didn't take the model's place")
+    check(bpy.ops.ttt.retarget() == {"FINISHED"}, "the rig didn't get the model's animations")
 
-    models, sources = _models(), _sources()
-    check(len(models) == 1 and len(sources) == 1, "the scene has %d models and %d sources" % (len(models), len(sources)))
-    new_root, source = models[0], sources[0]
-    check(new_root.name == old_name and new_root[tlm_blender.PATH_PROPERTY] == old_path, "the rig's model didn't take the model's name and file")
-    check(new_root.users_collection[0] == old_collection, "the rig's model isn't in the model's collection")
-    check(replace.source_of(new_root) == source and source.users_collection[0].name == replace.SOURCES_COLLECTION, "the model isn't kept as the source")
-    layer = replace._layer_collection(bpy.context.view_layer.layer_collection, replace.SOURCES_COLLECTION)
-    check(layer is not None and layer.exclude, "the kept model is shown")
-    check(sorted(action.name for action in tlm_blender.animations_of(source)) == ["Walk (retarget source)", "Wave (retarget source)"],
-          "the kept model's animations are %s" % [action.name for action in tlm_blender.animations_of(source)])
+    # The model stays the model it was, without animations, the rig's model the model of its own file
+    _check_model_kept(root, old_name, old_path, old_collection, original)
+    new_root = _rig_model(rig)
+    check(new_root == rig_model and new_root.name == rig_name and new_root[tlm_blender.PATH_PROPERTY] == rig_path, "the rig's model took another's name or file")
+    bpy.context.view_layer.objects.active = root
+    check(not bpy.ops.ttt.retarget.poll(), "Retarget is pressable for a model without animations")
 
     armature = tlm_blender.armature_of(new_root)
     names = {bone.name: int(twintech_properties.get(bone).joint.index) for bone in armature.data.bones}
@@ -211,10 +220,16 @@ def check_from_a_file():
     return new_root, turns, warnings
 
 
-def check_from_the_scene(model, turns):
+def _fresh_model(name="ogi.tlm"):
+    _clear()
+    return tlm_blender.import_file(bpy.context, os.path.join(FIXTURES, name))
+
+
+def check_from_the_scene(turns):
     """A rig made in Blender, twice as big and elsewhere, with a bone sticking out of its root that stands for no joint."""
-    source = replace.source_of(model)
+    model = source = _fresh_model()
     source_armature = tlm_blender.armature_of(source)
+    kept = (model.name, model.get(tlm_blender.PATH_PROPERTY, ""), model.users_collection[0], source_armature)
     heads = {bone.name: tuple(source_armature.matrix_world @ bone.head_local) for bone in source_armature.data.bones}
     parents = {bone.name: bone.parent.name if bone.parent is not None else None for bone in source_armature.data.bones}
     bones = {"base": heads["Joint 0"], "mid": heads["Joint 1"], "tip": heads["Joint 2"], "extra": tuple(Vector(heads["Joint 0"]) + Vector((0.3, 0.0, 0.0)))}
@@ -223,13 +238,13 @@ def check_from_the_scene(model, turns):
     model.ttt_retarget_rig = custom
     bpy.context.view_layer.objects.active = model
     check(bpy.ops.ttt.guess_pairs() == {"FINISHED"}, "the pairs weren't guessed")
-    check(replace.table_of(custom) == {"base": "Joint 0", "mid": "Joint 1", "tip": "Joint 2", "extra": None}, "the guessed table is %s" % replace.table_of(custom))
+    check(retargeting.table_of(custom) == {"base": "Joint 0", "mid": "Joint 1", "tip": "Joint 2", "extra": None}, "the guessed table is %s" % retargeting.table_of(custom))
 
     # A bone standing for its parent's joint isn't the skeleton: refused, nothing changes
     _set_table(custom, {"tip": "Joint 1", "mid": "Joint 2"})
-    check(not bpy.ops.ttt.retarget_replace.poll() and replace.problems(source, custom), "a table that isn't a subtree of the skeleton is taken")
+    check(not bpy.ops.ttt.retarget.poll() and retargeting.problems(source, custom), "a table that isn't a subtree of the skeleton is taken")
     _set_table(custom, {"tip": "Joint 2", "mid": "Joint 1"})
-    check(bpy.ops.ttt.retarget_replace.poll(), "Retarget and Replace is grayed out for a subtree")
+    check(bpy.ops.ttt.retarget.poll(), "Retarget is grayed out for a subtree")
 
     exit_point = next(child for child in tlm_blender._descendants(source) if tlm_blender.role_of(child) == "exit_point")
     hull = next(child for child in tlm_blender._descendants(source) if tlm_blender.role_of(child) == "hull")
@@ -239,12 +254,12 @@ def check_from_the_scene(model, turns):
         attachment = tlm_blender._rest_attachment(blender_object, source_armature, set(heads))
         joint_of[blender_object.name] = (attachment[1].name, (attachment[2].translation - Vector(heads[attachment[1].name])))
 
-    check(bpy.ops.ttt.retarget_replace() == {"FINISHED"}, "the rig made in Blender didn't take the model's place")
-    models, sources = _models(), _sources()
-    check(len(models) == 1 and sources == [source], "the scene has %s and %s" % ([m.name for m in models], [s.name for s in sources]))
-    new_root = models[0]
+    check(bpy.ops.ttt.retarget() == {"FINISHED"}, "the rig made in Blender didn't get the model's animations")
+    _check_model_kept(model, *kept)
+    # Made a model of its own, of no file: the model keeps its file and TT Lab's link
+    new_root = _rig_model(custom)
     rig = tlm_blender.armature_of(new_root)
-    check(rig == custom and new_root.get(tlm_blender.KIND_PROPERTY) == "ogi", "the rig made in Blender isn't the model")
+    check(rig == custom and new_root != model and not new_root.get(tlm_blender.PATH_PROPERTY), "the rig made in Blender isn't a model of its own")
     names = {bone.name: int(twintech_properties.get(bone).joint.index) for bone in rig.data.bones}
     check(names == {"Joint 0": 0, "Joint 1": 1, "Joint 2": 2, "Joint 3": 3}, "the bones are %s" % names)
     identifier = int(tlm_blender._write_data(rig.data.bones["Joint 1"]).get("Id", 255))
@@ -275,18 +290,18 @@ def check_from_the_scene(model, turns):
     return new_root
 
 
-def check_a_left_out_joint(model):
+def check_a_left_out_joint():
     """A rig of the root and the second joint only: what followed the third goes to the second, said in the notes."""
-    source = replace.source_of(model)
+    model = source = _fresh_model()
     source_armature = tlm_blender.armature_of(source)
     heads = {bone.name: tuple(source_armature.matrix_world @ bone.head_local) for bone in source_armature.data.bones}
     short = _rig("Short", {"hips": heads["Joint 0"], "chest": heads["Joint 1"]}, {"hips": None, "chest": "hips"}, 1.0, (-3.0, 0.0, 0.0))
     model.ttt_retarget_rig = short
     bpy.context.view_layer.objects.active = model
     bpy.ops.ttt.guess_pairs()
-    check(replace.table_of(short) == {"hips": "Joint 0", "chest": "Joint 1"}, "the table is %s" % replace.table_of(short))
-    check(bpy.ops.ttt.retarget_replace() == {"FINISHED"}, "the short rig wasn't retargeted")
-    new_root = _models()[0]
+    check(retargeting.table_of(short) == {"hips": "Joint 0", "chest": "Joint 1"}, "the table is %s" % retargeting.table_of(short))
+    check(bpy.ops.ttt.retarget() == {"FINISHED"}, "the short rig wasn't retargeted")
+    new_root = _rig_model(short)
     rig = tlm_blender.armature_of(new_root)
     bpy.context.view_layer.update()
     for child in tlm_blender._descendants(new_root):
@@ -294,8 +309,9 @@ def check_a_left_out_joint(model):
             attachment = tlm_blender._rest_attachment(child, rig, set(bone.name for bone in rig.data.bones))
             check(attachment is not None and attachment[1].name == "Joint 1", "%s doesn't follow the joint above its own" % child.name)
 
-    notes = replace.notes_of(new_root)
+    notes = retargeting.notes_of(new_root)
     check(any("followed joints no bone stands for" in note for note in notes), "the notes don't say what moved: %s" % notes)
+    check(tlm_blender.animations_of(model) == [], "the model kept its animations")
 
 
 def _file_places(path, root_world):
@@ -343,12 +359,14 @@ def _same_places(a, b, label):
 
 
 def _turned_places(places, turns):
-    """The places with the exit points (by index) and hulls (by index) turned about a point: {(kind, index): (head, turn)}."""
+    """The places with the exit points (by index) moved and hulls (by index) turned about a point: {(kind, index): (head, turn)}. An exit
+    point keeps its axes, its rig's bone turns in the world as its joint does."""
     result = {"exit_point": list(places["exit_point"]), "hull": list(places["hull"])}
     for (kind, index), (head, turn) in turns.items():
         about = Matrix.Translation(head) @ turn.to_matrix().to_4x4() @ Matrix.Translation(-head)
         if kind == "exit_point":
-            result[kind][index] = about @ places[kind][index]
+            frame = places[kind][index]
+            result[kind][index] = Matrix.Translation(about @ frame.translation) @ Matrix.Translation(-frame.translation) @ frame
         else:
             result[kind][index] = [about @ vertex for vertex in places[kind][index]]
 
@@ -442,9 +460,9 @@ def check_what_follows_aimed_bones():
     root.ttt_retarget_rig = rig
     bpy.context.view_layer.objects.active = root
     check(bpy.ops.ttt.guess_pairs() == {"FINISHED"}, "the pairs weren't guessed")
-    check(all(joint == bone for bone, joint in replace.table_of(rig).items()), "the table is %s" % replace.table_of(rig))
-    check(bpy.ops.ttt.retarget_replace() == {"FINISHED"}, "the rolled rig wasn't retargeted")
-    model = _models()[0]
+    check(all(joint == bone for bone, joint in retargeting.table_of(rig).items()), "the table is %s" % retargeting.table_of(rig))
+    check(bpy.ops.ttt.retarget() == {"FINISHED"}, "the rolled rig wasn't retargeted")
+    model = _rig_model(rig)
     check(tlm_blender.armature_of(model) == rig, "the rolled rig isn't the model")
     _same_places(_exported_places(model), shown, "on rolled bones")
     exported = os.path.join(tempfile.mkdtemp(prefix="ttt_retarget_"), "rolled.tlm")
@@ -452,16 +470,17 @@ def check_what_follows_aimed_bones():
     head_point = next(node for node in tlm.traverse(tlm.TlmFile.load(exported).root) if node.get("kind") == "exit_point" and node["data"]["Id"] == 1)
     check(head_point["joint"] == 3, "the exit point taken off its bone went from joint 3 to %d" % head_point["joint"])
 
-    # The forearms pointing other ways: the exit point on the right one and the hull on the left one turn with them about their heads
-    source_armature = tlm_blender.armature_of(replace.source_of(model))
+    # The forearms pointing other ways: the exit point on the right one and the hull on the left one turn with them about their heads.
+    # From the rolled rig's model, which plays the animations now and has what followed the model's bones where it was
+    source_armature = tlm_blender.armature_of(model)
     turns = {"Joint 10": Matrix.Rotation(math.radians(60.0), 3, "X").to_quaternion(), "Joint 8": Matrix.Rotation(math.radians(-45.0), 3, "Z").to_quaternion()}
     reposed = _rig_over("Reposed", source_armature, turns)
     model.ttt_retarget_rig = reposed
     bpy.context.view_layer.objects.active = model
     check(bpy.ops.ttt.guess_pairs() == {"FINISHED"}, "the pairs weren't guessed for the turned forearms")
-    _set_table(reposed, {name: name for name in replace.table_of(reposed)})
-    check(bpy.ops.ttt.retarget_replace() == {"FINISHED"}, "the rig with turned forearms wasn't retargeted")
-    model = _models()[0]
+    _set_table(reposed, {name: name for name in retargeting.table_of(reposed)})
+    check(bpy.ops.ttt.retarget() == {"FINISHED"}, "the rig with turned forearms wasn't retargeted")
+    model = _rig_model(reposed)
     # By the shortest turn from where the bone pointed to where it points: the rolls of rigs differ, the ways their bones point don't
     swings = {}
     for name, turn in turns.items():
@@ -486,7 +505,7 @@ def check_long_bone_names():
     root.ttt_retarget_rig = rig
     bpy.context.view_layer.objects.active = root
     check(bpy.ops.ttt.guess_pairs() == {"FINISHED"}, "the pairs weren't guessed")
-    check(bpy.ops.ttt.retarget_replace() == {"FINISHED"}, "the rig of long names wasn't retargeted")
+    check(bpy.ops.ttt.retarget() == {"FINISHED"}, "the rig of long names wasn't retargeted")
     check(sorted(bone.name for bone in rig.data.bones) == sorted(bone.name for bone in armature.data.bones), "the bones are %s" % [bone.name for bone in rig.data.bones])
 
 
@@ -503,7 +522,7 @@ def check_copies_on_no_bone_keep_their_place_in_the_model():
     target.matrix_world = Matrix.Translation((-2.0, 1.0, 0.5)) @ Matrix.Rotation(math.radians(-50.0), 4, "Z")
     bpy.context.view_layer.update()
     armature = tlm_blender.armature_of(root)
-    copy = replace._copy_attachment(point, "exit_point", root, target, armature, None, point.matrix_world.copy(), None, armature, 1.0)
+    copy = retargeting._copy_attachment(point, "exit_point", root, target, armature, None, point.matrix_world.copy(), None, armature, 1.0)
     bpy.context.view_layer.update()
     expected = target.matrix_world @ root.matrix_world.inverted() @ point.matrix_world
     off = max(abs(copy.matrix_world[row][column] - expected[row][column]) for row in range(4) for column in range(4))
@@ -533,19 +552,37 @@ def check_a_moved_model_retargets_in_place():
     root.ttt_retarget_rig = rig
     bpy.context.view_layer.objects.active = root
     check(bpy.ops.ttt.guess_pairs() == {"FINISHED"}, "the pairs weren't guessed")
-    check(bpy.ops.ttt.retarget_replace() == {"FINISHED"}, "the rig over the moved model wasn't retargeted")
-    _same_places(_exported_places(_models()[0]), expected, "retargeted from a moved model")
+    check(bpy.ops.ttt.retarget() == {"FINISHED"}, "the rig over the moved model wasn't retargeted")
+    _same_places(_exported_places(_rig_model(rig)), expected, "retargeted from a moved model")
+
+
+def check_undo_gives_the_animations_back():
+    """Retargeting is one step: undone, the model has its animations again and the rig is no model."""
+    root = _fresh_model()
+    root_name = root.name
+    rig = _rig_over("Undone", tlm_blender.armature_of(root), {})
+    root.ttt_retarget_rig = rig
+    bpy.context.view_layer.objects.active = root
+    check(bpy.ops.ttt.guess_pairs() == {"FINISHED"}, "the pairs weren't guessed")
+    # Undo in the background starts with the first step pushed
+    bpy.ops.ed.undo_push(message="Paired")
+    check(bpy.ops.ttt.retarget("EXEC_DEFAULT", True) == {"FINISHED"}, "the rig wasn't retargeted")
+    check(tlm_blender.animations_of(bpy.data.objects[root_name]) == [], "the model kept its animations")
+    bpy.ops.ed.undo()
+    animations = sorted(action.name for action in tlm_blender.animations_of(bpy.data.objects[root_name]))
+    check(animations == ["Walk", "Wave"] and tlm_blender.find_root(bpy.data.objects["Undone"]) is None, "undo gave the model %s" % animations)
 
 
 def main():
     twin_tech_tools.register()
-    model, turns, warnings = check_from_a_file()
-    model = check_from_the_scene(model, turns)
-    check_a_left_out_joint(model)
+    _, turns, warnings = check_from_a_file()
+    check_from_the_scene(turns)
+    check_a_left_out_joint()
     check_what_follows_aimed_bones()
     check_long_bone_names()
     check_copies_on_no_bone_keep_their_place_in_the_model()
     check_a_moved_model_retargets_in_place()
+    check_undo_gives_the_animations_back()
     print("RETARGET OK, warnings: %s" % (warnings or "none"))
 
 

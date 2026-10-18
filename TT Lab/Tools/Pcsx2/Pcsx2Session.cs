@@ -221,6 +221,24 @@ public sealed class Pcsx2Session : IDisposable
         }
     }
 
+    /// <summary>
+    /// Closes PCSX2 and waits a few seconds at most for it to be gone, a PCSX2 started after it has the PINE port to itself (a TCP port on
+    /// Windows)
+    /// </summary>
+    public async Task StopAsync()
+    {
+        Stop();
+        using var waiting = new CancellationTokenSource(StoppedGrace);
+        try
+        {
+            await _process.WaitForExitAsync(waiting.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // Left to go on its own
+        }
+    }
+
     // The game writes its states' word every frame, a request written in between can get lost and is written again
     private async Task RequestAsync(RunningGame game, GameState state, CancellationToken cancellation)
     {

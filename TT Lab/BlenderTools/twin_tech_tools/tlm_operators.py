@@ -193,6 +193,164 @@ class TTT_OT_UseForTTLabModel(bpy.types.Operator):
         return {"FINISHED"}
 
 
+def _link_problem(root, path):
+    """The name of the TT Lab model whose model file the model can take the place of (Link to Another TT Lab Model), or why it can't: the
+    file has to be a model of a project's assets of the model's kind, not the one it stands for."""
+    from . import link_sync
+    from . import project as projects
+
+    if not path or not os.path.isfile(path):
+        return None, "Pick a TT Lab model file (.tlm)"
+
+    file_name = os.path.basename(path)
+    asset = projects.model_asset_of(path)
+    if asset is None:
+        return None, "%s isn't a model of a TT Lab project: pick the model file of one in a project's assets folder" % file_name
+
+    try:
+        kind = str(tlm.TlmFile.read_json(path).get("asset", {}).get("type", ""))
+    except (OSError, tlm.TlmError, ValueError) as error:
+        return None, "%s can't be read: %s" % (file_name, error)
+
+    wanted = root.get(tlm_blender.ROOT_PROPERTY, "")
+    if kind != wanted:
+        return None, "%s is a %s's model file, %s is a %s: pick a %s's" % (file_name, _KIND_NAMES.get(kind, kind + " model"), root.name,
+                                                                         _KIND_NAMES.get(wanted, wanted + " model"), _KIND_NAMES.get(wanted, wanted + " model"))
+
+    if link_sync._same_file(root.get(tlm_blender.PATH_PROPERTY, ""), path):
+        return None, "%s stands for %s already" % (root.name, asset["name"])
+
+    return asset["name"], None
+
+
+# What the file browser's side panel last said of a pick, worked out again once the pick, its file or the model changes: it's drawn often
+_link_checked: typing.Dict[typing.Tuple[typing.Any, ...], typing.Tuple[typing.Optional[str], typing.Optional[str]]] = {}
+
+
+def _checked_link(root, path):
+    try:
+        status = os.stat(path)
+        stamp = (status.st_mtime_ns, status.st_size)
+    except OSError:
+        stamp = None
+
+    key = (root.name, root.get(tlm_blender.ROOT_PROPERTY, ""), root.get(tlm_blender.PATH_PROPERTY, ""), path, stamp)
+    if key not in _link_checked:
+        _link_checked.clear()
+        _link_checked[key] = _link_problem(root, path)
+
+    return _link_checked[key]
+
+
+class TTT_OT_LinkToTTLabModel(bpy.types.Operator, ImportHelper):
+    """Puts the model in the place of another TT Lab model, picked by its model file (.tlm) in a project's assets: the model is written over
+    it through TT Lab once Blender linked it, and the blend file is that model's from then on. The model it stood for keeps what TT Lab has
+    of it"""
+
+    bl_idname = "ttt.link_to_tt_lab_model"
+    bl_label = "Link to TT Lab Model"
+    # Not registered: the redo panel would draw the side panel's text, saying the model stands for the file already
+    bl_options = {"UNDO"}
+
+    filename_ext = ".tlm"
+    filter_glob: bpy.props.StringProperty(default="*.tlm", options={"HIDDEN"})
+    root: bpy.props.StringProperty(options={"HIDDEN"})
+
+    # Always offered: pressing it says what's wrong
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def _root(self, context):
+        """The model named, else the active object's or the one the selection is of, and what's wrong when there's none."""
+        root = bpy.data.objects.get(self.root) if self.root else None
+        if root is not None and root.get(tlm_blender.ROOT_PROPERTY):
+            return root, None
+
+        root, problem = _model_to_export(context)
+        return root, problem.replace("to export", "to link") if problem else None
+
+    def invoke(self, context, event):
+        from . import link_protocol
+
+        root, problem = self._root(context)
+        if root is None:
+            self.report({"ERROR"}, "Can't link: %s" % problem)
+            return {"CANCELLED"}
+
+        self.root = root.name
+        # The folder of the model's file, else the assets of the project TT Lab has open, else the blend file's: nothing picked yet
+        path = root.get(tlm_blender.PATH_PROPERTY, "")
+        running = link_protocol.any_tt_lab()
+        project = running.get("project") if running is not None else None
+        for folder in (os.path.dirname(path) if path and os.path.isabs(path) else "",
+                       os.path.join(project.get("path", ""), "assets") if isinstance(project, dict) and project.get("path") else "",
+                       os.path.dirname(bpy.data.filepath)):
+            if folder and os.path.isdir(folder):
+                self.filepath = os.path.join(folder, "")
+                break
+
+        context.window_manager.fileselect_add(self)
+        return {"RUNNING_MODAL"}
+
+    def draw(self, context):
+        from . import checks_ui
+
+        root, _ = self._root(context)
+        if root is None:
+            return
+
+        width = max(24, int(context.region.width / 7.5) - 6) if context.region is not None else 40
+        path = bpy.path.abspath(self.filepath)
+        # The pick as the file browser has it (it hands the operator the file selected before it asks the operator's check)
+        name, problem = _checked_link(root, path) if os.path.basename(path) else (None, None)
+        box = self.layout.box()
+        if problem is not None:
+            checks_ui._wrapped(box, problem, width, "ERROR")
+        elif name is not None:
+            checks_ui._wrapped(box, "%s takes %s's place" % (root.name, name), width, "LINKED")
+        else:
+            checks_ui._wrapped(box, "Pick the model file of the TT Lab model %s takes the place of" % root.name, width, "INFO")
+
+        checks_ui._wrapped(self.layout, "TT Lab gets it written over that model once Blender linked it, one step of that model's history, and the "
+                                        "blend file is saved: it's that model's blend file from then on.", width, "BLANK1")
+        if root.get(tlm_blender.PATH_PROPERTY):
+            checks_ui._wrapped(self.layout, "The model it stands for now keeps what TT Lab has of it.", width, "BLANK1")
+
+    def execute(self, context):
+        from . import link_protocol
+        from . import link_sync
+        from . import project as projects
+
+        root, problem = self._root(context)
+        if root is None:
+            self.report({"ERROR"}, "Can't link: %s" % problem)
+            return {"CANCELLED"}
+
+        path = bpy.path.abspath(self.filepath)
+        name, problem = _link_problem(root, path)
+        if problem is not None:
+            self.report({"ERROR"}, problem)
+            return {"CANCELLED"}
+
+        _in_object_mode(context)
+        _select_only(context, root)
+        # Two models can't write one file: the scene's other model of it stands for none from now on
+        others = [other.name for other in bpy.data.objects if other != root and other.get(tlm_blender.ROOT_PROPERTY) and not other.get("ttt_retarget_source")
+                  and link_sync._same_file(other.get(tlm_blender.PATH_PROPERTY, ""), path)]
+        link_sync.use_for(root, path, name)
+        if others:
+            self.report({"WARNING"}, "%s stood for %s, it's a model of no file now" % (", ".join(others), name))
+
+        folder = projects.find_root(path)
+        if link_protocol.tt_lab_of(folder, projects.uuid_of(folder)) is not None:
+            self.report({"INFO"}, "%s takes %s's place in TT Lab once Blender linked it" % (root.name, name))
+        else:
+            self.report({"INFO"}, "%s takes %s's place in TT Lab once TT Lab has the project open" % (root.name, name))
+
+        return {"FINISHED"}
+
+
 class TTT_OT_ReimportTlm(bpy.types.Operator):
     """Puts the file's model in the place of the scene's model of it: what was changed in Blender since goes with it"""
 
@@ -558,6 +716,9 @@ class TTT_PT_Model(bpy.types.Panel):
         elif link_sync.replacing(root) is not None:
             layout.label(text="Replaces %s in TT Lab once TT Lab takes it" % link_sync.replacing(root), icon="FILE_REFRESH")
 
+        link = layout.operator(TTT_OT_LinkToTTLabModel.bl_idname, text="Link to Another TT Lab Model..." if folder is not None else "Link to a TT Lab Model...",
+                               icon="LINKED")
+        link.root = root.name
         row = layout.row(align=True)
         row.operator(TTT_OT_ExportTlm.bl_idname, icon="EXPORT")
         row.operator(TTT_OT_OpenInTTLab.bl_idname, icon="WINDOW", text="")

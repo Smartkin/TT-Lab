@@ -483,7 +483,17 @@ public class ResourceTreeElementViewModel : PropertyChangedBase
             }
         }
     }
-    
+
+    // Puts back whether it was open without opening what it's in: a folder can stay open in one that got closed
+    internal void RestoreExpanded(bool isExpanded)
+    {
+        if (isExpanded != _isExpanded)
+        {
+            _isExpanded = isExpanded;
+            NotifyOfPropertyChange(nameof(IsExpanded));
+        }
+    }
+
     public BindableCollection<MenuItem> MenuOptions => _menuOptions;
     
     public ResourceTreeElementViewModel? Parent => _parent;

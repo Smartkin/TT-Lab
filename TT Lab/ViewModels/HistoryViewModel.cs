@@ -4,7 +4,6 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Reactive;
 using System.Reactive.Linq;
-using System.Reactive.Subjects;
 using Dock.Model.ReactiveUI.Controls;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
@@ -59,11 +58,8 @@ public partial class HistoryViewModel : Document
         RedoCommand = ReactiveCommand.Create(() => Document?.Redo(), this.WhenAnyValue(x => x.CanRedo));
 
         // The editor last worked in, its viewer's active one, or the other viewer's when it has none
-        var lastUsed = new BehaviorSubject<EditorsViewerViewModel>(scenes);
-        scenes.Used += () => lastUsed.OnNext(scenes);
-        resources.Used += () => lastUsed.OnNext(resources);
         ChunkResourcesViewModel.FollowActiveEditor(scenes)
-            .CombineLatest(ChunkResourcesViewModel.FollowActiveEditor(resources), lastUsed.DistinctUntilChanged(),
+            .CombineLatest(ChunkResourcesViewModel.FollowActiveEditor(resources), EditorsViewerViewModel.FollowLastUsed(scenes, resources).DistinctUntilChanged(),
                 (scene, resource, used) => used == resources ? resource ?? scene : scene ?? resource)
             .DistinctUntilChanged()
             .Select(document => document == null

@@ -54,7 +54,7 @@ def reset_inherit_scale(scene):
                 bone.inherit_scale = "FULL"
 
 
-def apply_to_all_armatures(scene):
+def apply_to_all_armatures(scene, keep_played=False):
     if scene is None or _suspended:
         return
 
@@ -63,6 +63,10 @@ def apply_to_all_armatures(scene):
     for blender_object in scene.objects:
         if is_model_armature(blender_object):
             flags.apply_inherit_scale(blender_object)
+            # Played in Blender's editors (made by keying, picked in the Action Editor), the model's animations are kept like imported ones
+            if keep_played and blender_object.animation_data is not None:
+                tlm_blender.keep_animation(blender_object.animation_data.action)
+
             # The shape plays the facial part of the animation the armature plays
             if blender_object.get(tlm_blender.KIND_PROPERTY) == "armature":
                 tlm_blender.sync_shape_keys(blender_object)
@@ -87,4 +91,4 @@ def frame_change_pre(scene, depsgraph=None):
 # Switching the active animation doesn't change the frame so the bones get updated whenever the scene changes too
 @persistent
 def depsgraph_update_post(scene, depsgraph):
-    apply_to_all_armatures(scene)
+    apply_to_all_armatures(scene, keep_played=True)

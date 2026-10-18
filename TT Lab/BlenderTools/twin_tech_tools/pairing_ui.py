@@ -15,8 +15,8 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-"""The Twin Tech Animation Retargeting panel: the rig taking the model's place, the table of the joint each of its bones stands for, which
-it keeps, and Retarget and Replace (replace)."""
+"""The Twin Tech Animation Retargeting panel: the rig the model's animations go to, the table of the joint each of its bones stands for, which
+it keeps, and Retarget (retargeting)."""
 
 import os
 import textwrap
@@ -26,7 +26,7 @@ import bpy
 from bpy_extras.io_utils import ImportHelper
 
 from . import pairing
-from . import replace
+from . import retargeting
 from . import tlm
 from . import tlm_blender
 
@@ -47,21 +47,18 @@ def _is_rig(root_holder: bpy.types.Object, candidate: bpy.types.Object) -> bool:
         return False
 
     root = tlm_blender.find_root(candidate)
-    return not replace.is_source(root)
+    return root != root_holder and not retargeting.is_source(root)
 
 
 def _model(context: bpy.types.Context) -> typing.Optional[bpy.types.Object]:
     root = tlm_blender.find_root(getattr(context, "object", None))
-    return root if root is not None and root.get(tlm_blender.KIND_PROPERTY) == "ogi" and not replace.is_source(root) else None
+    return root if root is not None and root.get(tlm_blender.KIND_PROPERTY) == "ogi" and not retargeting.is_source(root) else None
 
 
 def rig_of(root: bpy.types.Object) -> typing.Optional[bpy.types.Object]:
-    """The rig taking the model's place: the one picked, a model made by retargeting its own armature."""
+    """The rig the model's animations go to."""
     rig = root.ttt_retarget_rig
-    if rig is not None and rig.name in bpy.data.objects and _is_rig(root, rig):
-        return rig
-
-    return tlm_blender.armature_of(root) if replace.source_of(root) != root else None
+    return rig if rig is not None and rig.name in bpy.data.objects and _is_rig(root, rig) else None
 
 
 def _wrapped(layout: typing.Any, text: str, icon: str, width: int = 60) -> None:
@@ -73,7 +70,7 @@ def _wrapped(layout: typing.Any, text: str, icon: str, width: int = 60) -> None:
 class TTT_UL_Pairs(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_property, index=0, flt_flag=0):
         root = _model(context)
-        source = tlm_blender.armature_of(replace.source_of(root)) if root is not None else None
+        source = tlm_blender.armature_of(root) if root is not None else None
         row = layout.row(align=True)
         row.label(text=item.bone, icon="BONE_DATA")
         if source is not None:
@@ -90,7 +87,7 @@ class TTT_UL_ShapePairs(bpy.types.UIList):
 
 
 class TTT_OT_ImportRig(bpy.types.Operator, ImportHelper):
-    """Imports a TT Lab model file as the rig taking this model's place"""
+    """Imports a TT Lab model file as the rig the model's animations go to"""
 
     bl_idname = "ttt.import_rig"
     bl_label = "Import a Rig"
@@ -122,7 +119,7 @@ class TTT_OT_ImportRig(bpy.types.Operator, ImportHelper):
             bpy.data.actions.remove(action)
 
         root.ttt_retarget_rig = rig
-        replace.guess(tlm_blender.armature_of(replace.source_of(root)), rig)
+        retargeting.guess(tlm_blender.armature_of(root), rig)
         # The panel is the model's
         for selected in context.selected_objects:
             selected.select_set(False)
@@ -147,18 +144,18 @@ class TTT_OT_GuessPairs(bpy.types.Operator):
 
     def execute(self, context):
         root = _model(context)
-        pairs = replace.guess(tlm_blender.armature_of(replace.source_of(root)), rig_of(root))
+        pairs = retargeting.guess(tlm_blender.armature_of(root), rig_of(root))
         self.report({"INFO"}, "%d of %d bones stand for joints" % (sum(1 for joint in pairs.values() if joint), len(pairs)))
         return {"FINISHED"}
 
 
-class TTT_OT_RetargetReplace(bpy.types.Operator):
-    """The rig takes the model's place, playing its animations: its bones become the joints the table pairs them with (the rest new joints),
-    the model's exit points and hulls follow their joints' bones and the model is kept hidden, to change the table and retarget again.
-    Export the model afterwards"""
+class TTT_OT_Retarget(bpy.types.Operator):
+    """Gives the rig the model's animations: its bones become the joints the table pairs them with (the rest new joints), it plays a copy of
+    every animation of the model under its name and ID, and the model's exit points and hulls follow their joints' bones. The model's
+    animations are deleted, nothing else of it changes"""
 
-    bl_idname = "ttt.retarget_replace"
-    bl_label = "Retarget and Replace"
+    bl_idname = "ttt.retarget"
+    bl_label = "Retarget"
     bl_options = {"REGISTER", "UNDO"}
 
     @classmethod
@@ -166,10 +163,14 @@ class TTT_OT_RetargetReplace(bpy.types.Operator):
         root = _model(context)
         rig = rig_of(root) if root is not None else None
         if rig is None:
-            cls.poll_message_set("Pick the rig taking the model's place")
+            cls.poll_message_set("Pick the rig the model's animations go to")
             return False
 
-        found = replace.problems(replace.source_of(root), rig)
+        if not tlm_blender.animations_of(root):
+            cls.poll_message_set("%s has no animations to retarget" % root.name)
+            return False
+
+        found = retargeting.problems(root, rig)
         if found:
             cls.poll_message_set(found[0])
             return False
@@ -184,7 +185,7 @@ class TTT_OT_RetargetReplace(bpy.types.Operator):
 
         shapes = {row.shape: (row.source or None) for row in rig.data.ttt_shape_pairs} or None
         try:
-            model, count, notes = replace.replace(context, root, rig, shapes)
+            model, count, notes = retargeting.retarget(context, root, rig, shapes)
         except ValueError as error:
             self.report({"ERROR"}, "Nothing was retargeted: %s" % error)
             return {"CANCELLED"}
@@ -217,7 +218,7 @@ class TTT_OT_PairShapes(bpy.types.Operator):
         root = _model(context)
         rig = rig_of(root)
         rig_root = tlm_blender.find_root(rig)
-        pairs = pairing.pair_shapes(replace.shape_names(replace.source_of(root)), replace.shape_names(rig_root))
+        pairs = pairing.pair_shapes(retargeting.shape_names(root), retargeting.shape_names(rig_root))
         rows = rig.data.ttt_shape_pairs
         rows.clear()
         for shape, source in pairs.items():
@@ -229,7 +230,7 @@ class TTT_OT_PairShapes(bpy.types.Operator):
 
 
 class TTT_PT_Retargeting(bpy.types.Panel):
-    """Plays the model's animations on another rig, which takes the model's place"""
+    """Plays the model's animations on another rig, they leave the model"""
 
     bl_label = "Twin Tech Animation Retargeting"
     bl_space_type = "PROPERTIES"
@@ -244,22 +245,17 @@ class TTT_PT_Retargeting(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         root = _model(context)
-        source = replace.source_of(root)
-        source_armature = tlm_blender.armature_of(source)
-        if source_armature is None:
+        if tlm_blender.armature_of(root) is None:
             layout.label(text="%s has no armature to retarget from" % root.name, icon="ERROR")
             return
 
-        if source != root:
-            layout.label(text="Retargeted from %s" % source.name, icon="LINKED")
-
-        layout.label(text="%d animations of %s" % (len(tlm_blender.animations_of(source)), source.name), icon="ACTION")
+        layout.label(text="%d animations of %s" % (len(tlm_blender.animations_of(root)), root.name), icon="ACTION")
         row = layout.row(align=True)
         row.prop(root, "ttt_retarget_rig", text="Rig")
         row.operator(TTT_OT_ImportRig.bl_idname, text="", icon="FILE_3D")
         rig = rig_of(root)
         if rig is None:
-            layout.label(text="Pick the armature taking the model's place, or import a model file's", icon="INFO")
+            layout.label(text="Pick the armature the model's animations go to, or import a model file's", icon="INFO")
             return
 
         rows = rig.data.ttt_pairs
@@ -268,18 +264,20 @@ class TTT_PT_Retargeting(bpy.types.Panel):
 
         layout.template_list("TTT_UL_Pairs", "", rig.data, "ttt_pairs", rig.data, "ttt_pairs_index", rows=8)
         layout.operator(TTT_OT_GuessPairs.bl_idname, icon="AUTO")
-        for problem in replace.problems(source, rig):
+        for problem in retargeting.problems(root, rig):
             _wrapped(layout, problem, "ERROR")
 
-        if replace.shape_names(source) and replace.shape_names(tlm_blender.find_root(rig)):
+        if retargeting.shape_names(root) and retargeting.shape_names(tlm_blender.find_root(rig)):
             layout.label(text="Shape Keys", icon="SHAPEKEY_DATA")
             layout.template_list("TTT_UL_ShapePairs", "", rig.data, "ttt_shape_pairs", rig.data, "ttt_shape_pairs_index", rows=3)
             layout.operator(TTT_OT_PairShapes.bl_idname, icon="AUTO")
 
-        for note in replace.notes_of(root):
+        # What a retarget couldn't carry over to the rig's model
+        rig_root = tlm_blender.find_root(rig)
+        for note in retargeting.notes_of(rig_root) if rig_root is not None else []:
             _wrapped(layout, note, "INFO")
 
-        layout.operator(TTT_OT_RetargetReplace.bl_idname, icon="ARMATURE_DATA")
+        layout.operator(TTT_OT_Retarget.bl_idname, icon="ARMATURE_DATA")
 
 
 def register():
@@ -288,7 +286,7 @@ def register():
     bpy.types.Armature.ttt_shape_pairs = bpy.props.CollectionProperty(type=TTT_ShapeRow)
     bpy.types.Armature.ttt_shape_pairs_index = bpy.props.IntProperty(options={"HIDDEN"})
     bpy.types.Object.ttt_retarget_rig = bpy.props.PointerProperty(type=bpy.types.Object, name="Rig", poll=_is_rig,
-                                                                  description="The armature taking the model's place, playing its animations")
+                                                                  description="The armature the model's animations go to")
 
 
 def unregister():

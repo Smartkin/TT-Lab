@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net.Sockets;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Threading;
@@ -26,7 +27,8 @@ namespace TT_Lab.Tools.Pcsx2;
 /// Plays a chunk of the open project in PCSX2 (the Play button of its scene's toolbar, settings in Preferences > Direct Game Launch)
 /// and reloads it in the game when saving changed the chunks the game plays: they're built again (the build cache skips the ones
 /// nothing changed in), copied into the dev folder and the game starts the chunk again. The PS2 version's releases in
-/// <see cref="GameRelease"/>, and only chunks: the startup files are read once when the game boots
+/// <see cref="GameRelease"/>. The default chunk and the startup's and language's files are built with the chunks: the game reads the
+/// default chunk and the startup's files only as it boots, so a reload that changed them boots the game again
 /// </summary>
 public sealed class Pcsx2Service : IDisposable
 {
@@ -35,9 +37,17 @@ public sealed class Pcsx2Service : IDisposable
     private readonly ProjectManager _projectManager;
     private readonly SemaphoreSlim _building = new(1, 1);
     private Pcsx2Session? _session;
+    private Launch? _launch;
+    // The files the game reads only as it boots that changed in the folder since it booted. A newer reload cancels an older one, which may
+    // have copied them already
+    private readonly HashSet<string> _changedSinceBoot = [];
     private CancellationTokenSource? _pendingReload;
     private CancellationTokenSource? _saveSettle;
     private readonly BehaviorSubject<LabURI?> _playing = new(null);
+
+    // How Play started PCSX2, booting the game again starts it the same way
+    private sealed record Launch(Pcsx2Install Install, GameRelease Release, string Executable, string DiscImage, string StartChunk,
+        IReadOnlyList<string> Arguments, LabURI Chunk, string Alias);
 
     public Pcsx2Service(ProjectManager projectManager)
     {
@@ -120,56 +130,14 @@ public sealed class Pcsx2Service : IDisposable
             var prepared = await RunWithProjectBusyAsync($"Error getting {chunk.Alias} ready for PCSX2", () =>
             {
                 release = GameRelease.Detect(project.DiscContentPathPS2!);
-                var chunks = ChunkWithLinks(chunk);
-                // The patch's level select reads the project's list, where the chunks made in TT Lab are, and those only play once built
-                var levelSelect = release.LevelSelectPatch != null ? LevelSelectText(project) : null;
-                if (levelSelect != null)
-                {
-                    chunks.AddRange(ChunksTheDiscLacks(project, levelSelect, Pcsx2DevFolder.ArchiveFiles(project.DiscContentPathPS2!)));
-                }
-
-                BuildChunks(project, chunks.Distinct());
-                folder.WriteExecutable(release, project.DiscContentPathPS2!, startChunk);
-                var extracted = folder.ExtractArchive(project.DiscContentPathPS2!);
-                if (extracted > 0)
-                {
-                    Log.WriteLine($"Took {extracted} files out of the disc's archive into {folder.FolderPath}");
-                }
-
-                folder.CopyBuiltFiles(project.GetBuildFilesPath(GamePlatform.PS2));
-                folder.CopySoundBanks(project.DiscContentPathPS2!);
-                if (levelSelect != null)
-                {
-                    folder.WriteFile(LevelSelectPath, Encoding.Latin1.GetBytes(levelSelect));
-                }
+                PrepareToBoot(project, folder, release, startChunk, ChunkWithLinks(chunk));
             });
             if (!prepared)
             {
                 return;
             }
 
-            try
-            {
-                var session = Pcsx2Session.Launch(install, release!, folder.ExecutablePath(release!), discImage, startChunk, arguments);
-                session.Exited += () =>
-                {
-                    Log.WriteLine("PCSX2 closed");
-                    if (_session == session)
-                    {
-                        _playing.OnNext(null);
-                    }
-                };
-                _session = session;
-                _playing.OnNext(chunkUri);
-                Log.WriteLine($"PCSX2 is booting {chunk.Alias} ({release!.Name}), it goes straight to playing it");
-                await session.EnterGameAsync(CancellationToken.None);
-                Log.WriteLine($"Playing {chunk.Alias} in PCSX2 after {total.Elapsed.TotalSeconds:F0} s, saving reloads it");
-            }
-            catch (Exception ex)
-            {
-                Log.WriteLine($"PCSX2 couldn't play {chunk.Alias}: {ex.Message}", Log.LogType.Error);
-                Log.WriteLine(ex.ToString(), Log.LogType.Debug);
-            }
+            await LaunchAsync(new Launch(install, release!, folder.ExecutablePath(release!), discImage, startChunk, arguments, chunkUri, chunk.Alias), total);
         }
         finally
         {
@@ -178,12 +146,12 @@ public sealed class Pcsx2Service : IDisposable
     }
 
     /// <summary>
-    /// Builds the chunks the game plays again and has the game load them, when any of their files changed
+    /// Builds the chunks the game plays again and has the game load them, when any of their files changed. When the files the game only
+    /// reads as it boots changed, the game boots again
     /// </summary>
     public async Task ReloadAsync()
     {
-        var session = _session;
-        if (session is not { IsRunning: true } || _projectManager.OpenedProject is not TT_Lab.Project.Project project)
+        if (_session is not { IsRunning: true } || _projectManager.OpenedProject is not TT_Lab.Project.Project project)
         {
             Log.WriteLine("PCSX2 isn't playing a chunk, the Play button of a chunk's scene starts it", Log.LogType.Warning);
             return;
@@ -193,26 +161,45 @@ public sealed class Pcsx2Service : IDisposable
         var cancellation = new CancellationTokenSource();
         _pendingReload = cancellation;
         var total = Stopwatch.StartNew();
-        var changed = 0;
+        List<string> changed = [];
         var built = await RunWithProjectBusyAsync("Error building the chunks PCSX2 plays", () =>
         {
+            // The game Play started, which may be booting again by now
+            if (_launch is not { } launch)
+            {
+                return;
+            }
+
             var chunks = new List<LevelChunk>();
-            var start = FindChunk(project, session.StartChunk);
+            var start = FindChunk(project, launch.StartChunk);
             if (start != null)
             {
                 chunks.AddRange(ChunkWithLinks(start));
             }
 
-            chunks.AddRange(session.LoadedChunks().Select(path => FindChunk(project, path)).OfType<LevelChunk>());
+            chunks.AddRange(LoadedChunksOf(_session).Select(path => FindChunk(project, path)).OfType<LevelChunk>());
             BuildChunks(project, chunks.Distinct().ToList());
             changed = DevFolder(project).CopyBuiltFiles(project.GetBuildFilesPath(GamePlatform.PS2));
         });
-        if (!built || cancellation.IsCancellationRequested)
+        if (!built)
         {
             return;
         }
 
-        if (changed == 0)
+        _changedSinceBoot.UnionWith(changed.Where(Pcsx2DevFolder.IsReadAtBoot));
+        // A newer reload took over, or the game stopped or is booting again
+        if (cancellation.IsCancellationRequested || _session is not { IsRunning: true } session || _launch is not { } current)
+        {
+            return;
+        }
+
+        if (_changedSinceBoot.Count > 0)
+        {
+            await BootAgainAsync(project, session, current, total);
+            return;
+        }
+
+        if (changed.Count == 0)
         {
             Log.WriteLine("Nothing changed in the chunks PCSX2 plays");
             return;
@@ -220,7 +207,7 @@ public sealed class Pcsx2Service : IDisposable
 
         try
         {
-            Log.WriteLine($"Reloading the chunks in PCSX2 ({changed} files changed), it waits for the game to play if it's paused");
+            Log.WriteLine($"Reloading the chunks in PCSX2 ({changed.Count} files changed), it waits for the game to play if it's paused");
             await session.ReloadAsync(cancellation.Token);
             Log.WriteLine($"Reloaded the chunks in PCSX2 after {total.Elapsed.TotalSeconds:F0} s");
         }
@@ -231,6 +218,66 @@ public sealed class Pcsx2Service : IDisposable
         catch (Exception ex)
         {
             Log.WriteLine($"PCSX2 couldn't reload the chunks: {ex.Message}", Log.LogType.Error);
+            Log.WriteLine(ex.ToString(), Log.LogType.Debug);
+        }
+    }
+
+    // The game boots the way Play started it, the folder made ready the way Play makes it: the chunks the level select lists that the disc
+    // lacks are built, it reads the level select again
+    private async Task BootAgainAsync(TT_Lab.Project.Project project, Pcsx2Session session, Launch launch, Stopwatch total)
+    {
+        Log.WriteLine($"The game reads {string.Join(", ", _changedSinceBoot.Order())} only as it boots, PCSX2 boots {launch.Alias} again");
+        Interlocked.Increment(ref _preparing);
+        try
+        {
+            var prepared = await RunWithProjectBusyAsync($"Error getting {launch.Alias} ready for PCSX2", () =>
+                PrepareToBoot(project, DevFolder(project), launch.Release, launch.StartChunk, []));
+            // Stopped or played meanwhile
+            if (!prepared || _session != session)
+            {
+                return;
+            }
+
+            await session.StopAsync();
+            if (_session != session)
+            {
+                return;
+            }
+
+            _session = null;
+            session.Dispose();
+            await LaunchAsync(launch, total);
+        }
+        finally
+        {
+            Interlocked.Decrement(ref _preparing);
+        }
+    }
+
+    private async Task LaunchAsync(Launch launch, Stopwatch total)
+    {
+        try
+        {
+            var session = Pcsx2Session.Launch(launch.Install, launch.Release, launch.Executable, launch.DiscImage, launch.StartChunk, launch.Arguments);
+            session.Exited += () =>
+            {
+                Log.WriteLine("PCSX2 closed");
+                if (_session == session)
+                {
+                    _playing.OnNext(null);
+                }
+            };
+            _session = session;
+            _launch = launch;
+            _changedSinceBoot.Clear();
+            _playing.OnNext(launch.Chunk);
+            Log.WriteLine($"PCSX2 is booting {launch.Alias} ({launch.Release.Name}), it goes straight to playing it");
+            await session.EnterGameAsync(CancellationToken.None);
+            Log.WriteLine($"Playing {launch.Alias} in PCSX2 after {total.Elapsed.TotalSeconds:F0} s, saving reloads it");
+        }
+        catch (Exception ex)
+        {
+            Log.WriteLine($"PCSX2 couldn't play {launch.Alias}: {ex.Message}", Log.LogType.Error);
             Log.WriteLine(ex.ToString(), Log.LogType.Debug);
         }
     }
@@ -302,8 +349,37 @@ public sealed class Pcsx2Service : IDisposable
         }
     }
 
-    // One build of the chunks, a factory per version: what's wrong with a model several of them have is told once
-    private static void BuildChunks(TT_Lab.Project.Project project, IEnumerable<LevelChunk> chunks)
+    // The chunks built and the folder made ready to boot: the patched executable, the archive's files, the build's over them, the sound
+    // banks and the level select, which the PAL release's patch reads as the game boots. It's the project's list, where the chunks made in
+    // TT Lab are, and those only play once built
+    private static void PrepareToBoot(TT_Lab.Project.Project project, Pcsx2DevFolder folder, GameRelease release, string startChunk, List<LevelChunk> chunks)
+    {
+        var levelSelect = release.LevelSelectPatch != null ? LevelSelectText(project) : null;
+        if (levelSelect != null)
+        {
+            chunks.AddRange(ChunksTheDiscLacks(project, levelSelect, Pcsx2DevFolder.ArchiveFiles(project.DiscContentPathPS2!)));
+        }
+
+        BuildChunks(project, chunks.Distinct());
+        folder.WriteExecutable(release, project.DiscContentPathPS2!, startChunk);
+        var extracted = folder.ExtractArchive(project.DiscContentPathPS2!);
+        if (extracted > 0)
+        {
+            Log.WriteLine($"Took {extracted} files out of the disc's archive into {folder.FolderPath}");
+        }
+
+        folder.CopyBuiltFiles(project.GetBuildFilesPath(GamePlatform.PS2));
+        folder.CopySoundBanks(project.DiscContentPathPS2!);
+        if (levelSelect != null)
+        {
+            folder.WriteFile(LevelSelectPath, Encoding.Latin1.GetBytes(levelSelect));
+        }
+    }
+
+    // One build of the chunks, a factory per version: what's wrong with a model several of them have is told once. The default chunk and
+    // the startup's and language's files of a version are built with its chunks: the game reads them while it plays, the global objects and
+    // their models of the default chunk in place of the levels' copies
+    internal static void BuildChunks(TT_Lab.Project.Project project, IEnumerable<LevelChunk> chunks)
     {
         var factories = new Dictionary<GamePlatform, ITwinItemFactory>();
         foreach (var chunk in chunks)
@@ -315,6 +391,11 @@ public sealed class Pcsx2Service : IDisposable
             }
 
             project.PackChunk(chunk.URI, factory);
+        }
+
+        foreach (var (platform, factory) in factories)
+        {
+            project.PackStartupAndLanguage(platform, factory);
         }
     }
 
@@ -344,6 +425,19 @@ public sealed class Pcsx2Service : IDisposable
             .Where(entry => !archive.Contains(Pcsx2DevFolder.GamePath($"{entry.Path}.rm2")))
             .Select(entry => FindChunk(project, entry.Path))
             .OfType<LevelChunk>();
+    }
+
+    // None while the game boots or once it stopped
+    private static IReadOnlyList<string> LoadedChunksOf(Pcsx2Session? session)
+    {
+        try
+        {
+            return session is { IsRunning: true } ? session.LoadedChunks() : [];
+        }
+        catch (Exception ex) when (ex is IOException or SocketException or ObjectDisposedException)
+        {
+            return [];
+        }
     }
 
     // The game loads the start chunk with the chunks it links

@@ -19,10 +19,16 @@
 of part with as soon as a part draws with it: a skin's the skinned shader, a rigid part's the unlit one, the render bucket the game's own
 materials of the kind are in, the picture wired to its Base Color as the shader's picture. Its node tree becomes the game's drawing
 (material_nodes). One material can't draw a skin and rigid parts, the game draws them with other shaders: split_rigid gives the rigid
-parts a copy of their own."""
+parts a copy of their own.
+
+What TT Lab makes of a material or picture made in Blender knows it by its Blender ID, given in the undo step that makes it: undo and redo
+bring it back with its ID, which finds the URI TT Lab gave it (link_sync._undone), and TT Lab answers a material it made of the ID again
+with that one. Given when the link first sent it, the steps before had none: undone to one of them, the material was sent as a new one and
+TT Lab made another material of it."""
 
 import os
 import typing
+import uuid
 
 import bpy
 
@@ -78,7 +84,11 @@ def make_twin_tech(material: bpy.types.Material, skin: bool, root: typing.Option
     image = picture_of(material)
     material_settings.load(material, gs_material.new_material(material.name, skin=skin, textured=image is not None, blended=is_blended(material),
                                                                global_package=_global_package(root)))
+    if not material.get(tlm_blender.URI_PROPERTY) and not material.get(tlm_blender.BLENDER_ID_PROPERTY):
+        material[tlm_blender.BLENDER_ID_PROPERTY] = uuid.uuid4().hex
+
     if image is not None:
+        material_settings.picture_identity(image, assign=True)
         with material_settings.suspended():
             material_settings.settings_of(material).shaders[0].image = image
 
@@ -193,10 +203,7 @@ def copy_for(block: typing.Any, roots: typing.Iterable[bpy.types.Object]) -> typ
 
     copy = block.copy()
     copy.name = "%s %s" % (block.name, roots[0].name) if roots else block.name
-    for key in (material_settings.TEXTURE_URI_PROPERTY, material_settings.PNG_CONFIRMED_PROPERTY, material_settings.IMAGE_ID_PROPERTY):
-        if key in copy:
-            del copy[key]
-
+    material_settings.as_made_in_blender(copy)
     for root in roots:
         for material, _ in _drawn(root).values():
             for item in material_settings.settings_of(material).shaders if material_settings.is_managed(material) else []:
@@ -324,12 +331,13 @@ def _give_vertex_colors(materials: typing.Iterable[bpy.types.Material]) -> None:
 
 
 def as_made_in_blender(material: bpy.types.Material) -> None:
-    """Makes a copy of a material a material of its own made in Blender, which TT Lab never had: writing a model sends all of it."""
-    for key in (tlm_blender.URI_PROPERTY, tlm_blender.BLENDER_ID_PROPERTY, tlm_blender.SENT_PROPERTY, tlm_blender.SENT_SEQUENCE_PROPERTY,
-                tlm_blender.BASE_SEQUENCE_PROPERTY):
+    """Makes a copy of a material a material of its own made in Blender, which TT Lab never had: writing a model sends all of it. Its Blender
+    ID is its own, in the step making it."""
+    for key in (tlm_blender.URI_PROPERTY, tlm_blender.SENT_PROPERTY, tlm_blender.SENT_SEQUENCE_PROPERTY, tlm_blender.BASE_SEQUENCE_PROPERTY):
         if key in material:
             del material[key]
 
+    material[tlm_blender.BLENDER_ID_PROPERTY] = uuid.uuid4().hex
     if material_settings.is_managed(material):
         material_settings.settings_of(material).known = False
 
@@ -364,10 +372,7 @@ def make_picture_own(image: bpy.types.Image, root: bpy.types.Object) -> bpy.type
     there). The project's materials keep the project's picture."""
     copy = image.copy()
     copy.name = "%s %s" % (image.name, root.name)
-    for key in (material_settings.TEXTURE_URI_PROPERTY, material_settings.PNG_CONFIRMED_PROPERTY, material_settings.IMAGE_ID_PROPERTY):
-        if key in copy:
-            del copy[key]
-
+    material_settings.as_made_in_blender(copy)
     for material, _ in _drawn(root).values():
         if material.get(tlm_blender.URI_PROPERTY) or not material_settings.is_managed(material):
             continue
@@ -377,6 +382,29 @@ def make_picture_own(image: bpy.types.Image, root: bpy.types.Object) -> bpy.type
                 item.image = copy
 
     return copy
+
+
+def project_material(project: projects.Project, uri: str) -> typing.Optional[bpy.types.Material]:
+    """The scene's material of the project's material, another project's of the URI being another material: made of the project's files when
+    the scene has none (the project's settings and pictures, like an import's). None for a URI the project has no material of."""
+    blocks = ProjectBlocks(project.root)
+    found = blocks.pick(material for material in bpy.data.materials if material.get(tlm_blender.URI_PROPERTY) == uri)
+    if found is not None or uri not in project.materials:
+        return found
+
+    return tlm_blender._material_for(project, {"uri": uri}, blocks=blocks)
+
+
+def use_instead(material: bpy.types.Material, other: bpy.types.Material, root: bpy.types.Object) -> None:
+    """The model's parts drawn with the material draw the other one, like TT Lab's material slot given another material: the other models
+    keep the material."""
+    for blender_object in tlm_blender._descendants(root):
+        if blender_object.type != "MESH" or tlm_blender.role_of(blender_object) in ("collision", "hull"):
+            continue
+
+        for slot in blender_object.material_slots:
+            if slot.material == material:
+                slot.material = other
 
 
 def split_rigid(material: bpy.types.Material, root: typing.Optional[bpy.types.Object]) -> typing.Optional[bpy.types.Material]:

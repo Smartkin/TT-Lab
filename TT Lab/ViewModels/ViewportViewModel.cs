@@ -2105,26 +2105,13 @@ public partial class ViewportViewModel : ReactiveObject
             return;
         }
 
+        if (UseToolKey(key, IsAltPressed()))
+        {
+            return;
+        }
+
         switch (key)
         {
-            case Key.Q:
-                SetTool(TransformMode.SELECTION);
-                break;
-            case Key.T:
-                SetTool(TransformMode.TRANSLATE);
-                break;
-            case Key.R:
-                SetTool(TransformMode.ROTATE);
-                break;
-            case Key.E:
-                SetTool(TransformMode.SCALE);
-                break;
-            case Key.L:
-                ToggleTransformSpace();
-                break;
-            case Key.F:
-                FrameSelection();
-                break;
             case Key.Escape when _editingContext.IsDraggingGizmo:
                 _editingContext.CancelGizmoDrag();
                 EndDragStep();
@@ -2148,6 +2135,45 @@ public partial class ViewportViewModel : ReactiveObject
     private bool IsControlPressed()
     {
         return _keyboard != null && (_keyboard.IsKeyPressed(Key.ControlLeft) || _keyboard.IsKeyPressed(Key.ControlRight));
+    }
+
+    private bool IsAltPressed()
+    {
+        return _keyboard != null && (_keyboard.IsKeyPressed(Key.AltLeft) || _keyboard.IsKeyPressed(Key.AltRight));
+    }
+
+    // The tools' one-key shortcuts, whether the key was one. Pressed with Alt it's a shortcut of the window's: Alt+Shift+L locates the
+    // editor's asset in the Project Tree, and flipped the transform space too
+    internal bool UseToolKey(Key key, bool altPressed)
+    {
+        if (altPressed)
+        {
+            return false;
+        }
+
+        switch (key)
+        {
+            case Key.Q:
+                SetTool(TransformMode.SELECTION);
+                return true;
+            case Key.T:
+                SetTool(TransformMode.TRANSLATE);
+                return true;
+            case Key.R:
+                SetTool(TransformMode.ROTATE);
+                return true;
+            case Key.E:
+                SetTool(TransformMode.SCALE);
+                return true;
+            case Key.L:
+                ToggleTransformSpace();
+                return true;
+            case Key.F:
+                FrameSelection();
+                return true;
+            default:
+                return false;
+        }
     }
 
     private Vector2 _prevMousePosition = new(-1, -1);

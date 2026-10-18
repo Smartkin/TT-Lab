@@ -1027,7 +1027,6 @@ public class Project : IProject
 
         var factory = CreateFactory(platform);
         factory.ExcludedChunks = excludedChunks;
-        var assetManager = AssetManager;
         using var memoryGate = new MemoryGate((long)(Preferences.GetPreference<Double>(Preferences.BuildMemoryBudget) * 1024 * 1024));
 
         Log.WriteLine("Creating build directories...");
@@ -1082,25 +1081,14 @@ public class Project : IProject
         {
             Log.WriteLine($"Writing {globalFolder}...");
             phaseTimer.Restart();
-            var folderUri = globalPackage.GetPackageFolder().FindChild<Folder>(globalFolder);
-            if (folderUri != LabURI.Empty)
-            {
-                ResolveGlobalAssets(factory, cache, assetManager.GetAsset<Folder>(folderUri).Children, System.IO.Path.Combine(filesPath, globalFolder), ref totalGlobals,
-                    ref currentGlobalsCount);
-            }
-
+            WriteGlobalFolder(factory, cache, globalPackage, globalFolder, filesPath, ref totalGlobals, ref currentGlobalsCount);
             Log.WriteLine($"Finished writing {globalFolder} in {phaseTimer.Elapsed}");
         }
 
         Log.WriteLine("Writing Startup...");
         phaseTimer.Restart();
-        // Startup and startup are one folder on Windows and in projects made since its folder is made first, projects made on Linux before
-        // have one of each
-        var startupFolders = globalPackage.GetPackageFolder().Children.Select(assetManager.GetAsset).OfType<Folder>()
-            .Where(folder => folder.Name.Equals("Startup", StringComparison.OrdinalIgnoreCase)).ToList();
-        var defaultChunk = startupFolders.Select(folder => folder.FindChild<LevelChunk>("default")).First(uri => uri != LabURI.Empty);
         var startupPath = System.IO.Path.Combine(filesPath, "Startup");
-        BuildChunk(factory, cache, assetManager.GetAsset<LevelChunk>(defaultChunk), startupPath, true, platform);
+        BuildChunk(factory, cache, DefaultChunkOf(platform), startupPath, true, platform);
         cache.Save();
         // Every chunk of the version is built, the IDs of the animations none of them has anymore can be given to others. Chunks the profile
         // left out keep the files they had, which a cache that was reset knows nothing of
@@ -1110,15 +1098,81 @@ public class Project : IProject
         }
 
         factory.AnimationIds.Save();
-        // Startup's other files were always exported right after the default chunk, which leaves the factory resolving for it
-        factory.IsDefaultResolution = true;
-        var childrenCopy = startupFolders.SelectMany(folder => folder.Children).Where(e => !e.GetUri().EndsWith("/default")).ToList();
-        ResolveGlobalAssets(factory, cache, childrenCopy, startupPath, ref totalGlobals, ref currentGlobalsCount);
+        WriteStartupFiles(factory, cache, globalPackage, startupPath, ref totalGlobals, ref currentGlobalsCount);
         cache.Save();
 
         Log.WriteLine($"Finished writing Startup in {phaseTimer.Elapsed}");
         Log.WriteLine("Finished writing main archive files!");
         return true;
+    }
+
+    /// <summary>
+    /// Writes the version's files the game reads besides its levels, but for the Extras menu's pictures: the language's files, the default
+    /// chunk and the startup's other files. Playing a chunk builds them with it, the game reads the default chunk and the startup's files
+    /// only as it boots
+    /// </summary>
+    internal void PackStartupAndLanguage(GamePlatform platform, ITwinItemFactory factory)
+    {
+        var globalPackage = GetGlobalPackage(platform);
+        factory.GlobalPackage = globalPackage;
+        var cache = BuildCache.Load(ProjectPath, AssetManager);
+        cache.AnimationIds = factory.AnimationIds;
+        ForgetAnimationsNoChunkHas(cache, factory.AnimationIds);
+        var filesPath = GetBuildFilesPath(platform);
+        UInt32 total = 0;
+        UInt32 written = 0;
+        try
+        {
+            WriteGlobalFolder(factory, cache, globalPackage, "Language", filesPath, ref total, ref written);
+            var startupPath = System.IO.Path.Combine(filesPath, "Startup");
+            BuildChunk(factory, cache, DefaultChunkOf(platform), startupPath, true, platform);
+            WriteStartupFiles(factory, cache, globalPackage, startupPath, ref total, ref written);
+        }
+        finally
+        {
+            cache.Save();
+            factory.AnimationIds.Save();
+        }
+    }
+
+    /// <summary>
+    /// The version's default chunk, which the game reads once as it boots
+    /// </summary>
+    internal LevelChunk DefaultChunkOf(GamePlatform platform)
+    {
+        var chunk = StartupFoldersOf(GetGlobalPackage(platform)).Select(folder => folder.FindChild<LevelChunk>("default")).First(uri => uri != LabURI.Empty);
+        return AssetManager.GetAsset<LevelChunk>(chunk);
+    }
+
+    // Startup and startup are one folder on Windows and in projects made since its folder is made first, projects made on Linux before have
+    // one of each
+    private List<Folder> StartupFoldersOf(Package globalPackage)
+    {
+        return globalPackage.GetPackageFolder().Children.Select(AssetManager.GetAsset).OfType<Folder>()
+            .Where(folder => folder.Name.Equals("Startup", StringComparison.OrdinalIgnoreCase)).ToList();
+    }
+
+    // A folder of the global package, written into the build's folder of its name
+    private void WriteGlobalFolder(ITwinItemFactory factory, BuildCache cache, Package globalPackage, string name, string filesPath, ref UInt32 total, ref UInt32 current)
+    {
+        var folderUri = globalPackage.GetPackageFolder().FindChild<Folder>(name);
+        if (folderUri == LabURI.Empty)
+        {
+            return;
+        }
+
+        var directory = System.IO.Path.Combine(filesPath, name);
+        System.IO.Directory.CreateDirectory(directory);
+        ResolveGlobalAssets(factory, cache, AssetManager.GetAsset<Folder>(folderUri).Children, directory, ref total, ref current);
+    }
+
+    // Startup's files but the default chunk. They were always exported right after the default chunk, which leaves the factory resolving for it
+    private void WriteStartupFiles(ITwinItemFactory factory, BuildCache cache, Package globalPackage, string startupPath, ref UInt32 total, ref UInt32 current)
+    {
+        factory.IsDefaultResolution = true;
+        System.IO.Directory.CreateDirectory(startupPath);
+        var files = StartupFoldersOf(globalPackage).SelectMany(folder => folder.Children).Where(e => !e.GetUri().EndsWith("/default")).ToList();
+        ResolveGlobalAssets(factory, cache, files, startupPath, ref total, ref current);
     }
 
     /// <summary>

@@ -101,14 +101,7 @@ class TlmFile:
 
     @staticmethod
     def from_bytes(data: bytes) -> "TlmFile":
-        if data[:4] != MAGIC:
-            raise TlmError("Not a TT Lab model file")
-
-        version, json_length = struct.unpack_from("<II", data, 4)
-        if version != FORMAT_VERSION:
-            raise TlmError("TT Lab model file of version %d, this add-on reads version %d" % (version, FORMAT_VERSION))
-
-        json_end = 12 + json_length
+        json_end = 12 + _json_length(data)
         tree = json.loads(data[12:json_end].decode("utf-8"), parse_int=_parse_int)
         binary_length, = struct.unpack_from("<I", data, json_end)
         return TlmFile(json_tree=tree, binary=data[json_end + 4:json_end + 4 + binary_length])
@@ -117,6 +110,35 @@ class TlmFile:
     def load(path: str) -> "TlmFile":
         with open(path, "rb") as file:
             return TlmFile.from_bytes(file.read())
+
+    @staticmethod
+    def read_json(path: str) -> typing.Dict[str, typing.Any]:
+        """The file's JSON tree without reading its binary data: what kind of model it is ("asset") and what it draws."""
+        with open(path, "rb") as file:
+            start = file.read(12)
+            json_length = _json_length(start)
+            text = file.read(json_length)
+
+        if len(text) != json_length:
+            raise TlmError("The file ends in its JSON")
+
+        tree = json.loads(text.decode("utf-8"), parse_int=_parse_int)
+        if not isinstance(tree, dict):
+            raise TlmError("Not a TT Lab model file")
+
+        return tree
+
+
+def _json_length(start: bytes) -> int:
+    """The length of the JSON after the file's first 12 bytes."""
+    if start[:4] != MAGIC or len(start) < 12:
+        raise TlmError("Not a TT Lab model file")
+
+    version, json_length = struct.unpack_from("<II", start, 4)
+    if version != FORMAT_VERSION:
+        raise TlmError("TT Lab model file of version %d, this add-on reads version %d" % (version, FORMAT_VERSION))
+
+    return json_length
 
 
 def _parse_int(text: str) -> typing.Any:

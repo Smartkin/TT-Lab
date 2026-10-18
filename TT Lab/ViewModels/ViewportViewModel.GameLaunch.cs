@@ -15,7 +15,7 @@ namespace TT_Lab.ViewModels;
 // has again and reloads them in it, Stop closes PCSX2. What PCSX2 and disc image it uses is in Preferences > Direct Game Launch
 public partial class ViewportViewModel
 {
-    private const string PlayInGameDefaultHint = "Play the chunk in PCSX2, in a window of its own: its chunk and the ones it links get built and the game boots straight into it";
+    private const string PlayInGameDefaultHint = "Play the chunk in PCSX2, in a window of its own: its chunk, the ones it links and the default chunk get built and the game boots straight into it";
 
     [Reactive(SetModifier = AccessModifier.Private)]
     private bool _canPlayInGame;

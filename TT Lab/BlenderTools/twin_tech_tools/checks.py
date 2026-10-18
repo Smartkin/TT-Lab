@@ -110,10 +110,50 @@ def _ogi(root: bpy.types.Object, descendants: typing.List[bpy.types.Object], inf
         result.append(Problem("%s follow bones %s doesn't have: they'd be left where the model's root is. Put them on bones of the armature"
                               % (_named(lost), armature.name), [name.split(" (on ")[0] for name in lost]))
 
-    shapes = {child.name: [block.name for block in list(child.data.shape_keys.key_blocks)[1:]]
+    result.extend(_placements(root, descendants, infos, roles, armature, result))
+    shapes ={child.name: [block.name for block in list(child.data.shape_keys.key_blocks)[1:]]
               for child in descendants if roles[child.name] == "shape" and tlm_blender._draws(child) and child.data.shape_keys is not None}
     result.extend(parts.shape_key_problems(shapes, tlm_blender.MOST_SHAPES))
     result.extend(_shared_materials(descendants, roles))
+    return result
+
+
+def _placements(root: bpy.types.Object, descendants: typing.List[bpy.types.Object], infos: typing.List[parts.ObjectInfo], roles: typing.Dict[str, str],
+                armature: bpy.types.Object, found: typing.List[Problem]) -> typing.List[Problem]:
+    """The parts the file can't place where Blender shows them with the armature at rest: squashed flat, and exit points sheared, which have
+    no vertexes to take a shear (a rigid body's or hull's goes into them). A Child Of's inverse set while its bone was scaled to nothing
+    or unevenly does it. Parts refused for their constraints, or what they're under, are left to that: the export wouldn't place them so."""
+    constrained = {name for problem in found if problem.fix == parts.FOLLOW_ONE_BONE for name in problem.subjects}
+    by_name = {info.name: info for info in infos}
+    bones = {bone.name for bone in armature.data.bones}
+    result: typing.List[Problem] = []
+    for blender_object, info in zip(descendants, infos):
+        role = roles[blender_object.name]
+        if role not in ("body", "exit_point", "hull") or any(name in constrained for name in parts.carriers(info, by_name, armature.name)):
+            continue
+
+        relative = root.matrix_world.inverted() @ tlm_blender._rest_world(blender_object, armature, bones, set())[0]
+        kept = parts.kept_child_of(info, armature.name)
+        if tlm_blender.is_squashed(relative):
+            if kept is not None:
+                result.append(Problem("%s is squashed flat with the armature at rest: its Child Of's inverse was set while %s was scaled to nothing, "
+                                      "the way animations hide joints. %s sets it again with the armature at rest, putting %s back where its own "
+                                      "transform puts it" % (blender_object.name, kept.subtarget, parts.FOLLOW_ONE_BONE_TEXT, blender_object.name),
+                                      [blender_object.name], fix=parts.FOLLOW_ONE_BONE, fix_text=parts.FOLLOW_ONE_BONE_TEXT))
+            else:
+                result.append(Problem("%s is squashed flat with the armature at rest, by its scale or what it's under: the file can't place it so, "
+                                      "give it its scale back" % blender_object.name, [blender_object.name]))
+        elif role == "exit_point" and tlm_blender.is_sheared(relative, tlm_blender.EXIT_POINT_SHEAR_TOLERANCE):
+            if kept is not None:
+                result.append(Problem("%s is sheared with the armature at rest, which an exit point's place can't hold: its Child Of's inverse was "
+                                      "set while %s was scaled unevenly. %s keeps it where it is with the nearest axes that aren't sheared"
+                                      % (blender_object.name, kept.subtarget, parts.FOLLOW_ONE_BONE_TEXT), [blender_object.name],
+                                      fix=parts.FOLLOW_ONE_BONE, fix_text=parts.FOLLOW_ONE_BONE_TEXT))
+            else:
+                result.append(Problem("%s is sheared with the armature at rest by what it's under (a Child Of's inverse set while its bone was "
+                                      "scaled unevenly, or an uneven scale on something turned), which an exit point's place can't hold"
+                                      % blender_object.name, [blender_object.name]))
+
     return result
 
 
@@ -198,11 +238,20 @@ def _warnings(root: bpy.types.Object, descendants: typing.List[bpy.types.Object]
         result.append(Problem(text, [root.name], refused=False))
 
     if root.get(tlm_blender.KIND_PROPERTY) == "ogi":
-        from . import replace
+        from . import retargeting
 
         # What retargeting couldn't carry over to the rig
-        result.extend(Problem(note, [root.name], refused=False) for note in replace.notes_of(root))
+        result.extend(Problem(note, [root.name], refused=False) for note in retargeting.notes_of(root))
         armature = next((child for child in descendants if child.type == "ARMATURE"), None)
+        dropped = [action.name for action in tlm_blender._owned_actions(root, armature, [bone.name for bone in armature.data.bones], deleted=True)] \
+            if armature is not None else []
+        if dropped:
+            one = len(dropped) == 1
+            result.append(Problem("%s %s written: nothing plays %s and %s no fake user, which makes %s deleted (Clean Up > Purge Unused takes %s out)"
+                                  % (_named(dropped), "isn't" if one else "aren't", "it" if one else "them", "it has" if one else "they have",
+                                     "it" if one else "them", "it" if one else "them"), [armature.name], refused=False, fix="ttt.keep_animations",
+                                  fix_text="Keep It" if one else "Keep Them"))
+
         skinned = any(tlm_blender.role_of(child) in tlm_blender.SKINNED_KINDS and tlm_blender._draws(child) for child in descendants)
         exit_points = any(tlm_blender.role_of(child) == "exit_point" for child in descendants)
         if skinned and armature is not None and len(armature.data.bones) < 2 and not exit_points:

@@ -23,7 +23,7 @@ STATE = tempfile.mkdtemp(prefix="ttt_use_state_")
 os.environ["XDG_STATE_HOME"] = STATE
 
 import twin_tech_tools  # noqa: E402
-from twin_tech_tools import gs_material, link_sync, material_settings, material_sync, materials, replace, save_hook, tlm, tlm_blender, tlm_operators  # noqa: E402
+from twin_tech_tools import gs_material, link_sync, material_settings, material_sync, materials, retargeting, save_hook, tlm, tlm_blender, tlm_operators  # noqa: E402
 from fake_tt_lab import FakeTTLab, _png  # noqa: E402
 
 FIXTURES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures")
@@ -1096,25 +1096,32 @@ def check_late_takes(fake, paths):
     print("late takes: ok")
 
 
-def check_retargeted_models_keep_their_link(fake, paths, directory):
-    """The rig's model taking a linked model's place (Retarget and Replace) is that model as TT Lab knows it: its URI, revision and marks."""
+def check_retargeting_leaves_the_model_tt_labs(fake, paths, directory):
+    """Retargeting only takes the linked model's animations: it stays TT Lab's model as TT Lab knows it (its name, file, URI, revision and
+    link), the rig's model keeps its own file (it took the model's place and link before)."""
     fresh()
     root = model(paths["Crash"], "Custom")
     check(tick_until(linked(root)), "the model didn't link")
-    said = (root[link_sync.REVISION_PROPERTY], bool(root.get(link_sync.CHANGED_IN_TT_LAB_PROPERTY)))
-    rig = model(make_copy(os.path.join(directory, "Rig"), "eeeeeeee-0000-0000-0000-000000000001", "ogi_template.tlm"), "Rig")
-    replace._take_place(bpy.context, root, rig, root)
-    link = link_sync.link_of(rig)
+    said = (root.name, root[tlm_blender.PATH_PROPERTY], root.get(link_sync.MODEL_URI_PROPERTY), root.get(link_sync.REVISION_PROPERTY))
+    rig_root = model(make_copy(os.path.join(directory, "Rig"), "eeeeeeee-0000-0000-0000-000000000001"), "Rig")
+    rig_path = rig_root[tlm_blender.PATH_PROPERTY]
+    rig = tlm_blender.armature_of(rig_root)
+    for action in tlm_blender.animations_of(rig_root):
+        bpy.data.actions.remove(action)
 
-    def what_tt_lab_said():
-        return rig.get(link_sync.REVISION_PROPERTY), bool(rig.get(link_sync.CHANGED_IN_TT_LAB_PROPERTY))
-
-    check(rig.name == "Custom" and what_tt_lab_said() == said and rig.get(link_sync.MODEL_URI_PROPERTY) == uri_of(paths["Crash"]),
-          "the rig's model is %s" % [rig.name, what_tt_lab_said(), rig.get(link_sync.MODEL_URI_PROPERTY)])
-    check(link is not None and link.uids.get("Custom") == rig.get(tlm_blender.UID_PROPERTY), "the link doesn't know the rig's model")
-    link_sync._undone()
-    check(what_tt_lab_said() == said, "an undo took what TT Lab said of it: %s against %s" % (what_tt_lab_said(), said))
-    print("retargeted models keep their link: ok")
+    names = sorted(action.name for action in tlm_blender.animations_of(root))
+    retargeting.guess(tlm_blender.armature_of(root), rig)
+    _, count, _ = retargeting.retarget(bpy.context, root, rig)
+    now = (root.name, root[tlm_blender.PATH_PROPERTY], root.get(link_sync.MODEL_URI_PROPERTY), root.get(link_sync.REVISION_PROPERTY))
+    check(count == 2 and now == said, "the model isn't TT Lab's as it was: %s against %s" % (now, said))
+    link = link_sync.link_of(root)
+    check(link is not None and link.models.get("Custom") == said[2] and link.uids.get("Custom") == root.get(tlm_blender.UID_PROPERTY), "the link lost the model")
+    check(rig_root.name == "Rig" and rig_root[tlm_blender.PATH_PROPERTY] == rig_path and rig_root.get(link_sync.MODEL_URI_PROPERTY) != said[2],
+          "the rig's model took the model's place in TT Lab")
+    # Under the names the model's had
+    check(tlm_blender.animations_of(root) == [] and sorted(action.name for action in tlm_blender.animations_of(rig_root)) == names,
+          "the animations are %s and %s, the model's were %s" % (tlm_blender.animations_of(root), tlm_blender.animations_of(rig_root), names))
+    print("retargeting leaves the model TT Lab's: ok")
 
 
 def check_released_files_kept(fake, paths, directory):
@@ -1163,6 +1170,77 @@ def check_saves_without_tt_lab(fake, paths):
     check(len(fake.of("write_model")) > writes, "the save didn't write the model")
     check(took < 2.0, "the save waited %.1f s for a link that closed" % took)
     print("saves without TT Lab: ok")
+
+
+def add_asset(path):
+    """The model's metadata next to its file, as TT Lab writes it."""
+    with open(os.path.splitext(path)[0] + ".json", "w", encoding="utf-8") as file:
+        json.dump({"URI": {"_uri": uri_of(path)}, "Type": "TT_Lab.Assets.Code.OGI, TT Lab", "Alias": os.path.splitext(os.path.basename(path))[0],
+                   "Package": {"_uri": "res://" + PACKAGE}}, file)
+
+
+def link_to(path, root):
+    """Link to Another TT Lab Model's pick of the file for the model, and the error it reported."""
+    try:
+        return bpy.ops.ttt.link_to_tt_lab_model(filepath=path, root=root.name), ""
+    except RuntimeError as error:
+        return {"CANCELLED"}, str(error)
+
+
+def check_linked_to_a_model_file(fake, paths, directory):
+    """Link to Another TT Lab Model puts the model in the place of the model of the file picked, a model of a project's assets of its kind
+    other than its own: written over it once linked, the model it stood for released and the scene's other model of the file standing for
+    none. A model of a project no TT Lab has open waits for it."""
+    fresh()
+    folder = os.path.dirname(paths["Crash"])
+    scenery, stray, loose = os.path.join(folder, "Beach.tlm"), os.path.join(folder, "Stray.tlm"), os.path.join(directory, "Loose.tlm")
+    shutil.copy(os.path.join(FIXTURES, "scenery.tlm"), scenery)
+    for path in (stray, loose):
+        shutil.copy(paths["Crash"], path)
+
+    made = [scenery, stray, loose]
+    for path in (paths["Crash"], paths["Other"], scenery):
+        add_asset(path)
+
+    try:
+        root = model(paths["Crash"], "Custom")
+        with save_hook.leaving_models_alone():
+            bpy.ops.wm.save_as_mainfile(filepath=os.path.join(directory, "link_to.blend"))
+        check(tick_until(linked(root)), "the model didn't link")
+        for path, said in ((scenery, "Beach.tlm is a scenery's model file, Custom is a game model"), (stray, "Stray.tlm isn't a model of a TT Lab project"),
+                           (loose, "Loose.tlm isn't a model of a TT Lab project"), (paths["Crash"], "Custom stands for Crash already"),
+                           (os.path.join(directory, "Missing.tlm"), "Pick a TT Lab model file")):
+            result, text = link_to(path, root)
+            check(result == {"CANCELLED"} and said in text, "picking %s: %s %s" % (os.path.basename(path), result, text))
+            check(link_sync._same_file(root[tlm_blender.PATH_PROPERTY], paths["Crash"]) and link_sync.replacing(root) is None, "a refused pick changed the model")
+
+        second = model(paths["Other"], "Second")
+        check(tick_until(linked(second)), "the other model didn't link")
+        unlinks, writes = len(fake.of("unlink_model")), len(fake.of("write_model"))
+        result, _ = link_to(paths["Other"], root)
+        check(result == {"FINISHED"} and link_sync._same_file(root[tlm_blender.PATH_PROPERTY], paths["Other"]) and link_sync.replacing(root) == "Other",
+              "the model wasn't put in the picked model's place")
+        check(tlm_blender.PATH_PROPERTY not in second, "the scene's other model of the file still stands for it")
+        check(tick_until(lambda: link_sync.replacing(root) is None and not link_sync._finishing), "the model wasn't written in the picked model's place")
+        written = [(header["uri"], header.get("replacing"), header.get("force")) for header, _ in fake.of("write_model")[writes:]]
+        check(written == [(uri_of(paths["Other"]), True, True)], "wrote %s" % written)
+        check(uri_of(paths["Crash"]) in [header["uri"] for header, _ in fake.of("unlink_model")[unlinks:]], "the model it stood for wasn't unlinked")
+        check(wait_for(lambda: any(header.get("released") == [paths["Crash"]] for header, _ in fake.of("blend_saved"))), "the release wasn't told")
+
+        away = make_copy(os.path.join(directory, "Away Link"), "88888888-7777-6666-5555-444444444444")
+        made.append(away)
+        add_asset(away)
+        result, _ = link_to(away, root)
+        check(result == {"FINISHED"} and link_sync.replacing(root) == "Crash", "a model of a project no TT Lab has open wasn't picked")
+        refused = link_sync.write_models()
+        check(any("once TT Lab has the project open" in text for text in refused), "refused %s" % refused)
+    finally:
+        # The other checks' project has no metadata
+        for path in made + [os.path.splitext(path)[0] + ".json" for path in made + [paths["Crash"], paths["Other"]]]:
+            if os.path.exists(path):
+                os.remove(path)
+
+    print("linked to a model file: ok")
 
 
 def check_sync_settings(fake, paths, directory):
@@ -1320,11 +1398,12 @@ def main():
         check_undoing_take(fake, paths, directory)
         check_undoing_use_for(fake, paths)
         check_late_takes(fake, paths)
-        check_retargeted_models_keep_their_link(fake, paths, directory)
+        check_retargeting_leaves_the_model_tt_labs(fake, paths, directory)
         check_released_files_kept(fake, paths, directory)
         check_take_gives_tt_labs_materials(fake, paths, directory)
         check_reimported_models_link(fake, paths)
         check_saves_without_tt_lab(fake, paths)
+        check_linked_to_a_model_file(fake, paths, directory)
         check_sync_settings(fake, paths, directory)
     finally:
         link_sync.drop_all()

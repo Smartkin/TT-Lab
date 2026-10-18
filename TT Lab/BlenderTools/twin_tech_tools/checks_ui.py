@@ -187,7 +187,68 @@ class TTT_OT_RemoveChildOf(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class TTT_OT_FollowOneBone(bpy.types.Operator):
+    """Leaves the parts one plain Child Of to a bone at most, where they are with the armatures at rest: what moves nothing goes, of their
+    Child Ofs to a bone the one of the highest influence stays, made plain, and everything else goes. A part squashed flat gets its inverse
+    set again at rest, a sheared exit point the nearest axes that aren't"""
+
+    bl_idname = "ttt.follow_one_bone"
+    bl_label = "Make It Follow One Bone"
+    bl_options = {"REGISTER", "UNDO"}
+
+    subjects: bpy.props.StringProperty(options={"HIDDEN"})
+
+    def execute(self, context):
+        found = _objects(self.subjects)
+        if not found:
+            self.report({"ERROR"}, "None of them is an object of the scene")
+            return {"CANCELLED"}
+
+        # Where they are with the armatures at rest is what's exported: a pose would be baked into them
+        armatures = {armature: armature.data.pose_position for armature in bpy.data.objects if armature.type == "ARMATURE"}
+        for armature in armatures:
+            armature.data.pose_position = "REST"
+
+        context.view_layer.update()
+        try:
+            for blender_object in found:
+                tlm_blender.follow_one_bone(context, blender_object)
+        finally:
+            for armature, position in armatures.items():
+                armature.data.pose_position = position
+
+        return {"FINISHED"}
+
+
 # What fixes a problem the checks name: their own operators take the problem's subjects
+class TTT_OT_KeepAnimations(bpy.types.Operator):
+    """Gives the model's animations nothing plays a fake user, which keeps them: they're written with the model again"""
+
+    bl_idname = "ttt.keep_animations"
+    bl_label = "Keep Them"
+    bl_options = {"REGISTER", "UNDO"}
+
+    subjects: bpy.props.StringProperty(options={"HIDDEN"})
+
+    def execute(self, context):
+        kept = []
+        for armature in _objects(self.subjects):
+            root = tlm_blender.find_root(armature)
+            if armature.type != "ARMATURE" or root is None:
+                continue
+
+            for action in tlm_blender._owned_actions(root, armature, [bone.name for bone in armature.data.bones], deleted=True):
+                tlm_blender.keep_animation(action)
+                kept.append(action.name)
+
+        if not kept:
+            self.report({"INFO"}, "Every animation of the model is kept already")
+            return {"CANCELLED"}
+
+        self.report({"INFO"}, "Kept %s" % ", ".join(kept))
+        return {"FINISHED"}
+
+
 _FIXES = {"ttt.add_emit_colors": TTT_OT_AddEmitColorsTo.bl_idname}
 
 
@@ -209,7 +270,9 @@ def draw_problems(layout: typing.Any, context: bpy.types.Context, found: typing.
 
         if problem.fix:
             operator = _FIXES.get(problem.fix, problem.fix)
-            row.operator(operator, icon="MODIFIER").subjects = subjects
+            # Only a label of its own is passed: an empty text leaves the button without one
+            fix = row.operator(operator, text=problem.fix_text, icon="MODIFIER") if problem.fix_text else row.operator(operator, icon="MODIFIER")
+            fix.subjects = subjects
 
 
 class TTT_PT_Checks(bpy.types.Panel):

@@ -34,6 +34,7 @@ public partial class ShellView : BurnBridgeWindow<ShellViewModel>
         HotKeyManager.SetHotKey(SaveProjectItem, new KeyGesture(Key.S, KeyModifiers.Control | KeyModifiers.Shift));
         HotKeyManager.SetHotKey(OpenAssetItem, new KeyGesture(Key.O, KeyModifiers.Control | KeyModifiers.Shift));
         HotKeyManager.SetHotKey(ReopenClosedEditorItem, new KeyGesture(Key.T, KeyModifiers.Control | KeyModifiers.Shift));
+        HotKeyManager.SetHotKey(LocateInProjectTreeItem, new KeyGesture(Key.L, KeyModifiers.Alt | KeyModifiers.Shift));
     }
 
     // Closing again once the unsaved changes got saved or discarded goes through

@@ -125,12 +125,27 @@ class Project:
     def _first_dependency(self, package: str) -> str:
         """A package's first dependency, its file is in a folder of its name under the assets."""
         if package not in self._first_dependencies:
-            name = package.split("://", 1)[-1]
-            metadata = _load_json(os.path.join(self.assets_path, name, name + ".json"))
-            dependencies = metadata.get("Dependencies") if isinstance(metadata, dict) else None
-            self._first_dependencies[package] = uri_of(dependencies[0]) if isinstance(dependencies, list) and len(dependencies) > 0 else ""
+            dependencies = self._dependencies(package)
+            self._first_dependencies[package] = dependencies[0] if dependencies else ""
 
         return self._first_dependencies[package]
+
+    def _dependencies(self, package: str) -> typing.List[str]:
+        name = package.split("://", 1)[-1]
+        metadata = _load_json(os.path.join(self.assets_path, name, name + ".json"))
+        dependencies = metadata.get("Dependencies") if isinstance(metadata, dict) else None
+        return [uri for uri in (uri_of(dependency) for dependency in dependencies) if uri] if isinstance(dependencies, list) else []
+
+    def packages_used_by(self, package: str) -> typing.List[str]:
+        """The package and every package it depends on, theirs too, whose assets its assets use without TT Lab asking for a dependency.
+        Packages may depend on each other in a circle."""
+        found = [package]
+        for current in found:
+            for dependency in self._dependencies(current):
+                if dependency not in found:
+                    found.append(dependency)
+
+        return found
 
     def _index(self) -> None:
         for directory, directories, files in os.walk(self.assets_path):
@@ -230,6 +245,21 @@ def package_of(root: str, path: str) -> typing.Optional[str]:
     relative = os.path.relpath(os.path.abspath(path), os.path.join(root, "assets"))
     parts = relative.split(os.sep)
     return "res://" + parts[0] if len(parts) > 1 and parts[0] != ".." else None
+
+
+def model_asset_of(path: str) -> typing.Optional[typing.Dict[str, str]]:
+    """The URI and name of the project's asset whose data file the file is, by the asset's `<name>.json` next to it. None for a file that
+    isn't the data file of one of a project's assets (a prefab's model, a file of no project)."""
+    root = find_root(path)
+    if root is None or package_of(root, path) is None:
+        return None
+
+    metadata = _load_json(os.path.splitext(os.path.abspath(path))[0] + ".json")
+    uri = uri_of(metadata.get("URI")) if isinstance(metadata, dict) else ""
+    if not uri.startswith("res://"):
+        return None
+
+    return {"uri": uri, "name": str(metadata.get("Alias") or metadata.get("InvariantName") or os.path.splitext(os.path.basename(path))[0])}
 
 
 def is_global_package_file(path: str) -> bool:

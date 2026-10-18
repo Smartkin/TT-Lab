@@ -3,6 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:viewmodels="clr-namespace:TT_Lab.ViewModels"
+             xmlns:resourceTree="clr-namespace:TT_Lab.ViewModels.ResourceTree"
              x:DataType="viewmodels:ProjectTreeViewModel"
              mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="600"
              x:Class="TT_Lab.Views.ProjectTreeView">
@@ -14,20 +15,50 @@
         <Style Selector="Border.row.dropTarget">
             <Setter Property="Background" Value="#6000A2FF"/>
         </Style>
+        <Style Selector="Button.tool">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Padding" Value="6,4"/>
+            <Setter Property="MinWidth" Value="30"/>
+            <Setter Property="MinHeight" Value="28"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Button.tool:disabled">
+            <Setter Property="Opacity" Value="0.35"/>
+        </Style>
+        <Style Selector="Button.tool PathIcon">
+            <Setter Property="Width" Value="16"/>
+            <Setter Property="Height" Value="16"/>
+        </Style>
     </UserControl.Styles>
     <Grid RowDefinitions="54,470*">
-        <TextBox
-            ScrollViewer.VerticalScrollBarVisibility="Disabled"
-            ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-            Watermark="Search"
-            x:Name="SearchBar"
-            TextWrapping="NoWrap"
-            Text="{Binding SearchAsset, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" MaxLines="1" Margin="0,14,0,15" Height="25"/>
+        <Grid ColumnDefinitions="*,Auto">
+            <TextBox
+                ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                Watermark="Search"
+                x:Name="SearchBar"
+                TextWrapping="NoWrap"
+                Text="{Binding SearchAsset, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" MaxLines="1" Margin="0,14,0,15" Height="25"/>
+            <!-- A crosshair: a ring, four ticks and a dot -->
+            <Button Grid.Column="1" x:Name="LocateButton" Classes="tool" Margin="4,0,0,0" VerticalAlignment="Center" Command="{Binding LocateCommand}"
+                    ToolTip.Tip="{Binding LocateTip}" ToolTip.ShowOnDisabled="True">
+                <PathIcon Data="F1 M5,12 A7,7 0 1 1 19,12 A7,7 0 1 1 5,12 Z M6.6,12 A5.4,5.4 0 1 0 17.4,12 A5.4,5.4 0 1 0 6.6,12 Z M11.2,1 H12.8 V7.5 H11.2 Z M11.2,16.5 H12.8 V23 H11.2 Z M1,11.2 H7.5 V12.8 H1 Z M16.5,11.2 H23 V12.8 H16.5 Z M10.4,12 A1.6,1.6 0 1 1 13.6,12 A1.6,1.6 0 1 1 10.4,12 Z"/>
+            </Button>
+        </Grid>
         <TreeView
         Grid.Row="1"
         x:Name="ProjectTree"
         ItemsSource="{Binding ProjectTree, Mode=OneWay}"
+        SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
         HorizontalAlignment="Stretch">
+            <TreeView.Styles>
+                <!-- The rows keep whether their folders are open: the view gets new items whenever the tree is searched or synced -->
+                <Style Selector="TreeViewItem" x:DataType="resourceTree:ResourceTreeElementViewModel">
+                    <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+                </Style>
+            </TreeView.Styles>
             <TreeView.ItemTemplate>
                 <TreeDataTemplate ItemsSource="{Binding Children}">
                     <Border Classes="row" Classes.dropTarget="{Binding IsTargetItem}" CornerRadius="2">
