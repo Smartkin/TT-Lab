@@ -155,6 +155,14 @@ internal sealed class TextureRepair(RepairFiles shadow, RepairFiles project, Rep
                     var metadata = project.Metadata(chunk);
                     var projectEntry = (metadata["Overrides"] as JArray)?.OfType<JObject>().FirstOrDefault(own => RepairFiles.UriOf(own["Asset"]) == material);
                     var existing = projectEntry?["Values"] is JObject projectValues ? ChunkOwnValues.Covering(projectValues, property.Name) : null;
+                    // 1.1.0 linked the chunk a variant is named after to it: without the link now, the user put the shared picture back
+                    var variation = RepairVersion.VariationOf(project, chunk);
+                    if (existing == null && linked.Select(uri => mapped[uri]).FirstOrDefault(uri => !_toCopy.Contains(uri) && project.Find(uri)?.Variation == variation) is { } taken)
+                    {
+                        context.Note($"{chunk}'s own picture {project.Find(taken)!.Name} of {materialEntry} was taken out after creation, it stays out");
+                        continue;
+                    }
+
                     if (existing == null)
                     {
                         foreach (var uri in linked.Select(uri => mapped[uri]).Where(_toCopy.Remove))

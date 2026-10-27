@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Security.Cryptography;
 using System.Text;
 using TT_Lab.Assets.Factory;
@@ -64,6 +65,33 @@ public sealed class FakeDisc : IDisposable
             WriteArchive();
         }
 
+        return this;
+    }
+
+    /// <summary>
+    /// The PS2 disc's release as its SYSTEM.CNF names it, its boot file and version
+    /// </summary>
+    public FakeDisc OfRelease(string executable, string version)
+    {
+        File.WriteAllText(Path.Combine(Folder, "SYSTEM.CNF"), $"BOOT2 = cdrom0:\\{executable};1\r\nVER = {version}\r\nVMODE = PAL\r\n");
+        return this;
+    }
+
+    /// <summary>
+    /// The Xbox disc's executable with the certificate of a release: its title, regions and version
+    /// </summary>
+    public FakeDisc OfXboxRelease(UInt32 titleId, UInt32 regions, UInt32 version)
+    {
+        const UInt32 baseAddress = 0x10000;
+        const int certificate = 0x200;
+        var bytes = new byte[0x1000];
+        "XBEH"u8.CopyTo(bytes);
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(0x104), baseAddress);
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(0x118), baseAddress + certificate);
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(certificate + 8), titleId);
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(certificate + 0xA0), regions);
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(certificate + 0xAC), version);
+        File.WriteAllBytes(Path.Combine(Folder, "default.xbe"), bytes);
         return this;
     }
 

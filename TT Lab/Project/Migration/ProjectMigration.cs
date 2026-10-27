@@ -136,24 +136,43 @@ internal sealed class MigrationContext(string projectFolder, string backupPath) 
         file.Save(path);
     }
 
-    // Another folder's file put at the path, what was there backed up first
-    public void Copy(string source, string path)
+    // The content put at the path, a folder made for it, the file backed up first
+    public void WriteAllBytes(string path, byte[] content)
     {
         BackUp(path);
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
-        File.Copy(source, path, true);
+        File.WriteAllBytes(path, content);
     }
 
+    // Every file backed up before any of them changes, the archive closed and whole once they're in it: a write failing after that can put
+    // every file back
+    public void BackUpAll(IEnumerable<string> paths)
+    {
+        foreach (var path in paths)
+        {
+            BackUp(path);
+        }
+
+        _backup?.Dispose();
+        _backup = null;
+    }
+
+    // A file counts as changed once it's in the archive, a backup that failed changed nothing
     private void BackUp(string path)
     {
         var full = Path.GetFullPath(path);
-        if (!_backedUp.Add(full) || !File.Exists(full))
+        if (_backedUp.Contains(full))
         {
             return;
         }
 
-        _backup ??= ZipFile.Open(backupPath, ZipArchiveMode.Create);
-        _backup.CreateEntryFromFile(full, Path.GetRelativePath(ProjectFolder, full).Replace(Path.DirectorySeparatorChar, '/'), CompressionLevel.Fastest);
+        if (File.Exists(full))
+        {
+            _backup ??= ZipFile.Open(backupPath, ZipArchiveMode.Create);
+            _backup.CreateEntryFromFile(full, Path.GetRelativePath(ProjectFolder, full).Replace(Path.DirectorySeparatorChar, '/'), CompressionLevel.Fastest);
+        }
+
+        _backedUp.Add(full);
     }
 
     public void Dispose() => _backup?.Dispose();

@@ -31,7 +31,11 @@ public enum RepairAnswer
 /// </summary>
 public static class RetailRepair
 {
-    // The folder of a version's game files, and whether the user said it's the original disc: a PS2 archive TT Lab doesn't know is taken then
+    // A repair that failed, its message whether the project's files are as they were
+    public sealed class RepairFailedException(string message, Exception inner) : Exception(message, inner);
+
+    // The folder of a version's game files, and whether the user said it's the original disc of the game the project was made from: a PS2 archive
+    // TT Lab doesn't know and files of another release than the project's disc folder's are taken then
     public sealed record Disc(string Folder, bool ConfirmedOriginal = false);
 
     // The versions whose packages took the disc's values and the ones without a disc the repair takes (offered again the next time the project
@@ -71,17 +75,26 @@ public static class RetailRepair
         marker.Write(folder);
     }
 
-    // Repairs the versions of the project's game packages whose disc is given, a PS2 one only when its archive is a release's or the user
-    // confirmed it's the original disc. Without a disc a version is skipped and noted, its chunks' values linking what the project doesn't have
-    // noted for the user to put back, and it's offered again the next time the project opens. A second run changes nothing
-    public static Result Repair(string projectFile, IReadOnlyCollection<GamePlatform> versions, IReadOnlyDictionary<GamePlatform, Disc> discs)
+    // Repairs the versions of the project's game packages whose disc is given: a PS2 one only when its archive is a release's and an Xbox one
+    // when it has the disc's files, either only of the release the project was made from unless the user confirmed it's the original disc of
+    // the project's game. Without a disc a version is skipped and noted, its chunks' values linking what the project doesn't have noted for the
+    // user to put back. A second run changes nothing. A failure throws a RepairFailedException saying whether the project's files are as they
+    // were. The known archives are RepairDiscs.KnownPs2Archives unless tests give others
+    public static Result Repair(string projectFile, IReadOnlyCollection<GamePlatform> versions, IReadOnlyDictionary<GamePlatform, Disc> discs,
+        IReadOnlyList<RepairDiscs.Release>? knownArchives = null)
     {
         var folder = Path.GetDirectoryName(Path.GetFullPath(projectFile))!;
         var stored = Project.ReadProjectFile(projectFile);
+        if (stored.Version != Project.CURRENT_VERSION)
+        {
+            throw new ProjectException($"Only projects of TT Lab {Project.CURRENT_VERSION} get repaired, {stored.Name} is of {stored.Version}");
+        }
+
+        DeleteLeftovers(folder);
         var marker = RepairMarker.Read(folder);
         var time = DateTime.Now;
         var backup = Unused(Path.Combine(folder, $"repair_backup_{time:yyyy-MM-dd_HH-mm-ss}"), ".zip");
-        var scratch = Unused(Path.Combine(folder, $"repair_scratch_{time:yyyy-MM-dd_HH-mm-ss}"), string.Empty);
+        var scratch = Unused(Path.Combine(folder, $"{ScratchPrefix}{time:yyyy-MM-dd_HH-mm-ss}"), string.Empty);
         var notes = new List<string>();
         void Note(string note)
         {
@@ -93,17 +106,23 @@ public static class RetailRepair
         foreach (var platform in versions.Distinct().Order())
         {
             var name = RetailAssets.Describe(platform);
+            // A version repaired, declined or made without 1.1.0's faults isn't offered when the project opens
+            var later = marker.IsSettled(platform)
+                ? "Project > Repair from the Game's Discs runs it whenever the disc is at hand"
+                : "It's offered again the next time the project opens, Project > Repair from the Game's Discs runs it whenever the disc is at hand";
             if (!discs.TryGetValue(platform, out var disc))
             {
-                Note($"The {name} version wasn't repaired, no disc of it was given. It's offered again the next time the project opens, Project > Repair from the Game's " +
-                     "Discs runs it whenever the disc is at hand");
+                Note($"The {name} version wasn't repaired, no disc of it was given. {later}");
                 continue;
             }
 
-            var check = RepairDiscs.Of(platform, disc.Folder);
-            if (!check.Takes(disc.ConfirmedOriginal))
+            var check = RepairDiscs.Of(platform, disc.Folder, knownArchives);
+            var release = check.Verdict == RepairDiscs.Verdict.Missing ? null : RepairDiscs.ProjectsRelease(platform, disc.Folder,
+                platform == GamePlatform.Xbox ? stored.DiscContentPathXbox : stored.DiscContentPathPS2);
+            if (release == null || (!disc.ConfirmedOriginal && (check.Verdict != RepairDiscs.Verdict.Known || release.Same != true)))
             {
-                Note($"The {name} version wasn't repaired from {disc.Folder}: {check.Text}");
+                var why = release == null || check.Verdict != RepairDiscs.Verdict.Known ? check.Text : release.Text;
+                Note($"The {name} version wasn't repaired from {disc.Folder}: {why} {later}");
                 continue;
             }
 
@@ -112,22 +131,22 @@ public static class RetailRepair
 
         var manager = Locator.Current.GetService<ProjectManager>()!;
         var start = DateTime.Now;
-        var changed = 0;
-        string? written = null;
+        var context = new MigrationContext(folder, backup);
         try
         {
-            RepairFiles? shadow = null;
-            if (found.Count > 0)
+            List<(string Path, byte[] Content)> changes;
+            try
             {
-                Log.WriteLine($"Unpacking the {string.Join(" and ", found.Keys.Select(RetailAssets.Describe))} game packages again for the repair into {scratch}...");
-                manager.UnpackShadow(stored, found, scratch, !marker.HasNewXboxFileOrder);
-                shadow = new RepairFiles(Path.Combine(scratch, "assets"));
-            }
+                RepairFiles? shadow = null;
+                if (found.Count > 0)
+                {
+                    Log.WriteLine($"Unpacking the {string.Join(" and ", found.Keys.Select(RetailAssets.Describe))} game packages again for the repair into {scratch}...");
+                    manager.UnpackShadow(stored, found, scratch, !marker.HasNewXboxFileOrder);
+                    shadow = new RepairFiles(Path.Combine(scratch, "assets"));
+                }
 
-            Log.WriteLine("Reading the project's files...");
-            var project = new RepairFiles(Path.Combine(folder, "assets"));
-            using (var context = new MigrationContext(folder, backup))
-            {
+                Log.WriteLine("Reading the project's files...");
+                var project = new RepairFiles(Path.Combine(folder, "assets"));
                 foreach (var platform in versions.Distinct().Order())
                 {
                     var version = new RepairVersion(platform, stored.Name);
@@ -142,65 +161,147 @@ public static class RetailRepair
                     new OverrideLinkRepair(found.ContainsKey(platform) ? shadow : null, project, version, context).Run();
                 }
 
-                try
-                {
-                    project.Write(context);
-                }
-                catch (Exception)
-                {
-                    context.Dispose();
-                    PutBack(folder, backup, context.Changed);
-                    throw;
-                }
-
-                changed = context.Changed.Count;
-                notes.AddRange(context.Notes);
+                changes = project.Changes();
+            }
+            catch (Exception exception)
+            {
+                throw new RepairFailedException($"Nothing of the project was changed: {exception.Message}", exception);
+            }
+            finally
+            {
+                // The disc's packages unpacked again go before anything is written, they take most of the room the backup and the files need
+                DeleteScratch(scratch);
             }
 
-            written = File.Exists(backup) ? backup : null;
+            WriteChanges(context, folder, backup, changes);
+            notes.AddRange(context.Notes);
         }
         finally
         {
-            DeleteScratch(scratch);
+            DisposeQuietly(context);
         }
 
-        var result = new Result(found.Keys.Order().ToList(), versions.Distinct().Where(platform => !found.ContainsKey(platform)).Order().ToList(), changed, written, notes);
+        var written = File.Exists(backup) ? backup : null;
+        var result = new Result(found.Keys.Order().ToList(), versions.Distinct().Where(platform => !found.ContainsKey(platform)).Order().ToList(), context.Changed.Count,
+            written, notes);
+        if (result.Repaired.Count == 0)
+        {
+            return result;
+        }
+
         foreach (var platform in result.Repaired)
         {
             var entry = marker.For(platform);
             entry.Repair = RepairState.Repaired;
             entry.RepairedAt = time;
-            entry.Result = $"{changed} files changed, {notes.Count} notes";
+            entry.Result = $"{result.Changed} files changed, {notes.Count} notes";
         }
 
-        if (result.Repaired.Count > 0)
+        try
         {
             marker.Write(folder);
-            Log.WriteLine($"Repaired the {string.Join(" and ", result.Repaired.Select(RetailAssets.Describe))} game packages in {DateTime.Now - start}, {changed} files changed" +
-                          (written != null ? $", kept as they were in {Path.GetFileName(written)}" : string.Empty));
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // The repair is offered again then, which changes nothing
+            Log.WriteLine($"{RepairMarker.FileName} couldn't be written, the repair is offered again the next time the project opens: {exception.Message}", Log.LogType.Warning);
         }
 
+        Log.WriteLine($"Repaired the {string.Join(" and ", result.Repaired.Select(RetailAssets.Describe))} game packages in {DateTime.Now - start}, {result.Changed} files " +
+                      "changed" + (written != null ? $", kept as they were in {Path.GetFileName(written)}" : string.Empty));
         return result;
     }
 
-    // A repair that couldn't write all of its changes leaves the files as they were: the backup's back in their place, the files it added gone
-    private static void PutBack(string folder, string backup, IReadOnlyCollection<string> changed)
+    // Every file the repair changes is backed up into the archive, closed and whole, before any of them is written: a write failing puts back
+    // what the archive has and deletes the files the repair made, and the exception says whether that worked
+    internal static void WriteChanges(MigrationContext context, string folder, string backup, List<(string Path, byte[] Content)> changes)
     {
-        var restored = new HashSet<string>(StringComparer.Ordinal);
+        var made = changes.Select(change => Path.GetFullPath(change.Path)).Where(path => !File.Exists(path)).ToHashSet(AssetFileStamps.PathComparer);
+        try
+        {
+            context.BackUpAll(changes.Select(change => change.Path));
+        }
+        catch (Exception exception)
+        {
+            DisposeQuietly(context);
+            DeleteQuietly(backup);
+            throw new RepairFailedException($"The files it changes couldn't be backed up, nothing of the project was changed: {exception.Message}", exception);
+        }
+
+        try
+        {
+            foreach (var (path, content) in changes)
+            {
+                context.WriteAllBytes(path, content);
+            }
+        }
+        catch (Exception exception)
+        {
+            try
+            {
+                PutBack(folder, backup, made);
+            }
+            catch (Exception putBack)
+            {
+                var added = made.Count > 0 ? $", the files it added are {string.Join(", ", made.Select(path => Path.GetRelativePath(folder, path)))}" : string.Empty;
+                throw new RepairFailedException($"Writing the project's files failed ({exception.Message}) and they couldn't all be put back ({putBack.Message}): the files it " +
+                                                $"changed are as they were in {Path.GetFileName(backup)} in the project's folder{added}", exception);
+            }
+
+            throw new RepairFailedException($"Writing the project's files failed and they're as they were: {exception.Message}", exception);
+        }
+    }
+
+    // The backup's files back in their place, the files the repair made gone
+    private static void PutBack(string folder, string backup, IReadOnlySet<string> made)
+    {
         if (File.Exists(backup))
         {
             using var archive = ZipFile.OpenRead(backup);
             foreach (var entry in archive.Entries)
             {
-                var path = Path.GetFullPath(Path.Combine(folder, entry.FullName));
-                entry.ExtractToFile(path, true);
-                restored.Add(path);
+                entry.ExtractToFile(Path.GetFullPath(Path.Combine(folder, entry.FullName)), true);
             }
         }
 
-        foreach (var path in changed.Where(path => !restored.Contains(path) && File.Exists(path)))
+        foreach (var path in made.Where(File.Exists))
         {
             File.Delete(path);
+        }
+    }
+
+    private static void DisposeQuietly(MigrationContext context)
+    {
+        try
+        {
+            context.Dispose();
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // An archive that can't be closed is deleted with the rest of a failed repair, a closed one was closed before any file changed
+        }
+    }
+
+    private static void DeleteQuietly(string file)
+    {
+        try
+        {
+            File.Delete(file);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            Log.WriteLine($"The repair's unfinished backup {file} couldn't be deleted: {exception.Message}", Log.LogType.Warning);
+        }
+    }
+
+    private const string ScratchPrefix = "repair_scratch_";
+
+    // A shadow a TT Lab that was ended or that couldn't delete it left behind
+    private static void DeleteLeftovers(string folder)
+    {
+        foreach (var leftover in Directory.GetDirectories(folder, ScratchPrefix + "*"))
+        {
+            DeleteScratch(leftover);
         }
     }
 

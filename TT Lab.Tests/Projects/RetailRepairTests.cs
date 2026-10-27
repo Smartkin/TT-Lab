@@ -454,6 +454,8 @@ public sealed class RetailRepairTests : IDisposable
         var furniture = GraphUri("COM_FURNITURE");
         var platformGraph = GraphUri("COM_FLIP_FLOP_PLATFORM");
         var bear = GraphUri("COM_BEAR_MOVE");
+        // What a TT Lab that was ended in the middle of a repair left
+        Directory.CreateDirectory(Path.Combine(_project.Project.ProjectPath, "repair_scratch_2026-01-01_00-00-00", "assets"));
 
         var result = Repair(GamePlatform.PS2, disc);
 
@@ -619,11 +621,16 @@ public sealed class RetailRepairTests : IDisposable
 
         Assert.Empty(refused.Repaired);
         Assert.Equal([GamePlatform.PS2], refused.Skipped);
-        Assert.Contains(refused.Notes, note => note.Contains("isn't one TT Lab knows"));
+        Assert.Contains(refused.Notes, note => note.Contains("isn't one TT Lab knows") && note.Contains("offered again"));
         Assert.Contains(refused.Notes, note => note.StartsWith("cove2: its own value AssetData.ObjectSlots[0] of LINKING_70 links res://PS2_Test/GameObject/LINKED_71_levels_earth_cove_cove2"));
         Assert.Equal(files, Files());
         Assert.Null(RepairMarker.Read(_project.Project.ProjectPath).PS2);
         Assert.Equal([GamePlatform.PS2], RetailRepair.VersionsToOffer(ProjectFile));
+        // Declined, it's offered no more: only the menu repairs it
+        RetailRepair.Decline(ProjectFile, [GamePlatform.PS2]);
+        var declined = RetailRepair.Repair(ProjectFile, [GamePlatform.PS2], new Dictionary<GamePlatform, RetailRepair.Disc>());
+        Assert.Contains(declined.Notes, note => note.StartsWith("The PS2 version wasn't repaired, no disc of it was given. Project > Repair from the Game's Discs"));
+        Assert.DoesNotContain(declined.Notes, note => note.Contains("offered again"));
 
         // A release's archive is known by its hashes, the Xbox disc by its files
         Assert.Equal(RepairDiscs.Verdict.Unknown, RepairDiscs.Of(GamePlatform.PS2, disc.Folder).Verdict);
@@ -808,5 +815,210 @@ public sealed class RetailRepairTests : IDisposable
             Dispatcher.UIThread.RunJobs();
             Log.SetViewModel(null);
         }
+    }
+
+    // The user put the shared picture back in the chunk 1.1.0 named its variant after (its own link taken out): the repair leaves it out
+    [AvaloniaFact]
+    public void AChunksOwnPictureTheUserTookOutStaysOut()
+    {
+        var disc = Disc(GamePlatform.PS2);
+        MakeProject(disc);
+        MakeLikeOnes110MadePs2();
+        EditOverrides("hubc", overrides => EntryOf(overrides, Material)!.Remove());
+
+        var result = Repair(GamePlatform.PS2, disc);
+
+        Assert.False(OverridesOf("hubc").ContainsKey(Material));
+        Assert.Contains("hubc's own picture Texture 60_levels_earth_hub_hubc of lambert50_50 was taken out after creation, it stays out", result.Notes);
+        Assert.Equal(TextureVariant + "hubc", (string)OverridesOf("hubb")[Material][ShaderTexture]!["_uri"]!);
+    }
+
+    // Objects' slots link command sequences' packs by URIs no file has, a chunk's own value linking one leads somewhere
+    [AvaloniaFact]
+    public void AnOwnValueLinkingACommandPackIsntMissing()
+    {
+        var disc = Disc(GamePlatform.PS2);
+        MakeProject(disc);
+        const string pack = "res://PS2_Test/BehaviourGraph/604/67";
+        const string none = "res://PS2_Test/BehaviourGraph/605/67";
+        var sequence = _project.Add(new TT_Lab.Assets.Code.BehaviourCommandsSequence(), "Library", 0x43, _project.Project.Ps2Package);
+        sequence.BehaviourGraphLinks[604] = new LabURI(pack);
+        sequence.Serialize();
+        EditOverrides("cove2", overrides =>
+        {
+            var values = EntryOf(overrides, "res://PS2_Test/GameObject/LINKING_70")![nameof(AssetOverride.Values)]!;
+            values["AssetData.BehaviourSlots"] = new JArray(Link(pack));
+            values["AssetData.SoundSlots"] = new JArray(Link(none));
+        });
+
+        var result = RetailRepair.Repair(ProjectFile, [GamePlatform.PS2], new Dictionary<GamePlatform, RetailRepair.Disc>());
+
+        Assert.DoesNotContain(result.Notes, note => note.Contains(pack));
+        Assert.Contains(result.Notes, note => note.Contains($"links {none}, which the project doesn't have"));
+    }
+
+    private string WritesFolder()
+    {
+        var folder = Path.Combine(_project.Root, "Writes", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(folder, "assets"));
+        return folder;
+    }
+
+    // Every file the repair changes is in the backup before any of them changes: a backup that fails changes nothing, and nothing it never
+    // wrote counts as changed
+    [Fact]
+    public void ABackupThatFailsChangesNothing()
+    {
+        var folder = WritesFolder();
+        var file = Path.Combine(folder, "assets", "chunk.json");
+        var made = Path.Combine(folder, "assets", "made.json");
+        File.WriteAllText(file, "{\"original\": true}");
+        // An archive that can't be made
+        var backup = Path.Combine(folder, "repair_backup.zip");
+        Directory.CreateDirectory(backup);
+        var context = new TT_Lab.Project.Migration.MigrationContext(folder, backup);
+
+        var failure = Assert.Throws<RetailRepair.RepairFailedException>(() =>
+            RetailRepair.WriteChanges(context, folder, backup, [(file, Encoding.UTF8.GetBytes("{}")), (made, Encoding.UTF8.GetBytes("{}"))]));
+
+        Assert.Contains("nothing of the project was changed", failure.Message);
+        Assert.Equal("{\"original\": true}", File.ReadAllText(file));
+        Assert.False(File.Exists(made));
+        Assert.DoesNotContain(Path.GetFullPath(file), context.Changed);
+    }
+
+    // A write that fails puts back what the closed backup has and deletes what the repair made, the files are as they were
+    [Fact]
+    public void AWriteThatFailsPutsTheFilesBack()
+    {
+        var folder = WritesFolder();
+        var file = Path.Combine(folder, "assets", "chunk.json");
+        var made = Path.Combine(folder, "assets", "Texture", "made.png");
+        var blocked = Path.Combine(folder, "assets", "blocked.json");
+        File.WriteAllText(file, "{\"original\": true}");
+        // A file that can't be written: a folder of its name
+        Directory.CreateDirectory(blocked);
+        var backup = Path.Combine(folder, "repair_backup.zip");
+        var context = new TT_Lab.Project.Migration.MigrationContext(folder, backup);
+
+        var failure = Assert.Throws<RetailRepair.RepairFailedException>(() => RetailRepair.WriteChanges(context, folder, backup,
+            [(file, Encoding.UTF8.GetBytes("{}")), (made, [1, 2, 3]), (blocked, Encoding.UTF8.GetBytes("{}"))]));
+
+        Assert.Contains("they're as they were", failure.Message);
+        Assert.Equal("{\"original\": true}", File.ReadAllText(file));
+        Assert.False(File.Exists(made));
+        Assert.True(Directory.Exists(blocked));
+    }
+
+    // A known archive of another release than the project's disc folder's (preferences of PAL 1.01 for an NTSC project) or files of a
+    // release that can't be told are only taken once the user says they're the original disc of the project's game
+    [AvaloniaFact]
+    public void AnotherReleasesDiscIsOnlyTakenOnceConfirmed()
+    {
+        var ntsc = Disc(GamePlatform.PS2).OfRelease("SLUS_209.09", "1.00").AddText("Startup\\Ntsc.txt", "NTSC");
+        var pal = Disc(GamePlatform.PS2).OfRelease("SLES_525.68", "1.01");
+        var (header, archive) = pal.ArchiveSha256;
+        RepairDiscs.Release[] known = [new("PAL 1.01", header, archive)];
+        MakeProject(ntsc);
+        MakeLikeOnes110MadePs2();
+        var files = Files();
+
+        Assert.Equal(true, RepairDiscs.ProjectsRelease(GamePlatform.PS2, ntsc.Folder, ntsc.Folder).Same);
+        Assert.Equal(false, RepairDiscs.ProjectsRelease(GamePlatform.PS2, pal.Folder, ntsc.Folder).Same);
+        var copy = Disc(GamePlatform.PS2).OfRelease("SLUS_209.09", "1.00");
+        Assert.Equal(true, RepairDiscs.ProjectsRelease(GamePlatform.PS2, copy.Folder, ntsc.Folder).Same);
+        Assert.Null(RepairDiscs.ProjectsRelease(GamePlatform.PS2, pal.Folder, Path.Combine(_project.Root, "gone")).Same);
+        Assert.Null(RepairDiscs.ProjectsRelease(GamePlatform.PS2, pal.Folder, null).Same);
+        // The Xbox releases by their executables' certificates
+        var xboxPal = new FakeDisc(GamePlatform.Xbox).OfXboxRelease(0x56550036, 4, 0x13080402);
+        var xboxCopy = new FakeDisc(GamePlatform.Xbox).OfXboxRelease(0x56550036, 4, 0x13080402);
+        var xboxNtsc = new FakeDisc(GamePlatform.Xbox).OfXboxRelease(0x56550036, 7, 1);
+        var xboxUnread = new FakeDisc(GamePlatform.Xbox);
+        _disposables.AddRange([xboxPal, xboxCopy, xboxNtsc, xboxUnread]);
+        Assert.Equal(true, RepairDiscs.ProjectsRelease(GamePlatform.Xbox, xboxCopy.Folder, xboxPal.Folder).Same);
+        Assert.Equal(false, RepairDiscs.ProjectsRelease(GamePlatform.Xbox, xboxNtsc.Folder, xboxPal.Folder).Same);
+        Assert.Null(RepairDiscs.ProjectsRelease(GamePlatform.Xbox, xboxUnread.Folder, xboxPal.Folder).Same);
+
+        var refused = RetailRepair.Repair(ProjectFile, [GamePlatform.PS2], new Dictionary<GamePlatform, RetailRepair.Disc> { [GamePlatform.PS2] = new(pal.Folder) }, known);
+
+        Assert.Empty(refused.Repaired);
+        Assert.Contains(refused.Notes, note => note.Contains("PAL 1.01's (SLES_525.68 1.01)") && note.Contains("NTSC 1.00's (SLUS_209.09 1.00)"));
+        Assert.Equal(files, Files());
+
+        var confirmed = RetailRepair.Repair(ProjectFile, [GamePlatform.PS2], new Dictionary<GamePlatform, RetailRepair.Disc> { [GamePlatform.PS2] = new(pal.Folder, true) }, known);
+
+        Assert.Equal([GamePlatform.PS2], confirmed.Repaired);
+    }
+
+    // The preferences' folder of a known archive of another release isn't taken without asking
+    [AvaloniaFact]
+    public async Task ThePreferencesDiscOfAnotherReleaseIsAskedAbout()
+    {
+        var ntsc = Disc(GamePlatform.PS2).OfRelease("SLUS_209.09", "1.00").AddText("Startup\\Ntsc.txt", "NTSC");
+        var pal = Disc(GamePlatform.PS2).OfRelease("SLES_525.68", "1.01");
+        var (header, archive) = pal.ArchiveSha256;
+        MakeProject(ntsc);
+        MakeLikeOnes110MadePs2();
+        var files = Files();
+        var manager = Manager;
+        Log.SetViewModel(new LogViewModel(new TestProject.NullEventAggregator(), manager));
+        var picked = new List<RepairDiscDialogue.Request>();
+        var confirmed = new List<string>();
+        var told = new List<string>();
+        manager.KnownPs2Archives = [new("PAL 1.01", header, archive)];
+        manager.PreferredDiscFolder = _ => pal.Folder;
+        manager.AskForRepairDisc = request =>
+        {
+            picked.Add(request);
+            return Task.FromResult<string?>(picked.Count == 1 ? pal.Folder : null);
+        };
+        manager.ConfirmOriginalDisc = question =>
+        {
+            confirmed.Add(question);
+            return Task.FromResult(false);
+        };
+        manager.TellRepaired = told.Add;
+        try
+        {
+            await Open(true);
+
+            Assert.Equal(2, picked.Count);
+            var question = Assert.Single(confirmed);
+            Assert.Contains("PAL 1.01's (SLES_525.68 1.01)", question);
+            Assert.Contains("NTSC 1.00's (SLUS_209.09 1.00)", question);
+            Assert.StartsWith("Test's game packages weren't repaired.", Assert.Single(told));
+            Assert.Equal(files, Files());
+        }
+        finally
+        {
+            Dispatcher.UIThread.RunJobs();
+            Log.SetViewModel(null);
+        }
+    }
+
+    // A project of another version isn't repaired: the migration left it alone and it isn't opened
+    [AvaloniaFact]
+    public void AProjectOfAnotherVersionIsntRepaired()
+    {
+        var disc = Disc(GamePlatform.PS2);
+        MakeProject(disc);
+        MakeLikeOnes110MadePs2();
+        var project = Read(ProjectFile);
+        project[nameof(IProject.Version)] = "1.2.0";
+        Write(ProjectFile, project);
+        var files = Files();
+        var asked = 0;
+        Manager.AskToRepair = _ =>
+        {
+            asked++;
+            return Task.FromResult(RepairAnswer.Repair);
+        };
+
+        Manager.RepairIfAsked(ProjectFile, false);
+        Manager.RepairIfAsked(ProjectFile, true);
+
+        Assert.Equal(0, asked);
+        Assert.Throws<ProjectException>(() => Repair(GamePlatform.PS2, disc));
+        Assert.Equal(files, Files());
     }
 }
