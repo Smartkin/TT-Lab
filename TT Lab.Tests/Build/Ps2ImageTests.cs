@@ -1,10 +1,12 @@
 using TT_Lab.Libraries;
 using TT_Lab.Tests.Support;
+using Twinsanity.TwinsanityInterchange.Implementations.PS2.Archives;
 
 namespace TT_Lab.Tests.Build;
 
-// Build ISO packs the build's files into the disc folder's archive and makes the image of that folder, which takes the last one's place once
-// it's whole
+// Build ISO packs the build's files into the disc folder's archive, the last build's that DiscArchive and Play read, and makes the image of
+// that folder, which takes the last one's place once it's whole. The archive goes over the disc's own names (NTSC's CRASH6/CRASH.BD, which
+// Linux didn't find) and the disc's archive stays as it was until the pack is done (it was truncated before anything was read)
 [Collection(ProjectCollection.Name)]
 public sealed class Ps2ImageTests : IDisposable
 {
@@ -35,6 +37,63 @@ public sealed class Ps2ImageTests : IDisposable
         var file = Path.Combine(Archives, path);
         Directory.CreateDirectory(Path.GetDirectoryName(file)!);
         File.WriteAllBytes(file, bytes);
+    }
+
+    private static string[] NamesIn(string folder) => Directory.GetFileSystemEntries(folder).Select(entry => Path.GetFileName(entry)).Order(StringComparer.Ordinal).ToArray();
+
+    [Theory]
+    [InlineData("Crash6", "Crash.BH", "Crash.BD")]
+    [InlineData("CRASH6", "CRASH.BH", "CRASH.BD")]
+    [InlineData("crash6", "crash.bh", "crash.bd")]
+    public void TheArchiveGoesOverTheDiscsOwnNames(string crash6, string header, string data)
+    {
+        AddDisc(crash6, header, data);
+        AddBuiltFile("Startup/Default.rm2", [1, 2, 3]);
+        AddBuiltFile("Levels/earth/hub/beach.rm2", [4, 5]);
+        Project.MakePs2Image = (_, image) => File.WriteAllBytes(image, []);
+
+        Project.CreatePs2ArchivesAndIso();
+
+        // Nothing next to them, no folder of other names
+        Assert.Equal(new[] { crash6, "SYSTEM.CNF" }.Order(StringComparer.Ordinal), NamesIn(Disc));
+        Assert.Equal(new[] { header, data }.Order(StringComparer.Ordinal), NamesIn(Path.Combine(Disc, crash6)));
+        using var builtHeader = new MemoryStream();
+        using var builtData = new MemoryStream();
+        PS2BD.WriteArchive(Archives, builtHeader, builtData);
+        Assert.Equal(builtHeader.ToArray(), File.ReadAllBytes(Path.Combine(Disc, crash6, header)));
+        Assert.Equal(builtData.ToArray(), File.ReadAllBytes(Path.Combine(Disc, crash6, data)));
+    }
+
+    [Fact]
+    public void APackThatFailsLeavesTheDiscsArchiveAsItWas()
+    {
+        AddDisc();
+        var header = File.ReadAllBytes(Path.Combine(Disc, "Crash6", "Crash.BH"));
+        var data = File.ReadAllBytes(Path.Combine(Disc, "Crash6", "Crash.BD"));
+        var imaged = false;
+        Project.MakePs2Image = (_, _) => imaged = true;
+
+        // Nothing built yet
+        Assert.Throws<DirectoryNotFoundException>(() => Project.CreatePs2ArchivesAndIso());
+        Assert.Equal(data, File.ReadAllBytes(Path.Combine(Disc, "Crash6", "Crash.BD")));
+
+        // An archive past what its header holds is refused by the file that takes it there (sparse where the file system makes it so)
+        AddBuiltFile("Startup/Default.rm2", [1, 2, 3]);
+        var huge = Path.Combine(Archives, "Levels", "earth", "hub", "huge.rm2");
+        Directory.CreateDirectory(Path.GetDirectoryName(huge)!);
+        using (var stream = File.Create(huge))
+        {
+            stream.SetLength((long)int.MaxValue + 1);
+        }
+
+        var refusal = Assert.Throws<IOException>(() => Project.CreatePs2ArchivesAndIso());
+
+        Assert.Contains(huge, refusal.Message);
+        Assert.Equal(header, File.ReadAllBytes(Path.Combine(Disc, "Crash6", "Crash.BH")));
+        Assert.Equal(data, File.ReadAllBytes(Path.Combine(Disc, "Crash6", "Crash.BD")));
+        // The files it was written into go
+        Assert.Equal(["Crash.BD", "Crash.BH"], NamesIn(Path.Combine(Disc, "Crash6")));
+        Assert.False(imaged);
     }
 
     [Fact]

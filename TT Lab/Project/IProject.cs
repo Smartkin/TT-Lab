@@ -102,7 +102,9 @@ namespace TT_Lab.Project
         /// Unpacks XBox assets data into project readable format
         /// </summary>
         /// <param name="gate">Keeps reading the chunks within the memory budget</param>
-        void UnpackAssetsXbox(MemoryGate gate);
+        /// <param name="oldFileOrder">Reads the disc's files in the order TT Lab 1.1.0 did, the levels before the startup, which gives the
+        /// assets the default chunk shares with levels the URIs a project 1.1.0 made has</param>
+        void UnpackAssetsXbox(MemoryGate gate, bool oldFileOrder = false);
 
         /// <summary>
         /// Generates a specifically given chunk

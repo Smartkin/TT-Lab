@@ -22,6 +22,7 @@ using TT_Lab.Assets.Graphics;
 using TT_Lab.Assets.Instance;
 using TT_Lab.Extensions;
 using TT_Lab.Libraries;
+using TT_Lab.Tools.Pcsx2;
 using TT_Lab.Util;
 using Twinsanity.TwinsanityInterchange.Common.AgentLab;
 using Twinsanity.TwinsanityInterchange.Enumerations;
@@ -405,14 +406,16 @@ public class Project : IProject
             return;
         }
 
-        var archivePath = System.IO.Directory.GetFiles(System.IO.Path.Combine(DiscContentPathPS2, "Crash6"), "*.BD", System.IO.SearchOption.TopDirectoryOnly)[0];
+        // PAL's archive is Crash6/Crash.BD, NTSC's CRASH6/CRASH.BD, wherever the disc's files were copied
+        var headerPath = DiscPath.Find(DiscContentPathPS2, "Crash6", "Crash.BH") ?? throw new ProjectException($"The PS2 game files in {DiscContentPathPS2} have no Crash6/Crash.BH");
+        var archivePath = DiscPath.Find(DiscContentPathPS2, "Crash6", "Crash.BD") ?? throw new ProjectException($"The PS2 game files in {DiscContentPathPS2} have no Crash6/Crash.BD");
         Log.WriteLine("Reading game archives...");
         // Files are read from the archive when they're needed, all of it at once takes as much memory as the disc
-        var records = PS2BD.ReadRecords(archivePath.Replace(".BD", ".BH"));
+        var records = PS2BD.ReadRecords(headerPath);
         UnpackAssets(GamePlatform.PS2, records.Select(record => new DiscFile(record.Path, () => PS2BD.ReadFile(archivePath, record))).ToList(), GlobalPackagePS2, Ps2Package, gate);
     }
 
-    public void UnpackAssetsXbox(MemoryGate gate)
+    public void UnpackAssetsXbox(MemoryGate gate, bool oldFileOrder = false)
     {
         if (string.IsNullOrEmpty(DiscContentPathXbox))
         {
@@ -422,21 +425,31 @@ public class Project : IProject
 
         GlobalPackageXbox.Enabled = true;
         XboxPackage.Enabled = true;
-        UnpackAssets(GamePlatform.Xbox, GetXboxDiscFiles(DiscContentPathXbox), GlobalPackageXbox, XboxPackage, gate);
+        UnpackAssets(GamePlatform.Xbox, GetXboxDiscFiles(DiscContentPathXbox, oldFileOrder), GlobalPackageXbox, XboxPackage, gate);
     }
 
     /// <summary>
-    /// The Xbox version keeps its files loose on the disc, the folders the PS2 version packs into its archive hold the game's data
+    /// The Xbox version keeps its files loose on the disc, the folders the PS2 version packs into its archive hold the game's data, read in the
+    /// archive's order: the startup's files first. The chunk an item is first found in has its asset, the other contents later chunks have of
+    /// it are its variants, and the default chunk shares items with levels: sorted all together, TT Lab 1.1.0's order
+    /// (<paramref name="oldFileOrder"/>), the levels came first and an Xbox project had the default chunk's graphs and objects in the Xbox
+    /// package where a PS2 project has them in the global one. The folders are found whatever their case and named as the game's are
+    /// (STARTUP\x is Startup\x, like Windows found it), what's in them keeps the disc's names. A folder's files go by their paths with '/'
+    /// between their folders on every system, the order Linux had
     /// </summary>
-    internal static List<DiscFile> GetXboxDiscFiles(string discPath)
+    internal static List<DiscFile> GetXboxDiscFiles(string discPath, bool oldFileOrder = false)
     {
-        return XboxDataFolders.Select(folder => System.IO.Path.Combine(discPath, folder))
-            .Where(System.IO.Directory.Exists)
-            .SelectMany(folder => System.IO.Directory.EnumerateFiles(folder, "*", System.IO.SearchOption.AllDirectories))
-            .OrderBy(file => file, StringComparer.OrdinalIgnoreCase)
-            .Select(file => new DiscFile(System.IO.Path.GetRelativePath(discPath, file).Replace(System.IO.Path.DirectorySeparatorChar, '\\'),
-                () => System.IO.File.ReadAllBytes(file)))
-            .ToList();
+        var folders = XboxDataFolders.Select(name => (Name: name, Path: DiscPath.Find(discPath, name)))
+            .Where(folder => folder.Path != null && System.IO.Directory.Exists(folder.Path))
+            .Select(folder => System.IO.Directory.EnumerateFiles(folder.Path!, "*", System.IO.SearchOption.AllDirectories)
+                .Select(file => (Relative: System.IO.Path.GetRelativePath(folder.Path!, file), File: file))
+                .Select(file => (Path: folder.Name + '/' + file.Relative.Replace(System.IO.Path.DirectorySeparatorChar, '/'),
+                    OldKey: folder.Name + System.IO.Path.DirectorySeparatorChar + file.Relative, file.File)));
+        // 1.1.0 sorted the files of every folder together by their full paths, which have the system's separators
+        var files = oldFileOrder
+            ? folders.SelectMany(folder => folder).OrderBy(file => file.OldKey, StringComparer.OrdinalIgnoreCase)
+            : folders.SelectMany(folder => folder.OrderBy(file => file.Path, StringComparer.OrdinalIgnoreCase).ThenBy(file => file.Path, StringComparer.Ordinal));
+        return files.Select(file => new DiscFile(file.Path.Replace('/', '\\'), () => System.IO.File.ReadAllBytes(file.File))).ToList();
     }
 
     private static readonly String[] XboxDataFolders = ["Startup", "Levels", "Extras", "Language"];
@@ -1269,26 +1282,67 @@ public class Project : IProject
 
     public void CreatePs2ArchivesAndIso()
     {
+        if (string.IsNullOrEmpty(DiscContentPathPS2) || !System.IO.Directory.Exists(DiscContentPathPS2))
+        {
+            Log.WriteLine("The PS2 disc content wasn't found, the archives and the ISO can't be made", Log.LogType.Error);
+            return;
+        }
+
+        var archivesPath = GetBuildFilesPath(GamePlatform.PS2);
+        if (!System.IO.Directory.Exists(archivesPath))
+        {
+            throw new System.IO.DirectoryNotFoundException($"There are no built files in {archivesPath} to pack, the PS2 version has to be built first");
+        }
+
         var phaseTimer = Stopwatch.StartNew();
         Log.WriteLine("Packing into BD/BH archives...");
-        {
-            var bd = new PS2BD("", $"{DiscContentPathPS2}/Crash6/Crash.BH");
-            using var bdFile = new System.IO.FileStream($"{DiscContentPathPS2}/Crash6/Crash.BD",
-                System.IO.FileMode.Create, System.IO.FileAccess.Write);
-            using var bdWriter = new System.IO.BinaryWriter(bdFile);
-            bd.BuildRecords($"{ProjectPath}/build/archives");
-            bd.Write(bdWriter);
-            bdWriter.Flush();
-            bdWriter.Close();
-        }
-        GC.Collect();
-
+        WritePs2Archive(archivesPath, DiscContentPathPS2);
         Log.WriteLine($"Finished packing the archives in {phaseTimer.Elapsed}");
+
         phaseTimer.Restart();
         Log.WriteLine("Creating PS2 ISO image...");
         var imagePath = System.IO.Path.Combine(ProjectPath, "build", "image", $"{Name}.iso");
-        WritePs2Image(DiscContentPathPS2!, imagePath);
+        WritePs2Image(DiscContentPathPS2, imagePath);
         Log.WriteLine($"Finished creating the ISO in {phaseTimer.Elapsed}! Check the {System.IO.Path.GetDirectoryName(imagePath)} folder!");
+    }
+
+    // The disc folder keeps the last build's archive (DiscArchive and Play read it), written over the disc's own names (NTSC's
+    // CRASH6/CRASH.BD) a file at a time. Both files are written next to them and moved in once whole, the data first, so a pack that fails
+    // leaves the archive as it was: it was truncated before anything was read
+    private static void WritePs2Archive(string archivesPath, string discPath)
+    {
+        var crash6 = DiscPath.Find(discPath, "Crash6") ?? throw new System.IO.DirectoryNotFoundException($"The PS2 disc folder {discPath} has no Crash6 folder for the archive");
+        var headerPath = FileNamedLike(crash6, "Crash.BH");
+        var dataPath = FileNamedLike(crash6, "Crash.BD");
+        var headerPart = headerPath + ".tmp";
+        var dataPart = dataPath + ".tmp";
+        try
+        {
+            using (var header = new System.IO.FileStream(headerPart, System.IO.FileMode.Create, System.IO.FileAccess.Write))
+            using (var data = new System.IO.FileStream(dataPart, System.IO.FileMode.Create, System.IO.FileAccess.Write))
+            {
+                PS2BD.WriteArchive(archivesPath, header, data);
+            }
+
+            System.IO.File.Move(dataPart, dataPath, true);
+            System.IO.File.Move(headerPart, headerPath, true);
+        }
+        catch
+        {
+            DeleteLeftover(dataPart);
+            DeleteLeftover(headerPart);
+            throw;
+        }
+    }
+
+    // The folder's file of the name in any case (the exact name first) under the name the folder has for it: Windows finds a file by any case
+    // of its name, and a file moved over it takes the name it's moved to
+    private static string FileNamedLike(string folder, string name)
+    {
+        var files = System.IO.Directory.GetFiles(folder);
+        return files.FirstOrDefault(file => System.IO.Path.GetFileName(file) == name)
+               ?? files.FirstOrDefault(file => string.Equals(System.IO.Path.GetFileName(file), name, StringComparison.OrdinalIgnoreCase))
+               ?? System.IO.Path.Combine(folder, name);
     }
 
     // Writes the PS2 image of a folder: PS2ImageMaker's native packer, which tests stand in for (their output has no native libraries)

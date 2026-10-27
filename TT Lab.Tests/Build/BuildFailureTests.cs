@@ -87,13 +87,18 @@ public sealed class BuildFailureTests : IDisposable
         Assert.False(File.Exists(outputs[0]));
     }
 
-    // The BH's records: the path's length and characters, then where the file is in the BD and how long it is
     private static void WriteArchive(string discPath, params (string Path, byte[] Bytes)[] files)
     {
-        var crash6 = Path.Combine(discPath, "Crash6");
+        WriteArchive(discPath, "Crash6", "Crash.BH", "Crash.BD", files);
+    }
+
+    // The BH's records: the path's length and characters, then where the file is in the BD and how long it is
+    private static void WriteArchive(string discPath, string folder, string header, string data, params (string Path, byte[] Bytes)[] files)
+    {
+        var crash6 = Path.Combine(discPath, folder);
         Directory.CreateDirectory(crash6);
-        using var bh = new BinaryWriter(File.Create(Path.Combine(crash6, "Crash.BH")));
-        using var bd = File.Create(Path.Combine(crash6, "Crash.BD"));
+        using var bh = new BinaryWriter(File.Create(Path.Combine(crash6, header)));
+        using var bd = File.Create(Path.Combine(crash6, data));
         bh.Write(0x501);
         foreach (var (path, bytes) in files)
         {
@@ -138,10 +143,33 @@ public sealed class BuildFailureTests : IDisposable
         Assert.False(File.Exists(Outputs("cave")[0]));
     }
 
+    // NTSC's archive is CRASH6/CRASH.BH and BD, which Linux didn't find
+    [Theory]
+    [InlineData("CRASH6", "CRASH.BH", "CRASH.BD")]
+    [InlineData("crash6", "crash.bh", "crash.bd")]
+    public void ADiscsArchiveIsFoundWhateverItsCase(string folder, string header, string data)
+    {
+        var disc = Path.Combine(_project.Root, "ntsc");
+        WriteArchive(disc, folder, header, data, ("LEVELS\\EARTH\\HUB\\BEACH.RM2", [1, 2]), ("LEVELS\\EARTH\\HUB\\BEACH.SM2", [3]));
+        var output = Path.Combine(_project.Root, "out", "beach.rm2");
+
+        var archive = DiscArchive.Open(disc);
+
+        Assert.NotNull(archive);
+        Assert.True(archive.TryCopy([("Levels/earth/hub/beach.rm2", output)]));
+        Assert.Equal([1, 2], File.ReadAllBytes(output));
+    }
+
     [Fact]
     public void ADiscWithoutAnArchiveHasNoneToTakeFrom()
     {
         Assert.Null(DiscArchive.Open(null));
         Assert.Null(DiscArchive.Open(Path.Combine(_project.Root, "nowhere")));
+
+        // A header telling of more than its data has (one written without the other: a pack that failed), what's there isn't the file
+        var mismatched = Path.Combine(_project.Root, "mismatched");
+        WriteArchive(mismatched, ("Levels\\Earth\\Hub\\beach.rm2", [1, 2, 3]));
+        File.WriteAllBytes(Path.Combine(mismatched, "Crash6", "Crash.BD"), [1]);
+        Assert.Null(DiscArchive.Open(mismatched));
     }
 }
