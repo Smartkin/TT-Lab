@@ -19,7 +19,7 @@ public class MeshResolver(ModelResolver modelResolver, MaterialResolver material
         }
     }
 
-    protected override IAsset CreateAsset(ITwinSection chunk, Package package, ITwinMesh item, bool needVariant, string variant)
+    protected override void ResolveParts(ITwinSection chunk, Package package, ITwinMesh item)
     {
         var graphicsSection = chunk.GetItem<ITwinSection>((uint)(isDefault ? Constants.LEVEL_GRAPHICS_SECTION : Constants.SCENERY_GRAPHICS_SECTION));
         var modelSection = graphicsSection.GetItem<ITwinSection>(Constants.GRAPHICS_MODELS_SECTION);
@@ -29,7 +29,10 @@ public class MeshResolver(ModelResolver modelResolver, MaterialResolver material
         {
             materialResolver.CreateAssetFromId(chunk, materialsSection, package, itemMaterial);
         }
+    }
 
+    protected override IAsset CreateAsset(ITwinSection chunk, Package package, ITwinMesh item, bool needVariant, string variant)
+    {
         return new Mesh(package.URI, needVariant, variant, item.GetID(), item.GetName(), item)
         {
             AdditionalPath = ChunkPath,

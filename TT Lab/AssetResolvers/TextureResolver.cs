@@ -20,4 +20,9 @@ public class TextureResolver(bool isInScenery) : AssetResolver<ITwinTexture>
             AdditionalPath = isInScenery ? ChunkPath : string.Empty
         };
     }
+
+    protected override void Resolved(IAsset asset)
+    {
+        ((Texture)asset).UnpackedIn.Add(ChunkPath);
+    }
 }

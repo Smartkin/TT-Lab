@@ -27,7 +27,6 @@ public class GameObjectResolver : AssetResolver<ITwinObject>
     {
         var code = chunk.GetItem<ITwinSection>(Constants.LEVEL_CODE_SECTION);
         var gameObjectSection = code.GetItem<ITwinSection>(Constants.CODE_GAME_OBJECTS_SECTION);
-        var ogiSection = code.GetItem<ITwinSection>(Constants.CODE_OGIS_SECTION);
         var animSection = code.GetItem<ITwinSection>(Constants.CODE_ANIMATIONS_SECTION);
         ITwinSection[] sfxSections = [
             code.GetItem<ITwinSection>(Constants.CODE_SOUND_EFFECTS_SECTION),
@@ -51,7 +50,6 @@ public class GameObjectResolver : AssetResolver<ITwinObject>
 
             twinGameObject.RefAnimations.ForEach(animRef => _animationResolver.Collect(animSection, animRef));
             twinGameObject.AnimationSlots.ForEach(animRef => _animationResolver.Collect(animSection, animRef));
-            twinGameObject.RefOGIs.ForEach(ogiRef => _ogiResolver.CreateAssetFromId(chunk, ogiSection, package, ogiRef));
 
             foreach (var soundRef in twinGameObject.RefSounds)
             {
@@ -161,6 +159,14 @@ public class GameObjectResolver : AssetResolver<ITwinObject>
         }
 
         return sounds.OfType<MetaAsset>().ToList();
+    }
+
+    // The OGIs an object lists are the chunk's, the object an earlier chunk had the same of included: what draws them is named by IDs the
+    // game reuses for other pictures in other chunks
+    protected override void ResolveParts(ITwinSection chunk, Package package, ITwinObject item)
+    {
+        var ogiSection = chunk.GetItem<ITwinSection>(Constants.LEVEL_CODE_SECTION).GetItem<ITwinSection>(Constants.CODE_OGIS_SECTION);
+        item.RefOGIs.ForEach(ogiRef => _ogiResolver.CreateAssetFromId(chunk, ogiSection, package, ogiRef));
     }
 
     protected override IAsset CreateAsset(ITwinSection chunk, Package package, ITwinObject item, bool needVariant, string variant)

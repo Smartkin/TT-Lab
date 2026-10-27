@@ -13,7 +13,7 @@ public class RigidModelResolver(ModelResolver modelResolver, MaterialResolver ma
         throw new System.NotImplementedException();
     }
 
-    protected override IAsset CreateAsset(ITwinSection chunk, Package package, ITwinRigidModel item, bool needVariant, string variant)
+    protected override void ResolveParts(ITwinSection chunk, Package package, ITwinRigidModel item)
     {
         var graphicsSection = chunk.GetItem<ITwinSection>(Constants.LEVEL_GRAPHICS_SECTION);
         var modelSection = graphicsSection.GetItem<ITwinSection>(Constants.GRAPHICS_MODELS_SECTION);
@@ -23,7 +23,10 @@ public class RigidModelResolver(ModelResolver modelResolver, MaterialResolver ma
         {
             materialResolver.CreateAssetFromId(chunk, materialsSection, package, itemMaterial);
         }
+    }
 
+    protected override IAsset CreateAsset(ITwinSection chunk, Package package, ITwinRigidModel item, bool needVariant, string variant)
+    {
         return new RigidModel(package.URI, needVariant, variant, item.GetID(), item.GetName(), item) { IsInternal = true };
     }
 

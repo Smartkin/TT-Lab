@@ -9,7 +9,7 @@ namespace TT_Lab.AssetResolvers;
 public abstract class AssetResolver<TTwinItem> : IAssetResolver where TTwinItem : ITwinItem
 {
     protected readonly Dictionary<string, uint> HashChecker = [];
-    private readonly Dictionary<string, LabURI> _uriByHash = [];
+    private readonly Dictionary<string, MetaAsset> _byHash = [];
     protected readonly List<MetaAsset> Assets = [];
     
     public IAsset CreatedAsset { get; private set; }
@@ -20,9 +20,25 @@ public abstract class AssetResolver<TTwinItem> : IAssetResolver where TTwinItem 
     public MetaAsset? CreateAssetFromId(ITwinSection chunk, ITwinSection itemSection, Package package, uint itemId)
     {
         var twinItem = itemSection.GetItem<TTwinItem>(itemId);
+        // The game finds a resource among every loaded chunk's: a part a chunk names without having it (under an item an earlier chunk had
+        // the same of, whose parts are resolved again in each chunk) is another chunk's
+        if (twinItem == null)
+        {
+            return null;
+        }
+
         var objectHash = GetTwinItemHash(twinItem);
         if (IsAlreadyContained(objectHash))
         {
+            // An earlier chunk's item of the same content is this chunk's asset too, but what it names by IDs is the chunk's: the game reuses
+            // IDs for other content in other chunks, a chunk's own picture of a texture ID is under a material, an OGI and an object other
+            // chunks have the same of
+            ResolveParts(chunk, package, twinItem);
+            if (_byHash.TryGetValue(objectHash, out var known))
+            {
+                Resolved(known.Asset);
+            }
+
             return null;
         }
         
@@ -30,11 +46,13 @@ public abstract class AssetResolver<TTwinItem> : IAssetResolver where TTwinItem 
 
         var twinIdCollisions = HashChecker.Values.Count(e => e == twinItem.GetID());
         var needVariant = twinIdCollisions > 1;
+        ResolveParts(chunk, package, twinItem);
         var labAsset = CreateAsset(chunk, package, twinItem, needVariant, ChunkPath);
         labAsset.RegenerateLinks();
-        _uriByHash[objectHash] = labAsset.URI;
         CreatedAsset = labAsset;
         Assets.Add(new MetaAsset(labAsset.URI, labAsset));
+        _byHash[objectHash] = Assets[^1];
+        Resolved(labAsset);
         return Assets[^1];
     }
 
@@ -43,7 +61,17 @@ public abstract class AssetResolver<TTwinItem> : IAssetResolver where TTwinItem 
     /// </summary>
     public LabURI? GetResolvedUri(TTwinItem item)
     {
-        return _uriByHash.TryGetValue(GetTwinItemHash(item), out var uri) ? uri : null;
+        return _byHash.TryGetValue(GetTwinItemHash(item), out var resolved) ? resolved.Uri : null;
+    }
+
+    // What the item names by IDs, resolved in the chunk before its asset is made and for an item an earlier chunk had the same of
+    protected virtual void ResolveParts(ITwinSection chunk, Package package, TTwinItem item)
+    {
+    }
+
+    // The asset an item of the chunk is, made of it or of an earlier chunk's item of the same content
+    protected virtual void Resolved(IAsset asset)
+    {
     }
 
     protected virtual bool IsAlreadyContained(string hash)
