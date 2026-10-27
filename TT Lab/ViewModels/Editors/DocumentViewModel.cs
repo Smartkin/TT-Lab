@@ -123,6 +123,9 @@ public partial class DocumentViewModel : ReactiveObject
         {
             if (GetOwningAsset(change.Node) is { } asset)
             {
+                // Its loaded data has an edit its files don't have, undo and redo included: a build reads it as no files' until it's saved
+                // (BuildCache)
+                (asset as SerializableAsset)?.NoteEdited();
                 _changedAssets.Add(asset);
                 if (asset is SerializableAsset { OverriddenAsset: not null } view)
                 {

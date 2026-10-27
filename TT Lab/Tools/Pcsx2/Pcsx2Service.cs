@@ -440,8 +440,10 @@ public sealed class Pcsx2Service : IDisposable
         }
     }
 
-    // The game loads the start chunk with the chunks it links
-    private static List<LevelChunk> ChunkWithLinks(LevelChunk chunk)
+    // The game loads the start chunk with the chunks it links. The links are read in a data scope of their own: data loaded when a build
+    // starts counts as changed unless an open editor shows it without an edit its files don't have (BuildCache), and the start chunk was built
+    // again on every Play and Reload. An editor's loaded links are still what's read, unsaved changes and all
+    internal static List<LevelChunk> ChunkWithLinks(LevelChunk chunk)
     {
         var assetManager = AssetManager.Get();
         var chunks = new List<LevelChunk> { chunk };
@@ -451,8 +453,13 @@ public sealed class Pcsx2Service : IDisposable
             return chunks;
         }
 
-        chunks.AddRange(((IAsset)links).GetData<ChunkLinksData>().Links.Select(link => link.Path).Where(assetManager.DoesAssetExist)
-            .Select(assetManager.GetAsset).OfType<LevelChunk>());
+        List<LabURI> linked;
+        using (new AssetDataScope())
+        {
+            linked = ((IAsset)links).GetData<ChunkLinksData>().Links.Select(link => link.Path).ToList();
+        }
+
+        chunks.AddRange(linked.Where(assetManager.DoesAssetExist).Select(assetManager.GetAsset).OfType<LevelChunk>());
         return chunks;
     }
 

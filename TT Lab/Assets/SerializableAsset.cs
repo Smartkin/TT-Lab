@@ -116,6 +116,9 @@ public abstract class SerializableAsset : IAsset
         set => SetData(value);
     }
 
+    // The asset's own data, never a scope's: what a build takes for its files while an editor shows it (BuildCache)
+    internal AbstractAssetData? LoadedData => _assetData;
+
     public String Chunk { get; set; }
     [Editable(EditorDescType = typeof(LayoutEditorDesc))]
     [EditorParam(DocumentCompositeViewModel.EditorExplicitOrder, -4)]
@@ -225,7 +228,10 @@ public abstract class SerializableAsset : IAsset
         // unless user wishes to edit the exact asset
         if (IsLoaded && serializationFlags.HasFlag(SerializationFlags.SaveData))
         {
+            // The edits the file gets, taken before it's written: one made meanwhile isn't in it (BuildCache)
+            var edits = AssetData!.Edits;
             AssetData!.Save(Path.Combine(path, Data));
+            AssetData!.NoteSaved(edits);
             if (serializationFlags.HasFlag(SerializationFlags.FixReferences))
             {
                 References.Clear();
@@ -330,6 +336,17 @@ public abstract class SerializableAsset : IAsset
         if (IsInternal)
         {
             InvariantName += $"_{GetDataHash():X}";
+        }
+    }
+
+    // The asset got edited in memory (a document's change of it, an undo included): its loaded data, and the data of what it's part of, have
+    // an edit their files don't have until they're saved, which a build reads as no files' (BuildCache). A chunk's view counts it for the
+    // data it shares with its asset
+    internal void NoteEdited()
+    {
+        for (IAsset? asset = this; asset != null; asset = asset.IsInternal ? asset.InternalOwner : null)
+        {
+            (asset as SerializableAsset)?._assetData?.NoteEdited();
         }
     }
 

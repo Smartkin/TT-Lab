@@ -398,6 +398,22 @@ public class EditorsViewModel
         return AllTabs.Any(tab => tab.GetReferencedAssets().Contains(asset));
     }
 
+    // Which of the loaded assets the editors show: what a tab's document reads or its scene drew, what a linked Blender's documents of no tab
+    // read. A build takes their data for their files while it has no edit they don't have (BuildCache)
+    internal IReadOnlySet<LabURI> Showing(IReadOnlySet<LabURI> loaded)
+    {
+        var tabs = AllTabs;
+        var shown = tabs.SelectMany(tab => tab.GetReferencedAssets()).Concat(Tools.Blender.LinkedDocuments.ReferencedAssets()).ToHashSet();
+        // A scene draws textures and materials its document doesn't read (TabbedEditorViewModel.Shows)
+        return loaded.Where(uri => shown.Contains(uri) || tabs.Any(tab => tab.Viewport?.HasRead(uri) == true)).ToHashSet();
+    }
+
+    // Builds ask what the editors show on the UI thread, where they change. Builds run on the pool and nothing on the UI thread waits for one
+    internal void ShowToBuilds()
+    {
+        BuildCache.EditorsShowing = loaded => Dispatcher.UIThread.CheckAccess() ? Showing(loaded) : Dispatcher.UIThread.Invoke(() => Showing(loaded));
+    }
+
     // Editors closed before their assets moved open them where they are now
     public void FollowMovedAssets(IReadOnlyDictionary<LabURI, LabURI> moved)
     {

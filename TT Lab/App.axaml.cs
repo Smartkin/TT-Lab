@@ -81,6 +81,8 @@ public partial class App : Application
             Services.GetRequiredService<Tools.Discord.DiscordPresence>().Start();
             // Blender links its scenes' models to the project TT Lab has open
             Services.GetRequiredService<Tools.Blender.BlenderLinkServer>().Start();
+            // Builds keep what they made of the data the editors show while it has what its files have (Play from a chunk's open scene)
+            Services.GetRequiredService<EditorsViewModel>().ShowToBuilds();
             // The context viewports keep current, made before anything unpacks the game's assets (ViewportHost.PinGlLibrary)
             System.Threading.Tasks.Task.Run(ViewportHost.MakeGlAnchor);
             desktop.Startup += (_, _) =>
