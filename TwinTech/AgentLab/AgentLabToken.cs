@@ -82,7 +82,10 @@ public struct AgentLabToken
 
     public AgentLabToken(TokenType tokenType, object value)
     {
-        if (value != null && tokenType == TokenType.Identifier && Enum.TryParse(value.ToString(), true, out TokenType actualTokenType))
+        // A word takes the type it names (that makes the keywords), but no word ends the script: the parser would leave out what
+        // comes after it
+        if (value != null && tokenType == TokenType.Identifier && Enum.TryParse(value.ToString(), true, out TokenType actualTokenType)
+            && actualTokenType != TokenType.Eof)
         {
             tokenType = actualTokenType;
         }
@@ -112,6 +115,16 @@ public struct AgentLabToken
     {
         var token = this;
         token.IsHexLiteral = true;
+        return token;
+    }
+
+    // An Undefined token of a number's text that doesn't read, which the parser reports wherever it stops at it
+    internal bool IsInvalidNumber { get; private set; }
+
+    internal static AgentLabToken InvalidNumber(string text)
+    {
+        var token = new AgentLabToken(TokenType.Undefined, text);
+        token.IsInvalidNumber = true;
         return token;
     }
 

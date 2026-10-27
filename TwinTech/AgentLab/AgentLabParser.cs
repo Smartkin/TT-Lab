@@ -1251,6 +1251,12 @@ public class AgentLabParser : IDisposable
 
     private AgentLabSyntaxException Error(string message)
     {
+        // No rule takes a number the lexer couldn't read, so wherever the parser stops at one it's the number that's wrong
+        if (_currentToken.IsInvalidNumber)
+        {
+            message = $"Invalid number {_currentToken}";
+        }
+
         return new AgentLabSyntaxException(message, _currentToken.Line, _currentToken.Column);
     }
 

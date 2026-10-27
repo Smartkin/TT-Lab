@@ -302,4 +302,57 @@ public class AgentLabCompileTests
         Assert.Equal($"(4:10) {error}", status.Message);
         Assert.Equal(status.Message, compiled.Message);
     }
+
+    // eof in any case was the end of the script: the parser stopped at it and left out what came after it without an error
+    [Fact]
+    public void NoWordEndsTheScript()
+    {
+        var status = AgentLabCompiler.CheckCommands("SetShadow({}, 1.0, 10.0, 0); EOF garbage((((", Definitions);
+
+        Assert.True(status.IsError);
+        Assert.Equal((1, 34), (status.Line, status.Column));
+        using var lexer = new AgentLabLexer("eof Eof EOF");
+        Assert.Equal([TokenType.Identifier, TokenType.Identifier, TokenType.Identifier, TokenType.Eof],
+            Enumerable.Range(0, 4).Select(_ => lexer.GetNextToken().Type));
+        var script = "[StartFrom(Eof)]\nbehaviour TEST {\n   state Eof() {\n      if Random(0) > 0.5 {\n         execute Eof;\n      }\n   }\n}\n";
+        var check = AgentLabCompiler.Check(script, Definitions);
+        Assert.False(check.IsError, check.Message);
+        Assert.Equal(0, Graph(script).ScriptStates[0].Bodies[0].JumpToState);
+        // Names spelled like it are still written as strings where a name can be either
+        Assert.True(AgentLabLexer.IsReservedKeyword("eof"));
+    }
+
+    // A number that doesn't read was dropped and what came after it took its place: AddLives(99999999999) said it got no parameters,
+    // and a condition's parameter that didn't read passed the check as none
+    [Theory]
+    [InlineData("99999999999")]
+    [InlineData("1.2.3")]
+    [InlineData("0xFFFFFFFFF")]
+    [InlineData("0x")]
+    [InlineData("5-3")]
+    [InlineData("12abc")]
+    public void NumbersThatDontReadAreErrorsAtTheNumber(string number)
+    {
+        var command = AgentLabCompiler.CheckCommands($"AddLives({number});", Definitions);
+        var condition = AgentLabCompiler.Check(Behaviour("AddLives(1);", condition: $"Random({number})"), Definitions);
+        var compiled = AgentLabCompiler.Compile(Behaviour("AddLives(1);", condition: $"Random({number})"), Options()).CompilerStatus;
+
+        Assert.Equal($"(1:10) Invalid number {number}", command.Message);
+        Assert.Equal($"(3:17) Invalid number {number}", condition.Message);
+        Assert.Equal(condition.Message, compiled.Message);
+        using var lexer = new AgentLabLexer($"AddLives({number});");
+        var tokens = Enumerable.Range(0, 6).Select(_ => lexer.GetNextToken()).ToList();
+        Assert.Equal([TokenType.Identifier, TokenType.LeftParen, TokenType.Undefined, TokenType.RightParen, TokenType.Semicolon, TokenType.Eof], tokens.Select(token => token.Type));
+        Assert.Equal(number, tokens[2].ToString());
+    }
+
+    // The word undefined is a token of that type too, which is no number
+    [Fact]
+    public void UndefinedIsNoNumber()
+    {
+        var status = AgentLabCompiler.CheckCommands("AddLives(undefined);", Definitions);
+
+        Assert.True(status.IsError);
+        Assert.DoesNotContain("Invalid number", status.Message);
+    }
 }
