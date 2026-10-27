@@ -21,9 +21,12 @@ public abstract class AssetResolver<TTwinItem> : IAssetResolver where TTwinItem 
     {
         var twinItem = itemSection.GetItem<TTwinItem>(itemId);
         // The game finds a resource among every loaded chunk's: a part a chunk names without having it (under an item an earlier chunk had
-        // the same of, whose parts are resolved again in each chunk) is another chunk's
+        // the same of, whose parts are resolved again in each chunk) is another chunk's. No retail chunk does (PAL, NTSC and Xbox PAL), a
+        // mod's or a built disc's can, and what names it then links what the ID finds elsewhere
         if (twinItem == null)
         {
+            Log.WriteLine($"{ChunkPath} has no {typeof(TTwinItem).Name[1..]} {itemId:X} that one of its items names, another chunk's of the ID is taken",
+                Log.LogType.Warning);
             return null;
         }
 
