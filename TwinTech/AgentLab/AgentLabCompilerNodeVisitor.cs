@@ -36,6 +36,7 @@ internal class AgentLabCompilerNodeVisitor : NodeVisitor
         
         Visitors.Add(typeof(IAgentLabListNode), VisitListNode);
         Visitors.Add(typeof(UnaryOperationNode), VisitUnaryOperationNode);
+        Visitors.Add(typeof(BinaryOperationNode), VisitBinaryOperationNode);
         Visitors.Add(typeof(ConstDeclarationNode), VisitConstDeclarationNode);
         Visitors.Add(typeof(ConstNode), VisitConstNode);
         Visitors.Add(typeof(NumberNode), VisitNumberNode);
@@ -152,6 +153,27 @@ internal class AgentLabCompilerNodeVisitor : NodeVisitor
             _ => null
         };
     }
+
+    // An operation had no value here: the build failed on one as an argument or a const, and a control packet's data got its byte and
+    // no float
+    private Object VisitBinaryOperationNode(IAgentLabTreeNode node)
+    {
+        var operation = (BinaryOperationNode)node;
+        return AgentLabValues.Apply(operation, Visit(operation.Left), Visit(operation.Right));
+    }
+
+    // Where a value starts in the script, for the errors about it
+    private static AgentLabToken PlaceOf(IAgentLabTreeNode value, AgentLabToken fallback) => value switch
+    {
+        NumberNode number => number.Token,
+        BooleanNode boolean => boolean.Token,
+        StringNode text => text.Token,
+        TaggedLiteralNode tagged => tagged.Token,
+        UnaryOperationNode unary => unary.Token,
+        BinaryOperationNode binary => PlaceOf(binary.Left, binary.Token),
+        ConstNode name => name.NameToken,
+        _ => fallback
+    };
 
     private Object VisitParamNode(IAgentLabTreeNode node)
     {
@@ -331,9 +353,25 @@ internal class AgentLabCompilerNodeVisitor : NodeVisitor
         var condition = new TwinBehaviourCondition();
         var conditionSymbol = _symbolTable.Lookup<AgentLabConditionSymbol>(conditionNode.Name);
         condition.ConditionIndex = (ushort)conditionSymbol.Id;
-        condition.Parameter = (ushort)(int)Visit(conditionNode.Number);
-        
+        // A condition written without its parameter gets 0, what the NTSC version has where a condition reads none (it threw)
+        condition.Parameter = conditionNode.Number == null ? (ushort)0 : ConditionParameter(Visit(conditionNode.Number), conditionSymbol, conditionNode);
+
         return condition;
+    }
+
+    // The game reads a condition's parameter as an integer of 15 bits, the condition's word only keeps those
+    private const int MostConditionParameter = 0x7FFF;
+
+    private static ushort ConditionParameter(object value, AgentLabConditionSymbol conditionSymbol, ConditionNode condition)
+    {
+        if (value is not int integer || integer < 0 || integer > MostConditionParameter)
+        {
+            var name = (conditionSymbol.ParameterType as AgentLabParamSymbol)?.Name ?? "parameter";
+            var at = PlaceOf(condition.Number, condition.Token);
+            throw new AgentLabSyntaxException(FormattableString.Invariant($"Parameter {name} of {condition.Name} takes an integer of 0 to {MostConditionParameter}, not {value ?? condition.Number}"), at.Line, at.Column);
+        }
+
+        return (ushort)integer;
     }
 
     private Object VisitStateBodyListNode(IAgentLabTreeNode node)
@@ -458,24 +496,25 @@ internal class AgentLabCompilerNodeVisitor : NodeVisitor
         }
 
         controlPacket.Bytes[(int)dataEnum] = (byte)controlPacket.Floats.Count;
-        if (TwinBehaviourControlPacket.IsIntegerPacket(dataEnum))
-        {
-            controlPacket.Floats.Add((uint)(int)Visit(dataValueNode));
-            return null;
-        }
-
         var dataValue = Visit(dataValueNode);
+        var isInteger = TwinBehaviourControlPacket.IsIntegerPacket(dataEnum);
         switch (dataValue)
         {
-            case float fDataValue:
+            case int iDataValue when isInteger:
+                controlPacket.Floats.Add((uint)iDataValue);
+                break;
+            case float fDataValue when !isInteger:
                 controlPacket.Floats.Add(BitConverter.SingleToUInt32Bits(fDataValue));
                 break;
-            case int iDataValue:
+            case int iDataValue when !isInteger:
                 controlPacket.Floats.Add(BitConverter.SingleToUInt32Bits(iDataValue));
                 break;
+            default:
+                // The data's byte names a float slot, which has to be there: the packet read the next data's float, or past its floats
+                var at = PlaceOf(dataValueNode, dataNode.Token);
+                throw new AgentLabSyntaxException(FormattableString.Invariant($"{dataNode.Name} takes {(isInteger ? "an integer" : "a number")}, not {dataValue ?? dataValueNode}"), at.Line, at.Column);
         }
-        
-        
+
         return null;
     }
 

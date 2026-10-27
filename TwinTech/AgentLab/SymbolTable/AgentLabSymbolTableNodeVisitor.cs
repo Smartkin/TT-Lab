@@ -912,20 +912,25 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
             Visit(constDeclNode);
         }
 
-        var constDeclarationReorder = new ConstDeclarationOrderAnalyzer(SymbolTable);
+        var constDeclarationReorder = new ConstDeclarationOrderAnalyzer();
         constDeclarationReorder.Analyze(consts);
-        
-        DetermineConstTypes(consts);
-        
+
+        DetermineConstTypes(consts, constDeclarationReorder.Cyclic);
+
         return null;
     }
 
-    private void DetermineConstTypes(ConstDeclarationListNode consts)
+    private void DetermineConstTypes(ConstDeclarationListNode consts, ICollection<ConstDeclarationNode> cyclic)
     {
         foreach (var constDeclNode in consts.Children.Cast<ConstDeclarationNode>())
         {
             var assign = constDeclNode.Assign;
             var constNode = (ConstNode)assign.Left;
+            if (cyclic.Contains(constDeclNode))
+            {
+                throw new AgentLabSyntaxException($"Const {constNode.Name}'s value depends on itself", constNode.NameToken.Line, constNode.NameToken.Column);
+            }
+
             var symbol = SymbolTable.Lookup(constNode.Name);
             var type = Visit(assign.Right) as AgentLabSymbol;
             symbol.Type = type;
