@@ -552,7 +552,8 @@ public class AssetManager
         
     public ImmutableList<LabURI> GetAllAssetUris()
     {
-        return _assets.Values.Select(asset => asset.URI).ToImmutableList();
+        // An asset is kept under every URI it's known by (a command sequence's packs' aliases), its own once
+        return _assets.Values.Distinct().Select(asset => asset.URI).ToImmutableList();
     }
 
     public ImmutableList<LabURI> GetAllAssetUrisOf(Type type)
