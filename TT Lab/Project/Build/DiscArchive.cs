@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using TT_Lab.Tools.Pcsx2;
 using Twinsanity.TwinsanityInterchange.Common;
 using Twinsanity.TwinsanityInterchange.Implementations.PS2.Archives;
 
@@ -29,16 +30,26 @@ public sealed class DiscArchive
             return null;
         }
 
-        var bhPath = Path.Combine(discContentPath, "Crash6", "Crash.BH");
-        var bdPath = Path.Combine(discContentPath, "Crash6", "Crash.BD");
-        if (!File.Exists(bhPath) || !File.Exists(bdPath))
+        // PAL extracts have Crash6/Crash.BH, NTSC ones CRASH6/CRASH.BH
+        var bhPath = DiscPath.Find(discContentPath, "Crash6", "Crash.BH");
+        var bdPath = DiscPath.Find(discContentPath, "Crash6", "Crash.BD");
+        if (bhPath == null || bdPath == null || !File.Exists(bhPath) || !File.Exists(bdPath))
         {
             return null;
         }
 
         try
         {
-            return new DiscArchive(bdPath, PS2BD.ReadRecords(bhPath));
+            var records = PS2BD.ReadRecords(bhPath);
+            // A header that isn't its data's (one written without the other: a pack that failed) would copy whatever is where it says
+            var length = new FileInfo(bdPath).Length;
+            if (records.Find(record => record.Offset < 0 || record.Length < 0 || (Int64)record.Offset + record.Length > length) is { } outside)
+            {
+                Log.WriteLine($"The disc's archive {bdPath} doesn't have all of its files, {outside.Path} would be past its end", Log.LogType.Warning);
+                return null;
+            }
+
+            return new DiscArchive(bdPath, records);
         }
         catch (Exception ex) when (ex is IOException or EndOfStreamException or ArgumentException)
         {
