@@ -1,9 +1,11 @@
 using System.Text;
 using Newtonsoft.Json.Linq;
 using TT_Lab.AssetData.Code;
+using TT_Lab.AssetData.Instance;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
 using TT_Lab.Assets.Factory;
+using TT_Lab.Assets.Instance;
 using TT_Lab.Project;
 using TT_Lab.Tests.Support;
 using Twinsanity.TwinsanityInterchange.Common;
@@ -12,6 +14,7 @@ using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2;
 using Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code;
 using Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code.AgentLab;
+using Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Layout;
 using Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.RMX;
 using Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.RMX.Code;
 using Twinsanity.TwinsanityInterchange.Implementations.Xbox.Items.RMX.Code.AgentLab;
@@ -128,14 +131,15 @@ public sealed class ReusedGraphIdTests : IDisposable
         return chunk;
     }
 
+    private string Unpack(GamePlatform platform) => Unpack(platform, ReusedIdChunks(platform));
+
     // In the PS2 archive's order High Seas' missile comes first, the Xbox's files are in their paths' order and AltEarth's furniture does:
     // whichever graph of the ID comes first is the asset, the other the variant. The bear's move of 0x51 comes after the totem's platform's
-    // in both and has no starter anywhere, the platform's starter of the ID before it. Each of their chunks has a graph whose state runs 0x51.
-    // Unpacked, written and merged the way creating a project does it, the version's package's folder
-    private string Unpack(GamePlatform platform)
+    // in both and has no starter anywhere, the platform's starter of the ID before it. Each of their chunks has a graph whose state runs 0x51
+    private static List<(string Path, ITwinSection Chunk)> ReusedIdChunks(GamePlatform platform)
     {
         var extension = platform == GamePlatform.Xbox ? "rmx" : "rm2";
-        var chunks = new List<(string Path, ITwinSection Chunk)>
+        return new List<(string Path, ITwinSection Chunk)>
         {
             ($"Levels\\Ice\\HighSeas\\gpa04.{extension}", Chunk(platform, Graph(platform, "COM_PIRATE_MISSILE_INIT", Reused, MissileStarter),
                 Object(platform, "MISSILE", 0x60, [(UInt16)MissileStarter], [(UInt16)MissileStarter, (UInt16)Reused]))),
@@ -152,6 +156,12 @@ public sealed class ReusedGraphIdTests : IDisposable
                     .Concat(Graph(platform, "COM_BEAR_DEFAULT", BearDefault, null, BearOrPlatform)),
                 Object(platform, "BEAR", 0x63, [], [(UInt16)BearOrPlatform])))
         };
+    }
+
+    // Unpacked, written and merged the way creating a project does it, the chunks in the order the version's disc has them (the PS2 archive
+    // as given, the Xbox's files by their paths): the version's package's folder
+    private string Unpack(GamePlatform platform, List<(string Path, ITwinSection Chunk)> chunks)
+    {
         if (platform == GamePlatform.Xbox)
         {
             chunks = chunks.OrderBy(chunk => chunk.Path, StringComparer.OrdinalIgnoreCase).ToList();
@@ -203,8 +213,10 @@ public sealed class ReusedGraphIdTests : IDisposable
         var furniture = GraphOf(package, "COM_FURNITURE");
         var platformGraph = GraphOf(package, "COM_FLIP_FLOP_PLATFORM");
         var bear = GraphOf(package, "COM_BEAR_MOVE");
-        // One of each ID is a variant, whichever came second
-        Assert.Single(new[] { missile, furniture }, graph => !string.IsNullOrEmpty((string?)graph.Metadata[nameof(IAsset.Variation)]));
+        // The graph of the ID the version's order has second is the variant
+        var (first, second) = platform == GamePlatform.Xbox ? (furniture, missile) : (missile, furniture);
+        Assert.True(string.IsNullOrEmpty((string?)first.Metadata[nameof(IAsset.Variation)]));
+        Assert.False(string.IsNullOrEmpty((string?)second.Metadata[nameof(IAsset.Variation)]));
         Assert.False(string.IsNullOrEmpty((string?)bear.Metadata[nameof(IAsset.Variation)]));
 
         // The furniture's starter keeps its ID, the others have the one before their graph's
@@ -252,5 +264,27 @@ public sealed class ReusedGraphIdTests : IDisposable
         // The bear's move is the zoo's variant, which the name doesn't find from a graph of no variation: its URI does
         Assert.Contains($"state State_0(\"{UriOf(bear.Metadata)}\") {{", GraphOf(package, "COM_BEAR_DEFAULT").Script);
         Assert.NotEqual(UriOf(platformGraph.Metadata), UriOf(bear.Metadata));
+    }
+
+    // Two chunks with scripts of one ID and starters of one ID: an instance's spawn script names its own chunk's graph, the later chunk's
+    // variant, like it did before the starters were found among every chunk's graphs (whose order has the first chunk's graph first)
+    [Fact]
+    public void AnInstancesSpawnScriptIsItsChunksGraphOfTheStarter()
+    {
+        var second = Chunk(GamePlatform.PS2, Graph(GamePlatform.PS2, "COM_SECOND", 0x41, 0x40), Object(GamePlatform.PS2, "BOX", 0x66, [], []));
+        var instance = new PS2AnyInstance { ObjectId = 0x66, SpawnScriptId = 0x40, FloatProperties = [1], IntProperties = [0, 255] };
+        instance.SetID(0);
+        second.GetItem<ITwinSection>(Constants.LEVEL_LAYOUT_1_SECTION).GetItem<ITwinSection>(Constants.LAYOUT_INSTANCES_SECTION).AddItem(instance);
+
+        var package = Unpack(GamePlatform.PS2, [
+            ("Levels\\Earth\\Hub\\hubA.rm2", Chunk(GamePlatform.PS2, Graph(GamePlatform.PS2, "COM_FIRST", 0x41, 0x40))),
+            ("Levels\\Earth\\Hub\\hubC.rm2", second)
+        ]);
+
+        var variant = GraphOf(package, "COM_SECOND");
+        Assert.False(string.IsNullOrEmpty((string?)variant.Metadata[nameof(IAsset.Variation)]));
+        var unpacked = _project.AssetManager.GetAllAssetsOf<ObjectInstance>().Single();
+        var data = JObject.Parse(File.ReadAllText(unpacked.FullDataPath));
+        Assert.Equal(UriOf(variant.Metadata), (string)data[nameof(ObjectInstanceData.SpawnScript)]!["_uri"]!);
     }
 }

@@ -18,6 +18,8 @@ namespace TT_Lab.Assets.Factory;
 // docamok1's and docamok2's crates of layout 0 brought in
 internal static class StartedGraphs
 {
+    private const string DefaultChunkPath = "startup/default";
+
     public static void Resolve(ITwinItemFactory factory, ITwinSection codeSection, IEnumerable<LabURI> graphs)
     {
         var assets = AssetManager.Get();
@@ -97,7 +99,8 @@ internal static class StartedGraphs
     }
 
     // The default chunk's templates are told by their chunk's path: every chunk looked through for the default one would be something the
-    // chunk being built depends on (the build cache)
+    // chunk being built depends on (the build cache). The whole path, the startup folder's default (a level chunk of the global package can
+    // be named default too), with the separators of the system the project was made on
     private static HashSet<LabURI> DefaultTemplateGraphs(ITwinItemFactory factory)
     {
         if (factory.Resolution.DefaultTemplateGraphs is { } known)
@@ -107,7 +110,7 @@ internal static class StartedGraphs
 
         var package = factory.GlobalPackage?.URI;
         var graphs = AssetManager.Get().GetAllAssetsOf<InstanceTemplate>()
-            .Where(template => template.Package == package && template.Chunk?.Split('/', '\\')[^1].Equals("default", StringComparison.OrdinalIgnoreCase) == true)
+            .Where(template => template.Package == package && template.Chunk?.Replace('\\', '/').Equals(DefaultChunkPath, StringComparison.OrdinalIgnoreCase) == true)
             .SelectMany(template => ((IAsset)template).GetData<InstanceTemplateData>().BehaviourStarters)
             .ToHashSet();
         factory.Resolution.DefaultTemplateGraphs = graphs;

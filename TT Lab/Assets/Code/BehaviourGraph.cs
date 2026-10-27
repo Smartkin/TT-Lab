@@ -71,18 +71,27 @@ public sealed class BehaviourGraph : Behaviour
     /// </summary>
     public static BehaviourGraph? OfStarter(IAsset requester, UInt32 starterId)
     {
-        // The starter compared first: every instance's spawn script asks, and telling what's related walks the packages' dependencies
+        // The starter compared first, telling what's related walks the packages' dependencies
         var assets = AssetManager.Get();
         return assets.GetAllAssetsOf<BehaviourGraph>().FirstOrDefault(graph => graph._starterId == starterId && assets.IsRelated(requester.Package, graph.Package));
     }
 
     /// <summary>
-    /// The graph a starter of the ID starts, read the way unpacking reads the game's files: the one whose starter the unpack found with the
-    /// ID (<see cref="OfStarter"/>), else the related graph of the ID after it
+    /// The graph a starter of the ID starts, read the way unpacking reads the game's files: the requester's graph of the ID after it (its
+    /// chunk's variant first) while the unpack found the starter with it, else the one whose starter the unpack found with the ID
+    /// (<see cref="OfStarter"/>), else the related graph of the ID after it
     /// </summary>
     public static LabURI GraphOfStarter(IAsset requester, UInt32 starterId)
     {
-        return OfStarter(requester, starterId)?.URI ?? AssetManager.Get().GetUriByTwinId<BehaviourGraph>(requester, starterId + 1);
+        // Another chunk's script of the ID can have a starter of the same ID, which comes first among all the graphs
+        var assets = AssetManager.Get();
+        var after = assets.GetUriByTwinId<BehaviourGraph>(requester, starterId + 1);
+        if (after != LabURI.Empty && assets.GetAsset(after) is BehaviourGraph graph && graph._starterId == starterId)
+        {
+            return after;
+        }
+
+        return OfStarter(requester, starterId)?.URI ?? after;
     }
 
     public override Type GetEditorType()

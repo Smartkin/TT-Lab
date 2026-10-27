@@ -354,12 +354,19 @@ public sealed class BehaviourStarterTests : IDisposable
             return root;
         }
 
-        // A level's graph of no template of the default chunk comes into the level
+        void AddTemplate(string chunk, UInt32 id)
+        {
+            var template = _project.Add(new InstanceTemplate { Chunk = chunk, LayoutID = 0 }, "IRONCRATE", id, Project.GlobalPackageXbox);
+            template.SetData(new InstanceTemplateData(template) { TemplateName = "IRONCRATE", ObjectId = crate.URI, BehaviourStarters = [outline.URI] });
+            template.Serialize(SerializationFlags.SetDirectoryToAssets | SerializationFlags.SaveData);
+        }
+
+        // A level's graph of no template of the default chunk comes into the level, a level chunk of the global package named default is no
+        // default chunk
+        AddTemplate(System.IO.Path.Combine("levels", "earth", "default"), 0x1);
         Assert.Equal([0x28, 0x29], Ids(Code(Build(), Constants.CODE_BEHAVIOURS_SECTION)));
 
-        var template = _project.Add(new InstanceTemplate { Chunk = System.IO.Path.Combine("startup", "default"), LayoutID = 0 }, "IRONCRATE", 0x1, Project.GlobalPackageXbox);
-        template.SetData(new InstanceTemplateData(template) { TemplateName = "IRONCRATE", ObjectId = crate.URI, BehaviourStarters = [outline.URI] });
-        template.Serialize(SerializationFlags.SetDirectoryToAssets | SerializationFlags.SaveData);
+        AddTemplate(System.IO.Path.Combine("startup", "default"), 0x2);
 
         var level = Build();
         Assert.Empty(Ids(Code(level, Constants.CODE_BEHAVIOURS_SECTION)));
