@@ -4,7 +4,6 @@ using System.Linq;
 using System.Collections.Generic;
 using System.IO;
 using TT_Lab.AssetData.Code;
-using TT_Lab.AssetData.Code.Behaviour;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
 using TT_Lab.Assets.Factory;
@@ -94,7 +93,7 @@ public class InstanceTemplateData : AbstractAssetData
         // Templates refer to the starters of the graphs
         foreach (var behaviourId in template.BehaviourStarters)
         {
-            BehaviourStarters.Add(AssetManager.Get().GetUriByTwinId<BehaviourGraph>(Owner, behaviourId + 1U));
+            BehaviourStarters.Add(BehaviourGraph.GraphOfStarter(Owner, behaviourId));
         }
         InstanceStateFlags = template.InstanceStateFlags;
         TaggedProperties = template.TaggedProperties.Select(bits => new TaggedProperty(bits)).ToList();
@@ -122,7 +121,7 @@ public class InstanceTemplateData : AbstractAssetData
         writer.Write(10U);
         foreach (var s in BehaviourStarters)
         {
-            writer.Write((UInt16)(assetManager.GetAsset(s).ExportTwinID - 1));
+            writer.Write((UInt16)BehaviourGraph.StarterIdOf(assetManager.GetAsset(s)));
         }
         writer.Write(objectData.ExitPointAmount);
         writer.Write(objectData.CameraReactJointAmount);
@@ -152,17 +151,10 @@ public class InstanceTemplateData : AbstractAssetData
     public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, uint id,
         int? layoutId = null)
     {
-        var assetManager = AssetManager.Get();
-        var root = section.GetRoot();
-        var codeSection = root.GetItem<ITwinSection>(Constants.LEVEL_CODE_SECTION);
-        var objectsSection = codeSection.GetItem<ITwinSection>(Constants.CODE_GAME_OBJECTS_SECTION);
-        var behavioursSection = codeSection.GetItem<ITwinSection>(Constants.CODE_BEHAVIOURS_SECTION);
-        assetManager.GetAsset(ObjectId).ResolveChunkResources(factory, objectsSection);
-        foreach (var behaviour in BehaviourStarters)
-        {
-            assetManager.GetAsset(behaviour).ResolveChunkResources(factory, behavioursSection);
-            assetManager.GetAssetData<BehaviourGraphData>(behaviour).AddStarter(factory, behavioursSection, assetManager.GetAsset(behaviour).ExportTwinID);
-        }
+        var codeSection = section.GetRoot().GetItem<ITwinSection>(Constants.LEVEL_CODE_SECTION);
+        AssetManager.Get().GetAsset(ObjectId).ResolveChunkResources(factory, codeSection.GetItem<ITwinSection>(Constants.CODE_GAME_OBJECTS_SECTION));
+        // Its graphs with their starters, which it names, and what they run and make
+        StartedGraphs.Resolve(factory, codeSection, BehaviourStarters);
         return base.ResolveChunkResources(factory, section, id, layoutId);
     }
 }

@@ -11,7 +11,6 @@ using TT_Lab.ViewModels.Editors;
 using TT_Lab.ViewModels.Editors.Descs;
 using TT_Lab.ViewModels.Interfaces;
 using Twinsanity.TwinsanityInterchange.Common;
-using Twinsanity.TwinsanityInterchange.Common.AgentLab;
 
 namespace TT_Lab.AssetData.Code.Object;
 
@@ -57,10 +56,10 @@ public class ObjectTriggerBehaviourData : IDocumentModel
         MessageID = 0;
     }
 
-    public ObjectTriggerBehaviourData(IAsset owner, TwinObjectTriggerBehaviour triggerBehaviour, Dictionary<string, TwinBehaviourStarter> starterMap)
+    // The game's message and the graph its starter starts
+    public ObjectTriggerBehaviourData(TwinObjectTriggerBehaviour triggerBehaviour, LabURI behaviour)
     {
-        var starter = starterMap.Values.First(s => s.GetID() == triggerBehaviour.TriggerBehaviour);
-        TriggerBehaviour = AssetManager.Get().GetUriByTwinId<BehaviourGraph>(owner, (uint)(starter.Assigners[0].Behaviour - 1));
+        TriggerBehaviour = behaviour;
         Debug.Assert(TriggerBehaviour != LabURI.Empty, "Trigger behaviour must not link to an empty behaviour");
         MessageID = triggerBehaviour.MessageID;
         BehaviourCallerIndex = triggerBehaviour.BehaviourCallerIndex;

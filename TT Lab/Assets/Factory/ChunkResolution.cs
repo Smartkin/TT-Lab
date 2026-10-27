@@ -33,6 +33,11 @@ public sealed class ChunkResolution
     public Dictionary<string, UInt32> Animations { get; } = new();
 
     /// <summary>
+    /// The graphs the default chunk's templates start, found once a level's instance or template starts a graph (<see cref="StartedGraphs"/>)
+    /// </summary>
+    public HashSet<LabURI>? DefaultTemplateGraphs { get; set; }
+
+    /// <summary>
     /// Starts resolving the asset into the section
     /// </summary>
     /// <returns>Whether the asset has to be resolved, it doesn't when it already is or it's being resolved</returns>

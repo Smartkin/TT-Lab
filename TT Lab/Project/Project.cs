@@ -449,7 +449,7 @@ public class Project : IProject
         Xbox
     }
 
-    private void UnpackAssets(GamePlatform platform, List<DiscFile> files, Package globalPackage, Package platformPackage, MemoryGate gate)
+    internal void UnpackAssets(GamePlatform platform, List<DiscFile> files, Package globalPackage, Package platformPackage, MemoryGate gate)
     {
         ResolverManager.Start();
 
@@ -457,17 +457,19 @@ public class Project : IProject
         var (resourceExtension, sceneryExtension) = platform == GamePlatform.PS2 ? (".rm2", ".sm2") : (".rmx", ".smx");
         MakeStartupFolder(files.Select(file => file.Path), globalPackage, resourceExtension);
 
-        // Maps graph ID to behaviour starter. Chunks are read for their starters in parallel and dropped, all of the game's chunks read
-        // at once take gigabytes. Resolving below reads them again one after another
+        // The starters of every chunk's graphs: a graph gets its own chunk's, else the first one of another chunk's of the same script (the
+        // game only has a starter in the chunks whose objects list it). Chunks are read for their starters in parallel and dropped, all of
+        // the game's chunks read at once take gigabytes. Resolving below reads them again one after another
         Log.WriteLine("Creating behaviour starter map...");
         var resourceFiles = files.Where(file => file.Path.ToLower().EndsWith(resourceExtension)).ToList();
-        var chunkStarters = new List<TwinBehaviourStarter>[resourceFiles.Count];
-        Parallel.For(0, resourceFiles.Count, i =>
+        var chunkStarters = new List<(TwinBehaviourStarter Starter, String Graph)>[resourceFiles.Count];
+        // Bounded like the build's chunks: reads waiting at the gate made the pool add threads
+        Parallel.For(0, resourceFiles.Count, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }, i =>
         {
             gate.Enter();
             try
             {
-                chunkStarters[i] = GetStarters(ReadChunk(platform, resourceFiles[i].Path, resourceFiles[i].Read()));
+                chunkStarters[i] = UnpackedScripts.StartersOf(ReadChunk(platform, resourceFiles[i].Path, resourceFiles[i].Read()));
             }
             finally
             {
@@ -475,26 +477,17 @@ public class Project : IProject
             }
         });
 
-        var starterMap = new Dictionary<string, TwinBehaviourStarter>();
-        for (var i = 0; i < resourceFiles.Count; i++)
+        var scripts = new UnpackedScripts();
+        foreach (var starters in chunkStarters)
         {
-            var pathLow = resourceFiles[i].Path.ToLower();
-            foreach (var starter in chunkStarters[i])
-            {
-                var starterStr = (starter.Assigners[0].Behaviour - 1).ToString();
-                if (starterMap.ContainsKey(starterStr))
-                {
-                    starterStr += pathLow;
-                }
-                starterMap.Add(starterStr, starter);
-            }
+            scripts.Add(starters);
         }
 
         Log.WriteLine("Reading chunks...");
         var chunks = new ChunkReader(platform, files.Where(file => IsChunkPath(file.Path, resourceExtension, sceneryExtension)).ToList(), gate);
 
-        var gameObjectResolver = new GameObjectResolver(starterMap);
-        var behaviourResolver = new BehaviourResolver(starterMap);
+        var gameObjectResolver = new GameObjectResolver(scripts);
+        var behaviourResolver = new BehaviourResolver(scripts);
         var behaviourSequenceResolver = new BehaviourSequenceResolver();
         var skydomeResolver = new SkydomeResolver();
         
@@ -677,22 +670,6 @@ public class Project : IProject
 
         var folder = defaultChunk[..defaultChunk.LastIndexOf('/')].Replace('/', System.IO.Path.DirectorySeparatorChar);
         System.IO.Directory.CreateDirectory(System.IO.Path.Combine(ProjectPath, "assets", globalPackage.Name, folder));
-    }
-
-    private static List<TwinBehaviourStarter> GetStarters(ITwinSection chunk)
-    {
-        var starters = new List<TwinBehaviourStarter>();
-        var behaviours = chunk.GetItem<ITwinSection>(Constants.LEVEL_CODE_SECTION).GetItem<ITwinSection>(Constants.CODE_BEHAVIOURS_SECTION);
-        for (var i = 0; i < behaviours.GetItemsAmount(); ++i)
-        {
-            var behaviour = behaviours.GetItem<TwinBehaviourWrapper>(behaviours.GetItem(i).GetID());
-            if (behaviour.GetID() % 2 == 0)
-            {
-                starters.Add((TwinBehaviourStarter)behaviour);
-            }
-        }
-
-        return starters;
     }
 
     // Reads the chunks in the order they get resolved, a few of them ahead in the background, and lets go of each once it's taken
