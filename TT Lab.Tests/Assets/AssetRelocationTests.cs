@@ -467,6 +467,55 @@ public sealed class AssetRelocationTests : IDisposable
         Assert.Contains(_asked, asked => asked.StartsWith("Can't move") && asked.Contains("root package"));
     }
 
+    // Packages linking to what moves within its package gave nothing new to depend on: a PS2 behaviour a Global PS2 object runs couldn't move
+    // into another folder of PS2 (Global PS2 is a root package), and a mod depending on Global PS2 alone was asked to depend on PS2
+    private (BehaviourGraph Graph, GameObject User, GameObject ModUser, Package Mod) LinkFromOtherPackages(Folder graphs)
+    {
+        var mod = AddPackage("Mod");
+        mod.RemoveDependency(Ps2.URI);
+        mod.AddDependency(Global.URI);
+        var graph = AddGraph(graphs, "Shared");
+        var user = AddObject(_project.GetFolder(Global, "GameObject"), "User", graph.URI);
+        var modUser = AddObject(AddFolder(mod.GetPackageFolder(), "GameObject"), "ModUser", graph.URI);
+        return (graph, user, modUser, mod);
+    }
+
+    [Fact]
+    public async Task AMoveWithinItsPackageAddsNoDependencies()
+    {
+        _project.BuildProjectTree(Path.Combine(Global.Name, "GameObject"));
+        var (graph, user, modUser, mod) = LinkFromOtherPackages(AddFolder(Ps2.GetPackageFolder(), "BehaviourGraph"));
+        var uri = graph.URI;
+
+        Assert.True(await AssetRelocation.MoveAsync(graph, AddFolder(Ps2.GetPackageFolder(), "Moved")), Said);
+
+        Assert.Equal(new LabURI($"res://{Ps2.Name}/Moved/Shared"), graph.URI);
+        Assert.NotEqual(uri, graph.URI);
+        Assert.DoesNotContain(_asked, asked => asked.StartsWith("Package dependencies"));
+        Assert.Empty(Global.Dependencies);
+        Assert.Equal([Global.URI], mod.Dependencies);
+        Assert.Equal([graph.URI], Data<GameObjectData>(user).BehaviourSlots);
+        Assert.Equal([graph.URI], Data<GameObjectData>(modUser).BehaviourSlots);
+    }
+
+    // Renaming a folder moves what's in it within its package
+    [Fact]
+    public async Task ARenamedFolderAddsNoDependencies()
+    {
+        _project.BuildProjectTree(Path.Combine(Global.Name, "GameObject"));
+        var scripts = AddFolder(Ps2.GetPackageFolder(), "Scripts");
+        var (graph, user, modUser, mod) = LinkFromOtherPackages(scripts);
+
+        Assert.True(await AssetRelocation.RenameAsync(scripts, "Behaviours"), Said);
+
+        Assert.Equal(new LabURI($"res://{Ps2.Name}/Behaviours/Shared"), graph.URI);
+        Assert.DoesNotContain(_asked, asked => asked.StartsWith("Package dependencies"));
+        Assert.Empty(Global.Dependencies);
+        Assert.Equal([Global.URI], mod.Dependencies);
+        Assert.Equal([graph.URI], Data<GameObjectData>(user).BehaviourSlots);
+        Assert.Equal([graph.URI], Data<GameObjectData>(modUser).BehaviourSlots);
+    }
+
     [Fact]
     public void WhatTheGameHasOneOfInPlaceNeitherMovesNorGetsCopied()
     {

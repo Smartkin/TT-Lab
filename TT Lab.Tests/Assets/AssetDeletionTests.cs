@@ -1,5 +1,6 @@
 using Avalonia.Headless.XUnit;
 using TT_Lab.AssetData.Code;
+using TT_Lab.AssetData.Code.Behaviour;
 using TT_Lab.AssetData.Graphics;
 using TT_Lab.AssetData.Graphics.Shaders;
 using TT_Lab.AssetData.Instance;
@@ -178,6 +179,39 @@ public sealed class AssetDeletionTests : IDisposable
         Assert.True(await AssetDeletion.DeleteAsync(graph));
 
         Assert.Equal(["AssetData.BehaviourPack"], Assert.Single(chunk.Overrides).Values.Keys);
+    }
+
+    // A command sequence's packs have URIs of their own, which objects' slots link to: they go with it and the slots linking them are
+    // emptied, the other slots keeping their numbers. They stayed with the slots linking to them, and those objects failed to build
+    [Fact]
+    public async Task DeletedSequencesTakeTheirPackAliasesAlong()
+    {
+        var sequence = _project.Add(new BehaviourCommandsSequence(), "Library", 0x20, _package);
+        foreach (var pack in new UInt32[] { 501, 502 })
+        {
+            sequence.BehaviourGraphLinks[pack] = new LabURI($"{_package.URI}/{nameof(BehaviourGraph)}/{pack}/{sequence.ID}");
+        }
+
+        // What opening the project does
+        sequence.PostDeserialize();
+        sequence.SetData(new BehaviourCommandsSequenceData(sequence));
+        sequence.Serialize(SerializationFlags.SaveData);
+        var aliases = sequence.BehaviourGraphLinks.Values.ToList();
+        var graph = Create<BehaviourGraph>("COM_CRATE", AssetDataFactory.CreateBehaviourData);
+        var crate = Create<GameObject>("Crate", AssetDataFactory.CreateGameObjectData);
+        ((IAsset)crate).GetData<GameObjectData>().BehaviourSlots = [aliases[0], graph.URI, aliases[1]];
+        crate.Serialize(SerializationFlags.SaveData | SerializationFlags.FixReferences);
+        Assert.Contains(aliases[1], crate.References);
+
+        Assert.True(await AssetDeletion.DeleteAsync(sequence));
+
+        Assert.False(_project.AssetManager.DoesAssetExist(sequence.URI));
+        Assert.All(aliases, alias => Assert.False(_project.AssetManager.DoesAssetExist(alias)));
+        Assert.Empty(_project.AssetManager.GetAllAssetsOf<BehaviourCommandsSequence>());
+        var saved = JObject.Parse(File.ReadAllText(crate.FullDataPath));
+        Assert.Equal([LabURI.Empty, graph.URI, LabURI.Empty], saved[nameof(GameObjectData.BehaviourSlots)]!.Select(slot => new LabURI((string)slot["_uri"]!)));
+        Assert.Contains(graph.URI, crate.References);
+        Assert.DoesNotContain(crate.References, aliases.Contains);
     }
 
     [Fact]

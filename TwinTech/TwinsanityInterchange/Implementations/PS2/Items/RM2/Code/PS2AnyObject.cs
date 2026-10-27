@@ -50,11 +50,12 @@ namespace Twinsanity.TwinsanityInterchange.Implementations.PS2.Items.RM2.Code
         public List<UInt16> RefSounds { get; set; }
         public ITwinBehaviourCommandPack BehaviourPack { get; set; }
 
+        // The template block holds the state flags too: an object of flags and no values has it (read without it, an object's flags are 0)
         public bool HasInstanceProperties
         {
             get
             {
-                return TaggedProperties.Count > 0 || FloatProperties.Count > 0 || IntProperties.Count > 0;
+                return TaggedProperties.Count > 0 || FloatProperties.Count > 0 || IntProperties.Count > 0 || InstanceStateFlags != 0;
             }
         }
 

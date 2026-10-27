@@ -99,12 +99,19 @@ public class AssetStorage : IEnumerable<KeyValuePair<string, IAsset>>
         {
             if (!_idIndex.TryGetValue(type, out var index))
             {
-                index = (_typeStorage.TryGetValue(type, out var typed) ? typed.Values : Enumerable.Empty<IAsset>()).ToLookup(asset => asset.ID);
+                index = ValuesOf(type).ToLookup(asset => asset.ID);
                 _idIndex.Add(type, index);
             }
 
             return index[id];
         }
+    }
+
+    // Every asset of the type once: an asset is kept under every URI it's known by (a command sequence's packs' aliases too, which objects'
+    // slots name), and the PAL version's 5 command sequences were listed as 67
+    private IEnumerable<IAsset> ValuesOf(Type type)
+    {
+        return _typeStorage.TryGetValue(type, out var typed) ? typed.Values.Distinct<IAsset>(ReferenceEqualityComparer.Instance) : Enumerable.Empty<IAsset>();
     }
 
     public IEnumerator<KeyValuePair<String, IAsset>> GetEnumerator()
@@ -124,7 +131,7 @@ public class AssetStorage : IEnumerable<KeyValuePair<string, IAsset>>
     {
         lock (_dictLock)
         {
-            return _typeStorage.TryGetValue(type, out var result) ? result.Values.ToList() : [];
+            return ValuesOf(type).ToList();
         }
     }
 

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Splat;
+using TT_Lab.Assets.Code;
 using TT_Lab.ViewModels;
 
 namespace TT_Lab.Assets;
@@ -39,7 +40,19 @@ public static class AssetDeletion
             return false;
         }
 
-        var deletedAssets = assetsToDelete.Select(a => a.URI).ToHashSet();
+        // A command sequence goes with the URIs of its behaviour packs, which objects' slots link to: they stayed with the slots linking to
+        // them, and those objects failed to build
+        var deletedByUri = new Dictionary<LabURI, IAsset>();
+        foreach (var deleted in assetsToDelete)
+        {
+            deletedByUri[deleted.URI] = deleted;
+            foreach (var alias in PackAliasesOf(deleted))
+            {
+                deletedByUri[alias] = deleted;
+            }
+        }
+
+        var deletedAssets = deletedByUri.Keys.ToHashSet();
         var dependents = assetManager.GetAssets()
             .Where(a => !a.IsInternal && !deletedAssets.Contains(a.URI) && a.IsReferencingAny(deletedAssets))
             .ToList();
@@ -51,7 +64,7 @@ public static class AssetDeletion
             var finder = new DeletedReferenceFixer(deletedAssets);
             dependent.FixDeletedReferences(finder);
             requiredPlaceholders.UnionWith(finder.RequiredPlaceholders);
-            foreach (var missingPlaceholder in finder.RequiredPlaceholders.Select(assetManager.GetAsset)
+            foreach (var missingPlaceholder in finder.RequiredPlaceholders.Select(uri => deletedByUri[uri]).Distinct()
                          .Where(deleted => !PlaceholderAssets.CanReplace(deleted, deletedAssets)))
             {
                 Log.WriteLine($"Can't delete {asset.Alias}, {dependent.Alias} requires {missingPlaceholder.Alias} and there is no placeholder {missingPlaceholder.Type.Name} that could replace it.", Log.LogType.Error);
@@ -81,7 +94,12 @@ public static class AssetDeletion
                 folder.Children.Remove(deletedAsset.URI);
             }
 
+            var aliases = PackAliasesOf(deletedAsset).ToList();
             deletedAsset.Delete();
+            foreach (var alias in aliases)
+            {
+                assetManager.RemoveUri(alias);
+            }
         }
 
         var deletedAssetsSet = assetsToDelete.ToHashSet();
@@ -91,7 +109,6 @@ public static class AssetDeletion
         }
 
         // Placeholders are made only after the deletion since they could otherwise end up in a deleted folder
-        var deletedByUri = assetsToDelete.ToDictionary(a => a.URI);
         var placeholders = requiredPlaceholders.ToDictionary(uri => uri, uri => PlaceholderAssets.GetOrCreate(deletedByUri[uri]));
         foreach (var dependent in dependents)
         {
@@ -108,6 +125,18 @@ public static class AssetDeletion
         }
 
         return true;
+    }
+
+    // A command sequence's behaviour packs' URIs, but for one another asset is known by (the first asset added under a URI keeps it)
+    private static IEnumerable<LabURI> PackAliasesOf(IAsset asset)
+    {
+        if (asset is not BehaviourCommandsSequence sequence)
+        {
+            return [];
+        }
+
+        var assetManager = AssetManager.Get();
+        return sequence.BehaviourGraphLinks.Values.Where(alias => !assetManager.DoesAssetExist(alias) || assetManager.GetAsset(alias) == asset);
     }
 
     // Contained assets come before their containers so folders get deleted last

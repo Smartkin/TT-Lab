@@ -84,6 +84,39 @@ public sealed class AssetManagerTests : IDisposable
         Assert.Equal(totemScenery.URI, _project.AssetManager.GetUriByTwinId<Texture>(hubMaterial, 0x671573F7));
     }
 
+    // A command sequence is known by its packs' aliases too, which objects' slots name: every listing of its type has it once, it was there once
+    // per alias (67 entries for the PAL version's 5 sequences)
+    [Fact]
+    public void AnAssetKnownByMoreUrisIsListedOnce()
+    {
+        var package = _project.Project.Ps2Package;
+        var sequence = _project.Add(new BehaviourCommandsSequence(), "Library", 0x20, package);
+        foreach (var pack in new UInt32[] { 501, 502 })
+        {
+            sequence.BehaviourGraphLinks[pack] = new LabURI($"{package.URI}/{nameof(BehaviourGraph)}/{pack}/{sequence.ID}");
+        }
+
+        // What opening the project does
+        sequence.PostDeserialize();
+        var manager = _project.AssetManager;
+
+        Assert.Equal([sequence], manager.GetAllAssetsOf<BehaviourCommandsSequence>());
+        Assert.Equal([sequence], manager.GetRelatedAssetsOf<BehaviourCommandsSequence>(package.URI));
+        Assert.Equal([sequence], manager.GetAllAssetsOf(typeof(BehaviourCommandsSequence)));
+        Assert.Equal([sequence.URI], manager.GetAllAssetUrisOf<BehaviourCommandsSequence>());
+        Assert.Equal([sequence.URI], manager.GetAllAssetUrisOf(typeof(BehaviourCommandsSequence)));
+        Assert.Equal([sequence], manager.GetAssetsInScopeOf<BehaviourCommandsSequence>(sequence));
+        Assert.Single(manager.GetAllAssetUris(), uri => uri == sequence.URI);
+        Assert.Equal(sequence.URI, manager.GetUriByTwinId<BehaviourCommandsSequence>(sequence, 0x20));
+        Assert.Same(sequence, manager.GetAsset(sequence.BehaviourGraphLinks[501]));
+
+        // An alias taken out leaves the sequence where it is
+        manager.RemoveUri(sequence.BehaviourGraphLinks[502]);
+        Assert.Equal([sequence], manager.GetAllAssetsOf<BehaviourCommandsSequence>());
+        Assert.Same(sequence, manager.GetAsset(sequence.BehaviourGraphLinks[501]));
+        Assert.False(manager.DoesAssetExist(sequence.BehaviourGraphLinks[502]));
+    }
+
     [Fact]
     public void StorageIndexesAssetsByTypeAndId()
     {
