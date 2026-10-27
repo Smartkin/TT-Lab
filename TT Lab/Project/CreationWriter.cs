@@ -54,7 +54,9 @@ internal sealed class CreationWriter(AssetManager assetManager, MemoryGate gate)
         Log.WriteLine("Importing and writing assets...");
         var start = DateTime.Now;
         var assets = assetManager.GetAssets().Where(asset => !asset.IsInternal && asset is not Package && !IsWritten(asset)).ToList();
-        Parallel.ForEach(assets, asset =>
+        // Writes wait at the gate while there's no room: unbounded, the pool took them for starved and added a thread every half a second,
+        // and a creation stalled for good with 1,424 of them waiting
+        Parallel.ForEach(assets, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }, asset =>
         {
             gate.Enter();
             try
