@@ -137,6 +137,28 @@ public class ParticleData : AbstractAssetData
         return GetUsableSystems().Where(usable => usable.System.Name == name).Select(usable => ((ParticleSystem, bool)?)usable).FirstOrDefault();
     }
 
+    // The game makes no emitter of a system neither the chunk nor the default chunk has (FindParticleSystem): a name typed by hand, or a
+    // default system's rename TT Lab 1.1.0 didn't follow into the other chunks (saved by another editor than the renaming one, or as the
+    // project closed)
+    private void WarnAboutEmittersOfNoSystem()
+    {
+        if (ParticleInstances.Count == 0)
+        {
+            return;
+        }
+
+        var usable = GetUsableSystems().Select(system => system.System.Name).ToHashSet(StringComparer.Ordinal);
+        var missing = ParticleInstances.Select(emitter => emitter.Name).Where(name => !usable.Contains(name)).ToList();
+        if (missing.Count == 0)
+        {
+            return;
+        }
+
+        Log.WriteLine($"{Owner.Alias} has {missing.Count} emitters of particle systems neither it nor the default chunk has ({string.Join(", ", missing.Distinct())}), " +
+                      "the game makes none of them: pick their systems again, or rename the default chunk's system they played to that name and back, saving each time",
+            Log.LogType.Warning);
+    }
+
     protected override void Dispose(Boolean disposing)
     {
         ParticleSystems.Clear();
@@ -166,6 +188,7 @@ public class ParticleData : AbstractAssetData
                 Log.LogType.Warning);
         }
 
+        WarnAboutEmittersOfNoSystem();
         using var ms = new MemoryStream();
         using var writer = new BinaryWriter(ms);
 

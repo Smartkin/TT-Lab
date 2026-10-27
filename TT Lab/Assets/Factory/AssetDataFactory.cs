@@ -96,13 +96,20 @@ public static class AssetDataFactory
             Log.WriteLine("No sound file provided.");
             return AssetCreationStatus.Failed;
         }
-        
-        await using FileStream fs = new(file, FileMode.Open, FileAccess.Read);
+
+        return CreateSoundEffectData(asset, file);
+    }
+
+    // A sound effect of the wave file: it plays at the pitch of the wave's rate and loops what the wave's sampler chunk loops, in whole ADPCM
+    // blocks, like replacing a sound's wave in its editor (the new sound kept 22050 Hz's pitch, the PS2 played a 44100 Hz wave at half speed)
+    public static AssetCreationStatus CreateSoundEffectData(IAsset asset, string wavePath)
+    {
+        using FileStream fs = new(wavePath, FileMode.Open, FileAccess.Read);
         using BinaryReader reader = new(fs);
         Byte[] pcm = Array.Empty<byte>();
         short channels = 0;
         uint frequency = 0;
-        Riff.LoadRiff(reader, ref pcm, ref channels, ref frequency);
+        Riff.LoadRiff(reader, ref pcm, ref channels, ref frequency, out var loopStart, out var loopEnd);
         if (channels > 2)
         {
             Log.WriteLine("Buddy what kind of audio are you trying to use here? Either mono or stereo. Sound wasn't created.", Log.LogType.Error);
@@ -125,10 +132,27 @@ public static class AssetDataFactory
         fs.Close();
         reader.Close();
 
-        var newSoundData = new SoundEffectData(asset, file);
+        var newSoundData = new SoundEffectData(asset, wavePath);
         asset.SetData(newSoundData);
-        
+        if (asset is SoundEffect sound)
+        {
+            sound.Pitch = newSoundData.GetPitch();
+            if (loopStart >= 0 && loopEnd > loopStart)
+            {
+                (sound.LoopStart, sound.LoopEnd) = InWholeBlocks(loopStart, loopEnd, pcm.Length / (2 * Math.Max((int)channels, 1)));
+            }
+        }
+
         return AssetCreationStatus.Success;
+    }
+
+    // A loop of the PS2's ADPCM blocks, a block at least: the samples of a last block that isn't full never get into it
+    private static (Int32 Start, Int32 End) InWholeBlocks(Int32 start, Int32 end, Int32 samples)
+    {
+        const Int32 block = ADPCM.SamplesPerBlock;
+        static Int32 Snap(Int32 sample) => (Int32)Math.Round(sample / (double)block) * block;
+        var snappedEnd = Math.Clamp(Snap(end), block, Math.Max(block, samples / block * block));
+        return (Math.Clamp(Snap(start), 0, snappedEnd - block), snappedEnd);
     }
 
     public static AssetCreationStatus CreateSkydomeData(IAsset asset)

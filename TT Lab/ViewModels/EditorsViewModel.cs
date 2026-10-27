@@ -9,6 +9,7 @@ using TT_Lab.Controls;
 using TT_Lab.Project;
 using TT_Lab.ViewModels.Composite;
 using TT_Lab.ViewModels.Editors;
+using TT_Lab.ViewModels.Editors.Instance;
 
 namespace TT_Lab.ViewModels;
 
@@ -327,6 +328,9 @@ public class EditorsViewModel
     /// </summary>
     public async Task<bool> SaveOrDiscardUnsavedChanges()
     {
+        // What an earlier save is followed by in the rest of the project (a default particle system's rename in the other chunks' emitters,
+        // ParticleSystemLinks) ends before anything closes: its files written, what it renamed in open editors asked about with the rest
+        await ParticleSystemLinks.WhenFollowed();
         var unsaved = GetUnsavedEditors();
         if (unsaved.Count == 0)
         {
@@ -344,7 +348,20 @@ public class EditorsViewModel
             return true;
         }
 
-        foreach (var editor in unsaved)
+        if (!SaveTabs(unsaved))
+        {
+            return false;
+        }
+
+        // The saves' own follow, then the open editors it renamed in, which have nothing else unsaved: closing every editor discarded their
+        // renames, and the project closed under the files being written
+        await ParticleSystemLinks.WhenFollowed();
+        return SaveTabs(GetUnsavedEditors());
+    }
+
+    private static bool SaveTabs(IEnumerable<TabbedEditorViewModel> editors)
+    {
+        foreach (var editor in editors)
         {
             try
             {

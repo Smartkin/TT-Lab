@@ -194,15 +194,18 @@ public sealed class ViewportCreateMenuTests : IDisposable
         var particles = AddInstance<Particles>(chunk, "Particles", asset => new ParticleData(asset) { ParticleSystems = [new ParticleSystem { Name = "Fire" }], ParticleInstances = [] });
         var viewport = OpenViewport(chunk, out var document);
 
-        var link = viewport.CreateChunkLink();
+        // Away from the origin, whose translation is its own inverse
+        var link = viewport.CreateChunkLink(new GlmSharp.vec3(30, 2, -12));
         var emitter = viewport.CreateParticleEmitter();
 
         Assert.NotNull(link);
         Assert.Equal("Root.ChunkResources[0][data].AssetData.Links[0]", link!.Path);
         var placed = Assert.Single(((IAsset)links).GetData<ChunkLinksData>().Links);
         Assert.Equal(cave.URI, placed.Path);
-        // Its load wall stands on the cursor, where the link is
+        // Its object matrix is its chunk matrix's inverse (it was the chunk matrix), its load wall stands on the cursor, where the link is
+        Assert.True(placed.WrittenObjectMatrix(out var isOwn) == placed.ObjectMatrix && isOwn);
         var at = placed.ChunkMatrix.Column4;
+        Assert.Equal(new GlmSharp.vec3(30, 2, -12), new GlmSharp.vec3(at.X, at.Y, at.Z));
         Assert.Equal(ChunkLink.WallAt(new GlmSharp.vec3(at.X, at.Y, at.Z)).ToGlm(), placed.LoadingWall.ToGlm());
         Assert.NotNull(emitter);
         var madeEmitter = Assert.Single(((IAsset)particles).GetData<ParticleData>().ParticleInstances);

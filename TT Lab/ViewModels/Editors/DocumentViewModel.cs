@@ -617,11 +617,9 @@ public partial class DocumentViewModel : ReactiveObject
 
     /// <summary>
     /// What a document made again over the same data keeps (another program changed files it shows): the assets its unsaved changes are
-    /// in, a chunk's views with what got edited in them, the particle systems renamed and the history, unless a step of it changed what's
-    /// read again
+    /// in, a chunk's views with what got edited in them and the history, unless a step of it changed what's read again
     /// </summary>
-    internal sealed record Carried(bool IsDirty, IReadOnlyList<IAsset> ChangedAssets, ChunkOverrideSession? Overrides, UndoHistory? History,
-        ParticleSystemLinks ParticleSystemLinks, string Reloaded);
+    internal sealed record Carried(bool IsDirty, IReadOnlyList<IAsset> ChangedAssets, ChunkOverrideSession? Overrides, UndoHistory? History, string Reloaded);
 
     /// <summary>
     /// Whether the unsaved changes are in any of the assets, a chunk's views standing for theirs
@@ -635,7 +633,7 @@ public partial class DocumentViewModel : ReactiveObject
         var rereadNodes = new List<string>();
         FindNodesOf(PropertyGraph.Root, reread, rereadNodes);
         var history = History.Touches(path => rereadNodes.Any(node => IsWithin(path, node))) ? null : History;
-        return new Carried(IsDirty, _changedAssets.ToList(), PropertyGraph.Overrides, history, _particleSystemLinks, reloaded);
+        return new Carried(IsDirty, _changedAssets.ToList(), PropertyGraph.Overrides, history, reloaded);
     }
 
     // The nodes of the assets, a chunk's views of them included
@@ -663,7 +661,6 @@ public partial class DocumentViewModel : ReactiveObject
             _changedAssets.Add(asset);
         }
 
-        _particleSystemLinks.TakeOver(carried.ParticleSystemLinks);
         if (carried.History != null)
         {
             History.Adopt(carried.History);
@@ -698,7 +695,8 @@ public partial class DocumentViewModel : ReactiveObject
         _changedAssets.Clear();
         History.MarkSaved();
         IsDirty = false;
-        _particleSystemLinks.Saved();
+        // What its saves renamed of the default chunk's particle systems, whichever document renamed them, once everything is saved
+        ParticleSystemLinks.FollowSaved();
         Saved?.Invoke(this);
     }
 

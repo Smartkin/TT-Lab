@@ -25,10 +25,11 @@ public class SoundEffect : SerializableAsset
     public UInt32 Header { get; set; }
     
     /// <summary>
-    /// The SPU2 pitch the PS2 version plays at, the sample rate times 4096 over 48000. Replacing the wav sets it from the wav's rate
+    /// The SPU2 pitch the PS2 version plays at, the sample rate times 4096 over 48000. Making the sound of a wav or replacing its wav sets it
+    /// from the wav's rate
     /// </summary>
     [JsonProperty(Required = Required.Always)]
-    [Editable(Caption = "Sample rate", EditorDescType = typeof(SampleRateEditorDesc), Hint = "The rate the PS2 plays the sound at, kept as its pitch: the rate times 4096 over 48000 (682 for 8000 Hz, 1881 for 22050 Hz, 2730 for 32000 Hz). Replacing the wav sets it from the wav's rate, the Xbox version rounds its rate to it")]
+    [Editable(Caption = "Sample rate", EditorDescType = typeof(SampleRateEditorDesc), Hint = "The rate the PS2 plays the sound at, kept as its pitch: the rate times 4096 over 48000 (682 for 8000 Hz, 1881 for 22050 Hz, 2730 for 32000 Hz). Making the sound or replacing its wav sets it from the wav's rate, the Xbox version rounds its rate to it")]
     public UInt16 Pitch { get; set; }
     
     [JsonProperty(Required = Required.Always)]
@@ -120,6 +121,7 @@ public class SoundEffect : SerializableAsset
         try
         {
             var soundData = (SoundEffectData)GetData();
+            WarnAboutDefaultRate(factory, soundData);
             var item = soundData.ResolveChunkResources(factory, section, ID) as ITwinSound;
             item?.SetID(ID);
             item?.Compile();
@@ -140,6 +142,24 @@ public class SoundEffect : SerializableAsset
         finally
         {
             factory.Resolution.End(this, section);
+        }
+    }
+
+    // Sounds made with Create Asset kept a new sound's 22050 Hz whatever their wave's rate (TT Lab 1.1.0), which can also have been picked on
+    // purpose: only told, once per build
+    private void WarnAboutDefaultRate(ITwinItemFactory factory, SoundEffectData data)
+    {
+        var rate = data.GetFrequency();
+        if (Pitch != ITwinSound.PitchOf(22050) || data.GetPitch() == Pitch)
+        {
+            return;
+        }
+
+        var warning = $"{Alias} plays at 22050 Hz but its wave is {rate} Hz, so the game plays it {(rate > 22050 ? "slowed down" : "sped up")}: pick its sample rate in " +
+                      "its editor (sounds made with Create Asset kept 22050 Hz)";
+        if (factory.Warned.TryAdd(warning, 0))
+        {
+            Log.WriteLine(warning, Log.LogType.Warning);
         }
     }
 

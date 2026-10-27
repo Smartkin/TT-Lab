@@ -2,14 +2,25 @@ using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using ReactiveUI.Validation.Extensions;
+using Splat;
+using TT_Lab.AssetData.Code;
 using TT_Lab.AssetData.Instance;
 using TT_Lab.AssetData.Instance.Particle;
 using TT_Lab.Assets;
+using TT_Lab.Assets.Code;
+using TT_Lab.Assets.Factory;
 using TT_Lab.Assets.Instance;
+using TT_Lab.Controls;
+using TT_Lab.Project;
+using TT_Lab.ServiceProviders;
 using TT_Lab.Tests.Support;
+using TT_Lab.ViewModels;
+using TT_Lab.ViewModels.Composite;
 using TT_Lab.ViewModels.Editors;
 using TT_Lab.ViewModels.Editors.Descs;
 using TT_Lab.ViewModels.Editors.Instance;
+using TT_Lab.Views;
+using Path = System.IO.Path;
 
 namespace TT_Lab.Tests.Editor;
 
@@ -249,5 +260,150 @@ public sealed class ParticleSystemNameTests : IDisposable
         }
 
         Assert.Equal(["BLAZE"], ((IAsset)cave).GetData<ParticleData>().ParticleInstances.Select(emitter => emitter.Name));
+    }
+
+    // The particles' editor and the default chunk's scene share the data: a rename made in one and saved by the other is followed, the one that
+    // made it closed without saving. Only the renaming document's save followed it, and the other chunks' emitters kept a name nothing had
+    [AvaloniaFact]
+    public async Task ARenameSavedByTheOtherEditorIsFollowed()
+    {
+        var defaults = AddDefaults("FIRE", "SPARK");
+        defaults.Serialize(SerializationFlags.SaveData | SerializationFlags.PreserveData);
+        var cave = AddChunkParticles("Cave Particles", [], ["FIRE"]);
+        Unload(cave);
+        var renaming = new DocumentViewModel(defaults);
+        renaming.Initialize();
+        var saving = new DocumentViewModel(defaults);
+        saving.Initialize();
+        renaming.PropertyGraph.Find("Root.AssetData.ParticleSystems[0].Name")!.SetValue("BLAZE");
+
+        saving.Save();
+        renaming.Close();
+        await ParticleSystemLinks.WhenFollowed();
+
+        Assert.Contains("\"BLAZE\"", File.ReadAllText(defaults.FullDataPath));
+        Assert.Equal(["BLAZE"], ((IAsset)cave).GetData<ParticleData>().ParticleInstances.Select(emitter => emitter.Name));
+        // What the save wrote is what's kept of the file: saved again, nothing is followed again
+        saving.Save();
+        Assert.False(ParticleSystemLinks.IsFollowing);
+        saving.Close();
+    }
+
+    private static async Task WaitUntil(Func<bool> condition)
+    {
+        for (var i = 0; i < 250 && !condition(); i++)
+        {
+            await Task.Delay(20);
+        }
+
+        Assert.True(condition());
+    }
+
+    // The editors closing the project asks about (the shell's), answered Save, with the log panel closing the project clears
+    private sealed class ShellEditors : IDisposable
+    {
+        private readonly Window _window;
+
+        public ShellEditors()
+        {
+            Log.SetViewModel(new LogViewModel(new TestProject.NullEventAggregator(), new ProjectManager(new TestProject.NullEventAggregator())));
+            var resources = new ResourcesEditorsViewModel();
+            Editors = new EditorsViewModel(new ScenesEditorsViewModel(), resources, Locator.Current.GetService<ProjectManager>()!);
+            Editors.AskAboutUnsavedChanges = what =>
+            {
+                Asked.Add(what);
+                return Task.FromResult(UnsavedChangesDialogue.AnswerResult.YES);
+            };
+            // The renames in open chunks go through their documents
+            Locator.CurrentMutable.RegisterConstant(Editors);
+            _window = new Window { Content = new EditorsViewerView { DataContext = resources }, Width = 1200, Height = 800 };
+            _window.Show();
+        }
+
+        public EditorsViewModel Editors { get; }
+        public List<string> Asked { get; } = [];
+
+        public async Task<TabbedEditorViewModel> Open(IAsset asset)
+        {
+            Editors.OpenEditor(asset);
+            var tab = Editors.AllTabs.Single(tab => tab.EditableResource == asset.URI);
+            await WaitUntil(() => tab.IsLoaded);
+            return tab;
+        }
+
+        public void Dispose()
+        {
+            _window.Close();
+            Locator.CurrentMutable.UnregisterAll<EditorsViewModel>();
+            // Clearing the log is posted
+            Pump();
+            Log.SetViewModel(null);
+        }
+    }
+
+    // Saved at the question closing the project asks (opening another project and closing TT Lab ask it too), a default system's rename is
+    // followed before it returns: the follow ran in the background, the project closed under it, and the other chunks' emitters kept a name
+    // nothing had
+    [AvaloniaFact]
+    public async Task ARenameSavedAtTheClosePromptIsFollowedBeforeTheProjectCloses()
+    {
+        var defaults = AddDefaults("FIRE", "SPARK");
+        defaults.Serialize(SerializationFlags.SaveData | SerializationFlags.PreserveData);
+        var cave = AddChunkParticles("Cave Particles", [], ["FIRE"]);
+        Unload(cave);
+        var (cavePath, defaultsPath) = (cave.FullDataPath, defaults.FullDataPath);
+        using var shell = new ShellEditors();
+        var tab = await shell.Open(defaults);
+        tab.Document!.PropertyGraph.Find("Root.AssetData.ParticleSystems[0].Name")!.SetValue("BLAZE");
+
+        Assert.True(await shell.Editors.SaveOrDiscardUnsavedChanges());
+        Locator.Current.GetService<ProjectManager>()!.CloseProject();
+
+        Assert.Single(shell.Asked);
+        Assert.Contains("\"BLAZE\"", File.ReadAllText(defaultsPath));
+        Assert.Contains("\"BLAZE\"", File.ReadAllText(cavePath));
+        Assert.DoesNotContain("\"FIRE\"", File.ReadAllText(cavePath));
+    }
+
+    // A level's scene that's open gets the rename into its document, which closing every editor discarded: it's saved once the follow is done,
+    // the question asked once
+    [AvaloniaFact]
+    public async Task ARenameSavedAtTheClosePromptIsSavedInTheOpenScenes()
+    {
+        var package = _project.Project.GlobalPackagePS2;
+        _project.BuildProjectTree(Path.Combine(package.Name, "levels"), Path.Combine(package.Name, "Graphics"));
+        var crash = _project.Add(new GameObject(), "Crash", 0x0);
+        crash.SetData(new GameObjectData(crash) { Name = "Crash" });
+        var surface = new CollisionSurface { Chunk = "default" };
+        surface.Parameters.Add(CollisionSurface.EditorColorParameter, CollisionSurface.DefaultColors[0]);
+        _project.Add(surface, "Surface", 0x0);
+        var folder = _project.GetFolder(package, "levels");
+        var beach = (LevelChunk)AssetFactory.CreateAsset(typeof(LevelChunk), folder, "beach", string.Empty, TwinIdGeneratorServiceProvider.GetGenerator<LevelChunk>(),
+            asset => AssetDataFactory.CreateChunkData(folder, asset))!;
+        var beachParticles = beach.ChunkResources.Select(_project.AssetManager.GetAsset).OfType<Particles>().Single();
+        ((IAsset)beachParticles).GetData<ParticleData>().ParticleInstances.Add(new ParticleSystemInstance { Name = "FIRE" });
+        Unload(beachParticles);
+        var defaults = AddDefaults("FIRE", "SPARK");
+        defaults.Serialize(SerializationFlags.SaveData | SerializationFlags.PreserveData);
+        var cave = AddChunkParticles("Cave Particles", [], ["FIRE"]);
+        Unload(cave);
+        var (beachPath, cavePath) = (beachParticles.FullDataPath, cave.FullDataPath);
+        using var shell = new ShellEditors();
+        await shell.Open(beach);
+        var tab = await shell.Open(defaults);
+        tab.Document!.PropertyGraph.Find("Root.AssetData.ParticleSystems[0].Name")!.SetValue("BLAZE");
+
+        // Closing the project
+        Assert.True(await shell.Editors.CloseAllEditors());
+        shell.Editors.ClearRecentlyClosed();
+        Locator.Current.GetService<ProjectManager>()!.CloseProject();
+
+        Assert.Single(shell.Asked);
+        Assert.Empty(shell.Editors.AllTabs);
+        foreach (var path in new[] { beachPath, cavePath })
+        {
+            Assert.Contains("\"BLAZE\"", File.ReadAllText(path));
+            Assert.DoesNotContain("\"FIRE\"", File.ReadAllText(path));
+        }
     }
 }

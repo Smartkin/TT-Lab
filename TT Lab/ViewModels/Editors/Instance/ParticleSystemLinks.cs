@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Splat;
 using TT_Lab.AssetData.Instance;
@@ -14,15 +16,35 @@ using TT_Lab.ViewModels.Editors.PropertyGraph;
 namespace TT_Lab.ViewModels.Editors.Instance;
 
 // Emitters name the particle system they play, their chunk's own or the default chunk's, so a renamed system takes its emitters along:
-// the ones in the same particles as part of the rename's step, and once a renamed system of the default chunk is saved, every other
-// chunk's of the version playing it, off the UI thread and logged when done (collision surfaces keep the default chunk's systems by their
-// index). A system put into a list gets a name no other system of its chunk has, nor a default system's for a level's: it would be played
-// in that one's place. A pasted one keeps its name, a level's own version of a default system
+// the ones in the same particles as part of the rename's step, and once the default chunk's particles are saved with a system renamed,
+// whichever editor saves them, every other chunk's of the version playing it, off the UI thread and logged when done (collision surfaces
+// keep the default chunk's systems by their index). A system put into a list gets a name no other system of its chunk has, nor a default
+// system's for a level's: it would be played in that one's place. A pasted one keeps its name, a level's own version of a default system
 internal sealed class ParticleSystemLinks
 {
     private readonly PropertyGraph.PropertyGraph _graph;
-    // The default chunk's systems renamed since the document was last saved, with the name they had then
-    private readonly Dictionary<ParticleSystem, (string Saved, IAsset Owner)> _renamed = new(ReferenceEqualityComparer.Instance);
+
+    // The default chunk's particles' systems with the names their saved file has, kept at the data's first change of their names or list,
+    // whichever document made it (the particles' editor and the default chunk's scene share the data), and kept as any save writes them: a
+    // rename was followed by the renaming document's save alone, the other one's wrote the new name and followed nothing. Kept with the data,
+    // which a document made again over it shares
+    private static readonly ConditionalWeakTable<DefaultParticleData, SavedSystem[]> SavedSystems = new();
+
+    private readonly record struct SavedSystem(ParticleSystem System, string Name);
+
+    // What saves renamed that the document saving them hasn't followed yet (FollowSaved)
+    private static readonly List<(IAsset Defaults, IReadOnlyDictionary<string, string> Renames)> SavedRenames = [];
+
+    // The follows that haven't ended, which closing the project or TT Lab waits for (EditorsViewModel.SaveOrDiscardUnsavedChanges)
+    private static readonly List<Task> Follows = [];
+
+    // A follow's files are renamed after the follow's before it, which can have given them the name it renames
+    private static Task _renamingFiles = Task.CompletedTask;
+
+    static ParticleSystemLinks()
+    {
+        DefaultParticles.DataSaved += Saved;
+    }
 
     public ParticleSystemLinks(PropertyGraph.PropertyGraph graph)
     {
@@ -30,17 +52,97 @@ internal sealed class ParticleSystemLinks
         graph.Changed += OnChanged;
     }
 
-    // The renames of the document made again over the same data, its systems are the same objects
-    public void TakeOver(ParticleSystemLinks other)
+    // The systems renamed since the data was last saved (what's kept of its file against what's written now) are followed once the document
+    // saving them is done. Emitters play the first system of a name, a later one of the name renamed takes nothing along. Data whose systems
+    // never changed is saved as it is
+    private static void Saved(DefaultParticleData data, IReadOnlyList<(ParticleSystem System, string Name)> systems)
     {
-        foreach (var (system, renamed) in other._renamed)
+        if (!SavedSystems.TryGetValue(data, out var before))
         {
-            _renamed.TryAdd(system, renamed);
+            return;
+        }
+
+        SavedSystems.AddOrUpdate(data, systems.Select(saved => new SavedSystem(saved.System, saved.Name)).ToArray());
+        var written = new Dictionary<ParticleSystem, string>(ReferenceEqualityComparer.Instance);
+        foreach (var (system, name) in systems)
+        {
+            written.TryAdd(system, name);
+        }
+
+        var renames = new Dictionary<string, string>(StringComparer.Ordinal);
+        var names = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var (system, name) in before)
+        {
+            if (names.Add(name) && written.TryGetValue(system, out var now) && now != name)
+            {
+                renames[name] = now;
+            }
+        }
+
+        if (renames.Count == 0)
+        {
+            return;
+        }
+
+        lock (SavedRenames)
+        {
+            SavedRenames.Add((data.GetOwner(), renames));
+        }
+    }
+
+    /// <summary>
+    /// A document got saved: the other chunks' emitters of the default chunk's systems its saves renamed follow them, the loaded chunks' right
+    /// away and the files of the others in the background (<see cref="WhenFollowed"/>)
+    /// </summary>
+    public static void FollowSaved()
+    {
+        List<(IAsset Defaults, IReadOnlyDictionary<string, string> Renames)> saved;
+        lock (SavedRenames)
+        {
+            saved = [..SavedRenames];
+            SavedRenames.Clear();
+        }
+
+        foreach (var (defaults, renames) in saved)
+        {
+            var follow = RenameInOtherChunksAsync(defaults, renames);
+            lock (Follows)
+            {
+                Follows.RemoveAll(task => task.IsCompleted);
+                Follows.Add(follow);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Whether a save's follow hasn't ended
+    /// </summary>
+    public static bool IsFollowing
+    {
+        get
+        {
+            lock (Follows)
+            {
+                return Follows.Any(task => !task.IsCompleted);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Ends once the follows of every save so far have: the files they rename written. A follow logs what fails and never throws
+    /// </summary>
+    public static Task WhenFollowed()
+    {
+        lock (Follows)
+        {
+            Follows.RemoveAll(task => task.IsCompleted);
+            return Task.WhenAll(Follows.ToArray());
         }
     }
 
     private void OnChanged(PropertyChange change)
     {
+        KeepSavedSystems(change);
         if (change.IsConsequence)
         {
             return;
@@ -56,16 +158,49 @@ internal sealed class ParticleSystemLinks
         }
     }
 
+    // The first change of a default chunk's particles' systems keeps them as they were before it, an undo's too: as they were saved, which
+    // what's kept stays from then on (a save keeps them as it saved them)
+    private static void KeepSavedSystems(PropertyChange change)
+    {
+        var data = change switch
+        {
+            { Kind: PropertyChangeKind.Value, Node: { Target: ParticleSystem, Metadata.PropertyInfo.Name: nameof(ParticleSystem.Name) } } => DataNodeOf(change.Node)?.GetValue(),
+            { Kind: PropertyChangeKind.Insert, NewValue: ParticleSystem } or { Kind: PropertyChangeKind.Remove, OldValue: ParticleSystem } => change.Node.Parent?.GetValue(),
+            _ => null
+        };
+        if (data is not DefaultParticleData particles || SavedSystems.TryGetValue(particles, out _))
+        {
+            return;
+        }
+
+        var saved = particles.ParticleSystems.Select(system => new SavedSystem(system, system.Name)).ToList();
+        switch (change.Kind)
+        {
+            case PropertyChangeKind.Insert:
+                saved.RemoveAt(change.Index);
+                break;
+            case PropertyChangeKind.Remove:
+                var taken = (ParticleSystem)change.OldValue!;
+                saved.Insert(change.Index, new SavedSystem(taken, taken.Name));
+                break;
+            default:
+                var renamed = saved.FindIndex(entry => ReferenceEquals(entry.System, change.Node.Target));
+                if (renamed >= 0)
+                {
+                    saved[renamed] = saved[renamed] with { Name = change.OldValue as string ?? string.Empty };
+                }
+
+                break;
+        }
+
+        SavedSystems.AddOrUpdate(particles, saved.ToArray());
+    }
+
     private void Renamed(PropertyNode node, ParticleSystem system, string from, string to)
     {
         if (DataNodeOf(node) is not { } dataNode || dataNode.GetValue() is not ParticleData data)
         {
             return;
-        }
-
-        if (data is DefaultParticleData)
-        {
-            _renamed.TryAdd(system, (from, data.GetOwner()));
         }
 
         // Undo and redo put the emitters back with the name
@@ -138,23 +273,12 @@ internal sealed class ParticleSystemLinks
         return null;
     }
 
-    /// <summary>
-    /// The document got saved: the other chunks' emitters of the default chunk's renamed systems follow them
-    /// </summary>
-    public void Saved()
-    {
-        var renamed = _renamed.Where(pair => pair.Key.Name != pair.Value.Saved).GroupBy(pair => pair.Value.Owner)
-            .Select(group => (Defaults: group.Key, Renames: group.ToDictionary(pair => pair.Value.Saved, pair => pair.Key.Name))).ToList();
-        _renamed.Clear();
-        foreach (var (defaults, renames) in renamed)
-        {
-            _ = RenameInOtherChunksAsync(defaults, renames);
-        }
-    }
-
     internal static async Task<int> RenameInOtherChunksAsync(IAsset defaults, IReadOnlyDictionary<string, string> renames)
     {
-        if (Locator.Current.GetService<ProjectManager>()?.OpenedProject is not TT_Lab.Project.Project project)
+        // A rename saved outside a document's save (deleting what the particles link fixes and saves them) waits for the next document's save,
+        // which leaves it once its project closed: another project's chunks of the same packages would follow it
+        if (Locator.Current.GetService<ProjectManager>()?.OpenedProject is not TT_Lab.Project.Project project || !project.AssetManager.DoesAssetExist(defaults.URI)
+            || !ReferenceEquals(project.AssetManager.GetAsset(defaults.URI), defaults))
         {
             return 0;
         }
@@ -162,13 +286,13 @@ internal sealed class ParticleSystemLinks
         var described = string.Join(", ", renames.Select(rename => $"{rename.Key} to {rename.Value}"));
         Log.WriteLine($"Renaming the emitters of the default chunk's particle systems {described} in every chunk...");
         var watch = Stopwatch.StartNew();
-        var chunks = ParticleSystemNames.ParticleAssets(project, project.GetPlatform(defaults.Package)).Where(asset => asset is not DefaultParticles).ToList();
         var emitters = 0;
         var changed = 0;
         // Chunks with a system of their own of a new name, whose renamed emitters play that one in the default chunk's place
         var playOwn = new List<(string Chunk, string Name)>();
         try
         {
+            var chunks = ParticleSystemNames.ParticleAssets(project, project.GetPlatform(defaults.Package)).Where(asset => asset is not DefaultParticles).ToList();
             // An editor's data is changed on the UI thread, through its document when it has one open
             foreach (var asset in chunks.Where(asset => asset.IsLoaded))
             {
@@ -177,27 +301,17 @@ internal sealed class ParticleSystemLinks
                 changed += count > 0 ? 1 : 0;
             }
 
-            var unloaded = chunks.Where(asset => !asset.IsLoaded).ToList();
-            var (fileEmitters, fileChanged, filesPlayingOwn) = await Task.Run(() =>
+            // The files' paths are taken here, nothing in the background looks at the opened project: the project closed (or another opened)
+            // while the files were written, and the rest failed (or went into the other project's files of the same paths)
+            var unloaded = chunks.Where(asset => !asset.IsLoaded).Select(asset => new ChunkFile(asset, asset.Alias, asset.FullDataPath)).ToList();
+            var previous = _renamingFiles;
+            var renaming = Task.Run(async () =>
             {
-                var (renamedEmitters, changedFiles, ownPlayed) = (0, 0, new List<(string Chunk, string Name)>());
-                foreach (var asset in unloaded)
-                {
-                    var data = new ParticleData(asset);
-                    data.Load(asset.FullDataPath);
-                    var count = RenameEmitters(data, renames, (emitter, name) => emitter.Name = name, name => ownPlayed.Add((asset.Alias, name)));
-                    if (count == 0)
-                    {
-                        continue;
-                    }
-
-                    data.Save(asset.FullDataPath);
-                    renamedEmitters += count;
-                    changedFiles++;
-                }
-
-                return (renamedEmitters, changedFiles, ownPlayed);
+                await previous;
+                return RenameInFiles(unloaded, renames);
             });
+            _renamingFiles = renaming.ContinueWith(_ => { }, TaskScheduler.Default);
+            var (fileEmitters, fileChanged, filesPlayingOwn) = await renaming;
             emitters += fileEmitters;
             changed += fileChanged;
             playOwn.AddRange(filesPlayingOwn);
@@ -214,6 +328,29 @@ internal sealed class ParticleSystemLinks
         }
 
         return emitters;
+    }
+
+    private readonly record struct ChunkFile(SerializableAsset Asset, string Alias, string Path);
+
+    private static (int Emitters, int Files, List<(string Chunk, string Name)> PlayOwn) RenameInFiles(IReadOnlyList<ChunkFile> files, IReadOnlyDictionary<string, string> renames)
+    {
+        var (renamedEmitters, changedFiles, ownPlayed) = (0, 0, new List<(string Chunk, string Name)>());
+        foreach (var file in files)
+        {
+            var data = new ParticleData(file.Asset);
+            data.PopulateFrom(File.ReadAllText(file.Path));
+            var count = RenameEmitters(data, renames, (emitter, name) => emitter.Name = name, name => ownPlayed.Add((file.Alias, name)));
+            if (count == 0)
+            {
+                continue;
+            }
+
+            data.SaveTo(file.Path);
+            renamedEmitters += count;
+            changedFiles++;
+        }
+
+        return (renamedEmitters, changedFiles, ownPlayed);
     }
 
     private static int RenameInLoaded(SerializableAsset asset, IReadOnlyDictionary<string, string> renames, Action<string> playsOwn)
