@@ -1286,20 +1286,67 @@ public class Project : IProject
         Log.WriteLine($"Finished packing the archives in {phaseTimer.Elapsed}");
         phaseTimer.Restart();
         Log.WriteLine("Creating PS2 ISO image...");
-        if (!System.IO.Directory.Exists($"{ProjectPath}/build/image"))
+        var imagePath = System.IO.Path.Combine(ProjectPath, "build", "image", $"{Name}.iso");
+        WritePs2Image(DiscContentPathPS2!, imagePath);
+        Log.WriteLine($"Finished creating the ISO in {phaseTimer.Elapsed}! Check the {System.IO.Path.GetDirectoryName(imagePath)} folder!");
+    }
+
+    // Writes the PS2 image of a folder: PS2ImageMaker's native packer, which tests stand in for (their output has no native libraries)
+    internal Action<string, string> MakePs2Image { get; set; } = MakePs2ImageNatively;
+
+    private static void MakePs2ImageNatively(string folder, string imagePath)
+    {
+        var reported = 0;
+        Ps2ImagePacker.Native.Pack(folder, imagePath, progress =>
         {
-            System.IO.Directory.CreateDirectory($"{ProjectPath}/build/image");
-        }
-        var progress = Ps2ImageMaker.StartPacking(DiscContentPathPS2!, $"{ProjectPath}/build/image/{Name}.iso");
-        Thread.Sleep(TimeSpan.FromSeconds(0.5));
-        progress = Ps2ImageMaker.PollProgress();
-        while (!progress.Finished)
+            // Every tenth of the way is enough to see it moving
+            var tenth = (Int32)(progress * 10);
+            if (tenth > reported)
+            {
+                reported = tenth;
+                Log.WriteLine($"ISO creating progress {progress * 100:F0}%...");
+            }
+        });
+    }
+
+    // The image is written next to where it goes and moved there once it's whole: one that isn't made leaves the last one as it was. Linux
+    // puts it in place of an image PCSX2 plays, which goes on reading its own; Windows doesn't while a program has it open
+    private void WritePs2Image(string folder, string imagePath)
+    {
+        System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(imagePath)!);
+        var part = imagePath + ".part";
+        try
         {
-            Thread.Sleep(TimeSpan.FromSeconds(0.5));
-            progress = Ps2ImageMaker.PollProgress();
-            Log.WriteLine($"ISO creating progress {progress.ProgressPercentage * 100:F2}%...");
+            MakePs2Image(folder, part);
         }
-        Log.WriteLine($"Finished creating the ISO in {phaseTimer.Elapsed}! Check the {ProjectPath}/build/image folder!");
+        // A packer that ran away goes on writing it until TT Lab is closed
+        catch (Exception ex) when (ex is not Ps2ImageRunawayException)
+        {
+            DeleteLeftover(part);
+            throw;
+        }
+
+        try
+        {
+            System.IO.File.Move(part, imagePath, true);
+        }
+        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
+        {
+            throw new System.IO.IOException($"The image is made, as {part}, but it couldn't take the place of {imagePath} ({ex.Message}): close what has it open and put it there", ex);
+        }
+    }
+
+    // What a failure leaves behind is a warning, the failure is what's reported
+    private static void DeleteLeftover(string path)
+    {
+        try
+        {
+            System.IO.File.Delete(path);
+        }
+        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
+        {
+            Log.WriteLine($"{path} couldn't be deleted: {ex.Message}", Log.LogType.Warning);
+        }
     }
 
     // Writes the assets' files into the directory, a folder's into a directory of its own in it
