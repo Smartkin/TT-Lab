@@ -12,6 +12,7 @@ namespace TT_Lab.Tests.Tools;
 
 // What Discord shows while TT Lab is used: a line for what's done and one for the editor in front, a timer from when the project's tree
 // showed up, a break after 10 minutes away from TT Lab, and a connection made again 5 minutes after it failed
+[Collection(ProjectCollection.Name)]
 public sealed class DiscordPresenceTests : IDisposable
 {
     private static readonly DateTime Opened = new(2026, 10, 10, 12, 0, 0, DateTimeKind.Utc);

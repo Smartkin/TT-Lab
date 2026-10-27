@@ -52,8 +52,10 @@ jobs:
         working-directory: TT Lab/BlenderTools
         run: python scripts/package_addon.py
 
+      # A test running 20 minutes is taken for a hang (a hang ran until the job's six hours were out and named no test): the test host is
+      # stopped, a mini dump of it and the blame's sequence file naming the test in TestResults
       - name: Test
-        run: dotnet test "TT Lab.Tests/TT Lab.Tests.csproj" -c Release --logger "trx;LogFileName=results.trx" --logger "console;verbosity=normal" --results-directory TestResults
+        run: dotnet test "TT Lab.Tests/TT Lab.Tests.csproj" -c Release --blame-hang-timeout 20m --blame-hang-dump-type mini --logger "trx;LogFileName=results.trx" --logger "console;verbosity=normal" --results-directory TestResults
 
       - name: Upload test results
         if: always()

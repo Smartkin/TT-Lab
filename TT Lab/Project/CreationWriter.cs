@@ -19,8 +19,9 @@ namespace TT_Lab.Project;
 /// let go of on its own. Internal assets (a model's parts, a scenery's meshes) are never written as themselves, the assets owning them
 /// write them into their own files: they get imported when a write first looks them up, and once no write uses them any more they're
 /// kept in their own data file and let go of. The few a write uses again (a rigid model two OGIs look up) load from that file, which
-/// goes when the internal assets do. Which ones those are can't be told beforehand, OGIs looking up an ID find other assets than the
-/// ones the resolvers made for them
+/// goes when the internal assets do, and so do the ones keeping another part in its file needs (a mesh's model). Which ones those are
+/// can't be told beforehand, OGIs looking up an ID find other assets than the ones the resolvers made for them, and a game TT Lab built
+/// draws every mesh of identical models with one of them
 /// </remarks>
 internal sealed class CreationWriter(AssetManager assetManager, MemoryGate gate)
 {
@@ -54,7 +55,9 @@ internal sealed class CreationWriter(AssetManager assetManager, MemoryGate gate)
         Log.WriteLine("Importing and writing assets...");
         var start = DateTime.Now;
         var assets = assetManager.GetAssets().Where(asset => !asset.IsInternal && asset is not Package && !IsWritten(asset)).ToList();
-        Parallel.ForEach(assets, asset =>
+        // Writes wait at the gate while there's no room: unbounded, the pool took them for starved and added a thread every half a second,
+        // and a creation stalled for good with 1,424 of them waiting
+        Parallel.ForEach(assets, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }, asset =>
         {
             gate.Enter();
             try
@@ -154,10 +157,23 @@ internal sealed class CreationWriter(AssetManager assetManager, MemoryGate gate)
         }
         finally
         {
-            // Parts before the parts they're made of, keeping a rigid model in its file writes its model's data
-            foreach (var part in used)
+            ReleaseAll(asset, used);
+        }
+    }
+
+    // Parts before the parts they're made of: keeping a rigid model in its file writes its model's data. Keeping a part can need what the
+    // write let go of already (two meshes a game TT Lab built draws with one of identical models, the second kept after the model): what
+    // keeping a part looks up is used like what the write looks up, read back from the file it was kept in and let go of after the part.
+    // Looked up without that, the model loaded its data the way an asset's own data loads, named after its empty data, from a file nothing
+    // wrote
+    private void ReleaseAll(IAsset written, List<IAsset> used)
+    {
+        for (var i = 0; i < used.Count; i++)
+        {
+            var keeping = new HashSet<IAsset>(ReferenceEqualityComparer.Instance);
+            using (assetManager.HookLookups(found => Use(written, found, used, keeping)))
             {
-                Release(part);
+                Release(used[i]);
             }
         }
     }

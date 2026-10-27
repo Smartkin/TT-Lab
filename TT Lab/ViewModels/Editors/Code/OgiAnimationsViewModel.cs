@@ -188,6 +188,14 @@ public partial class OgiAnimationsViewModel : DocumentDataViewModel<List<Animati
 
     internal void Advance()
     {
+        var elapsed = _clock.Elapsed.TotalSeconds;
+        _clock.Restart();
+        Advance(elapsed);
+    }
+
+    // Playing on by the seconds that went by since the last frame, the tests' own time
+    internal void Advance(double elapsed)
+    {
         var animation = SelectedAnimation;
         if (animation == null)
         {
@@ -208,8 +216,6 @@ public partial class OgiAnimationsViewModel : DocumentDataViewModel<List<Animati
 
         // The game plays an animation for its frames over its rate (ConstructAnimationSettings): looping, a frame each 1/rate and
         // the last one blending into the first, once, its steps between the first and the last frame over that time (SetAnimationData)
-        var elapsed = _clock.Elapsed.TotalSeconds;
-        _clock.Restart();
         var frames = LastFrame + 1;
         var steps = elapsed * animation.DefaultFPS * Speed;
         if (Loop)

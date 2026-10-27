@@ -533,7 +533,9 @@ public sealed class OgiAnimationEditorTests : IDisposable
             OgiAnimationsViewModel.SamplePose(animation, ogi, Frames, loops: true).Joints[0].Translation);
     }
 
-    // Playing on from the last frame went straight back to the first, and the frames' slider ended at the last one
+    // Playing on from the last frame went straight back to the first, and the frames' slider ended at the last one. Half a frame's time
+    // played on: the clock's own time took a whole frame or more on a loaded machine (40 ms at 25 frames a second), and the timer moved the
+    // frame on while the test read it
     [AvaloniaFact]
     public void LoopingPlaysOnPastTheLastFrame()
     {
@@ -547,9 +549,10 @@ public sealed class OgiAnimationEditorTests : IDisposable
 
         player.Frame = player.LastFrame;
         player.PlayAnimation();
-        player.Advance();
+        player.PauseAnimation();
+        player.Advance(0.5 / player.SelectedAnimation!.DefaultFPS);
 
-        Assert.True(player.Frame >= player.LastFrame, $"Playing went back to frame {player.Frame}");
+        Assert.Equal(player.LastFrame + 0.5, player.Frame, 6);
         player.Frame = Frames - 0.5;
         Pump();
         Assert.Equal(Frames - 0.5, player.Frame);

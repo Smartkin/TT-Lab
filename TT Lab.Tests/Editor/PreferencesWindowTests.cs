@@ -14,6 +14,7 @@ namespace TT_Lab.Tests.Editor;
 
 // The Preferences window's sections collapse and stay so in the settings, the Discord section turns Rich Presence on and its dot shows
 // the connection, and PCSX2's extra arguments are typed under Direct Game Launch
+[Collection(ProjectCollection.Name)]
 public sealed class PreferencesWindowTests : IDisposable
 {
     private readonly List<string> _wasCollapsed = Preferences.GetPreference<List<string>>(Preferences.CollapsedPreferenceSections);

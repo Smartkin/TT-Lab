@@ -1,9 +1,12 @@
 using Newtonsoft.Json.Linq;
 using TT_Lab.Project;
+using TT_Lab.Tests.Support;
 
 namespace TT_Lab.Tests.Projects;
 
-// The File menu's Open Recent lists the projects opened last, newest first
+// The File menu's Open Recent lists the projects opened last, newest first. The settings are the process's, so these run apart from the
+// other tests changing them
+[Collection(ProjectCollection.Name)]
 public sealed class RecentProjectsTests
 {
     private static readonly string Projects = Path.Combine(Path.GetTempPath(), "TT Lab Projects");

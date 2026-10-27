@@ -6,6 +6,7 @@ using Avalonia.Input;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using AvaloniaEdit;
+using Dock.Model.Core;
 using Splat;
 using TT_Lab.AssetData.Code;
 using TT_Lab.Assets;
@@ -30,6 +31,8 @@ public sealed class EditorSavingTests : IDisposable
 
     private readonly TestProject _project = new();
     private readonly Folder _folder;
+    // The windows the editors are shown in
+    private readonly List<Window> _windows = [];
 
     public EditorSavingTests()
     {
@@ -49,20 +52,28 @@ public sealed class EditorSavingTests : IDisposable
 
     private static bool IsSaved(IAsset asset, string text) => File.ReadAllText(asset.FullDataPath).Contains(text);
 
-    private static async Task<TabbedEditorViewModel> WaitUntilLoaded(TabbedEditorViewModel tab)
+    // The tab loaded on the task pool and, when its viewer shows it, its document's view laid out in the window, what clicks and keys go to.
+    // A fixed wait for the view was too short on a busy machine
+    private async Task<TabbedEditorViewModel> WaitUntilLoaded(TabbedEditorViewModel tab)
     {
-        for (var i = 0; i < 250 && !tab.IsLoaded; i++)
-        {
-            await Task.Delay(20);
-        }
-
-        Assert.True(tab.IsLoaded);
-        // Lets the views of the loaded document get created
-        await Task.Delay(50);
+        await WaitUntil(() => tab.IsLoaded);
+        Assert.True(tab.IsLoaded, $"{tab.AssetName} didn't load");
+        await WaitUntil(() => IsShown(tab));
+        Assert.True(IsShown(tab), $"{tab.AssetName}'s document isn't shown");
         return tab;
     }
 
-    // Closing a tab waits for its document, which a busy machine gets to after any fixed delay
+    // The tab's editor in a window shows its document's text laid out (the inspector's rows are made while the UI thread is idle), or another
+    // tab of its viewer is the one shown
+    private bool IsShown(TabbedEditorViewModel tab)
+    {
+        return tab.Owner is IDock dock && dock.ActiveDockable != tab
+               || _windows.SelectMany(window => window.GetVisualDescendants().OfType<Control>())
+                   .Where(view => view is ResourceEditorTabView or SceneEditorTabView && view.DataContext == tab && view.IsEffectivelyVisible)
+                   .Any(view => view.GetVisualDescendants().OfType<TextBlock>().Any(text => text.IsEffectivelyVisible && text.Bounds.Width > 0));
+    }
+
+    // What the dispatcher and the task pool get to (a tab loaded, shown or closed, a panel following it), on a busy machine after any fixed delay
     private static async Task WaitUntil(Func<bool> condition)
     {
         for (var i = 0; i < 250 && !condition(); i++)
@@ -73,10 +84,11 @@ public sealed class EditorSavingTests : IDisposable
 
     private static string Dump(UndoHistory.Entry entry) => $"{entry.Description}{(entry.IsOpen ? "*" : "")}{(entry.Children.Count > 0 ? " > [" + string.Join(" | ", entry.Children.Select(Dump)) + "]" : "")}";
 
-    private static Window Show(EditorsViewerViewModel viewer)
+    private Window Show(EditorsViewerViewModel viewer)
     {
         var window = new Window { Content = new EditorsViewerView { DataContext = viewer }, Width = 1200, Height = 800 };
         window.Show();
+        _windows.Add(window);
         return window;
     }
 
@@ -292,6 +304,8 @@ public sealed class EditorSavingTests : IDisposable
         resources.OpenEditor(crash);
         var tab = await WaitUntilLoaded(resources.Tabs.Single());
         var document = tab.Document!;
+        // The panel follows the loaded tab through the dispatcher
+        await WaitUntil(() => history.Document == document);
         Assert.Same(document, history.Document);
         var pack = document.PropertyGraph.Find(BehaviourPack)!;
         foreach (var value in new[] { "FIRST", "SECOND" })
