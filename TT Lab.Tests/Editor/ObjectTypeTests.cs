@@ -211,4 +211,31 @@ public sealed class ObjectTypeTests : IDisposable
         Assert.Equal([1.0f, 50.0f, 10.0f], bareData.FloatProperties);
         Assert.Equal((Enums.InstanceState)0x811E, bareData.StateFlags);
     }
+
+    // An object of state flags and no values gets a template block the game spawns its instances with: they start in its state, not the
+    // type's, placed or linked to it
+    [AvaloniaFact]
+    public void AnObjectsStateWithoutValuesIsWhatItsInstancesStartWith()
+    {
+        var prop = _project.Add(new GameObject(), "Prop", 0x5);
+        CopyInto(prop, new GameObjectData(null!) { Type = ITwinObject.ObjectType.GenericObject, ModelSlots = [new ModelSlot()] });
+        var gull = _project.Add(new GameObject(), "Gull", 0x6);
+        var gullData = CopyInto(gull, new GameObjectData(null!)
+        {
+            Type = ITwinObject.ObjectType.GenericObject, InstanceStateFlags = (Enums.InstanceState)0x1004, ModelSlots = [new ModelSlot()],
+        });
+
+        var placed = _project.Add(new ObjectInstance { Chunk = "levels/test", LayoutID = 0 }, "Placed", 0);
+        var placedData = new ObjectInstanceData(placed);
+        placedData.TakeValuesOf(gullData);
+        Assert.Equal((Enums.InstanceState)0x1004, placedData.StateFlags);
+
+        var linked = _project.Add(new ObjectInstance { Chunk = "levels/test", LayoutID = 0 }, "Linked", 1);
+        var linkedData = new ObjectInstanceData(linked) { ObjectId = prop.URI };
+        linked.SetData(linkedData);
+        var document = new DocumentViewModel(linked);
+        document.Initialize();
+        document.PropertyGraph.Find("Root.AssetData.ObjectId")!.SetValue(gull.URI);
+        Assert.Equal((Enums.InstanceState)0x1004, linkedData.StateFlags);
+    }
 }

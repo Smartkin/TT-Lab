@@ -212,7 +212,9 @@ public class ObjectInstanceData : AbstractAssetData
     /// </summary>
     public void TakeValuesOf(GameObjectData gameObject)
     {
-        var template = gameObject.TaggedProperties.Count > 0 || gameObject.FloatProperties.Count > 0 || gameObject.IntProperties.Count > 0;
+        // An object of state flags and no values has a template block too, spawned instances take its state
+        var template = gameObject.TaggedProperties.Count > 0 || gameObject.FloatProperties.Count > 0 || gameObject.IntProperties.Count > 0 ||
+                       gameObject.InstanceStateFlags != 0;
         var (tagged, floats, ints) = ObjectTypes.Fit(gameObject.Type, [], [], [], gameObject.TaggedProperties.Select(value => value.Bits).ToList(),
             gameObject.FloatProperties, gameObject.IntProperties);
         TaggedProperties = tagged.Select(bits => new TaggedProperty(bits)).ToList();
@@ -507,7 +509,8 @@ public class ObjectInstanceData : AbstractAssetData
             ObjectTypes.SetElements(Node(nameof(IntProperties)), ints);
             if (hadNone)
             {
-                var hasTemplate = template.Count > 0 || gameObject.FloatProperties.Count > 0 || gameObject.IntProperties.Count > 0;
+                var hasTemplate = template.Count > 0 || gameObject.FloatProperties.Count > 0 || gameObject.IntProperties.Count > 0 ||
+                                  gameObject.InstanceStateFlags != 0;
                 Node(nameof(StateFlags))?.SetValue(hasTemplate ? gameObject.InstanceStateFlags : rules.State);
             }
 
