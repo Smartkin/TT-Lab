@@ -32,7 +32,7 @@ public class OgiResolver : AssetResolver<ITwinOGI>
         throw new System.NotImplementedException();
     }
 
-    protected override IAsset CreateAsset(ITwinSection chunk, Package package, ITwinOGI item, bool needVariant, string variant)
+    protected override void ResolveParts(ITwinSection chunk, Package package, ITwinOGI item)
     {
         var graphicsSection = chunk.GetItem<ITwinSection>(Constants.LEVEL_GRAPHICS_SECTION);
         var blendSkinsSection = graphicsSection.GetItem<ITwinSection>(Constants.GRAPHICS_BLEND_SKINS_SECTION);
@@ -52,7 +52,10 @@ public class OgiResolver : AssetResolver<ITwinOGI>
         {
             _rigidModelResolver.CreateAssetFromId(chunk, rigidModelsSection, package, itemRigidModelId);
         }
-        
+    }
+
+    protected override IAsset CreateAsset(ITwinSection chunk, Package package, ITwinOGI item, bool needVariant, string variant)
+    {
         return new OGI(package.URI, needVariant, variant, item.GetID(), RetailNames.Of(DefaultHashes.Ogis, item.GetID(), item.GetName()), item);
     }
 

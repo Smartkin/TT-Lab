@@ -13,14 +13,17 @@ public class SkinResolver(MaterialResolver materialResolver) : AssetResolver<ITw
         throw new System.NotImplementedException();
     }
 
-    protected override IAsset CreateAsset(ITwinSection chunk, Package package, ITwinSkin item, bool needVariant, string variant)
+    protected override void ResolveParts(ITwinSection chunk, Package package, ITwinSkin item)
     {
         var materialSection = chunk.GetItem<ITwinSection>(Constants.LEVEL_GRAPHICS_SECTION).GetItem<ITwinSection>(Constants.GRAPHICS_MATERIALS_SECTION);
         foreach (var subSkin in item.SubSkins)
         {
             materialResolver.CreateAssetFromId(chunk, materialSection, package, subSkin.Material);
         }
-        
+    }
+
+    protected override IAsset CreateAsset(ITwinSection chunk, Package package, ITwinSkin item, bool needVariant, string variant)
+    {
         return new Skin(package.URI, needVariant, variant, item.GetID(), item.GetName(), item) { IsInternal = true };
     }
 }

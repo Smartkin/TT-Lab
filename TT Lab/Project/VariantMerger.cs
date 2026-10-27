@@ -43,7 +43,7 @@ internal sealed class VariantMerger(AssetManager assetManager, string assetsPath
         // A variant can be the version of several chunks, a later chunk with the same content found it by its hash
         var chunksUsing = GetChunksUsing(chunks.Values.Distinct(), variants.Select(variant => variant.URI).ToHashSet());
         var changedChunks = new HashSet<LevelChunk>();
-        var keptTextures = new List<(IAsset Variant, IAsset Base)>();
+        var keptTextures = new List<(Texture Variant, IAsset Base)>();
         var merges = new List<(IAsset Variant, IAsset Base, bool SameData)>();
         // Every variant's asset is known before any values are worked out, and a variant's values are compared with every link to a merged
         // variant leading to its asset, so the order they're merged in changes nothing: worked out as each variant got merged, a value kept
@@ -70,9 +70,9 @@ internal sealed class VariantMerger(AssetManager assetManager, string assetsPath
             var sameData = HaveSameData(@base, variant);
             if (!sameData && !CanHaveValuesOfData(@base))
             {
-                if (variant is Texture)
+                if (variant is Texture texture)
                 {
-                    keptTextures.Add((variant, @base));
+                    keptTextures.Add((texture, @base));
                 }
 
                 continue;
@@ -129,18 +129,33 @@ internal sealed class VariantMerger(AssetManager assetManager, string assetsPath
     /// <summary>
     /// A chunk's own picture of a texture ID other chunks have another picture of stays a variant (the game reuses IDs: a hub's 16x16
     /// texture is a 32x32 one elsewhere), and the materials it shares link to the base. The chunk gets the materials pointing at its
-    /// picture as overrides, or it built with the other chunks' picture
+    /// picture as overrides, or it built with the other chunks' picture, and so does every other chunk of the same picture: the ones that
+    /// found the variant by its content (a disc TT Lab built has the same texture in each), and the ones of a variant of the same picture and
+    /// settings, whose texture only differs in what the tools left in its header (each of 43 of the PAL version's chunks has its own BAC3703A
+    /// of one picture): the first variant of a picture by URI stays, the others are merged into it, their leftovers dropped like those of a
+    /// variant no chunk reaches
     /// </summary>
-    private void LinkMaterialsToTextureVariants(List<(IAsset Variant, IAsset Base)> keptTextures, Dictionary<(LabURI, string), LevelChunk> chunks, HashSet<LevelChunk> changedChunks)
+    private void LinkMaterialsToTextureVariants(List<(Texture Variant, IAsset Base)> keptTextures, Dictionary<(LabURI, string), LevelChunk> chunks, HashSet<LevelChunk> changedChunks)
     {
-        var materials = assetManager.GetAllAssetsOf<Material>().Where(material => !material.IsInternal && !_merged.ContainsKey(material.URI)).ToList();
+        var pictures = new List<(Texture Variant, IAsset Base, List<LevelChunk> Users)>();
         foreach (var (variant, @base) in keptTextures)
         {
-            if (!chunks.TryGetValue((variant.Package, variant.Variation), out var chunk))
+            var users = variant.UnpackedIn.Select(ToVariation).Prepend(variant.Variation).Distinct()
+                .Select(variation => chunks.GetValueOrDefault((variant.Package, variation))).OfType<LevelChunk>().ToList();
+            var picture = pictures.FirstOrDefault(kept => kept.Base == @base && HaveSameData(kept.Variant, variant) && OnlyLeftoversDiffer(kept.Variant, variant));
+            if (picture.Variant == null)
             {
+                pictures.Add((variant, @base, users));
                 continue;
             }
 
+            _merged[variant.URI] = picture.Variant.URI;
+            picture.Users.AddRange(users.Except(picture.Users));
+        }
+
+        var materials = assetManager.GetAllAssetsOf<Material>().Where(material => !material.IsInternal && !_merged.ContainsKey(material.URI)).ToList();
+        foreach (var (variant, @base, users) in pictures.Where(picture => picture.Users.Count > 0))
+        {
             foreach (var material in materials.Where(material => material.References.Contains(@base.URI)))
             {
                 var values = GetLinkOverrideValues(material, @base.URI, variant.URI);
@@ -149,21 +164,31 @@ internal sealed class VariantMerger(AssetManager assetManager, string assetsPath
                     continue;
                 }
 
-                var existing = chunk.Overrides.FirstOrDefault(entry => entry.Asset == material.URI);
-                if (existing == null)
+                foreach (var chunk in users)
                 {
-                    existing = new AssetOverride { Asset = material.URI };
-                    chunk.Overrides.Add(existing);
-                }
+                    var existing = chunk.Overrides.FirstOrDefault(entry => entry.Asset == material.URI);
+                    if (existing == null)
+                    {
+                        existing = new AssetOverride { Asset = material.URI };
+                        chunk.Overrides.Add(existing);
+                    }
 
-                foreach (var (path, value) in values)
-                {
-                    existing.Values[path] = value;
-                }
+                    foreach (var (path, value) in values)
+                    {
+                        existing.Values[path] = value.DeepClone();
+                    }
 
-                changedChunks.Add(chunk);
+                    changedChunks.Add(chunk);
+                }
             }
         }
+    }
+
+    // Whether two textures' metadata only differs in what the tools left in their headers, which the game never reads
+    private bool OnlyLeftoversDiffer(IAsset first, IAsset second)
+    {
+        const string leftovers = nameof(Texture.Leftovers);
+        return GetOverrideValues(first, second, true).Keys.All(path => path == leftovers || path.StartsWith(leftovers + ".", StringComparison.Ordinal));
     }
 
     // The values of the asset's document with every link to the URI pointing at the other one

@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
 using TT_Lab.AssetData;
 using TT_Lab.AssetData.Graphics;
 using TT_Lab.Attributes;
@@ -44,6 +45,10 @@ public class Texture : SerializableAsset
     // Written back as read. The icons of PSM files have zeros where the textures of chunks have an address of the tools' memory
     [JsonProperty]
     public TwinTextureLeftovers? Leftovers { get; set; }
+
+    // The paths of the chunks whose texture of the ID was this picture as the game's files were unpacked, none once read back: a chunk's own
+    // picture of an ID the game reuses is a variant other chunks of the same picture share (VariantMerger links their materials to it)
+    internal HashSet<String> UnpackedIn { get; } = new(StringComparer.Ordinal);
 
     public Texture(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinTexture texture) : base(id, name, package, needVariant, variant)
     {

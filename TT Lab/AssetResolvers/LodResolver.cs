@@ -13,14 +13,17 @@ public class LodResolver(MeshResolver meshResolver) : AssetResolver<ITwinLOD>
         throw new System.NotImplementedException();
     }
 
-    protected override IAsset CreateAsset(ITwinSection chunk, Package package, ITwinLOD item, bool needVariant, string variant)
+    protected override void ResolveParts(ITwinSection chunk, Package package, ITwinLOD item)
     {
         var meshSection = chunk.GetItem<ITwinSection>(Constants.SCENERY_GRAPHICS_SECTION).GetItem<ITwinSection>(Constants.GRAPHICS_MESHES_SECTION);
         foreach (var itemMesh in item.Meshes)
         {
             meshResolver.CreateAssetFromId(chunk, meshSection, package, itemMesh);
         }
+    }
 
+    protected override IAsset CreateAsset(ITwinSection chunk, Package package, ITwinLOD item, bool needVariant, string variant)
+    {
         return new LodModel(package.URI, needVariant, variant, item.GetID(), item.GetName(), item)
         {
             AdditionalPath = ChunkPath,

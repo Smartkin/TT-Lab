@@ -14,14 +14,17 @@ public class MaterialResolver(TextureResolver textureResolver, bool isInScenery)
         throw new System.NotImplementedException();
     }
 
-    protected override IAsset CreateAsset(ITwinSection chunk, Package package, ITwinMaterial item, bool needVariant, string variant)
+    protected override void ResolveParts(ITwinSection chunk, Package package, ITwinMaterial item)
     {
         var textureSection = chunk.GetItem<ITwinSection>((uint)(isInScenery ? Constants.SCENERY_GRAPHICS_SECTION : Constants.LEVEL_GRAPHICS_SECTION)).GetItem<ITwinSection>(Constants.GRAPHICS_TEXTURES_SECTION);
         foreach (var itemShader in item.Shaders.Where(itemShader => itemShader.TextureId != 0))
         {
             textureResolver.CreateAssetFromId(chunk, textureSection, package, itemShader.TextureId);
         }
+    }
 
+    protected override IAsset CreateAsset(ITwinSection chunk, Package package, ITwinMaterial item, bool needVariant, string variant)
+    {
         return new Material(package.URI, needVariant, variant, item.GetID(), item.GetName(), item)
         {
             AdditionalPath = isInScenery ? ChunkPath : string.Empty
