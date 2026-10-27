@@ -909,7 +909,8 @@ public partial class ViewportViewModel : ReactiveObject
     }
 
     /// <summary>
-    /// Takes the chunk's resources out of it, one step to undo
+    /// Takes the chunk's resources out of it and the links of its other resources to them (their lists lose them, single links are
+    /// emptied: <see cref="ChunkLinkFixes"/>), one step to undo
     /// </summary>
     internal void DeleteResources(IReadOnlyList<PropertyNode> properties)
     {
@@ -927,11 +928,16 @@ public partial class ViewportViewModel : ReactiveObject
 
         _renderContext?.QueueRenderAction(() => RemoveViewportObjects(_viewportObjects.Where(viewportObject => properties.Contains(viewportObject.Property)).ToList()));
         var chunkResources = _document.PropertyGraph.Root.Find(nameof(LevelChunk.ChunkResources))!;
-        using var step = properties.Count > 1 ? _document.History.BeginGroup($"Deleted {properties.Count} resources") : null;
+        var removed = properties.Select(property => property.GetValue()).OfType<LabURI>().ToHashSet();
+        // One resource's step is named after taking it out, the links it fixed going along: they stayed, and the chunk didn't build ("isn't
+        // one of the chunk's resources") until every one was taken out by hand
+        using var step = _document.History.BeginGroup(properties.Count > 1 ? $"Deleted {properties.Count} resources" : null);
         foreach (var property in properties)
         {
             chunkResources.RemoveElement(property);
         }
+
+        ChunkLinkFixes.Apply(_document, removed);
     }
 
     /// <summary>
