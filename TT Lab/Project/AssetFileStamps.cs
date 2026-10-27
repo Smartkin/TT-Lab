@@ -14,7 +14,7 @@ internal static class AssetFileStamps
 {
     // File systems keep write times to their clock's tick (Windows' timer, FAT's 2 seconds): another program writing as many bytes right
     // after TT Lab got the same length and time, so a file written this recently is told apart by its content as well
-    private static readonly TimeSpan SameTickWindow = TimeSpan.FromSeconds(2);
+    internal static readonly TimeSpan SameTickWindow = TimeSpan.FromSeconds(2);
 
     public static readonly StringComparer PathComparer = OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
     private static readonly ConcurrentDictionary<string, Stamp> Stamps = new(PathComparer);
