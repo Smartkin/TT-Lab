@@ -83,7 +83,7 @@ public class Texture : SerializableAsset
         return typeof(TextureViewModel);
     }
 
-    protected override string BuildSettings()
+    protected internal override string BuildSettings()
     {
         return JsonConvert.SerializeObject(new { TextureFunction, PixelFormat, GenerateMipmaps, ReservesMemory, Leftovers });
     }

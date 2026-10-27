@@ -108,11 +108,14 @@ public sealed class BuildCache
         return (loaded.Select(asset => asset.URI).Where(uri => !asFiles.ContainsKey(uri)).ToHashSet(), asFiles);
     }
 
-    // Data counted as its files is still the asset's and has no edit made since the build started: what the build read of it is what they have
+    // Data counted as its files is still the asset's, has no edit made since the build started and its file is still the one TT Lab read or
+    // wrote: what the build read of it is what they have. With another program writing the file while the build ran (Blender exporting the
+    // model offline), the chunk built of the data was recorded by the new file and kept once the file was read again
     private bool IsStillAsFiles(IAsset asset)
     {
         return !_asFiles.TryGetValue(asset.URI, out var loaded)
-               || asset is SerializableAsset { LoadedData: { } data } && ReferenceEquals(data, loaded.Data) && data.Edits == loaded.Edits;
+               || asset is SerializableAsset { LoadedData: { } data } && ReferenceEquals(data, loaded.Data) && data.Edits == loaded.Edits
+               && AssetFileStamps.IsAsRecorded(asset.FullDataPath);
     }
 
     public static BuildCache Load(string projectPath, AssetManager assetManager)
@@ -285,8 +288,9 @@ public sealed class BuildCache
     private string GetFingerprint(IAsset asset)
     {
         asset = GetFingerprintedAsset(asset);
-        // Edited or let go of while the build runs (an instance dragged in the open scene, the scene closed), it counts as changed from then on:
-        // what the build read of it can be what no file has, and recorded by its files a chunk was kept with it once the edit was undone
+        // Edited, let go of or its file written by another program while the build runs (an instance dragged in the open scene, the scene
+        // closed), it counts as changed from then on: what the build read of it can be what no file has, and recorded by its files a chunk was
+        // kept with it once the edit was undone
         if (!IsStillAsFiles(asset))
         {
             _asFiles.Remove(asset.URI);

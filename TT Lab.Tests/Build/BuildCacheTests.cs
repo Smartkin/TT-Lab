@@ -221,6 +221,23 @@ public sealed class BuildCacheTests : IDisposable
         Assert.True(Load().IsUpToDate(Key, [_output]));
     }
 
+    // Another program writes the file while the build runs, after the chunk was built of the loaded data (Blender exporting the model offline):
+    // what's recorded after it counts as changed. Recorded by the new file, the chunk built of the data before was kept once the file was read
+    [Fact]
+    public void LoadedDataWhoseFileAnotherProgramWritesWhileTheBuildRunsIsRecordedAsChanged()
+    {
+        using var editors = ShowingEditors.Show(_dependency.URI);
+        _dependency.GetData();
+        var cache = Load();
+        File.WriteAllText(_dependency.FullDataPath, "Hello from another program");
+        cache.Record(Key, [_dependency], [_output]);
+        cache.Save();
+
+        _dependency.UnloadData();
+        _dependency.GetData();
+        Assert.False(Load().IsUpToDate(Key, [_output]));
+    }
+
     // Editors showing an asset, what builds ask (BuildCache.EditorsShowing) until it's disposed. They're asked about every loaded asset
     private sealed class ShowingEditors : IDisposable
     {

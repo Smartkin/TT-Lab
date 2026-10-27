@@ -13,9 +13,9 @@ using Twinsanity.TwinsanityInterchange.Interfaces;
 
 namespace TT_Lab.Tests.Assets;
 
-// The IDs of graphics made of their data (SerializableAsset.GetDataHash) are made of their data files as saved and their salt, whatever is
-// loaded: the loaded data's text was hashed while it was loaded and kept for the session, so a build's IDs followed what editors and scenes
-// had loaded, and an edit saved kept the ID of before. A material's salt is its URI
+// The IDs of graphics made of their data (SerializableAsset.GetDataHash) are made of their data files as saved, what they're built with and
+// their salt, whatever is loaded: the loaded data's text was hashed while it was loaded and kept for the session, so a build's IDs followed
+// what editors and scenes had loaded, and an edit saved kept the ID of before. A material's salt is its URI
 [Collection(ProjectCollection.Name)]
 public sealed class DataHashTests : IDisposable
 {
@@ -123,7 +123,8 @@ public sealed class DataHashTests : IDisposable
     }
 
     // The parts of a picture (a PSM's or a font's PTCs) of the same pixels get IDs of their own, their files' salted with their URIs: the game's
-    // HUD icons crashed when they shared them. Salted whether their data is loaded or not, which the build does before it loads them
+    // HUD icons crashed when they shared them. Salted whether their data is loaded or not, which the build does before it loads them. A
+    // texture's settings come before the salt
     [AvaloniaFact]
     public void PartsOfAPictureOfTheSamePixelsGetIdsOfTheirOwn()
     {
@@ -135,7 +136,7 @@ public sealed class DataHashTests : IDisposable
             material.Serialize(SerializationFlags.SaveData);
             var ptc = _project.Add(new PTC { GlobalPath = "Startup" }, $"Icon {i}");
             ptc.SetData(new PTCData(ptc) { TextureID = texture.URI, MaterialID = material.URI });
-            return (Texture: (IAsset)texture, Material: (IAsset)material, Ptc: (IAsset)ptc);
+            return (Texture: texture, Material: (IAsset)material, Ptc: (IAsset)ptc);
         }).ToList();
         _project.Project.Serialize();
         Assert.Equal(File.ReadAllBytes(parts[0].Texture.FullDataPath), File.ReadAllBytes(parts[1].Texture.FullDataPath));
@@ -146,17 +147,42 @@ public sealed class DataHashTests : IDisposable
         Assert.NotEqual(built[0].MatID, built[1].MatID);
         foreach (var (part, item) in parts.Zip(built))
         {
-            Assert.Equal(HashOfFile(part.Texture.FullDataPath, part.Texture.URI.ToString()), item.TexID);
+            var texture = (IAsset)part.Texture;
+            Assert.Equal(HashOfFile(texture.FullDataPath, part.Texture.BuildSettings() + texture.URI), item.TexID);
             Assert.Equal(HashOfFile(part.Material.FullDataPath, part.Material.URI.ToString()), item.MatID);
-            part.Texture.UnloadData();
-            Assert.False(part.Texture.IsLoaded);
-            Assert.Equal(item.TexID, part.Texture.GetDataHash());
+            texture.UnloadData();
+            Assert.False(texture.IsLoaded);
+            Assert.Equal(item.TexID, texture.GetDataHash());
         }
 
         // Read again, the salt is set before anything is loaded
-        var reopened = Read((Texture)parts[0].Texture);
+        var reopened = Read(parts[0].Texture);
         reopened.HashSalt = reopened.URI;
         Assert.Equal(built[0].TexID, ((IAsset)reopened).GetDataHash());
+    }
+
+    // Textures of one picture built with other settings (a copy without mips) are other items: their IDs have what they're built with after
+    // their files, two of the same picture and settings still share one. Of one file they shared an ID, and a chunk drawing both kept one item
+    [AvaloniaFact]
+    public void TexturesOfOnePictureGetIdsOfWhatTheyreBuiltWith()
+    {
+        var picture = _assets.AddTexture("Picture", 0xFF305070);
+        var copy = _assets.AddTexture("Picture copy", 0xFF305070);
+        picture.Serialize(SerializationFlags.SaveData | SerializationFlags.PreserveData);
+        copy.Serialize(SerializationFlags.SaveData | SerializationFlags.PreserveData);
+        // Written a while ago: the hashes are kept while the files stay as they are
+        File.SetLastWriteTimeUtc(picture.FullDataPath, DateTime.UtcNow.AddMinutes(-5));
+        File.SetLastWriteTimeUtc(copy.FullDataPath, DateTime.UtcNow.AddMinutes(-5));
+        Assert.Equal(File.ReadAllBytes(picture.FullDataPath), File.ReadAllBytes(copy.FullDataPath));
+        Assert.Equal(((IAsset)picture).GetDataHash(), ((IAsset)copy).GetDataHash());
+        Assert.Equal(HashOfFile(copy.FullDataPath, copy.BuildSettings()), ((IAsset)copy).GetDataHash());
+
+        copy.GenerateMipmaps = !copy.GenerateMipmaps;
+        Assert.NotEqual(((IAsset)picture).GetDataHash(), ((IAsset)copy).GetDataHash());
+        Assert.Equal(HashOfFile(copy.FullDataPath, copy.BuildSettings()), ((IAsset)copy).GetDataHash());
+
+        copy.GenerateMipmaps = !copy.GenerateMipmaps;
+        Assert.Equal(((IAsset)picture).GetDataHash(), ((IAsset)copy).GetDataHash());
     }
 
     // A chunk's view of a material shares its asset's file, which the chunk's own values aren't in, and an internal asset has no file of its
