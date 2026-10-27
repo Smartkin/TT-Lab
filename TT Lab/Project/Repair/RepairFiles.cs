@@ -3,11 +3,11 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using TT_Lab.Assets;
-using TT_Lab.Project.Migration;
 
 namespace TT_Lab.Project.Repair;
 
@@ -22,13 +22,16 @@ internal sealed class RepairFiles
     private const string BuiltInUris = "res://__GLOBAL__/";
 
     private readonly Dictionary<string, Entry> _assets;
+    // The URIs TT Lab knows a command sequence's packs by, which objects' slots link and no file has
+    private readonly HashSet<string> _packs;
     private readonly Dictionary<string, JObject> _json = new(StringComparer.Ordinal);
     private readonly HashSet<string> _changedJson = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _texts = new(StringComparer.Ordinal);
-    private readonly List<(string Source, string Destination)> _copies = [];
+    // Another folder's files put into this one, read as they're copied: the shadow goes before anything is written
+    private readonly List<(string Path, byte[] Content)> _copies = [];
 
-    // An asset by its metadata file, its type the class without its namespace
-    public sealed record Entry(string Uri, string Path, string Type, UInt32 Id, string Variation, string Package, string Alias)
+    // An asset by its metadata file, its type the class without its namespace, and the URIs of a command sequence's packs
+    public sealed record Entry(string Uri, string Path, string Type, UInt32 Id, string Variation, string Package, string Alias, IReadOnlyList<string> Packs)
     {
         public string Name => System.IO.Path.GetFileNameWithoutExtension(Path);
 
@@ -55,14 +58,16 @@ internal sealed class RepairFiles
         // A copy of a file (a file manager's) has its URI too: the first by path is the asset, like opening the project takes it
         _assets = read.OrderBy(entry => entry.Path, StringComparer.Ordinal).GroupBy(entry => entry.Uri, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+        _packs = _assets.Values.SelectMany(entry => entry.Packs).ToHashSet(StringComparer.Ordinal);
     }
 
     public string AssetsFolder { get; }
 
     public Entry? Find(string? uri) => uri != null && _assets.TryGetValue(uri, out var entry) ? entry : null;
 
-    // Whether a link leads somewhere: an asset of the project, none, or one of TT Lab's own (its placeholder textures and shapes)
-    public bool Has(string uri) => uri == EmptyUri || uri.StartsWith(BuiltInUris, StringComparison.Ordinal) || _assets.ContainsKey(uri);
+    // Whether a link leads somewhere: an asset of the project, a command sequence's pack, none, or one of TT Lab's own (its placeholder textures
+    // and shapes)
+    public bool Has(string uri) => uri == EmptyUri || uri.StartsWith(BuiltInUris, StringComparison.Ordinal) || _assets.ContainsKey(uri) || _packs.Contains(uri);
 
     public IEnumerable<Entry> OfType(string type, IReadOnlySet<string> packages)
     {
@@ -80,8 +85,9 @@ internal sealed class RepairFiles
             }
 
             var typeName = ((string)type!).Split(',')[0];
+            var packs = json["BehaviourGraphLinks"] is JObject links ? links.Properties().Select(link => UriOf(link.Value)).Where(link => link.Length > 0).ToList() : [];
             return new Entry((string)uri!, file, typeName[(typeName.LastIndexOf('.') + 1)..], json["ID"]?.Type == JTokenType.Integer ? (UInt32)json["ID"]! : 0,
-                (string?)json["Variation"] ?? string.Empty, (string?)json["Package"]?["_uri"] ?? string.Empty, (string?)json["Alias"] ?? string.Empty);
+                (string?)json["Variation"] ?? string.Empty, (string?)json["Package"]?["_uri"] ?? string.Empty, (string?)json["Alias"] ?? string.Empty, packs);
         }
         catch (Exception exception) when (exception is JsonException or IOException or UnauthorizedAccessException or InvalidCastException or OverflowException)
         {
@@ -154,13 +160,12 @@ internal sealed class RepairFiles
     // Copies another folder's asset into this project at the same place, its metadata and its data file
     public Entry Copy(RepairFiles source, Entry entry, string dataExtension)
     {
-        var relative = System.IO.Path.GetRelativePath(source.AssetsFolder, entry.Path);
-        var destination = System.IO.Path.Combine(AssetsFolder, relative);
-        _copies.Add((entry.Path, destination));
+        var destination = System.IO.Path.Combine(AssetsFolder, System.IO.Path.GetRelativePath(source.AssetsFolder, entry.Path));
+        _copies.Add((destination, File.ReadAllBytes(entry.Path)));
         var data = entry.DataFile(dataExtension);
         if (File.Exists(data))
         {
-            _copies.Add((data, System.IO.Path.Combine(AssetsFolder, System.IO.Path.GetRelativePath(source.AssetsFolder, data))));
+            _copies.Add((System.IO.Path.Combine(AssetsFolder, System.IO.Path.GetRelativePath(source.AssetsFolder, data)), File.ReadAllBytes(data)));
         }
 
         var copied = entry with { Path = destination };
@@ -168,33 +173,21 @@ internal sealed class RepairFiles
         return copied;
     }
 
-    // Writes what changed, every file the way TT Lab writes it, and only what's another text than the file's
-    public void Write(MigrationContext context)
+    // The files whose content changes and their content, every file the way TT Lab writes it
+    public List<(string Path, byte[] Content)> Changes()
     {
-        foreach (var (source, destination) in _copies)
+        var changes = _copies.Where(copy => !File.Exists(copy.Path) || !File.ReadAllBytes(copy.Path).AsSpan().SequenceEqual(copy.Content)).ToList();
+        var texts = _changedJson.Order(StringComparer.Ordinal).Select(path => (Path: path, Text: _json[path].ToString(Formatting.Indented)))
+            .Concat(_texts.OrderBy(pair => pair.Key, StringComparer.Ordinal).Select(pair => (Path: pair.Key, Text: pair.Value)));
+        foreach (var (path, text) in texts)
         {
-            context.Copy(source, destination);
+            if (!File.Exists(path) || File.ReadAllText(path) != text)
+            {
+                changes.Add((path, Encoding.UTF8.GetBytes(text)));
+            }
         }
 
-        foreach (var path in _changedJson.Order(StringComparer.Ordinal))
-        {
-            WriteIfChanged(context, path, _json[path].ToString(Formatting.Indented));
-        }
-
-        foreach (var (path, text) in _texts.OrderBy(pair => pair.Key, StringComparer.Ordinal))
-        {
-            WriteIfChanged(context, path, text);
-        }
-    }
-
-    private static void WriteIfChanged(MigrationContext context, string path, string text)
-    {
-        if (File.Exists(path) && File.ReadAllText(path) == text)
-        {
-            return;
-        }
-
-        context.WriteAllText(path, text);
+        return changes;
     }
 
     // Sets a property of the JSON where the template has it among the properties both have, the way TT Lab would write it

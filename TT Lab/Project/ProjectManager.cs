@@ -686,10 +686,16 @@ namespace TT_Lab.Project
         internal Func<RepairDiscDialogue.Request, Task<string?>> AskForRepairDisc { get; set; } = RepairDiscDialogue.Ask;
 
         /// <summary>
-        /// Asks whether a folder of a PS2 archive TT Lab doesn't know is the game's original disc, tests answer it themselves
+        /// Asks whether a folder of a PS2 archive TT Lab doesn't know, or of another release than the project's disc folder's, is the original
+        /// disc of the game the project was made from, tests answer it themselves
         /// </summary>
         internal Func<string, Task<bool>> ConfirmOriginalDisc { get; set; } = async question =>
-            await ChoiceDialogue.Ask("Game files TT Lab doesn't know", question, ["It's the Original Disc"]) == 0;
+            await ChoiceDialogue.Ask("Game files to check", question, ["It's the Original Disc"]) == 0;
+
+        /// <summary>
+        /// The PS2 releases' archives the repair takes without asking, tests give their own
+        /// </summary>
+        internal IReadOnlyList<RepairDiscs.Release> KnownPs2Archives { get; set; } = RepairDiscs.KnownPs2Archives;
 
         /// <summary>
         /// Tells what the repair did and left to the user, tests take it themselves
@@ -698,9 +704,15 @@ namespace TT_Lab.Project
             Dispatcher.UIThread.Post(() => new MessageDialogue("Game packages repaired", summary).ShowDialog(MiscUtils.GetMainWindow()));
 
         // The versions whose packages 1.1.0's (or 1.0.0's) unpack made get the repair offered once the project is migrated and has its packages,
-        // before it's read: Not Now asks again next time, Don't Ask Again never (the Project menu repairs whatever the marker says)
-        private void RepairIfAsked(string projectFile, bool asked)
+        // before it's read: Not Now asks again next time, Don't Ask Again never (the Project menu repairs whatever the marker says). Only a
+        // project of this TT Lab's version, one of another the migration left alone isn't opened
+        internal void RepairIfAsked(string projectFile, bool asked)
         {
+            if (ProjectMigration.ReadVersion(projectFile) != Project.CURRENT_VERSION)
+            {
+                return;
+            }
+
             var versions = asked ? RetailRepair.UnpackedVersions(projectFile) : RetailRepair.VersionsToOffer(projectFile);
             if (versions.Count == 0)
             {
@@ -747,26 +759,29 @@ namespace TT_Lab.Project
 
             try
             {
-                TellRepaired(RepairSummary(stored.Name, RetailRepair.Repair(projectFile, versions, discs)));
+                TellRepaired(RepairSummary(stored.Name, RetailRepair.Repair(projectFile, versions, discs, KnownPs2Archives)));
             }
             catch (Exception ex)
             {
+                // What failed before the repair wrote anything isn't one of its own failures, which say how they leave the files
+                var failure = ex is RetailRepair.RepairFailedException ? ex.Message : $"Nothing of the project was changed: {ex.Message}";
                 Log.WriteLine(ex.ToString(), Log.LogType.Debug);
-                Log.WriteLine($"The repair of {stored.Name}'s game packages failed: {ex.Message}", Log.LogType.Error);
-                TellRepaired($"The repair of {stored.Name}'s game packages failed, the project's files are as they were: {ex.Message}");
+                Log.WriteLine($"The repair of {stored.Name}'s game packages failed. {failure}", Log.LogType.Error);
+                TellRepaired($"The repair of {stored.Name}'s game packages failed. {failure}");
             }
         }
 
         // The folder of the version's game files the repair takes: the project's disc folder or the preferences' while it has a release's archive
-        // (1.1.0's builds wrote over the project's PS2 archive), else one the user picks, a PS2 archive TT Lab doesn't know taken once they say
-        // it's the original disc. None when they pick none
+        // (1.1.0's builds wrote over the project's PS2 archive) of the release the project's disc folder has, else one the user picks, a PS2
+        // archive TT Lab doesn't know or files of another release (or the project's can't be read) taken once they say it's the original disc
+        // of the project's game: preferences of PAL 1.01 repaired an NTSC project with PAL's values. None when they pick none
         private RetailRepair.Disc? FindRepairDisc(Project stored, Project.GamePlatform platform)
         {
-            var candidates = new[] { platform == Project.GamePlatform.Xbox ? stored.DiscContentPathXbox : stored.DiscContentPathPS2, PreferredDiscFolder(platform) }
-                .OfType<string>().Where(folder => !string.IsNullOrWhiteSpace(folder)).Distinct().ToList();
+            var projectDisc = platform == Project.GamePlatform.Xbox ? stored.DiscContentPathXbox : stored.DiscContentPathPS2;
+            var candidates = new[] { projectDisc, PreferredDiscFolder(platform) }.OfType<string>().Where(folder => !string.IsNullOrWhiteSpace(folder)).Distinct().ToList();
             foreach (var candidate in candidates)
             {
-                if (RepairDiscs.Of(platform, candidate).Verdict == RepairDiscs.Verdict.Known)
+                if (RepairDiscs.Of(platform, candidate, KnownPs2Archives).Verdict == RepairDiscs.Verdict.Known && RepairDiscs.ProjectsRelease(platform, candidate, projectDisc).Same == true)
                 {
                     return new RetailRepair.Disc(candidate);
                 }
@@ -783,29 +798,29 @@ namespace TT_Lab.Project
                     return null;
                 }
 
-                var check = RepairDiscs.Of(platform, picked);
-                if (check.Verdict == RepairDiscs.Verdict.Known)
+                suggestion = picked;
+                var check = RepairDiscs.Of(platform, picked, KnownPs2Archives);
+                if (check.Verdict == RepairDiscs.Verdict.Missing)
+                {
+                    problem = check.Text;
+                    continue;
+                }
+
+                var release = RepairDiscs.ProjectsRelease(platform, picked, projectDisc);
+                if (check.Verdict == RepairDiscs.Verdict.Known && release.Same == true)
                 {
                     return new RetailRepair.Disc(picked);
                 }
 
-                if (check.Verdict == RepairDiscs.Verdict.Unknown)
+                var reasons = new[] { check.Verdict == RepairDiscs.Verdict.Unknown ? check.Text : null, release.Same != true ? release.Text : null }.OfType<string>();
+                var question = $"{string.Join("\n\n", reasons)}\n\nIs {picked} a copy of the original disc of the game the project was made from, never built into? Repaired from " +
+                               "a disc TT Lab built, the project takes what the build made, and from another release that release's values.";
+                if (Dispatcher.UIThread.InvokeAsync(() => ConfirmOriginalDisc(question)).GetAwaiter().GetResult())
                 {
-                    var question = $"{check.Text}\n\nIs {picked} a copy of the game's original disc, never built into? Repaired from a disc TT Lab built, the project takes " +
-                                   "what the build made.";
-                    if (Dispatcher.UIThread.InvokeAsync(() => ConfirmOriginalDisc(question)).GetAwaiter().GetResult())
-                    {
-                        return new RetailRepair.Disc(picked, true);
-                    }
-
-                    problem = "The folder's archive wasn't taken for the original disc's, pick the folder of the game's original files.";
-                }
-                else
-                {
-                    problem = check.Text;
+                    return new RetailRepair.Disc(picked, true);
                 }
 
-                suggestion = picked;
+                problem = "The folder wasn't taken for the original disc of the project's game, pick the folder of the game's original files.";
             }
         }
 
