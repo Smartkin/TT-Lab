@@ -98,6 +98,10 @@ public class ChunkLink : IDocumentModel
         vec4 Corner(float x, float y) => new(position.x + x, position.y + y, position.z, 1.0f);
     }
 
+    // The object matrix the game gets: the link's own while it's its chunk matrix's inverse (the game's are, but for rounding), else the chunk
+    // matrix's inverse. The inspector keeps the two so, the viewport's menu placed links with their chunk matrix as their object matrix
+    public Matrix4 WrittenObjectMatrix(out bool isOwn) => InverseMatrices.Written(ObjectMatrix, ChunkMatrix, out isOwn);
+
     // The linked chunk is the one of the same version of the game, both have chunks at the same paths
     public ChunkLink(TwinChunkLink link, LabURI package)
     {

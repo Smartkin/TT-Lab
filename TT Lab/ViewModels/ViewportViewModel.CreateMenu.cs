@@ -398,10 +398,10 @@ public partial class ViewportViewModel
     }
 
     /// <summary>
-    /// A new link of the chunk at the cursor, to the first other chunk of its package until another is picked, its load wall standing on
-    /// the cursor
+    /// A new link of the chunk at the position (the cursor's by default), to the first other chunk of its package until another is picked,
+    /// its load wall standing on the position
     /// </summary>
-    internal PropertyNode? CreateChunkLink()
+    internal PropertyNode? CreateChunkLink(vec3? at = null)
     {
         var chunk = (LevelChunk)_document!.DocumentModel;
         var assetManager = AssetManager.Get();
@@ -409,9 +409,11 @@ public partial class ViewportViewModel
             .Where(other => other.URI != chunk.URI && other.Name != "default")
             .OrderBy(other => other.Package == chunk.Package ? 0 : 1).ThenBy(other => other.URI.ToString(), StringComparer.Ordinal)
             .FirstOrDefault();
-        var position = NewResourcePosition();
-        var at = mat4.Translate(position).ToTwin();
-        var link = new ChunkLink { Path = target?.URI ?? LabURI.Empty, ObjectMatrix = at, ChunkMatrix = at, LoadingWall = ChunkLink.WallAt(position) };
+        var position = at ?? NewResourcePosition();
+        var place = mat4.Translate(position);
+        // The object matrix is the chunk matrix's inverse, what the inspector keeps it: it was the chunk matrix, and what crossed the link got
+        // twice its offset away
+        var link = new ChunkLink { Path = target?.URI ?? LabURI.Empty, ObjectMatrix = place.Inverse.ToTwin(), ChunkMatrix = place.ToTwin(), LoadingWall = ChunkLink.WallAt(position) };
         return CreateElement(typeof(ChunkLinks), $"AssetData.{nameof(ChunkLinksData.Links)}", link, "Placed a chunk link");
     }
 

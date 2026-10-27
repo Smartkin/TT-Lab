@@ -76,11 +76,21 @@ public class ChunkLinksData : AbstractAssetData
         foreach (var link in written)
         {
             writer.Write(link.LoadsWithoutPlayer);
-            writer.Write(assetManager.GetAsset<LevelChunk>(link.Path).GetChunkPath().ToLowerInvariant());
+            var linked = assetManager.GetAsset<LevelChunk>(link.Path).GetChunkPath();
+            writer.Write(linked.ToLowerInvariant());
             writer.Write((Byte)link.Visibility);
             writer.Write(link.IsLoadWallActive);
             writer.Write(link.KeepLoaded);
-            link.ObjectMatrix.Write(writer);
+            // The game takes what crosses the link and the camera into the linked chunk by it: an object matrix that isn't the inverse put
+            // Crash twice the link's offset away
+            link.WrittenObjectMatrix(out var isOwn).Write(writer);
+            if (!isOwn)
+            {
+                Log.WriteLine($"The link of {factory.ChunkPath ?? Owner.Name} to {linked} has an object matrix that isn't its chunk matrix's inverse (links placed from " +
+                              "the viewport's menu got their chunk matrix), the inverse is written: move the linked chunk in the scene or change its chunk matrix in the " +
+                              "inspector to store it", Log.LogType.Warning);
+            }
+
             link.ChunkMatrix.Write(writer);
             
             var hasValidLoadWall = link.LoadingWall.ToGlm() != mat4.Zero;
