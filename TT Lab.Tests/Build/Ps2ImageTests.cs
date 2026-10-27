@@ -96,6 +96,28 @@ public sealed class Ps2ImageTests : IDisposable
         Assert.False(imaged);
     }
 
+    // The data goes in first: a header that can't be moved over the old one (Windows, while another program has it open) left the new data
+    // with the old header
+    [Fact]
+    public void AHeaderThatCantBeMovedInLeavesTheOldDataWithIt()
+    {
+        AddDisc();
+        var data = File.ReadAllBytes(Path.Combine(Disc, "Crash6", "Crash.BD"));
+        AddBuiltFile("Startup/Default.rm2", [1, 2, 3]);
+        var imaged = false;
+        Project.MakePs2Image = (_, _) => imaged = true;
+        // Nothing can be moved over a folder
+        File.Delete(Path.Combine(Disc, "Crash6", "Crash.BH"));
+        Directory.CreateDirectory(Path.Combine(Disc, "Crash6", "Crash.BH", "in use"));
+
+        var failure = Record.Exception(() => Project.CreatePs2ArchivesAndIso());
+
+        Assert.True(failure is IOException or UnauthorizedAccessException, failure?.ToString());
+        Assert.Equal(data, File.ReadAllBytes(Path.Combine(Disc, "Crash6", "Crash.BD")));
+        Assert.Equal(["Crash.BD", "Crash.BH"], NamesIn(Path.Combine(Disc, "Crash6")));
+        Assert.False(imaged);
+    }
+
     [Fact]
     public void AnImageThatIsntMadeLeavesTheLastOne()
     {

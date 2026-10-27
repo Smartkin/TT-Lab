@@ -1293,6 +1293,7 @@ public class Project : IProject
         var dataPath = FileNamedLike(crash6, "Crash.BD");
         var headerPart = headerPath + ".tmp";
         var dataPart = dataPath + ".tmp";
+        var oldData = dataPath + ".old";
         try
         {
             using (var header = new System.IO.FileStream(headerPart, System.IO.FileMode.Create, System.IO.FileAccess.Write))
@@ -1301,8 +1302,31 @@ public class Project : IProject
                 PS2BD.WriteArchive(archivesPath, header, data);
             }
 
-            System.IO.File.Move(dataPart, dataPath, true);
-            System.IO.File.Move(headerPart, headerPath, true);
+            // The old data stays aside until the new header is in: a header that couldn't be moved (Windows, while another program has it
+            // open) left the new data with the old header, whose records point anywhere in it
+            var hadData = System.IO.File.Exists(dataPath);
+            if (hadData)
+            {
+                System.IO.File.Move(dataPath, oldData, true);
+            }
+
+            System.IO.File.Move(dataPart, dataPath);
+            try
+            {
+                System.IO.File.Move(headerPart, headerPath, true);
+            }
+            catch
+            {
+                System.IO.File.Move(dataPath, dataPart, true);
+                if (hadData)
+                {
+                    System.IO.File.Move(oldData, dataPath);
+                }
+
+                throw;
+            }
+
+            DeleteLeftover(oldData);
         }
         catch
         {
