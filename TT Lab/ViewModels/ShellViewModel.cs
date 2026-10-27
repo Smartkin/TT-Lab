@@ -221,6 +221,24 @@ public class ShellViewModel : Screen, ILabManager
         _projectManager.CloseProject();
     }
 
+    // Project > Repair from the Game's Discs: the project closes the way closing does, its game packages get repaired and it opens again
+    public async Task RepairFromDiscs()
+    {
+        if (_projectManager.OpenedProject is not { } project)
+        {
+            return;
+        }
+
+        var folder = project.ProjectPath;
+        if (!await EditorsViewModel.CloseAllEditors())
+        {
+            return;
+        }
+
+        EditorsViewModel.ClearRecentlyClosed();
+        _projectManager.OpenProject(folder, repair: true);
+    }
+
     public async Task OpenProject()
     {
         var proj = await MiscUtils.GetFileFromDialogueAsync("Choose TT Lab Project...", "TT Lab Project Files", ["*.tson", "*.xson"], Preferences.GetPreference<string>(Preferences.ProjectsPath));

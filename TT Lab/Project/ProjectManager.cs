@@ -19,6 +19,7 @@ using TT_Lab.Command;
 using TT_Lab.Controls;
 using TT_Lab.Project.Messages;
 using TT_Lab.Project.Migration;
+using TT_Lab.Project.Repair;
 using TT_Lab.Rendering;
 using TT_Lab.Util;
 using TT_Lab.ViewModels;
@@ -272,6 +273,8 @@ namespace TT_Lab.Project
 
                     Log.WriteLine("Serializing assets...");
                     OpenedProject.Serialize(writer.IsWritten); // Call to serialize the asset list and chunk list
+                    // Made without 1.1.0's unpack's faults, the repair is never offered
+                    RepairMarker.WriteForNewProject(OpenedProject.ProjectPath);
                 }
 
                 Log.WriteLine("Post processing assets...");
@@ -335,7 +338,9 @@ namespace TT_Lab.Project
             Log.WriteLine($"Merged {merged} variants into their assets as chunks' overrides in {DateTime.Now - start}");
         }
 
-        public void OpenProject(string path)
+        /// <param name="repair">Repairs the game's packages from the game's discs first, whatever the project's marker says (the Project menu's
+        /// Repair from the Game's Discs)</param>
+        public void OpenProject(string path, bool repair = false)
         {
             if (OpenedProject != null)
             {
@@ -383,6 +388,7 @@ namespace TT_Lab.Project
                             return;
                         }
 
+                        RepairIfAsked(prFile, repair);
                         Project.Deserialize(prFile);
                         Log.WriteLine($"Building project tree...");
                         BuildProjectTree();
@@ -498,23 +504,76 @@ namespace TT_Lab.Project
 
         // The game's packages of the versions the project lacks, unpacked the way creating a project unpacks them: the game's files copied into
         // the project's disc folder, the assets of the versions given read from them, the packages of a version not given made empty. The
-        // project's own packages and its file stay as they are, but for where the game's files are now
+        // project's own packages and its file stay as they are, but for where the game's files are now. The Xbox version is read in the order
+        // the project's packages were made in, which its own packages' links are to: 1.1.0's unless the marker says otherwise
         private void UnpackRetailAssets(Project stored, RetailAssets.Check check, IReadOnlyDictionary<Project.GamePlatform, string> folders)
         {
             var start = DateTime.Now;
             var ps2 = folders.GetValueOrDefault(Project.GamePlatform.PS2);
             var xbox = folders.GetValueOrDefault(Project.GamePlatform.Xbox);
             var missing = check.Versions.Where(version => version.Missing).Select(version => version.Platform).ToHashSet();
-            var made = missing.SelectMany(platform => new[] { RetailAssets.GlobalPackageName(platform, stored.Name), RetailAssets.PackageName(platform, stored.Name) }).ToHashSet();
             Log.WriteLine($"{stored.Name} doesn't have the game's packages, unpacking {string.Join(" and ", folders.Keys.Select(RetailAssets.Describe))} assets from "
                           + string.Join(" and ", folders.Values));
+            var marker = RepairMarker.Read(stored.ProjectPath);
+            var xboxOldFileOrder = !marker.HasNewXboxFileOrder;
             var project = new Project(stored.Name, stored.Path, ps2, xbox) { Location = stored.Location };
+            UnpackGamePackages(project, missing, folders.Count > 0, xboxOldFileOrder);
+            if (ps2 != null)
+            {
+                stored.DiscContentPathPS2 = project.DiscContentPathPS2;
+            }
+
+            if (xbox != null)
+            {
+                stored.DiscContentPathXbox = project.DiscContentPathXbox;
+            }
+
+            stored.WriteProjectFile();
+            // Unpacked again, they have none of 1.1.0's unpack's faults
+            foreach (var platform in folders.Keys)
+            {
+                var entry = marker.For(platform);
+                entry.Repair = RepairState.NotNeeded;
+                if (platform == Project.GamePlatform.Xbox)
+                {
+                    entry.NewFileOrder = !xboxOldFileOrder;
+                }
+            }
+
+            marker.Write(stored.ProjectPath);
+            MiscUtils.CollectReleasedMemory();
+            Log.WriteLine($"Unpacked the game's assets in {DateTime.Now - start}");
+        }
+
+        /// <summary>
+        /// The game's packages of the versions unpacked again into another folder for the repair (<see cref="RetailRepair"/>), the discs read
+        /// where they are: nothing of the project's or the discs' is written. The Xbox version in 1.1.0's order unless the project's packages
+        /// were made in the new one, or the assets the default chunk shares with levels get other URIs than the project's
+        /// </summary>
+        internal void UnpackShadow(Project stored, IReadOnlyDictionary<Project.GamePlatform, string> discs, string folder, bool xboxOldFileOrder)
+        {
+            var shadow = new Project(stored.Name, Path.GetDirectoryName(Path.GetFullPath(folder))!, discs.GetValueOrDefault(Project.GamePlatform.PS2),
+                discs.GetValueOrDefault(Project.GamePlatform.Xbox)) { Location = folder };
+            UnpackGamePackages(shadow, discs.Keys.ToHashSet(), false, xboxOldFileOrder);
+            MiscUtils.CollectReleasedMemory();
+        }
+
+        // The game's packages of the missing versions made in the project's folder the way creating a project makes them: a version the project
+        // has a disc folder of is unpacked from it (copied into the project's own disc folder first when asked), the others made empty. The
+        // packages it doesn't make are left as they are. The project is the opened one meanwhile, the one that was is again once it's done
+        private void UnpackGamePackages(Project project, IReadOnlySet<Project.GamePlatform> missing, bool copyDisc, bool xboxOldFileOrder)
+        {
+            var made = missing.SelectMany(platform => new[] { RetailAssets.GlobalPackageName(platform, project.Name), RetailAssets.PackageName(platform, project.Name) }).ToHashSet();
+            var hasPs2 = !string.IsNullOrEmpty(project.DiscContentPathPS2);
+            var hasXbox = !string.IsNullOrEmpty(project.DiscContentPathXbox);
+            var previous = OpenedProject;
+            var directory = Directory.GetCurrentDirectory();
             IsCreatingProject = true;
             OpenedProject = project;
             try
             {
                 project.CreateProjectStructure();
-                if (folders.Count > 0)
+                if (copyDisc && (hasPs2 || hasXbox))
                 {
                     Log.WriteLine("Copying disc contents to project...");
                     project.CopyDiscContents();
@@ -536,7 +595,7 @@ namespace TT_Lab.Project
 
                 using var gate = new MemoryGate((long)(Preferences.GetPreference<Double>(Preferences.BuildMemoryBudget) * 1024 * 1024), 0.8);
                 var writer = new CreationWriter(project.AssetManager, gate);
-                if (ps2 != null)
+                if (hasPs2)
                 {
                     Log.WriteLine("Unpacking PS2 assets...");
                     project.UnpackAssetsPS2(gate);
@@ -551,10 +610,10 @@ namespace TT_Lab.Project
                     project.Ps2Package.Enabled = false;
                 }
 
-                if (xbox != null)
+                if (hasXbox)
                 {
                     Log.WriteLine("Unpacking XBox assets...");
-                    project.UnpackAssetsXbox(gate);
+                    project.UnpackAssetsXbox(gate, xboxOldFileOrder);
                     writer.ImportAndWrite();
                     writer.RemoveInternalAssets();
                     MergeVariants();
@@ -570,10 +629,10 @@ namespace TT_Lab.Project
                 // What was made of the game's packages goes, the next opening unpacks them again
                 foreach (var name in made)
                 {
-                    var directory = Path.Combine(project.ProjectPath, "assets", name);
-                    if (Directory.Exists(directory))
+                    var packageDirectory = Path.Combine(project.ProjectPath, "assets", name);
+                    if (Directory.Exists(packageDirectory))
                     {
-                        Directory.Delete(directory, true);
+                        Directory.Delete(packageDirectory, true);
                     }
                 }
 
@@ -581,23 +640,14 @@ namespace TT_Lab.Project
             }
             finally
             {
-                OpenedProject = null;
+                OpenedProject = previous;
                 IsCreatingProject = false;
+                // The project's folder isn't left the working directory: the repair deletes its shadow's, which Windows refuses while it is
+                if (Directory.Exists(directory))
+                {
+                    Directory.SetCurrentDirectory(directory);
+                }
             }
-
-            if (ps2 != null)
-            {
-                stored.DiscContentPathPS2 = project.DiscContentPathPS2;
-            }
-
-            if (xbox != null)
-            {
-                stored.DiscContentPathXbox = project.DiscContentPathXbox;
-            }
-
-            stored.WriteProjectFile();
-            MiscUtils.CollectReleasedMemory();
-            Log.WriteLine($"Unpacked the game's assets in {DateTime.Now - start}");
         }
 
         /// <summary>
@@ -612,6 +662,168 @@ namespace TT_Lab.Project
             const int shownNotes = 6;
             var summary = new StringBuilder($"{name} is migrated from TT Lab {result.From} to {Project.CURRENT_VERSION}: {result.Changed} files changed");
             summary.Append(result.Backup != null ? $", kept as they were in {Path.GetFileName(result.Backup)} in the project's folder." : ".");
+            foreach (var note in result.Notes.Take(shownNotes))
+            {
+                summary.Append("\n\n• ").Append(note);
+            }
+
+            if (result.Notes.Count > shownNotes)
+            {
+                summary.Append($"\n\n{result.Notes.Count - shownNotes} more are in the log.");
+            }
+
+            return summary.ToString();
+        }
+
+        /// <summary>
+        /// Asks whether the game's packages a project of TT Lab 1.1.0 (or 1.0.0) unpacked get repaired from the game's discs, tests answer it themselves
+        /// </summary>
+        internal Func<string, Task<RepairAnswer>> AskToRepair { get; set; } = RepairDialogue.Ask;
+
+        /// <summary>
+        /// Asks for the folder of a version's game files the repair reads, none to leave that version for another time. Tests answer it themselves
+        /// </summary>
+        internal Func<RepairDiscDialogue.Request, Task<string?>> AskForRepairDisc { get; set; } = RepairDiscDialogue.Ask;
+
+        /// <summary>
+        /// Asks whether a folder of a PS2 archive TT Lab doesn't know is the game's original disc, tests answer it themselves
+        /// </summary>
+        internal Func<string, Task<bool>> ConfirmOriginalDisc { get; set; } = async question =>
+            await ChoiceDialogue.Ask("Game files TT Lab doesn't know", question, ["It's the Original Disc"]) == 0;
+
+        /// <summary>
+        /// Tells what the repair did and left to the user, tests take it themselves
+        /// </summary>
+        internal Action<string> TellRepaired { get; set; } = summary =>
+            Dispatcher.UIThread.Post(() => new MessageDialogue("Game packages repaired", summary).ShowDialog(MiscUtils.GetMainWindow()));
+
+        // The versions whose packages 1.1.0's (or 1.0.0's) unpack made get the repair offered once the project is migrated and has its packages,
+        // before it's read: Not Now asks again next time, Don't Ask Again never (the Project menu repairs whatever the marker says)
+        private void RepairIfAsked(string projectFile, bool asked)
+        {
+            var versions = asked ? RetailRepair.UnpackedVersions(projectFile) : RetailRepair.VersionsToOffer(projectFile);
+            if (versions.Count == 0)
+            {
+                if (asked)
+                {
+                    Log.WriteLine("The project has no game packages unpacked from the game's discs to repair", Log.LogType.Warning);
+                }
+
+                return;
+            }
+
+            var stored = Project.ReadProjectFile(projectFile);
+            var described = string.Join(" and ", versions.Select(RetailAssets.Describe));
+            if (!asked)
+            {
+                var question = $"{stored.Name}'s {described} game packages were unpacked by TT Lab 1.1.0 or older, which got some of them wrong: objects in a few chunks run " +
+                               "another chunk's behaviour of the same ID or none, chunks draw another chunk's picture of a reused texture ID, and a few chunks' own values link " +
+                               "assets the project doesn't have.\n\nThe repair reads the game's disc again (its archive is checked, builds of TT Lab 1.1.0 wrote over the " +
+                               "project's disc folder) and takes its values where the project still has 1.1.0's. What was changed after creation stays and is listed. Every " +
+                               "file it changes is kept as it was in a backup in the project's folder, and TT Lab 1.1.0 still opens the project. It takes a few minutes per version.";
+                var answer = Dispatcher.UIThread.InvokeAsync(() => AskToRepair(question)).GetAwaiter().GetResult();
+                if (answer == RepairAnswer.NotNow)
+                {
+                    Log.WriteLine($"{stored.Name}'s game packages weren't repaired, it's asked again the next time the project opens");
+                    return;
+                }
+
+                if (answer == RepairAnswer.DontAskAgain)
+                {
+                    RetailRepair.Decline(projectFile, versions);
+                    Log.WriteLine($"{stored.Name}'s game packages won't be repaired, Project > Repair from the Game's Discs still does it");
+                    return;
+                }
+            }
+
+            var discs = new Dictionary<Project.GamePlatform, RetailRepair.Disc>();
+            foreach (var platform in versions)
+            {
+                if (FindRepairDisc(stored, platform) is { } disc)
+                {
+                    discs[platform] = disc;
+                }
+            }
+
+            try
+            {
+                TellRepaired(RepairSummary(stored.Name, RetailRepair.Repair(projectFile, versions, discs)));
+            }
+            catch (Exception ex)
+            {
+                Log.WriteLine(ex.ToString(), Log.LogType.Debug);
+                Log.WriteLine($"The repair of {stored.Name}'s game packages failed: {ex.Message}", Log.LogType.Error);
+                TellRepaired($"The repair of {stored.Name}'s game packages failed, the project's files are as they were: {ex.Message}");
+            }
+        }
+
+        // The folder of the version's game files the repair takes: the project's disc folder or the preferences' while it has a release's archive
+        // (1.1.0's builds wrote over the project's PS2 archive), else one the user picks, a PS2 archive TT Lab doesn't know taken once they say
+        // it's the original disc. None when they pick none
+        private RetailRepair.Disc? FindRepairDisc(Project stored, Project.GamePlatform platform)
+        {
+            var candidates = new[] { platform == Project.GamePlatform.Xbox ? stored.DiscContentPathXbox : stored.DiscContentPathPS2, PreferredDiscFolder(platform) }
+                .OfType<string>().Where(folder => !string.IsNullOrWhiteSpace(folder)).Distinct().ToList();
+            foreach (var candidate in candidates)
+            {
+                if (RepairDiscs.Of(platform, candidate).Verdict == RepairDiscs.Verdict.Known)
+                {
+                    return new RetailRepair.Disc(candidate);
+                }
+            }
+
+            var suggestion = candidates.FirstOrDefault(folder => RepairDiscs.Glance(platform, folder).Verdict != RepairDiscs.Verdict.Missing);
+            string? problem = null;
+            while (true)
+            {
+                var request = new RepairDiscDialogue.Request(stored.Name, platform, suggestion, problem);
+                var picked = Dispatcher.UIThread.InvokeAsync(() => AskForRepairDisc(request)).GetAwaiter().GetResult();
+                if (picked == null)
+                {
+                    return null;
+                }
+
+                var check = RepairDiscs.Of(platform, picked);
+                if (check.Verdict == RepairDiscs.Verdict.Known)
+                {
+                    return new RetailRepair.Disc(picked);
+                }
+
+                if (check.Verdict == RepairDiscs.Verdict.Unknown)
+                {
+                    var question = $"{check.Text}\n\nIs {picked} a copy of the game's original disc, never built into? Repaired from a disc TT Lab built, the project takes " +
+                                   "what the build made.";
+                    if (Dispatcher.UIThread.InvokeAsync(() => ConfirmOriginalDisc(question)).GetAwaiter().GetResult())
+                    {
+                        return new RetailRepair.Disc(picked, true);
+                    }
+
+                    problem = "The folder's archive wasn't taken for the original disc's, pick the folder of the game's original files.";
+                }
+                else
+                {
+                    problem = check.Text;
+                }
+
+                suggestion = picked;
+            }
+        }
+
+        // The first few of what the repair left to the user, the log has every one
+        internal static string RepairSummary(string name, RetailRepair.Result result)
+        {
+            const int shownNotes = 6;
+            var summary = new StringBuilder();
+            if (result.Repaired.Count > 0)
+            {
+                summary.Append($"{name}'s {string.Join(" and ", result.Repaired.Select(RetailAssets.Describe))} game packages are repaired: {result.Changed} files changed");
+                summary.Append(result.Backup != null ? $", kept as they were in {Path.GetFileName(result.Backup)} in the project's folder." : ".");
+            }
+            else
+            {
+                summary.Append($"{name}'s game packages weren't repaired.");
+            }
+
             foreach (var note in result.Notes.Take(shownNotes))
             {
                 summary.Append("\n\n• ").Append(note);

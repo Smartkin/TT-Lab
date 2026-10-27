@@ -1,0 +1,25 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:controls="clr-namespace:Classic.Avalonia.Theme.Controls;assembly=Classic.Avalonia.Theme"
+        mc:Ignorable="d" d:DesignWidth="620" d:DesignHeight="220"
+        x:Class="TT_Lab.Controls.RepairDiscDialogue"
+        Title="The game's files for the repair"
+        MinWidth="520" MaxWidth="820" SizeToContent="WidthAndHeight" CanResize="False" ShowInTaskbar="False" Topmost="True" WindowStartupLocation="CenterOwner">
+    <controls:GroupBox>
+        <StackPanel Margin="10" Spacing="8">
+            <TextBlock x:Name="Message" TextWrapping="Wrap" MaxWidth="780"/>
+            <DockPanel>
+                <Button x:Name="BrowseButton" DockPanel.Dock="Right" Content="Browse..." Margin="6,0,0,0" Padding="8,3" Click="BrowseButton_OnClick"/>
+                <TextBox x:Name="Folder" MinWidth="420" TextChanged="Folder_OnTextChanged"/>
+            </DockPanel>
+            <TextBlock x:Name="Status" TextWrapping="Wrap" MaxWidth="780" Foreground="Gray"/>
+            <TextBlock x:Name="Problem" TextWrapping="Wrap" MaxWidth="780" Foreground="#FFE06060"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button x:Name="UseButton" Content="Use This Folder" MinWidth="90" Margin="5" Padding="8,3" HorizontalContentAlignment="Center" IsDefault="True" Click="UseButton_OnClick"/>
+                <Button x:Name="SkipButton" MinWidth="90" Margin="5" Padding="8,3" HorizontalContentAlignment="Center" IsCancel="True" Click="SkipButton_OnClick"/>
+            </StackPanel>
+        </StackPanel>
+    </controls:GroupBox>
+</Window>

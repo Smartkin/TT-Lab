@@ -83,6 +83,9 @@ public abstract class AbstractAssetData(IAsset owner) : IDocumentModel
         }
     }
 
+    // Reads the data from a file of a project that isn't opened, the repair of the game's packages reads a project before it opens it
+    internal void LoadFrom(String fullPath) => LoadInternal(fullPath);
+
     public virtual List<ViewportObject> GetViewportObjects(ViewportContext viewportContext, PropertyNode property) => [];
 
     protected virtual void LoadInternal(String dataPath, JsonSerializerSettings? settings = null)
