@@ -40,7 +40,7 @@ public class SkinData : AbstractAssetData
         return Convert.ToHexString(SHA256.HashData(WriteParts(WriteMaterial)));
     }
 
-    // The materials by their IDs: their data hashes are worked out of the file or the loaded data, whichever is there first
+    // The materials by their IDs, what the item refers to them by: their data hashes are their files', which change with more than what's built
     public override Byte[] GetFingerprint()
     {
         return WriteParts((writer, material) => writer.Write(RigidModelData.MaterialId(material)));

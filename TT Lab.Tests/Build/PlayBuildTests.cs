@@ -90,4 +90,49 @@ public sealed class PlayBuildTests : IDisposable
         Pcsx2Service.BuildChunks(_project.Project, [_beach]);
         Assert.NotEqual(built, File.GetLastWriteTimeUtc(DefaultRm2));
     }
+
+    // Play and Reload read the start chunk's links before they build it: read into the links' asset, the build took them for changed (data
+    // loaded when a build starts can have unsaved changes) and built the start chunk again every time, 12 s for the beach
+    [Fact]
+    public void PlayingAgainKeepsTheStartChunkAndTheChunksItLinks()
+    {
+        var package = _project.Project.Ps2Package;
+        var huba = _project.Add(new LevelChunk { AdditionalPath = "levels/earth/hub/huba" }, "huba", package: package);
+        var links = _project.Add(new ChunkLinks { Chunk = "levels/earth/hub/beach" }, "Chunk Links", Constants.SCENERY_LINK_ITEM, package);
+        links.SetData(new ChunkLinksData(links) { Links = [new ChunkLink { Path = huba.URI }] });
+        links.Serialize(SerializationFlags.SaveData);
+        _beach.ChunkResources.Add(links.URI);
+        // Built before of what they have now, marked to tell whether they're written again
+        var levels = Path.Combine(FilesPath, "Levels", "earth", "hub");
+        string[] beach = [Path.Combine(levels, "beach.rm2"), Path.Combine(levels, "beach.sm2")];
+        string[] hubaFiles = [Path.Combine(levels, "huba.rm2"), Path.Combine(levels, "huba.sm2")];
+        File.WriteAllBytes(hubaFiles[0], [4, 5]);
+        File.WriteAllBytes(hubaFiles[1], [6]);
+        var cache = BuildCache.Load(_project.Project.ProjectPath, _project.AssetManager);
+        cache.Record($"chunk:{_beach.URI}", [_beach, links], beach);
+        cache.Record($"chunk:{huba.URI}", [huba], hubaFiles);
+        cache.Save();
+
+        var played = Pcsx2Service.ChunkWithLinks(_beach);
+        Assert.Equal([_beach, huba], played);
+        Assert.False(links.IsLoaded);
+        Pcsx2Service.BuildChunks(_project.Project, played);
+        AssertKept();
+
+        Pcsx2Service.BuildChunks(_project.Project, Pcsx2Service.ChunkWithLinks(_beach));
+        AssertKept();
+
+        // An editor's loaded links are what Play reads, unsaved changes and all
+        ((IAsset)links).GetData<ChunkLinksData>().Links.Clear();
+        Assert.Equal([_beach], Pcsx2Service.ChunkWithLinks(_beach));
+        Assert.True(links.IsLoaded);
+
+        void AssertKept()
+        {
+            Assert.Equal([1, 2], File.ReadAllBytes(beach[0]));
+            Assert.Equal([3], File.ReadAllBytes(beach[1]));
+            Assert.Equal([4, 5], File.ReadAllBytes(hubaFiles[0]));
+            Assert.Equal([6], File.ReadAllBytes(hubaFiles[1]));
+        }
+    }
 }

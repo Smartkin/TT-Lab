@@ -94,7 +94,7 @@ public class SkydomeData : AbstractAssetData
     }
 
     // The meshes' geometry and the materials they're drawn with by their URIs: the meshes' strings have their models' and materials' data
-    // hashes, which are worked out of the file or the loaded data, whichever is there first
+    // hashes, the materials' of their files, which change with more than what's built
     public override Byte[] GetFingerprint()
     {
         var assetManager = AssetManager.Get();

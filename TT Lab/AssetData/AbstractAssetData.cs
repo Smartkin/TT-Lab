@@ -3,6 +3,7 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Threading;
 using Splat;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
@@ -43,6 +44,20 @@ public abstract class AbstractAssetData(IAsset owner) : IDocumentModel
 
     [System.Text.Json.Serialization.JsonIgnore]
     public virtual Boolean Disposed => DisposedValue;
+
+    // The edits made to the data in memory (DocumentViewModel tells them, an undo is one more) and how many of them its asset's files have:
+    // a build reads loaded data as its files only while they have every edit (BuildCache). Edits happen on the UI thread, builds read them
+    private long _edits;
+    private long _savedEdits;
+
+    internal long Edits => Interlocked.Read(ref _edits);
+
+    internal bool HasUnsavedEdits => Interlocked.Read(ref _edits) != Interlocked.Read(ref _savedEdits);
+
+    internal void NoteEdited() => Interlocked.Increment(ref _edits);
+
+    // The asset's files were written from the data as it was at that many edits
+    internal void NoteSaved(long edits) => Interlocked.Exchange(ref _savedEdits, edits);
 
     ITwinItem? twinRef = null;
 

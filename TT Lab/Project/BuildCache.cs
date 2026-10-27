@@ -5,6 +5,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using Newtonsoft.Json;
+using TT_Lab.AssetData;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Factory;
 
@@ -12,8 +13,9 @@ namespace TT_Lab.Project;
 
 // Remembers which assets every build output was made from, so outputs whose assets didn't change are reused by the next build.
 // An asset's fingerprint is its metadata plus its data file's contents. Assets whose data is loaded when the build starts can have
-// unsaved changes so they always count as changed. The tool's own fingerprint covers TT Lab's code and definition files, so updating
-// TT Lab invalidates every output
+// unsaved changes so they count as changed, but for what open editors show of their files (LoadedData), which counts as changed again once
+// it's edited or let go of while the build runs. The tool's own fingerprint covers TT Lab's code and definition files, so updating TT Lab
+// invalidates every output
 public sealed class BuildCache
 {
     private const int CacheVersion = 1;
@@ -24,6 +26,8 @@ public sealed class BuildCache
     private readonly AssetManager _assetManager;
     private readonly Manifest _manifest;
     private readonly HashSet<LabURI> _volatileAssets;
+    // Loaded data counted as its files, with the edits it had then (LoadedData)
+    private readonly Dictionary<LabURI, (AbstractAssetData Data, long Edits)> _asFiles;
     private readonly Dictionary<LabURI, string> _fingerprints = new();
     // Chunks build in parallel and record what they read when they're done
     private readonly object _lock = new();
@@ -55,7 +59,7 @@ public sealed class BuildCache
         _manifestPath = Path.Combine(projectPath, "build", "cache", "manifest.ttcache");
         _assetManager = assetManager;
         _manifest = manifest;
-        _volatileAssets = assetManager.GetAssets().Where(asset => asset.IsLoaded && !asset.IsInternal).Select(asset => asset.URI).ToHashSet();
+        (_volatileAssets, _asFiles) = LoadedData(assetManager);
 
         var toolFingerprint = ComputeToolFingerprint();
         if (_manifest.Version == CacheVersion && _manifest.ToolFingerprint == toolFingerprint)
@@ -67,6 +71,48 @@ public sealed class BuildCache
         _manifest.Version = CacheVersion;
         _manifest.ToolFingerprint = toolFingerprint;
         _manifest.Entries.Clear();
+    }
+
+    // Which of the loaded assets the open editors show, which TT Lab's editors answer once the app started (EditorsViewModel.ShowToBuilds): a
+    // build counts the others' loaded data as changed, the editors' while it has an edit its files don't have, all of it without editors
+    internal static Func<IReadOnlySet<LabURI>, IReadOnlySet<LabURI>>? EditorsShowing { get; set; }
+
+    // Loaded data can have edits its files don't have, which the build reads: it counts as changed (volatile). What the open editors show has
+    // what its files have while it has no edit since it was read or saved, an undone one included (another editor sharing the data can have
+    // saved the edit before), and its data file is the one TT Lab read or wrote (another program's write isn't read yet): a chunk's scene open
+    // for Play loads every resource of the chunk, and the start chunk was built again on every Play and Reload. Data no editor shows (whatever
+    // loaded it can have changed it) and an asset never saved count as changed whatever the editors say. The edits are taken first, one made
+    // later is made while the build runs (GetFingerprint)
+    private static (HashSet<LabURI> Volatile, Dictionary<LabURI, (AbstractAssetData Data, long Edits)> AsFiles) LoadedData(AssetManager assetManager)
+    {
+        var loaded = assetManager.GetAssets().Where(asset => asset.IsLoaded && !asset.IsInternal).ToList();
+        var asFiles = new Dictionary<LabURI, (AbstractAssetData Data, long Edits)>();
+        if (loaded.Count > 0 && EditorsShowing is { } showing)
+        {
+            foreach (var asset in loaded)
+            {
+                if (asset is SerializableAsset { IsUnsaved: false, LoadedData: { Disposed: false } data } && data.Edits is var edits && !data.HasUnsavedEdits
+                    && AssetFileStamps.IsAsRecorded(asset.FullDataPath))
+                {
+                    asFiles[asset.URI] = (data, edits);
+                }
+            }
+
+            var shown = asFiles.Count == 0 ? new HashSet<LabURI>() : showing(asFiles.Keys.ToHashSet());
+            foreach (var uri in asFiles.Keys.Where(uri => !shown.Contains(uri)).ToList())
+            {
+                asFiles.Remove(uri);
+            }
+        }
+
+        return (loaded.Select(asset => asset.URI).Where(uri => !asFiles.ContainsKey(uri)).ToHashSet(), asFiles);
+    }
+
+    // Data counted as its files is still the asset's and has no edit made since the build started: what the build read of it is what they have
+    private bool IsStillAsFiles(IAsset asset)
+    {
+        return !_asFiles.TryGetValue(asset.URI, out var loaded)
+               || asset is SerializableAsset { LoadedData: { } data } && ReferenceEquals(data, loaded.Data) && data.Edits == loaded.Edits;
     }
 
     public static BuildCache Load(string projectPath, AssetManager assetManager)
@@ -239,6 +285,15 @@ public sealed class BuildCache
     private string GetFingerprint(IAsset asset)
     {
         asset = GetFingerprintedAsset(asset);
+        // Edited or let go of while the build runs (an instance dragged in the open scene, the scene closed), it counts as changed from then on:
+        // what the build read of it can be what no file has, and recorded by its files a chunk was kept with it once the edit was undone
+        if (!IsStillAsFiles(asset))
+        {
+            _asFiles.Remove(asset.URI);
+            _volatileAssets.Add(asset.URI);
+            _fingerprints.Remove(asset.URI);
+        }
+
         if (_fingerprints.TryGetValue(asset.URI, out var fingerprint))
         {
             return fingerprint;

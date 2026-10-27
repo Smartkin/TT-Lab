@@ -116,6 +116,9 @@ public abstract class SerializableAsset : IAsset
         set => SetData(value);
     }
 
+    // The asset's own data, never a scope's: what a build takes for its files while an editor shows it (BuildCache)
+    internal AbstractAssetData? LoadedData => _assetData;
+
     public String Chunk { get; set; }
     [Editable(EditorDescType = typeof(LayoutEditorDesc))]
     [EditorParam(DocumentCompositeViewModel.EditorExplicitOrder, -4)]
@@ -141,8 +144,7 @@ public abstract class SerializableAsset : IAsset
     public List<LabURI> References { get; set; } = [];
     public String Variation { get; set; }
 
-    private bool _hasHashCache = false;
-    private UInt32 _hashCache = 0U;
+    private DataHash? _dataHash;
 
     protected SerializableAsset()
     {
@@ -181,34 +183,92 @@ public abstract class SerializableAsset : IAsset
         RegenerateUri();
     }
 
+    // What its data hash has after the data (GetDataHash): the salt given (a PSM's parts, PTCData), else nothing
+    protected virtual string DataSalt => HashSalt;
+
+    // The ID made of the asset's data, the same whatever is loaded: the CRC32 of its data file as saved and the salt after it. What has no data
+    // file of its own (internal assets, ones never saved, chunks' views of assets, data never written) hashes its data's text and the salt: a
+    // view's file is its asset's, which would give a chunk's own version of a material the shared one's ID. Kept while the file and the salt
+    // are as they were. The loaded data's text was hashed while it was loaded and kept for the session, so a build's IDs followed what editors
+    // and scenes had loaded, and an edit saved kept the ID it had before
     public UInt32 GetDataHash()
     {
-        if (_hasHashCache)
+        var salt = DataSalt;
+        var file = DataFileOf();
+        if (_dataHash is { } known && known.Holds(salt, file))
         {
-            return _hashCache;
+            return known.Value;
         }
-        
-        var hashResult = 0U;
-        if (IsLoaded && AssetData != null)
+
+        UInt32 hashResult;
+        if (file != null)
         {
-            hashResult = HashOf(AssetData.GetStringified() + HashSalt);
+            hashResult = HashOfFile(file.Path, salt);
+        }
+        else if (IsLoaded && AssetData != null)
+        {
+            hashResult = HashOf(AssetData.GetStringified() + salt);
         }
         else
         {
-            using var fs = new FileStream(FullDataPath, FileMode.Open, FileAccess.Read);
-            hashResult = SharpHash.Base.HashFactory.Checksum.CreateCRC(CRCStandard.CRC32).ComputeStream(fs).GetUInt32();
+            // An internal asset's data kept in its file while creation doesn't use it (CreationWriter)
+            hashResult = HashOfFile(FullDataPath, salt);
         }
 
-        _hashCache = hashResult;
-        _hasHashCache = true;
+        // Another write of a file this recent can keep its length and write time (AssetFileStamps)
+        if (file is not { IsRecent: true })
+        {
+            _dataHash = new DataHash(hashResult, salt, file);
+        }
 
         return hashResult;
+    }
+
+    // The data file a data hash is made of: none for data without a file of its own (internal assets, ones never saved, chunks' views of
+    // assets) and data that was never written
+    private DataFile? DataFileOf()
+    {
+        if (IsInternal || IsUnsaved || OverriddenAsset != null || Locator.Current.GetService<ProjectManager>()?.OpenedProject == null)
+        {
+            return null;
+        }
+
+        var path = FullDataPath;
+        var info = new FileInfo(path);
+        return info.Exists ? new DataFile(path, info.Length, info.LastWriteTimeUtc) : null;
+    }
+
+    private sealed record DataFile(string Path, long Length, DateTime Written)
+    {
+        public bool IsRecent => DateTime.UtcNow - Written < AssetFileStamps.SameTickWindow;
+    }
+
+    // A data hash and what it was made of: the salt and the data file as it was
+    private sealed record DataHash(UInt32 Value, string Salt, DataFile? File)
+    {
+        public bool Holds(string salt, DataFile? file) => Salt == salt && File == file;
     }
 
     // The ID the build gives loaded data of the text (GetStringified and the salt)
     public static UInt32 HashOf(string stringified)
     {
         return SharpHash.Base.HashFactory.Checksum.CreateCRC(CRCStandard.CRC32).ComputeString(stringified, new UTF8Encoding()).GetUInt32();
+    }
+
+    // The CRC32 of the file's bytes and the salt's UTF-8 bytes after them: the ID made of a data file. Read while a write can have it open
+    // (creation writes the materials of the parts it reads meanwhile)
+    internal static UInt32 HashOfFile(string path, string salt)
+    {
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        var crc = SharpHash.Base.HashFactory.Checksum.CreateCRC(CRCStandard.CRC32);
+        crc.Initialize();
+        crc.TransformStream(stream);
+        if (salt.Length > 0)
+        {
+            crc.TransformBytes(Encoding.UTF8.GetBytes(salt));
+        }
+
+        return crc.TransformFinal().GetUInt32();
     }
 
     public virtual void Serialize(SerializationFlags serializationFlags = SerializationFlags.None)
@@ -225,7 +285,10 @@ public abstract class SerializableAsset : IAsset
         // unless user wishes to edit the exact asset
         if (IsLoaded && serializationFlags.HasFlag(SerializationFlags.SaveData))
         {
+            // The edits the file gets, taken before it's written: one made meanwhile isn't in it (BuildCache)
+            var edits = AssetData!.Edits;
             AssetData!.Save(Path.Combine(path, Data));
+            AssetData!.NoteSaved(edits);
             if (serializationFlags.HasFlag(SerializationFlags.FixReferences))
             {
                 References.Clear();
@@ -330,6 +393,17 @@ public abstract class SerializableAsset : IAsset
         if (IsInternal)
         {
             InvariantName += $"_{GetDataHash():X}";
+        }
+    }
+
+    // The asset got edited in memory (a document's change of it, an undo included): its loaded data, and the data of what it's part of, have
+    // an edit their files don't have until they're saved, which a build reads as no files' (BuildCache). A chunk's view counts it for the
+    // data it shares with its asset
+    internal void NoteEdited()
+    {
+        for (IAsset? asset = this; asset != null; asset = asset.IsInternal ? asset.InternalOwner : null)
+        {
+            (asset as SerializableAsset)?._assetData?.NoteEdited();
         }
     }
 
