@@ -398,14 +398,60 @@ public class EditorsViewModel
         return AllTabs.Any(tab => tab.GetReferencedAssets().Contains(asset));
     }
 
-    // Which of the loaded assets the editors show: what a tab's document reads or its scene drew, what a linked Blender's documents of no tab
-    // read. A build takes their data for their files while it has no edit they don't have (BuildCache)
+    // Which of the loaded assets the editors show: what a tab's document reads or its scene drew, what the tabs read besides their documents'
+    // links, what a linked Blender's documents of no tab read. A build takes their data for their files while it has no edit they don't have
+    // (BuildCache)
     internal IReadOnlySet<LabURI> Showing(IReadOnlySet<LabURI> loaded)
     {
         var tabs = AllTabs;
         var shown = tabs.SelectMany(tab => tab.GetReferencedAssets()).Concat(Tools.Blender.LinkedDocuments.ReferencedAssets()).ToHashSet();
+        var assetManager = AssetManager.Get();
+        foreach (var package in tabs.Select(tab => tab.EditableResource).Where(assetManager.DoesAssetExist).Select(uri => assetManager.GetAsset(uri).Package).Distinct())
+        {
+            shown.UnionWith(ReadBesidesLinks(assetManager, package));
+        }
+
         // A scene draws textures and materials its document doesn't read (TabbedEditorViewModel.Shows)
         return loaded.Where(uri => shown.Contains(uri) || tabs.Any(tab => tab.Viewport?.HasRead(uri) == true)).ToHashSet();
+    }
+
+    // What editors of the package's assets read by names and indexes their documents' links don't follow, which loads it all the same: the
+    // default chunk's particles of its version (a scene's emitters play their systems by name and draw with their pages, whose materials'
+    // blending is read, ParticleData.GetPageBlends; emitters' and collision surfaces' fields list their systems) and the version's fonts (a
+    // viewport's loading overlay and a text file's editor count every font's characters and cut the default one's glyphs out of its pages,
+    // PsfGlyphs.OfDefaultFont). Without them a scene with emitters built its chunk and the default chunk again on every Play. Of what's loaded,
+    // nothing is read for it
+    private static IEnumerable<LabURI> ReadBesidesLinks(AssetManager assetManager, LabURI package)
+    {
+        foreach (var defaults in assetManager.GetRelatedAssetsOf<Assets.Instance.DefaultParticles>(package))
+        {
+            yield return defaults.URI;
+            if (defaults.LoadedData is AssetData.Instance.DefaultParticleData particles)
+            {
+                foreach (var page in particles.MaterialIDs.Concat(particles.TextureIDs))
+                {
+                    yield return page;
+                }
+            }
+        }
+
+        foreach (var font in assetManager.GetRelatedAssetsOf<Assets.Global.Font>(package))
+        {
+            yield return font.URI;
+            if (font.LoadedData is not AssetData.Global.FontData fontData)
+            {
+                continue;
+            }
+
+            foreach (var page in fontData.FontPages)
+            {
+                yield return page;
+                if (assetManager.DoesAssetExist(page) && assetManager.GetAsset(page) is SerializableAsset { LoadedData: AssetData.Global.PTCData ptc })
+                {
+                    yield return ptc.TextureID;
+                }
+            }
+        }
     }
 
     // Builds ask what the editors show on the UI thread, where they change. Builds run on the pool and nothing on the UI thread waits for one
