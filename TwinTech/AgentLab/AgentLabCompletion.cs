@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using Twinsanity.AgentLab.SymbolTable;
+using Twinsanity.TwinsanityInterchange.Common.AgentLab;
 
 namespace Twinsanity.AgentLab;
 
@@ -870,7 +871,8 @@ public static class AgentLabCompletion
                 items.AddRange(definitions.Enums.ContainsKey(first) ? GetEnumValues(definitions, first) : GetBooleans());
                 break;
             case BlockKind.Data when statement.Count == 0:
-                items.AddRange(definitions.Constants.Where(constant => constant.Value is "int" or "float").Select(constant => Constant(constant.Key, $"{constant.Value} {constant.Key}")));
+                items.AddRange(definitions.Constants.Where(constant => Enum.IsDefined(typeof(TwinBehaviourControlPacket.ControlPacketData), constant.Key))
+                    .Select(constant => Constant(constant.Key, $"{constant.Value} {constant.Key}")));
                 break;
             case BlockKind.Data when IsAfterAssign(statement):
                 items.Add(Constant("InstanceFloat", "InstanceFloat[<index>], float parameter of the instance"));

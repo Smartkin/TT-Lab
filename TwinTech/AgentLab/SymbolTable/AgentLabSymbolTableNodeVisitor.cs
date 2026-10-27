@@ -5,6 +5,7 @@ using Twinsanity.AgentLab.AbstractSyntaxTree;
 using Twinsanity.AgentLab.AbstractSyntaxTree.Attributes;
 using Twinsanity.AgentLab.AbstractSyntaxTree.ControlPacket;
 using Twinsanity.AgentLab.Analyzers;
+using Twinsanity.TwinsanityInterchange.Common.AgentLab;
 
 namespace Twinsanity.AgentLab.SymbolTable;
 
@@ -686,17 +687,27 @@ internal class AgentLabSymbolTableNodeVisitor : NodeVisitor
         return null;
     }
     
+    // Tumble, Spin and Twist were the data's names here, which the compiler had no data of
+    private static readonly Dictionary<string, string> OldPacketDataNames = new()
+    {
+        ["Tumble"] = nameof(TwinBehaviourControlPacket.ControlPacketData.TumbleData),
+        ["Spin"] = nameof(TwinBehaviourControlPacket.ControlPacketData.SpinData),
+        ["Twist"] = nameof(TwinBehaviourControlPacket.ControlPacketData.TwistData)
+    };
+
     private Object VisitControlPacketDataNode(IAgentLabTreeNode node)
     {
         var dataNode = (ControlPacketDataNode)node;
-        if (SymbolTable.Lookup(dataNode.Name) == null)
+        // The compiler takes the data by its name in ControlPacketData, the other symbols passed here and failed the build
+        if (!Enum.IsDefined(typeof(TwinBehaviourControlPacket.ControlPacketData), dataNode.Name))
         {
             // TODO: Raise undefined data member error instead of throwing an exception
-            throw new Exception($"Undefined control packet data {dataNode.Name}");
+            var instead = OldPacketDataNames.TryGetValue(dataNode.Name, out var name) ? $", the data is {name}" : "";
+            throw new Exception($"Undefined control packet data {dataNode.Name}{instead}");
         }
 
         Visit(dataNode.Assign);
-        
+
         return null;
     }
     

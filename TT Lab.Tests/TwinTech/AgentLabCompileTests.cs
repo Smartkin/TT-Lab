@@ -253,4 +253,53 @@ public class AgentLabCompileTests
         Assert.True(compiled.IsError);
         Assert.Equal($"({line}:{column}) Parameter param of Random takes an integer of 0 to 32767, not {value}", compiled.Message);
     }
+
+    // The data is TumbleData, SpinData and TwistData in the compiler and the decompiler: the check had Tumble, Spin and Twist, which
+    // failed the compile, and refused the decompiler's names
+    [Fact]
+    public void ControlPacketsTakeTheDecompilersDataNames()
+    {
+        var packet = "   packet P {\n      data {\n         TumbleData = 0.5;\n         SpinData = 1.5;\n         TwistData = 2.5;\n      }\n   }\n";
+
+        var data = Graph(Behaviour("AddLives(1);", packet: packet)).ScriptStates[0].ControlPacket;
+
+        Assert.Equal([Bits(0.5f), Bits(1.5f), Bits(2.5f)], data.Floats);
+        Assert.Equal((0, 1, 2), (data.Bytes[(int)PacketData.TumbleData], data.Bytes[(int)PacketData.SpinData], data.Bytes[(int)PacketData.TwistData]));
+
+        // Decompiled from a graph's bytes, the packet compiles back to them
+        var graph = new PS2BehaviourGraph { Name = "TEST", StartState = 0 };
+        graph.SetID(12);
+        graph.ScriptStates = [new PS2BehaviourState { ControlPacket = data, Bodies = [] }];
+        var bytes = Bytes(graph);
+        var read = new PS2BehaviourGraph();
+        read.Read(new BinaryReader(new MemoryStream(bytes)), bytes.Length);
+        var script = AgentLabDecompiler.Decompile(read, new DecompilerGraphResolver(new DefaultStarterResolver(null, null), new DefaultStateResolversList(new DefaultStateResolver(null))));
+        Assert.Contains("TumbleData = 0.5;", script);
+        Assert.Contains("SpinData = 1.5;", script);
+        Assert.Contains("TwistData = 2.5;", script);
+        var status = AgentLabCompiler.Check(script, Definitions);
+        Assert.False(status.IsError, status.Message + "\n" + script);
+        var again = Graph(script);
+        again.SetID(12);
+        Assert.Equal(bytes, Bytes(again));
+    }
+
+    // Only the data the compiler has is a packet's data, the other names the check took failed the compile
+    [Theory]
+    [InlineData("Tumble = 1.0;", "Undefined control packet data Tumble, the data is TumbleData")]
+    [InlineData("Spin = 1.0;", "Undefined control packet data Spin, the data is SpinData")]
+    [InlineData("Twist = 1.0;", "Undefined control packet data Twist, the data is TwistData")]
+    [InlineData("Translates = true;", "Undefined control packet data Translates")]
+    [InlineData("RefListIndex = 1;", "Undefined control packet data RefListIndex")]
+    [InlineData("InstanceFloat[3] = 1.0;", "Undefined control packet data InstanceFloat")]
+    public void ControlPacketDataIsTheCompilersData(string data, string error)
+    {
+        var script = Behaviour("AddLives(1);", packet: $"   packet P {{\n      data {{\n         {data}\n      }}\n   }}\n");
+
+        var status = AgentLabCompiler.Check(script, Definitions);
+        var compiled = AgentLabCompiler.Compile(script, Options()).CompilerStatus;
+
+        Assert.Equal($"(4:10) {error}", status.Message);
+        Assert.Equal(status.Message, compiled.Message);
+    }
 }
