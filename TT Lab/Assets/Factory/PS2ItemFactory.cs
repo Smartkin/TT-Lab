@@ -105,7 +105,7 @@ namespace TT_Lab.Assets.Factory
             return animation;
         }
 
-        public ITwinBehaviourCommandsSequence GenerateBehaviourCommandsSequence(Stream stream)
+        public AgentLabCompiler.CompilerResult GenerateBehaviourCommandsSequence(Stream stream)
         {
             using var reader = new StreamReader(stream);
             var script = reader.ReadToEnd();
@@ -117,8 +117,7 @@ namespace TT_Lab.Assets.Factory
                 ActionDefinitionsFile = ActionDefinitionsFile,
                 Resolver = new LabCompilerResolver(new DefaultGlobalObjectIdResolver(), new DefaultGraphResolver())
             };
-            var compilerResult = AgentLabCompiler.Compile(script, compilerOptions);
-            return compilerResult.Get<ITwinBehaviourCommandsSequence>();
+            return AgentLabCompiler.Compile(script, compilerOptions);
         }
 
         public AgentLabCompiler.CompilerResult GenerateBehaviourGraph(Stream stream, IAsset? requester = null)
@@ -140,7 +139,7 @@ namespace TT_Lab.Assets.Factory
             return AgentLabCompiler.Compile(script, compilerOptions);
         }
 
-        public ITwinBehaviourCommandPack GenerateBehaviourCommandPack(Stream stream)
+        public AgentLabCompiler.CompilerResult GenerateBehaviourCommandPack(Stream stream)
         {
             using var reader = new StreamReader(stream);
             var script = reader.ReadToEnd();
@@ -150,7 +149,7 @@ namespace TT_Lab.Assets.Factory
                 CommandPack = NewCommandPackDesc(),
                 ActionDefinitionsFile = ActionDefinitionsFile
             };
-            return AgentLabCompiler.CompileCommands(script, compilerOptions).Get<ITwinBehaviourCommandPack>();
+            return AgentLabCompiler.CompileCommands(script, compilerOptions);
         }
 
         public string ChunkPath { get; set; }

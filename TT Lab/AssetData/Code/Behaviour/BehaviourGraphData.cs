@@ -192,7 +192,7 @@ public class BehaviourGraphData : AbstractAssetData
             return null;
         }
 
-        var item = compiledBehaviour.Get<ITwinBehaviourGraph>();
+        var item = compiledBehaviour.ItemOf<ITwinBehaviourGraph>(Owner);
         item.SetID(id);
         section.AddItem(item);
         return item;
@@ -200,7 +200,7 @@ public class BehaviourGraphData : AbstractAssetData
 
     public override ITwinItem Export(ITwinItemFactory factory)
     {
-        return GetCompiledBehaviour(factory).Get<ITwinBehaviourGraph>();
+        return GetCompiledBehaviour(factory).ItemOf<ITwinBehaviourGraph>(Owner);
     }
 
     /// <summary>
@@ -217,6 +217,8 @@ public class BehaviourGraphData : AbstractAssetData
     public void AddStarter(ITwinItemFactory factory, ITwinSection section)
     {
         var compiledBehaviour = GetCompiledBehaviour(factory);
+        // A script that doesn't compile fails here too, like its graph's resolution
+        compiledBehaviour.ItemOf<ITwinBehaviourGraph>(Owner);
         if (!compiledBehaviour.Contains<TwinBehaviourStarter>())
         {
             return;

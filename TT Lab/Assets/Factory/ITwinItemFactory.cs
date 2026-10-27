@@ -73,8 +73,15 @@ namespace TT_Lab.Assets.Factory
         /// Compiles a graph's script (its ID, then the text). The requester's package tells which behaviours the script's states can name
         /// </summary>
         AgentLabCompiler.CompilerResult GenerateBehaviourGraph(Stream stream, IAsset? requester = null);
-        ITwinBehaviourCommandsSequence GenerateBehaviourCommandsSequence(Stream stream);
-        ITwinBehaviourCommandPack GenerateBehaviourCommandPack(Stream stream);
+        /// <summary>
+        /// Compiles a command sequence's script, its item taken through <see cref="ScriptCompiles.ItemOf{T}"/>: a script that doesn't compile
+        /// leaves what the compiler made before it failed
+        /// </summary>
+        AgentLabCompiler.CompilerResult GenerateBehaviourCommandsSequence(Stream stream);
+        /// <summary>
+        /// Compiles an object's command pack, its item taken through <see cref="ScriptCompiles.ItemOf{T}"/>
+        /// </summary>
+        AgentLabCompiler.CompilerResult GenerateBehaviourCommandPack(Stream stream);
         ITwinObject GenerateObject(Stream stream);
         ITwinOGI GenerateOGI(Stream stream);
         ITwinSound GenerateSound();

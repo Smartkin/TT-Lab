@@ -648,7 +648,7 @@ namespace TT_Lab.AssetData.Code
             packWriter.Write(BehaviourPack);
             packWriter.Flush();
             packStream.Position = 0;
-            var commandPack = factory.GenerateBehaviourCommandPack(packStream);
+            var commandPack = factory.GenerateBehaviourCommandPack(packStream).ItemOf<ITwinBehaviourCommandPack>(Owner);
             commandPack.Write(writer);
 
             writer.Flush();
