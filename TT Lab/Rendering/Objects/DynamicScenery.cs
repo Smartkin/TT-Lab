@@ -22,7 +22,7 @@ public class DynamicScenery : Renderable
             mesh.Model.IsPlaced = true;
 
             var bounds = dynamicModel.BoundingBox;
-            var model = new DynamicSceneryMesh(context, mesh.Model, dynamicModel.Animation)
+            var model = new DynamicSceneryMesh(context, mesh.Model, dynamicModel.Animation, dynamicModel.AnimatedFrames)
             {
                 BoundsMin = bounds.Count > 1 ? new vec3(bounds[0].X, bounds[0].Y, bounds[0].Z) : vec3.Zero,
                 BoundsMax = bounds.Count > 1 ? new vec3(bounds[1].X, bounds[1].Y, bounds[1].Z) : vec3.Zero

@@ -12,16 +12,15 @@ public class DynamicSceneryMesh : Renderable
 {
     private readonly Mesh _mesh;
     private readonly TwinDynamicSceneryAnimation _animation;
-    private int _currentAnimationFrame = 0;
-    private readonly float _animationFps;
-    private float _frameFraction = 0.0f;
-    private float _frameDisplacement = 0.0f;
+    private readonly int _frames;
+    private double _time;
 
-    public DynamicSceneryMesh(RenderContext context, Mesh mesh, TwinDynamicSceneryAnimation animation, float fps = 50.0f) : base(context)
+    // The game loops over the model's frames, reading its animation's values: no more than the animation has values of
+    public DynamicSceneryMesh(RenderContext context, Mesh mesh, TwinDynamicSceneryAnimation animation, int frames) : base(context)
     {
         _mesh = mesh;
         _animation = animation;
-        _animationFps = fps;
+        _frames = Math.Min(frames, animation.AnimatedTransformations.Count);
         AddChild(mesh);
     }
 
@@ -36,43 +35,17 @@ public class DynamicSceneryMesh : Renderable
     protected override void UpdateSelf(float delta)
     {
         base.UpdateSelf(delta);
-        
-        var nextFrame = (ushort)Math.Min(_currentAnimationFrame + 1, _animation.TotalFrames - 1);
-        if (_currentAnimationFrame == _animation.TotalFrames - 1)
-        {
-            nextFrame = 0;
-        }
-        
-        var interpolationLength = 1.0f / _animationFps;
-        _frameFraction += delta;
-        _frameDisplacement = _frameFraction / interpolationLength;
-        if (_frameFraction >= interpolationLength)
-        {
-            _frameDisplacement = 0;
-            _frameFraction = 0;
-            if (nextFrame == 0)
-            {
-                _currentAnimationFrame = 0;
-                nextFrame = 1;
-            }
-            else
-            {
-                _currentAnimationFrame = (ushort)Math.Min(_currentAnimationFrame + 1, _animation.TotalFrames - 1);
-                nextFrame = (ushort)Math.Min(_currentAnimationFrame + 1, _animation.TotalFrames - 1);
-            }
-        }
 
-        if (nextFrame == _currentAnimationFrame)
-        {
-            nextFrame = 0;
-        }
-
-        var translationRotation = GetTransformFromAnimation(nextFrame);
+        // At the game's rate whatever the viewport's: stepping a frame of 50 a second at most once an update and dropping the time past it
+        // played 1.2 times the game's rate at 60 FPS, and slower as the viewport slowed down
+        var playback = DynamicSceneryPlayback.At(_time + delta, _frames);
+        _time = playback.Seconds;
+        var translationRotation = GetTransformFromAnimation(playback.Frame, playback.Next, playback.Share);
         _mesh.SetPosition(vec3.Zero);
         _mesh.LocalTransform = mat4.Translate(translationRotation.Item1) * translationRotation.Item2.ToMat4;
     }
 
-    private (vec3, quat) GetTransformFromAnimation(int nextFrame)
+    private (vec3, quat) GetTransformFromAnimation(int frame, int nextFrame, float share)
     {
         if (_animation.ModelSettings.Count <= 0)
         {
@@ -95,7 +68,7 @@ public class DynamicSceneryMesh : Renderable
         var rotationChoiceW = model.RotateW;
         if (transformChoiceX == Enums.TransformType.Animated)
         {
-            currentTranslation.x = _animation.AnimatedTransformations[_currentAnimationFrame].TransformationValues[animatedIndexCurrentFrame++];
+            currentTranslation.x = _animation.AnimatedTransformations[frame].TransformationValues[animatedIndexCurrentFrame++];
             nextTranslation.x = _animation.AnimatedTransformations[nextFrame].TransformationValues[animatedIndexNextFrame++];
         }
         else
@@ -106,7 +79,7 @@ public class DynamicSceneryMesh : Renderable
         
         if (transformChoiceY == Enums.TransformType.Animated)
         {
-            currentTranslation.y = _animation.AnimatedTransformations[_currentAnimationFrame].TransformationValues[animatedIndexCurrentFrame++];
+            currentTranslation.y = _animation.AnimatedTransformations[frame].TransformationValues[animatedIndexCurrentFrame++];
             nextTranslation.y = _animation.AnimatedTransformations[nextFrame].TransformationValues[animatedIndexNextFrame++];
         }
         else
@@ -117,7 +90,7 @@ public class DynamicSceneryMesh : Renderable
         
         if (transformChoiceZ == Enums.TransformType.Animated)
         {
-            currentTranslation.z = _animation.AnimatedTransformations[_currentAnimationFrame].TransformationValues[animatedIndexCurrentFrame++];
+            currentTranslation.z = _animation.AnimatedTransformations[frame].TransformationValues[animatedIndexCurrentFrame++];
             nextTranslation.z = _animation.AnimatedTransformations[nextFrame].TransformationValues[animatedIndexNextFrame++];
         }
         else
@@ -128,7 +101,7 @@ public class DynamicSceneryMesh : Renderable
 
         if (rotationChoiceX == Enums.TransformType.Animated)
         {
-            currentRotation.x = (_animation.AnimatedTransformations[_currentAnimationFrame].TransformationValues[animatedIndexCurrentFrame++]);
+            currentRotation.x = (_animation.AnimatedTransformations[frame].TransformationValues[animatedIndexCurrentFrame++]);
             nextRotation.x = (_animation.AnimatedTransformations[nextFrame].TransformationValues[animatedIndexNextFrame++]);
         }
         else
@@ -139,7 +112,7 @@ public class DynamicSceneryMesh : Renderable
         
         if (rotationChoiceY == Enums.TransformType.Animated)
         {
-            currentRotation.y = (_animation.AnimatedTransformations[_currentAnimationFrame].TransformationValues[animatedIndexCurrentFrame++]);
+            currentRotation.y = (_animation.AnimatedTransformations[frame].TransformationValues[animatedIndexCurrentFrame++]);
             nextRotation.y = (_animation.AnimatedTransformations[nextFrame].TransformationValues[animatedIndexNextFrame++]);
         }
         else
@@ -150,7 +123,7 @@ public class DynamicSceneryMesh : Renderable
         
         if (rotationChoiceZ == Enums.TransformType.Animated)
         {
-            currentRotation.z = (_animation.AnimatedTransformations[_currentAnimationFrame].TransformationValues[animatedIndexCurrentFrame++]);
+            currentRotation.z = (_animation.AnimatedTransformations[frame].TransformationValues[animatedIndexCurrentFrame++]);
             nextRotation.z = (_animation.AnimatedTransformations[nextFrame].TransformationValues[animatedIndexNextFrame++]);
         }
         else
@@ -161,7 +134,7 @@ public class DynamicSceneryMesh : Renderable
         
         if (rotationChoiceW == Enums.TransformType.Animated)
         {
-            currentRotation.w = (_animation.AnimatedTransformations[_currentAnimationFrame].TransformationValues[animatedIndexCurrentFrame]);
+            currentRotation.w = (_animation.AnimatedTransformations[frame].TransformationValues[animatedIndexCurrentFrame]);
             nextRotation.w = (_animation.AnimatedTransformations[nextFrame].TransformationValues[animatedIndexNextFrame]);
         }
         else
@@ -172,8 +145,8 @@ public class DynamicSceneryMesh : Renderable
         
         var currentRotQuat = new quat(currentRotation.xyz);
         var nextRotQuat = new quat(nextRotation.xyz);
-        var resultRotation = GlmExtensions.SLerpSafe(currentRotQuat, nextRotQuat, _frameDisplacement);
-        var resultTranslation = MathExtension.Lerp(currentTranslation, nextTranslation, _frameDisplacement);
+        var resultRotation = GlmExtensions.SLerpSafe(currentRotQuat, nextRotQuat, share);
+        var resultTranslation = MathExtension.Lerp(currentTranslation, nextTranslation, share);
         
         return (resultTranslation, resultRotation);
     }
