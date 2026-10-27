@@ -136,6 +136,14 @@ internal sealed class MigrationContext(string projectFolder, string backupPath) 
         file.Save(path);
     }
 
+    // Another folder's file put at the path, what was there backed up first
+    public void Copy(string source, string path)
+    {
+        BackUp(path);
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
+        File.Copy(source, path, true);
+    }
+
     private void BackUp(string path)
     {
         var full = Path.GetFullPath(path);

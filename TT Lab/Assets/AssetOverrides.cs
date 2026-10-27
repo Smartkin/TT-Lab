@@ -22,7 +22,7 @@ public static class AssetOverrides
 {
     public const string DataProperty = "AssetData";
 
-    private static readonly HashSet<string> IdentityProperties =
+    internal static readonly HashSet<string> IdentityProperties =
         ["Type", "InvariantName", "Raw", "AdditionalPath", "FolderInPackage", "ID", "Alias", "Chunk", "LayoutID", "SkipExport", "URI", "Package", "References", "Variation"];
 
     public static bool CanOverrideData(Type dataType)
