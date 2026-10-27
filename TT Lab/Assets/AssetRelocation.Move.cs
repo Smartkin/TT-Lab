@@ -386,9 +386,16 @@ public static partial class AssetRelocation
         }
     }
 
-    // What links to what moves keeps its links once its package depends on the target's. Root packages depend on nothing
+    // What links to what moves keeps its links once its package depends on the target's. Root packages depend on nothing. A move within
+    // its package changes no package's links: what linked to it from a package that doesn't depend on it did before (a Global PS2 object
+    // given a PS2 behaviour), and the move was refused or asked for dependencies nothing needs
     private static void AddDependencies(MovePlan plan)
     {
+        if (plan.Units.All(unit => unit.OldPackage == unit.NewPackage))
+        {
+            return;
+        }
+
         var target = Assets.GetAsset<Package>(plan.Package);
         foreach (var group in plan.Linking.All.GroupBy(asset => asset.Package))
         {
