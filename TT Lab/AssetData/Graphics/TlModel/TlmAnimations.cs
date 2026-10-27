@@ -107,11 +107,31 @@ public static class TlmAnimations
         var exact = file.Read<Byte>(json["exact"]);
         var original = exact.Length == 0 ? null : FromExactBytes(exact);
         var animation = FromKeys(file, json, joints, original, out edited);
+        ReadHeader(animation, json);
+        return animation;
+    }
+
+    // The animation the game's bytes the file keeps are, what Read gives while its keys still hold them (every file TT Lab wrote: one the
+    // add-on wrote can have keys edited since), without reading the keys; null without the bytes
+    public static AnimationData? ReadStored(TlmFile file, JsonObject json)
+    {
+        var exact = file.Read<Byte>(json["exact"]);
+        if (exact.Length == 0)
+        {
+            return null;
+        }
+
+        var animation = FromExactBytes(exact);
+        ReadHeader(animation, json);
+        return animation;
+    }
+
+    private static void ReadHeader(AnimationData animation, JsonObject json)
+    {
         animation.ID = json.GetUInt("id");
         animation.Name = json.GetString("name") ?? string.Empty;
         animation.DefaultFPS = (Byte)Math.Clamp(json.GetInt("fps", FallbackFps), 1, MaxFps);
         animation.TotalFrames = (UInt16)json.GetInt("frames", animation.MainAnimation.TotalFrames);
-        return animation;
     }
 
     public static Byte[] GetExactBytes(AnimationData animation)
