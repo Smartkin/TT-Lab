@@ -44,8 +44,13 @@ internal sealed class VariantMerger(AssetManager assetManager, string assetsPath
         var chunksUsing = GetChunksUsing(chunks.Values.Distinct(), variants.Select(variant => variant.URI).ToHashSet());
         var changedChunks = new HashSet<LevelChunk>();
         var keptTextures = new List<(IAsset Variant, IAsset Base)>();
-        // What variants refer to has to be merged before them, an object's sound slots hold the chunk's variants of its sounds
-        foreach (var variant in variants.OrderBy(MergeOrder))
+        var merges = new List<(IAsset Variant, IAsset Base, bool SameData)>();
+        // Every variant's asset is known before any values are worked out, and a variant's values are compared with every link to a merged
+        // variant leading to its asset, so the order they're merged in changes nothing: worked out as each variant got merged, a value kept
+        // its link to a variant merged after it, which was then deleted (a level's extra life crate's slot named the level's own health, and
+        // the level didn't build). The order (what variants refer to first, then their URIs: the project's assets are kept in the order
+        // parallel writes freed their slots) is only the one the chunks get their overrides in
+        foreach (var variant in variants.OrderBy(MergeOrder).ThenBy(variant => variant.URI.ToString(), StringComparer.Ordinal))
         {
             // Levels' own versions of the startup chunk's objects are in the level's package, their asset in the global one. The
             // shared asset is the base, not a chunk folder's own copy of the ID (a scenery's texture): the variant is the chunk's
@@ -62,8 +67,8 @@ internal sealed class VariantMerger(AssetManager assetManager, string assetsPath
                 continue;
             }
 
-            var values = GetOverrideValues(@base, variant);
-            if (values == null)
+            var sameData = HaveSameData(@base, variant);
+            if (!sameData && !CanHaveValuesOfData(@base))
             {
                 if (variant is Texture)
                 {
@@ -73,17 +78,29 @@ internal sealed class VariantMerger(AssetManager assetManager, string assetsPath
                 continue;
             }
 
+            _merged[variant.URI] = @base.URI;
+            merges.Add((variant, @base, sameData));
+        }
+
+        foreach (var (variant, @base, sameData) in merges)
+        {
             // Variants no chunk uses went into no chunk, the models of the chunk they were found in are shared and found the asset by its ID
-            if (values.Count > 0 && chunksUsing.TryGetValue(variant.URI, out var users))
+            if (!chunksUsing.TryGetValue(variant.URI, out var users))
             {
-                foreach (var chunk in users)
-                {
-                    chunk.Overrides.Add(new AssetOverride { Asset = @base.URI, Values = new SortedDictionary<string, JToken>(values, StringComparer.Ordinal) });
-                    changedChunks.Add(chunk);
-                }
+                continue;
             }
 
-            _merged[variant.URI] = @base.URI;
+            var values = GetOverrideValues(@base, variant, sameData);
+            if (values.Count == 0)
+            {
+                continue;
+            }
+
+            foreach (var chunk in users)
+            {
+                chunk.Overrides.Add(new AssetOverride { Asset = @base.URI, Values = new SortedDictionary<string, JToken>(values, StringComparer.Ordinal) });
+                changedChunks.Add(chunk);
+            }
         }
 
         LinkMaterialsToTextureVariants(keptTextures, chunks, changedChunks);
@@ -92,9 +109,12 @@ internal sealed class VariantMerger(AssetManager assetManager, string assetsPath
             return 0;
         }
 
+        // A stable sort, the same overrides come out in the same order
         foreach (var chunk in changedChunks)
         {
-            chunk.Overrides.Sort((first, second) => string.CompareOrdinal(first.Asset.ToString(), second.Asset.ToString()));
+            var sorted = chunk.Overrides.OrderBy(entry => entry.Asset.ToString(), StringComparer.Ordinal).ToList();
+            chunk.Overrides.Clear();
+            chunk.Overrides.AddRange(sorted);
         }
 
         RedirectReferences(changedChunks);
@@ -221,12 +241,25 @@ internal sealed class VariantMerger(AssetManager assetManager, string assetsPath
         _ => 3
     };
 
-    /// <summary>
-    /// The values the variant has of its own, null when it differs where it can't have values
-    /// </summary>
-    private SortedDictionary<string, JToken>? GetOverrideValues(IAsset @base, IAsset variant)
+    // Whether data that differs can be a chunk's values, data that isn't kept as JSON the default way can't
+    private static bool CanHaveValuesOfData(IAsset asset)
     {
-        var sameData = HaveSameData(@base, variant);
+        try
+        {
+            return AssetOverrides.CanOverrideData(asset.GetData<AbstractAssetData>().GetType());
+        }
+        finally
+        {
+            asset.UnloadData();
+        }
+    }
+
+    /// <summary>
+    /// The values the variant has of its own, with the links to merged variants leading to their assets. Of their metadata alone when they
+    /// have the same data
+    /// </summary>
+    private SortedDictionary<string, JToken> GetOverrideValues(IAsset @base, IAsset variant, bool sameData)
+    {
         AbstractAssetData? baseData = null;
         AbstractAssetData? variantData = null;
         try
@@ -235,10 +268,6 @@ internal sealed class VariantMerger(AssetManager assetManager, string assetsPath
             {
                 baseData = @base.GetData<AbstractAssetData>();
                 variantData = variant.GetData<AbstractAssetData>();
-                if (!AssetOverrides.CanOverrideData(baseData.GetType()))
-                {
-                    return null;
-                }
             }
 
             var baseDocument = AssetOverrides.GetDocument(@base, baseData);
@@ -273,15 +302,83 @@ internal sealed class VariantMerger(AssetManager assetManager, string assetsPath
         return firstInfo.Length == secondInfo.Length && File.ReadAllBytes(firstInfo.FullName).AsSpan().SequenceEqual(File.ReadAllBytes(secondInfo.FullName));
     }
 
-    // Links to variants merged already are links to their asset now
-    private void RedirectLinks(JObject document)
+    // Links to merged variants are links to their asset now
+    private void RedirectLinks(JToken token)
     {
-        foreach (var link in document.Descendants().OfType<JObject>().Where(token => token["_uri"] is JValue { Type: JTokenType.String }).ToList())
+        foreach (var link in Links(token).ToList())
         {
             if (_merged.TryGetValue(new LabURI((string)link["_uri"]!), out var redirected))
             {
                 link["_uri"] = redirected.ToString();
             }
+        }
+    }
+
+    private static IEnumerable<JObject> Links(JToken token)
+    {
+        var tokens = token is JContainer container ? container.DescendantsAndSelf() : [token];
+        return tokens.OfType<JObject>().Where(link => link["_uri"] is JValue { Type: JTokenType.String });
+    }
+
+    // The chunk's own values linking to merged variants link to their assets, a value that's then the asset's is no value of the chunk's,
+    // and an asset the chunk has no values of left has no override in it. Whether any changed
+    private bool RedirectOverrideValues(LevelChunk chunk)
+    {
+        var changed = false;
+        foreach (var @override in chunk.Overrides.ToList())
+        {
+            // Chunks can share a value's object (one variant's values went to every chunk using it), a value is changed as a copy
+            var redirected = @override.Values.Where(pair => Links(pair.Value).Any(link => _merged.ContainsKey(new LabURI((string)link["_uri"]!))))
+                .Select(pair => (Path: pair.Key, Value: pair.Value.DeepClone())).ToList();
+            if (redirected.Count == 0)
+            {
+                continue;
+            }
+
+            var document = DocumentOf(@override.Asset);
+            foreach (var (path, value) in redirected)
+            {
+                RedirectLinks(value);
+                if (document?.SelectToken(path) is { } assetValue && JToken.DeepEquals(assetValue, value))
+                {
+                    @override.Values.Remove(path);
+                }
+                else
+                {
+                    @override.Values[path] = value;
+                }
+            }
+
+            if (@override.Values.Count == 0)
+            {
+                chunk.Overrides.Remove(@override);
+            }
+
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    // The asset's document the way its values are compared, its links to merged variants leading to their assets. None of an asset the
+    // project doesn't have or that's merged away itself
+    private JObject? DocumentOf(LabURI uri)
+    {
+        if (_merged.ContainsKey(uri) || !assetManager.DoesAssetExist(uri))
+        {
+            return null;
+        }
+
+        var asset = assetManager.GetAsset(uri);
+        try
+        {
+            var document = AssetOverrides.GetDocument(asset, asset.GetData<AbstractAssetData>());
+            RedirectLinks(document);
+            return document;
+        }
+        finally
+        {
+            asset.UnloadData();
         }
     }
 
@@ -303,6 +400,12 @@ internal sealed class VariantMerger(AssetManager assetManager, string assetsPath
                 chunk.ChunkResources = chunk.ChunkResources.Select(Redirect).Distinct().ToList();
                 chunk.ItemVersions = chunk.ItemVersions.Select(Redirect).Distinct().ToList();
                 chunk.Skydome = Redirect(chunk.Skydome);
+                changed = true;
+            }
+
+            // A chunk's own values are in its metadata, which the text of data files below leaves alone
+            if (asset is LevelChunk ownValues && RedirectOverrideValues(ownValues))
+            {
                 changed = true;
             }
 
