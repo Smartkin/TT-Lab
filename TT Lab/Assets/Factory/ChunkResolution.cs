@@ -28,7 +28,8 @@ public sealed class ChunkResolution
     public Dictionary<LabURI, (IReadOnlyList<LabURI> Objects, IReadOnlyList<LabURI> Graphs)> GraphReferences { get; } = new();
 
     /// <summary>
-    /// The IDs the animations put into the chunk got, by their keys (<see cref="AnimationIds.KeyOf"/>), for the build cache
+    /// The IDs the animations put into the chunk got, by their keys and the IDs their OGIs have them by (<see cref="AnimationIds.DependencyOf"/>),
+    /// for the build cache
     /// </summary>
     public Dictionary<string, UInt32> Animations { get; } = new();
 

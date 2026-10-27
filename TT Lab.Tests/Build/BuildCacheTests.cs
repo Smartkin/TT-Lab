@@ -50,16 +50,17 @@ public sealed class BuildCacheTests : IDisposable
     {
         var ids = LoadAnimationIds();
         var dance = ids.KeyOf([1, 2, 3]);
+        var dependency = AnimationIds.DependencyOf(dance, 0x8000);
         var cache = Load();
         cache.AnimationIds = ids;
-        cache.Record(Key, [_dependency], [_output], animations: new Dictionary<string, UInt32> { [dance] = ids.IdOf(dance, 0x8000, "Dance") });
+        cache.Record(Key, [_dependency], [_output], animations: new Dictionary<string, UInt32> { [dependency] = ids.IdOf(dance, 0x8000, "Dance") });
         cache.Save();
         ids.Save();
 
         var reloaded = Load();
         reloaded.AnimationIds = LoadAnimationIds();
         Assert.True(reloaded.IsUpToDate(Key, [_output]));
-        Assert.Equal([dance], reloaded.RecordedAnimations());
+        Assert.Equal([dependency], reloaded.RecordedAnimations());
 
         reloaded.AnimationIds.KeepOnly([]);
         Assert.False(reloaded.IsUpToDate(Key, [_output]));

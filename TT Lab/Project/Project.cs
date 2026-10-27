@@ -833,7 +833,7 @@ public class Project : IProject
     // The animations' IDs are the ones the version's builds gave them, every chunk of the version has to have the same
     internal ITwinItemFactory CreateFactory(GamePlatform platform)
     {
-        var animationIds = AnimationIds.Load(ProjectPath, platform, AssetManager.GetAllAssetsOf<OGI>());
+        var animationIds = AnimationIds.Load(ProjectPath, platform, AssetManager.GetAllAssetsOf<OGI>(), ogi => GetPlatform(ogi.Package) == platform);
         return platform == GamePlatform.Xbox
             ? new XboxItemFactory { GlobalPackage = GlobalPackageXbox, AnimationIds = animationIds }
             : new PS2ItemFactory { GlobalPackage = GlobalPackagePS2, AnimationIds = animationIds };

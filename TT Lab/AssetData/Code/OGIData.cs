@@ -746,12 +746,14 @@ public class OGIData : AbstractAssetData
     }
 
     /// <summary>
-    /// The IDs the animations of a model file's JSON have, the ones made in Blender have none until TT Lab reads the file
+    /// The animations of a model file that have an ID (the ones made in Blender have none until TT Lab reads the file) with what the game's
+    /// bytes the file keeps make of them (<see cref="TlmAnimations.ReadStored"/>), null for one without
     /// </summary>
-    internal static IEnumerable<UInt32> AnimationIdsOf(JsonObject fileJson)
+    internal static IEnumerable<(UInt32 Id, AnimationData? Stored)> StoredAnimationsOf(TlmFile file)
     {
-        var armature = (fileJson["root"] as JsonObject).FindChild(ArmatureKind);
-        return (armature?["animations"] as JsonArray ?? []).OfType<JsonObject>().Where(animation => animation["id"] != null).Select(animation => animation.GetUInt("id"));
+        var armature = file.Root.FindChild(ArmatureKind);
+        return (armature?["animations"] as JsonArray ?? []).OfType<JsonObject>().Where(animation => animation["id"] != null)
+            .Select(animation => (animation.GetUInt("id"), TlmAnimations.ReadStored(file, animation)));
     }
 
     // Animations made in Blender have no ID, copies of an animation made there carry the ID of the one they were copied from
@@ -799,7 +801,8 @@ public class OGIData : AbstractAssetData
     /// </summary>
     /// <remarks>
     /// Every OGI keeps its own copy of the animations it plays, copies can differ once one gets edited. The build gives every animation
-    /// the same ID in every chunk (<see cref="AnimationIds"/>), copies that are still the same share it and go into the chunk once
+    /// the same ID in every chunk (<see cref="AnimationIds"/>): copies that are still the same by the same ID share it and go into the chunk
+    /// once, the same animation by other IDs goes in by each of them, like the disc has CrashSpin's spin (3) and CrashSpinWithCortex's (0xA8)
     /// </remarks>
     public UInt32? ResolveAnimation(ITwinItemFactory factory, ITwinSection section, UInt32 id)
     {
@@ -810,11 +813,12 @@ public class OGIData : AbstractAssetData
             return null;
         }
 
-        var item = animation.Export(factory);
+        var source = animation.GetItemSource();
+        var item = animation.Export(factory, source);
         var bytes = GetBytes(item);
-        var key = factory.AnimationIds.KeyOf(bytes);
+        var key = factory.AnimationIds.KeyOf(source);
         var exportId = factory.AnimationIds.IdOf(key, id, $"{animation.Name} of {Owner.Name}");
-        factory.Resolution.Animations[key] = exportId;
+        factory.Resolution.Animations[AnimationIds.DependencyOf(key, id)] = exportId;
         if (section.ContainsItem(exportId))
         {
             if (!GetBytes(section.GetItem<ITwinItem>(exportId)).AsSpan().SequenceEqual(bytes))

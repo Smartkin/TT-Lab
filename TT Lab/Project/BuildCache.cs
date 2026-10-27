@@ -204,7 +204,7 @@ public sealed class BuildCache
     private string LinkState(LabURI chunk) => ExcludedChunks.Contains(chunk) ? LinkDropped : LinkKept;
 
     /// <summary>
-    /// The keys of the animations every output the cache knows has (<see cref="Assets.Factory.AnimationIds.KeyOf"/>)
+    /// The animations every output the cache knows has (<see cref="Assets.Factory.AnimationIds.DependencyOf"/>)
     /// </summary>
     public IReadOnlyCollection<string> RecordedAnimations()
     {

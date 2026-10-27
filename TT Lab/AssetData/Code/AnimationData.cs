@@ -315,7 +315,9 @@ public class AnimationData
         return keyframes;
     }
 
-    public ITwinAnimation Export(ITwinItemFactory factory)
+    // What the factories make the game's item of (ITwinItemFactory.GenerateAnimation): its frames, its rate and the game's bytes of its
+    // tracks, what the build knows an animation by (AnimationIds.KeyOf) whatever its ID
+    public Byte[] GetItemSource()
     {
         using var ms = new MemoryStream();
         using var writer = new BinaryWriter(ms);
@@ -323,9 +325,13 @@ public class AnimationData
         writer.Write(DefaultFPS);
         MainAnimation.Write(writer);
         FacialAnimation.Write(writer);
-
         writer.Flush();
-        ms.Position = 0;
+        return ms.ToArray();
+    }
+
+    public ITwinAnimation Export(ITwinItemFactory factory, Byte[] source)
+    {
+        using var ms = new MemoryStream(source);
         var animation = factory.GenerateAnimation(ms);
         animation.SetID(ID);
         return animation;
