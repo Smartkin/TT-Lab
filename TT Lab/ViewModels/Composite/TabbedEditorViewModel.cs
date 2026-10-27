@@ -277,13 +277,14 @@ public abstract partial class TabbedEditorViewModel : Document
     }
 
     // Instances made for the chunk (placed, copied, from prefabs) that it doesn't list once it's closed, their placing undone or the
-    // chunk closed without saving, never got files: they'd stay in the project tree without anything to open
+    // chunk closed without saving, never got files, and the ones taken out lost theirs when it got saved: they'd stay in the project tree
+    // without anything to open
     private static void ForgetUnplacedInstances(LevelChunk chunk)
     {
-        var listed = chunk.ChunkResources.ToHashSet();
         var unplaced = AssetManager.Get().GetAssets()
-            .OfType<SerializableInstance>()
-            .Where(asset => asset.IsUnsaved && asset.Package == chunk.Package && asset.Chunk == chunk.AdditionalPath && !listed.Contains(asset.URI))
+            .Where(chunk.HasTakenOut)
+            .Cast<SerializableInstance>()
+            .Where(asset => asset.IsUnsaved)
             .ToList();
         foreach (var asset in unplaced)
         {

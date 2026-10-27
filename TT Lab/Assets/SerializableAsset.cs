@@ -350,6 +350,39 @@ public abstract class SerializableAsset : IAsset
             return;
         }
 
+        DeleteFiles();
+    }
+
+    /// <summary>
+    /// Deletes the asset's files and keeps it in the project unsaved with its data, which the next save writes again: an instance its chunk
+    /// got saved without, which undo can put back into the chunk. False when its data couldn't be read, its files are gone all the same
+    /// </summary>
+    internal bool DeleteFilesKeepingData()
+    {
+        if (IsInternal || IsUnsaved || OverriddenAsset != null || MarkedForDeletion)
+        {
+            return true;
+        }
+
+        var read = true;
+        try
+        {
+            // Unsaved data is never let go of, there's no file to load it back from
+            GetData();
+        }
+        catch (Exception ex)
+        {
+            Log.WriteLine($"Couldn't read {Alias} before deleting its files, it can't be put back: {ex.Message}", Log.LogType.Warning);
+            read = false;
+        }
+
+        IsUnsaved = true;
+        DeleteFiles();
+        return read;
+    }
+
+    private void DeleteFiles()
+    {
         var jsonPath = Path.Combine(FullPath, $"{Name}.json");
         if (File.Exists(jsonPath))
         {

@@ -152,17 +152,6 @@ public class LevelChunk : SerializableAsset
     {
         var assetManager = AssetManager.Get();
         var allCurrentAssets = ChunkResources.Select(assetManager.GetAsset).ToList();
-        var chunkFolder = GetChunkFolder();
-        foreach (var asset in chunkFolder.Children.Select(assetManager.GetAsset))
-        {
-            if (asset == this)
-            {
-                continue;
-            }
-            
-            //asset.Delete();
-        }
-        
         base.Save();
         foreach (var asset in allCurrentAssets)
         {
@@ -171,6 +160,27 @@ public class LevelChunk : SerializableAsset
                 assetManager.AddAsset(asset);
             }
             asset.Save();
+        }
+
+        DeleteFilesOfTakenOut();
+    }
+
+    // A layout instance of the chunk it doesn't list: taken out in its scene or the Chunk Resources panel, or made for it and its placing
+    // undone. A chunk made of the disc lists every instance it has
+    internal bool HasTakenOut(IAsset asset) => asset is Instance.SerializableInstance { LayoutID: not null, IsInternal: false } instance && instance.Package == Package
+                                               && instance.Chunk == AdditionalPath && !ChunkResources.Contains(instance.URI);
+
+    // The instances taken out lose their files once the chunk is saved without them: their files stayed, and the project opened again had
+    // them back, holding their IDs. They stay in the project unsaved with their data, so undoing their deletion puts them back for the
+    // next save to write, and closing the chunk's tab forgets them (TabbedEditorViewModel)
+    private void DeleteFilesOfTakenOut()
+    {
+        foreach (var instance in AssetManager.Get().GetAssets().Where(HasTakenOut).Cast<Instance.SerializableInstance>().Where(instance => !instance.IsUnsaved).ToList())
+        {
+            if (!instance.DeleteFilesKeepingData())
+            {
+                AssetDeletion.ForgetUnsaved(instance);
+            }
         }
     }
 

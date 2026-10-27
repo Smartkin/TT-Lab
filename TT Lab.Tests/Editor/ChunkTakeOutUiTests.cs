@@ -68,6 +68,46 @@ public sealed class ChunkTakeOutUiTests : IDisposable
         Assert.Equal([other.URI], ((IAsset)box).GetData<TriggerData>().Instances);
     }
 
+    private static bool HasFiles(SerializableAsset asset) => File.Exists(System.IO.Path.Combine(asset.FullPath, $"{asset.Name}.json")) || File.Exists(asset.FullDataPath);
+
+    // Saving the chunk wrote what it lists and left the files of what was taken out, which came back with the project opened again
+    [AvaloniaFact]
+    public void SavingTheChunkDeletesTheFilesOfWhatWasTakenOut()
+    {
+        var chunk = _project.Add(new LevelChunk { AdditionalPath = Beach }, "beach", 0, _project.Project.Ps2Package);
+        var crab = AddInstance<ObjectInstance>(chunk, "Crab 0", 0, asset => new ObjectInstanceData(asset));
+        var other = AddInstance<ObjectInstance>(chunk, "Crab 1", 1, asset => new ObjectInstanceData(asset) { Instances = [crab.URI] });
+        // Taken out while saving deleted nothing, its files are still there
+        var earlier = AddInstance<Position>(chunk, "Spot", 0, asset => new PositionData(asset));
+        chunk.ChunkResources.Remove(earlier.URI);
+        earlier.Serialize(SerializationFlags.SaveData);
+        var (document, viewport) = Open(chunk);
+        var resources = document.PropertyGraph.Root.Find(nameof(LevelChunk.ChunkResources))!;
+        document.Save();
+        Assert.True(HasFiles(crab) && HasFiles(other));
+        Assert.False(HasFiles(earlier));
+
+        // Edited first, it's among the assets the document saves
+        resources.Children[0].Find("[data].AssetData.Position")!.SetValue(new Twinsanity.TwinsanityInterchange.Common.Vector3(1, 2, 3));
+        viewport.DeleteResources([resources.Children[0]]);
+        document.Save();
+
+        Assert.False(HasFiles(crab));
+        Assert.True(HasFiles(other));
+        Assert.Empty(((IAsset)other).GetData<ObjectInstanceData>().Instances);
+        // Kept with its data while undo can put it back
+        Assert.Same(crab, _project.AssetManager.GetAsset(crab.URI));
+        Assert.True(crab.IsUnsaved);
+
+        document.History.Undo();
+        document.Save();
+        Assert.True(HasFiles(crab));
+        Assert.False(crab.IsUnsaved);
+        crab.UnloadData();
+        Assert.Equal(1, ((IAsset)crab).GetData<ObjectInstanceData>().Position.X);
+        Assert.Equal([crab.URI], ((IAsset)other).GetData<ObjectInstanceData>().Instances);
+    }
+
     // An AI path can't do without either end, no instance has one to stand in: it keeps the link and the log says to link another
     [AvaloniaFact]
     public void AnAiPathKeepsAnEndTakenOut()

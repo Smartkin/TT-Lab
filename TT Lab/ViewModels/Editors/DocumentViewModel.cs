@@ -690,7 +690,9 @@ public partial class DocumentViewModel : ReactiveObject
         }
 
         DocumentModel.Save();
-        foreach (var asset in _changedAssets.Where(asset => asset != DocumentModel && !asset.MarkedForDeletion && asset is not SerializableAsset { OverriddenAsset: not null }))
+        // An instance edited and then taken out of the chunk lost its files with the chunk's save, writing it would put them back
+        foreach (var asset in _changedAssets.Where(asset => asset != DocumentModel && !asset.MarkedForDeletion && asset is not SerializableAsset { OverriddenAsset: not null }
+                                                            && !(DocumentModel is LevelChunk chunk && chunk.HasTakenOut(asset))))
         {
             asset.Save();
         }
