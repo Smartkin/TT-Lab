@@ -163,7 +163,7 @@ namespace TT_Lab.AssetData.Code
         
         [JsonProperty(Required = Required.Always)]
         [Editable(Caption = "Template Instance State", Hint = "The state instances the scripts spawn of the object start in, the chunks' instances have their own (see theirs for the bits). " +
-                                                              "The game only keeps it with the template values, an object without any has none")]
+                                                              "It's written into the object's template block with the template values, which the object gets once it has a state or values")]
         public Enums.InstanceState InstanceStateFlags { get; set; }
         
         [JsonProperty(Required = Required.Always)]

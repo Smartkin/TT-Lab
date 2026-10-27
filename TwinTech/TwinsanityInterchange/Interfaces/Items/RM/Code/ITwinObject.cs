@@ -169,7 +169,7 @@ namespace Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code
         /// </summary>
         ITwinBehaviourCommandPack BehaviourPack { get; set; }
         /// <summary>
-        /// If object has default properties for its instance
+        /// If object has default properties for its instance: state flags or property values, the template block its file has
         /// </summary>
         bool HasInstanceProperties { get; }
         /// <summary>
