@@ -77,6 +77,7 @@ namespace Twinsanity.AgentLab;
 /// *          | SUBTRACT_OP factor
 /// *          | number
 /// *          | const
+/// *          (values nest no deeper than MostNesting: parentheses, signs, tagged literals and array indexes, operations' levels)
 /// * number : INTEGER | FLOAT - parser implemented
 /// * bool : TRUE | FALSE - parser implemented
 /// * empty : - parser implemented
@@ -440,41 +441,48 @@ public class AgentLabParser : IDisposable
         switch (token.Type)
         {
             case AgentLabToken.TokenType.AddOperator:
-                EatToken(AgentLabToken.TokenType.AddOperator);
-                node = new UnaryOperationNode(token, Factor());
-                break;
             case AgentLabToken.TokenType.SubtractOperator:
-                EatToken(AgentLabToken.TokenType.SubtractOperator);
+                EnterNesting();
+                EatToken(token.Type);
                 node = new UnaryOperationNode(token, Factor());
+                LeaveNesting(_height + 1, token);
                 break;
             case AgentLabToken.TokenType.Integer:
             case AgentLabToken.TokenType.FloatingPoint:
                 node = Number();
+                _height = 1;
                 break;
             case AgentLabToken.TokenType.LeftParen:
+                EnterNesting();
                 EatToken(AgentLabToken.TokenType.LeftParen);
                 node = Expression();
                 EatToken(AgentLabToken.TokenType.RightParen);
+                LeaveNesting(_height, token);
                 break;
             case AgentLabToken.TokenType.String:
                 node = String();
+                _height = 1;
                 break;
             case AgentLabToken.TokenType.False:
             case AgentLabToken.TokenType.True:
                 node = Boolean();
+                _height = 1;
                 break;
             case AgentLabToken.TokenType.Identifier when TaggedLiteralNode.Names.Contains(token.GetValue<string>()):
                 EatToken(AgentLabToken.TokenType.Identifier);
                 if (_currentToken.Type == AgentLabToken.TokenType.LeftParen)
                 {
+                    EnterNesting();
                     EatToken(AgentLabToken.TokenType.LeftParen);
                     var value = Factor();
                     EatToken(AgentLabToken.TokenType.RightParen);
                     node = new TaggedLiteralNode(token, value);
+                    LeaveNesting(_height + 1, token);
                 }
                 else
                 {
                     node = new ConstNode(token);
+                    _height = 1;
                 }
                 break;
             default:
@@ -483,6 +491,38 @@ public class AgentLabParser : IDisposable
         }
 
         return node;
+    }
+
+    // Values nest: parentheses, signs, tagged literals and array indexes take the parser a level deeper, and an operation makes the tree
+    // a level higher, which the checks and the compiler walk a level at a time. Past a nesting no script has the parse stops with an
+    // error, deep enough nesting ran the stack out and ended the program
+    internal const int MostNesting = 256;
+    private int _nesting;
+    // The height of the value read last, its levels of nodes
+    private int _height;
+
+    private void EnterNesting()
+    {
+        if (++_nesting > MostNesting)
+        {
+            throw Error($"Values can't be nested more than {MostNesting} deep");
+        }
+    }
+
+    private void LeaveNesting(int height, AgentLabToken at)
+    {
+        _nesting--;
+        Heighten(height, at);
+    }
+
+    private void Heighten(int height, AgentLabToken at)
+    {
+        if (height > MostNesting)
+        {
+            throw new AgentLabSyntaxException($"Values can't be nested more than {MostNesting} deep", at.Line, at.Column);
+        }
+
+        _height = height;
     }
 
     private StringNode String()
@@ -578,52 +618,41 @@ public class AgentLabParser : IDisposable
         return new BooleanNode(token);
     }
 
+    // Left-associative: a * b * c is (a * b) * c, every operation used to take the first factor as its left and left the middle ones out
     private IAgentLabTreeNode Term()
     {
-        var factor = Factor();
-        IAgentLabTreeNode node = null;
+        var node = Factor();
+        var height = _height;
 
         while (_currentToken.Type is AgentLabToken.TokenType.MultiplyOperator or AgentLabToken.TokenType.DivideOperator)
         {
             var token = _currentToken;
-            switch (_currentToken.Type)
-            {
-                case AgentLabToken.TokenType.MultiplyOperator:
-                    EatToken(AgentLabToken.TokenType.MultiplyOperator);
-                    break;
-                case AgentLabToken.TokenType.DivideOperator:
-                    EatToken(AgentLabToken.TokenType.DivideOperator);
-                    break;
-            }
-
-            node = new BinaryOperationNode(factor, token, Factor());
+            EatToken(token.Type);
+            node = new BinaryOperationNode(node, token, Factor());
+            Heighten(Math.Max(height, _height) + 1, token);
+            height = _height;
         }
-        
-        return node ?? factor;
+
+        _height = height;
+        return node;
     }
 
     private IAgentLabTreeNode Expression()
     {
-        var term = Term();
-        IAgentLabTreeNode node = null;
+        var node = Term();
+        var height = _height;
 
         while (_currentToken.Type is AgentLabToken.TokenType.AddOperator or AgentLabToken.TokenType.SubtractOperator)
         {
             var token = _currentToken;
-            switch (_currentToken.Type)
-            {
-                case AgentLabToken.TokenType.AddOperator:
-                    EatToken(AgentLabToken.TokenType.AddOperator);
-                    break;
-                case AgentLabToken.TokenType.SubtractOperator:
-                    EatToken(AgentLabToken.TokenType.SubtractOperator);
-                    break;
-            }
-            
-            node = new BinaryOperationNode(term, token, Term());
+            EatToken(token.Type);
+            node = new BinaryOperationNode(node, token, Term());
+            Heighten(Math.Max(height, _height) + 1, token);
+            height = _height;
         }
-        
-        return node ?? term;
+
+        _height = height;
+        return node;
     }
 
     private AssignNode Assign()
@@ -642,14 +671,18 @@ public class AgentLabParser : IDisposable
         EatToken(AgentLabToken.TokenType.Identifier);
         if (_currentToken.Type == AgentLabToken.TokenType.AttributeOpen)
         {
+            var open = _currentToken;
+            EnterNesting();
             EatToken(AgentLabToken.TokenType.AttributeOpen);
             var index = Factor();
             node = new ArrayNode(identifier, index);
             EatToken(AgentLabToken.TokenType.AttributeClose);
+            LeaveNesting(_height + 1, open);
         }
         else
         {
             node = new ConstNode(identifier);
+            _height = 1;
         }
         return node;
     }
@@ -1218,6 +1251,12 @@ public class AgentLabParser : IDisposable
 
     private AgentLabSyntaxException Error(string message)
     {
+        // No rule takes a number the lexer couldn't read, so wherever the parser stops at one it's the number that's wrong
+        if (_currentToken.IsInvalidNumber)
+        {
+            message = $"Invalid number {_currentToken}";
+        }
+
         return new AgentLabSyntaxException(message, _currentToken.Line, _currentToken.Column);
     }
 

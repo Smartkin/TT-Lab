@@ -186,34 +186,25 @@ public class AgentLabLexer : IDisposable
                     lexeme += AdvanceLexeme();
                 }
                 
+                // A number that doesn't read (99999999999, 1.2.3, 0xFFFFFFFFF, 5-3) is an Undefined token of its text, which no rule takes:
+                // it was dropped and what came after it took its place
                 if (lexeme.Contains('.') || (lexeme.ToLower().Contains('e') && !lexeme.StartsWith("0x")))
                 {
-                    if (float.TryParse(lexeme, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
-                    {
-                        token = new AgentLabToken(AgentLabToken.TokenType.FloatingPoint, value);
-                    }
-                    else
-                    {
-                        // TODO: Raise lexer error
-                    }
+                    token = float.TryParse(lexeme, NumberStyles.Float, CultureInfo.InvariantCulture, out var value)
+                        ? new AgentLabToken(AgentLabToken.TokenType.FloatingPoint, value)
+                        : AgentLabToken.InvalidNumber(lexeme);
+                }
+                else if (lexeme.StartsWith("0x"))
+                {
+                    token = int.TryParse(lexeme[2..], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var parseResult)
+                        ? new AgentLabToken(AgentLabToken.TokenType.Integer, parseResult).AsHexLiteral()
+                        : AgentLabToken.InvalidNumber(lexeme);
                 }
                 else
                 {
-                    if (lexeme.StartsWith("0x"))
-                    {
-                        if (int.TryParse(lexeme[2..], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var parseResult))
-                        {
-                            token = new AgentLabToken(AgentLabToken.TokenType.Integer, parseResult).AsHexLiteral();
-                        }
-                    }
-                    else if (int.TryParse(lexeme, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value))
-                    {
-                        token = new AgentLabToken(AgentLabToken.TokenType.Integer, value);
-                    }
-                    else
-                    {
-                        // TODO: Raise lexer error
-                    }
+                    token = int.TryParse(lexeme, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
+                        ? new AgentLabToken(AgentLabToken.TokenType.Integer, value)
+                        : AgentLabToken.InvalidNumber(lexeme);
                 }
             }
 

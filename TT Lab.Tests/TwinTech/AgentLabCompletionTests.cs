@@ -255,7 +255,9 @@ public class AgentLabCompletionTests
     {
         var names = Texts(Complete("<data>", "|"));
         Assert.Contains("Delay", names);
+        Assert.Contains("TumbleData", names);
         Assert.DoesNotContain("Translates", names);
+        Assert.DoesNotContain("RefListIndex", names);
 
         var values = Texts(Complete("<data>", "Delay = |"));
         Assert.Contains("InstanceFloat", values);

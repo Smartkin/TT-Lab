@@ -178,9 +178,9 @@ public class AgentLabSymbolTable
         Define(CreateBuiltInConstSymbol("Roll", AgentLabToken.TokenType.FloatType));
         Define(CreateBuiltInConstSymbol("Delay", AgentLabToken.TokenType.FloatType));
         Define(CreateBuiltInConstSymbol("Duration", AgentLabToken.TokenType.FloatType));
-        Define(CreateBuiltInConstSymbol("Tumble", AgentLabToken.TokenType.FloatType));
-        Define(CreateBuiltInConstSymbol("Spin", AgentLabToken.TokenType.FloatType));
-        Define(CreateBuiltInConstSymbol("Twist", AgentLabToken.TokenType.FloatType));
+        Define(CreateBuiltInConstSymbol("TumbleData", AgentLabToken.TokenType.FloatType));
+        Define(CreateBuiltInConstSymbol("SpinData", AgentLabToken.TokenType.FloatType));
+        Define(CreateBuiltInConstSymbol("TwistData", AgentLabToken.TokenType.FloatType));
         Define(CreateBuiltInConstSymbol("RandRange", AgentLabToken.TokenType.FloatType));
         Define(CreateBuiltInConstSymbol("Power", AgentLabToken.TokenType.FloatType));
         Define(CreateBuiltInConstSymbol("Damping", AgentLabToken.TokenType.FloatType));

@@ -10,4 +10,6 @@ internal class ArrayNode : ConstNode
         Index = index;
         Type = AgentLabToken.TokenType.ArrayType;
     }
+
+    public override string ToString() => $"{Name}[{Index}]";
 }
