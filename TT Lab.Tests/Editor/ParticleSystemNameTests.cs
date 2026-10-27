@@ -299,12 +299,13 @@ public sealed class ParticleSystemNameTests : IDisposable
         Assert.True(condition());
     }
 
-    // The editors closing the project asks about (the shell's), answered Save, with the log panel closing the project clears
+    // The editors closing the project asks about (the shell's), answered Save unless told otherwise, with the log panel closing the project
+    // clears
     private sealed class ShellEditors : IDisposable
     {
         private readonly Window _window;
 
-        public ShellEditors()
+        public ShellEditors(UnsavedChangesDialogue.AnswerResult answer = UnsavedChangesDialogue.AnswerResult.YES)
         {
             Log.SetViewModel(new LogViewModel(new TestProject.NullEventAggregator(), new ProjectManager(new TestProject.NullEventAggregator())));
             var resources = new ResourcesEditorsViewModel();
@@ -312,7 +313,7 @@ public sealed class ParticleSystemNameTests : IDisposable
             Editors.AskAboutUnsavedChanges = what =>
             {
                 Asked.Add(what);
-                return Task.FromResult(UnsavedChangesDialogue.AnswerResult.YES);
+                return Task.FromResult(answer);
             };
             // The renames in open chunks go through their documents
             Locator.CurrentMutable.RegisterConstant(Editors);
@@ -363,6 +364,64 @@ public sealed class ParticleSystemNameTests : IDisposable
         Assert.Contains("\"BLAZE\"", File.ReadAllText(defaultsPath));
         Assert.Contains("\"BLAZE\"", File.ReadAllText(cavePath));
         Assert.DoesNotContain("\"FIRE\"", File.ReadAllText(cavePath));
+    }
+
+    // A save that wrote the particles and then failed on another asset never got to follow their rename, and closing the project answering
+    // Discard closed it unfollowed: what waits for the follows starts it, and closing TT Lab waits for it too
+    [AvaloniaFact]
+    public async Task ARenameASaveWroteWithoutFollowingItIsFollowedBeforeTheProjectCloses()
+    {
+        var defaults = AddDefaults("FIRE", "SPARK");
+        defaults.Serialize(SerializationFlags.SaveData | SerializationFlags.PreserveData);
+        var cave = AddChunkParticles("Cave Particles", [], ["FIRE"]);
+        Unload(cave);
+        var cavePath = cave.FullDataPath;
+        using var shell = new ShellEditors(UnsavedChangesDialogue.AnswerResult.DISCARD);
+        var tab = await shell.Open(defaults);
+        tab.Document!.PropertyGraph.Find("Root.AssetData.ParticleSystems[0].Name")!.SetValue("BLAZE");
+        // What the save wrote before it failed
+        defaults.Serialize(SerializationFlags.SaveData | SerializationFlags.PreserveData);
+        Assert.True(ParticleSystemLinks.IsFollowing);
+
+        Assert.True(await shell.Editors.CloseAllEditors());
+        Locator.Current.GetService<ProjectManager>()!.CloseProject();
+
+        Assert.Single(shell.Asked);
+        Assert.Contains("\"BLAZE\"", File.ReadAllText(cavePath));
+        Assert.False(ParticleSystemLinks.IsFollowing);
+    }
+
+    // A chunk's file that doesn't read is told with the chunk and its path, and the other chunks are renamed: the first that failed stopped the
+    // rest, and the log only had the error
+    [AvaloniaFact]
+    public async Task AChunksFileThatDoesntReadIsToldAndTheOthersAreRenamed()
+    {
+        var panel = new LogViewModel(new TestProject.NullEventAggregator(), new ProjectManager(new TestProject.NullEventAggregator()));
+        Log.SetViewModel(panel);
+        try
+        {
+            var defaults = AddDefaults("FIRE");
+            var broken = AddChunkParticles("Broken Particles", [], ["FIRE"]);
+            Unload(broken);
+            File.WriteAllText(broken.FullDataPath, "{ \"ParticleSystems\": [");
+            var cave = AddChunkParticles("Cave Particles", [], ["FIRE"]);
+            Unload(cave);
+
+            Assert.Equal(1, await ParticleSystemLinks.RenameInOtherChunksAsync(defaults, new Dictionary<string, string> { ["FIRE"] = "BLAZE" }));
+
+            Assert.Equal(["BLAZE"], ((IAsset)cave).GetData<ParticleData>().ParticleInstances.Select(emitter => emitter.Name));
+            var told = $"Couldn't rename the emitters of FIRE to BLAZE in Broken Particles ({broken.FullDataPath})";
+            for (var wait = 0; wait < 100 && !panel.Text.Text.Contains(told); wait++)
+            {
+                await Task.Delay(20);
+            }
+
+            Assert.Contains(told, panel.Text.Text);
+        }
+        finally
+        {
+            Log.SetViewModel(null);
+        }
     }
 
     // A level's scene that's open gets the rename into its document, which closing every editor discarded: it's saved once the follow is done,

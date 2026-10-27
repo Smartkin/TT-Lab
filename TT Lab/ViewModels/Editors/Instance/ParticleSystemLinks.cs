@@ -32,7 +32,8 @@ internal sealed class ParticleSystemLinks
 
     private readonly record struct SavedSystem(ParticleSystem System, string Name);
 
-    // What saves renamed that the document saving them hasn't followed yet (FollowSaved)
+    // What saves renamed that hasn't been followed yet: the document saving them starts it once it saved everything (FollowSaved), what waits
+    // for the follows starts what a save failing after it wrote the particles left (WhenFollowed)
     private static readonly List<(IAsset Defaults, IReadOnlyDictionary<string, string> Renames)> SavedRenames = [];
 
     // The follows that haven't ended, which closing the project or TT Lab waits for (EditorsViewModel.SaveOrDiscardUnsavedChanges)
@@ -90,10 +91,8 @@ internal sealed class ParticleSystemLinks
         }
     }
 
-    /// <summary>
-    /// A document got saved: the other chunks' emitters of the default chunk's systems its saves renamed follow them, the loaded chunks' right
-    /// away and the files of the others in the background (<see cref="WhenFollowed"/>)
-    /// </summary>
+    // The other chunks' emitters of the default chunk's systems the saves renamed follow them, the loaded chunks' right away and the others'
+    // files in the background
     public static void FollowSaved()
     {
         List<(IAsset Defaults, IReadOnlyDictionary<string, string> Renames)> saved;
@@ -114,13 +113,19 @@ internal sealed class ParticleSystemLinks
         }
     }
 
-    /// <summary>
-    /// Whether a save's follow hasn't ended
-    /// </summary>
+    // A rename written and not followed yet counts, closing TT Lab waits for it like for a follow running
     public static bool IsFollowing
     {
         get
         {
+            lock (SavedRenames)
+            {
+                if (SavedRenames.Count > 0)
+                {
+                    return true;
+                }
+            }
+
             lock (Follows)
             {
                 return Follows.Any(task => !task.IsCompleted);
@@ -128,11 +133,11 @@ internal sealed class ParticleSystemLinks
         }
     }
 
-    /// <summary>
-    /// Ends once the follows of every save so far have: the files they rename written. A follow logs what fails and never throws
-    /// </summary>
+    // What a save failing after it wrote the particles never got to start is started first: the project closed with the rename unfollowed. A
+    // follow logs what fails and never throws
     public static Task WhenFollowed()
     {
+        FollowSaved();
         lock (Follows)
         {
             Follows.RemoveAll(task => task.IsCompleted);
@@ -311,11 +316,16 @@ internal sealed class ParticleSystemLinks
                 return RenameInFiles(unloaded, renames);
             });
             _renamingFiles = renaming.ContinueWith(_ => { }, TaskScheduler.Default);
-            var (fileEmitters, fileChanged, filesPlayingOwn) = await renaming;
+            var (fileEmitters, fileChanged, filesPlayingOwn, failed) = await renaming;
             emitters += fileEmitters;
             changed += fileChanged;
             playOwn.AddRange(filesPlayingOwn);
             Log.WriteLine($"Renamed the default chunk's particle systems {described} in {emitters} emitters of {changed} chunks ({watch.Elapsed.TotalSeconds:F1} s)");
+            foreach (var (file, error) in failed)
+            {
+                Log.WriteLine($"Couldn't rename the emitters of {described} in {file.Alias} ({file.Path}): {error}", Log.LogType.Error);
+            }
+
             foreach (var chunk in playOwn.Distinct().GroupBy(entry => entry.Chunk))
             {
                 Log.WriteLine($"{chunk.Key} has particle systems of its own named {string.Join(", ", chunk.Select(entry => entry.Name))}: its renamed emitters play those " +
@@ -332,25 +342,37 @@ internal sealed class ParticleSystemLinks
 
     private readonly record struct ChunkFile(SerializableAsset Asset, string Alias, string Path);
 
-    private static (int Emitters, int Files, List<(string Chunk, string Name)> PlayOwn) RenameInFiles(IReadOnlyList<ChunkFile> files, IReadOnlyDictionary<string, string> renames)
+    private static (int Emitters, int Files, List<(string Chunk, string Name)> PlayOwn, List<(ChunkFile File, string Error)> Failed) RenameInFiles(
+        IReadOnlyList<ChunkFile> files, IReadOnlyDictionary<string, string> renames)
     {
-        var (renamedEmitters, changedFiles, ownPlayed) = (0, 0, new List<(string Chunk, string Name)>());
+        var (renamedEmitters, changedFiles, ownPlayed, failed) = (0, 0, new List<(string Chunk, string Name)>(), new List<(ChunkFile File, string Error)>());
         foreach (var file in files)
         {
-            var data = new ParticleData(file.Asset);
-            data.PopulateFrom(File.ReadAllText(file.Path));
-            var count = RenameEmitters(data, renames, (emitter, name) => emitter.Name = name, name => ownPlayed.Add((file.Alias, name)));
-            if (count == 0)
+            // A file that doesn't read or write is told with its chunk and path and the others are renamed: the first one stopped the rest,
+            // and the error didn't say which file it was
+            try
             {
-                continue;
-            }
+                var data = new ParticleData(file.Asset);
+                data.PopulateFrom(File.ReadAllText(file.Path));
+                var playsOwn = new List<string>();
+                var count = RenameEmitters(data, renames, (emitter, name) => emitter.Name = name, playsOwn.Add);
+                if (count == 0)
+                {
+                    continue;
+                }
 
-            data.SaveTo(file.Path);
-            renamedEmitters += count;
-            changedFiles++;
+                data.SaveTo(file.Path);
+                renamedEmitters += count;
+                changedFiles++;
+                ownPlayed.AddRange(playsOwn.Select(name => (file.Alias, name)));
+            }
+            catch (Exception ex)
+            {
+                failed.Add((file, ex.Message));
+            }
         }
 
-        return (renamedEmitters, changedFiles, ownPlayed);
+        return (renamedEmitters, changedFiles, ownPlayed, failed);
     }
 
     private static int RenameInLoaded(SerializableAsset asset, IReadOnlyDictionary<string, string> renames, Action<string> playsOwn)
