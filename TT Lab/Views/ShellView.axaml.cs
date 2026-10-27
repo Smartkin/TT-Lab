@@ -14,6 +14,7 @@ using ReactiveUI.Avalonia;
 using Splat;
 using TextMateSharp.Grammars;
 using TT_Lab.ViewModels;
+using TT_Lab.ViewModels.Editors.Instance;
 using TT_Lab.ViewModels.Interfaces;
 
 namespace TT_Lab.Views;
@@ -49,8 +50,9 @@ public partial class ShellView : BurnBridgeWindow<ShellViewModel>
             return;
         }
 
-        // Editors with unsaved changes are asked about first, once for all of them, like closing an editor asks about its own
-        if (!_unsavedChangesHandled && ViewModel?.EditorsViewModel.GetUnsavedEditors().Count > 0)
+        // Editors with unsaved changes are asked about first, once for all of them, like closing an editor asks about its own, after what a save
+        // is still followed by (a default particle system's rename in the other chunks' files, which the process ended under)
+        if (!_unsavedChangesHandled && ViewModel != null && (ViewModel.EditorsViewModel.GetUnsavedEditors().Count > 0 || ParticleSystemLinks.IsFollowing))
         {
             e.Cancel = true;
             AskAboutUnsavedChanges();
