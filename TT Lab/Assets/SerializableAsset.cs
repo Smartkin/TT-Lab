@@ -99,7 +99,7 @@ public abstract class SerializableAsset : IAsset
     }
 
     // What building the item reads of the asset besides its data
-    protected virtual string BuildSettings() => string.Empty;
+    protected internal virtual string BuildSettings() => string.Empty;
     
     [Editable]
     [EditorParam(DocumentCompositeViewModel.EditorExplicitOrder, -5)]
@@ -183,19 +183,21 @@ public abstract class SerializableAsset : IAsset
         RegenerateUri();
     }
 
-    // What its data hash has after the data (GetDataHash): the salt given (a PSM's parts, PTCData), else nothing
+    // What its data hash has last (GetDataHash): the salt given (a PSM's parts, PTCData), else nothing
     protected virtual string DataSalt => HashSalt;
 
-    // The ID made of the asset's data, the same whatever is loaded: the CRC32 of its data file as saved and the salt after it. What has no data
-    // file of its own (internal assets, ones never saved, chunks' views of assets, data never written) hashes its data's text and the salt: a
-    // view's file is its asset's, which would give a chunk's own version of a material the shared one's ID. Kept while the file and the salt
-    // are as they were. The loaded data's text was hashed while it was loaded and kept for the session, so a build's IDs followed what editors
-    // and scenes had loaded, and an edit saved kept the ID it had before
+    // The ID made of the asset's data, the same whatever is loaded: the CRC32 of its data file as saved, then what building the item reads of
+    // the asset itself (BuildSettings) and the salt. What has no data file of its own (internal assets, ones never saved, chunks' views of
+    // assets, data never written) hashes its data's text before them: a view's file is its asset's, which would give a chunk's own version of a
+    // material the shared one's ID. Kept while the file and what's after it are as they were. The loaded data's text was hashed while it was
+    // loaded and kept for the session, so a build's IDs followed what editors and scenes had loaded, and an edit saved kept the ID it had before
     public UInt32 GetDataHash()
     {
-        var salt = DataSalt;
+        // A texture's function, format, mips and leftovers: a copy of a picture without mips is another item, which got the picture's ID and
+        // was left out of a chunk drawing both (RemoveDuplicates)
+        var after = BuildSettings() + DataSalt;
         var file = DataFileOf();
-        if (_dataHash is { } known && known.Holds(salt, file))
+        if (_dataHash is { } known && known.Holds(after, file))
         {
             return known.Value;
         }
@@ -203,22 +205,22 @@ public abstract class SerializableAsset : IAsset
         UInt32 hashResult;
         if (file != null)
         {
-            hashResult = HashOfFile(file.Path, salt);
+            hashResult = HashOfFile(file.Path, after);
         }
         else if (IsLoaded && AssetData != null)
         {
-            hashResult = HashOf(AssetData.GetStringified() + salt);
+            hashResult = HashOf(AssetData.GetStringified() + after);
         }
         else
         {
             // An internal asset's data kept in its file while creation doesn't use it (CreationWriter)
-            hashResult = HashOfFile(FullDataPath, salt);
+            hashResult = HashOfFile(FullDataPath, after);
         }
 
         // Another write of a file this recent can keep its length and write time (AssetFileStamps)
         if (file is not { IsRecent: true })
         {
-            _dataHash = new DataHash(hashResult, salt, file);
+            _dataHash = new DataHash(hashResult, after, file);
         }
 
         return hashResult;
@@ -243,10 +245,10 @@ public abstract class SerializableAsset : IAsset
         public bool IsRecent => DateTime.UtcNow - Written < AssetFileStamps.SameTickWindow;
     }
 
-    // A data hash and what it was made of: the salt and the data file as it was
-    private sealed record DataHash(UInt32 Value, string Salt, DataFile? File)
+    // A data hash and what it was made of: what's after the data and the data file as it was
+    private sealed record DataHash(UInt32 Value, string After, DataFile? File)
     {
-        public bool Holds(string salt, DataFile? file) => Salt == salt && File == file;
+        public bool Holds(string after, DataFile? file) => After == after && File == file;
     }
 
     // The ID the build gives loaded data of the text (GetStringified and the salt)
@@ -255,17 +257,17 @@ public abstract class SerializableAsset : IAsset
         return SharpHash.Base.HashFactory.Checksum.CreateCRC(CRCStandard.CRC32).ComputeString(stringified, new UTF8Encoding()).GetUInt32();
     }
 
-    // The CRC32 of the file's bytes and the salt's UTF-8 bytes after them: the ID made of a data file. Read while a write can have it open
+    // The CRC32 of the file's bytes and the text's UTF-8 bytes after them: the ID made of a data file. Read while a write can have it open
     // (creation writes the materials of the parts it reads meanwhile)
-    internal static UInt32 HashOfFile(string path, string salt)
+    internal static UInt32 HashOfFile(string path, string after)
     {
         using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
         var crc = SharpHash.Base.HashFactory.Checksum.CreateCRC(CRCStandard.CRC32);
         crc.Initialize();
         crc.TransformStream(stream);
-        if (salt.Length > 0)
+        if (after.Length > 0)
         {
-            crc.TransformBytes(Encoding.UTF8.GetBytes(salt));
+            crc.TransformBytes(Encoding.UTF8.GetBytes(after));
         }
 
         return crc.TransformFinal().GetUInt32();
