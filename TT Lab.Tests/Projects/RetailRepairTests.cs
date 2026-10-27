@@ -196,7 +196,9 @@ public sealed class RetailRepairTests : IDisposable
     // order 1.1.0 read the Xbox disc in the furniture comes first. AltEarth's starter of the furniture has another ID than the one before it.
     // The Xbox version's default chunk has the missile too: read first (A8), it's the global package's graph of the ID, read last the Xbox
     // package's variant
-    private FakeDisc Disc(GamePlatform platform)
+    // purpleHubs: two chunks of another picture of the texture ID, hubh before hubg on the disc, so the unpack names their variant after hubh
+    // while hubg comes first by URI
+    private FakeDisc Disc(GamePlatform platform, bool purpleHubs = false)
     {
         var extension = platform == GamePlatform.Xbox ? "rmx" : "rm2";
         var disc = new FakeDisc(platform);
@@ -228,6 +230,11 @@ public sealed class RetailRepairTests : IDisposable
                 .Add("Levels\\Earth\\Hub\\hubf.rm2", HubChunk(0, 255, format: ITwinTexture.TexturePixelFormat.PSMCT32))
                 .AddChunk("Levels\\Earth\\Cove\\cove1.rm2", SlotObject("LINKING", LinkingId, 1, LinkedId), SlotObject("LINKED", LinkedId, 1))
                 .AddChunk("Levels\\Earth\\Cove\\cove2.rm2", SlotObject("LINKING", LinkingId, 2, LinkedId), SlotObject("LINKED", LinkedId, 2));
+            if (purpleHubs)
+            {
+                disc.Add("Levels\\Earth\\Hub\\hubh.rm2", HubChunk(128, 128))
+                    .Add("Levels\\Earth\\Hub\\hubg.rm2", HubChunk(128, 128));
+            }
         }
 
         return disc;
@@ -831,6 +838,34 @@ public sealed class RetailRepairTests : IDisposable
         Assert.False(OverridesOf("hubc").ContainsKey(Material));
         Assert.Contains("hubc's own picture Texture 60_levels_earth_hub_hubc of lambert50_50 was taken out after creation, it stays out", result.Notes);
         Assert.Equal(TextureVariant + "hubc", (string)OverridesOf("hubb")[Material][ShaderTexture]!["_uri"]!);
+    }
+
+    // A variant of the disc's that an earlier chunk's link copied in isn't one 1.1.0 named after a chunk: the chunk it's named after gets its
+    // link too. A project master made got 55 materials of corea and buschase left out as "taken out after creation"
+    [AvaloniaFact]
+    public void AVariantCopiedInForAnotherChunkIsLinkedInTheOneItsNamedAfter()
+    {
+        var disc = Disc(GamePlatform.PS2, purpleHubs: true);
+        MakeProject(disc);
+        MakeLikeOnes110MadePs2();
+        // 1.1.0 never read the purple hubs' own picture (their material was an earlier chunk's)
+        var purple = Path.Combine(PackageFolder(GamePlatform.PS2), "Texture", "Texture 60_levels_earth_hub_hubh");
+        File.Delete(purple + ".json");
+        File.Delete(purple + ".png");
+        foreach (var hub in new[] { "hubg", "hubh" })
+        {
+            EditOverrides(hub, overrides => overrides.Clear());
+        }
+
+        var result = Repair(GamePlatform.PS2, disc);
+
+        foreach (var hub in new[] { "hubg", "hubh" })
+        {
+            Assert.Equal(TextureVariant + "hubh", (string)OverridesOf(hub)[Material][ShaderTexture]!["_uri"]!);
+        }
+
+        Assert.DoesNotContain(result.Notes, note => note.Contains("taken out after creation"));
+        Assert.True(File.Exists(purple + ".png"));
     }
 
     // Objects' slots link command sequences' packs by URIs no file has, a chunk's own value linking one leads somewhere

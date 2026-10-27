@@ -26,6 +26,8 @@ internal sealed class TextureRepair(RepairFiles shadow, RepairFiles project, Rep
     private readonly HashSet<(RepairFiles.Entry Chunk, RepairFiles.Entry ShadowChunk, string Material)> _linked = [];
     // The shadow's pictures the project has none of the same of
     private readonly HashSet<string> _toCopy = new(StringComparer.Ordinal);
+    // The project's textures before any of the shadow's was copied in: only those are variants 1.1.0 made
+    private readonly HashSet<string> _projectsOwn = new(StringComparer.Ordinal);
 
     public void Run()
     {
@@ -36,6 +38,7 @@ internal sealed class TextureRepair(RepairFiles shadow, RepairFiles project, Rep
         }
 
         var projectTextures = project.OfType(nameof(Texture), version.Packages).ToList();
+        _projectsOwn.UnionWith(projectTextures.Select(texture => texture.Uri));
         var bases = new Dictionary<string, RepairFiles.Entry>(StringComparer.Ordinal);
         var mapped = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var variant in variants.Values)
@@ -155,9 +158,11 @@ internal sealed class TextureRepair(RepairFiles shadow, RepairFiles project, Rep
                     var metadata = project.Metadata(chunk);
                     var projectEntry = (metadata["Overrides"] as JArray)?.OfType<JObject>().FirstOrDefault(own => RepairFiles.UriOf(own["Asset"]) == material);
                     var existing = projectEntry?["Values"] is JObject projectValues ? ChunkOwnValues.Covering(projectValues, property.Name) : null;
-                    // 1.1.0 linked the chunk a variant is named after to it: without the link now, the user put the shared picture back
+                    // 1.1.0 linked the chunk a variant it made is named after to it: without the link now, the user put the shared picture back.
+                    // A variant of the shadow's that another chunk's link copied in earlier isn't one: the shadow names a variant after the first
+                    // chunk it unpacked it in, which needn't be the first of its chunks by URI
                     var variation = RepairVersion.VariationOf(project, chunk);
-                    if (existing == null && linked.Select(uri => mapped[uri]).FirstOrDefault(uri => !_toCopy.Contains(uri) && project.Find(uri)?.Variation == variation) is { } taken)
+                    if (existing == null && linked.Select(uri => mapped[uri]).FirstOrDefault(uri => _projectsOwn.Contains(uri) && project.Find(uri)?.Variation == variation) is { } taken)
                     {
                         context.Note($"{chunk}'s own picture {project.Find(taken)!.Name} of {materialEntry} was taken out after creation, it stays out");
                         continue;
