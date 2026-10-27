@@ -620,6 +620,24 @@ public sealed class AssetRelocationTests : IDisposable
         Assert.Equal([0x12345678U], material.RetailFingerprints);
     }
 
+    // Nor is a copy of a graph whose starter the game gave another ID than the one before it (AltEarth's 0xBFE of 0xBED): the copy's starter
+    // is the one before its own ID
+    [Fact]
+    public async Task ACopyOfAGraphOfTheGamesStarterHasTheStarterBeforeItsOwnId()
+    {
+        _project.BuildProjectTree(Path.Combine(Global.Name, "BehaviourGraph"));
+        var graph = AddGraph(_project.GetFolder(Global, "BehaviourGraph"), "Furniture");
+        graph.StarterId = graph.ID + 0x11;
+        graph.Serialize();
+
+        var copy = Assert.IsType<BehaviourGraph>(await AssetRelocation.DuplicateAsync(graph));
+
+        Assert.NotEqual(graph.ID, copy.ID);
+        Assert.Null(copy.StarterId);
+        Assert.Equal(copy.ID - 1, copy.StarterExportID);
+        Assert.Equal(graph.ID + 0x11, graph.StarterExportID);
+    }
+
     [Fact]
     public async Task CopiesOfAFolderLinkToEachOther()
     {

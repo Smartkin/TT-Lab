@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Avalonia.Controls;
+using TT_Lab.AssetResolvers;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
 using TT_Lab.Assets.Code.Resolvers.Compiler;
@@ -25,6 +26,7 @@ public class BehaviourGraphData : AbstractAssetData
 {
     private int _graphId = -1;
     private TwinBehaviourStarter? _starter;
+    private ChunkScripts? _chunkScripts;
         
     private static string _behaviourTemplate = """
                                                [StartFrom(StartingState)] // Optional, without it the first state is the starting one
@@ -89,10 +91,12 @@ public class BehaviourGraphData : AbstractAssetData
         Graph = _behaviourTemplate[..];
     }
 
-    public BehaviourGraphData(IAsset asset, ITwinBehaviourGraph mainScript, TwinBehaviourStarter? starter = null) : this(asset)
+    // The scripts of the chunk the graph is unpacked from, whose graphs its states run
+    public BehaviourGraphData(IAsset asset, ITwinBehaviourGraph mainScript, TwinBehaviourStarter? starter = null, ChunkScripts? chunkScripts = null) : this(asset)
     {
         SetTwinItem(mainScript);
         SetStarter(starter);
+        _chunkScripts = chunkScripts;
     }
 
     [Editable(Caption = "Behaviour Graph Editor", EditorOrientation = Avalonia.Controls.Dock.Top, EditorDescType = typeof(CodeEditorDesc))]
@@ -131,8 +135,9 @@ public class BehaviourGraphData : AbstractAssetData
             string? graphName = null;
             if (state.BehaviourIndexOrSlot != -1 && !state.UsesObjectSlot)
             {
-                // By its name when the name finds it from this graph, by its URI otherwise
-                var uri = AssetManager.Get().GetUriByTwinId<BehaviourGraph>(Owner, (uint)state.BehaviourIndexOrSlot);
+                // The graph of its chunk's own of the ID (the game reuses graph IDs for other scripts in other chunks), by its name when the
+                // name finds it from this graph, by its URI otherwise
+                var uri = _chunkScripts?.GraphNamed((uint)state.BehaviourIndexOrSlot) ?? AssetManager.Get().GetUriByTwinId<BehaviourGraph>(Owner, (uint)state.BehaviourIndexOrSlot);
                 graphName = uri == LabURI.Empty ? uri : BehaviourReferences.ReferenceTo(Owner, AssetManager.Get().GetAsset<BehaviourGraph>(uri));
             }
 
@@ -141,6 +146,7 @@ public class BehaviourGraphData : AbstractAssetData
         var stateResolver = new DefaultStateResolversList(stateList.ToArray());
         var resolver = new DefaultGraphResolver(new DefaultStarterResolver(starter, globalObjectIdResolver), stateResolver);
         Graph = AgentLabDecompiler.Decompile(graph, resolver);
+        _chunkScripts = null;
     }
 
     // A build compiles a behaviour for every chunk using it and again when writing objects' slots. Compiling only depends on the
@@ -161,7 +167,18 @@ public class BehaviourGraphData : AbstractAssetData
         writer.Flush();
 
         ms.Position = 0;
-        return factory.GenerateBehaviourGraph(ms, Owner);
+        var result = factory.GenerateBehaviourGraph(ms, Owner);
+        // The chunks of a build share the compile and its starter: the starter gets its ID and the graph it runs here, before it's shared, and
+        // nothing changes it after. Given them by every chunk putting it in, the game's starters of other IDs would run the graph two past
+        // their own for a moment, which a chunk written meanwhile could get
+        if (result.Contains<TwinBehaviourStarter>())
+        {
+            var starter = result.Get<TwinBehaviourStarter>();
+            starter.SetID(BehaviourGraph.StarterIdOf(Owner, (UInt32)graphId));
+            starter.Compile((UInt32)graphId);
+        }
+
+        return result;
     }
 
     public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, uint id,
@@ -175,7 +192,7 @@ public class BehaviourGraphData : AbstractAssetData
             return null;
         }
 
-        var item = compiledBehaviour.Get<ITwinBehaviourGraph>();
+        var item = compiledBehaviour.ItemOf<ITwinBehaviourGraph>(Owner);
         item.SetID(id);
         section.AddItem(item);
         return item;
@@ -183,7 +200,7 @@ public class BehaviourGraphData : AbstractAssetData
 
     public override ITwinItem Export(ITwinItemFactory factory)
     {
-        return GetCompiledBehaviour(factory).Get<ITwinBehaviourGraph>();
+        return GetCompiledBehaviour(factory).ItemOf<ITwinBehaviourGraph>(Owner);
     }
 
     /// <summary>
@@ -195,20 +212,23 @@ public class BehaviourGraphData : AbstractAssetData
         return (((LabGlobalObjectIdResolver)resolver.GetObjectIdResolver()).ResolvedObjects, ((LabStateGraphResolver)resolver.GetStateGraphResolver()).ResolvedGraphs);
     }
 
-    // The game only has a graph's starter in the chunks with objects referencing it, so the objects put it there
-    public void AddStarter(ITwinItemFactory factory, ITwinSection section, UInt32 graphId)
+    // The game only has a graph's starter in the chunks where something names it (an object, an instance's spawn script, a template), which
+    // puts it there as the compile made it. It has the ID before the graph's but for two of the game's (BehaviourGraph.StarterId)
+    public void AddStarter(ITwinItemFactory factory, ITwinSection section)
     {
         var compiledBehaviour = GetCompiledBehaviour(factory);
-        if (!compiledBehaviour.Contains<TwinBehaviourStarter>() || section.ContainsItem(graphId - 1))
+        // A script that doesn't compile fails here too, like its graph's resolution
+        compiledBehaviour.ItemOf<ITwinBehaviourGraph>(Owner);
+        if (!compiledBehaviour.Contains<TwinBehaviourStarter>())
         {
             return;
         }
 
         var starter = compiledBehaviour.Get<TwinBehaviourStarter>();
-        starter.SetID(graphId - 1);
-        // Writes the ID into the starter's header
-        starter.Compile();
-        section.AddItem(starter);
+        if (!section.ContainsItem(starter.GetID()))
+        {
+            section.AddItem(starter);
+        }
     }
 
     private void SetStarter(TwinBehaviourStarter? starter)

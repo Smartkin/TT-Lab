@@ -2,10 +2,10 @@
 using System.Collections.Generic;
 using TT_Lab.AssetData;
 using TT_Lab.AssetData.Code;
+using TT_Lab.AssetResolvers;
 using TT_Lab.Assets.Factory;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using TT_Lab.ViewModels.Editors.Code;
-using Twinsanity.TwinsanityInterchange.Common.AgentLab;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code;
 
@@ -27,9 +27,10 @@ public class GameObject : SerializableAsset
 
     public GameObject() { }
 
-    public GameObject(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinObject @object, Dictionary<string, TwinBehaviourStarter> starterMap) : base(id, name, package, needVariant, variant)
+    // The scripts of the chunk the object is unpacked from, which its slots, trigger messages and references name
+    public GameObject(LabURI package, Boolean needVariant, String variant, UInt32 id, String name, ITwinObject @object, ChunkScripts? chunkScripts) : base(id, name, package, needVariant, variant)
     {
-        AssetData = new GameObjectData(this, @object, starterMap);
+        AssetData = new GameObjectData(this, @object, chunkScripts);
     }
 
     public override Type GetEditorType()

@@ -80,7 +80,7 @@ namespace TT_Lab.AssetData.Code.Behaviour
             writer.Flush();
 
             ms.Position = 0;
-            return factory.GenerateBehaviourCommandsSequence(ms);
+            return factory.GenerateBehaviourCommandsSequence(ms).ItemOf<ITwinBehaviourCommandsSequence>(Owner);
         }
     }
 }

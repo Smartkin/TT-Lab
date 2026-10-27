@@ -196,7 +196,8 @@ public class ObjectInstanceData : AbstractAssetData
         }
         ObjectId = assetManager.GetUriByTwinId<GameObject>(Owner, instance.ObjectId);
         RefListIndex = instance.RefListIndex;
-        SpawnScript = assetManager.GetUriByTwinId<BehaviourGraph>(Owner, instance.SpawnScriptId + 1U);
+        // A starter, of the graph its ID was the unpack's starter of (two of the game's aren't the one before their graph's)
+        SpawnScript = instance.SpawnScriptId == UInt16.MaxValue ? LabURI.Empty : BehaviourGraph.GraphOfStarter(Owner, instance.SpawnScriptId);
         StateFlags = instance.StateFlags;
         TaggedProperties = instance.TaggedProperties.Select(bits => new TaggedProperty(bits)).ToList();
         FloatProperties = CloneUtils.CloneList(instance.FloatProperties);
@@ -340,7 +341,7 @@ public class ObjectInstanceData : AbstractAssetData
 
         writer.Write(RefListIndex);
 
-        writer.Write(SpawnScript == LabURI.Empty ? UInt16.MaxValue : (UInt16)(assetManager.GetAsset(SpawnScript).ExportTwinID - 1));
+        writer.Write(SpawnScript == LabURI.Empty ? UInt16.MaxValue : (UInt16)BehaviourGraph.StarterIdOf(assetManager.GetAsset(SpawnScript)));
         writer.Write((Byte)taggedProperties.Count);
         writer.Write((Byte)floatProperties.Count);
         writer.Write((Byte)intProperties.Count);
@@ -373,22 +374,15 @@ public class ObjectInstanceData : AbstractAssetData
     public override ITwinItem? ResolveChunkResources(ITwinItemFactory factory, ITwinSection section, uint id,
         int? layoutId = null)
     {
-        var assetManager = AssetManager.Get();
-        var root = section.GetRoot();
-        var codeSection = root.GetItem<ITwinSection>(Constants.LEVEL_CODE_SECTION);
-        var objectsSection = codeSection.GetItem<ITwinSection>(Constants.CODE_GAME_OBJECTS_SECTION);
-        var behavioursSection = codeSection.GetItem<ITwinSection>(Constants.CODE_BEHAVIOURS_SECTION);
-
         if (layoutId is Constants.LEVEL_LAYOUT_6_SECTION)
         {
             return base.ResolveChunkResources(factory, section, id, layoutId);
         }
 
-        assetManager.GetAsset(ObjectId).ResolveChunkResources(factory, objectsSection);
-        if (SpawnScript != LabURI.Empty)
-        {
-            assetManager.GetAsset(SpawnScript).ResolveChunkResources(factory, behavioursSection);
-        }
+        var codeSection = section.GetRoot().GetItem<ITwinSection>(Constants.LEVEL_CODE_SECTION);
+        AssetManager.Get().GetAsset(ObjectId).ResolveChunkResources(factory, codeSection.GetItem<ITwinSection>(Constants.CODE_GAME_OBJECTS_SECTION));
+        // Its spawn script with its starter, which it names, and what that runs and makes
+        StartedGraphs.Resolve(factory, codeSection, [SpawnScript]);
 
         // Positions, paths and instances don't need to be resolved because they are gonna be resolved by themselves anyway
 

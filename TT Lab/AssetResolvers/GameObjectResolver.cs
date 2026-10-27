@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
-using Twinsanity.TwinsanityInterchange.Common.AgentLab;
 using Twinsanity.TwinsanityInterchange.Enumerations;
 using Twinsanity.TwinsanityInterchange.Interfaces;
 using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code;
@@ -12,15 +11,15 @@ namespace TT_Lab.AssetResolvers;
 
 public class GameObjectResolver : AssetResolver<ITwinObject>
 {
-    private readonly Dictionary<String, TwinBehaviourStarter> _starterMap;
+    private readonly UnpackedScripts _scripts;
     private readonly AnimationResolver _animationResolver = new();
     private readonly OgiResolver _ogiResolver;
     private readonly SoundResolver _soundResolver = new();
     private readonly Dictionary<ushort, List<ushort>> _ogiToAnimations = new();
 
-    public GameObjectResolver(Dictionary<string, TwinBehaviourStarter> starterMap)
+    public GameObjectResolver(UnpackedScripts scripts)
     {
-        _starterMap = starterMap;
+        _scripts = scripts;
         _ogiResolver = new OgiResolver(_animationResolver);
     }
 
@@ -166,7 +165,8 @@ public class GameObjectResolver : AssetResolver<ITwinObject>
 
     protected override IAsset CreateAsset(ITwinSection chunk, Package package, ITwinObject item, bool needVariant, string variant)
     {
-        return new GameObject(package.URI, needVariant, variant, item.GetID(), item.GetName(), item, _starterMap);
+        // The chunk's behaviours are resolved before its objects
+        return new GameObject(package.URI, needVariant, variant, item.GetID(), item.GetName(), item, _scripts.Of(ChunkPath));
     }
 
     public override void FinalizeResolve()

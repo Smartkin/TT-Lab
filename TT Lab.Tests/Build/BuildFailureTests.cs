@@ -1,14 +1,20 @@
 using System.Text;
 using Avalonia.Headless.XUnit;
 using Splat;
+using TT_Lab.AssetData.Code;
+using TT_Lab.AssetData.Code.Behaviour;
 using TT_Lab.AssetData.Instance;
 using TT_Lab.Assets;
+using TT_Lab.Assets.Code;
 using TT_Lab.Assets.Factory;
 using TT_Lab.Assets.Instance;
 using TT_Lab.Project;
 using TT_Lab.Project.Build;
 using TT_Lab.Tests.Support;
 using Twinsanity.TwinsanityInterchange.Common;
+using Twinsanity.TwinsanityInterchange.Enumerations;
+using Twinsanity.TwinsanityInterchange.Interfaces;
+using Twinsanity.TwinsanityInterchange.Interfaces.Items.RM.Code.AgentLab;
 using Path = System.IO.Path;
 
 namespace TT_Lab.Tests.Build;
@@ -85,6 +91,87 @@ public sealed class BuildFailureTests : IDisposable
         Assert.Contains($"{position.Data} can't be read", failure.Message);
         Assert.Contains("Required property 'Radius' not found", failure.Message);
         Assert.False(File.Exists(outputs[0]));
+    }
+
+    private BehaviourGraph AddGraph(string name, UInt32 id, string script)
+    {
+        var graph = _project.Add(new BehaviourGraph(), name, id);
+        graph.SetData(new BehaviourGraphData(graph) { Graph = script });
+        graph.Serialize(SerializationFlags.SaveData);
+        return graph;
+    }
+
+    private GameObject AddObject(string name, UInt32 id, Func<GameObject, GameObjectData> data)
+    {
+        var gameObject = _project.Add(new GameObject(), name, id);
+        gameObject.SetData(data(gameObject));
+        gameObject.Serialize(SerializationFlags.SaveData);
+        return gameObject;
+    }
+
+    private static ITwinSection Code(ITwinSection root, int id) => root.GetItem<ITwinSection>(Constants.LEVEL_CODE_SECTION).GetItem<ITwinSection>((UInt32)id);
+
+    // A script that passes the live check but not the compiler was built as a graph of no states (the compiler keeps what it made before it
+    // failed) without a word: a state running a behaviour the project doesn't have, deleted after the script named it, fails the chunk
+    // naming the script and what's wrong. A script that compiles is built as it compiled
+    [Fact]
+    public void AGraphThatDoesntCompileFailsItsChunkNamingIt()
+    {
+        var beach = AddChunk("levels/earth/hub/beach");
+        var graph = AddGraph("COM_BROKEN", 0x31, "behaviour COM_BROKEN {\n   state S(COM_DELETED) {\n   }\n}\n");
+        var bird = AddObject("Bird", 0x51, asset => new GameObjectData(asset) { Name = "Bird", BehaviourSlots = [graph.URI], FloatProperties = [1], IntProperties = [0, 255] });
+        var instance = _project.Add(new ObjectInstance { Chunk = beach.AdditionalPath!, LayoutID = 0 }, "Instance 0");
+        instance.SetData(new ObjectInstanceData(instance) { ObjectId = bird.URI, IntProperties = [0, 255] });
+        instance.Serialize(SerializationFlags.SaveData);
+        beach.ChunkResources.Add(instance.URI);
+        var outputs = new[] { Path.Combine(_project.Root, "out", "beach.rm2"), Path.Combine(_project.Root, "out", "beach.sm2") };
+        var cache = BuildCache.Load(_project.Project.ProjectPath, _project.AssetManager);
+
+        var failure = Assert.Throws<BuildException>(() => _project.Project.WriteChunk(new PS2ItemFactory(), cache, beach, outputs, false));
+
+        Assert.Equal("Instance 0 of beach", failure.What);
+        Assert.Contains("COM_BROKEN's script doesn't compile", failure.Message);
+        Assert.Contains("COM_DELETED", failure.Message);
+        Assert.False(File.Exists(outputs[0]));
+
+        ((IAsset)graph).GetData<BehaviourGraphData>().Graph = "behaviour COM_BROKEN {\n   state S() {\n   }\n}\n";
+        graph.Serialize(SerializationFlags.SaveData);
+        var factory = new PS2ItemFactory { ChunkPath = beach.AdditionalPath! };
+        var rm2 = factory.GenerateRM();
+        instance.ResolveChunkResources(factory, rm2);
+        var built = Code(rm2, Constants.CODE_BEHAVIOURS_SECTION).GetItem<ITwinBehaviourGraph>(0x31);
+        Assert.Same(((IAsset)graph).GetData<BehaviourGraphData>().GetCompiledBehaviour(factory).Get<ITwinBehaviourGraph>(), built);
+        Assert.Single(built.ScriptStates);
+    }
+
+    // A command sequence was built cut off at the command that failed, or not at all
+    [Fact]
+    public void ACommandSequenceThatDoesntCompileFailsNamingIt()
+    {
+        var sequence = _project.Add(new BehaviourCommandsSequence(), "PickupLibrary", 5);
+        var data = new BehaviourCommandsSequenceData(sequence);
+        sequence.SetData(data);
+        Assert.IsAssignableFrom<ITwinBehaviourCommandsSequence>(data.Export(new PS2ItemFactory()));
+
+        data.Code = data.Code.Replace("ClearTrail();", "NoSuchCommand();");
+        var failure = Assert.Throws<InvalidOperationException>(() => data.Export(new PS2ItemFactory()));
+
+        Assert.Contains("PickupLibrary's script doesn't compile", failure.Message);
+        Assert.Contains("NoSuchCommand", failure.Message);
+    }
+
+    // An object's command pack that didn't compile failed the build with "The given key '...ITwinBehaviourCommandPack' was not present in
+    // the dictionary", which named nothing
+    [Fact]
+    public void AnObjectsCommandsThatDontCompileFailNamingTheObject()
+    {
+        var bird = AddObject("Bird", 0x51, asset => new GameObjectData(asset) { Name = "Bird", BehaviourPack = "NoSuchCommand();\n", FloatProperties = [1], IntProperties = [0, 255] });
+        var factory = new PS2ItemFactory { ChunkPath = "levels/earth/hub/beach" };
+
+        var failure = Assert.Throws<InvalidOperationException>(() => bird.ResolveChunkResources(factory, Code(factory.GenerateRM(), Constants.CODE_GAME_OBJECTS_SECTION)));
+
+        Assert.Contains("Bird's script doesn't compile", failure.Message);
+        Assert.Contains("NoSuchCommand", failure.Message);
     }
 
     private static void WriteArchive(string discPath, params (string Path, byte[] Bytes)[] files)

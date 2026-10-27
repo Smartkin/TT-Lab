@@ -11,6 +11,7 @@ using Splat;
 using TT_Lab.AssetData.Code.Behaviour;
 using TT_Lab.AssetData.Code.Object;
 using TT_Lab.AssetData.Instance;
+using TT_Lab.AssetResolvers;
 using TT_Lab.Assets;
 using TT_Lab.Assets.Code;
 using TT_Lab.Assets.Factory;
@@ -65,9 +66,9 @@ namespace TT_Lab.AssetData.Code
             BehaviourPack = string.Empty;
         }
 
-        public GameObjectData(IAsset asset, ITwinObject gameObject, Dictionary<string, TwinBehaviourStarter> starterMap) : base(asset)
+        public GameObjectData(IAsset asset, ITwinObject gameObject, ChunkScripts? chunkScripts) : base(asset)
         {
-            _starterMap = starterMap;
+            _chunkScripts = chunkScripts;
             SetTwinItem(gameObject);
         }
 
@@ -235,7 +236,8 @@ namespace TT_Lab.AssetData.Code
             GraphsWithoutStarter.Clear();
         }
 
-        private Dictionary<string, TwinBehaviourStarter> _starterMap;
+        // The scripts of the chunk the object was unpacked from: the game reuses graph IDs for other scripts in other chunks
+        private ChunkScripts? _chunkScripts;
         private List<UInt16>? _animationExportIds;
         public override void Import(LabURI package, String? variant, Int32? layoutId)
         {
@@ -249,7 +251,7 @@ namespace TT_Lab.AssetData.Code
             TriggerBehaviours = new List<ObjectTriggerBehaviourData>();
             foreach (var e in gameObject.TriggerBehaviours)
             {
-                TriggerBehaviours.Add(new ObjectTriggerBehaviourData(Owner, e, _starterMap));
+                TriggerBehaviours.Add(new ObjectTriggerBehaviourData(e, GraphOf(e.TriggerBehaviour)));
             }
             ModelSlots = new List<ModelSlot>();
             for (var i = 0; i < gameObject.OGISlots.Count; i++)
@@ -290,22 +292,7 @@ namespace TT_Lab.AssetData.Code
 
                 if (!found)
                 {
-                    var id = e;
-                    if (id % 2 == 0)
-                    {
-                        var allGraphs = assetManager.GetRelatedAssetsOf<BehaviourGraph>(Owner.Package);
-                        foreach (var graph in allGraphs)
-                        {
-                            if (graph.MapStarterIdToSelf(id) == -1)
-                            {
-                                continue;
-                            }
-                            
-                            id = (ushort)graph.ID;
-                            break;
-                        }
-                    }
-                    BehaviourSlots.Add((e == 65535) ? LabURI.Empty : assetManager.GetUriByTwinId<BehaviourGraph>(Owner, id));
+                    BehaviourSlots.Add(e == 65535 ? LabURI.Empty : GraphOf(e));
                 }
             }
             ObjectSlots = new List<LabURI>();
@@ -383,7 +370,7 @@ namespace TT_Lab.AssetData.Code
                         continue;
                     }
                     
-                    var uri = assetManager.GetUriByTwinId<BehaviourGraph>(Owner, e);
+                    var uri = GraphOf(e);
                     Debug.Assert(uri != LabURI.Empty, $"REFERENCES CAN NOT CONTAIN REFERENCE TO NULL DATA. ATTEMPTED REFERENCE TO GAME ID {e}");
                     RefBehaviours.Add(uri);
                 }
@@ -391,13 +378,13 @@ namespace TT_Lab.AssetData.Code
             GraphsWithoutStarter = new List<LabURI>();
             foreach (var e in gameObject.RefBehaviours)
             {
-                // Command sequences have their own range of IDs, a starter has the ID before its graph's
-                if (e is > 500 and < 616 || e % 2 == 0 || gameObject.RefBehaviours.Contains((UInt16)(e - 1)))
+                // Command sequences have their own range of IDs, a starter has the ID before its graph's but for two of the game's
+                if (e is > 500 and < 616 || e % 2 == 0 || gameObject.RefBehaviours.Contains((UInt16)(_chunkScripts?.StarterIdOf(e) ?? e - 1U)))
                 {
                     continue;
                 }
 
-                var uri = assetManager.GetUriByTwinId<BehaviourGraph>(Owner, e);
+                var uri = GraphOf(e);
                 if (uri != LabURI.Empty && !GraphsWithoutStarter.Contains(uri))
                 {
                     GraphsWithoutStarter.Add(uri);
@@ -427,6 +414,25 @@ namespace TT_Lab.AssetData.Code
             FloatProperties = CloneUtils.CloneList(gameObject.FloatProperties);
             IntProperties = CloneUtils.CloneList(gameObject.IntProperties);
             BehaviourPack = AgentLabDecompiler.Decompile(gameObject.BehaviourPack);
+            _chunkScripts = null;
+        }
+
+        // The graph a slot, a trigger message or the references name by its ID or its starter's: the one of the chunk the object was unpacked
+        // from (the game reuses graph IDs for other scripts in other chunks, two of its starters have another ID than the one before their
+        // graph's), else the one whose starter the unpack found with the ID, else the related graph of the ID
+        private LabURI GraphOf(UInt16 id)
+        {
+            if (_chunkScripts?.GraphNamed(id) is { } chunksOwn)
+            {
+                return chunksOwn;
+            }
+
+            if (id % 2 == 0 && BehaviourGraph.OfStarter(Owner, id) is { } started)
+            {
+                return started.URI;
+            }
+
+            return AssetManager.Get().GetUriByTwinId<BehaviourGraph>(Owner, id);
         }
 
         public override ITwinItem Export(ITwinItemFactory factory)
@@ -461,7 +467,7 @@ namespace TT_Lab.AssetData.Code
             writer.Write(TriggerBehaviours.Count);
             foreach (var triggerBehaviour in TriggerBehaviours)
             {
-                writer.Write((UInt16)(assetManager.GetAsset(triggerBehaviour.TriggerBehaviour).ExportTwinID - 1));
+                writer.Write((UInt16)BehaviourGraph.StarterIdOf(assetManager.GetAsset(triggerBehaviour.TriggerBehaviour)));
                 writer.Write(triggerBehaviour.MessageID);
                 writer.Write(triggerBehaviour.BehaviourCallerIndex);
             }
@@ -498,7 +504,7 @@ namespace TT_Lab.AssetData.Code
                             var compiledGraph = assetManager.GetAssetData<BehaviourGraphData>(uri).GetCompiledBehaviour(factory);
                             if (compiledGraph.Contains<TwinBehaviourStarter>())
                             {
-                                starterId = (int)behaviour.ExportTwinID - 1;
+                                starterId = (int)BehaviourGraph.StarterIdOf(behaviour);
                             }
                         }
 
@@ -617,8 +623,7 @@ namespace TT_Lab.AssetData.Code
                         {
                             if (ReferencesStarter(uri, factory))
                             {
-                                var starterId = (int)behaviour.ExportTwinID - 1;
-                                writer.Write((UInt16)starterId);
+                                writer.Write((UInt16)BehaviourGraph.StarterIdOf(behaviour));
                             }
 
                             writer.Write((UInt16)behaviour.ExportTwinID);
@@ -643,7 +648,7 @@ namespace TT_Lab.AssetData.Code
             packWriter.Write(BehaviourPack);
             packWriter.Flush();
             packStream.Position = 0;
-            var commandPack = factory.GenerateBehaviourCommandPack(packStream);
+            var commandPack = factory.GenerateBehaviourCommandPack(packStream).ItemOf<ITwinBehaviourCommandPack>(Owner);
             commandPack.Write(writer);
 
             writer.Flush();
@@ -663,7 +668,7 @@ namespace TT_Lab.AssetData.Code
             return !GraphsWithoutStarter.Contains(graph) && AssetManager.Get().GetAssetData<BehaviourGraphData>(graph).GetCompiledBehaviour(factory).Contains<TwinBehaviourStarter>();
         }
 
-        private static List<LabURI> ObjectsOfBehaviours(IEnumerable<LabURI> behaviours, ITwinItemFactory factory)
+        internal static List<LabURI> ObjectsOfBehaviours(IEnumerable<LabURI> behaviours, ITwinItemFactory factory)
         {
             var assetManager = AssetManager.Get();
             var objects = new List<LabURI>();
@@ -933,7 +938,7 @@ namespace TT_Lab.AssetData.Code
             {
                 if (ReferencesStarter(graph, factory))
                 {
-                    assetManager.GetAssetData<BehaviourGraphData>(graph).AddStarter(factory, behaviourSection, assetManager.GetAsset(graph).ExportTwinID);
+                    assetManager.GetAssetData<BehaviourGraphData>(graph).AddStarter(factory, behaviourSection);
                 }
             }
 

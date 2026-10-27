@@ -458,11 +458,16 @@ public static partial class AssetRelocation
         asset.Alias = copy.Alias;
         asset.Variation = copy.Variation;
         asset.ID = copy.Id;
-        // A copy of an ID of its own is no item of the disc's, a chunk's contents keep theirs and go into the copy of the chunk
+        // A copy of an ID of its own is no item of the disc's, a chunk's contents keep theirs and go into the copy of the chunk. A graph's
+        // starter then has the ID before it
         if (copy.Id != original.ID)
         {
             asset.RetailFingerprints = null;
             asset.RetailPartIds = null;
+            if (asset is BehaviourGraph graph)
+            {
+                graph.StarterId = null;
+            }
         }
 
         Apply(asset, copy.Place, copy.Uri);
